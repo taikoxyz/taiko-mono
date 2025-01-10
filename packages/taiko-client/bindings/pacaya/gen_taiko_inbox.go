@@ -29,13 +29,25 @@ var (
 	_ = abi.ConvertType
 )
 
-// ITaikoInboxBlockMetadataV3 is an auto generated low-level Go binding around an user-defined struct.
-type ITaikoInboxBlockMetadataV3 struct {
-	Difficulty      [32]byte
+// ITaikoInboxBatch is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxBatch struct {
+	MetaHash             [32]byte
+	Reserved2            common.Address
+	Reserved3            *big.Int
+	BatchId              uint64
+	Timestamp            uint64
+	AnchorBlockId        uint64
+	NextTransitionId     *big.Int
+	NumSubBlocks         uint8
+	VerifiedTransitionId *big.Int
+}
+
+// ITaikoInboxBatchMetadata is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxBatchMetadata struct {
 	TxListHash      [32]byte
 	ExtraData       [32]byte
 	Coinbase        common.Address
-	BlockId         uint64
+	BatchId         uint64
 	GasLimit        uint32
 	Timestamp       uint64
 	ParentMetaHash  [32]byte
@@ -45,45 +57,40 @@ type ITaikoInboxBlockMetadataV3 struct {
 	ProposedIn      uint64
 	TxListOffset    uint32
 	TxListSize      uint32
-	BlobIndex       uint8
+	BlobIndices     []uint8
 	AnchorBlockId   uint64
 	AnchorBlockHash [32]byte
 	SignalSlots     [][32]byte
+	Blocks          []byte
 	AnchorInput     [32]byte
 	BaseFeeConfig   LibSharedDataBaseFeeConfig
 }
 
-// ITaikoInboxBlockParamsV3 is an auto generated low-level Go binding around an user-defined struct.
-type ITaikoInboxBlockParamsV3 struct {
+// ITaikoInboxBatchParams is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxBatchParams struct {
 	ParentMetaHash [32]byte
 	AnchorBlockId  uint64
 	AnchorInput    [32]byte
 	Timestamp      uint64
 	TxListOffset   uint32
 	TxListSize     uint32
-	BlobIndex      uint8
+	BlobIndices    []uint8
 	SignalSlots    [][32]byte
+	Blocks         []ITaikoInboxBlockParams
 }
 
-// ITaikoInboxBlockV3 is an auto generated low-level Go binding around an user-defined struct.
-type ITaikoInboxBlockV3 struct {
-	MetaHash             [32]byte
-	Reserved2            common.Address
-	Reserved3            *big.Int
-	BlockId              uint64
-	Timestamp            uint64
-	AnchorBlockId        uint64
-	NextTransitionId     *big.Int
-	Reserved1            bool
-	VerifiedTransitionId *big.Int
+// ITaikoInboxBlockParams is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxBlockParams struct {
+	NumTransactions uint16
+	TimeThift       uint8
 }
 
-// ITaikoInboxConfigV3 is an auto generated low-level Go binding around an user-defined struct.
-type ITaikoInboxConfigV3 struct {
+// ITaikoInboxConfig is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxConfig struct {
 	ChainId               uint64
-	BlockMaxProposals     uint64
-	BlockRingBufferSize   uint64
-	MaxBlocksToVerify     uint64
+	MaxBatchProposals     uint64
+	BatchRingBufferSize   uint64
+	MaxBatchesToVerify    uint64
 	BlockMaxGasLimit      uint32
 	LivenessBond          *big.Int
 	StateRootSyncInternal uint8
@@ -91,6 +98,7 @@ type ITaikoInboxConfigV3 struct {
 	BaseFeeConfig         LibSharedDataBaseFeeConfig
 	ProvingWindow         uint16
 	MaxSignalsToReceive   uint8
+	MaxBlocksPerBatch     uint16
 	ForkHeights           ITaikoInboxForkHeights
 }
 
@@ -102,23 +110,23 @@ type ITaikoInboxForkHeights struct {
 
 // ITaikoInboxStats1 is an auto generated low-level Go binding around an user-defined struct.
 type ITaikoInboxStats1 struct {
-	Reserved1         uint64
-	Reserved2         uint64
-	LastSyncedBlockId uint64
-	LastSyncedAt      uint64
+	Reserved1       uint64
+	Reserved2       uint64
+	LastSyncedBatch uint64
+	LastSyncedAt    uint64
 }
 
 // ITaikoInboxStats2 is an auto generated low-level Go binding around an user-defined struct.
 type ITaikoInboxStats2 struct {
-	NumBlocks           uint64
-	LastVerifiedBlockId uint64
-	Paused              bool
-	LastProposedIn      *big.Int
-	LastUnpausedAt      uint64
+	NumBatches        uint64
+	LastVerifiedBatch uint64
+	Paused            bool
+	LastProposedIn    *big.Int
+	LastUnpausedAt    uint64
 }
 
-// ITaikoInboxTransitionV3 is an auto generated low-level Go binding around an user-defined struct.
-type ITaikoInboxTransitionV3 struct {
+// ITaikoInboxTransition is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxTransition struct {
 	ParentHash [32]byte
 	BlockHash  [32]byte
 	StateRoot  [32]byte
@@ -135,7 +143,7 @@ type LibSharedDataBaseFeeConfig struct {
 
 // TaikoInboxClientMetaData contains all meta data concerning the TaikoInboxClient contract.
 var TaikoInboxClientMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bondBalanceOf\",\"inputs\":[{\"name\":\"_user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bondToken\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"depositBond\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"getBlockV3\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"blk_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.BlockV3\",\"components\":[{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_reserved2\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_reserved3\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"nextTransitionId\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"_reserved1\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"verifiedTransitionId\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlockVerifyingTransition\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.TransitionV3\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfigV3\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.ConfigV3\",\"components\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blockMaxProposals\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blockRingBufferSize\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxBlocksToVerify\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blockMaxGasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"stateRootSyncInternal\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"maxAnchorHeightOffset\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]},{\"name\":\"provingWindow\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"maxSignalsToReceive\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"forkHeights\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.ForkHeights\",\"components\":[{\"name\":\"ontake\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"pacaya\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastSyncedTransitionV3\",\"inputs\":[],\"outputs\":[{\"name\":\"blockId_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.TransitionV3\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastVerifiedTransitionV3\",\"inputs\":[],\"outputs\":[{\"name\":\"blockId_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.TransitionV3\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStats1\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats1\",\"components\":[{\"name\":\"__reserved1\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"__reserved2\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStats2\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats2\",\"components\":[{\"name\":\"numBlocks\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastVerifiedBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"lastProposedIn\",\"type\":\"uint56\",\"internalType\":\"uint56\"},{\"name\":\"lastUnpausedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTransitionV3\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_tid\",\"type\":\"uint24\",\"internalType\":\"uint24\"}],\"outputs\":[{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.TransitionV3\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_rollupResolver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_genesisBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOnL1\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeBlocksV3\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_paramsArray\",\"type\":\"tuple[]\",\"internalType\":\"structITaikoInbox.BlockParamsV3[]\",\"components\":[{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]},{\"name\":\"_txList\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"metas_\",\"type\":\"tuple[]\",\"internalType\":\"structITaikoInbox.BlockMetadataV3[]\",\"components\":[{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"txListHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proveBlocksV3\",\"inputs\":[{\"name\":\"_metas\",\"type\":\"tuple[]\",\"internalType\":\"structITaikoInbox.BlockMetadataV3[]\",\"components\":[{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"txListHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]},{\"name\":\"_transitions\",\"type\":\"tuple[]\",\"internalType\":\"structITaikoInbox.TransitionV3[]\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIResolver\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setResolver\",\"inputs\":[{\"name\":\"_resolver\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"state\",\"inputs\":[],\"outputs\":[{\"name\":\"__reserve1\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stats1\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats1\",\"components\":[{\"name\":\"__reserved1\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"__reserved2\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]},{\"name\":\"stats2\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats2\",\"components\":[{\"name\":\"numBlocks\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastVerifiedBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"lastProposedIn\",\"type\":\"uint56\",\"internalType\":\"uint56\"},{\"name\":\"lastUnpausedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdrawBond\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockVerifiedV3\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlocksProposedV3\",\"inputs\":[{\"name\":\"metas\",\"type\":\"tuple[]\",\"indexed\":false,\"internalType\":\"structITaikoInbox.BlockMetadataV3[]\",\"components\":[{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"txListHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]},{\"name\":\"calldataUsed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"txListInCalldata\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlocksProvedV3\",\"inputs\":[{\"name\":\"verifier\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"blockIds\",\"type\":\"uint64[]\",\"indexed\":false,\"internalType\":\"uint64[]\"},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"indexed\":false,\"internalType\":\"structITaikoInbox.TransitionV3[]\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondCredited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDebited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDeposited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondWithdrawn\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ResolverUpdated\",\"inputs\":[{\"name\":\"oldResolver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newResolver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Stats1Updated\",\"inputs\":[{\"name\":\"stats1\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structITaikoInbox.Stats1\",\"components\":[{\"name\":\"__reserved1\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"__reserved2\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Stats2Updated\",\"inputs\":[{\"name\":\"stats2\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structITaikoInbox.Stats2\",\"components\":[{\"name\":\"numBlocks\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastVerifiedBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"lastProposedIn\",\"type\":\"uint56\",\"internalType\":\"uint56\"},{\"name\":\"lastUnpausedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransitionOverwrittenV3\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"tran\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structITaikoInbox.TransitionV3\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AnchorBlockIdSmallerThanParent\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AnchorBlockIdTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AnchorBlockIdTooSmall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ArraySizesMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobIndexZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlockNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlockVerified\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ContractPaused\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CustomProposerMissing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CustomProposerNotAllowed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EtherNotPaidAsBond\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InsufficientBond\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidForkHeight\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidGenesisBlockHash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidTransitionBlockHash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidTransitionParentHash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidTransitionStateRoot\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MetaHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MsgValueNotZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBlocksToPropose\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBlocksToProve\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotPreconfRouter\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ParentMetaHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProverNotPermitted\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SignalNotSent\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TimestampSmallerThanParent\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TimestampTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TimestampTooSmall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TooManyBlocks\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TooManySignals\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bondBalanceOf\",\"inputs\":[{\"name\":\"_user\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bondToken\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"depositBond\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"getBatch\",\"inputs\":[{\"name\":\"_batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"batch_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Batch\",\"components\":[{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_reserved2\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_reserved3\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"nextTransitionId\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"numSubBlocks\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"verifiedTransitionId\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBatchVerifyingTransition\",\"inputs\":[{\"name\":\"_batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Config\",\"components\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxBatchProposals\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"batchRingBufferSize\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxBatchesToVerify\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blockMaxGasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"stateRootSyncInternal\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"maxAnchorHeightOffset\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]},{\"name\":\"provingWindow\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"maxSignalsToReceive\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"maxBlocksPerBatch\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"forkHeights\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.ForkHeights\",\"components\":[{\"name\":\"ontake\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"pacaya\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastSyncedTransition\",\"inputs\":[],\"outputs\":[{\"name\":\"batchId_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastVerifiedTransition\",\"inputs\":[],\"outputs\":[{\"name\":\"batchId_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStats1\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats1\",\"components\":[{\"name\":\"__reserved1\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"__reserved2\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedBatch\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStats2\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats2\",\"components\":[{\"name\":\"numBatches\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastVerifiedBatch\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"lastProposedIn\",\"type\":\"uint56\",\"internalType\":\"uint56\"},{\"name\":\"lastUnpausedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTransition\",\"inputs\":[{\"name\":\"_batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_tid\",\"type\":\"uint24\",\"internalType\":\"uint24\"}],\"outputs\":[{\"name\":\"tran_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_rollupResolver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_genesisBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOnL1\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeBatch\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_batchParams\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.BatchParams\",\"components\":[{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndices\",\"type\":\"uint8[]\",\"internalType\":\"uint8[]\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"blocks\",\"type\":\"tuple[]\",\"internalType\":\"structITaikoInbox.BlockParams[]\",\"components\":[{\"name\":\"numTransactions\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"timeThift\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}]},{\"name\":\"_txList\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"meta_\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.BatchMetadata\",\"components\":[{\"name\":\"txListHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndices\",\"type\":\"uint8[]\",\"internalType\":\"uint8[]\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"blocks\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proveBatches\",\"inputs\":[{\"name\":\"_metas\",\"type\":\"tuple[]\",\"internalType\":\"structITaikoInbox.BatchMetadata[]\",\"components\":[{\"name\":\"txListHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndices\",\"type\":\"uint8[]\",\"internalType\":\"uint8[]\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"blocks\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]},{\"name\":\"_transitions\",\"type\":\"tuple[]\",\"internalType\":\"structITaikoInbox.Transition[]\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIResolver\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setResolver\",\"inputs\":[{\"name\":\"_resolver\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"state\",\"inputs\":[],\"outputs\":[{\"name\":\"__reserve1\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stats1\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats1\",\"components\":[{\"name\":\"__reserved1\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"__reserved2\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedBatch\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]},{\"name\":\"stats2\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Stats2\",\"components\":[{\"name\":\"numBatches\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastVerifiedBatch\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"lastProposedIn\",\"type\":\"uint56\",\"internalType\":\"uint56\"},{\"name\":\"lastUnpausedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdrawBond\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchProposed\",\"inputs\":[{\"name\":\"meta\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structITaikoInbox.BatchMetadata\",\"components\":[{\"name\":\"txListHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"txListSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndices\",\"type\":\"uint8[]\",\"internalType\":\"uint8[]\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"blocks\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"anchorInput\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structLibSharedData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]},{\"name\":\"calldataUsed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"txListInCalldata\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchesProved\",\"inputs\":[{\"name\":\"verifier\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"batchIds\",\"type\":\"uint64[]\",\"indexed\":false,\"internalType\":\"uint64[]\"},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"indexed\":false,\"internalType\":\"structITaikoInbox.Transition[]\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchesVerified\",\"inputs\":[{\"name\":\"batchId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondCredited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDebited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDeposited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondWithdrawn\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ResolverUpdated\",\"inputs\":[{\"name\":\"oldResolver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newResolver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Stats1Updated\",\"inputs\":[{\"name\":\"stats1\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structITaikoInbox.Stats1\",\"components\":[{\"name\":\"__reserved1\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"__reserved2\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedBatch\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastSyncedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Stats2Updated\",\"inputs\":[{\"name\":\"stats2\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structITaikoInbox.Stats2\",\"components\":[{\"name\":\"numBatches\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"lastVerifiedBatch\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"lastProposedIn\",\"type\":\"uint56\",\"internalType\":\"uint56\"},{\"name\":\"lastUnpausedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransitionOverwritten\",\"inputs\":[{\"name\":\"batchId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"tran\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structITaikoInbox.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AnchorBlockIdSmallerThanParent\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AnchorBlockIdTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AnchorBlockIdTooSmall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ArraySizesMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BatchNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BatchVerified\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobIndexZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ContractPaused\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CustomProposerMissing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CustomProposerNotAllowed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EtherNotPaidAsBond\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InsufficientBond\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBlockParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidForkHeight\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidGenesisBlockHash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidTransitionBlockHash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidTransitionParentHash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidTransitionStateRoot\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MetaHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MsgValueNotZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBlocksToProve\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotPreconfRouter\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ParentMetaHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProverNotPermitted\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SignalNotSent\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TimestampSmallerThanParent\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TimestampTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TimestampTooSmall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TooManyBatches\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TooManySignals\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // TaikoInboxClientABI is the input ABI used to generate the binding from.
@@ -346,187 +354,187 @@ func (_TaikoInboxClient *TaikoInboxClientCallerSession) BondToken() (common.Addr
 	return _TaikoInboxClient.Contract.BondToken(&_TaikoInboxClient.CallOpts)
 }
 
-// GetBlockV3 is a free data retrieval call binding the contract method 0x913dae50.
+// GetBatch is a free data retrieval call binding the contract method 0x888775d9.
 //
-// Solidity: function getBlockV3(uint64 _blockId) view returns((bytes32,address,uint96,uint64,uint64,uint64,uint24,bool,uint24) blk_)
-func (_TaikoInboxClient *TaikoInboxClientCaller) GetBlockV3(opts *bind.CallOpts, _blockId uint64) (ITaikoInboxBlockV3, error) {
+// Solidity: function getBatch(uint64 _batchId) view returns((bytes32,address,uint96,uint64,uint64,uint64,uint24,uint8,uint24) batch_)
+func (_TaikoInboxClient *TaikoInboxClientCaller) GetBatch(opts *bind.CallOpts, _batchId uint64) (ITaikoInboxBatch, error) {
 	var out []interface{}
-	err := _TaikoInboxClient.contract.Call(opts, &out, "getBlockV3", _blockId)
+	err := _TaikoInboxClient.contract.Call(opts, &out, "getBatch", _batchId)
 
 	if err != nil {
-		return *new(ITaikoInboxBlockV3), err
+		return *new(ITaikoInboxBatch), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(ITaikoInboxBlockV3)).(*ITaikoInboxBlockV3)
+	out0 := *abi.ConvertType(out[0], new(ITaikoInboxBatch)).(*ITaikoInboxBatch)
 
 	return out0, err
 
 }
 
-// GetBlockV3 is a free data retrieval call binding the contract method 0x913dae50.
+// GetBatch is a free data retrieval call binding the contract method 0x888775d9.
 //
-// Solidity: function getBlockV3(uint64 _blockId) view returns((bytes32,address,uint96,uint64,uint64,uint64,uint24,bool,uint24) blk_)
-func (_TaikoInboxClient *TaikoInboxClientSession) GetBlockV3(_blockId uint64) (ITaikoInboxBlockV3, error) {
-	return _TaikoInboxClient.Contract.GetBlockV3(&_TaikoInboxClient.CallOpts, _blockId)
+// Solidity: function getBatch(uint64 _batchId) view returns((bytes32,address,uint96,uint64,uint64,uint64,uint24,uint8,uint24) batch_)
+func (_TaikoInboxClient *TaikoInboxClientSession) GetBatch(_batchId uint64) (ITaikoInboxBatch, error) {
+	return _TaikoInboxClient.Contract.GetBatch(&_TaikoInboxClient.CallOpts, _batchId)
 }
 
-// GetBlockV3 is a free data retrieval call binding the contract method 0x913dae50.
+// GetBatch is a free data retrieval call binding the contract method 0x888775d9.
 //
-// Solidity: function getBlockV3(uint64 _blockId) view returns((bytes32,address,uint96,uint64,uint64,uint64,uint24,bool,uint24) blk_)
-func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetBlockV3(_blockId uint64) (ITaikoInboxBlockV3, error) {
-	return _TaikoInboxClient.Contract.GetBlockV3(&_TaikoInboxClient.CallOpts, _blockId)
+// Solidity: function getBatch(uint64 _batchId) view returns((bytes32,address,uint96,uint64,uint64,uint64,uint24,uint8,uint24) batch_)
+func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetBatch(_batchId uint64) (ITaikoInboxBatch, error) {
+	return _TaikoInboxClient.Contract.GetBatch(&_TaikoInboxClient.CallOpts, _batchId)
 }
 
-// GetBlockVerifyingTransition is a free data retrieval call binding the contract method 0x091ffecb.
+// GetBatchVerifyingTransition is a free data retrieval call binding the contract method 0x7e7501dc.
 //
-// Solidity: function getBlockVerifyingTransition(uint64 _blockId) view returns((bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCaller) GetBlockVerifyingTransition(opts *bind.CallOpts, _blockId uint64) (ITaikoInboxTransitionV3, error) {
+// Solidity: function getBatchVerifyingTransition(uint64 _batchId) view returns((bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCaller) GetBatchVerifyingTransition(opts *bind.CallOpts, _batchId uint64) (ITaikoInboxTransition, error) {
 	var out []interface{}
-	err := _TaikoInboxClient.contract.Call(opts, &out, "getBlockVerifyingTransition", _blockId)
+	err := _TaikoInboxClient.contract.Call(opts, &out, "getBatchVerifyingTransition", _batchId)
 
 	if err != nil {
-		return *new(ITaikoInboxTransitionV3), err
+		return *new(ITaikoInboxTransition), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(ITaikoInboxTransitionV3)).(*ITaikoInboxTransitionV3)
+	out0 := *abi.ConvertType(out[0], new(ITaikoInboxTransition)).(*ITaikoInboxTransition)
 
 	return out0, err
 
 }
 
-// GetBlockVerifyingTransition is a free data retrieval call binding the contract method 0x091ffecb.
+// GetBatchVerifyingTransition is a free data retrieval call binding the contract method 0x7e7501dc.
 //
-// Solidity: function getBlockVerifyingTransition(uint64 _blockId) view returns((bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientSession) GetBlockVerifyingTransition(_blockId uint64) (ITaikoInboxTransitionV3, error) {
-	return _TaikoInboxClient.Contract.GetBlockVerifyingTransition(&_TaikoInboxClient.CallOpts, _blockId)
+// Solidity: function getBatchVerifyingTransition(uint64 _batchId) view returns((bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientSession) GetBatchVerifyingTransition(_batchId uint64) (ITaikoInboxTransition, error) {
+	return _TaikoInboxClient.Contract.GetBatchVerifyingTransition(&_TaikoInboxClient.CallOpts, _batchId)
 }
 
-// GetBlockVerifyingTransition is a free data retrieval call binding the contract method 0x091ffecb.
+// GetBatchVerifyingTransition is a free data retrieval call binding the contract method 0x7e7501dc.
 //
-// Solidity: function getBlockVerifyingTransition(uint64 _blockId) view returns((bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetBlockVerifyingTransition(_blockId uint64) (ITaikoInboxTransitionV3, error) {
-	return _TaikoInboxClient.Contract.GetBlockVerifyingTransition(&_TaikoInboxClient.CallOpts, _blockId)
+// Solidity: function getBatchVerifyingTransition(uint64 _batchId) view returns((bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetBatchVerifyingTransition(_batchId uint64) (ITaikoInboxTransition, error) {
+	return _TaikoInboxClient.Contract.GetBatchVerifyingTransition(&_TaikoInboxClient.CallOpts, _batchId)
 }
 
-// GetConfigV3 is a free data retrieval call binding the contract method 0x35a350b3.
+// GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfigV3() view returns((uint64,uint64,uint64,uint64,uint32,uint96,uint8,uint64,(uint8,uint8,uint32,uint64,uint32),uint16,uint8,(uint64,uint64)))
-func (_TaikoInboxClient *TaikoInboxClientCaller) GetConfigV3(opts *bind.CallOpts) (ITaikoInboxConfigV3, error) {
+// Solidity: function getConfig() view returns((uint64,uint64,uint64,uint64,uint32,uint96,uint8,uint64,(uint8,uint8,uint32,uint64,uint32),uint16,uint8,uint16,(uint64,uint64)))
+func (_TaikoInboxClient *TaikoInboxClientCaller) GetConfig(opts *bind.CallOpts) (ITaikoInboxConfig, error) {
 	var out []interface{}
-	err := _TaikoInboxClient.contract.Call(opts, &out, "getConfigV3")
+	err := _TaikoInboxClient.contract.Call(opts, &out, "getConfig")
 
 	if err != nil {
-		return *new(ITaikoInboxConfigV3), err
+		return *new(ITaikoInboxConfig), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(ITaikoInboxConfigV3)).(*ITaikoInboxConfigV3)
+	out0 := *abi.ConvertType(out[0], new(ITaikoInboxConfig)).(*ITaikoInboxConfig)
 
 	return out0, err
 
 }
 
-// GetConfigV3 is a free data retrieval call binding the contract method 0x35a350b3.
+// GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfigV3() view returns((uint64,uint64,uint64,uint64,uint32,uint96,uint8,uint64,(uint8,uint8,uint32,uint64,uint32),uint16,uint8,(uint64,uint64)))
-func (_TaikoInboxClient *TaikoInboxClientSession) GetConfigV3() (ITaikoInboxConfigV3, error) {
-	return _TaikoInboxClient.Contract.GetConfigV3(&_TaikoInboxClient.CallOpts)
+// Solidity: function getConfig() view returns((uint64,uint64,uint64,uint64,uint32,uint96,uint8,uint64,(uint8,uint8,uint32,uint64,uint32),uint16,uint8,uint16,(uint64,uint64)))
+func (_TaikoInboxClient *TaikoInboxClientSession) GetConfig() (ITaikoInboxConfig, error) {
+	return _TaikoInboxClient.Contract.GetConfig(&_TaikoInboxClient.CallOpts)
 }
 
-// GetConfigV3 is a free data retrieval call binding the contract method 0x35a350b3.
+// GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfigV3() view returns((uint64,uint64,uint64,uint64,uint32,uint96,uint8,uint64,(uint8,uint8,uint32,uint64,uint32),uint16,uint8,(uint64,uint64)))
-func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetConfigV3() (ITaikoInboxConfigV3, error) {
-	return _TaikoInboxClient.Contract.GetConfigV3(&_TaikoInboxClient.CallOpts)
+// Solidity: function getConfig() view returns((uint64,uint64,uint64,uint64,uint32,uint96,uint8,uint64,(uint8,uint8,uint32,uint64,uint32),uint16,uint8,uint16,(uint64,uint64)))
+func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetConfig() (ITaikoInboxConfig, error) {
+	return _TaikoInboxClient.Contract.GetConfig(&_TaikoInboxClient.CallOpts)
 }
 
-// GetLastSyncedTransitionV3 is a free data retrieval call binding the contract method 0x4ce9b9d5.
+// GetLastSyncedTransition is a free data retrieval call binding the contract method 0xcee1136c.
 //
-// Solidity: function getLastSyncedTransitionV3() view returns(uint64 blockId_, (bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCaller) GetLastSyncedTransitionV3(opts *bind.CallOpts) (struct {
-	BlockId uint64
-	Tran    ITaikoInboxTransitionV3
+// Solidity: function getLastSyncedTransition() view returns(uint64 batchId_, (bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCaller) GetLastSyncedTransition(opts *bind.CallOpts) (struct {
+	BatchId uint64
+	Tran    ITaikoInboxTransition
 }, error) {
 	var out []interface{}
-	err := _TaikoInboxClient.contract.Call(opts, &out, "getLastSyncedTransitionV3")
+	err := _TaikoInboxClient.contract.Call(opts, &out, "getLastSyncedTransition")
 
 	outstruct := new(struct {
-		BlockId uint64
-		Tran    ITaikoInboxTransitionV3
+		BatchId uint64
+		Tran    ITaikoInboxTransition
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
-	outstruct.BlockId = *abi.ConvertType(out[0], new(uint64)).(*uint64)
-	outstruct.Tran = *abi.ConvertType(out[1], new(ITaikoInboxTransitionV3)).(*ITaikoInboxTransitionV3)
+	outstruct.BatchId = *abi.ConvertType(out[0], new(uint64)).(*uint64)
+	outstruct.Tran = *abi.ConvertType(out[1], new(ITaikoInboxTransition)).(*ITaikoInboxTransition)
 
 	return *outstruct, err
 
 }
 
-// GetLastSyncedTransitionV3 is a free data retrieval call binding the contract method 0x4ce9b9d5.
+// GetLastSyncedTransition is a free data retrieval call binding the contract method 0xcee1136c.
 //
-// Solidity: function getLastSyncedTransitionV3() view returns(uint64 blockId_, (bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientSession) GetLastSyncedTransitionV3() (struct {
-	BlockId uint64
-	Tran    ITaikoInboxTransitionV3
+// Solidity: function getLastSyncedTransition() view returns(uint64 batchId_, (bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientSession) GetLastSyncedTransition() (struct {
+	BatchId uint64
+	Tran    ITaikoInboxTransition
 }, error) {
-	return _TaikoInboxClient.Contract.GetLastSyncedTransitionV3(&_TaikoInboxClient.CallOpts)
+	return _TaikoInboxClient.Contract.GetLastSyncedTransition(&_TaikoInboxClient.CallOpts)
 }
 
-// GetLastSyncedTransitionV3 is a free data retrieval call binding the contract method 0x4ce9b9d5.
+// GetLastSyncedTransition is a free data retrieval call binding the contract method 0xcee1136c.
 //
-// Solidity: function getLastSyncedTransitionV3() view returns(uint64 blockId_, (bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetLastSyncedTransitionV3() (struct {
-	BlockId uint64
-	Tran    ITaikoInboxTransitionV3
+// Solidity: function getLastSyncedTransition() view returns(uint64 batchId_, (bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetLastSyncedTransition() (struct {
+	BatchId uint64
+	Tran    ITaikoInboxTransition
 }, error) {
-	return _TaikoInboxClient.Contract.GetLastSyncedTransitionV3(&_TaikoInboxClient.CallOpts)
+	return _TaikoInboxClient.Contract.GetLastSyncedTransition(&_TaikoInboxClient.CallOpts)
 }
 
-// GetLastVerifiedTransitionV3 is a free data retrieval call binding the contract method 0xb4bc8f93.
+// GetLastVerifiedTransition is a free data retrieval call binding the contract method 0x9c436473.
 //
-// Solidity: function getLastVerifiedTransitionV3() view returns(uint64 blockId_, (bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCaller) GetLastVerifiedTransitionV3(opts *bind.CallOpts) (struct {
-	BlockId uint64
-	Tran    ITaikoInboxTransitionV3
+// Solidity: function getLastVerifiedTransition() view returns(uint64 batchId_, (bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCaller) GetLastVerifiedTransition(opts *bind.CallOpts) (struct {
+	BatchId uint64
+	Tran    ITaikoInboxTransition
 }, error) {
 	var out []interface{}
-	err := _TaikoInboxClient.contract.Call(opts, &out, "getLastVerifiedTransitionV3")
+	err := _TaikoInboxClient.contract.Call(opts, &out, "getLastVerifiedTransition")
 
 	outstruct := new(struct {
-		BlockId uint64
-		Tran    ITaikoInboxTransitionV3
+		BatchId uint64
+		Tran    ITaikoInboxTransition
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
-	outstruct.BlockId = *abi.ConvertType(out[0], new(uint64)).(*uint64)
-	outstruct.Tran = *abi.ConvertType(out[1], new(ITaikoInboxTransitionV3)).(*ITaikoInboxTransitionV3)
+	outstruct.BatchId = *abi.ConvertType(out[0], new(uint64)).(*uint64)
+	outstruct.Tran = *abi.ConvertType(out[1], new(ITaikoInboxTransition)).(*ITaikoInboxTransition)
 
 	return *outstruct, err
 
 }
 
-// GetLastVerifiedTransitionV3 is a free data retrieval call binding the contract method 0xb4bc8f93.
+// GetLastVerifiedTransition is a free data retrieval call binding the contract method 0x9c436473.
 //
-// Solidity: function getLastVerifiedTransitionV3() view returns(uint64 blockId_, (bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientSession) GetLastVerifiedTransitionV3() (struct {
-	BlockId uint64
-	Tran    ITaikoInboxTransitionV3
+// Solidity: function getLastVerifiedTransition() view returns(uint64 batchId_, (bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientSession) GetLastVerifiedTransition() (struct {
+	BatchId uint64
+	Tran    ITaikoInboxTransition
 }, error) {
-	return _TaikoInboxClient.Contract.GetLastVerifiedTransitionV3(&_TaikoInboxClient.CallOpts)
+	return _TaikoInboxClient.Contract.GetLastVerifiedTransition(&_TaikoInboxClient.CallOpts)
 }
 
-// GetLastVerifiedTransitionV3 is a free data retrieval call binding the contract method 0xb4bc8f93.
+// GetLastVerifiedTransition is a free data retrieval call binding the contract method 0x9c436473.
 //
-// Solidity: function getLastVerifiedTransitionV3() view returns(uint64 blockId_, (bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetLastVerifiedTransitionV3() (struct {
-	BlockId uint64
-	Tran    ITaikoInboxTransitionV3
+// Solidity: function getLastVerifiedTransition() view returns(uint64 batchId_, (bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetLastVerifiedTransition() (struct {
+	BatchId uint64
+	Tran    ITaikoInboxTransition
 }, error) {
-	return _TaikoInboxClient.Contract.GetLastVerifiedTransitionV3(&_TaikoInboxClient.CallOpts)
+	return _TaikoInboxClient.Contract.GetLastVerifiedTransition(&_TaikoInboxClient.CallOpts)
 }
 
 // GetStats1 is a free data retrieval call binding the contract method 0x12ad809c.
@@ -591,35 +599,35 @@ func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetStats2() (ITaikoInbox
 	return _TaikoInboxClient.Contract.GetStats2(&_TaikoInboxClient.CallOpts)
 }
 
-// GetTransitionV3 is a free data retrieval call binding the contract method 0x1b1f2414.
+// GetTransition is a free data retrieval call binding the contract method 0x7ea3ffe0.
 //
-// Solidity: function getTransitionV3(uint64 _blockId, uint24 _tid) view returns((bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCaller) GetTransitionV3(opts *bind.CallOpts, _blockId uint64, _tid *big.Int) (ITaikoInboxTransitionV3, error) {
+// Solidity: function getTransition(uint64 _batchId, uint24 _tid) view returns((bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCaller) GetTransition(opts *bind.CallOpts, _batchId uint64, _tid *big.Int) (ITaikoInboxTransition, error) {
 	var out []interface{}
-	err := _TaikoInboxClient.contract.Call(opts, &out, "getTransitionV3", _blockId, _tid)
+	err := _TaikoInboxClient.contract.Call(opts, &out, "getTransition", _batchId, _tid)
 
 	if err != nil {
-		return *new(ITaikoInboxTransitionV3), err
+		return *new(ITaikoInboxTransition), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(ITaikoInboxTransitionV3)).(*ITaikoInboxTransitionV3)
+	out0 := *abi.ConvertType(out[0], new(ITaikoInboxTransition)).(*ITaikoInboxTransition)
 
 	return out0, err
 
 }
 
-// GetTransitionV3 is a free data retrieval call binding the contract method 0x1b1f2414.
+// GetTransition is a free data retrieval call binding the contract method 0x7ea3ffe0.
 //
-// Solidity: function getTransitionV3(uint64 _blockId, uint24 _tid) view returns((bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientSession) GetTransitionV3(_blockId uint64, _tid *big.Int) (ITaikoInboxTransitionV3, error) {
-	return _TaikoInboxClient.Contract.GetTransitionV3(&_TaikoInboxClient.CallOpts, _blockId, _tid)
+// Solidity: function getTransition(uint64 _batchId, uint24 _tid) view returns((bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientSession) GetTransition(_batchId uint64, _tid *big.Int) (ITaikoInboxTransition, error) {
+	return _TaikoInboxClient.Contract.GetTransition(&_TaikoInboxClient.CallOpts, _batchId, _tid)
 }
 
-// GetTransitionV3 is a free data retrieval call binding the contract method 0x1b1f2414.
+// GetTransition is a free data retrieval call binding the contract method 0x7ea3ffe0.
 //
-// Solidity: function getTransitionV3(uint64 _blockId, uint24 _tid) view returns((bytes32,bytes32,bytes32) tran_)
-func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetTransitionV3(_blockId uint64, _tid *big.Int) (ITaikoInboxTransitionV3, error) {
-	return _TaikoInboxClient.Contract.GetTransitionV3(&_TaikoInboxClient.CallOpts, _blockId, _tid)
+// Solidity: function getTransition(uint64 _batchId, uint24 _tid) view returns((bytes32,bytes32,bytes32) tran_)
+func (_TaikoInboxClient *TaikoInboxClientCallerSession) GetTransition(_batchId uint64, _tid *big.Int) (ITaikoInboxTransition, error) {
+	return _TaikoInboxClient.Contract.GetTransition(&_TaikoInboxClient.CallOpts, _batchId, _tid)
 }
 
 // Impl is a free data retrieval call binding the contract method 0x8abf6077.
@@ -1066,46 +1074,46 @@ func (_TaikoInboxClient *TaikoInboxClientTransactorSession) Pause() (*types.Tran
 	return _TaikoInboxClient.Contract.Pause(&_TaikoInboxClient.TransactOpts)
 }
 
-// ProposeBlocksV3 is a paid mutator transaction binding the contract method 0x1ae3641c.
+// ProposeBatch is a paid mutator transaction binding the contract method 0x4f417c55.
 //
-// Solidity: function proposeBlocksV3(address _proposer, address _coinbase, (bytes32,uint64,bytes32,uint64,uint32,uint32,uint8,bytes32[])[] _paramsArray, bytes _txList) returns((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] metas_)
-func (_TaikoInboxClient *TaikoInboxClientTransactor) ProposeBlocksV3(opts *bind.TransactOpts, _proposer common.Address, _coinbase common.Address, _paramsArray []ITaikoInboxBlockParamsV3, _txList []byte) (*types.Transaction, error) {
-	return _TaikoInboxClient.contract.Transact(opts, "proposeBlocksV3", _proposer, _coinbase, _paramsArray, _txList)
+// Solidity: function proposeBatch(address _proposer, address _coinbase, (bytes32,uint64,bytes32,uint64,uint32,uint32,uint8[],bytes32[],(uint16,uint8)[]) _batchParams, bytes _txList) returns((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32)) meta_)
+func (_TaikoInboxClient *TaikoInboxClientTransactor) ProposeBatch(opts *bind.TransactOpts, _proposer common.Address, _coinbase common.Address, _batchParams ITaikoInboxBatchParams, _txList []byte) (*types.Transaction, error) {
+	return _TaikoInboxClient.contract.Transact(opts, "proposeBatch", _proposer, _coinbase, _batchParams, _txList)
 }
 
-// ProposeBlocksV3 is a paid mutator transaction binding the contract method 0x1ae3641c.
+// ProposeBatch is a paid mutator transaction binding the contract method 0x4f417c55.
 //
-// Solidity: function proposeBlocksV3(address _proposer, address _coinbase, (bytes32,uint64,bytes32,uint64,uint32,uint32,uint8,bytes32[])[] _paramsArray, bytes _txList) returns((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] metas_)
-func (_TaikoInboxClient *TaikoInboxClientSession) ProposeBlocksV3(_proposer common.Address, _coinbase common.Address, _paramsArray []ITaikoInboxBlockParamsV3, _txList []byte) (*types.Transaction, error) {
-	return _TaikoInboxClient.Contract.ProposeBlocksV3(&_TaikoInboxClient.TransactOpts, _proposer, _coinbase, _paramsArray, _txList)
+// Solidity: function proposeBatch(address _proposer, address _coinbase, (bytes32,uint64,bytes32,uint64,uint32,uint32,uint8[],bytes32[],(uint16,uint8)[]) _batchParams, bytes _txList) returns((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32)) meta_)
+func (_TaikoInboxClient *TaikoInboxClientSession) ProposeBatch(_proposer common.Address, _coinbase common.Address, _batchParams ITaikoInboxBatchParams, _txList []byte) (*types.Transaction, error) {
+	return _TaikoInboxClient.Contract.ProposeBatch(&_TaikoInboxClient.TransactOpts, _proposer, _coinbase, _batchParams, _txList)
 }
 
-// ProposeBlocksV3 is a paid mutator transaction binding the contract method 0x1ae3641c.
+// ProposeBatch is a paid mutator transaction binding the contract method 0x4f417c55.
 //
-// Solidity: function proposeBlocksV3(address _proposer, address _coinbase, (bytes32,uint64,bytes32,uint64,uint32,uint32,uint8,bytes32[])[] _paramsArray, bytes _txList) returns((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] metas_)
-func (_TaikoInboxClient *TaikoInboxClientTransactorSession) ProposeBlocksV3(_proposer common.Address, _coinbase common.Address, _paramsArray []ITaikoInboxBlockParamsV3, _txList []byte) (*types.Transaction, error) {
-	return _TaikoInboxClient.Contract.ProposeBlocksV3(&_TaikoInboxClient.TransactOpts, _proposer, _coinbase, _paramsArray, _txList)
+// Solidity: function proposeBatch(address _proposer, address _coinbase, (bytes32,uint64,bytes32,uint64,uint32,uint32,uint8[],bytes32[],(uint16,uint8)[]) _batchParams, bytes _txList) returns((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32)) meta_)
+func (_TaikoInboxClient *TaikoInboxClientTransactorSession) ProposeBatch(_proposer common.Address, _coinbase common.Address, _batchParams ITaikoInboxBatchParams, _txList []byte) (*types.Transaction, error) {
+	return _TaikoInboxClient.Contract.ProposeBatch(&_TaikoInboxClient.TransactOpts, _proposer, _coinbase, _batchParams, _txList)
 }
 
-// ProveBlocksV3 is a paid mutator transaction binding the contract method 0xf0c00397.
+// ProveBatches is a paid mutator transaction binding the contract method 0x8e0b4ea2.
 //
-// Solidity: function proveBlocksV3((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] _metas, (bytes32,bytes32,bytes32)[] _transitions, bytes _proof) returns()
-func (_TaikoInboxClient *TaikoInboxClientTransactor) ProveBlocksV3(opts *bind.TransactOpts, _metas []ITaikoInboxBlockMetadataV3, _transitions []ITaikoInboxTransitionV3, _proof []byte) (*types.Transaction, error) {
-	return _TaikoInboxClient.contract.Transact(opts, "proveBlocksV3", _metas, _transitions, _proof)
+// Solidity: function proveBatches((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32))[] _metas, (bytes32,bytes32,bytes32)[] _transitions, bytes _proof) returns()
+func (_TaikoInboxClient *TaikoInboxClientTransactor) ProveBatches(opts *bind.TransactOpts, _metas []ITaikoInboxBatchMetadata, _transitions []ITaikoInboxTransition, _proof []byte) (*types.Transaction, error) {
+	return _TaikoInboxClient.contract.Transact(opts, "proveBatches", _metas, _transitions, _proof)
 }
 
-// ProveBlocksV3 is a paid mutator transaction binding the contract method 0xf0c00397.
+// ProveBatches is a paid mutator transaction binding the contract method 0x8e0b4ea2.
 //
-// Solidity: function proveBlocksV3((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] _metas, (bytes32,bytes32,bytes32)[] _transitions, bytes _proof) returns()
-func (_TaikoInboxClient *TaikoInboxClientSession) ProveBlocksV3(_metas []ITaikoInboxBlockMetadataV3, _transitions []ITaikoInboxTransitionV3, _proof []byte) (*types.Transaction, error) {
-	return _TaikoInboxClient.Contract.ProveBlocksV3(&_TaikoInboxClient.TransactOpts, _metas, _transitions, _proof)
+// Solidity: function proveBatches((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32))[] _metas, (bytes32,bytes32,bytes32)[] _transitions, bytes _proof) returns()
+func (_TaikoInboxClient *TaikoInboxClientSession) ProveBatches(_metas []ITaikoInboxBatchMetadata, _transitions []ITaikoInboxTransition, _proof []byte) (*types.Transaction, error) {
+	return _TaikoInboxClient.Contract.ProveBatches(&_TaikoInboxClient.TransactOpts, _metas, _transitions, _proof)
 }
 
-// ProveBlocksV3 is a paid mutator transaction binding the contract method 0xf0c00397.
+// ProveBatches is a paid mutator transaction binding the contract method 0x8e0b4ea2.
 //
-// Solidity: function proveBlocksV3((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] _metas, (bytes32,bytes32,bytes32)[] _transitions, bytes _proof) returns()
-func (_TaikoInboxClient *TaikoInboxClientTransactorSession) ProveBlocksV3(_metas []ITaikoInboxBlockMetadataV3, _transitions []ITaikoInboxTransitionV3, _proof []byte) (*types.Transaction, error) {
-	return _TaikoInboxClient.Contract.ProveBlocksV3(&_TaikoInboxClient.TransactOpts, _metas, _transitions, _proof)
+// Solidity: function proveBatches((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32))[] _metas, (bytes32,bytes32,bytes32)[] _transitions, bytes _proof) returns()
+func (_TaikoInboxClient *TaikoInboxClientTransactorSession) ProveBatches(_metas []ITaikoInboxBatchMetadata, _transitions []ITaikoInboxTransition, _proof []byte) (*types.Transaction, error) {
+	return _TaikoInboxClient.Contract.ProveBatches(&_TaikoInboxClient.TransactOpts, _metas, _transitions, _proof)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -1390,6 +1398,413 @@ func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseAdminChanged(log types.L
 	return event, nil
 }
 
+// TaikoInboxClientBatchProposedIterator is returned from FilterBatchProposed and is used to iterate over the raw logs and unpacked data for BatchProposed events raised by the TaikoInboxClient contract.
+type TaikoInboxClientBatchProposedIterator struct {
+	Event *TaikoInboxClientBatchProposed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TaikoInboxClientBatchProposedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TaikoInboxClientBatchProposed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TaikoInboxClientBatchProposed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TaikoInboxClientBatchProposedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TaikoInboxClientBatchProposedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TaikoInboxClientBatchProposed represents a BatchProposed event raised by the TaikoInboxClient contract.
+type TaikoInboxClientBatchProposed struct {
+	Meta             ITaikoInboxBatchMetadata
+	CalldataUsed     bool
+	TxListInCalldata []byte
+	Raw              types.Log // Blockchain specific contextual infos
+}
+
+// FilterBatchProposed is a free log retrieval operation binding the contract event 0x7a32c2ad62fd4de3b3c72776e4163fd9da5da7501b4d0bb11f73bade5d1480f9.
+//
+// Solidity: event BatchProposed((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32)) meta, bool calldataUsed, bytes txListInCalldata)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterBatchProposed(opts *bind.FilterOpts) (*TaikoInboxClientBatchProposedIterator, error) {
+
+	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "BatchProposed")
+	if err != nil {
+		return nil, err
+	}
+	return &TaikoInboxClientBatchProposedIterator{contract: _TaikoInboxClient.contract, event: "BatchProposed", logs: logs, sub: sub}, nil
+}
+
+// WatchBatchProposed is a free log subscription operation binding the contract event 0x7a32c2ad62fd4de3b3c72776e4163fd9da5da7501b4d0bb11f73bade5d1480f9.
+//
+// Solidity: event BatchProposed((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32)) meta, bool calldataUsed, bytes txListInCalldata)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchBatchProposed(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientBatchProposed) (event.Subscription, error) {
+
+	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "BatchProposed")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TaikoInboxClientBatchProposed)
+				if err := _TaikoInboxClient.contract.UnpackLog(event, "BatchProposed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBatchProposed is a log parse operation binding the contract event 0x7a32c2ad62fd4de3b3c72776e4163fd9da5da7501b4d0bb11f73bade5d1480f9.
+//
+// Solidity: event BatchProposed((bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8[],uint64,bytes32,bytes32[],bytes,bytes32,(uint8,uint8,uint32,uint64,uint32)) meta, bool calldataUsed, bytes txListInCalldata)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseBatchProposed(log types.Log) (*TaikoInboxClientBatchProposed, error) {
+	event := new(TaikoInboxClientBatchProposed)
+	if err := _TaikoInboxClient.contract.UnpackLog(event, "BatchProposed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// TaikoInboxClientBatchesProvedIterator is returned from FilterBatchesProved and is used to iterate over the raw logs and unpacked data for BatchesProved events raised by the TaikoInboxClient contract.
+type TaikoInboxClientBatchesProvedIterator struct {
+	Event *TaikoInboxClientBatchesProved // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TaikoInboxClientBatchesProvedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TaikoInboxClientBatchesProved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TaikoInboxClientBatchesProved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TaikoInboxClientBatchesProvedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TaikoInboxClientBatchesProvedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TaikoInboxClientBatchesProved represents a BatchesProved event raised by the TaikoInboxClient contract.
+type TaikoInboxClientBatchesProved struct {
+	Verifier    common.Address
+	BatchIds    []uint64
+	Transitions []ITaikoInboxTransition
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterBatchesProved is a free log retrieval operation binding the contract event 0xc99f03c7db71a9e8c78654b1d2f77378b413cc979a02fa22dc9d39702afa92bc.
+//
+// Solidity: event BatchesProved(address verifier, uint64[] batchIds, (bytes32,bytes32,bytes32)[] transitions)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterBatchesProved(opts *bind.FilterOpts) (*TaikoInboxClientBatchesProvedIterator, error) {
+
+	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "BatchesProved")
+	if err != nil {
+		return nil, err
+	}
+	return &TaikoInboxClientBatchesProvedIterator{contract: _TaikoInboxClient.contract, event: "BatchesProved", logs: logs, sub: sub}, nil
+}
+
+// WatchBatchesProved is a free log subscription operation binding the contract event 0xc99f03c7db71a9e8c78654b1d2f77378b413cc979a02fa22dc9d39702afa92bc.
+//
+// Solidity: event BatchesProved(address verifier, uint64[] batchIds, (bytes32,bytes32,bytes32)[] transitions)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchBatchesProved(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientBatchesProved) (event.Subscription, error) {
+
+	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "BatchesProved")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TaikoInboxClientBatchesProved)
+				if err := _TaikoInboxClient.contract.UnpackLog(event, "BatchesProved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBatchesProved is a log parse operation binding the contract event 0xc99f03c7db71a9e8c78654b1d2f77378b413cc979a02fa22dc9d39702afa92bc.
+//
+// Solidity: event BatchesProved(address verifier, uint64[] batchIds, (bytes32,bytes32,bytes32)[] transitions)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseBatchesProved(log types.Log) (*TaikoInboxClientBatchesProved, error) {
+	event := new(TaikoInboxClientBatchesProved)
+	if err := _TaikoInboxClient.contract.UnpackLog(event, "BatchesProved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// TaikoInboxClientBatchesVerifiedIterator is returned from FilterBatchesVerified and is used to iterate over the raw logs and unpacked data for BatchesVerified events raised by the TaikoInboxClient contract.
+type TaikoInboxClientBatchesVerifiedIterator struct {
+	Event *TaikoInboxClientBatchesVerified // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TaikoInboxClientBatchesVerifiedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TaikoInboxClientBatchesVerified)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TaikoInboxClientBatchesVerified)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TaikoInboxClientBatchesVerifiedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TaikoInboxClientBatchesVerifiedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TaikoInboxClientBatchesVerified represents a BatchesVerified event raised by the TaikoInboxClient contract.
+type TaikoInboxClientBatchesVerified struct {
+	BatchId   uint64
+	BlockHash [32]byte
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// FilterBatchesVerified is a free log retrieval operation binding the contract event 0xd6b1adebb10d3d794bc13103c4e9a696e79b3ce83355d8bdd77237cb20b3a4a0.
+//
+// Solidity: event BatchesVerified(uint64 batchId, bytes32 blockHash)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterBatchesVerified(opts *bind.FilterOpts) (*TaikoInboxClientBatchesVerifiedIterator, error) {
+
+	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "BatchesVerified")
+	if err != nil {
+		return nil, err
+	}
+	return &TaikoInboxClientBatchesVerifiedIterator{contract: _TaikoInboxClient.contract, event: "BatchesVerified", logs: logs, sub: sub}, nil
+}
+
+// WatchBatchesVerified is a free log subscription operation binding the contract event 0xd6b1adebb10d3d794bc13103c4e9a696e79b3ce83355d8bdd77237cb20b3a4a0.
+//
+// Solidity: event BatchesVerified(uint64 batchId, bytes32 blockHash)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchBatchesVerified(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientBatchesVerified) (event.Subscription, error) {
+
+	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "BatchesVerified")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TaikoInboxClientBatchesVerified)
+				if err := _TaikoInboxClient.contract.UnpackLog(event, "BatchesVerified", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBatchesVerified is a log parse operation binding the contract event 0xd6b1adebb10d3d794bc13103c4e9a696e79b3ce83355d8bdd77237cb20b3a4a0.
+//
+// Solidity: event BatchesVerified(uint64 batchId, bytes32 blockHash)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseBatchesVerified(log types.Log) (*TaikoInboxClientBatchesVerified, error) {
+	event := new(TaikoInboxClientBatchesVerified)
+	if err := _TaikoInboxClient.contract.UnpackLog(event, "BatchesVerified", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // TaikoInboxClientBeaconUpgradedIterator is returned from FilterBeaconUpgraded and is used to iterate over the raw logs and unpacked data for BeaconUpgraded events raised by the TaikoInboxClient contract.
 type TaikoInboxClientBeaconUpgradedIterator struct {
 	Event *TaikoInboxClientBeaconUpgraded // Event containing the contract specifics and raw log
@@ -1528,413 +1943,6 @@ func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchBeaconUpgraded(opts *bin
 func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseBeaconUpgraded(log types.Log) (*TaikoInboxClientBeaconUpgraded, error) {
 	event := new(TaikoInboxClientBeaconUpgraded)
 	if err := _TaikoInboxClient.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// TaikoInboxClientBlockVerifiedV3Iterator is returned from FilterBlockVerifiedV3 and is used to iterate over the raw logs and unpacked data for BlockVerifiedV3 events raised by the TaikoInboxClient contract.
-type TaikoInboxClientBlockVerifiedV3Iterator struct {
-	Event *TaikoInboxClientBlockVerifiedV3 // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *TaikoInboxClientBlockVerifiedV3Iterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TaikoInboxClientBlockVerifiedV3)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(TaikoInboxClientBlockVerifiedV3)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoInboxClientBlockVerifiedV3Iterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *TaikoInboxClientBlockVerifiedV3Iterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// TaikoInboxClientBlockVerifiedV3 represents a BlockVerifiedV3 event raised by the TaikoInboxClient contract.
-type TaikoInboxClientBlockVerifiedV3 struct {
-	BlockId   uint64
-	BlockHash [32]byte
-	Raw       types.Log // Blockchain specific contextual infos
-}
-
-// FilterBlockVerifiedV3 is a free log retrieval operation binding the contract event 0x0c6010e5df64c8bb074f2b8cce8cebbecb566a0a582945fbd427b1a9b3880e6a.
-//
-// Solidity: event BlockVerifiedV3(uint64 blockId, bytes32 blockHash)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterBlockVerifiedV3(opts *bind.FilterOpts) (*TaikoInboxClientBlockVerifiedV3Iterator, error) {
-
-	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "BlockVerifiedV3")
-	if err != nil {
-		return nil, err
-	}
-	return &TaikoInboxClientBlockVerifiedV3Iterator{contract: _TaikoInboxClient.contract, event: "BlockVerifiedV3", logs: logs, sub: sub}, nil
-}
-
-// WatchBlockVerifiedV3 is a free log subscription operation binding the contract event 0x0c6010e5df64c8bb074f2b8cce8cebbecb566a0a582945fbd427b1a9b3880e6a.
-//
-// Solidity: event BlockVerifiedV3(uint64 blockId, bytes32 blockHash)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchBlockVerifiedV3(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientBlockVerifiedV3) (event.Subscription, error) {
-
-	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "BlockVerifiedV3")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(TaikoInboxClientBlockVerifiedV3)
-				if err := _TaikoInboxClient.contract.UnpackLog(event, "BlockVerifiedV3", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseBlockVerifiedV3 is a log parse operation binding the contract event 0x0c6010e5df64c8bb074f2b8cce8cebbecb566a0a582945fbd427b1a9b3880e6a.
-//
-// Solidity: event BlockVerifiedV3(uint64 blockId, bytes32 blockHash)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseBlockVerifiedV3(log types.Log) (*TaikoInboxClientBlockVerifiedV3, error) {
-	event := new(TaikoInboxClientBlockVerifiedV3)
-	if err := _TaikoInboxClient.contract.UnpackLog(event, "BlockVerifiedV3", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// TaikoInboxClientBlocksProposedV3Iterator is returned from FilterBlocksProposedV3 and is used to iterate over the raw logs and unpacked data for BlocksProposedV3 events raised by the TaikoInboxClient contract.
-type TaikoInboxClientBlocksProposedV3Iterator struct {
-	Event *TaikoInboxClientBlocksProposedV3 // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *TaikoInboxClientBlocksProposedV3Iterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TaikoInboxClientBlocksProposedV3)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(TaikoInboxClientBlocksProposedV3)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoInboxClientBlocksProposedV3Iterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *TaikoInboxClientBlocksProposedV3Iterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// TaikoInboxClientBlocksProposedV3 represents a BlocksProposedV3 event raised by the TaikoInboxClient contract.
-type TaikoInboxClientBlocksProposedV3 struct {
-	Metas            []ITaikoInboxBlockMetadataV3
-	CalldataUsed     bool
-	TxListInCalldata []byte
-	Raw              types.Log // Blockchain specific contextual infos
-}
-
-// FilterBlocksProposedV3 is a free log retrieval operation binding the contract event 0xe8d8c0f6e16c8365e311c514a5e584aacce5e7feff32944159640b218d3bd9fe.
-//
-// Solidity: event BlocksProposedV3((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] metas, bool calldataUsed, bytes txListInCalldata)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterBlocksProposedV3(opts *bind.FilterOpts) (*TaikoInboxClientBlocksProposedV3Iterator, error) {
-
-	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "BlocksProposedV3")
-	if err != nil {
-		return nil, err
-	}
-	return &TaikoInboxClientBlocksProposedV3Iterator{contract: _TaikoInboxClient.contract, event: "BlocksProposedV3", logs: logs, sub: sub}, nil
-}
-
-// WatchBlocksProposedV3 is a free log subscription operation binding the contract event 0xe8d8c0f6e16c8365e311c514a5e584aacce5e7feff32944159640b218d3bd9fe.
-//
-// Solidity: event BlocksProposedV3((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] metas, bool calldataUsed, bytes txListInCalldata)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchBlocksProposedV3(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientBlocksProposedV3) (event.Subscription, error) {
-
-	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "BlocksProposedV3")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(TaikoInboxClientBlocksProposedV3)
-				if err := _TaikoInboxClient.contract.UnpackLog(event, "BlocksProposedV3", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseBlocksProposedV3 is a log parse operation binding the contract event 0xe8d8c0f6e16c8365e311c514a5e584aacce5e7feff32944159640b218d3bd9fe.
-//
-// Solidity: event BlocksProposedV3((bytes32,bytes32,bytes32,address,uint64,uint32,uint64,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint64,bytes32,bytes32[],bytes32,(uint8,uint8,uint32,uint64,uint32))[] metas, bool calldataUsed, bytes txListInCalldata)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseBlocksProposedV3(log types.Log) (*TaikoInboxClientBlocksProposedV3, error) {
-	event := new(TaikoInboxClientBlocksProposedV3)
-	if err := _TaikoInboxClient.contract.UnpackLog(event, "BlocksProposedV3", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// TaikoInboxClientBlocksProvedV3Iterator is returned from FilterBlocksProvedV3 and is used to iterate over the raw logs and unpacked data for BlocksProvedV3 events raised by the TaikoInboxClient contract.
-type TaikoInboxClientBlocksProvedV3Iterator struct {
-	Event *TaikoInboxClientBlocksProvedV3 // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *TaikoInboxClientBlocksProvedV3Iterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TaikoInboxClientBlocksProvedV3)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(TaikoInboxClientBlocksProvedV3)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoInboxClientBlocksProvedV3Iterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *TaikoInboxClientBlocksProvedV3Iterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// TaikoInboxClientBlocksProvedV3 represents a BlocksProvedV3 event raised by the TaikoInboxClient contract.
-type TaikoInboxClientBlocksProvedV3 struct {
-	Verifier    common.Address
-	BlockIds    []uint64
-	Transitions []ITaikoInboxTransitionV3
-	Raw         types.Log // Blockchain specific contextual infos
-}
-
-// FilterBlocksProvedV3 is a free log retrieval operation binding the contract event 0xe37e2b7e729a231c8fc8d14836621423d770a371110ae582ff31a1c82be6b8f8.
-//
-// Solidity: event BlocksProvedV3(address verifier, uint64[] blockIds, (bytes32,bytes32,bytes32)[] transitions)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterBlocksProvedV3(opts *bind.FilterOpts) (*TaikoInboxClientBlocksProvedV3Iterator, error) {
-
-	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "BlocksProvedV3")
-	if err != nil {
-		return nil, err
-	}
-	return &TaikoInboxClientBlocksProvedV3Iterator{contract: _TaikoInboxClient.contract, event: "BlocksProvedV3", logs: logs, sub: sub}, nil
-}
-
-// WatchBlocksProvedV3 is a free log subscription operation binding the contract event 0xe37e2b7e729a231c8fc8d14836621423d770a371110ae582ff31a1c82be6b8f8.
-//
-// Solidity: event BlocksProvedV3(address verifier, uint64[] blockIds, (bytes32,bytes32,bytes32)[] transitions)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchBlocksProvedV3(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientBlocksProvedV3) (event.Subscription, error) {
-
-	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "BlocksProvedV3")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(TaikoInboxClientBlocksProvedV3)
-				if err := _TaikoInboxClient.contract.UnpackLog(event, "BlocksProvedV3", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseBlocksProvedV3 is a log parse operation binding the contract event 0xe37e2b7e729a231c8fc8d14836621423d770a371110ae582ff31a1c82be6b8f8.
-//
-// Solidity: event BlocksProvedV3(address verifier, uint64[] blockIds, (bytes32,bytes32,bytes32)[] transitions)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseBlocksProvedV3(log types.Log) (*TaikoInboxClientBlocksProvedV3, error) {
-	event := new(TaikoInboxClientBlocksProvedV3)
-	if err := _TaikoInboxClient.contract.UnpackLog(event, "BlocksProvedV3", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -3498,9 +3506,9 @@ func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseStats2Updated(log types.
 	return event, nil
 }
 
-// TaikoInboxClientTransitionOverwrittenV3Iterator is returned from FilterTransitionOverwrittenV3 and is used to iterate over the raw logs and unpacked data for TransitionOverwrittenV3 events raised by the TaikoInboxClient contract.
-type TaikoInboxClientTransitionOverwrittenV3Iterator struct {
-	Event *TaikoInboxClientTransitionOverwrittenV3 // Event containing the contract specifics and raw log
+// TaikoInboxClientTransitionOverwrittenIterator is returned from FilterTransitionOverwritten and is used to iterate over the raw logs and unpacked data for TransitionOverwritten events raised by the TaikoInboxClient contract.
+type TaikoInboxClientTransitionOverwrittenIterator struct {
+	Event *TaikoInboxClientTransitionOverwritten // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -3514,7 +3522,7 @@ type TaikoInboxClientTransitionOverwrittenV3Iterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *TaikoInboxClientTransitionOverwrittenV3Iterator) Next() bool {
+func (it *TaikoInboxClientTransitionOverwrittenIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -3523,7 +3531,7 @@ func (it *TaikoInboxClientTransitionOverwrittenV3Iterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(TaikoInboxClientTransitionOverwrittenV3)
+			it.Event = new(TaikoInboxClientTransitionOverwritten)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3538,7 +3546,7 @@ func (it *TaikoInboxClientTransitionOverwrittenV3Iterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(TaikoInboxClientTransitionOverwrittenV3)
+		it.Event = new(TaikoInboxClientTransitionOverwritten)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3554,42 +3562,42 @@ func (it *TaikoInboxClientTransitionOverwrittenV3Iterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoInboxClientTransitionOverwrittenV3Iterator) Error() error {
+func (it *TaikoInboxClientTransitionOverwrittenIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *TaikoInboxClientTransitionOverwrittenV3Iterator) Close() error {
+func (it *TaikoInboxClientTransitionOverwrittenIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// TaikoInboxClientTransitionOverwrittenV3 represents a TransitionOverwrittenV3 event raised by the TaikoInboxClient contract.
-type TaikoInboxClientTransitionOverwrittenV3 struct {
-	BlockId uint64
-	Tran    ITaikoInboxTransitionV3
+// TaikoInboxClientTransitionOverwritten represents a TransitionOverwritten event raised by the TaikoInboxClient contract.
+type TaikoInboxClientTransitionOverwritten struct {
+	BatchId uint64
+	Tran    ITaikoInboxTransition
 	Raw     types.Log // Blockchain specific contextual infos
 }
 
-// FilterTransitionOverwrittenV3 is a free log retrieval operation binding the contract event 0x5257a43cf39a2cf67c02c0d5505c6f56a144a944c24be08138d0a5f9476202e1.
+// FilterTransitionOverwritten is a free log retrieval operation binding the contract event 0x96eceac5a273cf213161c2892350b93a600c1761a06f6b690b1f17ab602cd11b.
 //
-// Solidity: event TransitionOverwrittenV3(uint64 blockId, (bytes32,bytes32,bytes32) tran)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterTransitionOverwrittenV3(opts *bind.FilterOpts) (*TaikoInboxClientTransitionOverwrittenV3Iterator, error) {
+// Solidity: event TransitionOverwritten(uint64 batchId, (bytes32,bytes32,bytes32) tran)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) FilterTransitionOverwritten(opts *bind.FilterOpts) (*TaikoInboxClientTransitionOverwrittenIterator, error) {
 
-	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "TransitionOverwrittenV3")
+	logs, sub, err := _TaikoInboxClient.contract.FilterLogs(opts, "TransitionOverwritten")
 	if err != nil {
 		return nil, err
 	}
-	return &TaikoInboxClientTransitionOverwrittenV3Iterator{contract: _TaikoInboxClient.contract, event: "TransitionOverwrittenV3", logs: logs, sub: sub}, nil
+	return &TaikoInboxClientTransitionOverwrittenIterator{contract: _TaikoInboxClient.contract, event: "TransitionOverwritten", logs: logs, sub: sub}, nil
 }
 
-// WatchTransitionOverwrittenV3 is a free log subscription operation binding the contract event 0x5257a43cf39a2cf67c02c0d5505c6f56a144a944c24be08138d0a5f9476202e1.
+// WatchTransitionOverwritten is a free log subscription operation binding the contract event 0x96eceac5a273cf213161c2892350b93a600c1761a06f6b690b1f17ab602cd11b.
 //
-// Solidity: event TransitionOverwrittenV3(uint64 blockId, (bytes32,bytes32,bytes32) tran)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchTransitionOverwrittenV3(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientTransitionOverwrittenV3) (event.Subscription, error) {
+// Solidity: event TransitionOverwritten(uint64 batchId, (bytes32,bytes32,bytes32) tran)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchTransitionOverwritten(opts *bind.WatchOpts, sink chan<- *TaikoInboxClientTransitionOverwritten) (event.Subscription, error) {
 
-	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "TransitionOverwrittenV3")
+	logs, sub, err := _TaikoInboxClient.contract.WatchLogs(opts, "TransitionOverwritten")
 	if err != nil {
 		return nil, err
 	}
@@ -3599,8 +3607,8 @@ func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchTransitionOverwrittenV3(
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(TaikoInboxClientTransitionOverwrittenV3)
-				if err := _TaikoInboxClient.contract.UnpackLog(event, "TransitionOverwrittenV3", log); err != nil {
+				event := new(TaikoInboxClientTransitionOverwritten)
+				if err := _TaikoInboxClient.contract.UnpackLog(event, "TransitionOverwritten", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3621,12 +3629,12 @@ func (_TaikoInboxClient *TaikoInboxClientFilterer) WatchTransitionOverwrittenV3(
 	}), nil
 }
 
-// ParseTransitionOverwrittenV3 is a log parse operation binding the contract event 0x5257a43cf39a2cf67c02c0d5505c6f56a144a944c24be08138d0a5f9476202e1.
+// ParseTransitionOverwritten is a log parse operation binding the contract event 0x96eceac5a273cf213161c2892350b93a600c1761a06f6b690b1f17ab602cd11b.
 //
-// Solidity: event TransitionOverwrittenV3(uint64 blockId, (bytes32,bytes32,bytes32) tran)
-func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseTransitionOverwrittenV3(log types.Log) (*TaikoInboxClientTransitionOverwrittenV3, error) {
-	event := new(TaikoInboxClientTransitionOverwrittenV3)
-	if err := _TaikoInboxClient.contract.UnpackLog(event, "TransitionOverwrittenV3", log); err != nil {
+// Solidity: event TransitionOverwritten(uint64 batchId, (bytes32,bytes32,bytes32) tran)
+func (_TaikoInboxClient *TaikoInboxClientFilterer) ParseTransitionOverwritten(log types.Log) (*TaikoInboxClientTransitionOverwritten, error) {
+	event := new(TaikoInboxClientTransitionOverwritten)
+	if err := _TaikoInboxClient.contract.UnpackLog(event, "TransitionOverwritten", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
