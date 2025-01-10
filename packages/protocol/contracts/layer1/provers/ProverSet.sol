@@ -96,13 +96,13 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Propose multiple Taiko blocks.
     function proposeBlocksV3(
-        ITaikoInbox.BlockParamsV3[] calldata _paramsArray,
+        ITaikoInbox.BatchParams[] calldata _paramsArray,
         bytes calldata _txList,
         bool _revertIfNotFirstProposal
     )
         external
         onlyProver
-        returns (ITaikoInbox.BlockMetadataV3[] memory metas_)
+        returns (ITaikoInbox.BatchMetadata[] memory metas_)
     {
         ITaikoInbox taiko = ITaikoInbox(inbox());
         if (_revertIfNotFirstProposal) {
@@ -114,8 +114,8 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Batch proves or contests Taiko blocks.
     function proveBlocksV3(
-        ITaikoInbox.BlockMetadataV3[] calldata _metas,
-        ITaikoInbox.TransitionV3[] calldata _transitions,
+        ITaikoInbox.BatchMetadata[] calldata _metas,
+        ITaikoInbox.Transition[] calldata _transitions,
         bytes calldata _proof
     )
         external

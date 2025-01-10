@@ -73,20 +73,20 @@ contract TestSP1Verifier is Layer1Test {
         // Context
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](2);
         ctxs[0] = IVerifier.Context({
-            blockId: 393_333,
+            batchId: 393_333,
             difficulty: 0, // TODO, need a non-zero value.
             metaHash: 0x207b2833fb6d804612da24d8785b870a19c7a3f25fa4aaeb9799cd442d65b031,
-            transition: ITaikoInbox.TransitionV3({
+            transition: ITaikoInbox.Transition({
                 parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
                 blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
                 stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9
             })
         });
         ctxs[1] = IVerifier.Context({
-            blockId: 393_334,
+            batchId: 393_334,
             difficulty: 0, // TODO, need a non-zero value.
             metaHash: 0x946ba1a9c02fc2f01da49e31cb5be83c118193d0389987c6be616ce76426b44d,
-            transition: ITaikoInbox.TransitionV3({
+            transition: ITaikoInbox.Transition({
                 parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
                 blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,
                 stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9
@@ -102,10 +102,10 @@ contract TestSP1Verifier is Layer1Test {
 
     function _generateTaikoMainnetContext() internal pure returns (IVerifier.Context memory) {
         return IVerifier.Context({
-            blockId: 223_248, //from mainnet
+            batchId: 223_248, //from mainnet
             difficulty: 0,
             metaHash: bytes32(0xd7efb262f6f25cc817452a622009a22e5868e53e1f934d899d3ec68d8c4f2c5b),
-            transition: ITaikoInbox.TransitionV3({
+            transition: ITaikoInbox.Transition({
                 parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,
                 blockHash: 0x9966d3cf051d3d1e44e2a740169627506a619257c95374e812ca572de91ed885,
                 stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860

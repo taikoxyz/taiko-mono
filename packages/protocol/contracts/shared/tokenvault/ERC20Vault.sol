@@ -410,7 +410,7 @@ contract ERC20Vault is BaseVault {
             address taiko = resolve(LibStrings.B_TAIKO, false);
             require(ITaiko(taiko).isOnL1(), VAULT_NOT_ON_L1());
 
-            bytes32 l2BlockMetaHash = ITaikoInbox(taiko).getBlockV3(_op.l2BlockId).metaHash;
+            bytes32 l2BlockMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BlockId).metaHash;
             require(l2BlockMetaHash == _op.l2BlockMetaHash, VAULT_METAHASH_MISMATCH());
         }
 

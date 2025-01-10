@@ -9,16 +9,16 @@ contract StubInbox is ITaikoInbox {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _blockParams,
+        BatchParams[] calldata _blockParams,
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BlockMetadataV3[] memory)
+        returns (ITaikoInbox.BatchMetadata[] memory)
     { }
 
     function proveBlocksV3(
-        ITaikoInbox.BlockMetadataV3[] calldata _metas,
-        ITaikoInbox.TransitionV3[] calldata _transitions,
+        ITaikoInbox.BatchMetadata[] calldata _metas,
+        ITaikoInbox.Transition[] calldata _transitions,
         bytes calldata proof
     )
         external
@@ -34,39 +34,39 @@ contract StubInbox is ITaikoInbox {
         return address(0);
     }
 
-    function getBlockV3(uint64 _blockId)
+    function getBatch(uint64 _batchId)
         external
         view
         virtual
-        returns (ITaikoInbox.BlockV3 memory blk_)
+        returns (ITaikoInbox.Batch memory )
     { }
 
-    function getTransitionV3(
-        uint64 _blockId,
+    function getTransition(
+        uint64 _batchId,
         uint24 _tid
     )
         external
         view
         virtual
-        returns (ITaikoInbox.TransitionV3 memory)
+        returns (ITaikoInbox.Transition memory)
     { }
 
-    function getLastVerifiedTransitionV3()
+    function getLastVerifiedTransition()
         external
         view
-        returns (uint64 blockId_, TransitionV3 memory tran_)
+        returns (uint64 batchId_, Transition memory )
     { }
 
-    function getLastSyncedTransitionV3()
+    function getLastSyncedTransition()
         external
         view
-        returns (uint64 blockId_, TransitionV3 memory tran_)
+        returns (uint64 batchId_, Transition memory )
     { }
 
-    function getBlockVerifyingTransition(uint64 _blockId)
+    function getBatchVerifyingTransition(uint64 _batchId)
         external
         view
-        returns (TransitionV3 memory)
+        returns (Transition memory)
     { }
 
     function getStats1() external view returns (Stats1 memory) { }

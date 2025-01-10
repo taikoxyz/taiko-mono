@@ -78,7 +78,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * In this case, `forcePushLookahead` must be called in order to update the lookahead for the
      * next epoch.
      * @param coinbase The address of the coinbase for the proposed block
-     * @param blockParams A list of block parameters expected by Taiko contract
+     * @param batchParams A list of block parameters expected by Taiko contract
      * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is
      * the preconfer
      * for the slot.
@@ -87,7 +87,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      */
     function proposeBlocksV3(
         address coinbase,
-        ITaikoInbox.BlockParamsV3[] calldata blockParams,
+        ITaikoInbox.BatchParams[] calldata batchParams,
         bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
@@ -126,7 +126,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        inbox.proposeBlocksV3(msg.sender, coinbase, blockParams, txList);
+        inbox.proposeBlocksV3(msg.sender, coinbase, batchParams, txList);
     }
 
     /**

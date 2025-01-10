@@ -17,12 +17,12 @@ import "src/shared/based/LibSharedData.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
-    struct SubBlockV3 {
+    struct SubBatch {
         uint16 numTransactions;
         uint8 timeThift;
     }
 
-    struct BlockParamsV3 {
+    struct BatchParams {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
         bytes32 anchorInput;
@@ -31,15 +31,15 @@ interface ITaikoInbox {
         uint32 txListSize;
         uint8[] blobIndices;
         bytes32[] signalSlots;
-        SubBlockV3[] subBlocks;
+        SubBatch[] subBlocks;
     }
 
-    struct BlockMetadataV3 {
+    struct BatchMetadata {
         bytes32 difficulty;
         bytes32 txListHash;
         bytes32 extraData;
         address coinbase;
-        uint64 blockId;
+        uint64 batchId;
         uint32 gasLimit;
         uint64 timestamp;
         bytes32 parentMetaHash;
@@ -53,24 +53,24 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
-        SubBlockV3[] subBlocks;
+        SubBatch[] subBlocks;
         bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
     /// @notice Struct representing transition to be proven.
-    struct TransitionV3 {
+    struct Transition {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
     }
 
     /// @notice 3 slots used.
-    struct BlockV3 {
+    struct Batch {
         bytes32 metaHash; // slot 1
         address _reserved2;
         uint96 _reserved3;
-        uint64 blockId; // slot 3
+        uint64 batchId; // slot 3
         uint64 timestamp;
         uint64 anchorBlockId;
         uint24 nextTransitionId;
@@ -87,13 +87,13 @@ interface ITaikoInbox {
     struct Stats1 {
         uint64 __reserved1;
         uint64 __reserved2;
-        uint64 lastSyncedBlockId;
+        uint64 lastSyncedBatch;
         uint64 lastSyncedAt;
     }
 
     struct Stats2 {
         uint64 numBlocks;
-        uint64 lastVerifiedBlockId;
+        uint64 lastVerifiedBatch;
         bool paused;
         uint56 lastProposedIn;
         uint64 lastUnpausedAt;
@@ -135,13 +135,13 @@ interface ITaikoInbox {
     /// @notice Struct holding the state variables for the {Taiko} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint256 blockId_mod_blockRingBufferSize => BlockV3 blk) blocks;
+        mapping(uint256 batchId_mod_blockRingBufferSize => Batch blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint256 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
+        mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
-            uint256 blockId_mod_blockRingBufferSize
-                => mapping(uint24 transitionId => TransitionV3 ts)
+            uint256 batchId_mod_blockRingBufferSize
+                => mapping(uint24 transitionId => Transition ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5
@@ -182,22 +182,22 @@ interface ITaikoInbox {
     /// @param metas The metadata of the proposed blocks.
     /// @param calldataUsed Whether calldata is used for txList DA.
     /// @param txListInCalldata The tx list in calldata.
-    event BlocksProposedV3(BlockMetadataV3[] metas, bool calldataUsed, bytes txListInCalldata);
+    event BlocksProposedV3(BatchMetadata[] metas, bool calldataUsed, bytes txListInCalldata);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
     /// @param transitions The transitions data.
-    event BlocksProvedV3(address verifier, uint64[] blockIds, TransitionV3[] transitions);
+    event BlocksProvedV3(address verifier, uint64[] batchIds, Transition[] transitions);
 
     /// @notice Emitted when a transition is overwritten by another one.
-    /// @param blockId The block ID.
+    /// @param batchId The block ID.
     /// @param tran The transition data that has been overwritten.
-    event TransitionOverwrittenV3(uint64 blockId, TransitionV3 tran);
+    event TransitionOverwrittenV3(uint64 batchId, Transition tran);
 
     /// @notice Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
+    /// @param batchId The ID of the verified block.
     /// @param blockHash The hash of the verified block.
-    event BlockVerifiedV3(uint64 blockId, bytes32 blockHash);
+    event BlockVerifiedV3(uint64 batchId, bytes32 blockHash);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooSmall();
@@ -245,19 +245,19 @@ interface ITaikoInbox {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _blockParams,
+        BatchParams[] calldata _blockParams,
         bytes calldata _txList
     )
         external
-        returns (BlockMetadataV3[] memory);
+        returns (BatchMetadata[] memory);
 
     /// @notice Proves state transitions for multiple blocks with a single aggregated proof.
     /// @param _metas Array of metadata for each block being proved.
     /// @param _transitions Array of block transitions to be proved.
     /// @param proof The aggregated cryptographic proof proving the blocks transitions.
     function proveBlocksV3(
-        BlockMetadataV3[] calldata _metas,
-        TransitionV3[] calldata _transitions,
+        BatchMetadata[] calldata _metas,
+        Transition[] calldata _transitions,
         bytes calldata proof
     )
         external;
@@ -289,46 +289,46 @@ interface ITaikoInbox {
     function getStats2() external view returns (Stats2 memory);
 
     /// @notice Retrieves data about a specific block.
-    /// @param _blockId The ID of the block to retrieve.
-    /// @return blk_ The block data.
-    function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_);
+    /// @param _batchId The ID of the block to retrieve.
+    /// @return batch_ The block data.
+    function getBatch(uint64 _batchId) external view returns (Batch memory batch_);
 
-    /// @notice Retrieves a specific transition by block ID and transition ID. This function may
+    /// @notice Retrieves a specific transition by batch ID and transition ID. This function may
     /// revert if the transition is not found.
-    /// @param _blockId The block ID.
+    /// @param _batchId The block ID.
     /// @param _tid The transition ID.
     /// @return The specified transition.
-    function getTransitionV3(
-        uint64 _blockId,
+    function getTransition(
+        uint64 _batchId,
         uint24 _tid
     )
         external
         view
-        returns (ITaikoInbox.TransitionV3 memory);
+        returns (ITaikoInbox.Transition memory);
 
     /// @notice Retrieves the transition used for the last verified block.
-    /// @return blockId_ The block ID of the last verified transition.
+    /// @return batchId_ The block ID of the last verified transition.
     /// @return tran_ The last verified transition.
-    function getLastVerifiedTransitionV3()
+    function getLastVerifiedTransition()
         external
         view
-        returns (uint64 blockId_, TransitionV3 memory tran_);
+        returns (uint64 batchId_, Transition memory tran_);
 
     /// @notice Retrieves the transition used for the last synced block.
-    /// @return blockId_ The block ID of the last synced transition.
+    /// @return batchId_ The block ID of the last synced transition.
     /// @return tran_ The last synced transition.
-    function getLastSyncedTransitionV3()
+    function getLastSyncedTransition()
         external
         view
-        returns (uint64 blockId_, TransitionV3 memory tran_);
+        returns (uint64 batchId_, Transition memory tran_);
 
     /// @notice Retrieves the transition used for verifying a block.
-    /// @param _blockId The block ID.
+    /// @param _batchId The block ID.
     /// @return The transition used for verifying the block.
-    function getBlockVerifyingTransition(uint64 _blockId)
+    function getBatchVerifyingTransition(uint64 _batchId)
         external
         view
-        returns (TransitionV3 memory);
+        returns (Transition memory);
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
