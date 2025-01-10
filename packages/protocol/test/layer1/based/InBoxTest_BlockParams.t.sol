@@ -39,7 +39,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
     {
         ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
         blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
-        
+
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
             anchorBlockId: 0, // Simulate missing anchor block ID
             timestamp: 0,
@@ -126,6 +126,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
 
         ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
         blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
+        
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
             anchorBlockId: parent.anchorBlockId - 1,
             timestamp: 0,

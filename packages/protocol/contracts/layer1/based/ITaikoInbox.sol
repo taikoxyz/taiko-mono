@@ -210,9 +210,9 @@ interface ITaikoInbox {
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InsufficientBond();
+    error InvalidBlockParams();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
-    error InvalidSubBlocks();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();

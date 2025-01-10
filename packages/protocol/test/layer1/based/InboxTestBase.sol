@@ -32,6 +32,8 @@ abstract contract InboxTestBase is Layer1Test {
         genesisBlockProposedAt = block.timestamp;
         genesisBlockProposedIn = block.number;
 
+        inbox = deployInbox(correctBlockhash(0), getConfig());
+
         signalService = deploySignalService(address(new SignalService()));
         signalService.authorize(address(inbox), true);
 
@@ -47,8 +49,8 @@ abstract contract InboxTestBase is Layer1Test {
         _;
     }
 
-    modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 numBlocksToPropose) {
-        _proposeBlocksWithDefaultParameters(numBlocksToPropose);
+    modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 numBatchesToPropose) {
+        _proposeBlocksWithDefaultParameters(numBatchesToPropose);
         _;
     }
 
@@ -71,26 +73,32 @@ abstract contract InboxTestBase is Layer1Test {
     // internal helper functions
     // -------------------------------------------------------------------
 
-    function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose)
+    function _proposeBlocksWithDefaultParameters(uint256 numBatchesToPropose)
         internal
         returns (uint64 batchId)
     {
         // Provide a default value for txList
         bytes memory defaultTxList = abi.encodePacked("txList");
-        return _proposeBatchWithDefaultParameters(numBlocksToPropose, defaultTxList);
+
+            return _proposeBatchWithDefaultParameters( numBatchesToPropose, defaultTxList);
     }
 
     function _proposeBatchWithDefaultParameters(
-        uint256 numBlocksToPropose,
+        uint256 numBatchesToPropose,
         bytes memory txList
     )
         internal
         returns (uint64 batchId)
     {
         ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
+        
+        ITaikoInbox.BatchMetadata memory meta;
 
-        ITaikoInbox.BatchMetadata memory meta =
-            inbox.proposeBatch(address(0), address(0), batchParams, txList);
+        for (uint256 i; i < numBatchesToPropose; ++i) {
+            meta = inbox.proposeBatch(address(0), address(0), batchParams, txList);
+        }
 
         return meta.batchId;
     }
