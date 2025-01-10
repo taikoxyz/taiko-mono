@@ -67,8 +67,8 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if t.Finished() {
-		log.Debug("Beacon sync is finished")
+	if !t.triggered {
+		log.Debug("Beacon sync not triggered")
 		return
 	}
 
