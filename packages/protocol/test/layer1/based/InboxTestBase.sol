@@ -44,13 +44,13 @@ abstract contract InboxTestBase is Layer1Test {
         mineOneBlockAndWrap(12 seconds);
     }
 
-    modifier WhenLogAllBlocksAndTransitions() {
-        _logAllBlocksAndTransitions();
+    modifier WhenLogAllBatchesAndTransitions() {
+        _logAllBatchesAndTransitions();
         _;
     }
 
-    modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 numBatchesToPropose) {
-        _proposeBlocksWithDefaultParameters(numBatchesToPropose);
+    modifier WhenMultipleBatchesAreProposedWithDefaultParameters(uint256 numBatchesToPropose) {
+        _proposeBatchesWithDefaultParameters(numBatchesToPropose);
         _;
     }
 
@@ -73,34 +73,30 @@ abstract contract InboxTestBase is Layer1Test {
     // internal helper functions
     // -------------------------------------------------------------------
 
-    function _proposeBlocksWithDefaultParameters(uint256 numBatchesToPropose)
+    function _proposeBatchesWithDefaultParameters(uint256 numBatchesToPropose)
         internal
-        returns (uint64 batchId)
+        returns (uint64[] memory batchIds)
     {
-        // Provide a default value for txList
-        bytes memory defaultTxList = abi.encodePacked("txList");
-
-            return _proposeBatchWithDefaultParameters( numBatchesToPropose, defaultTxList);
+        return _proposeBatchesWithDefaultParameters(numBatchesToPropose, abi.encodePacked("txList"));
     }
 
-    function _proposeBatchWithDefaultParameters(
+    function _proposeBatchesWithDefaultParameters(
         uint256 numBatchesToPropose,
         bytes memory txList
     )
         internal
-        returns (uint64 batchId)
+        returns (uint64[] memory batchIds)
     {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](1);
         batchParams.blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
         
-        ITaikoInbox.BatchMetadata memory meta;
+        batchIds = new uint64[](numBatchesToPropose);
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
-            meta = inbox.proposeBatch(address(0), address(0), batchParams, txList);
+            ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(address(0), address(0), batchParams, txList);
+            batchIds[i] = meta.batchId;
         }
-
-        return meta.batchId;
     }
 
     function _proveBatchesWithCorrectTransitions(uint64[] memory batchIds) internal {
@@ -131,7 +127,7 @@ abstract contract InboxTestBase is Layer1Test {
         inbox.proveBatches(metas, transitions, "proof");
     }
 
-    function _logAllBlocksAndTransitions() internal view {
+    function _logAllBatchesAndTransitions() internal view {
         console2.log(unicode"|───────────────────────────────────────────────────────────────");
         ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         console2.log("Stats1 - lastSyncedBatch:", stats1.lastSyncedBatch);
@@ -144,8 +140,8 @@ abstract contract InboxTestBase is Layer1Test {
         console2.log("Stats2 - lastProposedIn:", stats2.lastProposedIn);
         console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
 
-        // console2.log("stats2.numBlocks:", stats2.numBlocks);
-        // console2.log("getConfig().blockRingBufferSize:", getConfig().blockRingBufferSize);
+        // console2.log("stats2.numBatches:", stats2.numBatches);
+        // console2.log("getConfig().maxBatchProposals:", getConfig().maxBatchProposals);
 
         uint64 firstBatchId = stats2.numBatches > getConfig().maxBatchProposals
             ? stats2.numBatches - getConfig().maxBatchProposals

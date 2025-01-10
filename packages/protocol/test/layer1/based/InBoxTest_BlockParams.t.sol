@@ -121,12 +121,12 @@ contract InBoxTest_BlockParams is InboxTestBase {
         transactBy(Alice)
     {
         vm.roll(10);
-        _proposeBlocksWithDefaultParameters(1);
+        _proposeBatchesWithDefaultParameters(1);
         ITaikoInbox.Batch memory parent = inbox.getBatch(1);
 
         ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
         blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
-        
+
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
             anchorBlockId: parent.anchorBlockId - 1,
             timestamp: 0,
