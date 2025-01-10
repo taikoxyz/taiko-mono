@@ -93,7 +93,7 @@ func (s *L2ChainSyncer) Sync() error {
 	}
 
 	// If the L2 execution engine's chain is head of the block head to sync at the start,
-	// or the --p2p.sync flag is disabled, we should mark the beacon sync progress as finished.
+	// and the --p2p.sync flag is enabled, we should mark the beacon sync progress as finished.
 	if !s.p2pSyncChecked {
 		s.p2pSyncChecked = true
 		if !needNewBeaconSyncTriggered && s.p2pSync {
