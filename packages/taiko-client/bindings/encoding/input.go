@@ -9,6 +9,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // ABI arguments marshaling components.
@@ -203,6 +204,7 @@ var (
 
 // Contract ABIs.
 var (
+	// Ontake fork
 	TaikoL1ABI          *abi.ABI
 	TaikoL2ABI          *abi.ABI
 	TaikoTokenABI       *abi.ABI
@@ -214,6 +216,14 @@ var (
 	SGXVerifierABI      *abi.ABI
 	GuardianVerifierABI *abi.ABI
 	ProverSetABI        *abi.ABI
+	ForkManagerABI      *abi.ABI
+
+	// Pacaya fork
+	TaikoInboxABI        *abi.ABI
+	TaikoAnchorABI       *abi.ABI
+	ForkManagerPacayaABI *abi.ABI
+	TaikoTokenPacayaABI  *abi.ABI
+	ProverSetPavayaABI   *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -265,6 +275,30 @@ func init() {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
+	if ForkManagerABI, err = ontakeBindings.ForkManagerMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForkManager ABI error", "error", err)
+	}
+
+	if TaikoInboxABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoInbox ABI error", "error", err)
+	}
+
+	if TaikoAnchorABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoAnchor ABI error", "error", err)
+	}
+
+	if ForkManagerPacayaABI, err = pacayaBindings.ForkManagerMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForkManager ABI error", "error", err)
+	}
+
+	if TaikoTokenPacayaABI, err = pacayaBindings.TaikoTokenMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoToken ABI error", "error", err)
+	}
+
+	if ProverSetPavayaABI, err = pacayaBindings.ProverSetMetaData.GetAbi(); err != nil {
+		log.Crit("Get ProverSet ABI error", "error", err)
+	}
+
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
@@ -276,6 +310,12 @@ func init() {
 		SGXVerifierABI.Errors,
 		GuardianVerifierABI.Errors,
 		ProverSetABI.Errors,
+		ForkManagerABI.Errors,
+		TaikoInboxABI.Errors,
+		TaikoAnchorABI.Errors,
+		ForkManagerPacayaABI.Errors,
+		TaikoTokenPacayaABI.Errors,
+		ProverSetPavayaABI.Errors,
 	}
 }
 
