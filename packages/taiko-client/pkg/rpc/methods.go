@@ -119,7 +119,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 				return err
 			}
 
-			if progress.IsSyncing() {
+			if progress.isSyncing() {
 				log.Info(
 					"L2 execution engine is syncing",
 					"currentBlockID", progress.CurrentBlockID,
@@ -332,50 +332,23 @@ func (c *Client) GetPoolContent(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	// Get the latest L2 block header at first.
+	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
-	}
-
-	l1Origin, err := c.L2.L1OriginByID(ctx, l2Head.Number)
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return nil, err
-	}
-
-	var (
-		L1HeadNum *big.Int
-		L2HeadNum *big.Int
-		timestamp = uint64(time.Now().Unix())
-	)
-
-	if l1Origin != nil && l1Origin.IsSoftBlock() && !l1Origin.EndOfPreconf && !l1Origin.EndOfBlock {
-		// Check if this is an unfinished soft block, if not, we will use the latest L1 / L2 block number from the L1Origin.
-		// Otherwise, we will use the L1 / L2 block number in L1Origin.
-		L1HeadNum = l1Origin.L1BlockHeight
-		L2HeadNum = new(big.Int).Sub(l1Origin.BlockID, common.Big1)
-	}
-
-	l1Head, err := c.L1.HeaderByNumber(ctx, L1HeadNum)
-	if err != nil {
-		return nil, err
-	}
-
-	if L2HeadNum != nil {
-		timestamp = l2Head.Time
-		l2Head, err = c.L2.HeaderByNumber(ctx, L2HeadNum)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	baseFee, err := c.CalculateBaseFee(
 		ctx,
 		l2Head,
 		l1Head.Number,
-		true,
+		chainConfig.IsOntake(new(big.Int).Add(l2Head.Number, common.Big1)),
 		&chainConfig.ProtocolConfigs.BaseFeeConfig,
-		timestamp,
+		uint64(time.Now().Unix()),
 	)
 	if err != nil {
 		return nil, err
@@ -420,8 +393,8 @@ type L2SyncProgress struct {
 	HighestBlockID *big.Int
 }
 
-// IsSyncing returns true if the L2 execution engine is syncing with L1.
-func (p *L2SyncProgress) IsSyncing() bool {
+// isSyncing returns true if the L2 execution engine is syncing with L1.
+func (p *L2SyncProgress) isSyncing() bool {
 	if p.SyncProgress == nil {
 		return false
 	}
