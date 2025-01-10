@@ -35,7 +35,8 @@ type L2ChainSyncer struct {
 
 	// If this flag is activated, will try P2P beacon sync if current node is behind of the protocol's
 	// the latest verified block head
-	p2pSync        bool
+	p2pSync bool
+	// To make sure that we will only check and trigger P2P sync progress once right after the driver starts
 	p2pSyncChecked bool
 }
 
