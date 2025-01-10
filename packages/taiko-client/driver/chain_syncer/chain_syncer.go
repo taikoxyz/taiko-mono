@@ -36,8 +36,6 @@ type L2ChainSyncer struct {
 	// If this flag is activated, will try P2P beacon sync if current node is behind of the protocol's
 	// the latest verified block head
 	p2pSync bool
-	// To make sure that we will only check and trigger P2P sync progress once right after the driver starts
-	p2pSyncChecked bool
 }
 
 // New creates a new chain syncer instance.
@@ -81,7 +79,6 @@ func New(
 		progressTracker: tracker,
 		syncMode:        syncMode,
 		p2pSync:         p2pSync,
-		p2pSyncChecked:  false,
 	}, nil
 }
 
@@ -90,16 +87,6 @@ func (s *L2ChainSyncer) Sync() error {
 	blockIDToSync, needNewBeaconSyncTriggered, err := s.needNewBeaconSyncTriggered()
 	if err != nil {
 		return err
-	}
-
-	// If the L2 execution engine's chain is head of the block head to sync at the start,
-	// and the --p2p.sync flag is enabled, we should mark the beacon sync progress as finished.
-	if !s.p2pSyncChecked {
-		s.p2pSyncChecked = true
-		if !needNewBeaconSyncTriggered && s.p2pSync {
-			log.Info("Skip P2P sync since the execution engine is ahead of the target head to sync")
-			s.progressTracker.MarkFinished()
-		}
 	}
 
 	// If current L2 execution engine's chain is behind of the block head to sync, and the
@@ -113,6 +100,10 @@ func (s *L2ChainSyncer) Sync() error {
 		return nil
 	}
 
+	// Mark the beacon sync progress as finished, To make sure that
+	// we will only check and trigger P2P sync progress once right after the driver starts
+	s.progressTracker.MarkFinished()
+
 	// We have triggered at least a beacon sync in L2 execution engine, we should reset the L1Current
 	// cursor at first, before start inserting pending L2 blocks one by one.
 	if s.progressTracker.Triggered() {
@@ -121,9 +112,6 @@ func (s *L2ChainSyncer) Sync() error {
 			"p2pEnabled", s.p2pSync,
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
-
-		// Mark the beacon sync progress as finished.
-		s.progressTracker.MarkFinished()
 
 		// Get the execution engine's chain head.
 		l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, nil)
