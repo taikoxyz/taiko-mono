@@ -69,7 +69,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     }
 
     /**
-     * @notice Proposes a new Taiko L2 block.
+     * @notice Proposes a new batch of Taiko L2 block.
      * @dev The first caller in every epoch is expected to pass along the lookahead entries for the
      * next epoch.
      * The function reverts if the lookahead is lagging behind. This is possible if it is
@@ -85,9 +85,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
      * the lookahead
      */
-    function proposeBatches(
+    function proposeBatch(
         address coinbase,
-        ITaikoInbox.BatchParams[] calldata batchParams,
+        ITaikoInbox.BatchParams calldata batchParams,
         bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
@@ -126,7 +126,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        inbox.proposeBatches(msg.sender, coinbase, batchParams, txList);
+        inbox.proposeBatch(msg.sender, coinbase, batchParams, txList);
     }
 
     /**

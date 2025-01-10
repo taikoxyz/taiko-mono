@@ -90,7 +90,7 @@ interface ITaikoInbox {
     }
 
     struct Stats2 {
-        uint64 numBlocks;
+        uint64 numBatches;
         uint64 lastVerifiedBatch;
         bool paused;
         uint56 lastProposedIn;
@@ -175,11 +175,11 @@ interface ITaikoInbox {
     /// @param stats2 The Stats2 data structure.
     event Stats2Updated(Stats2 stats2);
 
-    /// @notice Emitted when multiple batches are proposed.
-    /// @param metas The metadata of the proposed batches.
+    /// @notice Emitted when a batch is proposed.
+    /// @param meta The metadata of the proposed batch.
     /// @param calldataUsed Whether calldata is used for txList DA.
     /// @param txListInCalldata The tx list in calldata.
-    event BatchesProposed(BatchMetadata[] metas, bool calldataUsed, bytes txListInCalldata);
+    event BatchProposed(BatchMetadata meta, bool calldataUsed, bytes txListInCalldata);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -217,7 +217,6 @@ interface ITaikoInbox {
     error InvalidTransitionStateRoot();
     error MetaHashMismatch();
     error MsgValueNotZero();
-    error NoBatchToPropose();
     error NoBlocksToProve();
     error NotPreconfRouter();
     error ParentMetaHashMismatch();
@@ -226,27 +225,27 @@ interface ITaikoInbox {
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();
-    error TooManyBlocks();
+    error TooManyBatches();
     error TooManySignals();
     error TransitionNotFound();
 
-    /// @notice Proposes multiple batches with specified parameters and transaction list.
+    /// @notice Proposes a batch of blocks.
     /// @param _proposer The address of the proposer, which is set by the PreconfTaskManager if
     /// enabled; otherwise, it must be address(0).
     /// @param _coinbase The address that will receive the block rewards; defaults to the proposer's
     /// address if set to address(0).
-    /// @param _batchParams An array containing the parameters for each batch being proposed.
+    /// @param _batchParams Batch parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
-    /// @return An array of batch metadata for each batch proposed.
-    function proposeBatches(
+    /// @return Batch metadata.
+    function proposeBatch(
         address _proposer,
         address _coinbase,
-        BatchParams[] calldata _batchParams,
+        BatchParams calldata _batchParams,
         bytes calldata _txList
     )
         external
-        returns (BatchMetadata[] memory);
+        returns (BatchMetadata memory);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _metas Array of metadata for each batch being proved.

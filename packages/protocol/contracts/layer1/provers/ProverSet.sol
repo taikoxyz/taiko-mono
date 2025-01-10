@@ -95,21 +95,21 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Propose multiple Taiko blocks.
-    function proposeBatches(
-        ITaikoInbox.BatchParams[] calldata _paramsArray,
+    function proposeBatch(
+        ITaikoInbox.BatchParams calldata _batchParams,
         bytes calldata _txList,
         bool _revertIfNotFirstProposal
     )
         external
         onlyProver
-        returns (ITaikoInbox.BatchMetadata[] memory metas_)
+        returns (ITaikoInbox.BatchMetadata memory)
     {
         ITaikoInbox taiko = ITaikoInbox(inbox());
         if (_revertIfNotFirstProposal) {
             // Ensure this block is the first block proposed in the current L1 block.
             require(taiko.getStats2().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
         }
-        return taiko.proposeBatches(address(0), address(0), _paramsArray, _txList);
+        return taiko.proposeBatch(address(0), address(0), _batchParams, _txList);
     }
 
     /// @notice Batch proves or contests Taiko blocks.

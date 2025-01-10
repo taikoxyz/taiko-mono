@@ -6,14 +6,14 @@ import "src/layer1/based/ITaikoInbox.sol";
 /// @title StubInbox
 /// @custom:security-contact security@taiko.xyz
 contract StubInbox is ITaikoInbox {
-    function proposeBatches(
+    function proposeBatch(
         address _proposer,
         address _coinbase,
-        BatchParams[] calldata _blockParams,
+        BatchParams calldata _batchParams,
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata[] memory)
+        returns (ITaikoInbox.BatchMetadata memory)
     { }
 
     function proveBatches(
