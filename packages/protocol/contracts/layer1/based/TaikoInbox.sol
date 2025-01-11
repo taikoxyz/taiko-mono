@@ -113,30 +113,32 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         // instead, only its hash is kept.
         // The metadata must be supplied as calldata prior to proving the batch, enabling the
         // computation and verification of its integrity through the comparison of the metahash.
-        unchecked {
-            meta_ = BatchMetadata({
-                txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(_batchParams.numBlobs),
-                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                coinbase: _coinbase,
-                batchId: stats2.numBatches,
-                gasLimit: config.blockMaxGasLimit,
-                timestamp: updatedParams.timestamp,
-                parentMetaHash: parentBatch.metaHash,
-                proposer: _proposer,
-                livenessBond: config.livenessBond,
-                proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number),
-                txListOffset: _batchParams.txListOffset,
-                txListSize: _batchParams.txListSize,
-                numBlobs: calldataUsed ? 0 : _batchParams.numBlobs,
-                anchorBlockId: updatedParams.anchorBlockId,
-                anchorBlockHash: blockhash(updatedParams.anchorBlockId),
-                signalSlots: _batchParams.signalSlots,
-                blocks: abi.encode(_batchParams.blocks),
-                anchorInput: _batchParams.anchorInput,
-                baseFeeConfig: config.baseFeeConfig
-            });
-        }
+        //
+        // Note that `difficulty` has been removed from the metadata. The client and prover must use
+        // the following approach to calculate a block's difficulty:
+        //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
+        meta_ = BatchMetadata({
+            txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(_batchParams.numBlobs),
+            extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+            coinbase: _coinbase,
+            batchId: stats2.numBatches,
+            gasLimit: config.blockMaxGasLimit,
+            timestamp: updatedParams.timestamp,
+            parentMetaHash: parentBatch.metaHash,
+            proposer: _proposer,
+            livenessBond: config.livenessBond,
+            proposedAt: uint64(block.timestamp),
+            proposedIn: uint64(block.number),
+            txListOffset: _batchParams.txListOffset,
+            txListSize: _batchParams.txListSize,
+            numBlobs: calldataUsed ? 0 : _batchParams.numBlobs,
+            anchorBlockId: updatedParams.anchorBlockId,
+            anchorBlockHash: blockhash(updatedParams.anchorBlockId),
+            signalSlots: _batchParams.signalSlots,
+            blocks: abi.encode(_batchParams.blocks),
+            anchorInput: _batchParams.anchorInput,
+            baseFeeConfig: config.baseFeeConfig
+        });
 
         require(meta_.txListHash != 0, BlobNotFound());
         bytes32 metaHash = keccak256(abi.encode(meta_));
@@ -598,8 +600,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                         >= block.timestamp,
                     TimestampTooSmall()
                 );
-                require(_params.timestamp <= block.timestamp, TimestampTooLarge());
                 require(_params.timestamp >= _parentBatch.timestamp, TimestampSmallerThanParent());
+                require(_params.timestamp <= block.timestamp, TimestampTooLarge());
 
                 updatedParams_.timestamp = _params.timestamp;
             }
