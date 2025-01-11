@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -126,6 +127,7 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.TaikoL1, blockVerifiedV2Ch)
 		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.TaikoL1, blockProposedV2Ch)
 		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.TaikoL1, transitionProvedV2Ch)
+		tick                    = time.NewTicker(time.Minute * 10)
 	)
 
 	defer func() {
@@ -137,12 +139,15 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2BlockVerifiedV2Sub.Unsubscribe()
 		l2BlockProposedV2Sub.Unsubscribe()
 		l2TransitionProvedV2Sub.Unsubscribe()
+		tick.Stop()
 	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-tick.C:
+			log.Info("state log, current L2 head", "blockID", s.GetL2Head().Number)
 		case e := <-blockProposedCh:
 			s.setHeadBlockID(e.BlockId)
 		case e := <-blockProposedV2Ch:
