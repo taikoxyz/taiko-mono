@@ -601,10 +601,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     TimestampTooSmall()
                 );
                 require(_params.timestamp >= _parentBatch.timestamp, TimestampSmallerThanParent());
-                require(_params.timestamp <= block.timestamp, TimestampTooLarge());
 
                 updatedParams_.timestamp = _params.timestamp;
             }
+
+            uint256 maxTimestamp = _params.timestamp;
+            for (uint256 i; i < _params.blocks.length; ++i) {
+                maxTimestamp += _params.blocks[i].timeThift;
+            }
+            require(maxTimestamp <= block.timestamp, TimestampTooLarge());
 
             // Check if parent batch has the right meta hash. This is to allow the proposer to
             // make sure the batch builds on the expected latest chain state.
