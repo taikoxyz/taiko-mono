@@ -433,8 +433,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         batch.nextTransitionId = 2;
         batch.verifiedTransitionId = 1;
 
+        state.stats1.genesisHeight = uint64(block.number);
+
         state.stats2.lastProposedIn = uint56(block.number);
         state.stats2.numBatches = 1;
+        
         emit BatchesVerified(0, _genesisBlockHash);
     }
 
