@@ -28,10 +28,10 @@ description: Network reference page describing various important addresses on Ta
 | TierProvider                    | `0x9AaBba3Ae6D4aC3F5487608Da81006454e7933d3` |
 | TierRouter                      | `0x98d4FaD098526c4582063FA588C5e96229270366` |
 | SgxVerifier                     | `0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9` |
-| Groth16Verifier                 | `0x5fd84014c62D5ea28D4533D5B1B48Ca44e571057` |
+| Groth16Verifier                 | `0x714FD0666B0cee87bFC29A029E2AE66f40F12cE5` |
 | Risc0Verifier                   | `0x4fEd801C5a876D4289e869cbEfA1E1A448b10714` |
 | SP1Verifier                     | `0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD` |
-| PlonkVerifier                   | `0xfb2d02219D065eBF3Aa8d2D1a1C52b1868EE7384` |
+| PlonkVerifier                   | `0x7110bd8909CFC4C31204BA8597882CBFa1F77dC9` |
 | AutomataDcapAttestation         | `0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398` |
 | PemCertChainLib                 | `0x08d7865e7F534d743Aba5874A9AD04bcB223a92E` |
 | ProverSet                       | `0xD3f681bD6B49887A48cC9C9953720903967E9DC0` |
