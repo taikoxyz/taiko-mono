@@ -5,7 +5,7 @@ import "../Layer1Test.sol";
 import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
 abstract contract InboxTestBase is Layer1Test {
-    mapping(uint256 => ITaikoInbox.BatchMetadata) internal batchMetadatas;
+    mapping(uint256 => bytes) private _batchMetadatas;
     ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
     SignalService internal signalService;
@@ -73,6 +73,21 @@ abstract contract InboxTestBase is Layer1Test {
     // internal helper functions
     // -------------------------------------------------------------------
 
+    function _saveMetadata(ITaikoInbox.BatchMetadata memory _metadata) internal {
+        _batchMetadatas[_metadata.batchId] = abi.encode(_metadata);
+    }
+
+    function _loadMetadata(uint64 _batchId)
+        internal
+        view
+        returns (ITaikoInbox.BatchMetadata memory meta_)
+    {
+        bytes memory data = _batchMetadatas[_batchId];
+        if (data.length != 0) {
+            meta_ = abi.decode(data, (ITaikoInbox.BatchMetadata));
+        }
+    }
+
     function _proposeBatchesWithDefaultParameters(uint256 numBatchesToPropose)
         internal
         returns (uint64[] memory batchIds)
@@ -95,7 +110,7 @@ abstract contract InboxTestBase is Layer1Test {
         for (uint256 i; i < numBatchesToPropose; ++i) {
             ITaikoInbox.BatchMetadata memory meta =
                 inbox.proposeBatch(address(0), address(0), batchParams, txList);
-            batchMetadatas[meta.batchId] = meta;
+            _saveMetadata(meta);
             batchIds[i] = meta.batchId;
         }
     }
@@ -105,7 +120,7 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
-            metas[i] = batchMetadatas[batchIds[i]];
+            metas[i] = _loadMetadata(batchIds[i]);
             transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
             transitions[i].blockHash = correctBlockhash(batchIds[i]);
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
@@ -119,7 +134,7 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
-            metas[i] = batchMetadatas[batchIds[i]];
+            metas[i] = _loadMetadata(batchIds[i]);
             transitions[i].parentHash = randBytes32();
             transitions[i].blockHash = randBytes32();
             transitions[i].stateRoot = randBytes32();

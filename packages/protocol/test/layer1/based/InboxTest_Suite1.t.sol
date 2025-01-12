@@ -103,7 +103,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         for (uint64 i = 1; i < 10; ++i) {
             blk = inbox.getBatch(i);
             assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(batchMetadatas[i])));
+            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
             assertEq(blk.timestamp, block.timestamp);
             assertEq(blk.anchorBlockId, block.number - 1);
@@ -160,7 +160,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         for (uint64 i = 1; i < 7; ++i) {
             blk = inbox.getBatch(i);
             assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(batchMetadatas[i])));
+            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
             assertEq(blk.timestamp, block.timestamp);
             assertEq(blk.anchorBlockId, block.number - 1);
@@ -231,7 +231,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         for (uint64 i = 1; i < 10; ++i) {
             blk = inbox.getBatch(i);
             assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(batchMetadatas[i])));
+            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
             assertEq(blk.timestamp, block.timestamp);
             assertEq(blk.anchorBlockId, block.number - 1);
@@ -278,7 +278,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         for (uint64 i = 1; i < 10; ++i) {
             blk = inbox.getBatch(i);
             assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(batchMetadatas[i])));
+            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
             assertEq(blk.timestamp, block.timestamp);
             assertEq(blk.anchorBlockId, block.number - 1);
@@ -330,7 +330,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         for (uint64 i = 8; i < 15; ++i) {
             ITaikoInbox.Batch memory blk = inbox.getBatch(i);
             assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(batchMetadatas[i])));
+            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
             assertEq(blk.timestamp, block.timestamp);
             assertEq(blk.anchorBlockId, block.number - 1);
@@ -362,7 +362,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
 
-        metas[0] = batchMetadatas[1];
+        metas[0] = _loadMetadata(1);
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x101));
@@ -434,7 +434,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](count);
 
         for (uint256 i; i < batchIds.length; ++i) {
-            metas[i] = batchMetadatas[batchIds[i]];
+            metas[i] = _loadMetadata(batchIds[i]);
 
             transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
             transitions[i].blockHash = correctBlockhash(batchIds[i]);

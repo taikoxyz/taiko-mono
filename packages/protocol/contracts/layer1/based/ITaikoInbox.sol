@@ -52,7 +52,7 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
-        bytes blocks;
+        BlockParams[] blocks;
         bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
