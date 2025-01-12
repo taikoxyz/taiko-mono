@@ -20,12 +20,7 @@ interface OntakeSelectors {
 /// @title PacayaForkManager (Ontake -> Pacaya)
 /// @custom:security-contact security@taiko.xyz
 contract PacayaForkManager is ForkManager {
-    constructor(
-        address _ontakeFork,
-        address _pacayaFork
-    )
-        ForkManager(_ontakeFork, _pacayaFork)
-    { }
+    constructor(address _ontakeFork, address _pacayaFork) ForkManager(_ontakeFork, _pacayaFork) { }
 
     function shouldRouteToOldFork(bytes4 _selector) internal pure override returns (bool) {
         return _selector == OntakeSelectors.proposeBlocksV2.selector
