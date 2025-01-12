@@ -8,7 +8,7 @@ import "../based/TaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DevnetInbox is TaikoInbox {
     /// @inheritdoc ITaikoInbox
-    function getConfigV3() public pure override returns (ITaikoInbox.Config memory) {
+    function getConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: 167_001,
             maxBatchProposals: 324_000,

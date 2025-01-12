@@ -14,7 +14,7 @@ pragma solidity ^0.8.24;
 //     TokenUnlock private target;
 //     TaikoToken private taikoToken;
 
-//     function getConfigV3() internal pure override returns (ITaikoInbox.Config memory) {
+//     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
 //         return ITaikoInbox.Config({
 //             chainId: LibNetwork.TAIKO_MAINNET,
 //             maxBatchProposals: 10,

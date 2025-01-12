@@ -66,7 +66,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
-        Config memory config = getConfigV3();
+        Config memory config = getConfig();
         require(stats2.numBatches >= config.forkHeights.pacaya, InvalidForkHeight());
 
         unchecked {
@@ -194,7 +194,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
-        Config memory config = getConfigV3();
+        Config memory config = getConfig();
         uint64[] memory batchIds = new uint64[](_metas.length);
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
 
@@ -319,7 +319,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     }
 
     /// @inheritdoc ITaikoInbox
-    function getTransitionV3(
+    function getTransition(
         uint64 _batchId,
         uint24 _tid
     )
@@ -327,7 +327,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (Transition memory tran_)
     {
-        Config memory config = getConfigV3();
+        Config memory config = getConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -362,7 +362,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
     /// @inheritdoc ITaikoInbox
     function getBatch(uint64 _batchId) external view returns (Batch memory batch_) {
-        Config memory config = getConfigV3();
+        Config memory config = getConfig();
         require(_batchId >= config.forkHeights.pacaya, InvalidForkHeight());
 
         batch_ = state.batches[_batchId % config.batchRingBufferSize];
@@ -394,7 +394,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (Transition memory tran_)
     {
-        Config memory config = getConfigV3();
+        Config memory config = getConfig();
 
         uint64 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
@@ -406,7 +406,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     }
 
     /// @inheritdoc ITaikoInbox
-    function getConfigV3() public view virtual returns (Config memory);
+    function getConfig() public view virtual returns (Config memory);
 
     // Internal functions ----------------------------------------------------------------------
 
