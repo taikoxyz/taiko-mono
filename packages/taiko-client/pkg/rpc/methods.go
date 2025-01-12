@@ -461,7 +461,7 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	if opts == nil {
 		opts = &bind.CallOpts{}
 	}
-
+	log.Info("Step1", "test", "test1")
 	var ctx = context.Background()
 	if opts.Context != nil {
 		ctx = opts.Context

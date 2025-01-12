@@ -571,7 +571,7 @@ func (s *Syncer) retrievePastBlock(
 			LastHandledBlockIDToReset: new(big.Int).SetUint64(blockID),
 		}, nil
 	}
-
+	log.Info("Step2", "test", "test1")
 	var (
 		reorgCheckResult = new(rpc.ReorgCheckResult)
 		err              error

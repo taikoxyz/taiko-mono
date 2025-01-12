@@ -72,11 +72,17 @@ func GetProtocolStateVariables(
 	var slotBV1 bindings.TaikoDataSlotBV1
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
+		log.Info("GetStateVariables", "err", err)
 		if errors.Is(err, ErrSlotBMarshal) {
 			slotA, slotBV1, err = taikoL1Client.GetStateVariablesV1(opts)
 			if err != nil {
+				log.Info("GetStateVariablesV1", "err", err)
 				return nil, err
 			}
+			log.Info("GetStateVariablesV1",
+				"slotA", slotA,
+				"slotB", slotBV1,
+			)
 			slotB = bindings.TaikoDataSlotB{
 				NumBlocks:           slotBV1.NumBlocks,
 				LastVerifiedBlockId: slotBV1.LastVerifiedBlockId,
@@ -88,6 +94,11 @@ func GetProtocolStateVariables(
 			return nil, err
 		}
 	}
+	log.Info("GetStateVariables",
+		"slotA", slotA,
+		"slotB", slotB,
+	)
+	log.Info("Step1", "test", "test2")
 	return &struct {
 		A bindings.TaikoDataSlotA
 		B bindings.TaikoDataSlotB
