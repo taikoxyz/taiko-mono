@@ -339,9 +339,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, Transition memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
+        blockId_ = getBatch(batchId_).lastBlockId;
         tran_ = getBatchVerifyingTransition(batchId_);
     }
 
@@ -349,9 +350,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, Transition memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
     {
         batchId_ = state.stats1.lastSyncedBatchId;
+        blockId_ = getBatch(batchId_).lastBlockId;
         tran_ = getBatchVerifyingTransition(batchId_);
     }
 
@@ -360,14 +362,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         return state.bondBalance[_user];
     }
 
-    /// @inheritdoc ITaikoInbox
-    function getBatch(uint64 _batchId) external view returns (Batch memory batch_) {
-        Config memory config = getConfig();
-        require(_batchId >= config.forkHeights.pacaya, InvalidForkHeight());
-
-        batch_ = state.batches[_batchId % config.batchRingBufferSize];
-        require(batch_.batchId == _batchId, BatchNotFound());
-    }
+ 
 
     /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
     /// Layer 2 (L2).
@@ -386,6 +381,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     /// @inheritdoc ITaikoInbox
     function bondToken() public view returns (address) {
         return resolve(LibStrings.B_BOND_TOKEN, true);
+    }
+
+       /// @inheritdoc ITaikoInbox
+    function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
+        Config memory config = getConfig();
+        require(_batchId >= config.forkHeights.pacaya, InvalidForkHeight());
+
+        batch_ = state.batches[_batchId % config.batchRingBufferSize];
+        require(batch_.batchId == _batchId, BatchNotFound());
     }
 
     /// @inheritdoc ITaikoInbox

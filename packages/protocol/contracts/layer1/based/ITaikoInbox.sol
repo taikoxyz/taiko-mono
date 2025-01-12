@@ -82,7 +82,7 @@ interface ITaikoInbox {
     /// @notice Forge is only able to run coverage in case the contracts by default capable of
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     struct Stats1 {
-        uint64 __reserved1;
+        uint64 genesisHeight;
         uint64 __reserved2;
         uint64 lastSyncedBatchId;
         uint64 lastSyncedAt;
@@ -306,19 +306,21 @@ interface ITaikoInbox {
 
     /// @notice Retrieves the transition used for the last verified batch.
     /// @return batchId_ The batch ID of the last verified transition.
+    /// @return blockId_ The block ID of the last verified block.
     /// @return tran_ The last verified transition.
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, Transition memory tran_);
+        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_);
 
     /// @notice Retrieves the transition used for the last synced batch.
     /// @return batchId_ The batch ID of the last synced transition.
+    /// @return blockId_ The block ID of the last synced block.
     /// @return tran_ The last synced transition.
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, Transition memory tran_);
+        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_);
 
     /// @notice Retrieves the transition used for verifying a batch.
     /// @param _batchId The batch ID.
