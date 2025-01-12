@@ -84,13 +84,13 @@ interface ITaikoInbox {
     struct Stats1 {
         uint64 __reserved1;
         uint64 __reserved2;
-        uint64 lastSyncedBatch;
+        uint64 lastSyncedBatchId;
         uint64 lastSyncedAt;
     }
 
     struct Stats2 {
         uint64 numBatches;
-        uint64 lastVerifiedBatch;
+        uint64 lastVerifiedBatchId;
         bool paused;
         uint56 lastProposedIn;
         uint64 lastUnpausedAt;

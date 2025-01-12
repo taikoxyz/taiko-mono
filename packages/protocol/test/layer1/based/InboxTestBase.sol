@@ -132,12 +132,12 @@ abstract contract InboxTestBase is Layer1Test {
     function _logAllBatchesAndTransitions() internal view {
         console2.log(unicode"|───────────────────────────────────────────────────────────────");
         ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
-        console2.log("Stats1 - lastSyncedBatch:", stats1.lastSyncedBatch);
+        console2.log("Stats1 - lastSyncedBatchId:", stats1.lastSyncedBatchId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
 
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         console2.log("Stats2 - numBatches:", stats2.numBatches);
-        console2.log("Stats2 - lastVerifiedBatch:", stats2.lastVerifiedBatch);
+        console2.log("Stats2 - lastVerifiedBatchId:", stats2.lastVerifiedBatchId);
         console2.log("Stats2 - paused:", stats2.paused);
         console2.log("Stats2 - lastProposedIn:", stats2.lastProposedIn);
         console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
@@ -151,7 +151,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {
             ITaikoInbox.Batch memory batch = inbox.getBatch(i);
-            if (batch.batchId <= stats2.lastVerifiedBatch) {
+            if (batch.batchId <= stats2.lastVerifiedBatchId) {
                 console2.log(unicode"|─ ✔ batch#", batch.batchId);
             } else {
                 console2.log(unicode"|─── batch#", batch.batchId);

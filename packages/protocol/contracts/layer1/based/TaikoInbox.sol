@@ -71,7 +71,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         unchecked {
             require(
-                stats2.numBatches < stats2.lastVerifiedBatch + config.maxBatchProposals,
+                stats2.numBatches < stats2.lastVerifiedBatchId + config.maxBatchProposals,
                 TooManyBatches()
             );
         }
@@ -194,7 +194,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
             batchIds[i] = meta.batchId;
             require(meta.batchId >= config.forkHeights.pacaya, InvalidForkHeight());
-            require(meta.batchId > stats2.lastVerifiedBatch, BatchNotFound());
+            require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
 
             Transition calldata tran = _transitions[i];
@@ -332,7 +332,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (uint64 batchId_, Transition memory tran_)
     {
-        batchId_ = state.stats2.lastVerifiedBatch;
+        batchId_ = state.stats2.lastVerifiedBatchId;
         tran_ = getBatchVerifyingTransition(batchId_);
     }
 
@@ -342,7 +342,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (uint64 batchId_, Transition memory tran_)
     {
-        batchId_ = state.stats1.lastSyncedBatch;
+        batchId_ = state.stats1.lastSyncedBatchId;
         tran_ = getBatchVerifyingTransition(batchId_);
     }
 
@@ -452,7 +452,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     )
         private
     {
-        uint64 batchId = _stats2.lastVerifiedBatch;
+        uint64 batchId = _stats2.lastVerifiedBatchId;
         uint256 slot = batchId % _config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         uint24 tid = batch.verifiedTransitionId;
@@ -460,7 +460,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         SyncBatch memory synced;
 
-        uint256 stopBlockId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatch).min(
+        uint256 stopBlockId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId).min(
             _stats2.numBatches
         );
 
@@ -497,22 +497,22 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             --batchId;
         }
 
-        if (_stats2.lastVerifiedBatch != batchId) {
-            _stats2.lastVerifiedBatch = batchId;
+        if (_stats2.lastVerifiedBatchId != batchId) {
+            _stats2.lastVerifiedBatchId = batchId;
 
-            batch = state.batches[_stats2.lastVerifiedBatch % _config.batchRingBufferSize];
+            batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
             batch.verifiedTransitionId = tid;
-            emit BatchesVerified(_stats2.lastVerifiedBatch, blockHash);
+            emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
             if (synced.batchId != 0) {
-                if (synced.batchId != _stats2.lastVerifiedBatch) {
+                if (synced.batchId != _stats2.lastVerifiedBatchId) {
                     // We write the synced batch's verifiedTransitionId to storage
                     batch = state.batches[synced.batchId % _config.batchRingBufferSize];
                     batch.verifiedTransitionId = synced.tid;
                 }
 
                 Stats1 memory stats1 = state.stats1;
-                stats1.lastSyncedBatch = synced.batchId;
+                stats1.lastSyncedBatchId = synced.batchId;
                 stats1.lastSyncedAt = uint64(block.timestamp);
                 state.stats1 = stats1;
 
