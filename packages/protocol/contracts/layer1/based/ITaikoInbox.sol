@@ -67,13 +67,13 @@ interface ITaikoInbox {
     /// @notice 3 slots used.
     struct Batch {
         bytes32 metaHash; // slot 1
-        address _reserved2;
-        uint96 _reserved3;
+        uint64 lastBlockId;
+        uint192 _reserved3;
         uint64 batchId; // slot 3
         uint64 timestamp;
         uint64 anchorBlockId;
         uint24 nextTransitionId;
-        uint8 numSubBlocks;
+        uint8 reserved4;
         // The ID of the transaction that is used to verify this batch. However, if this batch is
         // not verified as the last one in a transaction, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
@@ -204,13 +204,13 @@ interface ITaikoInbox {
     error BatchNotFound();
     error BatchVerified();
     error BlobNotFound();
+    error BlockNotFound();
     error BlobNotSpecified();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InsufficientBond();
-    error InvalidBlockParams();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
     error InvalidTransitionBlockHash();
@@ -227,6 +227,7 @@ interface ITaikoInbox {
     error TimestampTooLarge();
     error TimestampTooSmall();
     error TooManyBatches();
+    error TooManyBlocks();
     error TooManySignals();
     error TransitionNotFound();
 
