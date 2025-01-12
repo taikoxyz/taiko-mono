@@ -362,8 +362,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         return state.bondBalance[_user];
     }
 
- 
-
     /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
     /// Layer 2 (L2).
     /// @return True if the contract is operating on L1, false if on L2.
@@ -383,7 +381,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 
-       /// @inheritdoc ITaikoInbox
+    /// @inheritdoc ITaikoInbox
     function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
         Config memory config = getConfig();
         require(_batchId >= config.forkHeights.pacaya, InvalidForkHeight());
@@ -437,7 +435,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         state.stats2.lastProposedIn = uint56(block.number);
         state.stats2.numBatches = 1;
-        
+
         emit BatchesVerified(0, _genesisBlockHash);
     }
 

@@ -55,7 +55,8 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) = inbox.getLastVerifiedTransition();
+        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+            inbox.getLastVerifiedTransition();
         assertEq(batchId, 0);
         assertEq(blockId, 0);
         assertEq(tran.blockHash, correctBlockhash(0));
@@ -210,7 +211,8 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) = inbox.getLastVerifiedTransition();
+        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+            inbox.getLastVerifiedTransition();
         assertEq(batchId, 9);
         assertEq(blockId, 9);
         assertEq(tran.blockHash, correctBlockhash(9));
@@ -320,7 +322,8 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) = inbox.getLastVerifiedTransition();
+        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+            inbox.getLastVerifiedTransition();
         assertEq(batchId, 10);
         assertEq(blockId, 10);
         assertEq(tran.blockHash, correctBlockhash(10));
