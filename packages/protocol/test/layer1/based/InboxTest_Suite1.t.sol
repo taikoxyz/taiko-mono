@@ -389,65 +389,64 @@ contract InboxTest_Suite1 is InboxTestBase {
         _logAllBatchesAndTransitions();
     }
 
-//     function test_proposeBlocksV3_reverts_for_invalid_proposer_and_preconfRouter()
-//         external
-//         transactBy(Alice)
-//     {
-//         uint64 count = 1;
+    function test_proposeBatch_reverts_for_invalid_proposer_and_preconfRouter()
+        external
+        transactBy(Alice)
+    {
+        ITaikoInbox.BatchParams memory params;
 
-//         vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
-//         inbox.proposeBlocksV3(Alice, address(0), new ITaikoInbox.BlockParamsV3[](count),
-// "txList");
+        vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
+        inbox.proposeBatch(Alice, address(0), params, "txList");
 
-//         vm.startPrank(deployer);
-//         address preconfRouter = Bob;
-//         resolver.registerAddress(block.chainid, "preconf_router", preconfRouter);
-//         vm.stopPrank();
+        vm.startPrank(deployer);
+        address preconfRouter = Bob;
+        resolver.registerAddress(block.chainid, "preconf_router", preconfRouter);
+        vm.stopPrank();
 
-//         vm.startPrank(Alice);
-//         vm.expectRevert(ITaikoInbox.NotPreconfRouter.selector);
-//         inbox.proposeBlocksV3(
-//             preconfRouter, address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
-//         );
-//         vm.stopPrank();
+        vm.startPrank(Alice);
+        vm.expectRevert(ITaikoInbox.NotPreconfRouter.selector);
+        inbox.proposeBatch(preconfRouter, address(0), params, "txList");
+        vm.stopPrank();
 
-//         vm.startPrank(preconfRouter);
-//         vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
-//         inbox.proposeBlocksV3(
-//             address(0), address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
-//         );
-//         vm.stopPrank();
-//     }
+        vm.startPrank(preconfRouter);
+        vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
+        inbox.proposeBatch(address(0), address(0), params, "txList");
+        vm.stopPrank();
+    }
 
-//     function test_inbox_measure_gas_used()
-//         external
-//         transactBy(Alice)
-//         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
-//         WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 10)
-//         WhenLogAllBlocksAndTransitions
-//     {
-//         uint64 count = 1;
+    function test_inbox_measure_gas_used()
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
+        WhenLogAllBatchesAndTransitions
+    {
+        uint64 count = 3;
 
-//         vm.startSnapshotGas("proposeBlocksV3");
-//         ITaikoInbox.BlockMetadataV3[] memory metas = inbox.proposeBlocksV3(
-//             address(0), address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
-//         );
-//         uint256 gasProposeBlocksV3 = vm.stopSnapshotGas("proposeBlocksV3");
-//         console2.log("Gas per block - proposing:", gasProposeBlocksV3 / count);
+        vm.startSnapshotGas("proposeBatch");
 
-//         ITaikoInbox.TransitionV3[] memory transitions = new ITaikoInbox.TransitionV3[](count);
-//         for (uint256 i; i < metas.length; ++i) {
-//             transitions[i].parentHash = correctBlockhash(metas[i].blockId - 1);
-//             transitions[i].blockHash = correctBlockhash(metas[i].blockId);
-//             transitions[i].stateRoot = correctStateRoot(metas[i].blockId);
-//         }
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(count);
 
-//         vm.startSnapshotGas("proveBlocksV3");
-//         inbox.proveBlocksV3(metas, transitions, "proof");
-//         uint256 gasProveBlocksV3 = vm.stopSnapshotGas("proveBlocksV3");
-//         console2.log("Gas per block - proving:", gasProveBlocksV3 / count);
-//         console2.log("Gas per block - total:", (gasProposeBlocksV3 + gasProveBlocksV3) / count);
+        uint256 gasProposeBatches = vm.stopSnapshotGas("proposeBatch");
+        console2.log("Gas per block - proposing:", gasProposeBatches / count);
 
-//         _logAllBlocksAndTransitions();
-//     }
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](count);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](count);
+
+        for (uint256 i; i < batchIds.length; ++i) {
+            metas[i] = batchMetadatas[batchIds[i]];
+
+            transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
+            transitions[i].blockHash = correctBlockhash(batchIds[i]);
+            transitions[i].stateRoot = correctStateRoot(batchIds[i]);
+        }
+
+        vm.startSnapshotGas("proveBatches");
+        inbox.proveBatches(metas, transitions, "proof");
+        uint256 gasProveBatches = vm.stopSnapshotGas("proveBatches");
+        console2.log("Gas per block - proving:", gasProveBatches / count);
+        console2.log("Gas per block - total:", (gasProposeBatches + gasProveBatches) / count);
+
+        _logAllBatchesAndTransitions();
+    }
 }
