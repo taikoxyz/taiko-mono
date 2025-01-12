@@ -63,7 +63,7 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(client.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(client.PacayaClients.TaikoInbox, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}

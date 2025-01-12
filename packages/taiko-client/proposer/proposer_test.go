@@ -341,13 +341,13 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 }
 
 func (s *ProposerTestSuite) TestProposeTxListOntake() {
-	for i := 0; i < int(s.p.protocolConfigs.OntakeForkHeight); i++ {
+	for i := 0; i < int(s.p.protocolConfigs.ForkHeights.Ontake); i++ {
 		s.ProposeAndInsertValidBlock(s.p, s.s)
 	}
 
 	l2Head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.OntakeForkHeight)
+	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.ForkHeights.Ontake)
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)

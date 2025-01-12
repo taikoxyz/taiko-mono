@@ -30,6 +30,7 @@ type State struct {
 	// Constants
 	GenesisL1Height  *big.Int
 	OnTakeForkHeight *big.Int
+	PacayaForkHeight *big.Int
 
 	// RPC clients
 	rpc *rpc.Client
@@ -62,13 +63,9 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
-	s.OnTakeForkHeight = new(big.Int).SetUint64(protocolConfigs.OntakeForkHeight)
+	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.OntakeClients.ForkHeight)
+	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeight)
 
 	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
@@ -248,4 +245,12 @@ func (s *State) IsOnTake(num *big.Int) bool {
 		return false
 	}
 	return s.OnTakeForkHeight.Cmp(num) <= 0
+}
+
+// IsPacaya returns whether num is either equal to the pacaya block or greater.
+func (s *State) IsPacaya(num *big.Int) bool {
+	if s.PacayaForkHeight == nil || num == nil {
+		return false
+	}
+	return s.PacayaForkHeight.Cmp(num) <= 0
 }

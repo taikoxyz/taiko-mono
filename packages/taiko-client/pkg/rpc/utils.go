@@ -19,6 +19,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -37,11 +38,11 @@ var (
 	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
 
-// GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
+// GetProtocolConfigs gets the protocol configs from TaikoInbox contract.
 func GetProtocolConfigs(
-	taikoL1Client *ontakeBindings.TaikoL1Client,
+	taikoInboxClient *pacayaBindings.TaikoInboxClient,
 	opts *bind.CallOpts,
-) (ontakeBindings.TaikoDataConfig, error) {
+) (pacayaBindings.ITaikoInboxConfig, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -49,16 +50,16 @@ func GetProtocolConfigs(
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	return taikoL1Client.GetConfig(opts)
+	return taikoInboxClient.GetConfig(opts)
 }
 
-// GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
+// GetProtocolStateVariables gets the protocol states from TaikoInbox contract.
 func GetProtocolStateVariables(
-	taikoL1Client *ontakeBindings.TaikoL1Client,
+	taikoInboxClient *pacayaBindings.TaikoInboxClient,
 	opts *bind.CallOpts,
 ) (*struct {
-	A ontakeBindings.TaikoDataSlotA
-	B ontakeBindings.TaikoDataSlotB
+	Stats1 pacayaBindings.ITaikoInboxStats1
+	Stats2 pacayaBindings.ITaikoInboxStats2
 }, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -66,32 +67,26 @@ func GetProtocolStateVariables(
 	}
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
-	// Notice: sloB.LastProposedIn and slotB.LastUnpausedAt are always 0
-	// before upgrading contract, but we can ignore it since we won't use it.
 
-	var slotBV1 ontakeBindings.TaikoDataSlotBV1
-	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
-	if err != nil {
-		if errors.Is(err, ErrSlotBMarshal) {
-			slotA, slotBV1, err = taikoL1Client.GetStateVariablesV1(opts)
-			if err != nil {
-				return nil, err
-			}
-			slotB = ontakeBindings.TaikoDataSlotB{
-				NumBlocks:           slotBV1.NumBlocks,
-				LastVerifiedBlockId: slotBV1.LastVerifiedBlockId,
-				ProvingPaused:       slotBV1.ProvingPaused,
-				LastProposedIn:      nil,
-				LastUnpausedAt:      slotBV1.LastUnpausedAt,
-			}
-		} else {
-			return nil, err
+	var (
+		states *struct {
+			Stats1 pacayaBindings.ITaikoInboxStats1
+			Stats2 pacayaBindings.ITaikoInboxStats2
 		}
-	}
-	return &struct {
-		A ontakeBindings.TaikoDataSlotA
-		B ontakeBindings.TaikoDataSlotB
-	}{slotA, slotB}, nil
+		err error
+	)
+
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		states.Stats1, err = taikoInboxClient.GetStats1(opts)
+		return err
+	})
+	g.Go(func() error {
+		states.Stats2, err = taikoInboxClient.GetStats2(opts)
+		return err
+	})
+
+	return states, g.Wait()
 }
 
 // CheckProverBalance checks if the prover has the necessary allowance and
@@ -107,7 +102,7 @@ func CheckProverBalance(
 	defer cancel()
 
 	// Check allowance on taiko token contract
-	allowance, err := rpc.OntakeClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
+	allowance, err := rpc.PacayaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
 	if err != nil {
 		return false, err
 	}
@@ -120,13 +115,13 @@ func CheckProverBalance(
 	)
 
 	// Check prover's taiko token bondBalance
-	bondBalance, err := rpc.OntakeClients.TaikoL1.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	bondBalance, err := rpc.PacayaClients.TaikoInbox.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
 
 	// Check prover's taiko token tokenBalance
-	tokenBalance, err := rpc.OntakeClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	tokenBalance, err := rpc.PacayaClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}

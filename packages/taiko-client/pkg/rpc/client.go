@@ -2,19 +2,25 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 const (
-	defaultTimeout = 1 * time.Minute
+	defaultTimeout         = 1 * time.Minute
+	pacayaForkHeightDevnet = 0
+	pacayaForkHeightHekla  = 0
+	pacayaForkHeklaMainnet = 0
 )
 
 // OntakeClients contains all smart contract clients for Ontake fork.
@@ -27,6 +33,7 @@ type OntakeClients struct {
 	GuardianProverMinority *ontakeBindings.GuardianProver
 	ProverSet              *ontakeBindings.ProverSet
 	ForkManager            *ontakeBindings.ForkManager
+	ForkHeight             uint64
 }
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
@@ -36,6 +43,7 @@ type PacayaClients struct {
 	TaikoToken  *pacayaBindings.TaikoToken
 	ProverSet   *pacayaBindings.ProverSet
 	ForkManager *pacayaBindings.ForkManager
+	ForkHeight  uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -128,7 +136,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		}
 	}
 
-	client := &Client{
+	c := &Client{
 		L1:           l1Client,
 		L1Beacon:     l1BeaconClient,
 		L2:           l2Client,
@@ -137,21 +145,26 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	// Initialize all smart contract clients.
-	if err := client.initOntakeClients(cfg); err != nil {
+	if err := c.initOntakeClients(cfg); err != nil {
 		return nil, err
 	}
-	if err := client.initPacayaClients(cfg); err != nil {
+	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, err
 	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
-	if err := client.ensureGenesisMatched(ctxWithTimeout); err != nil {
+	if err := c.ensureGenesisMatched(ctxWithTimeout); err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	// Initialize the fork height numbers.
+	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 // initOntakeClients initializes all Ontake smart contract clients.
@@ -262,6 +275,41 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		ProverSet:   proverSet,
 		ForkManager: forkManager,
 	}
+
+	return nil
+}
+
+// initForkHeightConfigs initializes the fork heights in protocol.
+func (c *Client) initForkHeightConfigs(ctx context.Context) error {
+	protocolConfigs, err := c.PacayaClients.TaikoInbox.GetConfig(&bind.CallOpts{Context: ctx})
+	// If failed to get protocol configs, we assuming the current chain is still before the Pacaya fork,
+	// use pre-defined Pacaya fork height.
+	if err != nil {
+		log.Debug(
+			"Failed to get protocol configs, using pre-defined Pacaya fork height",
+			"error", err,
+		)
+		switch c.L2.ChainID.Uint64() {
+		case params.TaikoInternalL2ANetworkID.Uint64():
+			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
+		case params.HeklaNetworkID.Uint64():
+			c.PacayaClients.ForkHeight = pacayaForkHeightHekla
+		case params.TaikoMainnetNetworkID.Uint64():
+			c.PacayaClients.ForkHeight = pacayaForkHeklaMainnet
+		default:
+			return fmt.Errorf("unknown L2 chain ID: %d", c.L2.ChainID.Uint64())
+		}
+
+		ontakeProtocolConfigs, err := c.OntakeClients.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return fmt.Errorf("failed to get Ontake protocol configs: %w", err)
+		}
+		c.OntakeClients.ForkHeight = ontakeProtocolConfigs.OntakeForkHeight
+	}
+
+	// Otherwise, chain is after the Pacaya fork, just use the fork height numbers from the protocol configs.
+	c.OntakeClients.ForkHeight = protocolConfigs.ForkHeights.Ontake
+	c.PacayaClients.ForkHeight = protocolConfigs.ForkHeights.Pacaya
 
 	return nil
 }

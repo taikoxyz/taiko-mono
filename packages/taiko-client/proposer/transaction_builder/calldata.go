@@ -7,7 +7,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -57,12 +56,12 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 	txListBytesArray [][]byte,
 ) (*txmgr.TxCandidate, error) {
 	// Check if the current L2 chain is after ontake fork.
-	state, err := rpc.GetProtocolStateVariables(b.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctx})
+	l2Head, err := b.rpc.L2.BlockNumber(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
+	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(l2Head)) {
 		return nil, fmt.Errorf("ontake transaction builder is not supported before ontake fork")
 	}
 
@@ -109,4 +108,9 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 		To:       to,
 		GasLimit: b.gasLimit,
 	}, nil
+}
+
+// BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
+func (b *CalldataTransactionBuilder) BuildPacaya(ctx context.Context, txListBytes []byte) (*txmgr.TxCandidate, error) {
+	return nil, fmt.Errorf("pacaya transaction builder is not supported for calldata transaction builder")
 }

@@ -199,7 +199,8 @@ func (s *Sender) ValidateProof(
 			)
 			return false, err
 		}
-		verifiedID = new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId)
+		// TODO: use stateVars.B.LastVerifiedBlockId
+		verifiedID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
 	}
 
 	if verifiedID.Cmp(proofWithHeader.BlockID) >= 0 {

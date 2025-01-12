@@ -164,11 +164,12 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.Greater(headAfter, headBefore)
 	s.True(balanceAfter.Cmp(balance) > 0)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.OntakeClients.TaikoL1, nil)
-	s.Nil(err)
-
 	var hasNoneAnchorTxs bool
-	chainConfig := config.NewChainConfig(&protocolConfigs)
+	chainConfig := config.NewChainConfig(
+		s.RPCClient.L2.ChainID,
+		s.RPCClient.OntakeClients.ForkHeight,
+		s.RPCClient.PacayaClients.ForkHeight,
+	)
 	for i := headBefore + 1; i <= headAfter; i++ {
 		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
 		s.Nil(err)

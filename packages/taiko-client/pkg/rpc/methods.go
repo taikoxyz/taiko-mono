@@ -20,6 +20,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -38,10 +39,10 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return err
-	}
+	// stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
@@ -52,19 +53,20 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	var (
 		l2GenesisHash common.Hash
 		filterOpts    = &bind.FilterOpts{
-			Start:   stateVars.A.GenesisHeight,
-			End:     &stateVars.A.GenesisHeight,
+			// Start:   stateVars.A.GenesisHeight,  // TODO: update this value
+			// End:     &stateVars.A.GenesisHeight, // TODO: update this value
 			Context: ctxWithTimeout,
 		}
 	)
 
-	protocolConfigs, err := GetProtocolConfigs(c.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
+	protocolConfigs, err := GetProtocolConfigs(c.PacayaClients.TaikoInbox, &bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return err
 	}
 
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
-	if protocolConfigs.OntakeForkHeight == 0 {
+	// TODO: update checks
+	if protocolConfigs.ForkHeights.Pacaya == 0 {
 		// Fetch the genesis `BlockVerified2` event.
 		iter, err := c.OntakeClients.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
@@ -185,12 +187,13 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, err
-	}
+	// stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.A.GenesisHeight))
+	// TODO: use stateVars.A.GenesisHeight
+	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(0))
 }
 
 // L2ParentByBlockID fetches the block header from L2 execution engine with the largest block id that
@@ -284,7 +287,7 @@ func (c *Client) CalculateBaseFee(
 	l2Head *types.Header,
 	anchorBlockID *big.Int,
 	isOntake bool,
-	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
@@ -428,11 +431,12 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
-		stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return err
-		}
-		progress.HighestBlockID = new(big.Int).SetUint64(stateVars.B.NumBlocks - 1)
+		// TODO: fix this
+		// stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+		// if err != nil {
+		// 	return err
+		// }
+		// progress.HighestBlockID = new(big.Int).SetUint64(stateVars.B.NumBlocks - 1)
 		return nil
 	})
 	g.Go(func() error {
@@ -461,8 +465,8 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
-	A ontakeBindings.TaikoDataSlotA
-	B ontakeBindings.TaikoDataSlotB
+	Stats1 pacayaBindings.ITaikoInboxStats1
+	Stats2 pacayaBindings.ITaikoInboxStats2
 }, error) {
 	if opts == nil {
 		opts = &bind.CallOpts{}
@@ -476,7 +480,7 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	defer cancel()
 	opts.Context = ctxWithTimeout
 
-	return GetProtocolStateVariables(c.OntakeClients.TaikoL1, opts)
+	return GetProtocolStateVariables(c.PacayaClients.TaikoInbox, opts)
 }
 
 // GetLastVerifiedBlock gets the last verified block from TaikoL1 contract.
@@ -558,7 +562,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			state, err := GetProtocolStateVariables(c.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
+			state, err := GetProtocolStateVariables(c.PacayaClients.TaikoInbox, &bind.CallOpts{Context: ctxWithTimeout})
 			if err != nil {
 				return result, err
 			}
@@ -892,7 +896,7 @@ func (c *Client) calculateBaseFeeOntake(
 	ctx context.Context,
 	l2Head *types.Header,
 	currentTimestamp uint64,
-	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) (*big.Int, error) {
 	var (
 		newGasTarget    = uint64(baseFeeConfig.GasIssuancePerSecond) * uint64(baseFeeConfig.AdjustmentQuotient)
@@ -943,7 +947,13 @@ func (c *Client) calculateBaseFeeOntake(
 
 	baseFeeInfo, err := c.OntakeClients.TaikoL2.CalculateBaseFee(
 		&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-		*baseFeeConfig,
+		ontakeBindings.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient,
+			SharingPctg:            baseFeeConfig.SharingPctg,
+			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond,
+			MinGasExcess:           baseFeeConfig.MinGasExcess,
+			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock,
+		},
 		currentTimestamp-l2Head.Time,
 		parentGasExcess,
 		uint32(l2Head.GasUsed),
@@ -956,7 +966,13 @@ func (c *Client) calculateBaseFeeOntake(
 				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 				uint32(l2Head.GasUsed),
 				currentTimestamp,
-				*baseFeeConfig,
+				ontakeBindings.LibSharedDataBaseFeeConfig{
+					AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient,
+					SharingPctg:            baseFeeConfig.SharingPctg,
+					GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond,
+					MinGasExcess:           baseFeeConfig.MinGasExcess,
+					MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock,
+				},
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to calculate base fee by GetBasefeeV2: %w", err)

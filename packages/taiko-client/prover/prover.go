@@ -20,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -45,7 +46,7 @@ type Prover struct {
 	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 
 	// Contract configurations
-	protocolConfigs *ontakeBindings.TaikoDataConfig
+	protocolConfigs *pacayaBindings.ITaikoInboxConfig
 
 	// States
 	sharedState *state.SharedState
@@ -124,14 +125,14 @@ func InitFromConfig(
 	}
 
 	// Configs
-	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: p.ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.PacayaClients.TaikoInbox, &bind.CallOpts{Context: p.ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
 	p.protocolConfigs = &protocolConfigs
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
-	chBufferSize := p.protocolConfigs.BlockMaxProposals
+	chBufferSize := p.protocolConfigs.MaxBatchProposals // TODO: check this value
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
 	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
@@ -290,7 +291,7 @@ func (p *Prover) eventLoop() {
 	defer forceProvingTicker.Stop()
 
 	// Channels
-	chBufferSize := p.protocolConfigs.BlockMaxProposals
+	chBufferSize := p.protocolConfigs.MaxBatchProposals // TODO: check this value
 	blockProposedV2Ch := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2, chBufferSize)
 	blockVerifiedV2Ch := make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
 	transitionProvedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, chBufferSize)

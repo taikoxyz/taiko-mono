@@ -146,10 +146,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	state, err := s.RPCClient.GetProtocolStateVariables(nil)
-	s.Nil(err)
-
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(state.B.NumBlocks-1))
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
@@ -164,7 +161,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	ontakeForkHeight, err := s.RPCClient.OntakeClients.TaikoL2.OntakeForkHeight(nil)
 	s.Nil(err)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.OntakeClients.TaikoL1, nil)
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.PacayaClients.TaikoInbox, nil)
 	s.Nil(err)
 
 	baseFee, err := s.RPCClient.CalculateBaseFee(

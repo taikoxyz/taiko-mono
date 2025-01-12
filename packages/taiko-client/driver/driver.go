@@ -173,15 +173,8 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
-	protocolConfigs, err := rpc.GetProtocolConfigs(d.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: d.ctx})
-	if err != nil {
-		log.Error("Failed to get protocol configs", "error", err)
-		return
-	}
-
 	var (
-		ticker       = time.NewTicker(protocolStatusReportInterval)
-		maxNumBlocks = protocolConfigs.BlockMaxProposals
+		ticker = time.NewTicker(protocolStatusReportInterval)
 	)
 	d.wg.Add(1)
 
@@ -203,9 +196,9 @@ func (d *Driver) reportProtocolStatus() {
 
 			log.Info(
 				"📖 Protocol status",
-				"lastVerifiedBlockId", vars.B.LastVerifiedBlockId,
-				"pendingBlocks", vars.B.NumBlocks-vars.B.LastVerifiedBlockId-1,
-				"availableSlots", vars.B.LastVerifiedBlockId+maxNumBlocks-vars.B.NumBlocks,
+				// TODO: fix these two values, and add one more deleted value.
+				"lastVerifiedBacth", vars.Stats2.LastVerifiedBatchId,
+				"pendingBlocks", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 			)
 		}
 	}

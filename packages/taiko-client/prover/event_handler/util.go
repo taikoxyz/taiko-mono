@@ -27,7 +27,8 @@ func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, e
 		return false, err
 	}
 
-	return id.Uint64() <= stateVars.B.LastVerifiedBlockId, nil
+	// TODO: block => batch
+	return id.Uint64() <= stateVars.Stats2.LastVerifiedBatchId, nil
 }
 
 // isValidProof checks if the given proof is a valid one, comparing to current L2 node canonical chain.

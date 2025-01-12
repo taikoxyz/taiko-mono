@@ -19,7 +19,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -41,10 +41,10 @@ type Proposer struct {
 	proposingTimer *time.Timer
 
 	// Transaction builder
-	txBuilder builder.ProposeBlockTransactionBuilder
+	txBuilder builder.ProposeBlocksTransactionBuilder
 
 	// Protocol configurations
-	protocolConfigs *ontakeBindings.TaikoDataConfig
+	protocolConfigs *pacayaBindings.ITaikoInboxConfig
 
 	chainConfig *config.ChainConfig
 
@@ -84,7 +84,7 @@ func (p *Proposer) InitFromConfig(
 	}
 
 	// Protocol configs
-	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: p.ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.PacayaClients.TaikoInbox, &bind.CallOpts{Context: p.ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
@@ -114,7 +114,11 @@ func (p *Proposer) InitFromConfig(
 	}
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
-	p.chainConfig = config.NewChainConfig(p.protocolConfigs)
+	p.chainConfig = config.NewChainConfig(
+		p.rpc.L2.ChainID,
+		p.rpc.OntakeClients.ForkHeight,
+		p.rpc.PacayaClients.ForkHeight,
+	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
 		p.L1ProposerPrivKey,
@@ -294,6 +298,20 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 
 // ProposeTxList proposes the given transactions lists to TaikoL1 smart contract.
 func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transactions) error {
+	l2Head, err := p.rpc.L2.BlockNumber(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 chain head number: %w", err)
+	}
+
+	// Check if the current L2 chain is after Pacaya fork, propose blocks batch.
+	if p.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head + 1)) {
+		if err := p.ProposeTxListPacaya(ctx, txLists); err != nil {
+			return err
+		}
+		p.lastProposedAt = time.Now()
+		return nil
+	}
+
 	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
 	if err := p.ProposeTxListOntake(ctx, txLists); err != nil {
 		return err
@@ -364,6 +382,67 @@ func (p *Proposer) ProposeTxListOntake(
 
 	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
 	metrics.ProposerProposedTxsCounter.Add(float64(totalTxs))
+
+	return nil
+}
+
+// ProposeTxListPacaya proposes the given transactions lists to TaikoInbox smart contract.
+func (p *Proposer) ProposeTxListPacaya(
+	ctx context.Context,
+	txLists []types.Transactions,
+) error {
+	var (
+		proverAddress = p.proposerAddress
+		allTxs        types.Transactions
+		txListsBytes  []byte
+	)
+	for _, txs := range txLists {
+		allTxs = append(allTxs, txs...)
+	}
+
+	b, err := rlp.EncodeToBytes(allTxs)
+	if err != nil {
+		return fmt.Errorf("failed to encode transactions: %w", err)
+	}
+	if txListsBytes, err = utils.Compress(b); err != nil {
+		return fmt.Errorf("failed to compress transactions: %w", err)
+	}
+
+	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
+		proverAddress = p.Config.ClientConfig.ProverSetAddress
+	}
+
+	ok, err := rpc.CheckProverBalance(
+		ctx,
+		p.rpc,
+		proverAddress,
+		p.TaikoL1Address,
+		p.protocolConfigs.LivenessBond,
+	)
+
+	if err != nil {
+		log.Warn("Failed to check prover balance", "prover", proverAddress, "error", err)
+		return err
+	}
+
+	if !ok {
+		return fmt.Errorf("insufficient prover (%s) balance", proverAddress.Hex())
+	}
+
+	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txListsBytes)
+	if err != nil {
+		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
+		return err
+	}
+
+	if err := p.sendTx(ctx, txCandidate); err != nil {
+		return err
+	}
+
+	log.Info("📝 Batch propose blocks succeeded", "blocks", len(txLists), "txs", len(allTxs))
+
+	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
+	metrics.ProposerProposedTxsCounter.Add(float64(len(allTxs)))
 
 	return nil
 }

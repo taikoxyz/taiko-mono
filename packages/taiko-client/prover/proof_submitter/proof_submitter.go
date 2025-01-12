@@ -386,7 +386,8 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	for i, proof := range batchProof.Proofs {
 		uint64BlockIDs = append(uint64BlockIDs, proof.BlockID.Uint64())
 		// Check if this proof is still needed to be submitted.
-		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId))
+		// TODO: use stateVars.B.LastVerifiedBlockId
+		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId))
 		if err != nil {
 			return err
 		}

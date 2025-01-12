@@ -148,6 +148,11 @@ func (b *TxBuilderWithFallback) BuildOntake(
 	return txWithBlob, nil
 }
 
+// BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
+func (b *TxBuilderWithFallback) BuildPacaya(ctx context.Context, txListBytes []byte) (*txmgr.TxCandidate, error) {
+	return nil, fmt.Errorf("pacaya transaction builder is not supported for fallback transaction builder")
+}
+
 // estimateCandidateCost estimates the realtime onchain cost of the given transaction.
 func (b *TxBuilderWithFallback) estimateCandidateCost(
 	ctx context.Context,
