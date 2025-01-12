@@ -27,7 +27,7 @@ contract ConfigurableInbox is TaikoInbox {
         __config = _config;
     }
 
-    function getConfig() public view override returns (ITaikoInbox.Config memory) {
+    function getConfigV3() public view override returns (ITaikoInbox.Config memory) {
         return __config;
     }
 

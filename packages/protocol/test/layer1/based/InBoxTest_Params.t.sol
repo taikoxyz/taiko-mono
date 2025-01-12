@@ -61,7 +61,7 @@ contract InBoxTest_Params is InboxTestBase {
         external
         transactBy(Alice)
     {
-        ITaikoInbox.Config memory config = inbox.getConfig();
+        ITaikoInbox.Config memory config = inbox.getConfigV3();
 
         // Advance the block number to create the appropriate test scenario
         vm.roll(config.maxAnchorHeightOffset + 2);

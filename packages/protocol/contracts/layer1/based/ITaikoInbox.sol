@@ -296,7 +296,7 @@ interface ITaikoInbox {
     /// @param _batchId The batch ID.
     /// @param _tid The transition ID.
     /// @return The specified transition.
-    function getTransition(
+    function getTransitionV3(
         uint64 _batchId,
         uint24 _tid
     )
@@ -330,5 +330,5 @@ interface ITaikoInbox {
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
-    function getConfig() external view returns (Config memory);
+    function getConfigV3() external view returns (Config memory);
 }

@@ -157,7 +157,7 @@ abstract contract InboxTestBase is Layer1Test {
         console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
 
         // console2.log("stats2.numBatches:", stats2.numBatches);
-        // console2.log("getConfig().maxBatchProposals:", getConfig().maxBatchProposals);
+        // console2.log("getConfigV3().maxBatchProposals:", getConfigV3().maxBatchProposals);
 
         uint64 firstBatchId = stats2.numBatches > getConfig().maxBatchProposals
             ? stats2.numBatches - getConfig().maxBatchProposals
@@ -177,7 +177,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
             for (uint24 j = 1; j < batch.nextTransitionId; ++j) {
-                ITaikoInbox.Transition memory tran = inbox.getTransition(batch.batchId, j);
+                ITaikoInbox.Transition memory tran = inbox.getTransitionV3(batch.batchId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",
