@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
+import "./IFork.sol";
+
 /// @title ForkManager
 /// @custom:security-contact security@taiko.xyz
 /// @notice This contract serves as a base contract for managing up to two forks within the Taiko
@@ -23,11 +25,13 @@ contract ForkManager is UUPSUpgradeable, Ownable2StepUpgradeable {
     address public immutable oldFork;
     address public immutable newFork;
 
-    error ForkAddressIsZero();
     error InvalidParams();
+    error ZeroAddress();
 
     constructor(address _oldFork, address _currFork) {
-        require(_currFork != address(0) && _currFork != _oldFork, InvalidParams());
+        if (_currFork == address(0) || _currFork == _oldFork) {
+            revert InvalidParams();
+        }
         oldFork = _oldFork;
         newFork = _currFork;
     }
@@ -45,8 +49,8 @@ contract ForkManager is UUPSUpgradeable, Ownable2StepUpgradeable {
     }
 
     function _fallback() internal virtual {
-        address fork = shouldRouteToOldFork(msg.sig) ? oldFork : newFork;
-        require(fork != address(0), ForkAddressIsZero());
+        address fork = IFork(newFork).isForkActive() ? newFork : oldFork;
+        require(fork != address(0), ZeroAddress());
 
         assembly {
             calldatacopy(0, 0, calldatasize())
@@ -60,11 +64,4 @@ contract ForkManager is UUPSUpgradeable, Ownable2StepUpgradeable {
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
-
-    /// @notice Determines if the call should be routed to the old fork.
-    /// @dev This function is intended to be overridden in derived contracts to provide custom
-    /// routing logic.
-    /// @param  _selector The function selector of the call.
-    /// @return A boolean value indicating whether the call should be routed to the old fork.
-    function shouldRouteToOldFork(bytes4 _selector) internal pure virtual returns (bool) { }
 }
