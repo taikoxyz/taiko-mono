@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
 
-contract InBoxTest_BlockParams is InboxTestBase {
+contract InBoxTest_Params is InboxTestBase {
     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -33,10 +33,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         bondToken = deployBondToken();
     }
 
-    function test_validateBlockParams_defaults_when_anchorBlockId_is_zero()
-        external
-        transactBy(Alice)
-    {
+    function test_validateParams_defaults_when_anchorBlockId_is_zero() external transactBy(Alice) {
         ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
         blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
 
@@ -60,7 +57,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         assertEq(meta.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
     }
 
-    function test_validateBlockParams_reverts_when_anchorBlockId_too_small()
+    function test_validateParams_reverts_when_anchorBlockId_too_small()
         external
         transactBy(Alice)
     {
@@ -90,7 +87,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         inbox.proposeBatch(address(0), address(0), params, "txList");
     }
 
-    function test_validateBlockParams_reverts_when_anchorBlockId_too_large()
+    function test_validateParams_reverts_when_anchorBlockId_too_large()
         external
         transactBy(Alice)
     {
@@ -116,7 +113,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         inbox.proposeBatch(address(0), address(0), params, "txList");
     }
 
-    function test_validateBlockParams_reverts_when_anchorBlockId_smaller_than_parent()
+    function test_validateParams_reverts_when_anchorBlockId_smaller_than_parent()
         external
         transactBy(Alice)
     {
@@ -143,7 +140,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         inbox.proposeBatch(address(0), address(0), params, "txList");
     }
 
-    function test_validateBlockParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
+    function test_validateParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
         ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
         blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
@@ -165,10 +162,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         assertEq(meta.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
     }
 
-    function test_validateBlockParams_reverts_when_timestamp_too_large()
-        external
-        transactBy(Alice)
-    {
+    function test_validateParams_reverts_when_timestamp_too_large() external transactBy(Alice) {
         ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
         blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({

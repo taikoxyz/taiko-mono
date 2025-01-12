@@ -89,8 +89,6 @@ abstract contract InboxTestBase is Layer1Test {
     {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](1);
-        // TODO: remove the next line
-        batchParams.blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
 
         batchIds = new uint64[](numBatchesToPropose);
 
