@@ -1,175 +1,196 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-// import "contracts/layer1/based/ITaikoInbox.sol";
-// import "./InboxTestBase.sol";
+import "contracts/layer1/based/ITaikoInbox.sol";
+import "./InboxTestBase.sol";
 
-// contract InboxTest_CalldataForTxList is InboxTestBase {
-//     function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
-//         return ITaikoInbox.ConfigV3({
-//             chainId: LibNetwork.TAIKO_MAINNET,
-//             blockMaxProposals: 10,
-//             blockRingBufferSize: 15,
-//             maxBlocksToVerify: 5,
-//             blockMaxGasLimit: 240_000_000,
-//             livenessBond: 125e18, // 125 Taiko token
-//             stateRootSyncInternal: 5,
-//             maxAnchorHeightOffset: 64,
-//             baseFeeConfig: LibSharedData.BaseFeeConfig({
-//                 adjustmentQuotient: 8,
-//                 sharingPctg: 75,
-//                 gasIssuancePerSecond: 5_000_000,
-//                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
-//                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
-//              }),
-//             provingWindow: 1 hours,
-//             maxSignalsToReceive: 16,
-//             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
-//         });
-//     }
+contract InboxTest_CalldataForTxList is InboxTestBase {
+    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+        return ITaikoInbox.Config({
+            chainId: LibNetwork.TAIKO_MAINNET,
+            maxBatchProposals: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18, // 125 Taiko token
+            stateRootSyncInternal: 5,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            provingWindow: 1 hours,
+            maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 256,
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
+        });
+    }
 
-//     function setUpOnEthereum() internal override {
-//         super.setUpOnEthereum();
-//         bondToken = deployBondToken();
-//     }
+    function setUpOnEthereum() internal override {
+        super.setUpOnEthereum();
+        bondToken = deployBondToken();
+    }
 
-//     function test_calldata_used_for_txlist_da() external {
-//         vm.warp(1_000_000);
+    function test_calldata_used_for_txlist_da() external {
+        vm.warp(1_000_000);
 
-//         uint256 initialBondBalance = 100_000 ether;
-//         uint256 bondAmount = 1000 ether;
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondAmount = 1000 ether;
 
-//         setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-//         // Define the txList in calldata
-//         bytes memory txList = abi.encodePacked("txList");
-//         bytes32 expectedHash = keccak256(txList);
+        // Define the txList in calldata
+        bytes memory txList = abi.encodePacked("txList");
+        bytes32 expectedHash = keccak256(txList);
 
-//         vm.prank(Alice);
-//         uint64[] memory blockIds =
-//             _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1, txList: txList });
-//         for (uint256 i; i < blockIds.length; ++i) {
-//             ITaikoInbox.BlockMetadataV3 memory meta = blockMetadatas[blockIds[i]];
-//             assertEq(meta.txListHash, expectedHash);
-//         }
+        vm.prank(Alice);
+        uint64[] memory batchIds =
+            _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1, txList: txList });
 
-//         vm.prank(Alice);
-//         _proveBlocksWithCorrectTransitions(blockIds);
-//     }
+        for (uint256 i; i < batchIds.length; ++i) {
+            ITaikoInbox.BatchMetadata memory meta = batchMetadatas[batchIds[i]];
+            assertEq(meta.txListHash, expectedHash);
+        }
 
-//     function test_block_rejection_due_to_missing_txlist_and_blobindex() external {
-//         vm.warp(1_000_000);
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds);
+    }
 
-//         uint256 initialBondBalance = 100_000 ether;
-//         uint256 bondAmount = 1000 ether;
+    function test_block_rejection_due_to_missing_txlist_and_blobindex() external {
+        vm.warp(1_000_000);
 
-//         setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondAmount = 1000 ether;
 
-//         // Define empty txList
-//         bytes memory txList = "";
-//         ITaikoInbox.BlockParamsV3[] memory blockParams = new ITaikoInbox.BlockParamsV3[](1);
-//         blockParams[0].blobIndex = 0; // Blob index not provided
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-//         vm.prank(Alice);
-//         vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
-//         inbox.proposeBlocksV3(address(0), address(0), blockParams, txList);
-//     }
+        ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
+        blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
 
-//     function test_propose_block_with_empty_txlist_and_valid_blobindex() external {
-//         vm.warp(1_000_000);
+        ITaikoInbox.BatchParams memory batchParams = ITaikoInbox.BatchParams({
+            anchorBlockId: 0,
+            timestamp: 0,
+            parentMetaHash: 0,
+            signalSlots: new bytes32[](0),
+            numBlobs: 0, // missing blob index
+            txListOffset: 0,
+            txListSize: 0,
+            anchorInput: bytes32(0),
+            blocks: blocks
+        });
 
-//         uint256 initialBondBalance = 100_000 ether;
-//         uint256 bondAmount = 1000 ether;
+        vm.prank(Alice);
+        vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
+        // With empty txList
+        inbox.proposeBatch(address(0), address(0), batchParams, "");
+    }
 
-//         setupBondTokenState(Alice, initialBondBalance, bondAmount);
+    function test_propose_block_with_empty_txlist_and_valid_blobindex() external {
+        vm.warp(1_000_000);
 
-//         // Define empty txList
-//         bytes memory txList = "";
-//         ITaikoInbox.BlockParamsV3[] memory blockParams = new ITaikoInbox.BlockParamsV3[](1);
-//         blockParams[0].blobIndex = 1; // Valid blob index
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondAmount = 1000 ether;
 
-//         vm.prank(Alice);
-//         ITaikoInbox.BlockMetadataV3[] memory metas =
-//             inbox.proposeBlocksV3(address(0), address(0), blockParams, txList);
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-//         ITaikoInbox.BlockMetadataV3 memory meta = metas[0];
-//         assertTrue(meta.txListHash != 0, "txListHash should not be zero for valid blobIndex");
+        ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
+        blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
 
-//         vm.prank(Alice);
-//         uint64[] memory blockIds = new uint64[](metas.length);
-//         for (uint256 i; i < metas.length; ++i) {
-//             blockMetadatas[metas[i].blockId] = metas[i];
-//             blockIds[i] = metas[i].blockId;
-//         }
-//         _proveBlocksWithCorrectTransitions(blockIds);
-//     }
+        ITaikoInbox.BatchParams memory batchParams = ITaikoInbox.BatchParams({
+            anchorBlockId: 0,
+            timestamp: 0,
+            parentMetaHash: 0,
+            signalSlots: new bytes32[](0),
+            numBlobs: 1, // one blob
+            txListOffset: 0,
+            txListSize: 0,
+            anchorInput: bytes32(0),
+            blocks: blocks
+        });
 
-//     function test_multiple_blocks_with_different_txlist() external {
-//         vm.warp(1_000_000);
+        vm.prank(Alice);
 
-//         uint256 initialBondBalance = 100_000 ether;
-//         uint256 bondAmount = 1000 ether;
+        // With empty txList
+        ITaikoInbox.BatchMetadata memory meta =
+            inbox.proposeBatch(address(0), address(0), batchParams, "");
+        assertTrue(meta.txListHash != 0, "txListHash should not be zero for valid blobIndex");
 
-//         setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        batchMetadatas[meta.batchId] = meta;
 
-//         bytes memory txList1 = abi.encodePacked("txList1");
-//         bytes memory txList2 = abi.encodePacked("txList2");
-//         bytes32 expectedHash1 = keccak256(txList1);
-//         bytes32 expectedHash2 = keccak256(txList2);
+        vm.prank(Alice);
+        uint64[] memory batchIds = new uint64[](1);
+        batchIds[0] = meta.batchId;
 
-//         vm.prank(Alice);
-//         uint64[] memory blockIds1 = _proposeBlocksWithDefaultParameters(1, txList1);
-//         ITaikoInbox.BlockMetadataV3 memory meta1 = blockMetadatas[blockIds1[0]];
-//         assertEq(meta1.txListHash, expectedHash1, "txListHash mismatch for block 1");
+        _proveBatchesWithCorrectTransitions(batchIds);
+    }
 
-//         vm.prank(Alice);
-//         uint64[] memory blockIds2 = _proposeBlocksWithDefaultParameters(1, txList2);
-//         ITaikoInbox.BlockMetadataV3 memory meta2 = blockMetadatas[blockIds2[0]];
-//         assertEq(meta2.txListHash, expectedHash2, "txListHash mismatch for block 2");
+    function test_multiple_blocks_with_different_txlist() external {
+        vm.warp(1_000_000);
 
-//         vm.prank(Alice);
-//         _proveBlocksWithCorrectTransitions(blockIds2);
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondAmount = 1000 ether;
 
-//         vm.prank(Alice);
-//         _proveBlocksWithCorrectTransitions(blockIds1);
-//     }
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-//     function test_prove_block_with_mismatched_txlist() external {
-//         vm.warp(1_000_000);
+        bytes memory txList1 = abi.encodePacked("txList1");
+        bytes memory txList2 = abi.encodePacked("txList2");
+        bytes32 expectedHash1 = keccak256(txList1);
+        bytes32 expectedHash2 = keccak256(txList2);
 
-//         uint256 initialBondBalance = 100_000 ether;
-//         uint256 bondAmount = 1000 ether;
+        vm.prank(Alice);
+        uint64[] memory batchIds1 = _proposeBatchesWithDefaultParameters(1, txList1);
+        ITaikoInbox.BatchMetadata memory meta1 = batchMetadatas[batchIds1[0]];
+        assertEq(meta1.txListHash, expectedHash1, "txListHash mismatch for block 1");
 
-//         setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        vm.prank(Alice);
+        uint64[] memory batchIds2 = _proposeBatchesWithDefaultParameters(1, txList2);
+        ITaikoInbox.BatchMetadata memory meta2 = batchMetadatas[batchIds2[0]];
+        assertEq(meta2.txListHash, expectedHash2, "txListHash mismatch for block 2");
 
-//         // Define a correct txList for proposal
-//         bytes memory txList = abi.encodePacked("correct txList");
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds2);
 
-//         vm.prank(Alice);
-//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters(1, txList);
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds1);
+    }
 
-//         // Define an incorrect txList for proof
-//         bytes32 incorrectHash = keccak256(abi.encodePacked("incorrect txList"));
+    function test_prove_block_with_mismatched_txlist() external {
+        vm.warp(1_000_000);
 
-//         // Attempt to prove the block with the incorrect txList
-//         ITaikoInbox.BlockMetadataV3 memory meta = blockMetadatas[blockIds[0]];
-//         meta.txListHash = incorrectHash;
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondAmount = 1000 ether;
 
-//         ITaikoInbox.BlockMetadataV3[] memory metas =
-//             new ITaikoInbox.BlockMetadataV3[](blockIds.length);
-//         ITaikoInbox.TransitionV3[] memory transitions =
-//             new ITaikoInbox.TransitionV3[](blockIds.length);
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-//         for (uint256 i; i < blockIds.length; ++i) {
-//             metas[i] = blockMetadatas[blockIds[i]];
-//             metas[i].txListHash = incorrectHash;
-//             transitions[i].parentHash = correctBlockhash(blockIds[i] - 1);
-//             transitions[i].blockHash = correctBlockhash(blockIds[i]);
-//             transitions[i].stateRoot = correctStateRoot(blockIds[i]);
-//         }
+        // Define a correct txList for proposal
+        bytes memory txList = abi.encodePacked("correct txList");
 
-//         vm.prank(Alice);
-//         vm.expectRevert(ITaikoInbox.MetaHashMismatch.selector);
-//         inbox.proveBlocksV3(metas, transitions, "proof");
-//     }
-// }
+        vm.prank(Alice);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList);
+
+        // Define an incorrect txList for proof
+        bytes32 incorrectHash = keccak256(abi.encodePacked("incorrect txList"));
+
+        // Attempt to prove the block with the incorrect txList
+        ITaikoInbox.BatchMetadata memory meta = batchMetadatas[batchIds[0]];
+        meta.txListHash = incorrectHash;
+
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
+
+        for (uint256 i; i < batchIds.length; ++i) {
+            metas[i] = batchMetadatas[batchIds[i]];
+            metas[i].txListHash = incorrectHash;
+            transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
+            transitions[i].blockHash = correctBlockhash(batchIds[i]);
+            transitions[i].stateRoot = correctStateRoot(batchIds[i]);
+        }
+
+        vm.prank(Alice);
+        vm.expectRevert(ITaikoInbox.MetaHashMismatch.selector);
+        inbox.proveBatches(metas, transitions, "proof");
+    }
+}
