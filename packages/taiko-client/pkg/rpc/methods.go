@@ -39,10 +39,10 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	// stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
-	// if err != nil {
-	// 	return err
-	// }
+	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return err
+	}
 
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
@@ -53,8 +53,8 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	var (
 		l2GenesisHash common.Hash
 		filterOpts    = &bind.FilterOpts{
-			// Start:   stateVars.A.GenesisHeight,  // TODO: update this value
-			// End:     &stateVars.A.GenesisHeight, // TODO: update this value
+			Start:   stateVars.Stats1.GenesisHeight,
+			End:     &stateVars.Stats1.GenesisHeight,
 			Context: ctxWithTimeout,
 		}
 	)
@@ -337,6 +337,7 @@ func (c *Client) GetPoolContent(
 	maxTransactionsLists uint64,
 	minTip uint64,
 	chainConfig *config.ChainConfig,
+	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -356,7 +357,7 @@ func (c *Client) GetPoolContent(
 		l2Head,
 		l1Head.Number,
 		chainConfig.IsOntake(new(big.Int).Add(l2Head.Number, common.Big1)),
-		&chainConfig.ProtocolConfigs.BaseFeeConfig,
+		baseFeeConfig,
 		uint64(time.Now().Unix()),
 	)
 	if err != nil {
@@ -484,7 +485,7 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 }
 
 // GetLastVerifiedBlock gets the last verified block from TaikoL1 contract.
-func (c *Client) GetLastVerifiedBlock(ctx context.Context) (struct {
+func (c *Client) GetLastVerifiedBlock(ctx context.Context) (*struct {
 	BlockId    uint64 //nolint:stylecheck
 	BlockHash  [32]byte
 	StateRoot  [32]byte
@@ -493,7 +494,12 @@ func (c *Client) GetLastVerifiedBlock(ctx context.Context) (struct {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: ctxWithTimeout})
+	b, err := c.OntakeClients.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, err
+	}
+
+	return &b, nil
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
@@ -569,7 +575,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(
 				ctxWithTimeout,
-				new(big.Int).SetUint64(state.A.GenesisHeight),
+				new(big.Int).SetUint64(state.Stats1.GenesisHeight),
 			); err != nil {
 				return nil, err
 			}
@@ -927,7 +933,13 @@ func (c *Client) calculateBaseFeeOntake(
 					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 					uint32(l2Head.GasUsed),
 					currentTimestamp,
-					*baseFeeConfig,
+					ontakeBindings.LibSharedDataBaseFeeConfig{
+						AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient,
+						SharingPctg:            baseFeeConfig.SharingPctg,
+						GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond,
+						MinGasExcess:           baseFeeConfig.MinGasExcess,
+						MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock,
+					},
 				)
 				if err != nil {
 					return nil, fmt.Errorf("failed to calculate base fee by GetBasefeeV2: %w", err)

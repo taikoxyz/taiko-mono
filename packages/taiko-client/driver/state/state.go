@@ -63,12 +63,13 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
+	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
 	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.OntakeClients.ForkHeight)
 	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeight)
 
-	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
+	log.Info("Genesis L1 height", "height", stateVars.Stats1.GenesisHeight)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
+	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -93,7 +94,11 @@ func (s *State) init(ctx context.Context) error {
 	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
 	s.setL2Head(l2Head)
 
-	s.setHeadBlockID(new(big.Int).SetUint64(stateVars.B.NumBlocks - 1))
+	batch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
+	if err != nil {
+		return err
+	}
+	s.setHeadBlockID(new(big.Int).SetUint64(batch.LastBlockId))
 
 	return nil
 }

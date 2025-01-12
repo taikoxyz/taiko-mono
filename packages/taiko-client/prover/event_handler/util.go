@@ -22,13 +22,11 @@ var (
 
 // isBlockVerified checks whether the given L2 block has been verified.
 func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
-	stateVars, err := rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+	lastVerifiedTransition, err := rpc.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return false, err
 	}
-
-	// TODO: block => batch
-	return id.Uint64() <= stateVars.Stats2.LastVerifiedBatchId, nil
+	return id.Uint64() <= lastVerifiedTransition.BlockId, nil
 }
 
 // isValidProof checks if the given proof is a valid one, comparing to current L2 node canonical chain.

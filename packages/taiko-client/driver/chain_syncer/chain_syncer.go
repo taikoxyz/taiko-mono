@@ -209,7 +209,14 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 		if err != nil {
 			return 0, false, err
 		}
-		blockID = stateVars.B.LastVerifiedBlockId
+		lastVerifiedBatch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(
+			&bind.CallOpts{Context: s.ctx},
+			stateVars.Stats2.LastVerifiedBatchId,
+		)
+		if err != nil {
+			return 0, false, err
+		}
+		blockID = lastVerifiedBatch.LastBlockId
 	default:
 		return 0, false, fmt.Errorf("invalid sync mode: %s", s.syncMode)
 	}

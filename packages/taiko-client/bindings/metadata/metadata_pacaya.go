@@ -79,7 +79,7 @@ func (m *TaikoDataBlockMetadataPacaya) GetMinTier() uint16 {
 
 // GetBlobUsed returns whether the blob is used.
 func (m *TaikoDataBlockMetadataPacaya) GetBlobUsed() bool {
-	return len(m.BlobIndices) != 0
+	return m.NumBlobs != 0
 }
 
 // GetParentMetaHash returns the parent meta hash.

@@ -133,6 +133,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			10,
 			0,
 			s.p.chainConfig,
+			&s.p.protocolConfigs.BaseFeeConfig,
 		)
 		s.Nil(err)
 
@@ -207,6 +208,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			testCase.maxTransactionsLists,
 			0,
 			s.p.chainConfig,
+			&s.p.protocolConfigs.BaseFeeConfig,
 		)
 		s.Nil(err)
 
@@ -267,6 +269,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			p.MaxProposedTxListsPerEpoch,
 			0,
 			p.chainConfig,
+			&p.protocolConfigs.BaseFeeConfig,
 		)
 		time.Sleep(time.Second)
 	}

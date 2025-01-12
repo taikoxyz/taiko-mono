@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -337,7 +338,13 @@ func (s *Syncer) insertNewHead(
 		parent,
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		meta.IsOntakeBlock(),
-		meta.GetBaseFeeConfig(),
+		&pacaya.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     meta.GetBaseFeeConfig().AdjustmentQuotient,
+			SharingPctg:            meta.GetBaseFeeConfig().SharingPctg,
+			GasIssuancePerSecond:   meta.GetBaseFeeConfig().GasIssuancePerSecond,
+			MinGasExcess:           meta.GetBaseFeeConfig().MinGasExcess,
+			MaxGasIssuancePerBlock: meta.GetBaseFeeConfig().MaxGasIssuancePerBlock,
+		},
 		meta.GetTimestamp(),
 	); err != nil {
 		return nil, err
@@ -531,7 +538,15 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		return nil, err
 	}
 
-	if s.state.GetL2Head().Number.Uint64() < stateVars.B.LastVerifiedBlockId {
+	lastVerifiedBatch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(
+		&bind.CallOpts{Context: s.ctx},
+		stateVars.Stats2.LastVerifiedBatchId,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBatch.LastBlockId {
 		return reorgCheckResult, nil
 	}
 
@@ -539,7 +554,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch genesis L1 header: %w", err)
 	}
-	reorgCheckResult, err = s.retrievePastBlock(ctx, stateVars.B.LastVerifiedBlockId, 0, genesisL1Header)
+	reorgCheckResult, err = s.retrievePastBlock(ctx, lastVerifiedBatch.LastBlockId, 0, genesisL1Header)
 	if err != nil {
 		return nil, err
 	}
