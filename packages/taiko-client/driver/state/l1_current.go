@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
@@ -38,6 +39,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 
 	// If blockID is zero, reset to genesis L1 height.
 	if blockID.Cmp(common.Big0) == 0 {
+		log.Info("Reset L1 current cursor to genesis L1 height", "blockID", blockID)
 		l1Current, err := s.rpc.L1.HeaderByNumber(ctx, s.GenesisL1Height)
 		if err != nil {
 			return err
@@ -51,17 +53,12 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		blockInfo bindings.TaikoDataBlockV2
 		err       error
 	)
-	if s.IsOnTake(blockID) {
-		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockID)
-	} else {
-		blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockID)
-	}
-	if err != nil {
-		return err
+	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockID); err != nil {
+		return fmt.Errorf("failed to get L2 block (%d) info from TaikoL1 contract: %w", blockID, err)
 	}
 	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockInfo.ProposedIn))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch L1 header by number (%d): %w", blockID, err)
 	}
 	s.SetL1Current(l1Current)
 
