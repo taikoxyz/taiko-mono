@@ -589,8 +589,16 @@ func (s *Syncer) retrievePastBlock(
 	var blockInfo bindings.TaikoDataBlockV2
 	if s.state.IsOnTake(blockNum) {
 		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
+		log.Info("GetL2BlockInfoV2",
+			"blockInfo", blockInfo,
+			"err", err,
+		)
 	} else {
 		blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockNum)
+		log.Info("GetL2BlockInfo",
+			"blockInfo", blockInfo,
+			"err", err,
+		)
 	}
 
 	if err != nil {
@@ -600,6 +608,10 @@ func (s *Syncer) retrievePastBlock(
 		ctx,
 		new(big.Int).SetUint64(blockInfo.BlockId),
 		uint32(blockInfo.VerifiedTransitionId.Uint64()),
+	)
+	log.Info("GetTransition",
+		"ts", ts,
+		"err", err,
 	)
 	if err != nil {
 		return nil, err
@@ -624,6 +636,10 @@ func (s *Syncer) retrievePastBlock(
 				)
 				// Can't find l1Origin in L2 EE, so we call the contract to get block info
 				blockInfo, err := s.rpc.TaikoL1.GetBlock(&bind.CallOpts{Context: ctx}, currentBlockID)
+				log.Info("GetBlock",
+					"blockInfo", blockInfo,
+					"err", err,
+				)
 				if err != nil {
 					return nil, err
 				}
@@ -666,6 +682,10 @@ func (s *Syncer) checkReorg(
 
 	// 1. The latest verified block
 	reorgCheckResult, err := s.checkLastVerifiedBlockMismatch(ctx)
+	log.Info("checkLastVerifiedBlockMismatch",
+		"reorgCheckResult", reorgCheckResult,
+		"err", err,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if last verified block in L2 EE has been reorged: %w", err)
 	}
