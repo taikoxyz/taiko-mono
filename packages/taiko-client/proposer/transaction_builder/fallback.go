@@ -138,12 +138,12 @@ func (b *TxBuilderWithFallback) BuildOntake(
 	metrics.ProposerEstimatedCostBlob.Set(costBlobFloat64)
 
 	if costCalldata.Cmp(costBlob) < 0 {
-		log.Info("Building a type-2 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
+		log.Info("Building a type-2 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
 		metrics.ProposerProposeByCalldata.Inc()
 		return txWithCalldata, nil
 	}
 
-	log.Info("Building a type-3 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
+	log.Info("Building a type-3 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
 	metrics.ProposerProposeByBlob.Inc()
 	return txWithBlob, nil
 }
@@ -162,13 +162,11 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 
 	gasFeeCap := new(big.Int).Add(baseFee, gasTipCap)
 	msg := ethereum.CallMsg{
-		From:      txMgr.From(),
-		To:        candidate.To,
-		Gas:       candidate.GasLimit,
-		GasFeeCap: gasFeeCap,
-		GasTipCap: gasTipCap,
-		Value:     candidate.Value,
-		Data:      candidate.TxData,
+		From:  txMgr.From(),
+		To:    candidate.To,
+		Gas:   candidate.GasLimit,
+		Value: candidate.Value,
+		Data:  candidate.TxData,
 	}
 	if len(candidate.Blobs) != 0 {
 		var blobHashes []common.Hash
@@ -176,7 +174,6 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 			return nil, fmt.Errorf("failed to make sidecar: %w", err)
 		}
 		msg.BlobHashes = blobHashes
-		msg.BlobGasFeeCap = blobBaseFee
 	}
 
 	gasUsed, err := b.rpc.L1.EstimateGas(ctx, msg)
