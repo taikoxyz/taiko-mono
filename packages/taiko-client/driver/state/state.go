@@ -149,7 +149,7 @@ func (s *State) eventLoop(ctx context.Context) {
 			s.setHeadBlockID(e.BlockId)
 		case e := <-transitionProvedCh:
 			log.Info(
-				"✅ transitionProved proven",
+				"✅ Transition proven",
 				"blockID", e.BlockId,
 				"parentHash", common.Hash(e.Tran.ParentHash),
 				"hash", common.Hash(e.Tran.BlockHash),
@@ -158,7 +158,7 @@ func (s *State) eventLoop(ctx context.Context) {
 			)
 		case e := <-transitionProvedV2Ch:
 			log.Info(
-				"✅ transitionProvedV2 proven",
+				"✅ Transition proven",
 				"blockID", e.BlockId,
 				"parentHash", common.Hash(e.Tran.ParentHash),
 				"hash", common.Hash(e.Tran.BlockHash),
