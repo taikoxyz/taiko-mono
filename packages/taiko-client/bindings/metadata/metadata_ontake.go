@@ -158,11 +158,6 @@ func (m *TaikoDataBlockMetadataOntake) IsOntakeBlock() bool {
 	return true
 }
 
-// GetL1BlockHash returns the L1 block hash.
-func (m *TaikoDataBlockMetadataOntake) GetL1BlockHash() common.Hash {
-	return m.BlockHash
-}
-
 // InnerMetadata returns the inner metadata.
 func (m *TaikoDataBlockMetadataOntake) InnerMetadata() *bindings.TaikoDataBlockMetadataV2 {
 	return &m.TaikoDataBlockMetadataV2
