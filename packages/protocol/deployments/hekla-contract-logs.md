@@ -223,10 +223,11 @@
 
 ### risc0_groth16_verifier
 
-- addr : 0x5fd84014c62D5ea28D4533D5B1B48Ca44e571057
+- addr : 0x714FD0666B0cee87bFC29A029E2AE66f40F12cE5
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
   - upgraded on October 22, 2024 at commit `684a909`
+  - upgraded on Jan 10, 2025 at commit `2802b21`
 
 ### tier_zkvm_risc0
 
@@ -239,12 +240,13 @@
 
 ### sp1_plonk_verifier
 
-- addr : 0xfb2d02219D065eBF3Aa8d2D1a1C52b1868EE7384
+- addr : 0x7110bd8909CFC4C31204BA8597882CBFa1F77dC9
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
   - upgraded on October 22, 2024 at commit `684a909`
   - upgraded on Nov 8, 2024 at commit `0b11101`
+  - upgraded on Jan 9, 2025 at commit `de12a26`
 
 ### tier_zkvm_sp1
 
