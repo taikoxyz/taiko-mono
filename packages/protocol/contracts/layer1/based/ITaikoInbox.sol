@@ -18,7 +18,14 @@ import "src/shared/based/LibSharedData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
     struct BlockParams {
+        // the max nubmer of transactions in this block. Note that if there are not enough
+        // transactions in calldata or blobs, the block will contains as many transactions as
+        // possible.
         uint16 numTransactions;
+        // For the first block in a batch,  the block timestamp is the batch params' `timestamp`
+        // plus this time shift value;
+        // For all other blocks in the same batch, the block timestamp is its parent block's
+        // timestamp plus this time shift value.
         uint8 timeThift;
     }
 
@@ -31,9 +38,14 @@ interface ITaikoInbox {
         uint64 timestamp;
         uint32 txListOffset;
         uint32 txListSize;
+        // The index of the first blob in this batch.
+        uint8 firstBlobIndex;
+        // The number of blobs in this batch. Blobs are initially concatenated and subsequently
+        // decompressed via Zlib.
         uint8 numBlobs;
         bool revertIfNotFirstProposal;
         bytes32[] signalSlots;
+        // Specifies the number of blocks to be generated from this batch.
         BlockParams[] blocks;
     }
 

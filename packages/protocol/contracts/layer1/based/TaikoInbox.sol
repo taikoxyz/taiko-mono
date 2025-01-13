@@ -126,7 +126,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         // the following approach to calculate a block's difficulty:
         //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
         meta_ = BatchMetadata({
-            txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(params.numBlobs),
+            txListHash: calldataUsed
+                ? keccak256(_txList)
+                : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
             extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
             coinbase: params.coinbase,
             batchId: stats2.numBatches,
@@ -457,10 +459,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         state.stats2.paused = true;
     }
 
-    function _calcTxListHash(uint8 _numBlobs) internal view virtual returns (bytes32) {
+    function _calcTxListHash(
+        uint8 _firstBlobIndex,
+        uint8 _numBlobs
+    )
+        internal
+        view
+        virtual
+        returns (bytes32)
+    {
         bytes32[] memory blobHashes = new bytes32[](_numBlobs);
         for (uint256 i; i < _numBlobs; ++i) {
-            blobHashes[i] = blobhash(i);
+            blobHashes[i] = blobhash(_firstBlobIndex + i);
             require(blobHashes[i] != 0, BlobNotFound());
         }
         return keccak256(abi.encode(blobHashes));
