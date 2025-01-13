@@ -74,6 +74,9 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		if iter.Next() {
 			l2GenesisHash = iter.Event.BlockHash
 		}
+		if iter.Error() != nil {
+			return iter.Error()
+		}
 	} else {
 		// Fetch the genesis `BlockVerified` event.
 		iter, err := c.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
@@ -83,6 +86,9 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 
 		if iter.Next() {
 			l2GenesisHash = iter.Event.BlockHash
+		}
+		if iter.Error() != nil {
+			return iter.Error()
 		}
 	}
 
@@ -835,6 +841,9 @@ func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (
 
 	for iter.Next() {
 		return &iter.Event.SlotB, nil
+	}
+	if iter.Error() != nil {
+		return nil, fmt.Errorf("failed to get state variables by block number %d: %w", number, iter.Error())
 	}
 
 	return nil, fmt.Errorf("failed to get state variables by block number %d", number)
