@@ -4,21 +4,19 @@ pragma solidity ^0.8.24;
 import "./ProverSetBase.sol";
 
 contract ProverSet is ProverSetBase {
+    using Address for address;
+
     error NotFirstProposal();
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
     function proposeBatch(bytes calldata _params, bytes calldata _txList) external onlyProver {
-        Address.functionCall(
-            inbox(), abi.encodeWithSignature("proposeBatch(bytes,bytes)", _params, _txList)
-        );
+        inbox().functionCall(abi.encodeWithSignature("proposeBatch(bytes,bytes)", _params, _txList));
     }
 
     /// @notice Proves multiple Taiko batches.
     function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
-        Address.functionCall(
-            inbox(), abi.encodeWithSignature("proveBatches(bytes,bytes)", _params, _proof)
-        );
+        inbox().functionCall(abi.encodeWithSignature("proveBatches(bytes,bytes)", _params, _proof));
     }
 
     // ================ Ontake calls ================
@@ -32,21 +30,20 @@ contract ProverSet is ProverSetBase {
         external
         onlyProver
     {
-        address inbox = inbox();
         // Ensure this block is the first block proposed in the current L1 block.
         uint64 blockNumber = abi.decode(
-            Address.functionStaticCall(inbox, abi.encodeWithSignature("lastProposedIn()")), (uint64)
+            inbox().functionStaticCall(abi.encodeWithSignature("lastProposedIn()")), (uint64)
         );
         require(blockNumber != block.number, NotFirstProposal());
-        Address.functionCall(
-            inbox, abi.encodeWithSignature("proposeBlocksV2(bytes[],bytes[])", _params, _txList)
+        inbox().functionCall(
+            abi.encodeWithSignature("proposeBlocksV2(bytes[],bytes[])", _params, _txList)
         );
     }
 
     /// @notice Propose a Taiko block.
     function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
-        Address.functionCall(
-            inbox(), abi.encodeWithSignature("proposeBlockV2(bytes,bytes)", _params, _txList)
+        inbox().functionCall(
+            abi.encodeWithSignature("proposeBlockV2(bytes,bytes)", _params, _txList)
         );
     }
 
@@ -58,17 +55,14 @@ contract ProverSet is ProverSetBase {
         external
         onlyProver
     {
-        Address.functionCall(
-            inbox(),
+        inbox().functionCall(
             abi.encodeWithSignature("proposeBlocksV2(bytes[],bytes[])", _paramsArr, _txListArr)
         );
     }
 
     /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver {
-        Address.functionCall(
-            inbox(), abi.encodeWithSignature("proveBlock(uint64,bytes)", _blockId, _input)
-        );
+        inbox().functionCall(abi.encodeWithSignature("proveBlock(uint64,bytes)", _blockId, _input));
     }
 
     /// @notice Batch proves or contests Taiko blocks.
@@ -80,8 +74,7 @@ contract ProverSet is ProverSetBase {
         external
         onlyProver
     {
-        Address.functionCall(
-            inbox(),
+        inbox().functionCall(
             abi.encodeWithSignature(
                 "proveBlocks(uint64[],bytes[],bytes)", _blockId, _input, _batchProof
             )
