@@ -50,7 +50,7 @@ contract InboxTest_Params is InboxTestBase {
         });
 
         ITaikoInbox.BatchMetadata memory meta =
-            inbox.proposeBatch(address(0), address(0), params, "txList");
+            inbox.proposeBatch(abi.encode(address(0), address(0), params), "txList");
 
         // Assert that the default anchorBlockId was set correctly
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
@@ -84,7 +84,7 @@ contract InboxTest_Params is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooSmall.selector);
-        inbox.proposeBatch(address(0), address(0), params, "txList");
+        inbox.proposeBatch(abi.encode(address(0), address(0), params), "txList");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_too_large()
@@ -110,7 +110,7 @@ contract InboxTest_Params is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
-        inbox.proposeBatch(address(0), address(0), params, "txList");
+        inbox.proposeBatch(abi.encode(address(0), address(0), params), "txList");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_smaller_than_parent()
@@ -137,7 +137,7 @@ contract InboxTest_Params is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
-        inbox.proposeBatch(address(0), address(0), params, "txList");
+        inbox.proposeBatch(abi.encode(address(0), address(0), params), "txList");
     }
 
     function test_validateParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
@@ -156,7 +156,7 @@ contract InboxTest_Params is InboxTestBase {
         });
 
         ITaikoInbox.BatchMetadata memory meta =
-            inbox.proposeBatch(address(0), address(0), params, "txList");
+            inbox.proposeBatch(abi.encode(address(0), address(0), params), "txList");
 
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
         assertEq(meta.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
@@ -178,6 +178,6 @@ contract InboxTest_Params is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.TimestampTooLarge.selector);
-        inbox.proposeBatch(address(0), address(0), params, "txList");
+        inbox.proposeBatch(abi.encode(address(0), address(0), params), "txList");
     }
 }

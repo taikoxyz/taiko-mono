@@ -468,7 +468,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
 
         vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
-        inbox.proposeBatch(Alice, address(0), params, "txList");
+        inbox.proposeBatch(abi.encode(Alice, address(0), params), "txList");
 
         vm.startPrank(deployer);
         address preconfRouter = Bob;
@@ -477,12 +477,12 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startPrank(Alice);
         vm.expectRevert(ITaikoInbox.NotPreconfRouter.selector);
-        inbox.proposeBatch(preconfRouter, address(0), params, "txList");
+        inbox.proposeBatch(abi.encode(preconfRouter, address(0), params), "txList");
         vm.stopPrank();
 
         vm.startPrank(preconfRouter);
         vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
-        inbox.proposeBatch(address(0), address(0), params, "txList");
+        inbox.proposeBatch(abi.encode(address(0), address(0), params), "txList");
         vm.stopPrank();
     }
 

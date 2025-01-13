@@ -7,9 +7,7 @@ import "src/layer1/based/ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 contract StubInbox is ITaikoInbox {
     function proposeBatch(
-        address _proposer,
-        address _coinbase,
-        BatchParams calldata _batchParams,
+        bytes calldata _params,
         bytes calldata _txList
     )
         external
