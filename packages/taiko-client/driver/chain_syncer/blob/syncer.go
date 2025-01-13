@@ -46,6 +46,7 @@ type Syncer struct {
 	reorgDetectedFlag   bool
 	maxRetrieveExponent uint64
 	blobDatasource      *rpc.BlobDataSource
+	latestL1EventHeader *types.Header
 }
 
 // NewSyncer creates a new syncer instance.
@@ -151,6 +152,9 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 
 	// If there is a L1 reorg, we don't update the L1Current cursor.
 	if !s.reorgDetectedFlag {
+		if s.latestL1EventHeader != nil {
+			l1End = s.latestL1EventHeader
+		}
 		s.state.SetL1Current(l1End)
 		metrics.DriverL1CurrentHeightGauge.Set(float64(s.state.GetL1Current().Number.Uint64()))
 	}
@@ -427,6 +431,13 @@ func (s *Syncer) insertNewHead(
 	if fcRes.PayloadStatus.Status != engine.VALID {
 		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
+
+	// Record the latest L1 event header.
+	l1Header, err := s.rpc.L1.HeaderByHash(ctx, meta.GetL1BlockHash())
+	if err != nil {
+		log.Debug("Failed to fetch L2 block header", "blockID", meta.GetBlockID(), "error", err)
+	}
+	s.latestL1EventHeader = l1Header
 
 	return payload, nil
 }
