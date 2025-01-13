@@ -435,7 +435,7 @@ func (s *Syncer) insertNewHead(
 	// Record the latest L1 event header.
 	l1Header, err := s.rpc.L1.HeaderByHash(ctx, meta.GetL1BlockHash())
 	if err != nil {
-		log.Debug("Failed to fetch L2 block header", "blockID", meta.GetBlockID(), "error", err)
+		log.Debug("Failed to fetch L1 block header", "blockID", meta.GetRawBlockHeight(), "error", err)
 	}
 	s.latestL1EventHeader = l1Header
 
