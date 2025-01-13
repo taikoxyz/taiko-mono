@@ -111,16 +111,6 @@ func assembleBlockProposedIteratorCallback(
 	) error {
 		endHeight := end.Number.Uint64()
 
-		iter, err := taikoL1.FilterBlockProposed(
-			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
-			filterQuery,
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-		defer iter.Close()
-
 		iterOntake, err := taikoL1.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
@@ -129,26 +119,6 @@ func assembleBlockProposedIteratorCallback(
 			return err
 		}
 		defer iterOntake.Close()
-
-		for iter.Next() {
-			event := iter.Event
-
-			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataLegacy(event), eventIter.end); err != nil {
-				return err
-			}
-
-			if eventIter.isEnd {
-				endFunc()
-				return nil
-			}
-
-			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
-			if err != nil {
-				return err
-			}
-
-			updateCurrentFunc(current)
-		}
 
 		for iterOntake.Next() {
 			event := iterOntake.Event
@@ -171,11 +141,8 @@ func assembleBlockProposedIteratorCallback(
 		}
 
 		// Check iterator errors.
-		if iter.Error() != nil {
-			return iter.Error()
-		}
 		if iterOntake.Error() != nil {
-			return iter.Error()
+			return iterOntake.Error()
 		}
 
 		return nil
