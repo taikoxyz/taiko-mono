@@ -628,10 +628,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
 
-            uint64 firstBlockTimestamp = lastBlockTimestamp_;
+            uint64 totalShift;
             for (uint256 i; i < _params.blocks.length; ++i) {
-                firstBlockTimestamp -= _params.blocks[i].timeShift;
+                totalShift += _params.blocks[i].timeShift;
             }
+
+            require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());
+
+            uint64 firstBlockTimestamp = lastBlockTimestamp_ - totalShift;
 
             require(
                 firstBlockTimestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
