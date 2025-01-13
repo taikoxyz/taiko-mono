@@ -16,7 +16,7 @@ contract DeployProverSet is BaseScript {
         deploy({
             name: "",
             impl: impl,
-            data: abi.encodeCall(ProverSet.init, (owner, admin, resolver))
+            data: abi.encodeCall(ProverSetBase.init, (owner, admin, resolver))
         });
     }
 }

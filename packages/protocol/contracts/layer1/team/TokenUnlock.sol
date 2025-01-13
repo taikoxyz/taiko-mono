@@ -117,7 +117,7 @@ contract TokenUnlock is EssentialContract {
         );
 
         bytes memory data =
-            abi.encodeCall(ProverSet.init, (owner(), address(this), address(resolver())));
+            abi.encodeCall(ProverSetBase.init, (owner(), address(this), address(resolver())));
         proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
 
         isProverSet[proverSet_] = true;

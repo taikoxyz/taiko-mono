@@ -251,7 +251,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "prover_set",
             impl: address(new ProverSet()),
             data: abi.encodeCall(
-                ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
+                ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
             )
         });
     }
