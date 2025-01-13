@@ -10,6 +10,7 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
+import "./IFork.sol";
 import "./ITaikoInbox.sol";
 
 // import "forge-std/src/console2.sol";
@@ -27,7 +28,7 @@ import "./ITaikoInbox.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     using LibMath for uint256;
 
     State public state; // storage layout much match Ontake fork
@@ -367,6 +368,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     /// @return True if the contract is operating on L1, false if on L2.
     function isOnL1() external pure override returns (bool) {
         return true;
+    }
+
+    function isForkActive() external view override returns (bool) {
+        return state.stats2.numBatches >= getConfig().forkHeights.pacaya;
     }
 
     // Public functions -------------------------------------------------------------------------
