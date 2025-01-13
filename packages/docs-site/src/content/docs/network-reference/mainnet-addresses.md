@@ -29,8 +29,8 @@ description: Network reference page describing various important addresses on Ta
 | AssignmentHook                  | `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6` | N/A                        |
 | TierProvider                    | `0x4cffe56C947E26D07C14020499776DB3e9AE3a23` | N/A                        |
 | SgxVerifier                     | `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81` | N/A                        |
-| Groth16Verifier                 | `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9` | N/A                        |
-| PlonkVerifier                   | `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371` | N/A                        |
+| Risc0Verifier                   | `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9` | N/A                        |
+| SP1Verifier                     | `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371` | N/A                        |
 | AutomataDcapAttestation         | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | N/A                        |
 | PemCertChainLib                 | `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169` | N/A                        |
 | P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` | N/A                        |
