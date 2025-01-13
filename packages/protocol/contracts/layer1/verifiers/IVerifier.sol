@@ -8,10 +8,9 @@ import "../based/ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IVerifier {
     struct Context {
-        uint64 blockId;
-        bytes32 difficulty;
+        uint64 batchId;
         bytes32 metaHash;
-        ITaikoInbox.TransitionV3 transition;
+        ITaikoInbox.Transition transition;
     }
 
     /// @notice Verifies multiple proofs. This function must throw if the proof cannot be verified.

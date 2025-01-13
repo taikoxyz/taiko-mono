@@ -7,12 +7,12 @@ import "./InboxTestBase.sol";
 contract InboxTest_BondMechanics is InboxTestBase {
     uint16 constant provingWindow = 1 hours;
 
-    function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
-        return ITaikoInbox.ConfigV3({
+    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+        return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            blockMaxProposals: 10,
-            blockRingBufferSize: 15,
-            maxBlocksToVerify: 5,
+            maxBatchProposals: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 5,
@@ -24,8 +24,9 @@ contract InboxTest_BondMechanics is InboxTestBase {
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
-            provingWindow: provingWindow,
+            provingWindow: 1 hours,
             maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 256,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
@@ -44,11 +45,11 @@ contract InboxTest_BondMechanics is InboxTestBase {
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
         vm.prank(Alice);
-        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
 
         vm.prank(Alice);
-        _proveBlocksWithCorrectTransitions(blockIds);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }
@@ -63,12 +64,12 @@ contract InboxTest_BondMechanics is InboxTestBase {
         setupBondTokenState(Bob, initialBondBalance, bondAmount);
 
         vm.prank(Alice);
-        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
 
         vm.prank(Bob);
         vm.expectRevert(ITaikoInbox.ProverNotPermitted.selector);
-        _proveBlocksWithCorrectTransitions(blockIds);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.bondBalanceOf(Bob), bondAmount);
     }
@@ -84,7 +85,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
         vm.prank(Alice);
-        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
 
         uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
@@ -95,7 +96,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         simulateBlockDelay(secondsPerBlock, blocksToWait);
 
         vm.prank(Alice);
-        _proveBlocksWithCorrectTransitions(blockIds);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
         uint256 aliceBondBalanceAfterProof = inbox.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProof, aliceBondBalanceAfterProposal);
@@ -113,7 +114,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
         vm.prank(Alice);
-        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
 
         uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
@@ -124,7 +125,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         simulateBlockDelay(secondsPerBlock, blocksToWait);
 
         vm.prank(Alice);
-        _proveBlocksWithCorrectTransitions(blockIds);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }

@@ -28,7 +28,6 @@ func (o *OptimisticProofProducer) RequestProof(
 		"Request optimistic proof",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
-		"height", header.Number,
 		"hash", header.Hash(),
 	)
 

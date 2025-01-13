@@ -1,13 +1,32 @@
+# Dependabot configuration for automated dependency updates.
+# This file is the single source of truth and overrides any GitHub repo settings.
+#
+# Key features:
+# - Monthly updates scheduled for Saturday 04:20 ET
+# - Dependencies are grouped by ecosystem to minimize PR noise
+# - Each group has designated reviewers and single PR limit
+# - To ignore updates for a dependency, add to ecosystem's ignore field (and open
+#   a GitHub issue if needed for tracking):
+#   ignore:
+#     - dependency-name: "golang.org/x/crypto"  # skip all crypto updates
+
 version: 2
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 3
+    reviewers:
+      - "davidtaikocha"
+      - "RogerLamTd"
+    open-pull-requests-limit: 1
+    groups:
+      go-updates:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -16,13 +35,27 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
+    reviewers:
+      - "davidtaikocha"
+      - "RogerLamTd"
     open-pull-requests-limit: 1
+    groups:
+      github-actions-updates:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 3
+    reviewers:
+      - "KorbinianK"
+      - "bearni95"
+    open-pull-requests-limit: 1
+    groups:
+      npm-updates:
+        patterns:
+          - "*"

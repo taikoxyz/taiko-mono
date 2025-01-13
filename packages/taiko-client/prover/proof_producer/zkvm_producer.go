@@ -76,7 +76,6 @@ func (s *ZKvmProofProducer) RequestProof(
 		"Request zk proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
-		"height", header.Number,
 		"hash", header.Hash(),
 		"zkType", s.ZKProofType,
 		"time", time.Since(requestAt),
@@ -178,7 +177,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 
 	output, err := s.requestProof(zkCtx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		log.Error("Failed to request proof", "blockID", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
 		return nil, err
 	}
 
@@ -197,7 +196,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	}
 	log.Info(
 		"Proof generated",
-		"height", opts.BlockID,
+		"blockID", opts.BlockID,
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)

@@ -5,12 +5,12 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_CalldataForTxList is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
-        return ITaikoInbox.ConfigV3({
+    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+        return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            blockMaxProposals: 10,
-            blockRingBufferSize: 15,
-            maxBlocksToVerify: 5,
+            maxBatchProposals: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 5,
@@ -24,6 +24,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
              }),
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 256,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
@@ -46,15 +47,16 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         bytes32 expectedHash = keccak256(txList);
 
         vm.prank(Alice);
-        uint64[] memory blockIds =
-            _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1, txList: txList });
-        for (uint256 i; i < blockIds.length; ++i) {
-            ITaikoInbox.BlockMetadataV3 memory meta = blockMetadatas[blockIds[i]];
+        uint64[] memory batchIds =
+            _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1, txList: txList });
+
+        for (uint256 i; i < batchIds.length; ++i) {
+            ITaikoInbox.BatchMetadata memory meta = _loadMetadata(batchIds[i]);
             assertEq(meta.txListHash, expectedHash);
         }
 
         vm.prank(Alice);
-        _proveBlocksWithCorrectTransitions(blockIds);
+        _proveBatchesWithCorrectTransitions(batchIds);
     }
 
     function test_block_rejection_due_to_missing_txlist_and_blobindex() external {
@@ -65,14 +67,25 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        // Define empty txList
-        bytes memory txList = "";
-        ITaikoInbox.BlockParamsV3[] memory blockParams = new ITaikoInbox.BlockParamsV3[](1);
-        blockParams[0].blobIndex = 0; // Blob index not provided
+        ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
+        blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
+
+        ITaikoInbox.BatchParams memory batchParams = ITaikoInbox.BatchParams({
+            anchorBlockId: 0,
+            timestamp: 0,
+            parentMetaHash: 0,
+            signalSlots: new bytes32[](0),
+            numBlobs: 0, // missing blob index
+            txListOffset: 0,
+            txListSize: 0,
+            anchorInput: bytes32(0),
+            blocks: blocks
+        });
 
         vm.prank(Alice);
-        vm.expectRevert(ITaikoInbox.BlobIndexZero.selector);
-        inbox.proposeBlocksV3(address(0), address(0), blockParams, txList);
+        vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
+        // With empty txList
+        inbox.proposeBatch(address(0), address(0), batchParams, "");
     }
 
     function test_propose_block_with_empty_txlist_and_valid_blobindex() external {
@@ -83,25 +96,35 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        // Define empty txList
-        bytes memory txList = "";
-        ITaikoInbox.BlockParamsV3[] memory blockParams = new ITaikoInbox.BlockParamsV3[](1);
-        blockParams[0].blobIndex = 1; // Valid blob index
+        ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
+        blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
+
+        ITaikoInbox.BatchParams memory batchParams = ITaikoInbox.BatchParams({
+            anchorBlockId: 0,
+            timestamp: 0,
+            parentMetaHash: 0,
+            signalSlots: new bytes32[](0),
+            numBlobs: 1, // one blob
+            txListOffset: 0,
+            txListSize: 0,
+            anchorInput: bytes32(0),
+            blocks: blocks
+        });
 
         vm.prank(Alice);
-        ITaikoInbox.BlockMetadataV3[] memory metas =
-            inbox.proposeBlocksV3(address(0), address(0), blockParams, txList);
 
-        ITaikoInbox.BlockMetadataV3 memory meta = metas[0];
+        // With empty txList
+        ITaikoInbox.BatchMetadata memory meta =
+            inbox.proposeBatch(address(0), address(0), batchParams, "");
         assertTrue(meta.txListHash != 0, "txListHash should not be zero for valid blobIndex");
 
+        _saveMetadata(meta);
+
         vm.prank(Alice);
-        uint64[] memory blockIds = new uint64[](metas.length);
-        for (uint256 i; i < metas.length; ++i) {
-            blockMetadatas[metas[i].blockId] = metas[i];
-            blockIds[i] = metas[i].blockId;
-        }
-        _proveBlocksWithCorrectTransitions(blockIds);
+        uint64[] memory batchIds = new uint64[](1);
+        batchIds[0] = meta.batchId;
+
+        _proveBatchesWithCorrectTransitions(batchIds);
     }
 
     function test_multiple_blocks_with_different_txlist() external {
@@ -118,20 +141,20 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         bytes32 expectedHash2 = keccak256(txList2);
 
         vm.prank(Alice);
-        uint64[] memory blockIds1 = _proposeBlocksWithDefaultParameters(1, txList1);
-        ITaikoInbox.BlockMetadataV3 memory meta1 = blockMetadatas[blockIds1[0]];
+        uint64[] memory batchIds1 = _proposeBatchesWithDefaultParameters(1, txList1);
+        ITaikoInbox.BatchMetadata memory meta1 = _loadMetadata(batchIds1[0]);
         assertEq(meta1.txListHash, expectedHash1, "txListHash mismatch for block 1");
 
         vm.prank(Alice);
-        uint64[] memory blockIds2 = _proposeBlocksWithDefaultParameters(1, txList2);
-        ITaikoInbox.BlockMetadataV3 memory meta2 = blockMetadatas[blockIds2[0]];
+        uint64[] memory batchIds2 = _proposeBatchesWithDefaultParameters(1, txList2);
+        ITaikoInbox.BatchMetadata memory meta2 = _loadMetadata(batchIds2[0]);
         assertEq(meta2.txListHash, expectedHash2, "txListHash mismatch for block 2");
 
         vm.prank(Alice);
-        _proveBlocksWithCorrectTransitions(blockIds2);
+        _proveBatchesWithCorrectTransitions(batchIds2);
 
         vm.prank(Alice);
-        _proveBlocksWithCorrectTransitions(blockIds1);
+        _proveBatchesWithCorrectTransitions(batchIds1);
     }
 
     function test_prove_block_with_mismatched_txlist() external {
@@ -146,30 +169,28 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         bytes memory txList = abi.encodePacked("correct txList");
 
         vm.prank(Alice);
-        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters(1, txList);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList);
 
         // Define an incorrect txList for proof
         bytes32 incorrectHash = keccak256(abi.encodePacked("incorrect txList"));
 
         // Attempt to prove the block with the incorrect txList
-        ITaikoInbox.BlockMetadataV3 memory meta = blockMetadatas[blockIds[0]];
+        ITaikoInbox.BatchMetadata memory meta = _loadMetadata(batchIds[0]);
         meta.txListHash = incorrectHash;
 
-        ITaikoInbox.BlockMetadataV3[] memory metas =
-            new ITaikoInbox.BlockMetadataV3[](blockIds.length);
-        ITaikoInbox.TransitionV3[] memory transitions =
-            new ITaikoInbox.TransitionV3[](blockIds.length);
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
-        for (uint256 i; i < blockIds.length; ++i) {
-            metas[i] = blockMetadatas[blockIds[i]];
+        for (uint256 i; i < batchIds.length; ++i) {
+            metas[i] = _loadMetadata(batchIds[i]);
             metas[i].txListHash = incorrectHash;
-            transitions[i].parentHash = correctBlockhash(blockIds[i] - 1);
-            transitions[i].blockHash = correctBlockhash(blockIds[i]);
-            transitions[i].stateRoot = correctStateRoot(blockIds[i]);
+            transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
+            transitions[i].blockHash = correctBlockhash(batchIds[i]);
+            transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.MetaHashMismatch.selector);
-        inbox.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBatches(metas, transitions, "proof");
     }
 }

@@ -65,7 +65,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.getConfigV3().chainId;
+        uint64 l2ChainId = taikoInbox.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");

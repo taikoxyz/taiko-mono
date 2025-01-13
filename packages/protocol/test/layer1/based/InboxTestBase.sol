@@ -5,14 +5,15 @@ import "../Layer1Test.sol";
 import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
 abstract contract InboxTestBase is Layer1Test {
-    mapping(uint256 => ITaikoInbox.BlockMetadataV3) internal blockMetadatas;
+    mapping(uint256 => bytes) private _batchMetadatas;
     ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
     uint256 genesisBlockProposedIn;
+    uint256 private __blocksPerBatch;
 
-    function getConfig() internal view virtual returns (ITaikoInbox.ConfigV3 memory);
+    function getConfig() internal view virtual returns (ITaikoInbox.Config memory);
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
@@ -32,6 +33,8 @@ abstract contract InboxTestBase is Layer1Test {
         genesisBlockProposedAt = block.timestamp;
         genesisBlockProposedIn = block.number;
 
+        __blocksPerBatch = 1;
+
         inbox = deployInbox(correctBlockhash(0), getConfig());
 
         signalService = deploySignalService(address(new SignalService()));
@@ -44,131 +47,146 @@ abstract contract InboxTestBase is Layer1Test {
         mineOneBlockAndWrap(12 seconds);
     }
 
-    modifier WhenLogAllBlocksAndTransitions() {
-        _logAllBlocksAndTransitions();
+    modifier WhenEachBatchHasMultipleBlocks(uint256 _blocksPerBatch) {
+        __blocksPerBatch = _blocksPerBatch;
         _;
     }
 
-    modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 numBlocksToPropose) {
-        _proposeBlocksWithDefaultParameters(numBlocksToPropose);
+    modifier WhenLogAllBatchesAndTransitions() {
+        _logAllBatchesAndTransitions();
         _;
     }
 
-    modifier WhenMultipleBlocksAreProvedWithWrongTransitions(
-        uint64 startBlockId,
-        uint64 endBlockId
+    modifier WhenMultipleBatchesAreProposedWithDefaultParameters(uint256 numBatchesToPropose) {
+        _proposeBatchesWithDefaultParameters(numBatchesToPropose);
+        _;
+    }
+
+    modifier WhenMultipleBatchesAreProvedWithWrongTransitions(
+        uint64 startBatchId,
+        uint64 endBatchId
     ) {
-        _proveBlocksWithWrongTransitions(range(startBlockId, endBlockId));
+        _proveBatchesWithWrongTransitions(range(startBatchId, endBatchId));
         _;
     }
 
-    modifier WhenMultipleBlocksAreProvedWithCorrectTransitions(
-        uint64 startBlockId,
-        uint64 endBlockId
+    modifier WhenMultipleBatchesAreProvedWithCorrectTransitions(
+        uint64 startBatchId,
+        uint64 endBatchId
     ) {
-        _proveBlocksWithCorrectTransitions(range(startBlockId, endBlockId));
+        _proveBatchesWithCorrectTransitions(range(startBatchId, endBatchId));
         _;
     }
 
-    // internal helper functions -------------------------------------------------------------------
+    // internal helper functions
+    // -------------------------------------------------------------------
 
-    function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose)
+    function _saveMetadata(ITaikoInbox.BatchMetadata memory _metadata) internal {
+        _batchMetadatas[_metadata.batchId] = abi.encode(_metadata);
+    }
+
+    function _loadMetadata(uint64 _batchId)
         internal
-        returns (uint64[] memory blockIds)
+        view
+        returns (ITaikoInbox.BatchMetadata memory meta_)
     {
-        // Provide a default value for txList
-        bytes memory defaultTxList = abi.encodePacked("txList");
-        return _proposeBlocksWithDefaultParameters(numBlocksToPropose, defaultTxList);
+        bytes memory data = _batchMetadatas[_batchId];
+        if (data.length != 0) {
+            meta_ = abi.decode(data, (ITaikoInbox.BatchMetadata));
+        }
     }
 
-    function _proposeBlocksWithDefaultParameters(
-        uint256 numBlocksToPropose,
+    function _proposeBatchesWithDefaultParameters(uint256 numBatchesToPropose)
+        internal
+        returns (uint64[] memory batchIds)
+    {
+        return _proposeBatchesWithDefaultParameters(numBatchesToPropose, abi.encodePacked("txList"));
+    }
+
+    function _proposeBatchesWithDefaultParameters(
+        uint256 numBatchesToPropose,
         bytes memory txList
     )
         internal
-        returns (uint64[] memory blockIds)
+        returns (uint64[] memory batchIds)
     {
-        ITaikoInbox.BlockParamsV3[] memory blockParams =
-            new ITaikoInbox.BlockParamsV3[](numBlocksToPropose);
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
 
-        ITaikoInbox.BlockMetadataV3[] memory metas =
-            inbox.proposeBlocksV3(address(0), address(0), blockParams, txList);
+        batchIds = new uint64[](numBatchesToPropose);
 
-        // Initialize blockIds array
-        blockIds = new uint64[](metas.length);
-        for (uint256 i; i < metas.length; ++i) {
-            blockMetadatas[metas[i].blockId] = metas[i];
-            blockIds[i] = metas[i].blockId;
+        for (uint256 i; i < numBatchesToPropose; ++i) {
+            ITaikoInbox.BatchMetadata memory meta =
+                inbox.proposeBatch(address(0), address(0), batchParams, txList);
+            _saveMetadata(meta);
+            batchIds[i] = meta.batchId;
         }
     }
 
-    function _proveBlocksWithCorrectTransitions(uint64[] memory blockIds) internal {
-        ITaikoInbox.BlockMetadataV3[] memory metas =
-            new ITaikoInbox.BlockMetadataV3[](blockIds.length);
-        ITaikoInbox.TransitionV3[] memory transitions =
-            new ITaikoInbox.TransitionV3[](blockIds.length);
+    function _proveBatchesWithCorrectTransitions(uint64[] memory batchIds) internal {
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
-            metas[i] = blockMetadatas[blockIds[i]];
-            transitions[i].parentHash = correctBlockhash(blockIds[i] - 1);
-            transitions[i].blockHash = correctBlockhash(blockIds[i]);
-            transitions[i].stateRoot = correctStateRoot(blockIds[i]);
+            metas[i] = _loadMetadata(batchIds[i]);
+            transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
+            transitions[i].blockHash = correctBlockhash(batchIds[i]);
+            transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
-        inbox.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBatches(metas, transitions, "proof");
     }
 
-    function _proveBlocksWithWrongTransitions(uint64[] memory blockIds) internal {
-        ITaikoInbox.BlockMetadataV3[] memory metas =
-            new ITaikoInbox.BlockMetadataV3[](blockIds.length);
-        ITaikoInbox.TransitionV3[] memory transitions =
-            new ITaikoInbox.TransitionV3[](blockIds.length);
+    function _proveBatchesWithWrongTransitions(uint64[] memory batchIds) internal {
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
-            metas[i] = blockMetadatas[blockIds[i]];
+            metas[i] = _loadMetadata(batchIds[i]);
             transitions[i].parentHash = randBytes32();
             transitions[i].blockHash = randBytes32();
             transitions[i].stateRoot = randBytes32();
         }
 
-        inbox.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBatches(metas, transitions, "proof");
     }
 
-    function _logAllBlocksAndTransitions() internal view {
+    function _logAllBatchesAndTransitions() internal view {
         console2.log(unicode"|───────────────────────────────────────────────────────────────");
         ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
-        console2.log("Stats1 - lastSyncedBlockId:", stats1.lastSyncedBlockId);
+        console2.log("Stats1 - lastSyncedBatchId:", stats1.lastSyncedBatchId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
 
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
-        console2.log("Stats2 - numBlocks:", stats2.numBlocks);
-        console2.log("Stats2 - lastVerifiedBlockId:", stats2.lastVerifiedBlockId);
+        console2.log("Stats2 - numBatches:", stats2.numBatches);
+        console2.log("Stats2 - lastVerifiedBatchId:", stats2.lastVerifiedBatchId);
         console2.log("Stats2 - paused:", stats2.paused);
         console2.log("Stats2 - lastProposedIn:", stats2.lastProposedIn);
         console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
 
-        // console2.log("stats2.numBlocks:", stats2.numBlocks);
-        // console2.log("getConfig().blockRingBufferSize:", getConfig().blockRingBufferSize);
+        // console2.log("stats2.numBatches:", stats2.numBatches);
+        // console2.log("getConfig().maxBatchProposals:", getConfig().maxBatchProposals);
 
-        uint64 firstBlockId = stats2.numBlocks > getConfig().blockRingBufferSize
-            ? stats2.numBlocks - getConfig().blockRingBufferSize
+        uint64 firstBatchId = stats2.numBatches > getConfig().maxBatchProposals
+            ? stats2.numBatches - getConfig().maxBatchProposals
             : 0;
 
-        for (uint64 i = firstBlockId; i < stats2.numBlocks; ++i) {
-            ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(i);
-            if (blk.blockId <= stats2.lastVerifiedBlockId) {
-                console2.log(unicode"|─ ✔ block#", blk.blockId);
+        for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {
+            ITaikoInbox.Batch memory batch = inbox.getBatch(i);
+            if (batch.batchId <= stats2.lastVerifiedBatchId) {
+                console2.log(unicode"|─ ✔ batch#", batch.batchId);
             } else {
-                console2.log(unicode"|─── block#", blk.blockId);
+                console2.log(unicode"|─── batch#", batch.batchId);
             }
-            console2.log(unicode"│    |── metahash:", Strings.toHexString(uint256(blk.metaHash)));
-            console2.log(unicode"│    |── timestamp:", blk.timestamp);
-            console2.log(unicode"│    |── anchorBlockId:", blk.anchorBlockId);
-            console2.log(unicode"│    |── nextTransitionId:", blk.nextTransitionId);
-            console2.log(unicode"│    |── verifiedTransitionId:", blk.verifiedTransitionId);
+            console2.log(unicode"│    |── metahash:", Strings.toHexString(uint256(batch.metaHash)));
+            console2.log(unicode"│    |── timestamp:", batch.timestamp);
+            console2.log(unicode"│    |── lastBlockId:", batch.lastBlockId);
+            console2.log(unicode"│    |── anchorBlockId:", batch.anchorBlockId);
+            console2.log(unicode"│    |── nextTransitionId:", batch.nextTransitionId);
+            console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
-            for (uint24 j = 1; j < blk.nextTransitionId; ++j) {
-                ITaikoInbox.TransitionV3 memory tran = inbox.getTransitionV3(blk.blockId, j);
+            for (uint24 j = 1; j < batch.nextTransitionId; ++j) {
+                ITaikoInbox.Transition memory tran = inbox.getTransition(batch.batchId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",

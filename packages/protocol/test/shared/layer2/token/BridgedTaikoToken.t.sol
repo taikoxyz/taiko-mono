@@ -24,7 +24,7 @@ contract BridgedTaikoTokenTest is CommonTest {
         resolver.registerAddress(block.chainid, LibStrings.B_ERC20_VAULT, deployer);
     }
 
-    function test_init() public {
+    function test_init() public view {
         assertEq(token.name(), "Taiko Token");
         assertEq(token.symbol(), "TAIKO");
         assertEq(token.owner(), deployer);
@@ -56,7 +56,7 @@ contract BridgedTaikoTokenTest is CommonTest {
         token.burn(500 ether);
     }
 
-    function test_canonical() public {
+    function test_canonical() public view {
         (address canonicalAddr, uint256 chainId) = token.canonical();
         assertEq(canonicalAddr, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
         assertEq(chainId, 1);
