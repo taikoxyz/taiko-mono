@@ -18,7 +18,7 @@ import "src/shared/based/LibSharedData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
     struct BlockParams {
-        // the max nubmer of transactions in this block. Note that if there are not enough
+        // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contains as many transactions as
         // possible.
         uint16 numTransactions;
