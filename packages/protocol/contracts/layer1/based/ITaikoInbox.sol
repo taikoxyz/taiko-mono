@@ -18,7 +18,7 @@ import "src/shared/based/LibSharedData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
     struct BlockParams {
-        // the max nubmer of transactions in this block. Note that if there are not enough
+        // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contains as many transactions as
         // possible.
         uint16 numTransactions;
@@ -35,7 +35,7 @@ interface ITaikoInbox {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
         bytes32 anchorInput;
-        uint64 timestamp;
+        uint64 lastBlockTimestamp;
         uint32 txListOffset;
         uint32 txListSize;
         // The index of the first blob in this batch.
@@ -55,7 +55,7 @@ interface ITaikoInbox {
         address coinbase;
         uint64 batchId;
         uint32 gasLimit;
-        uint64 timestamp;
+        uint64 lastBlockTimestamp;
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
@@ -85,7 +85,7 @@ interface ITaikoInbox {
         uint64 lastBlockId;
         uint192 _reserved3;
         uint64 batchId; // slot 3
-        uint64 timestamp;
+        uint64 lastBlockTimestamp;
         uint64 anchorBlockId;
         uint24 nextTransitionId;
         uint8 reserved4;

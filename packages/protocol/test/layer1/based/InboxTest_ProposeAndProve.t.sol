@@ -50,7 +50,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
-        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
         assertEq(batch.anchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
@@ -97,7 +97,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
-        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
         assertEq(batch.anchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
@@ -108,7 +108,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 1);
             assertEq(batch.verifiedTransitionId, 0);
@@ -154,7 +154,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
-        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
         assertEq(batch.anchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
@@ -165,7 +165,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
             assertEq(batch.verifiedTransitionId, 0);
@@ -229,7 +229,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
-        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
         assertEq(batch.anchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
@@ -240,7 +240,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
             if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
@@ -290,7 +290,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
-        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
         assertEq(batch.anchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
@@ -301,7 +301,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.lastBlockId, i * 7);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
@@ -338,7 +338,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
-        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
         assertEq(batch.anchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
@@ -349,7 +349,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 3);
             if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
@@ -404,7 +404,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             if (i == 8) {
                 assertEq(batch.verifiedTransitionId, 0);
