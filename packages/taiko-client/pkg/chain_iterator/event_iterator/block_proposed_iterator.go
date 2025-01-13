@@ -170,6 +170,14 @@ func assembleBlockProposedIteratorCallback(
 			updateCurrentFunc(current)
 		}
 
+		// Check iterator errors.
+		if iter.Error() != nil {
+			return iter.Error()
+		}
+		if iterOntake.Error() != nil {
+			return iter.Error()
+		}
+
 		return nil
 	}
 }
