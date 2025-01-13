@@ -246,6 +246,7 @@ interface ITaikoInbox {
     error TooManyBlocks();
     error TooManySignals();
     error TransitionNotFound();
+    error ZeroAnchorBlockHash();
 
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded parameters consisting of:

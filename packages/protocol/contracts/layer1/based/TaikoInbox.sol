@@ -149,6 +149,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             baseFeeConfig: config.baseFeeConfig
         });
 
+        require(meta_.anchorBlockHash != 0, ZeroAnchorBlockHash());
         require(meta_.txListHash != 0, BlobNotFound());
         bytes32 metaHash = keccak256(abi.encode(meta_));
 
@@ -492,10 +493,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         SyncBlock memory synced;
 
-        uint256 stopBlockId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId)
+        uint256 stopBatchId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId)
             .min(_stats2.numBatches);
 
-        for (++batchId; batchId < stopBlockId; ++batchId) {
+        for (++batchId; batchId < stopBatchId; ++batchId) {
             slot = batchId % _config.batchRingBufferSize;
             batch = state.batches[slot];
 
