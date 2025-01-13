@@ -113,4 +113,23 @@ contract InboxTest_Params is InboxTestBase {
         vm.expectRevert(ITaikoInbox.TimestampTooLarge.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
     }
+
+    function test_validateParams_reverts_when_timestamp_smaller_than_parent()
+        external
+        transactBy(Alice)
+    {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](1);
+        params.lastBlockTimestamp = uint64(block.timestamp);
+        inbox.proposeBatch(abi.encode(params), "txList");
+
+        params.lastBlockTimestamp = uint64(block.timestamp - 1);
+        vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
+        inbox.proposeBatch(abi.encode(params), "txList");
+
+        params.blocks[0].timeShift = 1;
+        params.lastBlockTimestamp = uint64(block.timestamp);
+        vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
+        inbox.proposeBatch(abi.encode(params), "txList");
+    }
 }
