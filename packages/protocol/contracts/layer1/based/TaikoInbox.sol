@@ -63,9 +63,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         nonReentrant
         returns (BatchMetadata memory meta_)
     {
-        (address proposer, address coinbase, BatchParams memory batchParams) =
-            abi.decode(_params, (address, address, BatchParams));
-
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
@@ -79,19 +76,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             );
         }
 
+        BatchParams memory params = abi.decode(_params, (BatchParams));
+
         {
             address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
             if (preconfRouter == address(0)) {
-                require(proposer == address(0), CustomProposerNotAllowed());
-                proposer = msg.sender;
+                require(params.proposer == address(0), CustomProposerNotAllowed());
+                params.proposer = msg.sender;
             } else {
                 require(msg.sender == preconfRouter, NotPreconfRouter());
-                require(proposer != address(0), CustomProposerMissing());
+                require(params.proposer != address(0), CustomProposerMissing());
             }
 
-            if (coinbase == address(0)) {
-                coinbase = proposer;
+            if (params.coinbase == address(0)) {
+                params.coinbase = params.proposer;
             }
+        }
+
+        if (params.revertIfNotFirstProposal) {
+            require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
         }
 
         // Keep track of last batch's information.
@@ -103,10 +106,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         bool calldataUsed = _txList.length != 0;
         UpdatedParams memory updatedParams;
 
-        require(calldataUsed || batchParams.numBlobs != 0, BlobNotSpecified());
+        require(calldataUsed || params.numBlobs != 0, BlobNotSpecified());
 
         updatedParams = _validateBatchParams(
-            batchParams,
+            params,
             config.maxAnchorHeightOffset,
             config.maxSignalsToReceive,
             config.maxBlocksPerBatch,
@@ -123,25 +126,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         // the following approach to calculate a block's difficulty:
         //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
         meta_ = BatchMetadata({
-            txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(batchParams.numBlobs),
+            txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(params.numBlobs),
             extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-            coinbase: coinbase,
+            coinbase: params.coinbase,
             batchId: stats2.numBatches,
             gasLimit: config.blockMaxGasLimit,
             timestamp: updatedParams.timestamp,
             parentMetaHash: lastBatch.metaHash,
-            proposer: proposer,
+            proposer: params.proposer,
             livenessBond: config.livenessBond,
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
-            txListOffset: batchParams.txListOffset,
-            txListSize: batchParams.txListSize,
-            numBlobs: calldataUsed ? 0 : batchParams.numBlobs,
+            txListOffset: params.txListOffset,
+            txListSize: params.txListSize,
+            numBlobs: calldataUsed ? 0 : params.numBlobs,
             anchorBlockId: updatedParams.anchorBlockId,
             anchorBlockHash: blockhash(updatedParams.anchorBlockId),
-            signalSlots: batchParams.signalSlots,
-            blocks: batchParams.blocks,
-            anchorInput: batchParams.anchorInput,
+            signalSlots: params.signalSlots,
+            blocks: params.blocks,
+            anchorInput: params.anchorInput,
             baseFeeConfig: config.baseFeeConfig
         });
 
@@ -163,9 +166,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         // SSTORE #3 {{
         if (stats2.numBatches == config.forkHeights.pacaya) {
-            batch.lastBlockId = batch.batchId + uint8(batchParams.blocks.length) - 1;
+            batch.lastBlockId = batch.batchId + uint8(params.blocks.length) - 1;
         } else {
-            batch.lastBlockId = lastBatch.lastBlockId + uint8(batchParams.blocks.length);
+            batch.lastBlockId = lastBatch.lastBlockId + uint8(params.blocks.length);
         }
         batch._reserved3 = 0;
         // SSTORE }}
@@ -175,7 +178,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
         }
 
-        _debitBond(proposer, config.livenessBond);
+        _debitBond(params.proposer, config.livenessBond);
         emit BatchProposed(meta_, calldataUsed, _txList);
 
         _verifyBatches(config, stats2, 1);

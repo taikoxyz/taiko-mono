@@ -23,6 +23,8 @@ interface ITaikoInbox {
     }
 
     struct BatchParams {
+        address proposer;
+        address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
         bytes32 anchorInput;
@@ -30,6 +32,7 @@ interface ITaikoInbox {
         uint32 txListOffset;
         uint32 txListSize;
         uint8 numBlobs;
+        bool revertIfNotFirstProposal;
         bytes32[] signalSlots;
         BlockParams[] blocks;
     }
@@ -219,6 +222,7 @@ interface ITaikoInbox {
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoBlocksToProve();
+    error NotFirstProposal();
     error NotPreconfRouter();
     error ParentMetaHashMismatch();
     error ProverNotPermitted();

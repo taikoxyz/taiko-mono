@@ -67,25 +67,13 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
-        blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
-
-        ITaikoInbox.BatchParams memory batchParams = ITaikoInbox.BatchParams({
-            anchorBlockId: 0,
-            timestamp: 0,
-            parentMetaHash: 0,
-            signalSlots: new bytes32[](0),
-            numBlobs: 0, // missing blob index
-            txListOffset: 0,
-            txListSize: 0,
-            anchorInput: bytes32(0),
-            blocks: blocks
-        });
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](1);
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
         // With empty txList
-        inbox.proposeBatch(abi.encode(address(0), address(0), batchParams), "");
+        inbox.proposeBatch(abi.encode(params), "");
     }
 
     function test_propose_block_with_empty_txlist_and_valid_blobindex() external {
@@ -96,26 +84,14 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        ITaikoInbox.BlockParams[] memory blocks = new ITaikoInbox.BlockParams[](1);
-        blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
-
-        ITaikoInbox.BatchParams memory batchParams = ITaikoInbox.BatchParams({
-            anchorBlockId: 0,
-            timestamp: 0,
-            parentMetaHash: 0,
-            signalSlots: new bytes32[](0),
-            numBlobs: 1, // one blob
-            txListOffset: 0,
-            txListSize: 0,
-            anchorInput: bytes32(0),
-            blocks: blocks
-        });
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](1);
+        params.numBlobs = 1;
 
         vm.prank(Alice);
 
         // With empty txList
-        ITaikoInbox.BatchMetadata memory meta =
-            inbox.proposeBatch(abi.encode(address(0), address(0), batchParams), "");
+        ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "");
         assertTrue(meta.txListHash != 0, "txListHash should not be zero for valid blobIndex");
 
         _saveMetadata(meta);
