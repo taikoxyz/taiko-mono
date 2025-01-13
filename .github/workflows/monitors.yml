@@ -11,7 +11,7 @@ on:
 
 jobs:
   deploy-protocol-monitors:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.

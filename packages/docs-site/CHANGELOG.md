@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.21.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.1...docs-site-v1.21.2) (2025-01-07)
+
+
+### Chores
+
+* **docs-site:** update codebase analysis to reflect protocol changes ([#18714](https://github.com/taikoxyz/taiko-mono/issues/18714)) ([6157af5](https://github.com/taikoxyz/taiko-mono/commit/6157af5c63608876c5f090017c315ca59c6bd4ef))
+
+## [1.21.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.0...docs-site-v1.21.1) (2025-01-03)
+
+
+### Chores
+
+* **docs-site:** revert zk coverage docs ([#18682](https://github.com/taikoxyz/taiko-mono/issues/18682)) ([26c5fb3](https://github.com/taikoxyz/taiko-mono/commit/26c5fb3ad09a061997ffba28e91938b172d28798))
+* **repo:** fix broken links ([#18635](https://github.com/taikoxyz/taiko-mono/issues/18635)) ([8e53a6e](https://github.com/taikoxyz/taiko-mono/commit/8e53a6e6a2654b8a599fe1df187e2fd88c22d96e))
+
 ## [1.21.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.3...docs-site-v1.21.0) (2024-12-23)
 
 

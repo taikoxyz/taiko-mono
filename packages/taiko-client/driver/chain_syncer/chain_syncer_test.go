@@ -68,7 +68,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ExtraData:                  "test",
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,

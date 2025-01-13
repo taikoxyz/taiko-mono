@@ -13,7 +13,7 @@ on:
 
 jobs:
   lint-guardian-prover-health-check:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     name: lint-guardian-prover-health-check
     runs-on: [taiko-runner]
     steps:
@@ -32,7 +32,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-guardian-prover-health-check:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     runs-on: [taiko-runner]
     needs: lint-guardian-prover-health-check
     steps:
@@ -58,7 +58,7 @@ jobs:
 
   push-guardian-prover-health-check-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') && github.event.pull_request.head.repo.fork == false }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.fork == false }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 
@@ -94,7 +94,7 @@ jobs:
             type=sha
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           push: true
           context: .
