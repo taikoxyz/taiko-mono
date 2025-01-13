@@ -29,113 +29,113 @@ var (
 	_ = abi.ConvertType
 )
 
-// ForkManagerMetaData contains all meta data concerning the ForkManager contract.
-var ForkManagerMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_oldFork\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_currFork\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isForkManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"newFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"oldFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ForkAddressIsZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidParams\",\"inputs\":[]}]",
+// ForkRouterMetaData contains all meta data concerning the ForkRouter contract.
+var ForkRouterMetaData = &bind.MetaData{
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_oldFork\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_newFork\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"currentFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isForkRouter\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"newFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"oldFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NewForkNotActive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZeroAddress\",\"inputs\":[]}]",
 }
 
-// ForkManagerABI is the input ABI used to generate the binding from.
-// Deprecated: Use ForkManagerMetaData.ABI instead.
-var ForkManagerABI = ForkManagerMetaData.ABI
+// ForkRouterABI is the input ABI used to generate the binding from.
+// Deprecated: Use ForkRouterMetaData.ABI instead.
+var ForkRouterABI = ForkRouterMetaData.ABI
 
-// ForkManager is an auto generated Go binding around an Ethereum contract.
-type ForkManager struct {
-	ForkManagerCaller     // Read-only binding to the contract
-	ForkManagerTransactor // Write-only binding to the contract
-	ForkManagerFilterer   // Log filterer for contract events
+// ForkRouter is an auto generated Go binding around an Ethereum contract.
+type ForkRouter struct {
+	ForkRouterCaller     // Read-only binding to the contract
+	ForkRouterTransactor // Write-only binding to the contract
+	ForkRouterFilterer   // Log filterer for contract events
 }
 
-// ForkManagerCaller is an auto generated read-only Go binding around an Ethereum contract.
-type ForkManagerCaller struct {
+// ForkRouterCaller is an auto generated read-only Go binding around an Ethereum contract.
+type ForkRouterCaller struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// ForkManagerTransactor is an auto generated write-only Go binding around an Ethereum contract.
-type ForkManagerTransactor struct {
+// ForkRouterTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type ForkRouterTransactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// ForkManagerFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
-type ForkManagerFilterer struct {
+// ForkRouterFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type ForkRouterFilterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// ForkManagerSession is an auto generated Go binding around an Ethereum contract,
+// ForkRouterSession is an auto generated Go binding around an Ethereum contract,
 // with pre-set call and transact options.
-type ForkManagerSession struct {
-	Contract     *ForkManager      // Generic contract binding to set the session for
+type ForkRouterSession struct {
+	Contract     *ForkRouter       // Generic contract binding to set the session for
 	CallOpts     bind.CallOpts     // Call options to use throughout this session
 	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
 
-// ForkManagerCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// ForkRouterCallerSession is an auto generated read-only Go binding around an Ethereum contract,
 // with pre-set call options.
-type ForkManagerCallerSession struct {
-	Contract *ForkManagerCaller // Generic contract caller binding to set the session for
-	CallOpts bind.CallOpts      // Call options to use throughout this session
+type ForkRouterCallerSession struct {
+	Contract *ForkRouterCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts     // Call options to use throughout this session
 }
 
-// ForkManagerTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// ForkRouterTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
 // with pre-set transact options.
-type ForkManagerTransactorSession struct {
-	Contract     *ForkManagerTransactor // Generic contract transactor binding to set the session for
-	TransactOpts bind.TransactOpts      // Transaction auth options to use throughout this session
+type ForkRouterTransactorSession struct {
+	Contract     *ForkRouterTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts     // Transaction auth options to use throughout this session
 }
 
-// ForkManagerRaw is an auto generated low-level Go binding around an Ethereum contract.
-type ForkManagerRaw struct {
-	Contract *ForkManager // Generic contract binding to access the raw methods on
+// ForkRouterRaw is an auto generated low-level Go binding around an Ethereum contract.
+type ForkRouterRaw struct {
+	Contract *ForkRouter // Generic contract binding to access the raw methods on
 }
 
-// ForkManagerCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
-type ForkManagerCallerRaw struct {
-	Contract *ForkManagerCaller // Generic read-only contract binding to access the raw methods on
+// ForkRouterCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type ForkRouterCallerRaw struct {
+	Contract *ForkRouterCaller // Generic read-only contract binding to access the raw methods on
 }
 
-// ForkManagerTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
-type ForkManagerTransactorRaw struct {
-	Contract *ForkManagerTransactor // Generic write-only contract binding to access the raw methods on
+// ForkRouterTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type ForkRouterTransactorRaw struct {
+	Contract *ForkRouterTransactor // Generic write-only contract binding to access the raw methods on
 }
 
-// NewForkManager creates a new instance of ForkManager, bound to a specific deployed contract.
-func NewForkManager(address common.Address, backend bind.ContractBackend) (*ForkManager, error) {
-	contract, err := bindForkManager(address, backend, backend, backend)
+// NewForkRouter creates a new instance of ForkRouter, bound to a specific deployed contract.
+func NewForkRouter(address common.Address, backend bind.ContractBackend) (*ForkRouter, error) {
+	contract, err := bindForkRouter(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManager{ForkManagerCaller: ForkManagerCaller{contract: contract}, ForkManagerTransactor: ForkManagerTransactor{contract: contract}, ForkManagerFilterer: ForkManagerFilterer{contract: contract}}, nil
+	return &ForkRouter{ForkRouterCaller: ForkRouterCaller{contract: contract}, ForkRouterTransactor: ForkRouterTransactor{contract: contract}, ForkRouterFilterer: ForkRouterFilterer{contract: contract}}, nil
 }
 
-// NewForkManagerCaller creates a new read-only instance of ForkManager, bound to a specific deployed contract.
-func NewForkManagerCaller(address common.Address, caller bind.ContractCaller) (*ForkManagerCaller, error) {
-	contract, err := bindForkManager(address, caller, nil, nil)
+// NewForkRouterCaller creates a new read-only instance of ForkRouter, bound to a specific deployed contract.
+func NewForkRouterCaller(address common.Address, caller bind.ContractCaller) (*ForkRouterCaller, error) {
+	contract, err := bindForkRouter(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerCaller{contract: contract}, nil
+	return &ForkRouterCaller{contract: contract}, nil
 }
 
-// NewForkManagerTransactor creates a new write-only instance of ForkManager, bound to a specific deployed contract.
-func NewForkManagerTransactor(address common.Address, transactor bind.ContractTransactor) (*ForkManagerTransactor, error) {
-	contract, err := bindForkManager(address, nil, transactor, nil)
+// NewForkRouterTransactor creates a new write-only instance of ForkRouter, bound to a specific deployed contract.
+func NewForkRouterTransactor(address common.Address, transactor bind.ContractTransactor) (*ForkRouterTransactor, error) {
+	contract, err := bindForkRouter(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerTransactor{contract: contract}, nil
+	return &ForkRouterTransactor{contract: contract}, nil
 }
 
-// NewForkManagerFilterer creates a new log filterer instance of ForkManager, bound to a specific deployed contract.
-func NewForkManagerFilterer(address common.Address, filterer bind.ContractFilterer) (*ForkManagerFilterer, error) {
-	contract, err := bindForkManager(address, nil, nil, filterer)
+// NewForkRouterFilterer creates a new log filterer instance of ForkRouter, bound to a specific deployed contract.
+func NewForkRouterFilterer(address common.Address, filterer bind.ContractFilterer) (*ForkRouterFilterer, error) {
+	contract, err := bindForkRouter(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerFilterer{contract: contract}, nil
+	return &ForkRouterFilterer{contract: contract}, nil
 }
 
-// bindForkManager binds a generic wrapper to an already deployed contract.
-func bindForkManager(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := ForkManagerMetaData.GetAbi()
+// bindForkRouter binds a generic wrapper to an already deployed contract.
+func bindForkRouter(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := ForkRouterMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
@@ -146,46 +146,77 @@ func bindForkManager(address common.Address, caller bind.ContractCaller, transac
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_ForkManager *ForkManagerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _ForkManager.Contract.ForkManagerCaller.contract.Call(opts, result, method, params...)
+func (_ForkRouter *ForkRouterRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ForkRouter.Contract.ForkRouterCaller.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_ForkManager *ForkManagerRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ForkManager.Contract.ForkManagerTransactor.contract.Transfer(opts)
+func (_ForkRouter *ForkRouterRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ForkRouter.Contract.ForkRouterTransactor.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_ForkManager *ForkManagerRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _ForkManager.Contract.ForkManagerTransactor.contract.Transact(opts, method, params...)
+func (_ForkRouter *ForkRouterRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ForkRouter.Contract.ForkRouterTransactor.contract.Transact(opts, method, params...)
 }
 
 // Call invokes the (constant) contract method with params as input values and
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_ForkManager *ForkManagerCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _ForkManager.Contract.contract.Call(opts, result, method, params...)
+func (_ForkRouter *ForkRouterCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _ForkRouter.Contract.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_ForkManager *ForkManagerTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ForkManager.Contract.contract.Transfer(opts)
+func (_ForkRouter *ForkRouterTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ForkRouter.Contract.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_ForkManager *ForkManagerTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _ForkManager.Contract.contract.Transact(opts, method, params...)
+func (_ForkRouter *ForkRouterTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _ForkRouter.Contract.contract.Transact(opts, method, params...)
 }
 
-// IsForkManager is a free data retrieval call binding the contract method 0xff10b03f.
+// CurrentFork is a free data retrieval call binding the contract method 0x183d2d1c.
 //
-// Solidity: function isForkManager() pure returns(bool)
-func (_ForkManager *ForkManagerCaller) IsForkManager(opts *bind.CallOpts) (bool, error) {
+// Solidity: function currentFork() view returns(address)
+func (_ForkRouter *ForkRouterCaller) CurrentFork(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _ForkManager.contract.Call(opts, &out, "isForkManager")
+	err := _ForkRouter.contract.Call(opts, &out, "currentFork")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// CurrentFork is a free data retrieval call binding the contract method 0x183d2d1c.
+//
+// Solidity: function currentFork() view returns(address)
+func (_ForkRouter *ForkRouterSession) CurrentFork() (common.Address, error) {
+	return _ForkRouter.Contract.CurrentFork(&_ForkRouter.CallOpts)
+}
+
+// CurrentFork is a free data retrieval call binding the contract method 0x183d2d1c.
+//
+// Solidity: function currentFork() view returns(address)
+func (_ForkRouter *ForkRouterCallerSession) CurrentFork() (common.Address, error) {
+	return _ForkRouter.Contract.CurrentFork(&_ForkRouter.CallOpts)
+}
+
+// IsForkRouter is a free data retrieval call binding the contract method 0x2d5a06e9.
+//
+// Solidity: function isForkRouter() pure returns(bool)
+func (_ForkRouter *ForkRouterCaller) IsForkRouter(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _ForkRouter.contract.Call(opts, &out, "isForkRouter")
 
 	if err != nil {
 		return *new(bool), err
@@ -197,57 +228,57 @@ func (_ForkManager *ForkManagerCaller) IsForkManager(opts *bind.CallOpts) (bool,
 
 }
 
-// IsForkManager is a free data retrieval call binding the contract method 0xff10b03f.
+// IsForkRouter is a free data retrieval call binding the contract method 0x2d5a06e9.
 //
-// Solidity: function isForkManager() pure returns(bool)
-func (_ForkManager *ForkManagerSession) IsForkManager() (bool, error) {
-	return _ForkManager.Contract.IsForkManager(&_ForkManager.CallOpts)
+// Solidity: function isForkRouter() pure returns(bool)
+func (_ForkRouter *ForkRouterSession) IsForkRouter() (bool, error) {
+	return _ForkRouter.Contract.IsForkRouter(&_ForkRouter.CallOpts)
 }
 
-// IsForkManager is a free data retrieval call binding the contract method 0xff10b03f.
+// IsForkRouter is a free data retrieval call binding the contract method 0x2d5a06e9.
 //
-// Solidity: function isForkManager() pure returns(bool)
-func (_ForkManager *ForkManagerCallerSession) IsForkManager() (bool, error) {
-	return _ForkManager.Contract.IsForkManager(&_ForkManager.CallOpts)
-}
-
-// NewFork is a free data retrieval call binding the contract method 0x863acc33.
-//
-// Solidity: function newFork() view returns(address)
-func (_ForkManager *ForkManagerCaller) NewFork(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _ForkManager.contract.Call(opts, &out, "newFork")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
+// Solidity: function isForkRouter() pure returns(bool)
+func (_ForkRouter *ForkRouterCallerSession) IsForkRouter() (bool, error) {
+	return _ForkRouter.Contract.IsForkRouter(&_ForkRouter.CallOpts)
 }
 
 // NewFork is a free data retrieval call binding the contract method 0x863acc33.
 //
 // Solidity: function newFork() view returns(address)
-func (_ForkManager *ForkManagerSession) NewFork() (common.Address, error) {
-	return _ForkManager.Contract.NewFork(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterCaller) NewFork(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ForkRouter.contract.Call(opts, &out, "newFork")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
 }
 
 // NewFork is a free data retrieval call binding the contract method 0x863acc33.
 //
 // Solidity: function newFork() view returns(address)
-func (_ForkManager *ForkManagerCallerSession) NewFork() (common.Address, error) {
-	return _ForkManager.Contract.NewFork(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterSession) NewFork() (common.Address, error) {
+	return _ForkRouter.Contract.NewFork(&_ForkRouter.CallOpts)
+}
+
+// NewFork is a free data retrieval call binding the contract method 0x863acc33.
+//
+// Solidity: function newFork() view returns(address)
+func (_ForkRouter *ForkRouterCallerSession) NewFork() (common.Address, error) {
+	return _ForkRouter.Contract.NewFork(&_ForkRouter.CallOpts)
 }
 
 // OldFork is a free data retrieval call binding the contract method 0xdf6060fb.
 //
 // Solidity: function oldFork() view returns(address)
-func (_ForkManager *ForkManagerCaller) OldFork(opts *bind.CallOpts) (common.Address, error) {
+func (_ForkRouter *ForkRouterCaller) OldFork(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _ForkManager.contract.Call(opts, &out, "oldFork")
+	err := _ForkRouter.contract.Call(opts, &out, "oldFork")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -262,23 +293,23 @@ func (_ForkManager *ForkManagerCaller) OldFork(opts *bind.CallOpts) (common.Addr
 // OldFork is a free data retrieval call binding the contract method 0xdf6060fb.
 //
 // Solidity: function oldFork() view returns(address)
-func (_ForkManager *ForkManagerSession) OldFork() (common.Address, error) {
-	return _ForkManager.Contract.OldFork(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterSession) OldFork() (common.Address, error) {
+	return _ForkRouter.Contract.OldFork(&_ForkRouter.CallOpts)
 }
 
 // OldFork is a free data retrieval call binding the contract method 0xdf6060fb.
 //
 // Solidity: function oldFork() view returns(address)
-func (_ForkManager *ForkManagerCallerSession) OldFork() (common.Address, error) {
-	return _ForkManager.Contract.OldFork(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterCallerSession) OldFork() (common.Address, error) {
+	return _ForkRouter.Contract.OldFork(&_ForkRouter.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
-func (_ForkManager *ForkManagerCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+func (_ForkRouter *ForkRouterCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _ForkManager.contract.Call(opts, &out, "owner")
+	err := _ForkRouter.contract.Call(opts, &out, "owner")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -293,23 +324,23 @@ func (_ForkManager *ForkManagerCaller) Owner(opts *bind.CallOpts) (common.Addres
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
-func (_ForkManager *ForkManagerSession) Owner() (common.Address, error) {
-	return _ForkManager.Contract.Owner(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterSession) Owner() (common.Address, error) {
+	return _ForkRouter.Contract.Owner(&_ForkRouter.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
-func (_ForkManager *ForkManagerCallerSession) Owner() (common.Address, error) {
-	return _ForkManager.Contract.Owner(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterCallerSession) Owner() (common.Address, error) {
+	return _ForkRouter.Contract.Owner(&_ForkRouter.CallOpts)
 }
 
 // PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
 //
 // Solidity: function pendingOwner() view returns(address)
-func (_ForkManager *ForkManagerCaller) PendingOwner(opts *bind.CallOpts) (common.Address, error) {
+func (_ForkRouter *ForkRouterCaller) PendingOwner(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _ForkManager.contract.Call(opts, &out, "pendingOwner")
+	err := _ForkRouter.contract.Call(opts, &out, "pendingOwner")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -324,23 +355,23 @@ func (_ForkManager *ForkManagerCaller) PendingOwner(opts *bind.CallOpts) (common
 // PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
 //
 // Solidity: function pendingOwner() view returns(address)
-func (_ForkManager *ForkManagerSession) PendingOwner() (common.Address, error) {
-	return _ForkManager.Contract.PendingOwner(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterSession) PendingOwner() (common.Address, error) {
+	return _ForkRouter.Contract.PendingOwner(&_ForkRouter.CallOpts)
 }
 
 // PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
 //
 // Solidity: function pendingOwner() view returns(address)
-func (_ForkManager *ForkManagerCallerSession) PendingOwner() (common.Address, error) {
-	return _ForkManager.Contract.PendingOwner(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterCallerSession) PendingOwner() (common.Address, error) {
+	return _ForkRouter.Contract.PendingOwner(&_ForkRouter.CallOpts)
 }
 
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
 //
 // Solidity: function proxiableUUID() view returns(bytes32)
-func (_ForkManager *ForkManagerCaller) ProxiableUUID(opts *bind.CallOpts) ([32]byte, error) {
+func (_ForkRouter *ForkRouterCaller) ProxiableUUID(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
-	err := _ForkManager.contract.Call(opts, &out, "proxiableUUID")
+	err := _ForkRouter.contract.Call(opts, &out, "proxiableUUID")
 
 	if err != nil {
 		return *new([32]byte), err
@@ -355,167 +386,167 @@ func (_ForkManager *ForkManagerCaller) ProxiableUUID(opts *bind.CallOpts) ([32]b
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
 //
 // Solidity: function proxiableUUID() view returns(bytes32)
-func (_ForkManager *ForkManagerSession) ProxiableUUID() ([32]byte, error) {
-	return _ForkManager.Contract.ProxiableUUID(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterSession) ProxiableUUID() ([32]byte, error) {
+	return _ForkRouter.Contract.ProxiableUUID(&_ForkRouter.CallOpts)
 }
 
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
 //
 // Solidity: function proxiableUUID() view returns(bytes32)
-func (_ForkManager *ForkManagerCallerSession) ProxiableUUID() ([32]byte, error) {
-	return _ForkManager.Contract.ProxiableUUID(&_ForkManager.CallOpts)
+func (_ForkRouter *ForkRouterCallerSession) ProxiableUUID() ([32]byte, error) {
+	return _ForkRouter.Contract.ProxiableUUID(&_ForkRouter.CallOpts)
 }
 
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
 // Solidity: function acceptOwnership() returns()
-func (_ForkManager *ForkManagerTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ForkManager.contract.Transact(opts, "acceptOwnership")
+func (_ForkRouter *ForkRouterTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ForkRouter.contract.Transact(opts, "acceptOwnership")
 }
 
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
 // Solidity: function acceptOwnership() returns()
-func (_ForkManager *ForkManagerSession) AcceptOwnership() (*types.Transaction, error) {
-	return _ForkManager.Contract.AcceptOwnership(&_ForkManager.TransactOpts)
+func (_ForkRouter *ForkRouterSession) AcceptOwnership() (*types.Transaction, error) {
+	return _ForkRouter.Contract.AcceptOwnership(&_ForkRouter.TransactOpts)
 }
 
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
 // Solidity: function acceptOwnership() returns()
-func (_ForkManager *ForkManagerTransactorSession) AcceptOwnership() (*types.Transaction, error) {
-	return _ForkManager.Contract.AcceptOwnership(&_ForkManager.TransactOpts)
+func (_ForkRouter *ForkRouterTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _ForkRouter.Contract.AcceptOwnership(&_ForkRouter.TransactOpts)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
 // Solidity: function renounceOwnership() returns()
-func (_ForkManager *ForkManagerTransactor) RenounceOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ForkManager.contract.Transact(opts, "renounceOwnership")
+func (_ForkRouter *ForkRouterTransactor) RenounceOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ForkRouter.contract.Transact(opts, "renounceOwnership")
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
 // Solidity: function renounceOwnership() returns()
-func (_ForkManager *ForkManagerSession) RenounceOwnership() (*types.Transaction, error) {
-	return _ForkManager.Contract.RenounceOwnership(&_ForkManager.TransactOpts)
+func (_ForkRouter *ForkRouterSession) RenounceOwnership() (*types.Transaction, error) {
+	return _ForkRouter.Contract.RenounceOwnership(&_ForkRouter.TransactOpts)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
 // Solidity: function renounceOwnership() returns()
-func (_ForkManager *ForkManagerTransactorSession) RenounceOwnership() (*types.Transaction, error) {
-	return _ForkManager.Contract.RenounceOwnership(&_ForkManager.TransactOpts)
+func (_ForkRouter *ForkRouterTransactorSession) RenounceOwnership() (*types.Transaction, error) {
+	return _ForkRouter.Contract.RenounceOwnership(&_ForkRouter.TransactOpts)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
 // Solidity: function transferOwnership(address newOwner) returns()
-func (_ForkManager *ForkManagerTransactor) TransferOwnership(opts *bind.TransactOpts, newOwner common.Address) (*types.Transaction, error) {
-	return _ForkManager.contract.Transact(opts, "transferOwnership", newOwner)
+func (_ForkRouter *ForkRouterTransactor) TransferOwnership(opts *bind.TransactOpts, newOwner common.Address) (*types.Transaction, error) {
+	return _ForkRouter.contract.Transact(opts, "transferOwnership", newOwner)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
 // Solidity: function transferOwnership(address newOwner) returns()
-func (_ForkManager *ForkManagerSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
-	return _ForkManager.Contract.TransferOwnership(&_ForkManager.TransactOpts, newOwner)
+func (_ForkRouter *ForkRouterSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
+	return _ForkRouter.Contract.TransferOwnership(&_ForkRouter.TransactOpts, newOwner)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
 // Solidity: function transferOwnership(address newOwner) returns()
-func (_ForkManager *ForkManagerTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
-	return _ForkManager.Contract.TransferOwnership(&_ForkManager.TransactOpts, newOwner)
+func (_ForkRouter *ForkRouterTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
+	return _ForkRouter.Contract.TransferOwnership(&_ForkRouter.TransactOpts, newOwner)
 }
 
 // UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
 //
 // Solidity: function upgradeTo(address newImplementation) returns()
-func (_ForkManager *ForkManagerTransactor) UpgradeTo(opts *bind.TransactOpts, newImplementation common.Address) (*types.Transaction, error) {
-	return _ForkManager.contract.Transact(opts, "upgradeTo", newImplementation)
+func (_ForkRouter *ForkRouterTransactor) UpgradeTo(opts *bind.TransactOpts, newImplementation common.Address) (*types.Transaction, error) {
+	return _ForkRouter.contract.Transact(opts, "upgradeTo", newImplementation)
 }
 
 // UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
 //
 // Solidity: function upgradeTo(address newImplementation) returns()
-func (_ForkManager *ForkManagerSession) UpgradeTo(newImplementation common.Address) (*types.Transaction, error) {
-	return _ForkManager.Contract.UpgradeTo(&_ForkManager.TransactOpts, newImplementation)
+func (_ForkRouter *ForkRouterSession) UpgradeTo(newImplementation common.Address) (*types.Transaction, error) {
+	return _ForkRouter.Contract.UpgradeTo(&_ForkRouter.TransactOpts, newImplementation)
 }
 
 // UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
 //
 // Solidity: function upgradeTo(address newImplementation) returns()
-func (_ForkManager *ForkManagerTransactorSession) UpgradeTo(newImplementation common.Address) (*types.Transaction, error) {
-	return _ForkManager.Contract.UpgradeTo(&_ForkManager.TransactOpts, newImplementation)
+func (_ForkRouter *ForkRouterTransactorSession) UpgradeTo(newImplementation common.Address) (*types.Transaction, error) {
+	return _ForkRouter.Contract.UpgradeTo(&_ForkRouter.TransactOpts, newImplementation)
 }
 
 // UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
 //
 // Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
-func (_ForkManager *ForkManagerTransactor) UpgradeToAndCall(opts *bind.TransactOpts, newImplementation common.Address, data []byte) (*types.Transaction, error) {
-	return _ForkManager.contract.Transact(opts, "upgradeToAndCall", newImplementation, data)
+func (_ForkRouter *ForkRouterTransactor) UpgradeToAndCall(opts *bind.TransactOpts, newImplementation common.Address, data []byte) (*types.Transaction, error) {
+	return _ForkRouter.contract.Transact(opts, "upgradeToAndCall", newImplementation, data)
 }
 
 // UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
 //
 // Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
-func (_ForkManager *ForkManagerSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
-	return _ForkManager.Contract.UpgradeToAndCall(&_ForkManager.TransactOpts, newImplementation, data)
+func (_ForkRouter *ForkRouterSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
+	return _ForkRouter.Contract.UpgradeToAndCall(&_ForkRouter.TransactOpts, newImplementation, data)
 }
 
 // UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
 //
 // Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
-func (_ForkManager *ForkManagerTransactorSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
-	return _ForkManager.Contract.UpgradeToAndCall(&_ForkManager.TransactOpts, newImplementation, data)
+func (_ForkRouter *ForkRouterTransactorSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
+	return _ForkRouter.Contract.UpgradeToAndCall(&_ForkRouter.TransactOpts, newImplementation, data)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() payable returns()
-func (_ForkManager *ForkManagerTransactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
-	return _ForkManager.contract.RawTransact(opts, calldata)
+func (_ForkRouter *ForkRouterTransactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
+	return _ForkRouter.contract.RawTransact(opts, calldata)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() payable returns()
-func (_ForkManager *ForkManagerSession) Fallback(calldata []byte) (*types.Transaction, error) {
-	return _ForkManager.Contract.Fallback(&_ForkManager.TransactOpts, calldata)
+func (_ForkRouter *ForkRouterSession) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _ForkRouter.Contract.Fallback(&_ForkRouter.TransactOpts, calldata)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() payable returns()
-func (_ForkManager *ForkManagerTransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
-	return _ForkManager.Contract.Fallback(&_ForkManager.TransactOpts, calldata)
+func (_ForkRouter *ForkRouterTransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _ForkRouter.Contract.Fallback(&_ForkRouter.TransactOpts, calldata)
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
-func (_ForkManager *ForkManagerTransactor) Receive(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ForkManager.contract.RawTransact(opts, nil) // calldata is disallowed for receive function
+func (_ForkRouter *ForkRouterTransactor) Receive(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _ForkRouter.contract.RawTransact(opts, nil) // calldata is disallowed for receive function
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
-func (_ForkManager *ForkManagerSession) Receive() (*types.Transaction, error) {
-	return _ForkManager.Contract.Receive(&_ForkManager.TransactOpts)
+func (_ForkRouter *ForkRouterSession) Receive() (*types.Transaction, error) {
+	return _ForkRouter.Contract.Receive(&_ForkRouter.TransactOpts)
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
-func (_ForkManager *ForkManagerTransactorSession) Receive() (*types.Transaction, error) {
-	return _ForkManager.Contract.Receive(&_ForkManager.TransactOpts)
+func (_ForkRouter *ForkRouterTransactorSession) Receive() (*types.Transaction, error) {
+	return _ForkRouter.Contract.Receive(&_ForkRouter.TransactOpts)
 }
 
-// ForkManagerAdminChangedIterator is returned from FilterAdminChanged and is used to iterate over the raw logs and unpacked data for AdminChanged events raised by the ForkManager contract.
-type ForkManagerAdminChangedIterator struct {
-	Event *ForkManagerAdminChanged // Event containing the contract specifics and raw log
+// ForkRouterAdminChangedIterator is returned from FilterAdminChanged and is used to iterate over the raw logs and unpacked data for AdminChanged events raised by the ForkRouter contract.
+type ForkRouterAdminChangedIterator struct {
+	Event *ForkRouterAdminChanged // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -529,7 +560,7 @@ type ForkManagerAdminChangedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ForkManagerAdminChangedIterator) Next() bool {
+func (it *ForkRouterAdminChangedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -538,7 +569,7 @@ func (it *ForkManagerAdminChangedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ForkManagerAdminChanged)
+			it.Event = new(ForkRouterAdminChanged)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -553,7 +584,7 @@ func (it *ForkManagerAdminChangedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ForkManagerAdminChanged)
+		it.Event = new(ForkRouterAdminChanged)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -569,19 +600,19 @@ func (it *ForkManagerAdminChangedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ForkManagerAdminChangedIterator) Error() error {
+func (it *ForkRouterAdminChangedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ForkManagerAdminChangedIterator) Close() error {
+func (it *ForkRouterAdminChangedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ForkManagerAdminChanged represents a AdminChanged event raised by the ForkManager contract.
-type ForkManagerAdminChanged struct {
+// ForkRouterAdminChanged represents a AdminChanged event raised by the ForkRouter contract.
+type ForkRouterAdminChanged struct {
 	PreviousAdmin common.Address
 	NewAdmin      common.Address
 	Raw           types.Log // Blockchain specific contextual infos
@@ -590,21 +621,21 @@ type ForkManagerAdminChanged struct {
 // FilterAdminChanged is a free log retrieval operation binding the contract event 0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f.
 //
 // Solidity: event AdminChanged(address previousAdmin, address newAdmin)
-func (_ForkManager *ForkManagerFilterer) FilterAdminChanged(opts *bind.FilterOpts) (*ForkManagerAdminChangedIterator, error) {
+func (_ForkRouter *ForkRouterFilterer) FilterAdminChanged(opts *bind.FilterOpts) (*ForkRouterAdminChangedIterator, error) {
 
-	logs, sub, err := _ForkManager.contract.FilterLogs(opts, "AdminChanged")
+	logs, sub, err := _ForkRouter.contract.FilterLogs(opts, "AdminChanged")
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerAdminChangedIterator{contract: _ForkManager.contract, event: "AdminChanged", logs: logs, sub: sub}, nil
+	return &ForkRouterAdminChangedIterator{contract: _ForkRouter.contract, event: "AdminChanged", logs: logs, sub: sub}, nil
 }
 
 // WatchAdminChanged is a free log subscription operation binding the contract event 0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f.
 //
 // Solidity: event AdminChanged(address previousAdmin, address newAdmin)
-func (_ForkManager *ForkManagerFilterer) WatchAdminChanged(opts *bind.WatchOpts, sink chan<- *ForkManagerAdminChanged) (event.Subscription, error) {
+func (_ForkRouter *ForkRouterFilterer) WatchAdminChanged(opts *bind.WatchOpts, sink chan<- *ForkRouterAdminChanged) (event.Subscription, error) {
 
-	logs, sub, err := _ForkManager.contract.WatchLogs(opts, "AdminChanged")
+	logs, sub, err := _ForkRouter.contract.WatchLogs(opts, "AdminChanged")
 	if err != nil {
 		return nil, err
 	}
@@ -614,8 +645,8 @@ func (_ForkManager *ForkManagerFilterer) WatchAdminChanged(opts *bind.WatchOpts,
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ForkManagerAdminChanged)
-				if err := _ForkManager.contract.UnpackLog(event, "AdminChanged", log); err != nil {
+				event := new(ForkRouterAdminChanged)
+				if err := _ForkRouter.contract.UnpackLog(event, "AdminChanged", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -639,18 +670,18 @@ func (_ForkManager *ForkManagerFilterer) WatchAdminChanged(opts *bind.WatchOpts,
 // ParseAdminChanged is a log parse operation binding the contract event 0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f.
 //
 // Solidity: event AdminChanged(address previousAdmin, address newAdmin)
-func (_ForkManager *ForkManagerFilterer) ParseAdminChanged(log types.Log) (*ForkManagerAdminChanged, error) {
-	event := new(ForkManagerAdminChanged)
-	if err := _ForkManager.contract.UnpackLog(event, "AdminChanged", log); err != nil {
+func (_ForkRouter *ForkRouterFilterer) ParseAdminChanged(log types.Log) (*ForkRouterAdminChanged, error) {
+	event := new(ForkRouterAdminChanged)
+	if err := _ForkRouter.contract.UnpackLog(event, "AdminChanged", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// ForkManagerBeaconUpgradedIterator is returned from FilterBeaconUpgraded and is used to iterate over the raw logs and unpacked data for BeaconUpgraded events raised by the ForkManager contract.
-type ForkManagerBeaconUpgradedIterator struct {
-	Event *ForkManagerBeaconUpgraded // Event containing the contract specifics and raw log
+// ForkRouterBeaconUpgradedIterator is returned from FilterBeaconUpgraded and is used to iterate over the raw logs and unpacked data for BeaconUpgraded events raised by the ForkRouter contract.
+type ForkRouterBeaconUpgradedIterator struct {
+	Event *ForkRouterBeaconUpgraded // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -664,7 +695,7 @@ type ForkManagerBeaconUpgradedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ForkManagerBeaconUpgradedIterator) Next() bool {
+func (it *ForkRouterBeaconUpgradedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -673,7 +704,7 @@ func (it *ForkManagerBeaconUpgradedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ForkManagerBeaconUpgraded)
+			it.Event = new(ForkRouterBeaconUpgraded)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -688,7 +719,7 @@ func (it *ForkManagerBeaconUpgradedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ForkManagerBeaconUpgraded)
+		it.Event = new(ForkRouterBeaconUpgraded)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -704,19 +735,19 @@ func (it *ForkManagerBeaconUpgradedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ForkManagerBeaconUpgradedIterator) Error() error {
+func (it *ForkRouterBeaconUpgradedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ForkManagerBeaconUpgradedIterator) Close() error {
+func (it *ForkRouterBeaconUpgradedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ForkManagerBeaconUpgraded represents a BeaconUpgraded event raised by the ForkManager contract.
-type ForkManagerBeaconUpgraded struct {
+// ForkRouterBeaconUpgraded represents a BeaconUpgraded event raised by the ForkRouter contract.
+type ForkRouterBeaconUpgraded struct {
 	Beacon common.Address
 	Raw    types.Log // Blockchain specific contextual infos
 }
@@ -724,31 +755,31 @@ type ForkManagerBeaconUpgraded struct {
 // FilterBeaconUpgraded is a free log retrieval operation binding the contract event 0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e.
 //
 // Solidity: event BeaconUpgraded(address indexed beacon)
-func (_ForkManager *ForkManagerFilterer) FilterBeaconUpgraded(opts *bind.FilterOpts, beacon []common.Address) (*ForkManagerBeaconUpgradedIterator, error) {
+func (_ForkRouter *ForkRouterFilterer) FilterBeaconUpgraded(opts *bind.FilterOpts, beacon []common.Address) (*ForkRouterBeaconUpgradedIterator, error) {
 
 	var beaconRule []interface{}
 	for _, beaconItem := range beacon {
 		beaconRule = append(beaconRule, beaconItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.FilterLogs(opts, "BeaconUpgraded", beaconRule)
+	logs, sub, err := _ForkRouter.contract.FilterLogs(opts, "BeaconUpgraded", beaconRule)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerBeaconUpgradedIterator{contract: _ForkManager.contract, event: "BeaconUpgraded", logs: logs, sub: sub}, nil
+	return &ForkRouterBeaconUpgradedIterator{contract: _ForkRouter.contract, event: "BeaconUpgraded", logs: logs, sub: sub}, nil
 }
 
 // WatchBeaconUpgraded is a free log subscription operation binding the contract event 0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e.
 //
 // Solidity: event BeaconUpgraded(address indexed beacon)
-func (_ForkManager *ForkManagerFilterer) WatchBeaconUpgraded(opts *bind.WatchOpts, sink chan<- *ForkManagerBeaconUpgraded, beacon []common.Address) (event.Subscription, error) {
+func (_ForkRouter *ForkRouterFilterer) WatchBeaconUpgraded(opts *bind.WatchOpts, sink chan<- *ForkRouterBeaconUpgraded, beacon []common.Address) (event.Subscription, error) {
 
 	var beaconRule []interface{}
 	for _, beaconItem := range beacon {
 		beaconRule = append(beaconRule, beaconItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.WatchLogs(opts, "BeaconUpgraded", beaconRule)
+	logs, sub, err := _ForkRouter.contract.WatchLogs(opts, "BeaconUpgraded", beaconRule)
 	if err != nil {
 		return nil, err
 	}
@@ -758,8 +789,8 @@ func (_ForkManager *ForkManagerFilterer) WatchBeaconUpgraded(opts *bind.WatchOpt
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ForkManagerBeaconUpgraded)
-				if err := _ForkManager.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
+				event := new(ForkRouterBeaconUpgraded)
+				if err := _ForkRouter.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -783,18 +814,18 @@ func (_ForkManager *ForkManagerFilterer) WatchBeaconUpgraded(opts *bind.WatchOpt
 // ParseBeaconUpgraded is a log parse operation binding the contract event 0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e.
 //
 // Solidity: event BeaconUpgraded(address indexed beacon)
-func (_ForkManager *ForkManagerFilterer) ParseBeaconUpgraded(log types.Log) (*ForkManagerBeaconUpgraded, error) {
-	event := new(ForkManagerBeaconUpgraded)
-	if err := _ForkManager.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
+func (_ForkRouter *ForkRouterFilterer) ParseBeaconUpgraded(log types.Log) (*ForkRouterBeaconUpgraded, error) {
+	event := new(ForkRouterBeaconUpgraded)
+	if err := _ForkRouter.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// ForkManagerInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the ForkManager contract.
-type ForkManagerInitializedIterator struct {
-	Event *ForkManagerInitialized // Event containing the contract specifics and raw log
+// ForkRouterInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the ForkRouter contract.
+type ForkRouterInitializedIterator struct {
+	Event *ForkRouterInitialized // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -808,7 +839,7 @@ type ForkManagerInitializedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ForkManagerInitializedIterator) Next() bool {
+func (it *ForkRouterInitializedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -817,7 +848,7 @@ func (it *ForkManagerInitializedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ForkManagerInitialized)
+			it.Event = new(ForkRouterInitialized)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -832,7 +863,7 @@ func (it *ForkManagerInitializedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ForkManagerInitialized)
+		it.Event = new(ForkRouterInitialized)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -848,19 +879,19 @@ func (it *ForkManagerInitializedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ForkManagerInitializedIterator) Error() error {
+func (it *ForkRouterInitializedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ForkManagerInitializedIterator) Close() error {
+func (it *ForkRouterInitializedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ForkManagerInitialized represents a Initialized event raised by the ForkManager contract.
-type ForkManagerInitialized struct {
+// ForkRouterInitialized represents a Initialized event raised by the ForkRouter contract.
+type ForkRouterInitialized struct {
 	Version uint8
 	Raw     types.Log // Blockchain specific contextual infos
 }
@@ -868,21 +899,21 @@ type ForkManagerInitialized struct {
 // FilterInitialized is a free log retrieval operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
 //
 // Solidity: event Initialized(uint8 version)
-func (_ForkManager *ForkManagerFilterer) FilterInitialized(opts *bind.FilterOpts) (*ForkManagerInitializedIterator, error) {
+func (_ForkRouter *ForkRouterFilterer) FilterInitialized(opts *bind.FilterOpts) (*ForkRouterInitializedIterator, error) {
 
-	logs, sub, err := _ForkManager.contract.FilterLogs(opts, "Initialized")
+	logs, sub, err := _ForkRouter.contract.FilterLogs(opts, "Initialized")
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerInitializedIterator{contract: _ForkManager.contract, event: "Initialized", logs: logs, sub: sub}, nil
+	return &ForkRouterInitializedIterator{contract: _ForkRouter.contract, event: "Initialized", logs: logs, sub: sub}, nil
 }
 
 // WatchInitialized is a free log subscription operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
 //
 // Solidity: event Initialized(uint8 version)
-func (_ForkManager *ForkManagerFilterer) WatchInitialized(opts *bind.WatchOpts, sink chan<- *ForkManagerInitialized) (event.Subscription, error) {
+func (_ForkRouter *ForkRouterFilterer) WatchInitialized(opts *bind.WatchOpts, sink chan<- *ForkRouterInitialized) (event.Subscription, error) {
 
-	logs, sub, err := _ForkManager.contract.WatchLogs(opts, "Initialized")
+	logs, sub, err := _ForkRouter.contract.WatchLogs(opts, "Initialized")
 	if err != nil {
 		return nil, err
 	}
@@ -892,8 +923,8 @@ func (_ForkManager *ForkManagerFilterer) WatchInitialized(opts *bind.WatchOpts, 
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ForkManagerInitialized)
-				if err := _ForkManager.contract.UnpackLog(event, "Initialized", log); err != nil {
+				event := new(ForkRouterInitialized)
+				if err := _ForkRouter.contract.UnpackLog(event, "Initialized", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -917,18 +948,18 @@ func (_ForkManager *ForkManagerFilterer) WatchInitialized(opts *bind.WatchOpts, 
 // ParseInitialized is a log parse operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
 //
 // Solidity: event Initialized(uint8 version)
-func (_ForkManager *ForkManagerFilterer) ParseInitialized(log types.Log) (*ForkManagerInitialized, error) {
-	event := new(ForkManagerInitialized)
-	if err := _ForkManager.contract.UnpackLog(event, "Initialized", log); err != nil {
+func (_ForkRouter *ForkRouterFilterer) ParseInitialized(log types.Log) (*ForkRouterInitialized, error) {
+	event := new(ForkRouterInitialized)
+	if err := _ForkRouter.contract.UnpackLog(event, "Initialized", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// ForkManagerOwnershipTransferStartedIterator is returned from FilterOwnershipTransferStarted and is used to iterate over the raw logs and unpacked data for OwnershipTransferStarted events raised by the ForkManager contract.
-type ForkManagerOwnershipTransferStartedIterator struct {
-	Event *ForkManagerOwnershipTransferStarted // Event containing the contract specifics and raw log
+// ForkRouterOwnershipTransferStartedIterator is returned from FilterOwnershipTransferStarted and is used to iterate over the raw logs and unpacked data for OwnershipTransferStarted events raised by the ForkRouter contract.
+type ForkRouterOwnershipTransferStartedIterator struct {
+	Event *ForkRouterOwnershipTransferStarted // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -942,7 +973,7 @@ type ForkManagerOwnershipTransferStartedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ForkManagerOwnershipTransferStartedIterator) Next() bool {
+func (it *ForkRouterOwnershipTransferStartedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -951,7 +982,7 @@ func (it *ForkManagerOwnershipTransferStartedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ForkManagerOwnershipTransferStarted)
+			it.Event = new(ForkRouterOwnershipTransferStarted)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -966,7 +997,7 @@ func (it *ForkManagerOwnershipTransferStartedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ForkManagerOwnershipTransferStarted)
+		it.Event = new(ForkRouterOwnershipTransferStarted)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -982,19 +1013,19 @@ func (it *ForkManagerOwnershipTransferStartedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ForkManagerOwnershipTransferStartedIterator) Error() error {
+func (it *ForkRouterOwnershipTransferStartedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ForkManagerOwnershipTransferStartedIterator) Close() error {
+func (it *ForkRouterOwnershipTransferStartedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ForkManagerOwnershipTransferStarted represents a OwnershipTransferStarted event raised by the ForkManager contract.
-type ForkManagerOwnershipTransferStarted struct {
+// ForkRouterOwnershipTransferStarted represents a OwnershipTransferStarted event raised by the ForkRouter contract.
+type ForkRouterOwnershipTransferStarted struct {
 	PreviousOwner common.Address
 	NewOwner      common.Address
 	Raw           types.Log // Blockchain specific contextual infos
@@ -1003,7 +1034,7 @@ type ForkManagerOwnershipTransferStarted struct {
 // FilterOwnershipTransferStarted is a free log retrieval operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
 //
 // Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
-func (_ForkManager *ForkManagerFilterer) FilterOwnershipTransferStarted(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*ForkManagerOwnershipTransferStartedIterator, error) {
+func (_ForkRouter *ForkRouterFilterer) FilterOwnershipTransferStarted(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*ForkRouterOwnershipTransferStartedIterator, error) {
 
 	var previousOwnerRule []interface{}
 	for _, previousOwnerItem := range previousOwner {
@@ -1014,17 +1045,17 @@ func (_ForkManager *ForkManagerFilterer) FilterOwnershipTransferStarted(opts *bi
 		newOwnerRule = append(newOwnerRule, newOwnerItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.FilterLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	logs, sub, err := _ForkRouter.contract.FilterLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerOwnershipTransferStartedIterator{contract: _ForkManager.contract, event: "OwnershipTransferStarted", logs: logs, sub: sub}, nil
+	return &ForkRouterOwnershipTransferStartedIterator{contract: _ForkRouter.contract, event: "OwnershipTransferStarted", logs: logs, sub: sub}, nil
 }
 
 // WatchOwnershipTransferStarted is a free log subscription operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
 //
 // Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
-func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpts, sink chan<- *ForkManagerOwnershipTransferStarted, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+func (_ForkRouter *ForkRouterFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpts, sink chan<- *ForkRouterOwnershipTransferStarted, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
 
 	var previousOwnerRule []interface{}
 	for _, previousOwnerItem := range previousOwner {
@@ -1035,7 +1066,7 @@ func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferStarted(opts *bin
 		newOwnerRule = append(newOwnerRule, newOwnerItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.WatchLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	logs, sub, err := _ForkRouter.contract.WatchLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1045,8 +1076,8 @@ func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferStarted(opts *bin
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ForkManagerOwnershipTransferStarted)
-				if err := _ForkManager.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+				event := new(ForkRouterOwnershipTransferStarted)
+				if err := _ForkRouter.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1070,18 +1101,18 @@ func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferStarted(opts *bin
 // ParseOwnershipTransferStarted is a log parse operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
 //
 // Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
-func (_ForkManager *ForkManagerFilterer) ParseOwnershipTransferStarted(log types.Log) (*ForkManagerOwnershipTransferStarted, error) {
-	event := new(ForkManagerOwnershipTransferStarted)
-	if err := _ForkManager.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+func (_ForkRouter *ForkRouterFilterer) ParseOwnershipTransferStarted(log types.Log) (*ForkRouterOwnershipTransferStarted, error) {
+	event := new(ForkRouterOwnershipTransferStarted)
+	if err := _ForkRouter.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// ForkManagerOwnershipTransferredIterator is returned from FilterOwnershipTransferred and is used to iterate over the raw logs and unpacked data for OwnershipTransferred events raised by the ForkManager contract.
-type ForkManagerOwnershipTransferredIterator struct {
-	Event *ForkManagerOwnershipTransferred // Event containing the contract specifics and raw log
+// ForkRouterOwnershipTransferredIterator is returned from FilterOwnershipTransferred and is used to iterate over the raw logs and unpacked data for OwnershipTransferred events raised by the ForkRouter contract.
+type ForkRouterOwnershipTransferredIterator struct {
+	Event *ForkRouterOwnershipTransferred // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -1095,7 +1126,7 @@ type ForkManagerOwnershipTransferredIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ForkManagerOwnershipTransferredIterator) Next() bool {
+func (it *ForkRouterOwnershipTransferredIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -1104,7 +1135,7 @@ func (it *ForkManagerOwnershipTransferredIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ForkManagerOwnershipTransferred)
+			it.Event = new(ForkRouterOwnershipTransferred)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1119,7 +1150,7 @@ func (it *ForkManagerOwnershipTransferredIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ForkManagerOwnershipTransferred)
+		it.Event = new(ForkRouterOwnershipTransferred)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1135,19 +1166,19 @@ func (it *ForkManagerOwnershipTransferredIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ForkManagerOwnershipTransferredIterator) Error() error {
+func (it *ForkRouterOwnershipTransferredIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ForkManagerOwnershipTransferredIterator) Close() error {
+func (it *ForkRouterOwnershipTransferredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ForkManagerOwnershipTransferred represents a OwnershipTransferred event raised by the ForkManager contract.
-type ForkManagerOwnershipTransferred struct {
+// ForkRouterOwnershipTransferred represents a OwnershipTransferred event raised by the ForkRouter contract.
+type ForkRouterOwnershipTransferred struct {
 	PreviousOwner common.Address
 	NewOwner      common.Address
 	Raw           types.Log // Blockchain specific contextual infos
@@ -1156,7 +1187,7 @@ type ForkManagerOwnershipTransferred struct {
 // FilterOwnershipTransferred is a free log retrieval operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
 //
 // Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
-func (_ForkManager *ForkManagerFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*ForkManagerOwnershipTransferredIterator, error) {
+func (_ForkRouter *ForkRouterFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*ForkRouterOwnershipTransferredIterator, error) {
 
 	var previousOwnerRule []interface{}
 	for _, previousOwnerItem := range previousOwner {
@@ -1167,17 +1198,17 @@ func (_ForkManager *ForkManagerFilterer) FilterOwnershipTransferred(opts *bind.F
 		newOwnerRule = append(newOwnerRule, newOwnerItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.FilterLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
+	logs, sub, err := _ForkRouter.contract.FilterLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerOwnershipTransferredIterator{contract: _ForkManager.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+	return &ForkRouterOwnershipTransferredIterator{contract: _ForkRouter.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
 }
 
 // WatchOwnershipTransferred is a free log subscription operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
 //
 // Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
-func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *ForkManagerOwnershipTransferred, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+func (_ForkRouter *ForkRouterFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *ForkRouterOwnershipTransferred, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
 
 	var previousOwnerRule []interface{}
 	for _, previousOwnerItem := range previousOwner {
@@ -1188,7 +1219,7 @@ func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferred(opts *bind.Wa
 		newOwnerRule = append(newOwnerRule, newOwnerItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.WatchLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
+	logs, sub, err := _ForkRouter.contract.WatchLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1198,8 +1229,8 @@ func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferred(opts *bind.Wa
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ForkManagerOwnershipTransferred)
-				if err := _ForkManager.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+				event := new(ForkRouterOwnershipTransferred)
+				if err := _ForkRouter.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1223,18 +1254,18 @@ func (_ForkManager *ForkManagerFilterer) WatchOwnershipTransferred(opts *bind.Wa
 // ParseOwnershipTransferred is a log parse operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
 //
 // Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
-func (_ForkManager *ForkManagerFilterer) ParseOwnershipTransferred(log types.Log) (*ForkManagerOwnershipTransferred, error) {
-	event := new(ForkManagerOwnershipTransferred)
-	if err := _ForkManager.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+func (_ForkRouter *ForkRouterFilterer) ParseOwnershipTransferred(log types.Log) (*ForkRouterOwnershipTransferred, error) {
+	event := new(ForkRouterOwnershipTransferred)
+	if err := _ForkRouter.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// ForkManagerUpgradedIterator is returned from FilterUpgraded and is used to iterate over the raw logs and unpacked data for Upgraded events raised by the ForkManager contract.
-type ForkManagerUpgradedIterator struct {
-	Event *ForkManagerUpgraded // Event containing the contract specifics and raw log
+// ForkRouterUpgradedIterator is returned from FilterUpgraded and is used to iterate over the raw logs and unpacked data for Upgraded events raised by the ForkRouter contract.
+type ForkRouterUpgradedIterator struct {
+	Event *ForkRouterUpgraded // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -1248,7 +1279,7 @@ type ForkManagerUpgradedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ForkManagerUpgradedIterator) Next() bool {
+func (it *ForkRouterUpgradedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -1257,7 +1288,7 @@ func (it *ForkManagerUpgradedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ForkManagerUpgraded)
+			it.Event = new(ForkRouterUpgraded)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1272,7 +1303,7 @@ func (it *ForkManagerUpgradedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ForkManagerUpgraded)
+		it.Event = new(ForkRouterUpgraded)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1288,19 +1319,19 @@ func (it *ForkManagerUpgradedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ForkManagerUpgradedIterator) Error() error {
+func (it *ForkRouterUpgradedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ForkManagerUpgradedIterator) Close() error {
+func (it *ForkRouterUpgradedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ForkManagerUpgraded represents a Upgraded event raised by the ForkManager contract.
-type ForkManagerUpgraded struct {
+// ForkRouterUpgraded represents a Upgraded event raised by the ForkRouter contract.
+type ForkRouterUpgraded struct {
 	Implementation common.Address
 	Raw            types.Log // Blockchain specific contextual infos
 }
@@ -1308,31 +1339,31 @@ type ForkManagerUpgraded struct {
 // FilterUpgraded is a free log retrieval operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
 //
 // Solidity: event Upgraded(address indexed implementation)
-func (_ForkManager *ForkManagerFilterer) FilterUpgraded(opts *bind.FilterOpts, implementation []common.Address) (*ForkManagerUpgradedIterator, error) {
+func (_ForkRouter *ForkRouterFilterer) FilterUpgraded(opts *bind.FilterOpts, implementation []common.Address) (*ForkRouterUpgradedIterator, error) {
 
 	var implementationRule []interface{}
 	for _, implementationItem := range implementation {
 		implementationRule = append(implementationRule, implementationItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.FilterLogs(opts, "Upgraded", implementationRule)
+	logs, sub, err := _ForkRouter.contract.FilterLogs(opts, "Upgraded", implementationRule)
 	if err != nil {
 		return nil, err
 	}
-	return &ForkManagerUpgradedIterator{contract: _ForkManager.contract, event: "Upgraded", logs: logs, sub: sub}, nil
+	return &ForkRouterUpgradedIterator{contract: _ForkRouter.contract, event: "Upgraded", logs: logs, sub: sub}, nil
 }
 
 // WatchUpgraded is a free log subscription operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
 //
 // Solidity: event Upgraded(address indexed implementation)
-func (_ForkManager *ForkManagerFilterer) WatchUpgraded(opts *bind.WatchOpts, sink chan<- *ForkManagerUpgraded, implementation []common.Address) (event.Subscription, error) {
+func (_ForkRouter *ForkRouterFilterer) WatchUpgraded(opts *bind.WatchOpts, sink chan<- *ForkRouterUpgraded, implementation []common.Address) (event.Subscription, error) {
 
 	var implementationRule []interface{}
 	for _, implementationItem := range implementation {
 		implementationRule = append(implementationRule, implementationItem)
 	}
 
-	logs, sub, err := _ForkManager.contract.WatchLogs(opts, "Upgraded", implementationRule)
+	logs, sub, err := _ForkRouter.contract.WatchLogs(opts, "Upgraded", implementationRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1342,8 +1373,8 @@ func (_ForkManager *ForkManagerFilterer) WatchUpgraded(opts *bind.WatchOpts, sin
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ForkManagerUpgraded)
-				if err := _ForkManager.contract.UnpackLog(event, "Upgraded", log); err != nil {
+				event := new(ForkRouterUpgraded)
+				if err := _ForkRouter.contract.UnpackLog(event, "Upgraded", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1367,9 +1398,9 @@ func (_ForkManager *ForkManagerFilterer) WatchUpgraded(opts *bind.WatchOpts, sin
 // ParseUpgraded is a log parse operation binding the contract event 0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b.
 //
 // Solidity: event Upgraded(address indexed implementation)
-func (_ForkManager *ForkManagerFilterer) ParseUpgraded(log types.Log) (*ForkManagerUpgraded, error) {
-	event := new(ForkManagerUpgraded)
-	if err := _ForkManager.contract.UnpackLog(event, "Upgraded", log); err != nil {
+func (_ForkRouter *ForkRouterFilterer) ParseUpgraded(log types.Log) (*ForkRouterUpgraded, error) {
+	event := new(ForkRouterUpgraded)
+	if err := _ForkRouter.contract.UnpackLog(event, "Upgraded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

@@ -64,7 +64,7 @@ func (m *TaikoDataBlockMetadataPacaya) GetGasLimit() uint32 {
 
 // GetTimestamp returns the timestamp.
 func (m *TaikoDataBlockMetadataPacaya) GetTimestamp() uint64 {
-	return m.Timestamp
+	return m.LastBlockTimestamp
 }
 
 // GetAnchorBlockID returns the L1 block number which should be used in anchor transaction.

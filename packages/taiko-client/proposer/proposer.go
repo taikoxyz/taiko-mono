@@ -387,25 +387,17 @@ func (p *Proposer) ProposeTxListOntake(
 // ProposeTxListPacaya proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxListPacaya(
 	ctx context.Context,
-	txLists []types.Transactions,
+	txBatch []types.Transactions,
 ) error {
 	var (
 		proverAddress = p.proposerAddress
-		allTxs        types.Transactions
-		txListsBytes  []byte
+		txs           uint64
 	)
-	for _, txs := range txLists {
-		allTxs = append(allTxs, txs...)
+	for _, txList := range txBatch {
+		txs += uint64(len(txList))
 	}
 
-	b, err := rlp.EncodeToBytes(allTxs)
-	if err != nil {
-		return fmt.Errorf("failed to encode transactions: %w", err)
-	}
-	if txListsBytes, err = utils.Compress(b); err != nil {
-		return fmt.Errorf("failed to compress transactions: %w", err)
-	}
-
+	// Check prover balance.
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
 		proverAddress = p.Config.ClientConfig.ProverSetAddress
 	}
@@ -427,7 +419,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		return fmt.Errorf("insufficient prover (%s) balance", proverAddress.Hex())
 	}
 
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txListsBytes)
+	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
 		return err
@@ -437,10 +429,10 @@ func (p *Proposer) ProposeTxListPacaya(
 		return err
 	}
 
-	log.Info("📝 Batch propose blocks succeeded", "blocks", len(txLists), "txs", len(allTxs))
+	log.Info("📝 Propose blocks batch succeeded", "blocksInBatch", len(txBatch), "txs", txs)
 
-	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
-	metrics.ProposerProposedTxsCounter.Add(float64(len(allTxs)))
+	metrics.ProposerProposedTxListsCounter.Add(float64(len(txBatch)))
+	metrics.ProposerProposedTxsCounter.Add(float64(txs))
 
 	return nil
 }

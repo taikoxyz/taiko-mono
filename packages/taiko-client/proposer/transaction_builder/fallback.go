@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
@@ -149,7 +150,10 @@ func (b *TxBuilderWithFallback) BuildOntake(
 }
 
 // BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
-func (b *TxBuilderWithFallback) BuildPacaya(ctx context.Context, txListBytes []byte) (*txmgr.TxCandidate, error) {
+func (b *TxBuilderWithFallback) BuildPacaya(
+	ctx context.Context,
+	txBatch []types.Transactions,
+) (*txmgr.TxCandidate, error) {
 	return nil, fmt.Errorf("pacaya transaction builder is not supported for fallback transaction builder")
 }
 

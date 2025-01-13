@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // Tier IDs defined in protocol.
@@ -48,6 +49,23 @@ type BlockParamsV2 struct {
 	BlobTxListOffset uint32
 	BlobTxListLength uint32
 	BlobIndex        uint8
+}
+
+// BatchParams should be same with ITaikoInbox.BatchParams.
+type BatchParams struct {
+	Proposer                 common.Address
+	Coinbase                 common.Address
+	ParentMetaHash           [32]byte
+	AnchorBlockId            uint64
+	AnchorInput              [32]byte
+	LastBlockTimestamp       uint64
+	TxListOffset             uint32
+	TxListSize               uint32
+	FirstBlobIndex           uint8
+	NumBlobs                 uint8
+	RevertIfNotFirstProposal bool
+	SignalSlots              [][32]byte
+	Blocks                   []*pacaya.ITaikoInboxBlockParams
 }
 
 // TierFee should be same with TaikoData.TierFee.

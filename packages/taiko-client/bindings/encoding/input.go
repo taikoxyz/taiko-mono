@@ -180,11 +180,77 @@ var (
 			Type: "uint8",
 		},
 	}
+	batchParamsComponents = []abi.ArgumentMarshaling{
+		{
+			Name: "proposer",
+			Type: "address",
+		},
+		{
+			Name: "coinbase",
+			Type: "address",
+		},
+		{
+			Name: "parentMetaHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "anchorBlockId",
+			Type: "uint64",
+		},
+		{
+			Name: "anchorInput",
+			Type: "bytes32",
+		},
+		{
+			Name: "lastBlockTimestamp",
+			Type: "uint64",
+		},
+		{
+			Name: "txListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "txListSize",
+			Type: "uint32",
+		},
+		{
+			Name: "firstBlobIndex",
+			Type: "uint8",
+		},
+		{
+			Name: "numBlobs",
+			Type: "uint8",
+		},
+		{
+			Name: "revertIfNotFirstProposal",
+			Type: "bool",
+		},
+		{
+			Name: "signalSlots",
+			Type: "bytes32[]",
+		},
+		{
+			Name: "blocks",
+			Type: "tuple[]",
+			Components: []abi.ArgumentMarshaling{
+				{
+					Name: "numTransactions",
+					Type: "uint16",
+				},
+				{
+					Name: "timeShift",
+					Type: "uint8",
+				},
+			},
+		},
+	}
 )
 
 var (
 	blockParamsV2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
 	blockParamsV2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
+	batchParamsComponentsType, _     = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
+	batchParamsComponentsArgs        = abi.Arguments{{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType}}
 	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
 	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
 	tierProofComponentsType, _       = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
@@ -216,14 +282,14 @@ var (
 	SGXVerifierABI      *abi.ABI
 	GuardianVerifierABI *abi.ABI
 	ProverSetABI        *abi.ABI
-	ForkManagerABI      *abi.ABI
+	ForkRouterABI       *abi.ABI
 
 	// Pacaya fork
-	TaikoInboxABI        *abi.ABI
-	TaikoAnchorABI       *abi.ABI
-	ForkManagerPacayaABI *abi.ABI
-	TaikoTokenPacayaABI  *abi.ABI
-	ProverSetPavayaABI   *abi.ABI
+	TaikoInboxABI       *abi.ABI
+	TaikoAnchorABI      *abi.ABI
+	ForkRouterPacayaABI *abi.ABI
+	TaikoTokenPacayaABI *abi.ABI
+	ProverSetPavayaABI  *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -275,8 +341,8 @@ func init() {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
-	if ForkManagerABI, err = ontakeBindings.ForkManagerMetaData.GetAbi(); err != nil {
-		log.Crit("Get ForkManager ABI error", "error", err)
+	if ForkRouterABI, err = ontakeBindings.ForkRouterMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForkRouter ABI error", "error", err)
 	}
 
 	if TaikoInboxABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
@@ -287,8 +353,8 @@ func init() {
 		log.Crit("Get TaikoAnchor ABI error", "error", err)
 	}
 
-	if ForkManagerPacayaABI, err = pacayaBindings.ForkManagerMetaData.GetAbi(); err != nil {
-		log.Crit("Get ForkManager ABI error", "error", err)
+	if ForkRouterPacayaABI, err = pacayaBindings.ForkRouterMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForkRouter ABI error", "error", err)
 	}
 
 	if TaikoTokenPacayaABI, err = pacayaBindings.TaikoTokenMetaData.GetAbi(); err != nil {
@@ -310,10 +376,10 @@ func init() {
 		SGXVerifierABI.Errors,
 		GuardianVerifierABI.Errors,
 		ProverSetABI.Errors,
-		ForkManagerABI.Errors,
+		ForkRouterABI.Errors,
 		TaikoInboxABI.Errors,
 		TaikoAnchorABI.Errors,
-		ForkManagerPacayaABI.Errors,
+		ForkRouterPacayaABI.Errors,
 		TaikoTokenPacayaABI.Errors,
 		ProverSetPavayaABI.Errors,
 	}
@@ -324,6 +390,15 @@ func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 	b, err := blockParamsV2ComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode ontake block params, %w", err)
+	}
+	return b, nil
+}
+
+// EncodeBatchParams performs the solidity `abi.encode` for the given pacaya batchParams.
+func EncodeBatchParams(params *BatchParams) ([]byte, error) {
+	b, err := batchParamsComponentsArgs.Pack(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
 	}
 	return b, nil
 }

@@ -8,10 +8,14 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // CalldataTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
@@ -111,6 +115,62 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 }
 
 // BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
-func (b *CalldataTransactionBuilder) BuildPacaya(ctx context.Context, txListBytes []byte) (*txmgr.TxCandidate, error) {
-	return nil, fmt.Errorf("pacaya transaction builder is not supported for calldata transaction builder")
+func (b *CalldataTransactionBuilder) BuildPacaya(
+	ctx context.Context,
+	txBatch []types.Transactions,
+) (*txmgr.TxCandidate, error) {
+	// ABI encode the TaikoInbox.proposeBatch / ProverSet.proposeBatch parameters.
+	var (
+		to            = &b.taikoL1Address
+		data          []byte
+		encodedParams []byte
+		blockParams   []*pacayaBindings.ITaikoInboxBlockParams
+		allTxs        types.Transactions
+	)
+
+	for _, txs := range txBatch {
+		allTxs = append(allTxs, txs...)
+		blockParams = append(blockParams, &pacayaBindings.ITaikoInboxBlockParams{
+			NumTransactions: uint16(len(txs)),
+			TimeShift:       0,
+		})
+	}
+
+	rlpEncoded, err := rlp.EncodeToBytes(allTxs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode transactions: %w", err)
+	}
+	txListsBytes, err := utils.Compress(rlpEncoded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compress transactions: %w", err)
+	}
+
+	if encodedParams, err = encoding.EncodeBatchParams(&encoding.BatchParams{
+		Coinbase:                 b.l2SuggestedFeeRecipient,
+		TxListOffset:             0,                         // TODO: update this value
+		TxListSize:               uint32(len(txListsBytes)), // TODO: update this value
+		RevertIfNotFirstProposal: b.revertProtectionEnabled,
+		Blocks:                   blockParams,
+	}); err != nil {
+		return nil, err
+	}
+
+	if b.proverSetAddress != rpc.ZeroAddress {
+		to = &b.proverSetAddress
+
+		if data, err = encoding.ProverSetABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
+			return nil, err
+		}
+	} else {
+		if data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
+			return nil, err
+		}
+	}
+
+	return &txmgr.TxCandidate{
+		TxData:   data,
+		Blobs:    nil,
+		To:       to,
+		GasLimit: b.gasLimit,
+	}, nil
 }

@@ -32,7 +32,7 @@ type OntakeClients struct {
 	GuardianProverMajority *ontakeBindings.GuardianProver
 	GuardianProverMinority *ontakeBindings.GuardianProver
 	ProverSet              *ontakeBindings.ProverSet
-	ForkManager            *ontakeBindings.ForkManager
+	ForkRouter             *ontakeBindings.ForkRouter
 	ForkHeight             uint64
 }
 
@@ -42,7 +42,7 @@ type PacayaClients struct {
 	TaikoAnchor *pacayaBindings.TaikoAnchorClient
 	TaikoToken  *pacayaBindings.TaikoToken
 	ProverSet   *pacayaBindings.ProverSet
-	ForkManager *pacayaBindings.ForkManager
+	ForkRouter  *pacayaBindings.ForkRouter
 	ForkHeight  uint64
 }
 
@@ -174,7 +174,7 @@ func (c *Client) initOntakeClients(cfg *ClientConfig) error {
 		return err
 	}
 
-	forkManager, err := ontakeBindings.NewForkManager(cfg.TaikoL1Address, c.L1)
+	forkManager, err := ontakeBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
 	if err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func (c *Client) initOntakeClients(cfg *ClientConfig) error {
 		GuardianProverMajority: guardianProverMajority,
 		GuardianProverMinority: guardianProverMinority,
 		ProverSet:              proverSet,
-		ForkManager:            forkManager,
+		ForkRouter:             forkManager,
 	}
 
 	return nil
@@ -243,7 +243,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		return err
 	}
 
-	forkManager, err := pacayaBindings.NewForkManager(cfg.TaikoL1Address, c.L1)
+	forkManager, err := pacayaBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		TaikoAnchor: taikoAnchor,
 		TaikoToken:  taikoToken,
 		ProverSet:   proverSet,
-		ForkManager: forkManager,
+		ForkRouter:  forkManager,
 	}
 
 	return nil
