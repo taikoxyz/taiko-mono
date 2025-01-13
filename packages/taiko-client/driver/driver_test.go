@@ -111,9 +111,11 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	s.Nil(err)
 
 	// Propose two L2 blocks
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	metadata := s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.Equal(metadata.GetRawBlockHash(), s.d.state.GetL1Current().Hash())
 
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	metadata = s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.Equal(metadata.GetRawBlockHash(), s.d.state.GetL1Current().Hash())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
