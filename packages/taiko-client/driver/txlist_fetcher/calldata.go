@@ -27,23 +27,23 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 func (d *CalldataFetcher) Fetch(
 	ctx context.Context,
 	tx *types.Transaction,
-	meta metadata.TaikoProposalMetaData,
+	meta metadata.TaikoBlockMetaDataOntake,
 ) ([]byte, error) {
-	if meta.TaikoBlockMetaDataOntake().GetBlobUsed() {
+	if meta.GetBlobUsed() {
 		return nil, pkg.ErrBlobUsed
 	}
 
 	// If the given L2 block is not an ontake block, decode the txlist from calldata directly.
 	// TODO: fix t his
-	// if !meta.TaikoBlockMetaDataOntake().IsOntakeBlock() {
+	// if !meta.IsOntakeBlock() {
 	// 	return encoding.UnpackTxListBytes(tx.Data())
 	// }
 
 	// Otherwise, fetch the txlist data from the `CalldataTxList` event.
-	end := meta.TaikoBlockMetaDataOntake().GetRawBlockHeight().Uint64()
+	end := meta.GetRawBlockHeight().Uint64()
 	iter, err := d.rpc.OntakeClients.TaikoL1.FilterCalldataTxList(
-		&bind.FilterOpts{Context: ctx, Start: meta.TaikoBlockMetaDataOntake().GetRawBlockHeight().Uint64(), End: &end},
-		[]*big.Int{meta.TaikoBlockMetaDataOntake().GetBlockID()},
+		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
+		[]*big.Int{meta.GetBlockID()},
 	)
 	if err != nil {
 		return nil, err
@@ -54,9 +54,9 @@ func (d *CalldataFetcher) Fetch(
 
 	if iter.Error() != nil {
 		return nil, fmt.Errorf(
-			"failed to fetch calldata for block %d: %w", meta.TaikoBlockMetaDataOntake().GetBlockID(), iter.Error(),
+			"failed to fetch calldata for block %d: %w", meta.GetBlockID(), iter.Error(),
 		)
 	}
 
-	return nil, fmt.Errorf("calldata for block %d not found", meta.TaikoBlockMetaDataOntake().GetBlockID())
+	return nil, fmt.Errorf("calldata for block %d not found", meta.GetBlockID())
 }

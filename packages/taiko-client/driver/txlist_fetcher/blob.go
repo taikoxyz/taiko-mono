@@ -30,17 +30,17 @@ func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *B
 func (d *BlobFetcher) Fetch(
 	ctx context.Context,
 	_ *types.Transaction,
-	meta metadata.TaikoProposalMetaData,
+	meta metadata.TaikoBlockMetaDataOntake,
 ) ([]byte, error) {
-	if !meta.TaikoBlockMetaDataOntake().GetBlobUsed() {
+	if !meta.GetBlobUsed() {
 		return nil, pkg.ErrBlobUsed
 	}
 
 	// Fetch the L1 block sidecars.
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
-		meta.TaikoBlockMetaDataOntake().GetProposedAt(),
-		meta.TaikoBlockMetaDataOntake().GetBlobHash(),
+		meta.GetProposedAt(),
+		meta.GetBlobHash(),
 	)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (d *BlobFetcher) Fetch(
 
 	log.Info(
 		"Fetch sidecars",
-		"blockNumber", meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
+		"blockNumber", meta.GetRawBlockHeight(),
 		"sidecars", len(sidecars),
 	)
 
@@ -58,21 +58,21 @@ func (d *BlobFetcher) Fetch(
 			"Block sidecar",
 			"index", i,
 			"KzgCommitment", sidecar.KzgCommitment,
-			"blobHash", meta.TaikoBlockMetaDataOntake().GetBlobHash(),
+			"blobHash", meta.GetBlobHash(),
 		)
 
 		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.TaikoBlockMetaDataOntake().GetBlobHash() {
+		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
 			bytes, err := blob.ToData()
 			if err != nil {
 				return nil, err
 			}
 
-			if meta.TaikoBlockMetaDataOntake().GetBlobTxListLength() == 0 {
-				return bytes[meta.TaikoBlockMetaDataOntake().GetBlobTxListOffset():], nil
+			if meta.GetBlobTxListLength() == 0 {
+				return bytes[meta.GetBlobTxListOffset():], nil
 			}
-			return bytes[meta.TaikoBlockMetaDataOntake().GetBlobTxListOffset() : meta.TaikoBlockMetaDataOntake().GetBlobTxListOffset()+meta.TaikoBlockMetaDataOntake().GetBlobTxListLength()], nil
+			return bytes[meta.GetBlobTxListOffset() : meta.GetBlobTxListOffset()+meta.GetBlobTxListLength()], nil
 		}
 	}
 

@@ -112,8 +112,10 @@ func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 // processL1Blocks is the inner method which responsible for processing
 // all new L1 blocks.
 func (s *Syncer) processL1Blocks(ctx context.Context) error {
-	l1End := s.state.GetL1Head()
-	startL1Current := s.state.GetL1Current()
+	var (
+		l1End          = s.state.GetL1Head()
+		startL1Current = s.state.GetL1Current()
+	)
 	// If there is a L1 reorg, sometimes this will happen.
 	if startL1Current.Number.Uint64() >= l1End.Number.Uint64() && startL1Current.Hash() != l1End.Hash() {
 		newL1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).Sub(l1End.Number, common.Big1))
@@ -166,15 +168,26 @@ func (s *Syncer) onBlockProposed(
 	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
+	if !meta.IsPacaya() {
+		return s.onBlockProposedOntake(ctx, meta.TaikoBlockMetaDataOntake(), endIter)
+	}
+	return s.onBlockProposedPacaya(ctx, meta.TaikoBatchMetaDataPacaya(), endIter)
+}
+
+func (s *Syncer) onBlockProposedOntake(
+	ctx context.Context,
+	meta metadata.TaikoBlockMetaDataOntake,
+	endIter eventIterator.EndBlockProposedEventIterFunc,
+) error {
 	// We simply ignore the genesis block's `BlockProposed` event.
-	if meta.TaikoBlockMetaDataOntake().GetBlockID().Cmp(common.Big0) == 0 {
+	if meta.GetBlockID().Cmp(common.Big0) == 0 {
 		return nil
 	}
 
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorg(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
+		reorgCheckResult, err := s.checkReorg(ctx, meta.GetBlockID())
 		if err != nil {
 			return err
 		}
@@ -198,26 +211,26 @@ func (s *Syncer) onBlockProposed(
 		}
 	}
 	// Ignore those already inserted blocks.
-	if s.lastInsertedBlockID != nil && meta.TaikoBlockMetaDataOntake().GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
+	if s.lastInsertedBlockID != nil && meta.GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
 		return nil
 	}
 
 	log.Info(
 		"New BlockProposed event",
-		"l1Height", meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
-		"l1Hash", meta.TaikoBlockMetaDataOntake().GetRawBlockHash(),
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		"l1Height", meta.GetRawBlockHeight(),
+		"l1Hash", meta.GetRawBlockHash(),
+		"blockID", meta.GetBlockID(),
 	)
 
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
 	// only happen when testing.
-	if meta.TaikoBlockMetaDataOntake().GetTimestamp() > uint64(time.Now().Unix()) {
+	if meta.GetTimestamp() > uint64(time.Now().Unix()) {
 		log.Warn(
 			"Future L2 block, waiting",
-			"L2BlockTimestamp", meta.TaikoBlockMetaDataOntake().GetTimestamp(),
+			"L2BlockTimestamp", meta.GetTimestamp(),
 			"now", time.Now().Unix(),
 		)
-		time.Sleep(time.Until(time.Unix(int64(meta.TaikoBlockMetaDataOntake().GetTimestamp()), 0)))
+		time.Sleep(time.Until(time.Unix(int64(meta.GetTimestamp()), 0)))
 	}
 
 	// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
@@ -228,13 +241,13 @@ func (s *Syncer) onBlockProposed(
 	)
 	if s.progressTracker.Triggered() {
 		// Already synced through beacon sync, just skip this event.
-		if meta.TaikoBlockMetaDataOntake().GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
 			return nil
 		}
 
 		parent, err = s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
 	} else {
-		parent, err = s.rpc.L2ParentByBlockID(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
+		parent, err = s.rpc.L2ParentByBlockID(ctx, meta.GetBlockID())
 	}
 	if err != nil {
 		return fmt.Errorf("failed to fetch L2 parent block: %w", err)
@@ -249,8 +262,8 @@ func (s *Syncer) onBlockProposed(
 
 	tx, err := s.rpc.L1.TransactionInBlock(
 		ctx,
-		meta.TaikoBlockMetaDataOntake().GetRawBlockHash(),
-		meta.TaikoBlockMetaDataOntake().GetTxIndex(),
+		meta.GetRawBlockHash(),
+		meta.GetTxIndex(),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to fetch original TaikoL1.proposeBlock transaction: %w", err)
@@ -258,7 +271,7 @@ func (s *Syncer) onBlockProposed(
 
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
-	if meta.TaikoBlockMetaDataOntake().GetBlobUsed() {
+	if meta.GetBlobUsed() {
 		txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
 	} else {
 		txListFetcher = txlistFetcher.NewCalldataFetch(s.rpc)
@@ -275,15 +288,15 @@ func (s *Syncer) onBlockProposed(
 		parent,
 		s.txListDecompressor.TryDecompress(
 			s.rpc.L2.ChainID,
-			meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			meta.GetBlockID(),
 			txListBytes,
-			meta.TaikoBlockMetaDataOntake().GetBlobUsed(),
+			meta.GetBlobUsed(),
 		),
 		&rawdb.L1Origin{
-			BlockID:       meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			BlockID:       meta.GetBlockID(),
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-			L1BlockHeight: meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
-			L1BlockHash:   meta.TaikoBlockMetaDataOntake().GetRawBlockHash(),
+			L1BlockHeight: meta.GetRawBlockHeight(),
+			L1BlockHash:   meta.GetRawBlockHash(),
 		},
 	)
 	if err != nil {
@@ -294,15 +307,15 @@ func (s *Syncer) onBlockProposed(
 
 	log.Info(
 		"🔗 New L2 block inserted",
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		"blockID", meta.GetBlockID(),
 		"hash", payloadData.BlockHash,
 		"transactions", len(payloadData.Transactions),
 		"baseFee", utils.WeiToGWei(payloadData.BaseFeePerGas),
 		"withdrawals", len(payloadData.Withdrawals),
 	)
 
-	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.TaikoBlockMetaDataOntake().GetRawBlockHeight().Uint64()))
-	s.lastInsertedBlockID = meta.TaikoBlockMetaDataOntake().GetBlockID()
+	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
+	s.lastInsertedBlockID = meta.GetBlockID()
 
 	if s.progressTracker.Triggered() {
 		s.progressTracker.ClearMeta()
@@ -311,11 +324,23 @@ func (s *Syncer) onBlockProposed(
 	return nil
 }
 
+func (s *Syncer) onBlockProposedPacaya(
+	ctx context.Context,
+	meta metadata.TaikoBatchMetaDataPacaya,
+	endIter eventIterator.EndBlockProposedEventIterFunc,
+) error {
+	// We simply ignore the genesis block's `BlockProposed` event.
+	if meta.GetBatchID().Cmp(common.Big0) == 0 {
+		return nil
+	}
+	return nil
+}
+
 // insertNewHead tries to insert a new head block to the L2 execution engine's local
 // block chain through Engine APIs.
 func (s *Syncer) insertNewHead(
 	ctx context.Context,
-	meta metadata.TaikoProposalMetaData,
+	meta metadata.TaikoBlockMetaDataOntake,
 	parent *types.Header,
 	txListBytes []byte,
 	l1Origin *rawdb.L1Origin,
@@ -336,7 +361,7 @@ func (s *Syncer) insertNewHead(
 	)
 	if len(txListBytes) != 0 {
 		if err := rlp.DecodeBytes(txListBytes, &txList); err != nil {
-			log.Error("Invalid txList bytes", "blockID", meta.TaikoBlockMetaDataOntake().GetBlockID())
+			log.Error("Invalid txList bytes", "blockID", meta.GetBlockID())
 			return nil, err
 		}
 	}
@@ -344,31 +369,31 @@ func (s *Syncer) insertNewHead(
 	if baseFee, err = s.rpc.CalculateBaseFee(
 		ctx,
 		parent,
-		new(big.Int).SetUint64(meta.TaikoBlockMetaDataOntake().GetAnchorBlockID()),
-		!meta.IsPacaya(),
+		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+		true,
 		&pacaya.LibSharedDataBaseFeeConfig{
-			AdjustmentQuotient:     meta.TaikoBlockMetaDataOntake().GetBaseFeeConfig().AdjustmentQuotient,
-			SharingPctg:            meta.TaikoBlockMetaDataOntake().GetBaseFeeConfig().SharingPctg,
-			GasIssuancePerSecond:   meta.TaikoBlockMetaDataOntake().GetBaseFeeConfig().GasIssuancePerSecond,
-			MinGasExcess:           meta.TaikoBlockMetaDataOntake().GetBaseFeeConfig().MinGasExcess,
-			MaxGasIssuancePerBlock: meta.TaikoBlockMetaDataOntake().GetBaseFeeConfig().MaxGasIssuancePerBlock,
+			AdjustmentQuotient:     meta.GetBaseFeeConfig().AdjustmentQuotient,
+			SharingPctg:            meta.GetBaseFeeConfig().SharingPctg,
+			GasIssuancePerSecond:   meta.GetBaseFeeConfig().GasIssuancePerSecond,
+			MinGasExcess:           meta.GetBaseFeeConfig().MinGasExcess,
+			MaxGasIssuancePerBlock: meta.GetBaseFeeConfig().MaxGasIssuancePerBlock,
 		},
-		meta.TaikoBlockMetaDataOntake().GetTimestamp(),
+		meta.GetTimestamp(),
 	); err != nil {
 		return nil, err
 	}
 
 	// Assemble a TaikoL2.anchorV2 transaction
-	anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.TaikoBlockMetaDataOntake().GetAnchorBlockHash())
+	anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch anchor block: %w", err)
 	}
 	anchorTx, err = s.anchorConstructor.AssembleAnchorV2Tx(
 		ctx,
-		new(big.Int).SetUint64(meta.TaikoBlockMetaDataOntake().GetAnchorBlockID()),
+		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		anchorBlockHeader.Root,
 		parent.GasUsed,
-		meta.TaikoBlockMetaDataOntake().GetBaseFeeConfig(),
+		meta.GetBaseFeeConfig(),
 		new(big.Int).Add(parent.Number, common.Big1),
 		baseFee,
 	)
@@ -378,16 +403,16 @@ func (s *Syncer) insertNewHead(
 
 	log.Info(
 		"L2 baseFee",
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		"blockID", meta.GetBlockID(),
 		"baseFee", utils.WeiToGWei(baseFee),
-		"syncedL1Height", meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
+		"syncedL1Height", meta.GetRawBlockHeight(),
 		"parentGasUsed", parent.GasUsed,
 	)
 
 	// Insert the anchor transaction at the head of the transactions list
 	txList = append([]*types.Transaction{anchorTx}, txList...)
 	if txListBytes, err = rlp.EncodeToBytes(txList); err != nil {
-		log.Error("Encode txList error", "blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(), "error", err)
+		log.Error("Encode txList error", "blockID", meta.GetBlockID(), "error", err)
 		return nil, err
 	}
 
@@ -435,7 +460,7 @@ func (s *Syncer) insertNewHead(
 // Engine APIs.
 func (s *Syncer) createExecutionPayloads(
 	ctx context.Context,
-	meta metadata.TaikoProposalMetaData,
+	meta metadata.TaikoBlockMetaDataOntake,
 	parentHash common.Hash,
 	l1Origin *rawdb.L1Origin,
 	txListBytes []byte,
@@ -444,17 +469,17 @@ func (s *Syncer) createExecutionPayloads(
 ) (payloadData *engine.ExecutableData, err error) {
 	fc := &engine.ForkchoiceStateV1{HeadBlockHash: parentHash}
 	attributes := &engine.PayloadAttributes{
-		Timestamp:             meta.TaikoBlockMetaDataOntake().GetTimestamp(),
-		Random:                meta.TaikoBlockMetaDataOntake().GetDifficulty(),
-		SuggestedFeeRecipient: meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		Timestamp:             meta.GetTimestamp(),
+		Random:                meta.GetDifficulty(),
+		SuggestedFeeRecipient: meta.GetCoinbase(),
 		Withdrawals:           withdrawals,
 		BlockMetadata: &engine.BlockMetadata{
-			Beneficiary: meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-			GasLimit:    uint64(meta.TaikoBlockMetaDataOntake().GetGasLimit()) + consensus.AnchorGasLimit,
-			Timestamp:   meta.TaikoBlockMetaDataOntake().GetTimestamp(),
+			Beneficiary: meta.GetCoinbase(),
+			GasLimit:    uint64(meta.GetGasLimit()) + consensus.AnchorGasLimit,
+			Timestamp:   meta.GetTimestamp(),
 			TxList:      txListBytes,
-			MixHash:     meta.TaikoBlockMetaDataOntake().GetDifficulty(),
-			ExtraData:   meta.TaikoBlockMetaDataOntake().GetExtraData(),
+			MixHash:     meta.GetDifficulty(),
+			ExtraData:   meta.GetExtraData(),
 		},
 		BaseFeePerGas: baseFee,
 		L1Origin:      l1Origin,
@@ -462,7 +487,7 @@ func (s *Syncer) createExecutionPayloads(
 
 	log.Debug(
 		"PayloadAttributes",
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		"blockID", meta.GetBlockID(),
 		"timestamp", attributes.Timestamp,
 		"random", attributes.Random,
 		"suggestedFeeRecipient", attributes.SuggestedFeeRecipient,
@@ -496,7 +521,7 @@ func (s *Syncer) createExecutionPayloads(
 
 	log.Debug(
 		"Payload",
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		"blockID", meta.GetBlockID(),
 		"baseFee", utils.WeiToGWei(payload.BaseFeePerGas),
 		"number", payload.Number,
 		"hash", payload.BlockHash,
