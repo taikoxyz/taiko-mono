@@ -38,21 +38,6 @@ var (
 	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
 
-// GetProtocolConfigs gets the protocol configs from TaikoInbox contract.
-func GetProtocolConfigs(
-	taikoInboxClient *pacayaBindings.TaikoInboxClient,
-	opts *bind.CallOpts,
-) (pacayaBindings.ITaikoInboxConfig, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
-	defer cancel()
-
-	return taikoInboxClient.GetConfig(opts)
-}
-
 // GetProtocolStateVariables gets the protocol states from TaikoInbox contract.
 func GetProtocolStateVariables(
 	taikoInboxClient *pacayaBindings.TaikoInboxClient,

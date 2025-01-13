@@ -33,6 +33,35 @@ var (
 	defaultWaitTimeout = 3 * time.Minute
 )
 
+// GetProtocolConfigs gets the protocol configs from TaikoInbox contract.
+func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	l2Head, err := c.L2.BlockNumber(opts.Context)
+	if err != nil {
+		return nil, err
+	}
+
+	if l2Head < c.PacayaClients.ForkHeight {
+		configs, err := c.OntakeClients.TaikoL1.GetConfig(opts)
+		if err != nil {
+			return nil, err
+		}
+		return config.NewOntakeProtocolConfigs(&configs, c.OntakeClients.ForkHeight), nil
+	}
+
+	configs, err := c.PacayaClients.TaikoInbox.GetConfig(opts)
+	if err != nil {
+		return nil, err
+	}
+	return config.NewPacayaProtocolConfigs(&configs), nil
+}
+
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context) error {
@@ -59,14 +88,21 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		}
 	)
 
-	protocolConfigs, err := GetProtocolConfigs(c.PacayaClients.TaikoInbox, &bind.CallOpts{Context: ctxWithTimeout})
+	protocolConfigs, err := c.GetProtocolConfigs(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return err
 	}
 
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
-	// TODO: update checks
-	if protocolConfigs.ForkHeights.Pacaya == 0 {
+	if protocolConfigs.ForkHeightsPacaya() == 0 {
+		iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
+		if err != nil {
+			return err
+		}
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+	} else if protocolConfigs.ForkHeightsOntake() == 0 {
 		// Fetch the genesis `BlockVerified2` event.
 		iter, err := c.OntakeClients.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
