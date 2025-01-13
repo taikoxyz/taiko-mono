@@ -52,5 +52,9 @@ func (d *CalldataFetcher) Fetch(
 		return iter.Event.TxList, nil
 	}
 
+	if iter.Error() != nil {
+		return nil, fmt.Errorf("failed to fetch calldata for block %d: %w", meta.GetBlockID(), iter.Error())
+	}
+
 	return nil, fmt.Errorf("calldata for block %d not found", meta.GetBlockID())
 }

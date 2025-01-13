@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.21.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.2...docs-site-v1.21.3) (2025-01-13)
+
+
+### Chores
+
+* **docs-site:** update mainnet config graphic ([#18758](https://github.com/taikoxyz/taiko-mono/issues/18758)) ([b36576a](https://github.com/taikoxyz/taiko-mono/commit/b36576a367fbf3084aed3a9334821f7893d9c270))
+* **docs-site:** update mainnet verifier addresses ([#18756](https://github.com/taikoxyz/taiko-mono/issues/18756)) ([eaa47bd](https://github.com/taikoxyz/taiko-mono/commit/eaa47bd2c82a4678e0e1b65c076693b4b3015c26))
+* **docs-site:** update verifier addresses ([#18749](https://github.com/taikoxyz/taiko-mono/issues/18749)) ([bd0cb95](https://github.com/taikoxyz/taiko-mono/commit/bd0cb95c054075b32bf571d7c89a4768d370cb59))
+
 ## [1.21.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.1...docs-site-v1.21.2) (2025-01-07)
 
 
