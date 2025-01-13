@@ -20,10 +20,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
@@ -46,7 +46,7 @@ type Prover struct {
 	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 
 	// Contract configurations
-	protocolConfigs *pacayaBindings.ITaikoInboxConfig
+	protocolConfigs config.ProtocolConfigs
 
 	// States
 	sharedState *state.SharedState
@@ -125,14 +125,13 @@ func InitFromConfig(
 	}
 
 	// Configs
-	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.PacayaClients.TaikoInbox, &bind.CallOpts{Context: p.ctx})
+	p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
-	p.protocolConfigs = &protocolConfigs
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
-	chBufferSize := p.protocolConfigs.MaxBatchProposals // TODO: check this value
+	chBufferSize := p.protocolConfigs.MaxProposals()
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
 	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
@@ -291,7 +290,7 @@ func (p *Prover) eventLoop() {
 	defer forceProvingTicker.Stop()
 
 	// Channels
-	chBufferSize := p.protocolConfigs.MaxBatchProposals // TODO: check this value
+	chBufferSize := p.protocolConfigs.MaxProposals()
 	blockProposedV2Ch := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2, chBufferSize)
 	blockVerifiedV2Ch := make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
 	transitionProvedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, chBufferSize)

@@ -19,7 +19,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -44,7 +43,7 @@ type Proposer struct {
 	txBuilder builder.ProposeBlocksTransactionBuilder
 
 	// Protocol configurations
-	protocolConfigs *pacayaBindings.ITaikoInboxConfig
+	protocolConfigs config.ProtocolConfigs
 
 	chainConfig *config.ChainConfig
 
@@ -84,11 +83,9 @@ func (p *Proposer) InitFromConfig(
 	}
 
 	// Protocol configs
-	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.PacayaClients.TaikoInbox, &bind.CallOpts{Context: p.ctx})
-	if err != nil {
+	if p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
-	p.protocolConfigs = &protocolConfigs
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
 	if txMgr == nil {
@@ -191,13 +188,13 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		p.protocolConfigs.BlockMaxGasLimit,
+		p.protocolConfigs.BlockMaxGasLimit(),
 		rpc.BlockMaxTxListBytes,
 		p.LocalAddresses,
 		p.MaxProposedTxListsPerEpoch,
 		minTip,
 		p.chainConfig,
-		&p.protocolConfigs.BaseFeeConfig,
+		p.protocolConfigs.BaseFeeConfig(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
@@ -357,7 +354,7 @@ func (p *Proposer) ProposeTxListOntake(
 		p.rpc,
 		proverAddress,
 		p.TaikoL1Address,
-		new(big.Int).Mul(p.protocolConfigs.LivenessBond, new(big.Int).SetUint64(uint64(len(txLists)))),
+		new(big.Int).Mul(p.protocolConfigs.LivenessBond(), new(big.Int).SetUint64(uint64(len(txLists)))),
 	)
 
 	if err != nil {
@@ -418,7 +415,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		p.rpc,
 		proverAddress,
 		p.TaikoL1Address,
-		p.protocolConfigs.LivenessBond,
+		p.protocolConfigs.LivenessBond(),
 	)
 
 	if err != nil {

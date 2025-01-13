@@ -161,7 +161,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	ontakeForkHeight, err := s.RPCClient.OntakeClients.TaikoL2.OntakeForkHeight(nil)
 	s.Nil(err)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.PacayaClients.TaikoInbox, nil)
+	protocolConfigs, err := s.RPCClient.GetProtocolConfigs(nil)
 	s.Nil(err)
 
 	baseFee, err := s.RPCClient.CalculateBaseFee(
@@ -169,7 +169,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		l2Head,
 		l1Head.Number,
 		l2Head.Number.Uint64()+1 >= ontakeForkHeight,
-		&protocolConfigs.BaseFeeConfig,
+		protocolConfigs.BaseFeeConfig(),
 		l1Head.Time,
 	)
 	s.Nil(err)

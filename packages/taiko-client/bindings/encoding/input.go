@@ -14,11 +14,7 @@ import (
 
 // ABI arguments marshaling components.
 var (
-<<<<<<< HEAD
 	blockMetadataV2Components = []abi.ArgumentMarshaling{
-=======
-	BlockMetadataV2Components = []abi.ArgumentMarshaling{
->>>>>>> f4e64dc17 (feat: update bindings)
 		{
 			Name: "anchorBlockHash",
 			Type: "bytes32",

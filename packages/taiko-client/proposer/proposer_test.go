@@ -127,13 +127,13 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		poolContent, err := s.RPCClient.GetPoolContent(
 			context.Background(),
 			s.p.proposerAddress,
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.LocalAddresses,
 			10,
 			0,
 			s.p.chainConfig,
-			&s.p.protocolConfigs.BaseFeeConfig,
+			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -181,19 +181,19 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		txLengthList         []int
 	}{
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxProposedTxListsPerEpoch,
 			[]int{1500},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxProposedTxListsPerEpoch * 5,
 			[]int{1500},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit / 50,
+			s.p.protocolConfigs.BlockMaxGasLimit() / 50,
 			rpc.BlockMaxTxListBytes,
 			200,
 			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
@@ -208,7 +208,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			testCase.maxTransactionsLists,
 			0,
 			s.p.chainConfig,
-			&s.p.protocolConfigs.BaseFeeConfig,
+			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -263,13 +263,13 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
 			p.proposerAddress,
-			p.protocolConfigs.BlockMaxGasLimit,
+			p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			p.LocalAddresses,
 			p.MaxProposedTxListsPerEpoch,
 			0,
 			p.chainConfig,
-			&p.protocolConfigs.BaseFeeConfig,
+			p.protocolConfigs.BaseFeeConfig(),
 		)
 		time.Sleep(time.Second)
 	}
@@ -344,13 +344,13 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 }
 
 func (s *ProposerTestSuite) TestProposeTxListOntake() {
-	for i := 0; i < int(s.p.protocolConfigs.ForkHeights.Ontake); i++ {
+	for i := 0; i < int(s.p.protocolConfigs.ForkHeightsOntake()); i++ {
 		s.ProposeAndInsertValidBlock(s.p, s.s)
 	}
 
 	l2Head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.ForkHeights.Ontake)
+	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.ForkHeightsOntake())
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)

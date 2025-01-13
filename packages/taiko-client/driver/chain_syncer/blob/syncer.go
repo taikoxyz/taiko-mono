@@ -64,7 +64,7 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(client.PacayaClients.TaikoInbox, &bind.CallOpts{Context: ctx})
+	protocolConfigs, err := client.GetProtocolConfigs(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func NewSyncer(
 		progressTracker:   progressTracker,
 		anchorConstructor: constructor,
 		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(protocolConfigs.BlockMaxGasLimit),
+			uint64(protocolConfigs.BlockMaxGasLimit()),
 			rpc.BlockMaxTxListBytes,
 			client.L2.ChainID,
 		),

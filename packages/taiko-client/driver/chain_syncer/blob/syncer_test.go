@@ -171,7 +171,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 		s.RPCClient.PacayaClients.ForkHeight,
 	)
 
-	cfg, err := rpc.GetProtocolConfigs(s.RPCClient.PacayaClients.TaikoInbox, nil)
+	cfg, err := s.RPCClient.GetProtocolConfigs(nil)
 	s.Nil(err)
 
 	for i := headBefore + 1; i <= headAfter; i++ {
@@ -192,7 +192,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
 			if chainConfig.IsOntake(block.Number()) {
 				feeCoinbase := new(big.Int).Div(
-					new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(cfg.BaseFeeConfig.SharingPctg))),
+					new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(cfg.BaseFeeConfig().SharingPctg))),
 					new(big.Int).SetUint64(100),
 				)
 				feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
