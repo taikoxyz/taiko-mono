@@ -120,4 +120,4 @@ __pycache__/
 
 # Idea
 .idea/
-packages/protocol/snapshots/InboxTest_Suite1.json
+packages/protocol/snapshots/InboxTest_ProposeAndProve.json
