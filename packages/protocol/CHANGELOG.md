@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.12.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v1.11.0...taiko-alethia-protocol-v1.12.0) (2025-01-13)
+
+
+### Features
+
+* **protocol:** adjust zk(risc0 & sp1) ratio ([#18684](https://github.com/taikoxyz/taiko-mono/issues/18684)) ([a0c21a3](https://github.com/taikoxyz/taiko-mono/commit/a0c21a382c779de54b119a6f9b2d5cd869f47f1d))
+* **protocol:** upgrade sp1 contract to v4.0.0-rc.3 ([#18740](https://github.com/taikoxyz/taiko-mono/issues/18740)) ([a58852f](https://github.com/taikoxyz/taiko-mono/commit/a58852fd84357487b82b965dd0ab61b56de49b53))
+* **taiko-client:** soft block driver APIs ([#18273](https://github.com/taikoxyz/taiko-mono/issues/18273)) ([9fff7ff](https://github.com/taikoxyz/taiko-mono/commit/9fff7ff3cce99e915e8142a090a7fad2f1af5bd4))
+
+
+### Bug Fixes
+
+* **protocol:** add timestamp as a new parameter to getBasefeeV2 ([#18686](https://github.com/taikoxyz/taiko-mono/issues/18686)) ([361c26a](https://github.com/taikoxyz/taiko-mono/commit/361c26adc62a6358c4d38c6a4d707274c84d7552))
+
+
+### Chores
+
+* **main:** release taiko-alethia-protocol 1.11.0 ([#18695](https://github.com/taikoxyz/taiko-mono/issues/18695)) ([7802e7f](https://github.com/taikoxyz/taiko-mono/commit/7802e7f33c445417473dcba799dd1dfc68a9aa31))
+* **protocol:** fix documentation ([#18694](https://github.com/taikoxyz/taiko-mono/issues/18694)) ([c7c01a1](https://github.com/taikoxyz/taiko-mono/commit/c7c01a156e05d9126ba6fab7bd910dfa3602169a))
+
+
+### Documentation
+
+* **protocol:** update mainnet deployment docs ([#18754](https://github.com/taikoxyz/taiko-mono/issues/18754)) ([45f5cdc](https://github.com/taikoxyz/taiko-mono/commit/45f5cdc514d47042b6aa810c188062a85b050adf))
+
+
+### Workflow
+
+* **protocol:** revert "chore(main): release taiko-alethia-protocol 1.11.0 ([#18663](https://github.com/taikoxyz/taiko-mono/issues/18663))" ([#18688](https://github.com/taikoxyz/taiko-mono/issues/18688)) ([7e6bce4](https://github.com/taikoxyz/taiko-mono/commit/7e6bce4a0dac9e4f2984ffe2d3da2fc1277fab27))
+
 ## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v1.10.0...taiko-alethia-protocol-v1.11.0) (2025-01-03)
 
 
