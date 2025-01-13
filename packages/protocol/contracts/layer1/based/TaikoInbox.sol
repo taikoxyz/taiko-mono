@@ -133,7 +133,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             coinbase: params.coinbase,
             batchId: stats2.numBatches,
             gasLimit: config.blockMaxGasLimit,
-            timestamp: updatedParams.timestamp,
+            lastBlockTimestamp: updatedParams.lastBlockTimestamp,
             parentMetaHash: lastBatch.metaHash,
             proposer: params.proposer,
             livenessBond: config.livenessBond,
@@ -159,7 +159,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         // SSTORE #2 {{
         batch.batchId = stats2.numBatches;
-        batch.timestamp = updatedParams.timestamp;
+        batch.lastBlockTimestamp = updatedParams.lastBlockTimestamp;
         batch.anchorBlockId = updatedParams.anchorBlockId;
         batch.nextTransitionId = 1;
         batch.verifiedTransitionId = 0;
@@ -437,7 +437,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         Batch storage batch = state.batches[0];
         batch.metaHash = bytes32(uint256(1));
-        batch.timestamp = uint64(block.timestamp);
+        batch.lastBlockTimestamp = uint64(block.timestamp);
         batch.anchorBlockId = uint64(block.number);
         batch.nextTransitionId = 2;
         batch.verifiedTransitionId = 1;
@@ -623,28 +623,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 updatedParams_.anchorBlockId = _params.anchorBlockId;
             }
 
-            if (_params.timestamp == 0) {
-                updatedParams_.timestamp = uint64(block.timestamp);
-            } else {
-                // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
-                // and params_.timestamp may not correspond to the same L1 block.
-                require(
-                    _params.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                        >= block.timestamp,
-                    TimestampTooSmall()
-                );
-                require(_params.timestamp >= _lastBatch.timestamp, TimestampSmallerThanParent());
+            updatedParams_.lastBlockTimestamp = _params.lastBlockTimestamp == 0
+                ? uint64(block.timestamp)
+                : _params.lastBlockTimestamp;
 
-                updatedParams_.timestamp = _params.timestamp;
-            }
+            // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
+            // and params_.timestamp may not correspond to the same L1 block.
+            require(
+               updatedParams_.lastBlockTimestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    >= block.timestamp,
+                TimestampTooSmall()
+            );
 
-            uint256 maxTimestamp = _params.timestamp;
+            uint64 firstBlockTimestamp = updatedParams_.lastBlockTimestamp;
             for (uint256 i; i < _params.blocks.length; ++i) {
-                maxTimestamp += _params.blocks[i].timeShift;
+                firstBlockTimestamp -= _params.blocks[i].timeShift;
             }
-            require(maxTimestamp <= block.timestamp, TimestampTooLarge());
+            require(
+                firstBlockTimestamp >= _lastBatch.lastBlockTimestamp, TimestampSmallerThanParent()
+            );
 
-            // Check if parent batch has the right meta hash. This is to allow the proposer to
             // make sure the batch builds on the expected latest chain state.
             require(
                 _params.parentMetaHash == 0 || _params.parentMetaHash == _lastBatch.metaHash,
@@ -671,7 +669,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     struct UpdatedParams {
         uint64 anchorBlockId;
-        uint64 timestamp;
+        uint64 lastBlockTimestamp;
     }
 
     struct SyncBlock {
