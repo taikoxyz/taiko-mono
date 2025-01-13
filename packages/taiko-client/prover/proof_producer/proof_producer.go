@@ -21,7 +21,7 @@ var (
 // ProofRequestBody represents a request body to generate a proof.
 type ProofRequestBody struct {
 	Tier uint16
-	Meta metadata.TaikoBlockMetaData
+	Meta metadata.TaikoProposalMetaData
 }
 
 // ContestRequestBody represents a request body to generate a proof for contesting.
@@ -29,7 +29,7 @@ type ContestRequestBody struct {
 	BlockID    *big.Int
 	ProposedIn *big.Int
 	ParentHash common.Hash
-	Meta       metadata.TaikoBlockMetaData
+	Meta       metadata.TaikoProposalMetaData
 	Tier       uint16
 }
 
@@ -52,7 +52,7 @@ type ProofRequestOptions struct {
 
 type ProofWithHeader struct {
 	BlockID *big.Int
-	Meta    metadata.TaikoBlockMetaData
+	Meta    metadata.TaikoProposalMetaData
 	Header  *types.Header
 	Proof   []byte
 	Opts    *ProofRequestOptions
@@ -71,7 +71,7 @@ type ProofProducer interface {
 		ctx context.Context,
 		opts *ProofRequestOptions,
 		blockID *big.Int,
-		meta metadata.TaikoBlockMetaData,
+		meta metadata.TaikoProposalMetaData,
 		header *types.Header,
 		requestAt time.Time,
 	) (*ProofWithHeader, error)

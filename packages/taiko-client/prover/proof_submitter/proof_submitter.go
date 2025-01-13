@@ -104,14 +104,18 @@ func NewProofSubmitter(
 }
 
 // RequestProof implements the Submitter interface.
-func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBlockMetaData) error {
+func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
 		blockInfo ontakeBindings.TaikoDataBlockV2
 	)
 
-	header, err := s.rpc.WaitL2Header(ctx, meta.GetBlockID())
+	header, err := s.rpc.WaitL2Header(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
 	if err != nil {
-		return fmt.Errorf("failed to fetch l2 Header, blockID: %d, error: %w", meta.GetBlockID(), err)
+		return fmt.Errorf(
+			"failed to fetch l2 Header, blockID: %d, error: %w",
+			meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			err,
+		)
 	}
 
 	if header.TxHash == types.EmptyTxsHash {
@@ -123,7 +127,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
 	}
 
-	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, meta.GetBlockID()); err != nil {
+	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID()); err != nil {
 		return err
 	}
 
@@ -131,13 +135,13 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 	opts := &proofProducer.ProofRequestOptions{
 		BlockID:            header.Number,
 		ProverAddress:      s.proverAddress,
-		ProposeBlockTxHash: meta.GetTxHash(),
+		ProposeBlockTxHash: meta.TaikoBlockMetaDataOntake().GetTxHash(),
 		TaikoL2:            s.taikoL2Address,
 		MetaHash:           blockInfo.MetaHash,
 		BlockHash:          header.Hash(),
 		ParentHash:         header.ParentHash,
 		StateRoot:          header.Root,
-		EventL1Hash:        meta.GetRawBlockHash(),
+		EventL1Hash:        meta.TaikoBlockMetaDataOntake().GetRawBlockHash(),
 		Graffiti:           common.Bytes2Hex(s.graffiti[:]),
 		GasUsed:            header.GasUsed,
 		ParentGasUsed:      parent.GasUsed(),
@@ -161,8 +165,8 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 			if s.proofBuffer.Enabled() && uint64(s.proofBuffer.Len()) >= s.proofBuffer.MaxLength {
 				log.Warn(
 					"Proof buffer is full now",
-					"blockID", meta.GetBlockID(),
-					"tier", meta.GetMinTier(),
+					"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+					"tier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
 					"size", s.proofBuffer.Len(),
 				)
 				return errBufferOverflow
@@ -185,7 +189,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 			result, err := s.proofProducer.RequestProof(
 				ctx,
 				opts,
-				meta.GetBlockID(),
+				meta.TaikoBlockMetaDataOntake().GetBlockID(),
 				meta,
 				header,
 				startTime,
@@ -199,21 +203,21 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					}
 					return nil
 				}
-				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
+				return fmt.Errorf("failed to request proof (id: %d): %w", meta.TaikoBlockMetaDataOntake().GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
 					return fmt.Errorf(
 						"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
-						meta.GetBlockID(),
+						meta.TaikoBlockMetaDataOntake().GetBlockID(),
 						bufferSize,
 						err,
 					)
 				}
 				log.Info(
 					"Proof generated",
-					"blockID", meta.GetBlockID(),
+					"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
 					"bufferSize", bufferSize,
 					"maxBufferSize", s.proofBuffer.MaxLength,
 					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
@@ -249,7 +253,7 @@ func (s *ProofSubmitter) SubmitProof(
 	log.Info(
 		"Submit block proof",
 		"blockID", proofWithHeader.BlockID,
-		"coinbase", proofWithHeader.Meta.GetCoinbase(),
+		"coinbase", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
 		"parentHash", proofWithHeader.Header.ParentHash,
 		"hash", proofWithHeader.Opts.BlockHash,
 		"stateRoot", proofWithHeader.Opts.StateRoot,

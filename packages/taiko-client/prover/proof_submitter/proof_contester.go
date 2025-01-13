@@ -52,7 +52,7 @@ func (c *ProofContester) SubmitContest(
 	blockID *big.Int,
 	proposedIn *big.Int,
 	parentHash common.Hash,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 	tier uint16,
 ) error {
 	// Ensure the transition has not been contested yet.

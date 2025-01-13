@@ -154,7 +154,9 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	s.Nil(s.p.blockProposedHandler.Handle(context.Background(), m, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.selectSubmitter(m.GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.selectSubmitter(
+		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
+	)
 
 	// Empty blocks
 	for _, m := range s.ProposeAndInsertEmptyBlocks(
@@ -164,7 +166,9 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 		s.Nil(s.p.blockProposedHandler.Handle(context.Background(), m, func() {}))
 		req := <-s.p.proofSubmissionCh
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-		s.Nil(s.p.selectSubmitter(m.GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+		s.Nil(s.p.selectSubmitter(
+			m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
+		)
 	}
 }
 
@@ -222,14 +226,14 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Nil(s.p.initEventHandlers())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	s.Nil(s.p.transitionProvedHandler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
-		BlockId: m.GetBlockID(),
-		Tier:    m.GetMinTier(),
+		BlockId: m.TaikoBlockMetaDataOntake().GetBlockID(),
+		Tier:    m.TaikoBlockMetaDataOntake().GetMinTier(),
 	}))
 	s.p.cfg.ContesterMode = true
 	s.Nil(s.p.initEventHandlers())
 
 	// Submit a wrong proof at first.
-	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.GetBlockID())
+	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.TaikoBlockMetaDataOntake().GetBlockID())
 	s.Nil(err)
 	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
 	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
@@ -243,7 +247,9 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	proofWithHeader := <-s.p.proofGenerationCh
 	proofWithHeader.Opts.BlockHash = testutils.RandomHash()
-	s.Nil(s.p.selectSubmitter(m.GetMinTier()).SubmitProof(context.Background(), proofWithHeader))
+	s.Nil(s.p.selectSubmitter(
+		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
+	)
 
 	event := <-sink
 	s.Equal(header.Number.Uint64(), event.BlockId.Uint64())
@@ -345,7 +351,7 @@ func (s *ProverTestSuite) TestGetSubmitterByTier() {
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
-	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.GetBlockID())
+	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.TaikoBlockMetaDataOntake().GetBlockID())
 	s.Nil(err)
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
@@ -359,7 +365,9 @@ func (s *ProverTestSuite) TestProveOp() {
 	s.Nil(s.p.proveOp())
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.selectSubmitter(m.GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.selectSubmitter(
+		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
+	)
 
 	event := <-sink
 	tran := event.Tran
@@ -377,7 +385,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	status, err := rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.GetBlockID(),
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)
@@ -397,12 +405,14 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.Nil(s.p.proveOp())
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.selectSubmitter(m.GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.selectSubmitter(
+		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
+	)
 
 	status, err = rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.GetBlockID(),
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)
@@ -421,7 +431,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	status, err = rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.GetBlockID(),
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)
@@ -434,12 +444,14 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 
 	proofWithHeader := <-s.p.proofGenerationCh
 	proofWithHeader.Opts.BlockHash = testutils.RandomHash()
-	s.Nil(s.p.selectSubmitter(m.GetMinTier()).SubmitProof(context.Background(), proofWithHeader))
+	s.Nil(s.p.selectSubmitter(
+		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
+	)
 
 	status, err = rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.GetBlockID(),
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)

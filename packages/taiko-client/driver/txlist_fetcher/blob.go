@@ -30,19 +30,27 @@ func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *B
 func (d *BlobFetcher) Fetch(
 	ctx context.Context,
 	_ *types.Transaction,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 ) ([]byte, error) {
-	if !meta.GetBlobUsed() {
+	if !meta.TaikoBlockMetaDataOntake().GetBlobUsed() {
 		return nil, pkg.ErrBlobUsed
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetProposedAt(), meta.GetBlobHash())
+	sidecars, err := d.dataSource.GetBlobs(
+		ctx,
+		meta.TaikoBlockMetaDataOntake().GetProposedAt(),
+		meta.TaikoBlockMetaDataOntake().GetBlobHash(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("Fetch sidecars", "blockNumber", meta.GetRawBlockHeight(), "sidecars", len(sidecars))
+	log.Info(
+		"Fetch sidecars",
+		"blockNumber", meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
+		"sidecars", len(sidecars),
+	)
 
 	// Compare the blob hash with the sidecar's kzg commitment.
 	for i, sidecar := range sidecars {
@@ -50,21 +58,21 @@ func (d *BlobFetcher) Fetch(
 			"Block sidecar",
 			"index", i,
 			"KzgCommitment", sidecar.KzgCommitment,
-			"blobHash", meta.GetBlobHash(),
+			"blobHash", meta.TaikoBlockMetaDataOntake().GetBlobHash(),
 		)
 
 		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() {
+		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.TaikoBlockMetaDataOntake().GetBlobHash() {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
 			bytes, err := blob.ToData()
 			if err != nil {
 				return nil, err
 			}
 
-			if meta.GetBlobTxListLength() == 0 {
-				return bytes[meta.GetBlobTxListOffset():], nil
+			if meta.TaikoBlockMetaDataOntake().GetBlobTxListLength() == 0 {
+				return bytes[meta.TaikoBlockMetaDataOntake().GetBlobTxListOffset():], nil
 			}
-			return bytes[meta.GetBlobTxListOffset() : meta.GetBlobTxListOffset()+meta.GetBlobTxListLength()], nil
+			return bytes[meta.TaikoBlockMetaDataOntake().GetBlobTxListOffset() : meta.TaikoBlockMetaDataOntake().GetBlobTxListOffset()+meta.TaikoBlockMetaDataOntake().GetBlobTxListLength()], nil
 		}
 	}
 

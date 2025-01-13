@@ -22,7 +22,7 @@ type EndBlockProposedEventIterFunc func()
 // iterated.
 type OnBlockProposedEvent func(
 	context.Context,
-	metadata.TaikoBlockMetaData,
+	metadata.TaikoProposalMetaData,
 	EndBlockProposedEventIterFunc,
 ) error
 
@@ -148,10 +148,10 @@ func assembleBlockProposedIteratorCallback(
 		}
 		defer iterPacaya.Close()
 
-		for iterOntake.Next() {
-			event := iterOntake.Event
+		for iterPacaya.Next() {
+			event := iterPacaya.Event
 
-			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataOntake(event), eventIter.end); err != nil {
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {
 				return err
 			}
 

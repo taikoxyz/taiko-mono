@@ -166,12 +166,12 @@ func (s *Sender) ValidateProof(
 	latestVerifiedID *big.Int,
 ) (bool, error) {
 	// 1. Check if the corresponding L1 block is still in the canonical chain.
-	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofWithHeader.Meta.GetRawBlockHeight())
+	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetRawBlockHeight())
 	if err != nil {
 		log.Warn(
 			"Failed to fetch L1 block",
 			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
+			"l1Height", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
 			"error", err,
 		)
 		return false, err
@@ -180,7 +180,7 @@ func (s *Sender) ValidateProof(
 		log.Warn(
 			"Reorg detected, skip the current proof submission",
 			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
+			"l1Height", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
 			"l1HashOld", proofWithHeader.Opts.EventL1Hash,
 			"l1HashNew", l1Header.Hash(),
 		)

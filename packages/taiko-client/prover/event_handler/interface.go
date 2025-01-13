@@ -11,7 +11,7 @@ import (
 // BlockProposedHandler is the interface for handling `TaikoL1.BlockProposed` events.
 type BlockProposedHandler interface {
 	Handle(ctx context.Context,
-		meta metadata.TaikoBlockMetaData,
+		meta metadata.TaikoProposalMetaData,
 		end eventIterator.EndBlockProposedEventIterFunc,
 	) error
 }
@@ -33,5 +33,5 @@ type BlockVerifiedHandler interface {
 
 // AssignmentExpiredHandler is the interface for handling the proof assignment expiration.
 type AssignmentExpiredHandler interface {
-	Handle(ctx context.Context, meta metadata.TaikoBlockMetaData) error
+	Handle(ctx context.Context, meta metadata.TaikoProposalMetaData) error
 }

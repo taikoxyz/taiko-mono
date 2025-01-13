@@ -73,14 +73,14 @@ func getMetadataFromBlockID(
 	rpc *rpc.Client,
 	id *big.Int,
 	proposedIn *big.Int,
-) (m metadata.TaikoBlockMetaData, err error) {
+) (m metadata.TaikoProposalMetaData, err error) {
 	callback := func(
 		_ context.Context,
-		meta metadata.TaikoBlockMetaData,
+		meta metadata.TaikoProposalMetaData,
 		_ eventIterator.EndBlockProposedEventIterFunc,
 	) error {
 		// Only filter for exact blockID we want.
-		if meta.GetBlockID().Cmp(id) != 0 {
+		if meta.TaikoBlockMetaDataOntake().GetBlockID().Cmp(id) != 0 {
 			return nil
 		}
 
@@ -117,17 +117,17 @@ func getMetadataFromBlockID(
 // proving window of the given proposed block is expired, and the second return parameter is the time
 // remaining til proving window is expired.
 func IsProvingWindowExpired(
-	metadata metadata.TaikoBlockMetaData,
+	metadata metadata.TaikoProposalMetaData,
 	tiers []*rpc.TierProviderTierWithID,
 ) (bool, time.Time, time.Duration, error) {
-	provingWindow, err := getProvingWindow(metadata.GetMinTier(), tiers)
+	provingWindow, err := getProvingWindow(metadata.TaikoBlockMetaDataOntake().GetMinTier(), tiers)
 	if err != nil {
 		return false, time.Time{}, 0, fmt.Errorf("failed to get proving window: %w", err)
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.GetTimestamp() + uint64(provingWindow.Seconds())
+		expiredAt = metadata.TaikoBlockMetaDataOntake().GetTimestamp() + uint64(provingWindow.Seconds())
 	)
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

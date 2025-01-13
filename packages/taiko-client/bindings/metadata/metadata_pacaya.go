@@ -10,7 +10,7 @@ import (
 )
 
 // Ensure TaikoDataBlockMetadataPacaya implements TaikoBlockMetaData.
-var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataPacaya)(nil)
+var _ TaikoProposalMetaData = (*TaikoDataBlockMetadataPacaya)(nil)
 
 // TaikoDataBlockMetadataPacaya is the metadata of an ontake Taiko block.
 type TaikoDataBlockMetadataPacaya struct {
@@ -27,110 +27,120 @@ func NewTaikoDataBlockMetadataPacaya(e *pacayaBindings.TaikoInboxClientBatchProp
 	}
 }
 
+// TaikoBlockMetaDataOntake implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) TaikoBlockMetaDataOntake() TaikoBlockMetaDataOntake {
+	return nil
+}
+
+// TaikoBatchMetaDataPacaya implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) TaikoBatchMetaDataPacaya() TaikoBatchMetaDataPacaya {
+	return m
+}
+
+// IsPacaya implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) IsPacaya() bool {
+	return true
+}
+
+// GetTxListHash returns the hash of calldata txlist.
+func (m *TaikoDataBlockMetadataPacaya) GetTxListHash() common.Hash {
+	return m.TxListHash
+}
+
+// GetTxListHash returns block extradata.
+func (m *TaikoDataBlockMetadataPacaya) GetExtraData() []byte {
+	return m.ExtraData[:]
+}
+
+// GetCoinbase returns block coinbase.
+func (m *TaikoDataBlockMetadataPacaya) GetCoinbase() common.Address {
+	return m.Coinbase
+}
+
+// GetTxListHash returns batch ID.
+func (m *TaikoDataBlockMetadataPacaya) GetBatchID() *big.Int {
+	return new(big.Int).SetUint64(m.BatchId)
+}
+
+// GetGasLimit returns gas limit of each L2 block.
+func (m *TaikoDataBlockMetadataPacaya) GetGasLimit() uint32 {
+	return m.GasLimit
+}
+
+// GetLastBlockTimestamp returns last block's timestamp in this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetLastBlockTimestamp() uint64 {
+	return m.LastBlockTimestamp
+}
+
+// GetLastBlockTimestamp returns last block's timestamp in this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetParentMetaHash() common.Hash {
+	return m.ParentMetaHash
+}
+
+// GetProposer returns the proposer of this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetProposer() common.Address {
+	return m.Proposer
+}
+
+// GetLivenessBond returns the livenessBond of this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetLivenessBond() *big.Int {
+	return m.LivenessBond
+}
+
+// GetProposedAt returns the proposing timestamp of this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetProposedAt() uint64 {
+	return m.ProposedAt
+}
+
+// ProposedIn returns the proposing L1 block number of this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetProposedIn() uint64 {
+	return m.ProposedIn
+}
+
+// TODO: remove this value
+// GetTxListOffset returns calldata tx list offset.
+func (m *TaikoDataBlockMetadataPacaya) GetTxListOffset() uint32 {
+	return m.TxListOffset
+}
+
+// GetTxListSize returns calldata tx list size.
+func (m *TaikoDataBlockMetadataPacaya) GetTxListSize() uint32 {
+	return m.TxListSize
+}
+
+// GetNumBlobs returns the number of the used blobs.
+func (m *TaikoDataBlockMetadataPacaya) GetNumBlobs() uint8 {
+	return m.NumBlobs
+}
+
+// GetAnchorBlockID returns the anchor block ID.
+func (m *TaikoDataBlockMetadataPacaya) GetAnchorBlockID() uint64 {
+	return m.AnchorBlockId
+}
+
 // GetAnchorBlockHash returns the anchor block hash.
 func (m *TaikoDataBlockMetadataPacaya) GetAnchorBlockHash() common.Hash {
 	return m.AnchorBlockHash
 }
 
-// GetDifficulty returns the difficulty.
-func (m *TaikoDataBlockMetadataPacaya) GetDifficulty() common.Hash {
-	return common.Hash{} // TODO: implement the calculation of difficulty.
+// GetSignalSlots returns the signal slots.
+func (m *TaikoDataBlockMetadataPacaya) GetSignalSlots() [][32]byte {
+	return m.SignalSlots
 }
 
-// GetBlobHash returns the blob hash.
-func (m *TaikoDataBlockMetadataPacaya) GetBlobHash() common.Hash {
-	return m.BlockHash
+// GetBlocks returns block params of this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetBlocks() []pacayaBindings.ITaikoInboxBlockParams {
+	return m.Blocks
 }
 
-// GetExtraData returns the extra data.
-func (m *TaikoDataBlockMetadataPacaya) GetExtraData() []byte {
-	return m.ExtraData[:]
-}
-
-// GetCoinbase returns the coinbase.
-func (m *TaikoDataBlockMetadataPacaya) GetCoinbase() common.Address {
-	return m.Coinbase
-}
-
-// GetBlockID returns the L2 block ID.
-func (m *TaikoDataBlockMetadataPacaya) GetBlockID() *big.Int {
-	return new(big.Int).SetUint64(m.BatchId)
-}
-
-// GetGasLimit returns the gas limit.
-func (m *TaikoDataBlockMetadataPacaya) GetGasLimit() uint32 {
-	return m.GasLimit
-}
-
-// GetTimestamp returns the timestamp.
-func (m *TaikoDataBlockMetadataPacaya) GetTimestamp() uint64 {
-	return m.LastBlockTimestamp
-}
-
-// GetAnchorBlockID returns the L1 block number which should be used in anchor transaction.
-func (m *TaikoDataBlockMetadataPacaya) GetAnchorBlockID() uint64 {
-	return m.AnchorBlockId
-}
-
-// GetMinTier returns the minimum tier.
-func (m *TaikoDataBlockMetadataPacaya) GetMinTier() uint16 {
-	return 0
-}
-
-// GetBlobUsed returns whether the blob is used.
-func (m *TaikoDataBlockMetadataPacaya) GetBlobUsed() bool {
-	return m.NumBlobs != 0
-}
-
-// GetParentMetaHash returns the parent meta hash.
-func (m *TaikoDataBlockMetadataPacaya) GetParentMetaHash() common.Hash {
-	return m.ParentMetaHash
-}
-
-// GetProposer returns the proposer address.
-func (m *TaikoDataBlockMetadataPacaya) GetProposer() common.Address {
-	return m.Proposer
-}
-
-// GetAssignedProver returns the assigned prover address, right now
-// this address should be equal to the proposer address.
-func (m *TaikoDataBlockMetadataPacaya) GetAssignedProver() common.Address {
-	return m.Proposer
-}
-
-// GetLivenessBond returns the liveness bond.
-func (m *TaikoDataBlockMetadataPacaya) GetLivenessBond() *big.Int {
-	return m.LivenessBond
-}
-
-// GetProposedAt returns the proposedAt timestamp.
-func (m *TaikoDataBlockMetadataPacaya) GetProposedAt() uint64 {
-	return m.ProposedAt
-}
-
-// GetProposedIn returns the proposedIn block number.
-func (m *TaikoDataBlockMetadataPacaya) GetProposedIn() uint64 {
-	return m.ProposedIn
-}
-
-// GetBlobTxListOffset returns the blob tx list offset.
-func (m *TaikoDataBlockMetadataPacaya) GetBlobTxListOffset() uint32 {
-	return 0
-}
-
-// GetBlobTxListLength returns the blob tx list length.
-func (m *TaikoDataBlockMetadataPacaya) GetBlobTxListLength() uint32 {
-	return 0
-}
-
-// GetBlobIndex returns the blob index.
-func (m *TaikoDataBlockMetadataPacaya) GetBlobIndex() uint8 {
-	return 0
+// GetAnchorInput returns the input of the anchor transaction.
+func (m *TaikoDataBlockMetadataPacaya) GetAnchorInput() [32]byte {
+	return m.AnchorInput
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataPacaya) GetBaseFeeConfig() *ontakeBindings.LibSharedDataBaseFeeConfig {
-	return nil
+func (m *TaikoDataBlockMetadataPacaya) GetBaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig {
+	return &m.BaseFeeConfig
 }
 
 // GetRawBlockHeight returns the raw L1 block height.

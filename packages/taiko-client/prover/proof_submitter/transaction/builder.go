@@ -54,7 +54,7 @@ func NewProveBlockTxBuilder(
 // Build creates a new TaikoL1.ProveBlock transaction with the given nonce.
 func (a *ProveBlockTxBuilder) Build(
 	blockID *big.Int,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 	transition *ontakeBindings.TaikoDataTransition,
 	tierProof *ontakeBindings.TaikoDataTierProof,
 	tier uint16,
@@ -140,7 +140,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 			data        []byte
 			to          common.Address
 			err         error
-			metas       = make([]metadata.TaikoBlockMetaData, len(batchProof.Proofs))
+			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.Proofs))
 			transitions = make([]ontakeBindings.TaikoDataTransition, len(batchProof.Proofs))
 			blockIDs    = make([]uint64, len(batchProof.Proofs))
 		)

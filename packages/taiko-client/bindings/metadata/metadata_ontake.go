@@ -10,7 +10,7 @@ import (
 )
 
 // Ensure TaikoDataBlockMetadataOntake implements TaikoBlockMetaData.
-var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataOntake)(nil)
+var _ TaikoProposalMetaData = (*TaikoDataBlockMetadataOntake)(nil)
 
 // TaikoDataBlockMetadataOntake is the metadata of an ontake Taiko block.
 type TaikoDataBlockMetadataOntake struct {
@@ -30,6 +30,21 @@ func NewTaikoDataBlockMetadataOntake(e *ontakeBindings.TaikoL1ClientBlockPropose
 // GetAnchorBlockHash returns the anchor block hash.
 func (m *TaikoDataBlockMetadataOntake) GetAnchorBlockHash() common.Hash {
 	return m.AnchorBlockHash
+}
+
+// TaikoBlockMetaDataOntake implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataOntake) TaikoBlockMetaDataOntake() TaikoBlockMetaDataOntake {
+	return m
+}
+
+// TaikoBatchMetaDataPacaya implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataOntake) TaikoBatchMetaDataPacaya() TaikoBatchMetaDataPacaya {
+	return nil
+}
+
+// IsPacaya implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataOntake) IsPacaya() bool {
+	return false
 }
 
 // GetDifficulty returns the difficulty.
@@ -151,11 +166,6 @@ func (m *TaikoDataBlockMetadataOntake) GetTxIndex() uint {
 // GetTxHash returns the transaction hash.
 func (m *TaikoDataBlockMetadataOntake) GetTxHash() common.Hash {
 	return m.Log.TxHash
-}
-
-// IsOntakeBlock returns whether the block is an ontake block.
-func (m *TaikoDataBlockMetadataOntake) IsOntakeBlock() bool {
-	return true
 }
 
 // InnerMetadata returns the inner metadata.

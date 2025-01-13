@@ -405,7 +405,7 @@ func EncodeBatchParams(params *BatchParams) ([]byte, error) {
 
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.
 func EncodeProveBlockInput(
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 	transition *ontakeBindings.TaikoDataTransition,
 	tierProof *ontakeBindings.TaikoDataTierProof,
 ) ([]byte, error) {
@@ -426,7 +426,7 @@ func EncodeProveBlockInput(
 
 // EncodeProveBlocksInput performs the solidity `abi.encode` for the given TaikoL1.proveBlocks input.
 func EncodeProveBlocksInput(
-	metas []metadata.TaikoBlockMetaData,
+	metas []metadata.TaikoProposalMetaData,
 	transitions []ontakeBindings.TaikoDataTransition,
 ) ([][]byte, error) {
 	if len(metas) != len(transitions) {

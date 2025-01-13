@@ -28,8 +28,8 @@ func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Prop
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	proposer Proposer,
 	blobSyncer BlobSyncer,
-) []metadata.TaikoBlockMetaData {
-	var metadataList []metadata.TaikoBlockMetaData
+) []metadata.TaikoProposalMetaData {
+	var metadataList []metadata.TaikoProposalMetaData
 
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -79,7 +79,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	proposer Proposer,
 	blobSyncer BlobSyncer,
-) metadata.TaikoBlockMetaData {
+) metadata.TaikoProposalMetaData {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 

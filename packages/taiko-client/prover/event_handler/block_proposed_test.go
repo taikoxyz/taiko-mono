@@ -17,7 +17,7 @@ func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
 		ProverAddress:         common.Address{},
 		RPC:                   s.RPCClient,
 		ProofGenerationCh:     make(chan *proofProducer.ProofWithHeader),
-		AssignmentExpiredCh:   make(chan metadata.TaikoBlockMetaData),
+		AssignmentExpiredCh:   make(chan metadata.TaikoProposalMetaData),
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
 		ProofContestCh:        make(chan *proofProducer.ContestRequestBody),
 		BackOffRetryInterval:  1 * time.Minute,
