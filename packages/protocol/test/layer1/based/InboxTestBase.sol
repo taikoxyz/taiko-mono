@@ -134,7 +134,7 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
     }
 
     function _proveBatchesWithWrongTransitions(uint64[] memory batchIds) internal {
@@ -148,7 +148,7 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = randBytes32();
         }
 
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
     }
 
     function _logAllBatchesAndTransitions() internal view {

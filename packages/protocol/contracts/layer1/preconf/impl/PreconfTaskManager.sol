@@ -126,7 +126,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        inbox.proposeBatch(msg.sender, coinbase, batchParams, txList);
+        inbox.proposeBatch(abi.encode(msg.sender, coinbase, batchParams), txList);
     }
 
     /**

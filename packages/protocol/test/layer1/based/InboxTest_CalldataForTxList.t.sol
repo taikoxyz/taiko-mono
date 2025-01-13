@@ -191,6 +191,6 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.MetaHashMismatch.selector);
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
     }
 }

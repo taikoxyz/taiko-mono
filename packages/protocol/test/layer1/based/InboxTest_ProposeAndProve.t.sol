@@ -439,25 +439,25 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x101));
         transitions[0].stateRoot = bytes32(uint256(0x102));
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
         _logAllBatchesAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x111));
         transitions[0].stateRoot = bytes32(uint256(0x112));
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
         _logAllBatchesAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x201));
         transitions[0].stateRoot = bytes32(uint256(0x202));
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
         _logAllBatchesAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x211));
         transitions[0].stateRoot = bytes32(uint256(0x212));
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
         _logAllBatchesAndTransitions();
     }
 
@@ -514,7 +514,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         }
 
         vm.startSnapshotGas("proveBatches");
-        inbox.proveBatches(metas, transitions, "proof");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
         uint256 gasProveBatches = vm.stopSnapshotGas("proveBatches");
         console2.log("Gas per block - proving:", gasProveBatches / count);
         console2.log("Gas per block - total:", (gasProposeBatches + gasProveBatches) / count);

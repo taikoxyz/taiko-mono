@@ -47,23 +47,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     }
 
     /// @notice Proposes multiple batches.
-    /// @param _proposer    The address of the proposer, which is set by the PreconfTaskManager if
-    ///                     enabled; otherwise, it must be address(0).
-    /// @param _coinbase    The address that will receive the block rewards; defaults to the
-    ///                     proposer's address if set to address(0).
-    /// @param _batchParams Batch parameters.
+    /// @param _params ABI-encoded parameters consisting of:
+    /// - proposer: The address of the proposer, which is set by the PreconfTaskManager if
+    ///             enabled; otherwise, it must be address(0).
+    /// - coinbase: The address that will receive the block rewards; defaults to the proposer's
+    ///             address if set to address(0).
+    /// - batchParams: Batch parameters.
     /// @param _txList      The transaction list in calldata.
     /// @return meta_       Batch metadata.
     function proposeBatch(
-        address _proposer,
-        address _coinbase,
-        BatchParams calldata _batchParams,
+        bytes calldata _params,
         bytes calldata _txList
     )
         external
         nonReentrant
         returns (BatchMetadata memory meta_)
     {
+        (address proposer, address coinbase, BatchParams memory batchParams) =
+            abi.decode(_params, (address, address, BatchParams));
+
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
@@ -77,17 +79,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             );
         }
 
-        address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
-        if (preconfRouter == address(0)) {
-            require(_proposer == address(0), CustomProposerNotAllowed());
-            _proposer = msg.sender;
-        } else {
-            require(msg.sender == preconfRouter, NotPreconfRouter());
-            require(_proposer != address(0), CustomProposerMissing());
-        }
+        {
+            address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
+            if (preconfRouter == address(0)) {
+                require(proposer == address(0), CustomProposerNotAllowed());
+                proposer = msg.sender;
+            } else {
+                require(msg.sender == preconfRouter, NotPreconfRouter());
+                require(proposer != address(0), CustomProposerMissing());
+            }
 
-        if (_coinbase == address(0)) {
-            _coinbase = _proposer;
+            if (coinbase == address(0)) {
+                coinbase = proposer;
+            }
         }
 
         // Keep track of last batch's information.
@@ -99,10 +103,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         bool calldataUsed = _txList.length != 0;
         UpdatedParams memory updatedParams;
 
-        require(calldataUsed || _batchParams.numBlobs != 0, BlobNotSpecified());
+        require(calldataUsed || batchParams.numBlobs != 0, BlobNotSpecified());
 
         updatedParams = _validateBatchParams(
-            _batchParams,
+            batchParams,
             config.maxAnchorHeightOffset,
             config.maxSignalsToReceive,
             config.maxBlocksPerBatch,
@@ -119,25 +123,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         // the following approach to calculate a block's difficulty:
         //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
         meta_ = BatchMetadata({
-            txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(_batchParams.numBlobs),
+            txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(batchParams.numBlobs),
             extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-            coinbase: _coinbase,
+            coinbase: coinbase,
             batchId: stats2.numBatches,
             gasLimit: config.blockMaxGasLimit,
             timestamp: updatedParams.timestamp,
             parentMetaHash: lastBatch.metaHash,
-            proposer: _proposer,
+            proposer: proposer,
             livenessBond: config.livenessBond,
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
-            txListOffset: _batchParams.txListOffset,
-            txListSize: _batchParams.txListSize,
-            numBlobs: calldataUsed ? 0 : _batchParams.numBlobs,
+            txListOffset: batchParams.txListOffset,
+            txListSize: batchParams.txListSize,
+            numBlobs: calldataUsed ? 0 : batchParams.numBlobs,
             anchorBlockId: updatedParams.anchorBlockId,
             anchorBlockHash: blockhash(updatedParams.anchorBlockId),
-            signalSlots: _batchParams.signalSlots,
-            blocks: _batchParams.blocks,
-            anchorInput: _batchParams.anchorInput,
+            signalSlots: batchParams.signalSlots,
+            blocks: batchParams.blocks,
+            anchorInput: batchParams.anchorInput,
             baseFeeConfig: config.baseFeeConfig
         });
 
@@ -159,9 +163,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         // SSTORE #3 {{
         if (stats2.numBatches == config.forkHeights.pacaya) {
-            batch.lastBlockId = batch.batchId + uint8(_batchParams.blocks.length) - 1;
+            batch.lastBlockId = batch.batchId + uint8(batchParams.blocks.length) - 1;
         } else {
-            batch.lastBlockId = lastBatch.lastBlockId + uint8(_batchParams.blocks.length);
+            batch.lastBlockId = lastBatch.lastBlockId + uint8(batchParams.blocks.length);
         }
         batch._reserved3 = 0;
         // SSTORE }}
@@ -171,43 +175,40 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
         }
 
-        _debitBond(_proposer, config.livenessBond);
+        _debitBond(proposer, config.livenessBond);
         emit BatchProposed(meta_, calldataUsed, _txList);
 
         _verifyBatches(config, stats2, 1);
     }
 
     /// @notice Proves multiple batches with a single aggregated proof.
-    /// @param _metas       Array of batch metadata to be proven.
-    /// @param _transitions Array of transitions corresponding to the batch metadata.
-    /// @param _proof       Cryptographic proof validating all the transitions.
-    function proveBatches(
-        BatchMetadata[] calldata _metas,
-        Transition[] calldata _transitions,
-        bytes calldata _proof
-    )
-        external
-        nonReentrant
-    {
-        require(_metas.length != 0, NoBlocksToProve());
-        require(_metas.length == _transitions.length, ArraySizesMismatch());
+    /// @param _params ABI-encoded parameter containing:
+    /// - metas: Array of metadata for each batch being proved.
+    /// - transitions: Array of batch transitions to be proved.
+    /// @param _proof The aggregated cryptographic proof proving the batches transitions.
+    function proveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
+        (BatchMetadata[] memory metas, Transition[] memory trans) =
+            abi.decode(_params, (BatchMetadata[], Transition[]));
+
+        require(metas.length != 0, NoBlocksToProve());
+        require(metas.length == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
         Config memory config = getConfig();
-        uint64[] memory batchIds = new uint64[](_metas.length);
-        IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
+        uint64[] memory batchIds = new uint64[](metas.length);
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
 
-        for (uint256 i; i < _metas.length; ++i) {
-            BatchMetadata calldata meta = _metas[i];
+        for (uint256 i; i < metas.length; ++i) {
+            BatchMetadata memory meta = metas[i];
 
             batchIds[i] = meta.batchId;
             require(meta.batchId >= config.forkHeights.pacaya, InvalidForkHeight());
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
 
-            Transition calldata tran = _transitions[i];
+            Transition memory tran = trans[i];
             require(tran.parentHash != 0, InvalidTransitionParentHash());
             require(tran.blockHash != 0, InvalidTransitionBlockHash());
             require(tran.stateRoot != 0, InvalidTransitionStateRoot());
@@ -281,9 +282,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
 
-        emit BatchesProved(verifier, batchIds, _transitions);
+        emit BatchesProved(verifier, batchIds, trans);
 
-        _verifyBatches(config, stats2, _metas.length);
+        _verifyBatches(config, stats2, metas.length);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -583,7 +584,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     }
 
     function _validateBatchParams(
-        BatchParams calldata _params,
+        BatchParams memory _params,
         uint64 _maxAnchorHeightOffset,
         uint8 _maxSignalsToReceive,
         uint16 _maxBlocksPerBatch,

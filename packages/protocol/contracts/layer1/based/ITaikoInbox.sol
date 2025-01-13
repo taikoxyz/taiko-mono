@@ -232,33 +232,28 @@ interface ITaikoInbox {
     error TransitionNotFound();
 
     /// @notice Proposes a batch of blocks.
-    /// @param _proposer The address of the proposer, which is set by the PreconfTaskManager if
-    /// enabled; otherwise, it must be address(0).
-    /// @param _coinbase The address that will receive the block rewards; defaults to the proposer's
-    /// address if set to address(0).
-    /// @param _batchParams Batch parameters.
+    /// @param _params ABI-encoded parameters consisting of:
+    /// - proposer: The address of the proposer, which is set by the PreconfTaskManager if
+    ///             enabled; otherwise, it must be address(0).
+    /// - coinbase: The address that will receive the block rewards; defaults to the proposer's
+    ///             address if set to address(0).
+    /// - batchParams: Batch parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
     /// @return Batch metadata.
     function proposeBatch(
-        address _proposer,
-        address _coinbase,
-        BatchParams calldata _batchParams,
+        bytes calldata _params,
         bytes calldata _txList
     )
         external
         returns (BatchMetadata memory);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
-    /// @param _metas Array of metadata for each batch being proved.
-    /// @param _transitions Array of batch transitions to be proved.
-    /// @param proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(
-        BatchMetadata[] calldata _metas,
-        Transition[] calldata _transitions,
-        bytes calldata proof
-    )
-        external;
+    /// @param _params ABI-encoded parameter containing:
+    /// - metas: Array of metadata for each batch being proved.
+    /// - transitions: Array of batch transitions to be proved.
+    /// @param _proof The aggregated cryptographic proof proving the batches transitions.
+    function proveBatches(bytes calldata _params, bytes calldata _proof) external;
 
     /// @notice Deposits TAIKO tokens into the contract to be used as liveness bond.
     /// @param _amount The amount of TAIKO tokens to deposit.

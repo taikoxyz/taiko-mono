@@ -14,13 +14,7 @@ contract StubInbox is ITaikoInbox {
         returns (ITaikoInbox.BatchMetadata memory)
     { }
 
-    function proveBatches(
-        ITaikoInbox.BatchMetadata[] calldata _metas,
-        ITaikoInbox.Transition[] calldata _transitions,
-        bytes calldata proof
-    )
-        external
-    { }
+    function proveBatches(bytes calldata _params, bytes calldata _proof) external { }
 
     function depositBond(uint256 _amount) external payable virtual { }
 
