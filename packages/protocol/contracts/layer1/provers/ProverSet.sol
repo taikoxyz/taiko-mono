@@ -94,7 +94,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-    /// @notice Propose multiple Taiko blocks.
+    /// @notice Propose a batch of Taiko blocks.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList,
@@ -112,7 +112,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         return taiko.proposeBatch(_params, _txList);
     }
 
-    /// @notice Batch proves or contests Taiko blocks.
+    /// @notice Proves multiple Taiko batches.
     function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
         ITaikoInbox(inbox()).proveBatches(_params, _proof);
     }
