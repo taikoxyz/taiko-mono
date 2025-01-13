@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -29,9 +31,11 @@ const (
 // contract.
 type Driver struct {
 	*Config
-	rpc           *rpc.Client
-	l2ChainSyncer *chainSyncer.L2ChainSyncer
-	state         *state.State
+	rpc            *rpc.Client
+	l2ChainSyncer  *chainSyncer.L2ChainSyncer
+	state          *state.State
+	chainConfig    *config.ChainConfig
+	protocolConfig config.ProtocolConfigs
 
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
@@ -87,6 +91,15 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	}
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
+	d.chainConfig = config.NewChainConfig(
+		d.rpc.L2.ChainID,
+		d.rpc.OntakeClients.ForkHeight,
+		d.rpc.PacayaClients.ForkHeight,
+	)
+
+	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -174,7 +187,8 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
 	var (
-		ticker = time.NewTicker(protocolStatusReportInterval)
+		ticker          = time.NewTicker(protocolStatusReportInterval)
+		maxNumProposals = d.protocolConfig.MaxProposals()
 	)
 	d.wg.Add(1)
 
@@ -188,18 +202,39 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			vars, err := d.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: d.ctx})
+			l2Head, err := d.rpc.L2.BlockNumber(d.ctx)
 			if err != nil {
-				log.Error("Failed to get protocol state variables", "error", err)
+				log.Error("Failed to fetch L2 head", "error", err)
 				continue
 			}
 
-			log.Info(
-				"📖 Protocol status",
-				// TODO: fix these two values, and add one more deleted value.
-				"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
-				"pendingBlocks", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
-			)
+			if d.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head)) {
+				vars, err := d.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: d.ctx})
+				if err != nil {
+					log.Error("Failed to get protocol state variables", "error", err)
+					continue
+				}
+
+				log.Info(
+					"📖 Protocol status",
+					"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
+					"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
+					"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
+				)
+			} else {
+				_, slotB, err := d.rpc.OntakeClients.TaikoL1.GetStateVariables(&bind.CallOpts{Context: d.ctx})
+				if err != nil {
+					log.Error("Failed to get protocol state variables", "error", err)
+					continue
+				}
+
+				log.Info(
+					"📖 Protocol status",
+					"lastVerifiedBlockId", slotB.LastVerifiedBlockId,
+					"pendingBlocks", slotB.NumBlocks-slotB.LastVerifiedBlockId-1,
+					"availableSlots", slotB.LastVerifiedBlockId+maxNumProposals-slotB.NumBlocks,
+				)
+			}
 		}
 	}
 }
