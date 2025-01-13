@@ -355,6 +355,7 @@ func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               p.rpc.L1,
 		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
+		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,

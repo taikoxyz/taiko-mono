@@ -197,7 +197,7 @@ func (d *Driver) reportProtocolStatus() {
 			log.Info(
 				"📖 Protocol status",
 				// TODO: fix these two values, and add one more deleted value.
-				"lastVerifiedBacth", vars.Stats2.LastVerifiedBatchId,
+				"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
 				"pendingBlocks", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 			)
 		}
