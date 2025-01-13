@@ -628,18 +628,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
 
-            // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
-            // and params_.timestamp may not correspond to the same L1 block.
-            require(
-                lastBlockTimestamp_ + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp,
-                TimestampTooSmall()
-            );
-
             uint64 firstBlockTimestamp = lastBlockTimestamp_;
             for (uint256 i; i < _params.blocks.length; ++i) {
                 firstBlockTimestamp -= _params.blocks[i].timeShift;
             }
+
+            require(
+                firstBlockTimestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    >= block.timestamp,
+                TimestampTooSmall()
+            );
+
             require(
                 firstBlockTimestamp >= _lastBatch.lastBlockTimestamp, TimestampSmallerThanParent()
             );
