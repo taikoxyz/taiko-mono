@@ -8,12 +8,12 @@ import "../based/TaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DevnetInbox is TaikoInbox {
     /// @inheritdoc ITaikoInbox
-    function getConfigV3() public pure override returns (ITaikoInbox.ConfigV3 memory) {
-        return ITaikoInbox.ConfigV3({
+    function getConfig() public pure override returns (ITaikoInbox.Config memory) {
+        return ITaikoInbox.Config({
             chainId: 167_001,
-            blockMaxProposals: 324_000,
-            blockRingBufferSize: 360_000,
-            maxBlocksToVerify: 16,
+            maxBatchProposals: 324_000,
+            batchRingBufferSize: 360_000,
+            maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
@@ -27,6 +27,7 @@ contract DevnetInbox is TaikoInbox {
             }),
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 256,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }

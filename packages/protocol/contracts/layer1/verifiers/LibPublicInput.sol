@@ -17,7 +17,7 @@ library LibPublicInput {
     /// @param _chainId The chain id.
     /// @return The public input hash.
     function hashPublicInputs(
-        ITaikoInbox.TransitionV3 memory _transition,
+        ITaikoInbox.Transition memory _transition,
         address _verifierContract,
         address _newInstance,
         bytes32 _metaHash,

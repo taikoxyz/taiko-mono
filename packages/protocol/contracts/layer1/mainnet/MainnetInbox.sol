@@ -11,20 +11,20 @@ import "./libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is TaikoInbox {
-    function getConfigV3() public pure override returns (ITaikoInbox.ConfigV3 memory) {
+    function getConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
-        return ITaikoInbox.ConfigV3({
+        return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!
-            blockMaxProposals: 324_000, // DO NOT CHANGE!!!
-            blockRingBufferSize: 360_000, // DO NOT CHANGE!!!
-            maxBlocksToVerify: 16,
+            maxBatchProposals: 324_000, // DO NOT CHANGE!!!
+            batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
+            maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token
+            livenessBond: 1000e18, // 1000 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -36,6 +36,7 @@ contract MainnetInbox is TaikoInbox {
              }),
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 256,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 538_304,
                 pacaya: 538_304 * 10 // TODO

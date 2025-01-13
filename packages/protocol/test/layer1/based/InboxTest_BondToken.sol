@@ -5,12 +5,12 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_BondToken is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
-        return ITaikoInbox.ConfigV3({
+    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+        return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            blockMaxProposals: 10,
-            blockRingBufferSize: 15,
-            maxBlocksToVerify: 5,
+            maxBatchProposals: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 5,
@@ -24,6 +24,7 @@ contract InboxTest_BondToken is InboxTestBase {
              }),
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 256,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }

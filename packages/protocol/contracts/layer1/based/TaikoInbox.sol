@@ -12,6 +12,8 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
 
+// import "forge-std/src/console2.sol";
+
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR). The tier-based proof system and
@@ -43,37 +45,34 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         __Taiko_init(_owner, _rollupResolver, _genesisBlockHash);
     }
 
-    /// @notice Proposes multiple blocks.
+    /// @notice Proposes multiple batches.
     /// @param _proposer    The address of the proposer, which is set by the PreconfTaskManager if
     ///                     enabled; otherwise, it must be address(0).
     /// @param _coinbase    The address that will receive the block rewards; defaults to the
     ///                     proposer's address if set to address(0).
-    /// @param _paramsArray An array containing the parameters for each block being proposed.
+    /// @param _batchParams Batch parameters.
     /// @param _txList      The transaction list in calldata.
-    /// @return metas_      Array of block metadata for each block proposed.
-    function proposeBlocksV3(
+    /// @return meta_       Batch metadata.
+    function proposeBatch(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _paramsArray,
+        BatchParams calldata _batchParams,
         bytes calldata _txList
     )
         external
         nonReentrant
-        returns (BlockMetadataV3[] memory metas_)
+        returns (BatchMetadata memory meta_)
     {
-        require(_paramsArray.length != 0, NoBlocksToPropose());
-
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
-        ConfigV3 memory config = getConfigV3();
-        require(stats2.numBlocks >= config.forkHeights.pacaya, InvalidForkHeight());
+        Config memory config = getConfig();
+        require(stats2.numBatches >= config.forkHeights.pacaya, InvalidForkHeight());
 
         unchecked {
             require(
-                stats2.numBlocks + _paramsArray.length
-                    <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
-                TooManyBlocks()
+                stats2.numBatches < stats2.lastVerifiedBatchId + config.maxBatchProposals,
+                TooManyBatches()
             );
         }
 
@@ -90,94 +89,100 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             _coinbase = _proposer;
         }
 
-        // Keep track of last block's information.
-        BlockInfo memory lastBlock;
+        // Keep track of last batch's information.
+        Batch storage lastBatch;
         unchecked {
-            BlockV3 storage lastBlk =
-                state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
-
-            lastBlock = BlockInfo(lastBlk.metaHash, lastBlk.timestamp, lastBlk.anchorBlockId);
+            lastBatch = state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
         }
 
-        metas_ = new BlockMetadataV3[](_paramsArray.length);
         bool calldataUsed = _txList.length != 0;
         UpdatedParams memory updatedParams;
 
-        for (uint256 i; i < _paramsArray.length; ++i) {
-            require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
-            updatedParams = _validateBlockParams(
-                _paramsArray[i], config.maxAnchorHeightOffset, config.maxSignalsToReceive, lastBlock
-            );
+        require(calldataUsed || _batchParams.numBlobs != 0, BlobNotSpecified());
 
-            // This section constructs the metadata for the proposed block, which is crucial for
-            // nodes/clients to process the block. The metadata itself is not stored on-chain;
-            // instead, only its hash is kept.
-            // The metadata must be supplied as calldata prior to proving the block, enabling the
-            // computation and verification of its integrity through the comparison of the metahash.
-            unchecked {
-                metas_[i] = BlockMetadataV3({
-                    difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                    txListHash: calldataUsed
-                        ? keccak256(_txList)
-                        : _blobhash(_paramsArray[i].blobIndex - 1),
-                    extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                    coinbase: _coinbase,
-                    blockId: stats2.numBlocks,
-                    gasLimit: config.blockMaxGasLimit,
-                    timestamp: updatedParams.timestamp,
-                    parentMetaHash: lastBlock.metaHash,
-                    proposer: _proposer,
-                    livenessBond: config.livenessBond,
-                    proposedAt: uint64(block.timestamp),
-                    proposedIn: uint64(block.number),
-                    txListOffset: _paramsArray[i].txListOffset,
-                    txListSize: _paramsArray[i].txListSize,
-                    blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
-                    anchorBlockId: updatedParams.anchorBlockId,
-                    anchorBlockHash: blockhash(updatedParams.anchorBlockId),
-                    signalSlots: _paramsArray[i].signalSlots,
-                    anchorInput: _paramsArray[i].anchorInput,
-                    baseFeeConfig: config.baseFeeConfig
-                });
-            }
+        updatedParams = _validateBatchParams(
+            _batchParams,
+            config.maxAnchorHeightOffset,
+            config.maxSignalsToReceive,
+            config.maxBlocksPerBatch,
+            lastBatch
+        );
 
-            require(metas_[i].txListHash != 0, BlobNotFound());
-            bytes32 metaHash = keccak256(abi.encode(metas_[i]));
+        // This section constructs the metadata for the proposed batch, which is crucial for
+        // nodes/clients to process the batch. The metadata itself is not stored on-chain;
+        // instead, only its hash is kept.
+        // The metadata must be supplied as calldata prior to proving the batch, enabling the
+        // computation and verification of its integrity through the comparison of the metahash.
+        //
+        // Note that `difficulty` has been removed from the metadata. The client and prover must use
+        // the following approach to calculate a block's difficulty:
+        //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
+        meta_ = BatchMetadata({
+            txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(_batchParams.numBlobs),
+            extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+            coinbase: _coinbase,
+            batchId: stats2.numBatches,
+            gasLimit: config.blockMaxGasLimit,
+            timestamp: updatedParams.timestamp,
+            parentMetaHash: lastBatch.metaHash,
+            proposer: _proposer,
+            livenessBond: config.livenessBond,
+            proposedAt: uint64(block.timestamp),
+            proposedIn: uint64(block.number),
+            txListOffset: _batchParams.txListOffset,
+            txListSize: _batchParams.txListSize,
+            numBlobs: calldataUsed ? 0 : _batchParams.numBlobs,
+            anchorBlockId: updatedParams.anchorBlockId,
+            anchorBlockHash: blockhash(updatedParams.anchorBlockId),
+            signalSlots: _batchParams.signalSlots,
+            blocks: _batchParams.blocks,
+            anchorInput: _batchParams.anchorInput,
+            baseFeeConfig: config.baseFeeConfig
+        });
 
-            BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
-            // SSTORE #1
-            blk.metaHash = metaHash;
+        require(meta_.txListHash != 0, BlobNotFound());
+        bytes32 metaHash = keccak256(abi.encode(meta_));
 
-            // SSTORE #2 {{
-            blk.blockId = stats2.numBlocks;
-            blk.timestamp = updatedParams.timestamp;
-            blk.anchorBlockId = updatedParams.anchorBlockId;
-            blk.nextTransitionId = 1;
-            blk.verifiedTransitionId = 0;
-            // SSTORE }}
+        Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
+        // SSTORE #1
+        batch.metaHash = metaHash;
 
-            // Update lastBlock to reference the most recently proposed block.
-            lastBlock = BlockInfo(metaHash, updatedParams.timestamp, updatedParams.anchorBlockId);
+        // SSTORE #2 {{
+        batch.batchId = stats2.numBatches;
+        batch.timestamp = updatedParams.timestamp;
+        batch.anchorBlockId = updatedParams.anchorBlockId;
+        batch.nextTransitionId = 1;
+        batch.verifiedTransitionId = 0;
+        batch.reserved4 = 0;
+        // SSTORE }}
 
-            unchecked {
-                stats2.numBlocks += 1;
-                stats2.lastProposedIn = uint56(block.number);
-            }
-        } // end of for-loop
+        // SSTORE #3 {{
+        if (stats2.numBatches == config.forkHeights.pacaya) {
+            batch.lastBlockId = batch.batchId + uint8(_batchParams.blocks.length) - 1;
+        } else {
+            batch.lastBlockId = lastBatch.lastBlockId + uint8(_batchParams.blocks.length);
+        }
+        batch._reserved3 = 0;
+        // SSTORE }}
 
-        _debitBond(_proposer, config.livenessBond * _paramsArray.length);
-        emit BlocksProposedV3(metas_, calldataUsed, _txList);
+        unchecked {
+            stats2.numBatches += 1;
+            stats2.lastProposedIn = uint56(block.number);
+        }
 
-        _verifyBlocks(config, stats2, _paramsArray.length);
+        _debitBond(_proposer, config.livenessBond);
+        emit BatchProposed(meta_, calldataUsed, _txList);
+
+        _verifyBatches(config, stats2, 1);
     }
 
-    /// @notice Proves multiple blocks with a single aggregated proof.
-    /// @param _metas       Array of block metadata to be proven.
-    /// @param _transitions Array of transitions corresponding to the block metadata.
+    /// @notice Proves multiple batches with a single aggregated proof.
+    /// @param _metas       Array of batch metadata to be proven.
+    /// @param _transitions Array of transitions corresponding to the batch metadata.
     /// @param _proof       Cryptographic proof validating all the transitions.
-    function proveBlocksV3(
-        BlockMetadataV3[] calldata _metas,
-        TransitionV3[] calldata _transitions,
+    function proveBatches(
+        BatchMetadata[] calldata _metas,
+        Transition[] calldata _transitions,
         bytes calldata _proof
     )
         external
@@ -189,39 +194,38 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
-        ConfigV3 memory config = getConfigV3();
-        uint64[] memory blockIds = new uint64[](_metas.length);
+        Config memory config = getConfig();
+        uint64[] memory batchIds = new uint64[](_metas.length);
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
 
         for (uint256 i; i < _metas.length; ++i) {
-            BlockMetadataV3 calldata meta = _metas[i];
+            BatchMetadata calldata meta = _metas[i];
 
-            blockIds[i] = meta.blockId;
-            require(meta.blockId >= config.forkHeights.pacaya, InvalidForkHeight());
-            require(meta.blockId > stats2.lastVerifiedBlockId, BlockNotFound());
-            require(meta.blockId < stats2.numBlocks, BlockNotFound());
+            batchIds[i] = meta.batchId;
+            require(meta.batchId >= config.forkHeights.pacaya, InvalidForkHeight());
+            require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
+            require(meta.batchId < stats2.numBatches, BatchNotFound());
 
-            TransitionV3 calldata tran = _transitions[i];
+            Transition calldata tran = _transitions[i];
             require(tran.parentHash != 0, InvalidTransitionParentHash());
             require(tran.blockHash != 0, InvalidTransitionBlockHash());
             require(tran.stateRoot != 0, InvalidTransitionStateRoot());
 
-            ctxs[i].blockId = meta.blockId;
-            ctxs[i].difficulty = meta.difficulty;
+            ctxs[i].batchId = meta.batchId;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].transition = tran;
 
-            // Verify the block's metadata.
-            uint256 slot = meta.blockId % config.blockRingBufferSize;
-            BlockV3 storage blk = state.blocks[slot];
-            require(ctxs[i].metaHash == blk.metaHash, MetaHashMismatch());
+            // Verify the batch's metadata.
+            uint256 slot = meta.batchId % config.batchRingBufferSize;
+            Batch storage batch = state.batches[slot];
+            require(ctxs[i].metaHash == batch.metaHash, MetaHashMismatch());
 
             // Finds out if this transition is overwriting an existing one (with the same parent
             // hash) or is a new one.
             uint24 tid;
-            uint24 nextTransitionId = blk.nextTransitionId;
+            uint24 nextTransitionId = batch.nextTransitionId;
             if (nextTransitionId > 1) {
-                // This block has been proved at least once.
+                // This batch has been proved at least once.
                 if (state.transitions[slot][1].parentHash == tran.parentHash) {
                     // Overwrite the first transition.
                     tid = 1;
@@ -229,21 +233,21 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     // Retrieve the transition ID using the parent hash from the mapping. If the ID
                     // is 0, it indicates a new transition; otherwise, it's an overwrite of an
                     // existing transition.
-                    tid = state.transitionIds[meta.blockId][tran.parentHash];
+                    tid = state.transitionIds[meta.batchId][tran.parentHash];
                 }
             }
 
             bool isOverwrite = (tid != 0);
             if (tid == 0) {
                 // This transition is new, we need to use the next available ID.
-                tid = blk.nextTransitionId++;
+                tid = batch.nextTransitionId++;
             }
 
-            TransitionV3 storage ts = state.transitions[slot][tid];
+            Transition storage ts = state.transitions[slot][tid];
             if (isOverwrite) {
-                emit TransitionOverwrittenV3(meta.blockId, ts);
+                emit TransitionOverwritten(meta.batchId, ts);
             } else if (tid == 1) {
-                // Ensure that only the block proposer can prove the first transition before the
+                // Ensure that only the proposer can prove the first transition before the
                 // proving deadline.
                 unchecked {
                     uint256 deadline =
@@ -259,14 +263,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 // No need to write parent hash to storage for transitions with id != 1 as the
                 // parent hash is not used at all, instead, we need to update the parent hash to ID
                 // mapping.
-                state.transitionIds[meta.blockId][tran.parentHash] = tid;
+                state.transitionIds[meta.batchId][tran.parentHash] = tid;
             }
 
-            if (meta.blockId % config.stateRootSyncInternal == 0) {
-                // This block is a "sync block", we need to save the state root.
+            if (meta.batchId % config.stateRootSyncInternal == 0) {
+                // This batch is a "sync batch", we need to save the state root.
                 ts.stateRoot = tran.stateRoot;
             } else {
-                // This block is not a "sync block", we need to zero out the storage slot.
+                // This batch is not a "sync batch", we need to zero out the storage slot.
                 ts.stateRoot = bytes32(0);
             }
 
@@ -276,9 +280,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
 
-        emit BlocksProvedV3(verifier, blockIds, _transitions);
+        emit BatchesProved(verifier, batchIds, _transitions);
 
-        _verifyBlocks(config, stats2, _metas.length);
+        _verifyBatches(config, stats2, _metas.length);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -315,54 +319,47 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     }
 
     /// @inheritdoc ITaikoInbox
-    function getTransitionV3(
-        uint64 _blockId,
+    function getTransition(
+        uint64 _batchId,
         uint24 _tid
     )
         external
         view
-        returns (TransitionV3 memory tran_)
+        returns (Transition memory tran_)
     {
-        ConfigV3 memory config = getConfigV3();
-        uint256 slot = _blockId % config.blockRingBufferSize;
-        BlockV3 storage blk = state.blocks[slot];
-        require(blk.blockId == _blockId, BlockNotFound());
-        require(_tid != 0 && _tid < blk.nextTransitionId, TransitionNotFound());
+        Config memory config = getConfig();
+        uint256 slot = _batchId % config.batchRingBufferSize;
+        Batch storage batch = state.batches[slot];
+        require(batch.batchId == _batchId, BatchNotFound());
+        require(_tid != 0 && _tid < batch.nextTransitionId, TransitionNotFound());
         return state.transitions[slot][_tid];
     }
 
     /// @inheritdoc ITaikoInbox
-    function getLastVerifiedTransitionV3()
+    function getLastVerifiedTransition()
         external
         view
-        returns (uint64 blockId_, TransitionV3 memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
     {
-        blockId_ = state.stats2.lastVerifiedBlockId;
-        tran_ = getBlockVerifyingTransition(blockId_);
+        batchId_ = state.stats2.lastVerifiedBatchId;
+        blockId_ = getBatch(batchId_).lastBlockId;
+        tran_ = getBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
-    function getLastSyncedTransitionV3()
+    function getLastSyncedTransition()
         external
         view
-        returns (uint64 blockId_, TransitionV3 memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
     {
-        blockId_ = state.stats1.lastSyncedBlockId;
-        tran_ = getBlockVerifyingTransition(blockId_);
+        batchId_ = state.stats1.lastSyncedBatchId;
+        blockId_ = getBatch(batchId_).lastBlockId;
+        tran_ = getBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
     function bondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
-    }
-
-    /// @inheritdoc ITaikoInbox
-    function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_) {
-        ConfigV3 memory config = getConfigV3();
-        require(_blockId >= config.forkHeights.pacaya, InvalidForkHeight());
-
-        blk_ = state.blocks[_blockId % config.blockRingBufferSize];
-        require(blk_.blockId == _blockId, BlockNotFound());
     }
 
     /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
@@ -385,24 +382,33 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     }
 
     /// @inheritdoc ITaikoInbox
-    function getBlockVerifyingTransition(uint64 _blockId)
+    function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
+        Config memory config = getConfig();
+        require(_batchId >= config.forkHeights.pacaya, InvalidForkHeight());
+
+        batch_ = state.batches[_batchId % config.batchRingBufferSize];
+        require(batch_.batchId == _batchId, BatchNotFound());
+    }
+
+    /// @inheritdoc ITaikoInbox
+    function getBatchVerifyingTransition(uint64 _batchId)
         public
         view
-        returns (TransitionV3 memory tran_)
+        returns (Transition memory tran_)
     {
-        ConfigV3 memory config = getConfigV3();
+        Config memory config = getConfig();
 
-        uint64 slot = _blockId % config.blockRingBufferSize;
-        BlockV3 storage blk = state.blocks[slot];
-        require(blk.blockId == _blockId, BlockNotFound());
+        uint64 slot = _batchId % config.batchRingBufferSize;
+        Batch storage batch = state.batches[slot];
+        require(batch.batchId == _batchId, BatchNotFound());
 
-        if (blk.verifiedTransitionId != 0) {
-            tran_ = state.transitions[slot][blk.verifiedTransitionId];
+        if (batch.verifiedTransitionId != 0) {
+            tran_ = state.transitions[slot][batch.verifiedTransitionId];
         }
     }
 
     /// @inheritdoc ITaikoInbox
-    function getConfigV3() public view virtual returns (ConfigV3 memory);
+    function getConfig() public view virtual returns (Config memory);
 
     // Internal functions ----------------------------------------------------------------------
 
@@ -418,16 +424,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
         state.transitions[0][1].blockHash = _genesisBlockHash;
 
-        BlockV3 storage blk = state.blocks[0];
-        blk.metaHash = bytes32(uint256(1));
-        blk.timestamp = uint64(block.timestamp);
-        blk.anchorBlockId = uint64(block.number);
-        blk.nextTransitionId = 2;
-        blk.verifiedTransitionId = 1;
+        Batch storage batch = state.batches[0];
+        batch.metaHash = bytes32(uint256(1));
+        batch.timestamp = uint64(block.timestamp);
+        batch.anchorBlockId = uint64(block.number);
+        batch.nextTransitionId = 2;
+        batch.verifiedTransitionId = 1;
+
+        state.stats1.genesisHeight = uint64(block.number);
 
         state.stats2.lastProposedIn = uint56(block.number);
-        state.stats2.numBlocks = 1;
-        emit BlockVerifiedV3(0, _genesisBlockHash);
+        state.stats2.numBatches = 1;
+
+        emit BatchesVerified(0, _genesisBlockHash);
     }
 
     function _unpause() internal override {
@@ -439,40 +448,45 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         state.stats2.paused = true;
     }
 
-    function _blobhash(uint256 _blobIndex) internal view virtual returns (bytes32) {
-        return blobhash(_blobIndex);
+    function _calcTxListHash(uint8 _numBlobs) internal view virtual returns (bytes32) {
+        bytes32[] memory blobHashes = new bytes32[](_numBlobs);
+        for (uint256 i; i < _numBlobs; ++i) {
+            blobHashes[i] = blobhash(i);
+            require(blobHashes[i] != 0, BlobNotFound());
+        }
+        return keccak256(abi.encode(blobHashes));
     }
 
     // Private functions -----------------------------------------------------------------------
 
-    function _verifyBlocks(
-        ConfigV3 memory _config,
+    function _verifyBatches(
+        Config memory _config,
         Stats2 memory _stats2,
         uint256 _length
     )
         private
     {
-        uint64 blockId = _stats2.lastVerifiedBlockId;
-        uint256 slot = blockId % _config.blockRingBufferSize;
-        BlockV3 storage blk = state.blocks[slot];
-        uint24 tid = blk.verifiedTransitionId;
+        uint64 batchId = _stats2.lastVerifiedBatchId;
+        uint256 slot = batchId % _config.batchRingBufferSize;
+        Batch storage batch = state.batches[slot];
+        uint24 tid = batch.verifiedTransitionId;
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
         SyncBlock memory synced;
 
-        uint256 stopBlockId = (_config.maxBlocksToVerify * _length + _stats2.lastVerifiedBlockId)
-            .min(_stats2.numBlocks);
+        uint256 stopBlockId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId)
+            .min(_stats2.numBatches);
 
-        for (++blockId; blockId < stopBlockId; ++blockId) {
-            slot = blockId % _config.blockRingBufferSize;
-            blk = state.blocks[slot];
+        for (++batchId; batchId < stopBlockId; ++batchId) {
+            slot = batchId % _config.batchRingBufferSize;
+            batch = state.batches[slot];
 
             // FIX
-            TransitionV3 storage ts = state.transitions[slot][1];
+            Transition storage ts = state.transitions[slot][1];
             if (ts.parentHash == blockHash) {
                 tid = 1;
             } else {
-                uint24 _tid = state.transitionIds[blockId][blockHash];
+                uint24 _tid = state.transitionIds[batchId][blockHash];
                 if (_tid == 0) break;
                 tid = _tid;
                 ts = state.transitions[slot][tid];
@@ -480,38 +494,39 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
             blockHash = ts.blockHash;
 
-            if (blockId % _config.stateRootSyncInternal == 0) {
-                synced.blockId = blockId;
+            if (batchId % _config.stateRootSyncInternal == 0) {
+                synced.batchId = batchId;
+                synced.blockId = batch.lastBlockId;
                 synced.tid = tid;
                 synced.stateRoot = ts.stateRoot;
             }
 
-            for (uint24 i = 2; i < blk.nextTransitionId; ++i) {
+            for (uint24 i = 2; i < batch.nextTransitionId; ++i) {
                 ts = state.transitions[slot][i];
-                delete state.transitionIds[blockId][ts.parentHash];
+                delete state.transitionIds[batchId][ts.parentHash];
             }
         }
 
         unchecked {
-            --blockId;
+            --batchId;
         }
 
-        if (_stats2.lastVerifiedBlockId != blockId) {
-            _stats2.lastVerifiedBlockId = blockId;
+        if (_stats2.lastVerifiedBatchId != batchId) {
+            _stats2.lastVerifiedBatchId = batchId;
 
-            blk = state.blocks[_stats2.lastVerifiedBlockId % _config.blockRingBufferSize];
-            blk.verifiedTransitionId = tid;
-            emit BlockVerifiedV3(_stats2.lastVerifiedBlockId, blockHash);
+            batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
+            batch.verifiedTransitionId = tid;
+            emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
-            if (synced.blockId != 0) {
-                if (synced.blockId != _stats2.lastVerifiedBlockId) {
-                    // We write the synced block's verifiedTransitionId to storage
-                    blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
-                    blk.verifiedTransitionId = synced.tid;
+            if (synced.batchId != 0) {
+                if (synced.batchId != _stats2.lastVerifiedBatchId) {
+                    // We write the synced batch's verifiedTransitionId to storage
+                    batch = state.batches[synced.batchId % _config.batchRingBufferSize];
+                    batch.verifiedTransitionId = synced.tid;
                 }
 
                 Stats1 memory stats1 = state.stats1;
-                stats1.lastSyncedBlockId = synced.blockId;
+                stats1.lastSyncedBatchId = batch.batchId;
                 stats1.lastSyncedAt = uint64(block.timestamp);
                 state.stats1 = stats1;
 
@@ -562,11 +577,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         emit BondDeposited(_user, _amount);
     }
 
-    function _validateBlockParams(
-        BlockParamsV3 calldata _params,
+    function _validateBatchParams(
+        BatchParams calldata _params,
         uint64 _maxAnchorHeightOffset,
         uint8 _maxSignalsToReceive,
-        BlockInfo memory _parent
+        uint16 _maxBlocksPerBatch,
+        Batch memory _lastBatch
     )
         private
         view
@@ -582,7 +598,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 );
                 require(_params.anchorBlockId < block.number, AnchorBlockIdTooLarge());
                 require(
-                    _params.anchorBlockId >= _parent.anchorBlockId, AnchorBlockIdSmallerThanParent()
+                    _params.anchorBlockId >= _lastBatch.anchorBlockId,
+                    AnchorBlockIdSmallerThanParent()
                 );
                 updatedParams_.anchorBlockId = _params.anchorBlockId;
             }
@@ -597,16 +614,21 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                         >= block.timestamp,
                     TimestampTooSmall()
                 );
-                require(_params.timestamp <= block.timestamp, TimestampTooLarge());
-                require(_params.timestamp >= _parent.timestamp, TimestampSmallerThanParent());
+                require(_params.timestamp >= _lastBatch.timestamp, TimestampSmallerThanParent());
 
                 updatedParams_.timestamp = _params.timestamp;
             }
 
-            // Check if parent block has the right meta hash. This is to allow the proposer to
-            // make sure the block builds on the expected latest chain state.
+            uint256 maxTimestamp = _params.timestamp;
+            for (uint256 i; i < _params.blocks.length; ++i) {
+                maxTimestamp += _params.blocks[i].timeThift;
+            }
+            require(maxTimestamp <= block.timestamp, TimestampTooLarge());
+
+            // Check if parent batch has the right meta hash. This is to allow the proposer to
+            // make sure the batch builds on the expected latest chain state.
             require(
-                _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
+                _params.parentMetaHash == 0 || _params.parentMetaHash == _lastBatch.metaHash,
                 ParentMetaHashMismatch()
             );
         }
@@ -621,15 +643,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
             }
         }
+
+        require(_params.blocks.length != 0, BlockNotFound());
+        require(_params.blocks.length <= _maxBlocksPerBatch, TooManyBlocks());
     }
 
     // Memory-only structs ----------------------------------------------------------------------
-
-    struct BlockInfo {
-        bytes32 metaHash;
-        uint64 anchorBlockId;
-        uint64 timestamp;
-    }
 
     struct UpdatedParams {
         uint64 anchorBlockId;
@@ -637,6 +656,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     }
 
     struct SyncBlock {
+        uint64 batchId;
         uint64 blockId;
         uint24 tid;
         bytes32 stateRoot;
