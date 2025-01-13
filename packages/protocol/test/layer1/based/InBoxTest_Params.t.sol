@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
 
-contract InBoxTest_Params is InboxTestBase {
+contract InboxTest_Params is InboxTestBase {
     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,

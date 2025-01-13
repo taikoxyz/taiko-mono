@@ -11,6 +11,7 @@ abstract contract InboxTestBase is Layer1Test {
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
     uint256 genesisBlockProposedIn;
+    uint256 private __blocksPerBatch;
 
     function getConfig() internal view virtual returns (ITaikoInbox.Config memory);
 
@@ -32,6 +33,8 @@ abstract contract InboxTestBase is Layer1Test {
         genesisBlockProposedAt = block.timestamp;
         genesisBlockProposedIn = block.number;
 
+        __blocksPerBatch = 1;
+
         inbox = deployInbox(correctBlockhash(0), getConfig());
 
         signalService = deploySignalService(address(new SignalService()));
@@ -42,6 +45,11 @@ abstract contract InboxTestBase is Layer1Test {
         );
 
         mineOneBlockAndWrap(12 seconds);
+    }
+
+    modifier WhenEachBatchHasMultipleBlocks(uint256 _blocksPerBatch) {
+        __blocksPerBatch = _blocksPerBatch;
+        _;
     }
 
     modifier WhenLogAllBatchesAndTransitions() {
@@ -103,7 +111,7 @@ abstract contract InboxTestBase is Layer1Test {
         returns (uint64[] memory batchIds)
     {
         ITaikoInbox.BatchParams memory batchParams;
-        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
 
         batchIds = new uint64[](numBatchesToPropose);
 
@@ -172,6 +180,7 @@ abstract contract InboxTestBase is Layer1Test {
             }
             console2.log(unicode"│    |── metahash:", Strings.toHexString(uint256(batch.metaHash)));
             console2.log(unicode"│    |── timestamp:", batch.timestamp);
+            console2.log(unicode"│    |── lastBlockId:", batch.lastBlockId);
             console2.log(unicode"│    |── anchorBlockId:", batch.anchorBlockId);
             console2.log(unicode"│    |── nextTransitionId:", batch.nextTransitionId);
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);

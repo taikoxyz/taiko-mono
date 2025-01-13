@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
 
-contract InboxTest_Suite1 is InboxTestBase {
+contract InboxTest_ProposeAndProve is InboxTestBase {
     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -47,13 +47,13 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoInbox.Batch memory blk = inbox.getBatch(0);
-        assertEq(blk.batchId, 0);
-        assertEq(blk.metaHash, bytes32(uint256(1)));
-        assertEq(blk.timestamp, genesisBlockProposedAt);
-        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
-        assertEq(blk.nextTransitionId, 2);
-        assertEq(blk.verifiedTransitionId, 1);
+        ITaikoInbox.Batch memory batch = inbox.getBatch(0);
+        assertEq(batch.batchId, 0);
+        assertEq(batch.metaHash, bytes32(uint256(1)));
+        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.nextTransitionId, 2);
+        assertEq(batch.verifiedTransitionId, 1);
 
         (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
             inbox.getLastVerifiedTransition();
@@ -94,24 +94,24 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoInbox.Batch memory blk = inbox.getBatch(0);
-        assertEq(blk.batchId, 0);
-        assertEq(blk.metaHash, bytes32(uint256(1)));
-        assertEq(blk.timestamp, genesisBlockProposedAt);
-        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
-        assertEq(blk.nextTransitionId, 2);
-        assertEq(blk.verifiedTransitionId, 1);
+        ITaikoInbox.Batch memory batch = inbox.getBatch(0);
+        assertEq(batch.batchId, 0);
+        assertEq(batch.metaHash, bytes32(uint256(1)));
+        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.nextTransitionId, 2);
+        assertEq(batch.verifiedTransitionId, 1);
 
         // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
-            blk = inbox.getBatch(i);
-            assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            batch = inbox.getBatch(i);
+            assertEq(batch.batchId, i);
+            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(blk.timestamp, block.timestamp);
-            assertEq(blk.anchorBlockId, block.number - 1);
-            assertEq(blk.nextTransitionId, 1);
-            assertEq(blk.verifiedTransitionId, 0);
+            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.anchorBlockId, block.number - 1);
+            assertEq(batch.nextTransitionId, 1);
+            assertEq(batch.verifiedTransitionId, 0);
         }
 
         // - Proposing one block block will revert
@@ -151,24 +151,24 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoInbox.Batch memory blk = inbox.getBatch(0);
-        assertEq(blk.batchId, 0);
-        assertEq(blk.metaHash, bytes32(uint256(1)));
-        assertEq(blk.timestamp, genesisBlockProposedAt);
-        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
-        assertEq(blk.nextTransitionId, 2);
-        assertEq(blk.verifiedTransitionId, 1);
+        ITaikoInbox.Batch memory batch = inbox.getBatch(0);
+        assertEq(batch.batchId, 0);
+        assertEq(batch.metaHash, bytes32(uint256(1)));
+        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.nextTransitionId, 2);
+        assertEq(batch.verifiedTransitionId, 1);
 
         // Verify block data
         for (uint64 i = 1; i < 7; ++i) {
-            blk = inbox.getBatch(i);
-            assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            batch = inbox.getBatch(i);
+            assertEq(batch.batchId, i);
+            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(blk.timestamp, block.timestamp);
-            assertEq(blk.anchorBlockId, block.number - 1);
-            assertEq(blk.nextTransitionId, 2);
-            assertEq(blk.verifiedTransitionId, 0);
+            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.anchorBlockId, block.number - 1);
+            assertEq(batch.nextTransitionId, 2);
+            assertEq(batch.verifiedTransitionId, 0);
         }
     }
 
@@ -191,7 +191,8 @@ contract InboxTest_Suite1 is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
-    function test_inbox_propose_and_prove_many_blocks_with_first_transition_being_correct()
+    function test_inbox_propose_1block_per_batch_and_prove_many_blocks_with_first_transition_being_correct(
+    )
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(9)
@@ -225,27 +226,89 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(tran.stateRoot, correctStateRoot(5));
 
         // - Verify genesis block
-        ITaikoInbox.Batch memory blk = inbox.getBatch(0);
-        assertEq(blk.batchId, 0);
-        assertEq(blk.metaHash, bytes32(uint256(1)));
-        assertEq(blk.timestamp, genesisBlockProposedAt);
-        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
-        assertEq(blk.nextTransitionId, 2);
-        assertEq(blk.verifiedTransitionId, 1);
+        ITaikoInbox.Batch memory batch = inbox.getBatch(0);
+        assertEq(batch.batchId, 0);
+        assertEq(batch.metaHash, bytes32(uint256(1)));
+        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.nextTransitionId, 2);
+        assertEq(batch.verifiedTransitionId, 1);
 
         // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
-            blk = inbox.getBatch(i);
-            assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            batch = inbox.getBatch(i);
+            assertEq(batch.batchId, i);
+            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(blk.timestamp, block.timestamp);
-            assertEq(blk.anchorBlockId, block.number - 1);
-            assertEq(blk.nextTransitionId, 2);
+            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.anchorBlockId, block.number - 1);
+            assertEq(batch.nextTransitionId, 2);
             if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
-                assertEq(blk.verifiedTransitionId, 1);
+                assertEq(batch.verifiedTransitionId, 1);
             } else {
-                assertEq(blk.verifiedTransitionId, 0);
+                assertEq(batch.verifiedTransitionId, 0);
+            }
+        }
+    }
+
+    function test_inbox_propose_7block_per_batch_and_prove_many_blocks_with_first_transition_being_correct(
+    )
+        external
+        WhenEachBatchHasMultipleBlocks(7)
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
+        WhenLogAllBatchesAndTransitions
+    {
+        // - All stats are correct and expected
+
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
+        assertEq(stats1.lastSyncedBatchId, 5);
+        assertEq(stats1.lastSyncedAt, block.timestamp);
+
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
+        assertEq(stats2.numBatches, 10);
+        assertEq(stats2.lastVerifiedBatchId, 9);
+        assertEq(stats2.paused, false);
+        assertEq(stats2.lastProposedIn, block.number);
+        assertEq(stats2.lastUnpausedAt, 0);
+
+        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+            inbox.getLastVerifiedTransition();
+        assertEq(batchId, 9);
+        assertEq(blockId, 9 * 7);
+        assertEq(tran.blockHash, correctBlockhash(9));
+        assertEq(tran.stateRoot, bytes32(uint256(0)));
+
+        (batchId, blockId, tran) = inbox.getLastSyncedTransition();
+        assertEq(batchId, 5);
+        assertEq(blockId, 5 * 7);
+        assertEq(tran.blockHash, correctBlockhash(5));
+        assertEq(tran.stateRoot, correctStateRoot(5));
+
+        // - Verify genesis block
+        ITaikoInbox.Batch memory batch = inbox.getBatch(0);
+        assertEq(batch.batchId, 0);
+        assertEq(batch.metaHash, bytes32(uint256(1)));
+        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.nextTransitionId, 2);
+        assertEq(batch.verifiedTransitionId, 1);
+
+        // Verify block data
+        for (uint64 i = 1; i < 10; ++i) {
+            batch = inbox.getBatch(i);
+            assertEq(batch.batchId, i);
+            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+
+            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.lastBlockId, i * 7);
+            assertEq(batch.anchorBlockId, block.number - 1);
+            assertEq(batch.nextTransitionId, 2);
+            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+                assertEq(batch.verifiedTransitionId, 1);
+            } else {
+                assertEq(batch.verifiedTransitionId, 0);
             }
         }
     }
@@ -272,27 +335,27 @@ contract InboxTest_Suite1 is InboxTestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoInbox.Batch memory blk = inbox.getBatch(0);
-        assertEq(blk.batchId, 0);
-        assertEq(blk.metaHash, bytes32(uint256(1)));
-        assertEq(blk.timestamp, genesisBlockProposedAt);
-        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
-        assertEq(blk.nextTransitionId, 2);
-        assertEq(blk.verifiedTransitionId, 1);
+        ITaikoInbox.Batch memory batch = inbox.getBatch(0);
+        assertEq(batch.batchId, 0);
+        assertEq(batch.metaHash, bytes32(uint256(1)));
+        assertEq(batch.timestamp, genesisBlockProposedAt);
+        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.nextTransitionId, 2);
+        assertEq(batch.verifiedTransitionId, 1);
 
         // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
-            blk = inbox.getBatch(i);
-            assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            batch = inbox.getBatch(i);
+            assertEq(batch.batchId, i);
+            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(blk.timestamp, block.timestamp);
-            assertEq(blk.anchorBlockId, block.number - 1);
-            assertEq(blk.nextTransitionId, 3);
+            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.anchorBlockId, block.number - 1);
+            assertEq(batch.nextTransitionId, 3);
             if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
-                assertEq(blk.verifiedTransitionId, 2);
+                assertEq(batch.verifiedTransitionId, 2);
             } else {
-                assertEq(blk.verifiedTransitionId, 0);
+                assertEq(batch.verifiedTransitionId, 0);
             }
         }
     }
@@ -337,27 +400,27 @@ contract InboxTest_Suite1 is InboxTestBase {
 
         // Verify block data
         for (uint64 i = 8; i < 15; ++i) {
-            ITaikoInbox.Batch memory blk = inbox.getBatch(i);
-            assertEq(blk.batchId, i);
-            assertEq(blk.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            ITaikoInbox.Batch memory batch = inbox.getBatch(i);
+            assertEq(batch.batchId, i);
+            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
 
-            assertEq(blk.timestamp, block.timestamp);
-            assertEq(blk.anchorBlockId, block.number - 1);
+            assertEq(batch.timestamp, block.timestamp);
+            assertEq(batch.anchorBlockId, block.number - 1);
             if (i == 8) {
-                assertEq(blk.verifiedTransitionId, 0);
-                assertEq(blk.nextTransitionId, 2);
+                assertEq(batch.verifiedTransitionId, 0);
+                assertEq(batch.nextTransitionId, 2);
             } else if (i == 9) {
-                assertEq(blk.verifiedTransitionId, 1);
-                assertEq(blk.nextTransitionId, 2);
+                assertEq(batch.verifiedTransitionId, 1);
+                assertEq(batch.nextTransitionId, 2);
             } else if (i == 10) {
-                assertEq(blk.verifiedTransitionId, 1);
-                assertEq(blk.nextTransitionId, 2);
+                assertEq(batch.verifiedTransitionId, 1);
+                assertEq(batch.nextTransitionId, 2);
             } else if (i == 11 || i == 12 || i == 13 || i == 16 || i == 17) {
-                assertEq(blk.verifiedTransitionId, 0);
-                assertEq(blk.nextTransitionId, 1);
+                assertEq(batch.verifiedTransitionId, 0);
+                assertEq(batch.nextTransitionId, 1);
             } else if (i == 14 || i == 15) {
-                assertEq(blk.verifiedTransitionId, 0);
-                assertEq(blk.nextTransitionId, 2);
+                assertEq(batch.verifiedTransitionId, 0);
+                assertEq(batch.nextTransitionId, 2);
             }
         }
     }

@@ -495,6 +495,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             blockHash = ts.blockHash;
 
             if (batchId % _config.stateRootSyncInternal == 0) {
+                synced.batchId = batchId;
                 synced.blockId = batch.lastBlockId;
                 synced.tid = tid;
                 synced.stateRoot = ts.stateRoot;
@@ -517,15 +518,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             batch.verifiedTransitionId = tid;
             emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
-            if (synced.blockId != 0) {
-                if (synced.blockId != _stats2.lastVerifiedBatchId) {
+            if (synced.batchId != 0) {
+                if (synced.batchId != _stats2.lastVerifiedBatchId) {
                     // We write the synced batch's verifiedTransitionId to storage
-                    batch = state.batches[synced.blockId % _config.batchRingBufferSize];
+                    batch = state.batches[synced.batchId % _config.batchRingBufferSize];
                     batch.verifiedTransitionId = synced.tid;
                 }
 
                 Stats1 memory stats1 = state.stats1;
-                stats1.lastSyncedBatchId = synced.blockId;
+                stats1.lastSyncedBatchId = batch.batchId;
                 stats1.lastSyncedAt = uint64(block.timestamp);
                 state.stats1 = stats1;
 
@@ -655,6 +656,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     }
 
     struct SyncBlock {
+        uint64 batchId;
         uint64 blockId;
         uint24 tid;
         bytes32 stateRoot;
