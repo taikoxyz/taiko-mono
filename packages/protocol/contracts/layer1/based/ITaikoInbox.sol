@@ -26,7 +26,7 @@ interface ITaikoInbox {
         // plus this time shift value;
         // For all other blocks in the same batch, the block timestamp is its parent block's
         // timestamp plus this time shift value.
-        uint8 timeThift;
+        uint8 timeShift;
     }
 
     struct BatchParams {

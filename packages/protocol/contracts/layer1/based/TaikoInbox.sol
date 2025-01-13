@@ -640,7 +640,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
             uint256 maxTimestamp = _params.timestamp;
             for (uint256 i; i < _params.blocks.length; ++i) {
-                maxTimestamp += _params.blocks[i].timeThift;
+                maxTimestamp += _params.blocks[i].timeShift;
             }
             require(maxTimestamp <= block.timestamp, TimestampTooLarge());
 
