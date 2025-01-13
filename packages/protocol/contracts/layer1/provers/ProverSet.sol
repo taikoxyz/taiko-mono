@@ -1,154 +1,90 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
-import "src/shared/libs/LibAddress.sol";
-import "../based/ITaikoInbox.sol";
+import "./ProverSetBase.sol";
 
-interface IHasRecipient {
-    function recipient() external view returns (address);
-}
-
-/// @title ProverSet
-/// @notice A contract that holds TAIKO token and acts as a Taiko prover. This contract will simply
-/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TAIKO.
-/// @custom:security-contact security@taiko.xyz
-contract ProverSet is EssentialContract, IERC1271 {
-    bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
-
-    mapping(address prover => bool isProver) public isProver; // slot 1
-    address public admin; // slot 2
-
-    uint256[48] private __gap;
-
-    event ProverEnabled(address indexed prover, bool indexed enabled);
-
-    error INVALID_STATUS();
-    error INVALID_BOND_TOKEN();
-    error PERMISSION_DENIED();
-    error NOT_FIRST_PROPOSAL();
-
-    modifier onlyAuthorized() {
-        require(
-            msg.sender == admin || msg.sender == IHasRecipient(admin).recipient(),
-            PERMISSION_DENIED()
-        );
-        _;
-    }
-
-    modifier onlyProver() {
-        require(isProver[msg.sender], PERMISSION_DENIED());
-        _;
-    }
-
-    /// @notice Initializes the contract.
-    function init(
-        address _owner,
-        address _admin,
-        address _rollupResolver
-    )
-        external
-        nonZeroAddr(_admin)
-        initializer
-    {
-        __Essential_init(_owner, _rollupResolver);
-        admin = _admin;
-
-        address _bondToken = bondToken();
-        if (_bondToken != address(0)) {
-            IERC20(_bondToken).approve(inbox(), type(uint256).max);
-        }
-    }
-
-    function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
-        address _bondToken = bondToken();
-        require(_bondToken != address(0), INVALID_BOND_TOKEN());
-        IERC20(_bondToken).approve(_address, _allowance);
-    }
-
-    /// @notice Enables or disables a prover.
-    function enableProver(address _prover, bool _isProver) external onlyAuthorized {
-        require(isProver[_prover] != _isProver, INVALID_STATUS());
-        isProver[_prover] = _isProver;
-
-        emit ProverEnabled(_prover, _isProver);
-    }
-
-    /// @notice Withdraws Taiko tokens back to the admin address.
-    function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        address _bondToken = bondToken();
-        if (_bondToken != address(0)) {
-            IERC20(_bondToken).transfer(admin, _amount);
-        } else {
-            LibAddress.sendEtherAndVerify(admin, _amount);
-        }
-    }
-
-    /// @notice Withdraws ETH back to the owner address.
-    function withdrawEtherToAdmin(uint256 _amount) external onlyAuthorized {
-        LibAddress.sendEtherAndVerify(admin, _amount);
-    }
+contract ProverSet is ProverSetBase {
+    error NotFirstProposal();
+    // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
-    function proposeBatch(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        onlyProver
-        returns (ITaikoInbox.BatchMetadata memory)
-    {
-        return ITaikoInbox(inbox()).proposeBatch(_params, _txList);
+    function proposeBatch(bytes calldata _params, bytes calldata _txList) external onlyProver {
+        Address.functionCall(
+            inbox(), abi.encodeWithSignature("proposeBatch(bytes,bytes)", _params, _txList)
+        );
     }
 
     /// @notice Proves multiple Taiko batches.
     function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
-        ITaikoInbox(inbox()).proveBatches(_params, _proof);
+        Address.functionCall(
+            inbox(), abi.encodeWithSignature("proveBatches(bytes,bytes)", _params, _proof)
+        );
     }
 
-    /// @notice Deposits Taiko token to Taiko contract.
-    function depositBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox()).depositBond(_amount);
-    }
+    // ================ Ontake calls ================
 
-    /// @notice Withdraws Taiko token from Taiko contract.
-    function withdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox()).withdrawBond(_amount);
-    }
-
-    /// @notice Delegates token voting right to a delegatee.
-    /// @param _delegatee The delegatee to receive the voting right.
-    function delegate(address _delegatee) external onlyAuthorized {
-        address _bondToken = bondToken();
-        require(_bondToken != address(0), INVALID_BOND_TOKEN());
-        ERC20VotesUpgradeable(_bondToken).delegate(_delegatee);
-    }
-
-    // This function is necessary for this contract to become an assigned prover.
-    function isValidSignature(
-        bytes32 _hash,
-        bytes calldata _signature
+    /// @notice Proposes a batch blocks only when it is the first batch blocks proposal in the
+    /// current L1 block.
+    function proposeBlocksV2Conditionally(
+        bytes[] calldata _params,
+        bytes[] calldata _txList
     )
         external
-        view
-        returns (bytes4 magicValue_)
+        onlyProver
     {
-        (address recovered, ECDSA.RecoverError error) = ECDSA.tryRecover(_hash, _signature);
-        if (error == ECDSA.RecoverError.NoError && isProver[recovered]) {
-            magicValue_ = _EIP1271_MAGICVALUE;
-        }
+        address inbox = inbox();
+        // Ensure this block is the first block proposed in the current L1 block.
+        uint64 blockNumber = abi.decode(
+            Address.functionStaticCall(inbox, abi.encodeWithSignature("lastProposedIn()")), (uint64)
+        );
+        require(blockNumber != block.number, NotFirstProposal());
+        Address.functionCall(
+            inbox, abi.encodeWithSignature("proposeBlocksV2(bytes[],bytes[])", _params, _txList)
+        );
     }
 
-    function inbox() internal view virtual returns (address) {
-        return resolve(LibStrings.B_TAIKO, false);
+    /// @notice Propose a Taiko block.
+    function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
+        Address.functionCall(
+            inbox(), abi.encodeWithSignature("proposeBlockV2(bytes,bytes)", _params, _txList)
+        );
     }
 
-    function bondToken() internal view virtual returns (address) {
-        return resolve(LibStrings.B_BOND_TOKEN, true);
+    /// @notice Propose multiple Taiko blocks.
+    function proposeBlocksV2(
+        bytes[] calldata _paramsArr,
+        bytes[] calldata _txListArr
+    )
+        external
+        onlyProver
+    {
+        Address.functionCall(
+            inbox(),
+            abi.encodeWithSignature("proposeBlocksV2(bytes[],bytes[])", _paramsArr, _txListArr)
+        );
+    }
+
+    /// @notice Proves or contests a Taiko block.
+    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver {
+        Address.functionCall(
+            inbox(), abi.encodeWithSignature("proveBlock(uint64,bytes)", _blockId, _input)
+        );
+    }
+
+    /// @notice Batch proves or contests Taiko blocks.
+    function proveBlocks(
+        uint64[] calldata _blockId,
+        bytes[] calldata _input,
+        bytes calldata _batchProof
+    )
+        external
+        onlyProver
+    {
+        Address.functionCall(
+            inbox(),
+            abi.encodeWithSignature(
+                "proveBlocks(uint64[],bytes[],bytes)", _blockId, _input, _batchProof
+            )
+        );
     }
 }
