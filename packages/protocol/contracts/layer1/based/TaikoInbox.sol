@@ -135,7 +135,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             lastBlockTimestamp: lastBlockTimestamp,
             parentMetaHash: lastBatch.metaHash,
             proposer: params.proposer,
-            livenessBond: config.livenessBond,
+            livenessBond: config.livenessBondBase + config.livenessBondPerBlock * uint96(params.blocks.length),
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
             txListOffset: params.txListOffset,
@@ -180,7 +180,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
         }
 
-        _debitBond(params.proposer, config.livenessBond);
+        _debitBond(params.proposer, meta_.livenessBond);
         emit BatchProposed(meta_, calldataUsed, _txList);
 
         _verifyBatches(config, stats2, 1);
