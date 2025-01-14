@@ -169,7 +169,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	if encodedParams, err = encoding.EncodeBatchParams(&encoding.BatchParams{
 		Coinbase:                 b.l2SuggestedFeeRecipient,
 		TxListOffset:             0,
-		TxListSize:               0,
+		TxListSize:               uint32(len(txListsBytes)),
 		FirstBlobIndex:           0,
 		NumBlobs:                 uint8(len(blobs)),
 		RevertIfNotFirstProposal: b.revertProtectionEnabled,

@@ -97,7 +97,6 @@ func (m *TaikoDataBlockMetadataPacaya) GetProposedIn() uint64 {
 	return m.ProposedIn
 }
 
-// TODO: remove this value
 // GetTxListOffset returns calldata tx list offset.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListOffset() uint32 {
 	return m.TxListOffset

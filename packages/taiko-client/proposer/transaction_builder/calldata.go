@@ -147,8 +147,8 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 
 	if encodedParams, err = encoding.EncodeBatchParams(&encoding.BatchParams{
 		Coinbase:                 b.l2SuggestedFeeRecipient,
-		TxListOffset:             0,                         // TODO: update this value
-		TxListSize:               uint32(len(txListsBytes)), // TODO: update this value
+		TxListOffset:             0,
+		TxListSize:               uint32(len(txListsBytes)),
 		RevertIfNotFirstProposal: b.revertProtectionEnabled,
 		Blocks:                   blockParams,
 	}); err != nil {
