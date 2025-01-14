@@ -2,15 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@risc0/contracts/IRiscZeroVerifier.sol";
-import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
-import "./IVerifier.sol";
+import "./VerifierBase.sol";
 
 /// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
-contract Risc0Verifier is EssentialContract, IVerifier {
+contract Risc0Verifier is VerifierBase {
     bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
@@ -37,13 +36,6 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
     constructor(uint64 _taikoChainId) {
         taikoChainId = _taikoChainId;
-    }
-
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _owner The address of the owner.
-    /// @param _rollupResolver The {IResolver} used by this rollup
-    function init(address _owner, address _rollupResolver) external initializer {
-        __Essential_init(_owner, _rollupResolver);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity

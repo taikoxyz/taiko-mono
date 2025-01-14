@@ -20,7 +20,7 @@ contract DeployRisc0Verifier is BaseScript {
         deploy({
             name: "tier_zkvm_risc0",
             impl: address(new Risc0Verifier(LibNetwork.TAIKO_MAINNET)),
-            data: abi.encodeCall(Risc0Verifier.init, (address(0), resolver))
+            data: abi.encodeCall(VerifierBase.init, (address(0), resolver))
         });
     }
 }

@@ -2,11 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "../based/ITaikoInbox.sol";
+import "../../shared/common/IPausable.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.
 /// @custom:security-contact security@taiko.xyz
-interface IVerifier {
+interface IVerifier is IPausable {
     struct Context {
         uint64 batchId;
         bytes32 metaHash;

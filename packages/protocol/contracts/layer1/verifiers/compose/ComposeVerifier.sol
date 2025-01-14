@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
-import "../IVerifier.sol";
+import "../VerifierBase.sol";
 
 /// @title ComposeVerifier
 /// @notice This contract is an abstract verifier that composes multiple sub-verifiers to validate
@@ -11,7 +10,7 @@ import "../IVerifier.sol";
 /// It ensures that a set of sub-proofs are verified by their respective verifiers before
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ComposeVerifier is EssentialContract, IVerifier {
+abstract contract ComposeVerifier is VerifierBase {
     uint256[50] private __gap;
 
     struct SubProof {
@@ -22,13 +21,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     error CV_INVALID_SUB_VERIFIER();
     error CV_INVALID_SUB_VERIFIER_ORDER();
     error CV_VERIFIERS_INSUFFICIENT();
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupResolver The {IResolver} used by this rollup.
-    function init(address _owner, address _rollupResolver) external initializer {
-        __Essential_init(_owner, _rollupResolver);
-    }
 
     /// @inheritdoc IVerifier
     function verifyProof(

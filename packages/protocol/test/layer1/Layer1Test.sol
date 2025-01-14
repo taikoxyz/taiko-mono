@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/verifiers/VerifierBase.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -71,7 +72,7 @@ abstract contract Layer1Test is CommonTest {
             deploy({
                 name: "tier_sgx",
                 impl: address(new SgxVerifier(taikoChainId)),
-                data: abi.encodeCall(SgxVerifier.init, (address(0), address(resolver)))
+                data: abi.encodeCall(VerifierBase.init, (address(0), address(resolver)))
             })
         );
     }

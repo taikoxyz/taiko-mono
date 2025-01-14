@@ -3,11 +3,12 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "./IPausable.sol";
 import "./IResolver.sol";
 
 /// @title EssentialContract
 /// @custom:security-contact security@taiko.xyz
-abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable {
+abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, IPausable {
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
@@ -19,14 +20,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal __paused;
 
     uint256[49] private __gap;
-
-    /// @notice Emitted when the contract is paused.
-    /// @param account The account that paused the contract.
-    event Paused(address account);
-
-    /// @notice Emitted when the contract is unpaused.
-    /// @param account The account that unpaused the contract.
-    event Unpaused(address account);
 
     event ResolverUpdated(address oldResolver, address newResolver);
 
@@ -121,7 +114,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     }
 
     /// @notice Pauses the contract.
-    function pause() public whenNotPaused {
+    function pause() public virtual whenNotPaused {
         _pause();
         emit Paused(msg.sender);
         // We call the authorize function here to avoid:
@@ -130,7 +123,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     }
 
     /// @notice Unpauses the contract.
-    function unpause() public whenPaused {
+    function unpause() public virtual whenPaused {
         _unpause();
         emit Unpaused(msg.sender);
         // We call the authorize function here to avoid:

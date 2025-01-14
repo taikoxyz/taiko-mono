@@ -2,15 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@sp1-contracts/src/ISP1Verifier.sol";
-import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
 import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
+import "./VerifierBase.sol";
 
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
-contract SP1Verifier is EssentialContract, IVerifier {
+contract SP1Verifier is VerifierBase {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
 
     uint64 public immutable taikoChainId;
@@ -32,13 +31,6 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
     constructor(uint64 _taikoChainId) {
         taikoChainId = _taikoChainId;
-    }
-
-    /// @notice Initializes the contract with the provided address manager.
-    /// @param _owner The address of the owner.
-    /// @param _resolver The IResolver address.
-    function init(address _owner, address _resolver) external initializer {
-        __Essential_init(_owner, _resolver);
     }
 
     /// @notice Sets/unsets an the program's verification key as trusted entity

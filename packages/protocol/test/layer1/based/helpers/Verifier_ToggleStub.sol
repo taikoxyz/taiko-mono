@@ -4,17 +4,21 @@ pragma solidity ^0.8.24;
 import "src/layer1/verifiers/IVerifier.sol";
 
 contract Verifier_ToggleStub is IVerifier {
-    bool private shouldFail;
-
-    function makeVerifierToFail() external {
-        shouldFail = true;
-    }
-
-    function makeVerifierToSucceed() external {
-        shouldFail = false;
-    }
+    bool private _paused;
 
     function verifyProof(Context[] calldata, bytes calldata) external view {
-        require(!shouldFail, "IVerifier failure");
+        require(!_paused, "IVerifier failure");
+    }
+
+    function pause() public override {
+        _paused = true;
+    }
+
+    function unpause() public override {
+        _paused = false;
+    }
+
+    function paused() external view returns (bool) {
+        return _paused;
     }
 }

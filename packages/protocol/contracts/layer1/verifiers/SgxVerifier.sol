@@ -2,13 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
-import "./IVerifier.sol";
+import "./VerifierBase.sol";
 
 /// @title SgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature proofs
@@ -17,7 +16,7 @@ import "./IVerifier.sol";
 /// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
 /// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 /// @custom:security-contact security@taiko.xyz
-contract SgxVerifier is EssentialContract, IVerifier {
+contract SgxVerifier is VerifierBase {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
@@ -82,13 +81,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     constructor(uint64 _taikoChainId) {
         taikoChainId = _taikoChainId;
-    }
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupResolver The {IResolver} used by this rollup.
-    function init(address _owner, address _rollupResolver) external initializer {
-        __Essential_init(_owner, _rollupResolver);
     }
 
     /// @notice Adds trusted SGX instances to the registry.
