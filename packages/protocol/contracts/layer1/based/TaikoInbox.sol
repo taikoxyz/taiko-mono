@@ -205,6 +205,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         uint64[] memory batchIds = new uint64[](metas.length);
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
 
+        bool hasOverwrite;
         for (uint256 i; i < metas.length; ++i) {
             BatchMetadata memory meta = metas[i];
 
@@ -245,6 +246,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             }
 
             bool isOverwrite = (tid != 0);
+            hasOverwrite = hasOverwrite || isOverwrite;
             if (tid == 0) {
                 // This transition is new, we need to use the next available ID.
                 tid = batch.nextTransitionId++;
@@ -289,7 +291,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         emit BatchesProved(verifier, batchIds, trans);
 
-        _verifyBatches(config, stats2, metas.length);
+        if (hasOverwrite) {
+            IVerifier(verifier).pause();
+        } else {
+            _verifyBatches(config, stats2, metas.length);
+        }
     }
 
     /// @inheritdoc ITaikoInbox
