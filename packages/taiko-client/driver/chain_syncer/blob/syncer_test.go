@@ -68,6 +68,7 @@ func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
 	s.Nil(err)
 
 	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
+	s.Nil(err)
 
 	parent, err := s.RPCClient.L2ParentByBlockID(context.Background(), meta.GetBlockID())
 	s.Nil(err)
