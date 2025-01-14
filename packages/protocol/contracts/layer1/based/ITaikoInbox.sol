@@ -204,8 +204,9 @@ interface ITaikoInbox {
 
     /// @notice Emitted when a transition is overwritten by another one.
     /// @param batchId The batch ID.
-    /// @param tran The transition data that has been overwritten.
-    event TransitionOverwritten(uint64 batchId, Transition tran);
+    /// @param oldTran The old transition overwritten.
+    /// @param newTran The new transition.
+    event TransitionOverwritten(uint64 batchId, Transition oldTran, Transition newTran);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.

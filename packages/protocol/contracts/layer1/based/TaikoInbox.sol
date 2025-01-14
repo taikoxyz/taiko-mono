@@ -202,13 +202,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         require(stats2.paused == false, ContractPaused());
 
         Config memory config = getConfig();
-        uint64[] memory batchIds = new uint64[](metas.length);
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
 
+        bool pauseSelf;
         for (uint256 i; i < metas.length; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            batchIds[i] = meta.batchId;
             require(meta.batchId >= config.forkHeights.pacaya, InvalidForkHeight());
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -244,16 +243,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 }
             }
 
-            bool isOverwrite = (tid != 0);
             if (tid == 0) {
                 // This transition is new, we need to use the next available ID.
                 tid = batch.nextTransitionId++;
+            } else {
+                Transition memory oldTran = state.transitions[slot][tid];
+
+                if (oldTran.blockHash == tran.blockHash && oldTran.stateRoot == tran.stateRoot) {
+                    pauseSelf = true;
+                    emit TransitionOverwritten(meta.batchId, oldTran, tran);
+                }
             }
 
             Transition storage ts = state.transitions[slot][tid];
-            if (isOverwrite) {
-                emit TransitionOverwritten(meta.batchId, ts);
-            } else if (tid == 1) {
+            if (tid == 1) {
                 // Ensure that only the proposer can prove the first transition before the
                 // proving deadline.
                 unchecked {
@@ -287,9 +290,22 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
 
-        emit BatchesProved(verifier, batchIds, trans);
+        // Emit the event
+        {
+            uint64[] memory batchIds = new uint64[](metas.length);
+            for (uint256 i; i < metas.length; ++i) {
+                batchIds[i] = metas[i].batchId;
+            }
 
-        _verifyBatches(config, stats2, metas.length);
+            emit BatchesProved(verifier, batchIds, trans);
+        }
+
+        if (pauseSelf) {
+            _pause();
+            emit Paused(verifier);
+        } else {
+            _verifyBatches(config, stats2, metas.length);
+        }
     }
 
     /// @inheritdoc ITaikoInbox
