@@ -36,7 +36,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         bondToken = deployBondToken();
     }
 
-    function test_inbox_bonds_debit_and_credit_on_proposal_and_proof() external {
+    function test_inbox_bonds_debit_and_credit_proved_by_proposer() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -54,7 +54,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }
 
-    function test_inbox_bonds_debit_and_credit_on_proposal_and_proof_2() external {
+    function test_inbox_bonds_debit_and_credit_proved_by_non_proposer() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
