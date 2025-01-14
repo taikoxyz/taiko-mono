@@ -260,7 +260,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                     uint256 deadline =
                         uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
                     if (block.timestamp <= deadline) {
-                        require(msg.sender == meta.proposer, ProverNotPermitted());
                         _creditBond(meta.proposer, meta.livenessBond);
                     }
 
