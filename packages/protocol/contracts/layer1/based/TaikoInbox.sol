@@ -135,7 +135,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             lastBlockTimestamp: lastBlockTimestamp,
             parentMetaHash: lastBatch.metaHash,
             proposer: params.proposer,
-            livenessBond: config.livenessBondBase + config.livenessBondPerBlock * uint96(params.blocks.length),
+            livenessBond: config.livenessBondBase
+                + config.livenessBondPerBlock * uint96(params.blocks.length),
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
             txListOffset: params.txListOffset,

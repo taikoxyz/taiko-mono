@@ -12,8 +12,8 @@ contract InboxTest_EtherAsBond is InboxTestBase {
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
-             livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 5e18, // 5 Taiko token per block
+            livenessBondBase: 1 ether,
+            livenessBondPerBlock: 0.1 ether,
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

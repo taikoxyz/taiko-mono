@@ -16,7 +16,7 @@ contract HeklaInbox is TaikoInbox {
             batchRingBufferSize: 324_512,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-             livenessBondBase: 125e18, // 125 Taiko token per batch
+            livenessBondBase: 125e18, // 125 Taiko token per batch
             livenessBondPerBlock: 5e18, // 5 Taiko token per block
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
