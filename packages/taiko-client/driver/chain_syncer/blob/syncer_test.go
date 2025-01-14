@@ -56,7 +56,7 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 	s.initProposer()
 }
 
-func (s *BlobSyncerTestSuite) TestBlobCases() {
+func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
 	ctx := context.Background()
 
 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
