@@ -54,7 +54,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }
 
-    function test_only_proposer_can_prove_block_before_deadline() external {
+    function test_only_proposer_can_prove_batch_before_deadline() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;

@@ -249,7 +249,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             } else {
                 Transition memory oldTran = state.transitions[slot][tid];
 
-                if (oldTran.blockHash == tran.blockHash && oldTran.stateRoot == tran.stateRoot) {
+                if (
+                    oldTran.blockHash != tran.blockHash
+                        || (oldTran.stateRoot != 0 && oldTran.stateRoot != tran.stateRoot)
+                ) {
                     pauseSelf = true;
                     emit TransitionOverwritten(meta.batchId, oldTran, tran);
                 }
