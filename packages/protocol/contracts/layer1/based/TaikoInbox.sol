@@ -375,6 +375,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         return true;
     }
 
+    // @inheritdoc IFork
     function isForkActive() external view override returns (bool) {
         return state.stats2.numBatches >= getConfig().forkHeights.pacaya;
     }
