@@ -70,7 +70,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
-    } 
+    }
 
     function test_inbox_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline()
         external
