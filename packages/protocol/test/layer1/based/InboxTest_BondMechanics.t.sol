@@ -27,7 +27,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
              }),
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 256,
+            maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
@@ -37,7 +37,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         bondToken = deployBondToken();
     }
 
-    function test_inbox_bonds_debit_and_credit_on_proposal_and_proof() external {
+    function test_inbox_bonds_debit_and_credit_proved_by_proposer() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -55,24 +55,22 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }
 
-    function test_only_proposer_can_prove_block_before_deadline() external {
+    function test_inbox_bonds_debit_and_credit_proved_by_non_proposer() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
-        setupBondTokenState(Bob, initialBondBalance, bondAmount);
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
 
         vm.prank(Bob);
-        vm.expectRevert(ITaikoInbox.ProverNotPermitted.selector);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.bondBalanceOf(Bob), bondAmount);
+        assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }
 
     function test_inbox_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline()

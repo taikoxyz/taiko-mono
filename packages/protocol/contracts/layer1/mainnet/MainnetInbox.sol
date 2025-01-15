@@ -37,7 +37,7 @@ contract MainnetInbox is TaikoInbox {
              }),
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 256,
+            maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 538_304,
                 pacaya: 538_304 * 10 // TODO
