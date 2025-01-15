@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
@@ -50,6 +51,22 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 		s.l1Hash,
 		1024,
 		&ontakeBindings.LibSharedDataBaseFeeConfig{},
+		common.Big1,
+		common.Big256,
+	)
+	s.Nil(err)
+	s.NotNil(tx)
+}
+
+func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
+	tx, err := s.c.AssembleAnchorV3Tx(
+		context.Background(),
+		s.l1Height,
+		s.l1Hash,
+		[32]byte{},
+		1024,
+		&pacayaBindings.LibSharedDataBaseFeeConfig{},
+		[][32]byte{},
 		common.Big1,
 		common.Big256,
 	)

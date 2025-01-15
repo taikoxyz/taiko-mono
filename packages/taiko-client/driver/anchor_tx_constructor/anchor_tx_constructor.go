@@ -14,6 +14,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -104,6 +105,49 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		anchorStateRoot,
 		uint32(parentGasUsed),
 		*baseFeeConfig,
+	)
+}
+
+// AssembleAnchorV3Tx assembles a signed TaikoAnchor.anchorV3 transaction.
+func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
+	ctx context.Context,
+	// Parameters of the TaikoAnchor.anchorV3 transaction.
+	anchorBlockID *big.Int,
+	anchorStateRoot common.Hash,
+	anchorInput [32]byte,
+	parentGasUsed uint64,
+	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	signalSlots [][32]byte,
+	// Height of the L2 block which including the TaikoAnchor.anchorV3 transaction.
+	l2Height *big.Int,
+	baseFee *big.Int,
+) (*types.Transaction, error) {
+	opts, err := c.transactOpts(ctx, l2Height, baseFee)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"AnchorV3 arguments",
+		"l2Height", l2Height,
+		"anchorBlockId", anchorBlockID,
+		"anchorStateRoot", anchorStateRoot,
+		"anchorInput", common.Bytes2Hex(anchorInput[:]),
+		"parentGasUsed", parentGasUsed,
+		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
+		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
+		"signalSlots", len(signalSlots),
+		"baseFee", utils.WeiToGWei(baseFee),
+	)
+
+	return c.rpc.PacayaClients.TaikoAnchor.AnchorV3(
+		opts,
+		anchorBlockID.Uint64(),
+		anchorStateRoot,
+		anchorInput,
+		uint32(parentGasUsed),
+		*baseFeeConfig,
+		signalSlots,
 	)
 }
 
