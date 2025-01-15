@@ -291,6 +291,7 @@ func (s *Syncer) onBlockProposedOntake(
 			meta.GetBlockID(),
 			txListBytes,
 			meta.GetBlobUsed(),
+			false,
 		),
 		&rawdb.L1Origin{
 			BlockID:       meta.GetBlockID(),
