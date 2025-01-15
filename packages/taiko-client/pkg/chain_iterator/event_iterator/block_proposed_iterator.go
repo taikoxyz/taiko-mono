@@ -3,6 +3,7 @@ package eventiterator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -110,7 +111,10 @@ func assembleBlockProposedIteratorCallback(
 		updateCurrentFunc chainIterator.UpdateCurrentFunc,
 		endFunc chainIterator.EndIterFunc,
 	) error {
-		endHeight := end.Number.Uint64()
+		var (
+			endHeight   = end.Number.Uint64()
+			lastBlockID uint64
+		)
 
 		log.Debug("Iterating BlockProposed events", "start", start.Number, "end", endHeight)
 
@@ -126,6 +130,13 @@ func assembleBlockProposedIteratorCallback(
 		for iterOntake.Next() {
 			event := iterOntake.Event
 			log.Debug("Processing BlockProposedV2 event", "block", event.BlockId, "l1BlockHeight", event.Raw.BlockNumber)
+
+			if lastBlockID != 0 && event.BlockId.Uint64() != lastBlockID+1 {
+				return fmt.Errorf(
+					"BlockProposedV2 event is not continuous, lastScannedBlockID: %d, currentScannedBlockID: %d",
+					lastBlockID, event.BlockId.Uint64(),
+				)
+			}
 
 			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataOntake(event), eventIter.end); err != nil {
 				log.Warn("Error while processing BlockProposedV2 events, keep retrying", "error", err)
