@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -104,7 +104,7 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 	// If the sync mode is `full`, we need to verify the protocol verified block hash before syncing.
 	if s.syncMode == downloader.FullSync.String() {
 		blockNum := new(big.Int).SetUint64(blockID)
-		var blockInfo bindings.TaikoDataBlockV2
+		var blockInfo ontakeBindings.TaikoDataBlockV2
 		if s.state.IsOnTake(blockNum) {
 			blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
 		} else {

@@ -94,7 +94,7 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	clearedCount := 0
 
 	for _, b := range pb.buffer {
-		if !clearMap[b.Meta.GetBlockID().Uint64()] {
+		if !clearMap[b.Meta.TaikoBlockMetaDataOntake().GetBlockID().Uint64()] {
 			newBuffer = append(newBuffer, b)
 		} else {
 			clearedCount++

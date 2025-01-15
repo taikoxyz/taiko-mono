@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
 // GetL1Current reads the L1 current cursor concurrent safely.
@@ -50,7 +50,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 
 	// Fetch the block info from TaikoL1 contract, and set the L1 height.
 	var (
-		blockInfo bindings.TaikoDataBlockV2
+		blockInfo ontakeBindings.TaikoDataBlockV2
 		err       error
 	)
 	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockID); err != nil {

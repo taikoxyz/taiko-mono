@@ -22,12 +22,11 @@ var (
 
 // isBlockVerified checks whether the given L2 block has been verified.
 func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
-	stateVars, err := rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+	lastVerifiedTransition, err := rpc.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return false, err
 	}
-
-	return id.Uint64() <= stateVars.B.LastVerifiedBlockId, nil
+	return id.Uint64() <= lastVerifiedTransition.BlockId, nil
 }
 
 // isValidProof checks if the given proof is a valid one, comparing to current L2 node canonical chain.
@@ -74,14 +73,14 @@ func getMetadataFromBlockID(
 	rpc *rpc.Client,
 	id *big.Int,
 	proposedIn *big.Int,
-) (m metadata.TaikoBlockMetaData, err error) {
+) (m metadata.TaikoProposalMetaData, err error) {
 	callback := func(
 		_ context.Context,
-		meta metadata.TaikoBlockMetaData,
+		meta metadata.TaikoProposalMetaData,
 		_ eventIterator.EndBlockProposedEventIterFunc,
 	) error {
 		// Only filter for exact blockID we want.
-		if meta.GetBlockID().Cmp(id) != 0 {
+		if meta.TaikoBlockMetaDataOntake().GetBlockID().Cmp(id) != 0 {
 			return nil
 		}
 
@@ -92,7 +91,8 @@ func getMetadataFromBlockID(
 
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               rpc.L1,
-		TaikoL1:              rpc.TaikoL1,
+		TaikoL1:              rpc.OntakeClients.TaikoL1,
+		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
 		StartHeight:          new(big.Int).Sub(proposedIn, common.Big1),
 		EndHeight:            proposedIn,
 		OnBlockProposedEvent: callback,
@@ -117,17 +117,17 @@ func getMetadataFromBlockID(
 // proving window of the given proposed block is expired, and the second return parameter is the time
 // remaining til proving window is expired.
 func IsProvingWindowExpired(
-	metadata metadata.TaikoBlockMetaData,
+	metadata metadata.TaikoProposalMetaData,
 	tiers []*rpc.TierProviderTierWithID,
 ) (bool, time.Time, time.Duration, error) {
-	provingWindow, err := getProvingWindow(metadata.GetMinTier(), tiers)
+	provingWindow, err := getProvingWindow(metadata.TaikoBlockMetaDataOntake().GetMinTier(), tiers)
 	if err != nil {
 		return false, time.Time{}, 0, fmt.Errorf("failed to get proving window: %w", err)
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.GetTimestamp() + uint64(provingWindow.Seconds())
+		expiredAt = metadata.TaikoBlockMetaDataOntake().GetTimestamp() + uint64(provingWindow.Seconds())
 	)
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

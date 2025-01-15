@@ -3,12 +3,14 @@ package encoding
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // ABI arguments marshaling components.
@@ -179,11 +181,77 @@ var (
 			Type: "uint8",
 		},
 	}
+	batchParamsComponents = []abi.ArgumentMarshaling{
+		{
+			Name: "proposer",
+			Type: "address",
+		},
+		{
+			Name: "coinbase",
+			Type: "address",
+		},
+		{
+			Name: "parentMetaHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "anchorBlockId",
+			Type: "uint64",
+		},
+		{
+			Name: "anchorInput",
+			Type: "bytes32",
+		},
+		{
+			Name: "lastBlockTimestamp",
+			Type: "uint64",
+		},
+		{
+			Name: "txListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "txListSize",
+			Type: "uint32",
+		},
+		{
+			Name: "firstBlobIndex",
+			Type: "uint8",
+		},
+		{
+			Name: "numBlobs",
+			Type: "uint8",
+		},
+		{
+			Name: "revertIfNotFirstProposal",
+			Type: "bool",
+		},
+		{
+			Name: "signalSlots",
+			Type: "bytes32[]",
+		},
+		{
+			Name: "blocks",
+			Type: "tuple[]",
+			Components: []abi.ArgumentMarshaling{
+				{
+					Name: "numTransactions",
+					Type: "uint16",
+				},
+				{
+					Name: "timeShift",
+					Type: "uint8",
+				},
+			},
+		},
+	}
 )
 
 var (
 	blockParamsV2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
 	blockParamsV2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
+	batchParamsComponentsType, _     = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
+	batchParamsComponentsArgs        = abi.Arguments{{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType}}
 	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
 	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
 	tierProofComponentsType, _       = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
@@ -203,6 +271,7 @@ var (
 
 // Contract ABIs.
 var (
+	// Ontake fork
 	TaikoL1ABI          *abi.ABI
 	TaikoL2ABI          *abi.ABI
 	TaikoTokenABI       *abi.ABI
@@ -214,6 +283,14 @@ var (
 	SGXVerifierABI      *abi.ABI
 	GuardianVerifierABI *abi.ABI
 	ProverSetABI        *abi.ABI
+	ForkRouterABI       *abi.ABI
+
+	// Pacaya fork
+	TaikoInboxABI       *abi.ABI
+	TaikoAnchorABI      *abi.ABI
+	ForkRouterPacayaABI *abi.ABI
+	TaikoTokenPacayaABI *abi.ABI
+	ProverSetPavayaABI  *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -221,47 +298,71 @@ var (
 func init() {
 	var err error
 
-	if TaikoL1ABI, err = bindings.TaikoL1ClientMetaData.GetAbi(); err != nil {
+	if TaikoL1ABI, err = ontakeBindings.TaikoL1ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL1 ABI error", "error", err)
 	}
 
-	if TaikoL2ABI, err = bindings.TaikoL2ClientMetaData.GetAbi(); err != nil {
+	if TaikoL2ABI, err = ontakeBindings.TaikoL2ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL2 ABI error", "error", err)
 	}
 
-	if TaikoTokenABI, err = bindings.TaikoTokenMetaData.GetAbi(); err != nil {
+	if TaikoTokenABI, err = ontakeBindings.TaikoTokenMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoToken ABI error", "error", err)
 	}
 
-	if GuardianProverABI, err = bindings.GuardianProverMetaData.GetAbi(); err != nil {
+	if GuardianProverABI, err = ontakeBindings.GuardianProverMetaData.GetAbi(); err != nil {
 		log.Crit("Get GuardianProver ABI error", "error", err)
 	}
 
-	if LibProposingABI, err = bindings.LibProposingMetaData.GetAbi(); err != nil {
+	if LibProposingABI, err = ontakeBindings.LibProposingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProposing ABI error", "error", err)
 	}
 
-	if LibProvingABI, err = bindings.LibProvingMetaData.GetAbi(); err != nil {
+	if LibProvingABI, err = ontakeBindings.LibProvingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProving ABI error", "error", err)
 	}
 
-	if LibUtilsABI, err = bindings.LibUtilsMetaData.GetAbi(); err != nil {
+	if LibUtilsABI, err = ontakeBindings.LibUtilsMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibUtils ABI error", "error", err)
 	}
 
-	if LibVerifyingABI, err = bindings.LibVerifyingMetaData.GetAbi(); err != nil {
+	if LibVerifyingABI, err = ontakeBindings.LibVerifyingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibVerifying ABI error", "error", err)
 	}
 
-	if SGXVerifierABI, err = bindings.SgxVerifierMetaData.GetAbi(); err != nil {
+	if SGXVerifierABI, err = ontakeBindings.SgxVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get SGXVerifier ABI error", err)
 	}
 
-	if GuardianVerifierABI, err = bindings.GuardianVerifierMetaData.GetAbi(); err != nil {
+	if GuardianVerifierABI, err = ontakeBindings.GuardianVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get GuardianVerifier ABI error", "error", err)
 	}
 
-	if ProverSetABI, err = bindings.ProverSetMetaData.GetAbi(); err != nil {
+	if ProverSetABI, err = ontakeBindings.ProverSetMetaData.GetAbi(); err != nil {
+		log.Crit("Get ProverSet ABI error", "error", err)
+	}
+
+	if ForkRouterABI, err = ontakeBindings.ForkRouterMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForkRouter ABI error", "error", err)
+	}
+
+	if TaikoInboxABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoInbox ABI error", "error", err)
+	}
+
+	if TaikoAnchorABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoAnchor ABI error", "error", err)
+	}
+
+	if ForkRouterPacayaABI, err = pacayaBindings.ForkRouterMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForkRouter ABI error", "error", err)
+	}
+
+	if TaikoTokenPacayaABI, err = pacayaBindings.TaikoTokenMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoToken ABI error", "error", err)
+	}
+
+	if ProverSetPavayaABI, err = pacayaBindings.ProverSetMetaData.GetAbi(); err != nil {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
@@ -276,6 +377,12 @@ func init() {
 		SGXVerifierABI.Errors,
 		GuardianVerifierABI.Errors,
 		ProverSetABI.Errors,
+		ForkRouterABI.Errors,
+		TaikoInboxABI.Errors,
+		TaikoAnchorABI.Errors,
+		ForkRouterPacayaABI.Errors,
+		TaikoTokenPacayaABI.Errors,
+		ProverSetPavayaABI.Errors,
 	}
 }
 
@@ -288,11 +395,20 @@ func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 	return b, nil
 }
 
+// EncodeBatchParams performs the solidity `abi.encode` for the given pacaya batchParams.
+func EncodeBatchParams(params *BatchParams) ([]byte, error) {
+	b, err := batchParamsComponentsArgs.Pack(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
+	}
+	return b, nil
+}
+
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.
 func EncodeProveBlockInput(
-	meta metadata.TaikoBlockMetaData,
-	transition *bindings.TaikoDataTransition,
-	tierProof *bindings.TaikoDataTierProof,
+	meta metadata.TaikoProposalMetaData,
+	transition *ontakeBindings.TaikoDataTransition,
+	tierProof *ontakeBindings.TaikoDataTierProof,
 ) ([]byte, error) {
 	var (
 		b   []byte
@@ -311,8 +427,8 @@ func EncodeProveBlockInput(
 
 // EncodeProveBlocksInput performs the solidity `abi.encode` for the given TaikoL1.proveBlocks input.
 func EncodeProveBlocksInput(
-	metas []metadata.TaikoBlockMetaData,
-	transitions []bindings.TaikoDataTransition,
+	metas []metadata.TaikoProposalMetaData,
+	transitions []ontakeBindings.TaikoDataTransition,
 ) ([][]byte, error) {
 	if len(metas) != len(transitions) {
 		return nil, fmt.Errorf("both arrays of TaikoBlockMetaData and TaikoDataTransition must be equal in length")
@@ -335,7 +451,7 @@ func EncodeProveBlocksInput(
 
 // EncodeProveBlocksBatchProof performs the solidity `abi.encode` for the given TaikoL1.proveBlocks batchProof.
 func EncodeProveBlocksBatchProof(
-	tierProof *bindings.TaikoDataTierProof,
+	tierProof *ontakeBindings.TaikoDataTierProof,
 ) ([]byte, error) {
 	input, err := proveBlocksBatchProofArgs.Pack(
 		tierProof,
@@ -344,6 +460,18 @@ func EncodeProveBlocksBatchProof(
 		return nil, fmt.Errorf("failed to abi.encode TaikoL1.proveBlocks input item after ontake fork, %w", err)
 	}
 	return input, nil
+}
+
+// CalculatePacayaDifficulty calculates the difficulty for the given pacaya block.
+func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
+	args := []interface{}{"TAIKO_DIFFICULTY", blockNum}
+
+	packed, err := abi.Arguments{}.PackValues(args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode pacaya difficulty, %w", err)
+	}
+
+	return packed, nil
 }
 
 // UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.

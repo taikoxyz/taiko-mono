@@ -12,7 +12,7 @@ import (
 
 // Submitter is the interface for submitting proofs of the L2 blocks.
 type Submitter interface {
-	RequestProof(ctx context.Context, meta metadata.TaikoBlockMetaData) error
+	RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error
 	SubmitProof(ctx context.Context, proofWithHeader *proofProducer.ProofWithHeader) error
 	BatchSubmitProofs(ctx context.Context, proofsWithHeaders *proofProducer.BatchProofs) error
 	AggregateProofs(ctx context.Context) error
@@ -29,7 +29,7 @@ type Contester interface {
 		blockID *big.Int,
 		proposedIn *big.Int,
 		parentHash common.Hash,
-		meta metadata.TaikoBlockMetaData,
+		meta metadata.TaikoProposalMetaData,
 		tier uint16,
 	) error
 }

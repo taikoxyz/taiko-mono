@@ -20,14 +20,14 @@ func (o *OptimisticProofProducer) RequestProof(
 	_ context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 	header *types.Header,
 	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request optimistic proof",
 		"blockID", blockID,
-		"coinbase", meta.GetCoinbase(),
+		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
 		"hash", header.Hash(),
 	)
 
@@ -48,7 +48,7 @@ func (o *OptimisticProofProducer) Aggregate(
 	}
 	blockIDs := make([]*big.Int, len(items))
 	for i, item := range items {
-		blockIDs[i] = item.Meta.GetBlockID()
+		blockIDs[i] = item.Meta.TaikoBlockMetaDataOntake().GetBlockID()
 	}
 	batchProof, err := o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
 	if err != nil {

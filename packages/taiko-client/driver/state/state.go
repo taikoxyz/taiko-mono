@@ -6,13 +6,15 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -30,6 +32,7 @@ type State struct {
 	// Constants
 	GenesisL1Height  *big.Int
 	OnTakeForkHeight *big.Int
+	PacayaForkHeight *big.Int
 
 	// RPC clients
 	rpc *rpc.Client
@@ -62,16 +65,13 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
+	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.OntakeClients.ForkHeight)
+	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeight)
 
-	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
-	s.OnTakeForkHeight = new(big.Int).SetUint64(protocolConfigs.OntakeForkHeight)
-
-	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
+	log.Info("Genesis L1 height", "height", stateVars.Stats1.GenesisHeight)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
+	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -96,7 +96,11 @@ func (s *State) init(ctx context.Context) error {
 	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
 	s.setL2Head(l2Head)
 
-	s.setHeadBlockID(new(big.Int).SetUint64(stateVars.B.NumBlocks - 1))
+	batch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
+	if err != nil {
+		return err
+	}
+	s.setHeadBlockID(new(big.Int).SetUint64(batch.LastBlockId))
 
 	return nil
 }
@@ -108,54 +112,58 @@ func (s *State) eventLoop(ctx context.Context) {
 
 	var (
 		// Channels for subscriptions.
-		l1HeadCh             = make(chan *types.Header, 10)
-		l2HeadCh             = make(chan *types.Header, 10)
-		blockProposedCh      = make(chan *bindings.TaikoL1ClientBlockProposed, 10)
-		transitionProvedCh   = make(chan *bindings.TaikoL1ClientTransitionProved, 10)
-		blockVerifiedCh      = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
-		blockProposedV2Ch    = make(chan *bindings.TaikoL1ClientBlockProposedV2, 10)
-		transitionProvedV2Ch = make(chan *bindings.TaikoL1ClientTransitionProvedV2, 10)
-		blockVerifiedV2Ch    = make(chan *bindings.TaikoL1ClientBlockVerifiedV2, 10)
+		l1HeadCh                = make(chan *types.Header, 10)
+		l2HeadCh                = make(chan *types.Header, 10)
+		blockProposedV2Ch       = make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2, 10)
+		transitionProvedV2Ch    = make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, 10)
+		blockVerifiedV2Ch       = make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, 10)
+		batchProposedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchProposed, 10)
+		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
+		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
 
 		// Subscriptions.
-		l1HeadSub               = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
-		l2HeadSub               = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
-		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.TaikoL1, blockProposedCh)
-		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)
-		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.TaikoL1, blockVerifiedV2Ch)
-		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.TaikoL1, blockProposedV2Ch)
-		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.TaikoL1, transitionProvedV2Ch)
+		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
+		l2HeadSub                  = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
+		l2BlockVerifiedV2Sub       = rpc.SubscribeBlockVerifiedV2(s.rpc.OntakeClients.TaikoL1, blockVerifiedV2Ch)
+		l2BlockProposedV2Sub       = rpc.SubscribeBlockProposedV2(s.rpc.OntakeClients.TaikoL1, blockProposedV2Ch)
+		l2TransitionProvedV2Sub    = rpc.SubscribeTransitionProvedV2(s.rpc.OntakeClients.TaikoL1, transitionProvedV2Ch)
+		l2BatchesVerifiedPacayaSub = rpc.SubscribeBatchesVerifiedPacaya(
+			s.rpc.PacayaClients.TaikoInbox,
+			batchesVerifiedPacayaCh,
+		)
+		l2BatchProposedPacayaSub = rpc.SubscribeBatchProposedPacaya(s.rpc.PacayaClients.TaikoInbox, batchProposedPacayaCh)
+		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
 	)
 
 	defer func() {
 		l1HeadSub.Unsubscribe()
 		l2HeadSub.Unsubscribe()
-		l2BlockVerifiedSub.Unsubscribe()
-		l2BlockProposedSub.Unsubscribe()
-		l2TransitionProvedSub.Unsubscribe()
 		l2BlockVerifiedV2Sub.Unsubscribe()
 		l2BlockProposedV2Sub.Unsubscribe()
 		l2TransitionProvedV2Sub.Unsubscribe()
+		l2BatchesVerifiedPacayaSub.Unsubscribe()
+		l2BatchProposedPacayaSub.Unsubscribe()
+		l2BatchesProvedPacayaSub.Unsubscribe()
 	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-blockProposedCh:
-			s.setHeadBlockID(e.BlockId)
 		case e := <-blockProposedV2Ch:
 			s.setHeadBlockID(e.BlockId)
-		case e := <-transitionProvedCh:
-			log.Info(
-				"✅ Transition proven",
-				"blockID", e.BlockId,
-				"parentHash", common.Hash(e.Tran.ParentHash),
-				"hash", common.Hash(e.Tran.BlockHash),
-				"stateRoot", common.Hash(e.Tran.StateRoot),
-				"prover", e.Prover,
-			)
+		case e := <-batchProposedPacayaCh:
+			if err := backoff.Retry(func() error {
+				batchInfo, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, e.Meta.BatchId)
+				if err != nil {
+					log.Error("Failed to fetch the latest batch info from protocol", "error", err)
+					return err
+				}
+				s.setHeadBlockID(new(big.Int).SetUint64(batchInfo.LastBlockId))
+				return nil
+			}, backoff.WithContext(backoff.NewExponentialBackOff(), ctx)); err != nil {
+				log.Error("Failed to fetch the latest L2 head from protocol", "error", err)
+			}
 		case e := <-transitionProvedV2Ch:
 			log.Info(
 				"✅ Transition proven",
@@ -165,13 +173,11 @@ func (s *State) eventLoop(ctx context.Context) {
 				"stateRoot", common.Hash(e.Tran.StateRoot),
 				"prover", e.Prover,
 			)
-		case e := <-blockVerifiedCh:
+		case e := <-batchesProvedPacayaCh:
 			log.Info(
-				"📈 Block verified",
-				"blockID", e.BlockId,
-				"hash", common.Hash(e.BlockHash),
-				"stateRoot", common.Hash(e.StateRoot),
-				"prover", e.Prover,
+				"✅ Batches proven",
+				"batchIDs", e.BatchIds,
+				"verifier", e.Verifier,
 			)
 		case e := <-blockVerifiedV2Ch:
 			log.Info(
@@ -179,6 +185,12 @@ func (s *State) eventLoop(ctx context.Context) {
 				"blockID", e.BlockId,
 				"hash", common.Hash(e.BlockHash),
 				"prover", e.Prover,
+			)
+		case e := <-batchesVerifiedPacayaCh:
+			log.Info(
+				"📈 Batches verified",
+				"lastVerifiedBatchId", e.BatchId,
+				"lastVerifiedBlockhash", common.Hash(e.BlockHash),
 			)
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
@@ -248,4 +260,12 @@ func (s *State) IsOnTake(num *big.Int) bool {
 		return false
 	}
 	return s.OnTakeForkHeight.Cmp(num) <= 0
+}
+
+// IsPacaya returns whether num is either equal to the pacaya block or greater.
+func (s *State) IsPacaya(num *big.Int) bool {
+	if s.PacayaForkHeight == nil || num == nil {
+		return false
+	}
+	return s.PacayaForkHeight.Cmp(num) <= 0
 }

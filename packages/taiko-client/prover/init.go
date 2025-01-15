@@ -32,7 +32,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	}
 
 	// Check the existing allowance for the contract.
-	allowance, err := p.rpc.TaikoToken.Allowance(
+	allowance, err := p.rpc.PacayaClients.TaikoToken.Allowance(
 		&bind.CallOpts{Context: ctx},
 		p.ProverAddress(),
 		contract,
@@ -78,7 +78,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	)
 
 	// Check the new allowance for the contract.
-	if allowance, err = p.rpc.TaikoToken.Allowance(
+	if allowance, err = p.rpc.PacayaClients.TaikoToken.Allowance(
 		&bind.CallOpts{Context: ctx},
 		p.ProverAddress(),
 		contract,
@@ -182,8 +182,8 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 	}
 
 	if startingBlockID == nil {
-		if stateVars.B.LastVerifiedBlockId == 0 {
-			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(stateVars.A.GenesisHeight))
+		if stateVars.Stats2.LastVerifiedBatchId == 0 { // TODO: update to block
+			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(0)) // TODO: use genesis height
 			if err != nil {
 				return err
 			}
@@ -192,7 +192,7 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 			return nil
 		}
 
-		startingBlockID = new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId)
+		startingBlockID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId) // TODO: update to block
 	}
 
 	log.Info("Init L1Current cursor", "startingBlockID", startingBlockID)

@@ -17,8 +17,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -37,28 +38,13 @@ var (
 	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
 
-// GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
-func GetProtocolConfigs(
-	taikoL1Client *bindings.TaikoL1Client,
-	opts *bind.CallOpts,
-) (bindings.TaikoDataConfig, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
-	defer cancel()
-
-	return taikoL1Client.GetConfig(opts)
-}
-
-// GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
+// GetProtocolStateVariables gets the protocol states from TaikoInbox contract.
 func GetProtocolStateVariables(
-	taikoL1Client *bindings.TaikoL1Client,
+	taikoInboxClient *pacayaBindings.TaikoInboxClient,
 	opts *bind.CallOpts,
 ) (*struct {
-	A bindings.TaikoDataSlotA
-	B bindings.TaikoDataSlotB
+	Stats1 pacayaBindings.ITaikoInboxStats1
+	Stats2 pacayaBindings.ITaikoInboxStats2
 }, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -66,32 +52,26 @@ func GetProtocolStateVariables(
 	}
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
-	// Notice: sloB.LastProposedIn and slotB.LastUnpausedAt are always 0
-	// before upgrading contract, but we can ignore it since we won't use it.
 
-	var slotBV1 bindings.TaikoDataSlotBV1
-	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
-	if err != nil {
-		if errors.Is(err, ErrSlotBMarshal) {
-			slotA, slotBV1, err = taikoL1Client.GetStateVariablesV1(opts)
-			if err != nil {
-				return nil, err
-			}
-			slotB = bindings.TaikoDataSlotB{
-				NumBlocks:           slotBV1.NumBlocks,
-				LastVerifiedBlockId: slotBV1.LastVerifiedBlockId,
-				ProvingPaused:       slotBV1.ProvingPaused,
-				LastProposedIn:      nil,
-				LastUnpausedAt:      slotBV1.LastUnpausedAt,
-			}
-		} else {
-			return nil, err
+	var (
+		states *struct {
+			Stats1 pacayaBindings.ITaikoInboxStats1
+			Stats2 pacayaBindings.ITaikoInboxStats2
 		}
-	}
-	return &struct {
-		A bindings.TaikoDataSlotA
-		B bindings.TaikoDataSlotB
-	}{slotA, slotB}, nil
+		err error
+	)
+
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		states.Stats1, err = taikoInboxClient.GetStats1(opts)
+		return err
+	})
+	g.Go(func() error {
+		states.Stats2, err = taikoInboxClient.GetStats2(opts)
+		return err
+	})
+
+	return states, g.Wait()
 }
 
 // CheckProverBalance checks if the prover has the necessary allowance and
@@ -107,7 +87,7 @@ func CheckProverBalance(
 	defer cancel()
 
 	// Check allowance on taiko token contract
-	allowance, err := rpc.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
+	allowance, err := rpc.PacayaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
 	if err != nil {
 		return false, err
 	}
@@ -120,13 +100,13 @@ func CheckProverBalance(
 	)
 
 	// Check prover's taiko token bondBalance
-	bondBalance, err := rpc.TaikoL1.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	bondBalance, err := rpc.PacayaClients.TaikoInbox.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
 
 	// Check prover's taiko token tokenBalance
-	tokenBalance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	tokenBalance, err := rpc.PacayaClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
@@ -166,7 +146,7 @@ func CheckProverBalance(
 type BlockProofStatus struct {
 	IsSubmitted            bool
 	Invalid                bool
-	CurrentTransitionState *bindings.TaikoDataTransitionState
+	CurrentTransitionState *ontakeBindings.TaikoDataTransitionState
 	ParentHeader           *types.Header
 }
 
@@ -193,7 +173,7 @@ func GetBlockProofStatus(
 	}
 
 	// Get the transition state from TaikoL1 contract.
-	transition, err := cli.TaikoL1.GetTransition0(
+	transition, err := cli.OntakeClients.TaikoL1.GetTransition0(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		id.Uint64(),
 		parent.Hash(),
@@ -310,7 +290,7 @@ func BatchGetBlocksProofStatus(
 		parentHashes[i] = parents[i].Hash()
 	}
 	// Get the transition state from TaikoL1 contract.
-	transitions, err := cli.TaikoL1.GetTransitions(
+	transitions, err := cli.OntakeClients.TaikoL1.GetTransitions(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		uint64BlockIDs,
 		parentHashes,

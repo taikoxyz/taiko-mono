@@ -8,8 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -21,7 +22,7 @@ type EndBlockProposedEventIterFunc func()
 // iterated.
 type OnBlockProposedEvent func(
 	context.Context,
-	metadata.TaikoBlockMetaData,
+	metadata.TaikoProposalMetaData,
 	EndBlockProposedEventIterFunc,
 ) error
 
@@ -29,20 +30,20 @@ type OnBlockProposedEvent func(
 // with the awareness of reorganization.
 type BlockProposedIterator struct {
 	ctx                context.Context
-	taikoL1            *bindings.TaikoL1Client
+	taikoL1            *ontakeBindings.TaikoL1Client
+	taikoInbox         *pacayaBindings.TaikoInboxClient
 	blockBatchIterator *chainIterator.BlockBatchIterator
-	filterQuery        []*big.Int
 	isEnd              bool
 }
 
 // BlockProposedIteratorConfig represents the configs of a BlockProposed event iterator.
 type BlockProposedIteratorConfig struct {
 	Client                *rpc.EthClient
-	TaikoL1               *bindings.TaikoL1Client
+	TaikoL1               *ontakeBindings.TaikoL1Client
+	TaikoInbox            *pacayaBindings.TaikoInboxClient
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
-	FilterQuery           []*big.Int
 	OnBlockProposedEvent  OnBlockProposedEvent
 	BlockConfirmations    *uint64
 }
@@ -54,9 +55,8 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 	}
 
 	iterator := &BlockProposedIterator{
-		ctx:         ctx,
-		taikoL1:     cfg.TaikoL1,
-		filterQuery: cfg.FilterQuery,
+		ctx:     ctx,
+		taikoL1: cfg.TaikoL1,
 	}
 
 	// Initialize the inner block iterator.
@@ -69,7 +69,7 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 		OnBlocks: assembleBlockProposedIteratorCallback(
 			cfg.Client,
 			cfg.TaikoL1,
-			cfg.FilterQuery,
+			cfg.TaikoInbox,
 			cfg.OnBlockProposedEvent,
 			iterator,
 		),
@@ -98,8 +98,8 @@ func (i *BlockProposedIterator) end() {
 // by a event iterator's inner block iterator.
 func assembleBlockProposedIteratorCallback(
 	client *rpc.EthClient,
-	taikoL1 *bindings.TaikoL1Client,
-	filterQuery []*big.Int,
+	taikoL1 *ontakeBindings.TaikoL1Client,
+	taikoInbox *pacayaBindings.TaikoInboxClient,
 	callback OnBlockProposedEvent,
 	eventIter *BlockProposedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -113,7 +113,7 @@ func assembleBlockProposedIteratorCallback(
 
 		iterOntake, err := taikoL1.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
-			filterQuery,
+			nil,
 		)
 		if err != nil {
 			return err
@@ -140,6 +140,42 @@ func assembleBlockProposedIteratorCallback(
 			updateCurrentFunc(current)
 		}
 
-		return iterOntake.Error()
+		iterPacaya, err := taikoInbox.FilterBatchProposed(
+			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
+		)
+		if err != nil {
+			return err
+		}
+		defer iterPacaya.Close()
+
+		for iterPacaya.Next() {
+			event := iterPacaya.Event
+
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {
+				return err
+			}
+
+			if eventIter.isEnd {
+				endFunc()
+				return nil
+			}
+
+			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			if err != nil {
+				return err
+			}
+
+			updateCurrentFunc(current)
+		}
+
+		// Check if there is any error during the iteration.
+		if iterOntake.Error() != nil {
+			return iterOntake.Error()
+		}
+		if iterPacaya.Error() != nil {
+			return iterPacaya.Error()
+		}
+
+		return nil
 	}
 }

@@ -17,7 +17,7 @@ type DummyProofProducer struct{}
 func (o *DummyProofProducer) RequestProof(
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 	header *types.Header,
 	tier uint16,
 	_ time.Time,

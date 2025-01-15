@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
@@ -146,6 +147,14 @@ func (b *TxBuilderWithFallback) BuildOntake(
 	log.Info("Building a type-3 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
 	metrics.ProposerProposeByBlob.Inc()
 	return txWithBlob, nil
+}
+
+// BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
+func (b *TxBuilderWithFallback) BuildPacaya(
+	ctx context.Context,
+	txBatch []types.Transactions,
+) (*txmgr.TxCandidate, error) {
+	return nil, fmt.Errorf("pacaya transaction builder is not supported for fallback transaction builder")
 }
 
 // estimateCandidateCost estimates the realtime onchain cost of the given transaction.

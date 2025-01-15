@@ -19,8 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -127,12 +127,13 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		poolContent, err := s.RPCClient.GetPoolContent(
 			context.Background(),
 			s.p.proposerAddress,
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.LocalAddresses,
 			10,
 			0,
 			s.p.chainConfig,
+			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -180,19 +181,19 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		txLengthList         []int
 	}{
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxProposedTxListsPerEpoch,
 			[]int{1500},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxProposedTxListsPerEpoch * 5,
 			[]int{1500},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit / 50,
+			s.p.protocolConfigs.BlockMaxGasLimit() / 50,
 			rpc.BlockMaxTxListBytes,
 			200,
 			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
@@ -207,6 +208,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			testCase.maxTransactionsLists,
 			0,
 			s.p.chainConfig,
+			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -261,12 +263,13 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
 			p.proposerAddress,
-			p.protocolConfigs.BlockMaxGasLimit,
+			p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			p.LocalAddresses,
 			p.MaxProposedTxListsPerEpoch,
 			0,
 			p.chainConfig,
+			p.protocolConfigs.BaseFeeConfig(),
 		)
 		time.Sleep(time.Second)
 	}
@@ -305,8 +308,8 @@ func (s *ProposerTestSuite) TestName() {
 
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -341,16 +344,16 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 }
 
 func (s *ProposerTestSuite) TestProposeTxListOntake() {
-	for i := 0; i < int(s.p.protocolConfigs.OntakeForkHeight); i++ {
+	for i := 0; i < int(s.p.protocolConfigs.ForkHeightsOntake()); i++ {
 		s.ProposeAndInsertValidBlock(s.p, s.s)
 	}
 
 	l2Head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.OntakeForkHeight)
+	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.ForkHeightsOntake())
 
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()

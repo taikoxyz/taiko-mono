@@ -1,7 +1,6 @@
 package chainsyncer
 
 import (
-	"bytes"
 	"context"
 
 	"os"
@@ -114,9 +113,6 @@ func (s *ChainSyncerTestSuite) TestSync() {
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 	s.TakeSnapshot()
-	// propose a couple blocks
-	blockMeta := s.ProposeAndInsertEmptyBlocks(s.p, s.s.blobSyncer)
-
 	// NOTE: need to prove the proposed blocks to be verified, writing helper function
 	// generate transactopts to interact with TaikoL1 contract with.
 	privKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
@@ -129,9 +125,6 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 
 	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	if !blockMeta[len(blockMeta)-1].IsOntakeBlock() {
-		s.Equal("test", string(bytes.TrimRight(l2Head.Extra, "\x00")))
-	}
 	log.Info("L1HeaderByNumber head", "number", head.Number)
 	// (equiv to s.state.GetL2Head().Number)
 	log.Info("L2HeaderByNumber head", "number", l2Head.Number)
@@ -140,7 +133,7 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 	s.IncreaseTime(uint64((1024 * time.Hour).Seconds()))
 
 	// interact with TaikoL1 contract to allow for verification of L2 blocks
-	tx, err := s.s.rpc.TaikoL1.VerifyBlocks(opts, uint64(3))
+	tx, err := s.s.rpc.OntakeClients.TaikoL1.VerifyBlocks(opts, uint64(3))
 	s.Nil(err)
 	s.NotNil(tx)
 

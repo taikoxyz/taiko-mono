@@ -47,23 +47,32 @@ func NewAssignmentExpiredEventHandler(
 // Handle implements the AssignmentExpiredHandler interface.
 func (h *AssignmentExpiredEventHandler) Handle(
 	ctx context.Context,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 ) error {
 	log.Info(
 		"Proof assignment window is expired",
-		"blockID", meta.GetBlockID(),
-		"assignedProver", meta.GetAssignedProver(),
-		"minTier", meta.GetMinTier(),
+		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		"assignedProver", meta.TaikoBlockMetaDataOntake().GetAssignedProver(),
+		"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
 	)
 
 	// Check if we still need to generate a new proof for that block.
-	proofStatus, err := rpc.GetBlockProofStatus(ctx, h.rpc, meta.GetBlockID(), h.proverAddress, h.proverSetAddress)
+	proofStatus, err := rpc.GetBlockProofStatus(
+		ctx,
+		h.rpc,
+		meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		h.proverAddress,
+		h.proverSetAddress,
+	)
 	if err != nil {
 		return err
 	}
 	if !proofStatus.IsSubmitted {
 		go func() {
-			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: meta.GetMinTier(), Meta: meta}
+			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
+				Tier: meta.TaikoBlockMetaDataOntake().GetMinTier(),
+				Meta: meta,
+			}
 		}()
 		return nil
 	}
@@ -77,8 +86,8 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	go func() {
 		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress && !h.isGuardian {
 			h.proofContestCh <- &proofProducer.ContestRequestBody{
-				BlockID:    meta.GetBlockID(),
-				ProposedIn: meta.GetRawBlockHeight(),
+				BlockID:    meta.TaikoBlockMetaDataOntake().GetBlockID(),
+				ProposedIn: meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
 				ParentHash: proofStatus.ParentHeader.Hash(),
 				Meta:       meta,
 				Tier:       proofStatus.CurrentTransitionState.Tier,

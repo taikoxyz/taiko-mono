@@ -35,14 +35,14 @@ func (g *GuardianProofProducer) RequestProof(
 	_ context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 	header *types.Header,
 	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request guardian proof",
 		"blockID", blockID,
-		"coinbase", meta.GetCoinbase(),
+		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
 		"hash", header.Hash(),
 	)
 
