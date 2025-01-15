@@ -240,6 +240,7 @@ interface ITaikoInbox {
     error NotFirstProposal();
     error NotPreconfRouter();
     error ParentMetaHashMismatch();
+    error SameTransition();
     error SignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();

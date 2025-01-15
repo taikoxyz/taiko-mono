@@ -426,7 +426,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         }
     }
 
-    function test_inbox_reprove_the_same_batch_with_same_transition_is_ok()
+    function test_inbox_reprove_the_same_batch_with_same_transition_will_revert()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(1)
@@ -444,13 +444,12 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
         _logAllBatchesAndTransitions();
 
+        vm.expectRevert(ITaikoInbox.SameTransition.selector);
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
-        _logAllBatchesAndTransitions();
-
-        assertEq(EssentialContract(address(inbox)).paused(), false);
     }
 
-    function test_inbox_reprove_the_same_batch_with_different_transition_is_not_ok()
+    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_or_state_root_will_pause_inbox(
+    )
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(1)
