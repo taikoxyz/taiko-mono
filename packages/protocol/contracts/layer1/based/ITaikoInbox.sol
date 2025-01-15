@@ -237,7 +237,6 @@ interface ITaikoInbox {
     error NotFirstProposal();
     error NotPreconfRouter();
     error ParentMetaHashMismatch();
-    error ProverNotPermitted();
     error SignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
