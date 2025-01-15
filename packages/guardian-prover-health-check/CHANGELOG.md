@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/guardian-prover-health-check-v0.1.0...guardian-prover-health-check-v0.1.1) (2025-01-15)
+
+
+### Chores
+
+* **guardian-prover-health-check:** fix api doc ([#18693](https://github.com/taikoxyz/taiko-mono/issues/18693)) ([3236547](https://github.com/taikoxyz/taiko-mono/commit/3236547f209e1b597e07a638662686de7ad5bbae))
+* **taiko-client:** fix typos in Swagger documentation for uptime endpoint ([#18681](https://github.com/taikoxyz/taiko-mono/issues/18681)) ([9eca280](https://github.com/taikoxyz/taiko-mono/commit/9eca280c620ecfbe572c331cdb4618c176e1727e))
+* **taiko-client:** keep env vars same with the flag name ([#17964](https://github.com/taikoxyz/taiko-mono/issues/17964)) ([d08a1de](https://github.com/taikoxyz/taiko-mono/commit/d08a1de8a36a4bac484bf0390728cb8ed87b3a0b))
+
+
+### Documentation
+
+* **repo:** remove unexist badge and action in readme ([#17928](https://github.com/taikoxyz/taiko-mono/issues/17928)) ([465456e](https://github.com/taikoxyz/taiko-mono/commit/465456ef17df5a0915b9b17cc081e215ed1c67b8))
+
+
+### Tests
+
+* **taiko-client:** use env names which defined in flag configs ([#17921](https://github.com/taikoxyz/taiko-mono/issues/17921)) ([196b74e](https://github.com/taikoxyz/taiko-mono/commit/196b74eb2b4498bc3e6511915e011a885fcc530f))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
+
+### Build
+
+* **deps:** bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#18539](https://github.com/taikoxyz/taiko-mono/issues/18539)) ([79f3fab](https://github.com/taikoxyz/taiko-mono/commit/79f3fab5f1d1ec1bb4ee18afb9268b622e894780))
+* **deps:** bump golang.org/x/sync from 0.9.0 to 0.10.0 ([#18560](https://github.com/taikoxyz/taiko-mono/issues/18560)) ([3d51970](https://github.com/taikoxyz/taiko-mono/commit/3d51970aa0953bbfecaeebf76ea7e664c875c0e4))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
