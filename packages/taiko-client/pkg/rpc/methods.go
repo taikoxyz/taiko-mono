@@ -68,9 +68,24 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return err
+	var (
+		genesisHeight uint64
+		err           error
+	)
+	if c.PacayaClients.ForkHeight == 0 {
+		stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return err
+		}
+
+		genesisHeight = stateVars.Stats1.GenesisHeight
+	} else {
+		slotA, _, err := c.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return err
+		}
+
+		genesisHeight = slotA.GenesisHeight
 	}
 
 	// Fetch the node's genesis block.
@@ -82,8 +97,8 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	var (
 		l2GenesisHash common.Hash
 		filterOpts    = &bind.FilterOpts{
-			Start:   stateVars.Stats1.GenesisHeight,
-			End:     &stateVars.Stats1.GenesisHeight,
+			Start:   genesisHeight,
+			End:     &genesisHeight,
 			Context: ctxWithTimeout,
 		}
 	)
@@ -508,6 +523,27 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	opts.Context = ctxWithTimeout
 
 	return GetProtocolStateVariables(c.PacayaClients.TaikoInbox, opts)
+}
+
+// GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
+func (c *Client) GetProtocolStateVariablesOntake(opts *bind.CallOpts) (
+	ontakeBindings.TaikoDataSlotA,
+	ontakeBindings.TaikoDataSlotB,
+	error,
+) {
+	if opts == nil {
+		opts = &bind.CallOpts{}
+	}
+
+	var ctx = context.Background()
+	if opts.Context != nil {
+		ctx = opts.Context
+	}
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+	opts.Context = ctxWithTimeout
+
+	return c.OntakeClients.TaikoL1.GetStateVariables(opts)
 }
 
 // GetLastVerifiedBlock gets the last verified block from TaikoL1 contract.
