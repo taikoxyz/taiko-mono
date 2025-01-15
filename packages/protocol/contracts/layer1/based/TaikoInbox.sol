@@ -128,7 +128,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             txListHash: calldataUsed
                 ? keccak256(_txList)
                 : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
-            extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+            // Ensure L2 block header has the proposer adddress so that blocks in p2p network can be
+            // verified based on the proposer address.
+            extraData: _encodeExtraData(config.baseFeeConfig.sharingPctg, params.proposer),
             coinbase: params.coinbase,
             batchId: stats2.numBatches,
             gasLimit: config.blockMaxGasLimit,
@@ -668,6 +670,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         require(_params.blocks.length != 0, BlockNotFound());
         require(_params.blocks.length <= _maxBlocksPerBatch, TooManyBlocks());
+    }
+
+    function _encodeExtraData(
+        uint8 _baseFeeSharingPctg,
+        address _proposer
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        return bytes32(uint256(_baseFeeSharingPctg) << 160 | uint160(_proposer));
     }
 
     // Memory-only structs ----------------------------------------------------------------------
