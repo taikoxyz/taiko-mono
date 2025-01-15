@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"time"
 
@@ -23,6 +22,7 @@ const (
 )
 
 var (
+	errEOF      = errors.New("EOF")
 	errContinue = errors.New("continue")
 )
 
@@ -143,7 +143,7 @@ func (i *BlockBatchIterator) Iter() error {
 				break
 			}
 			if err := i.iter(); err != nil {
-				if errors.Is(err, io.EOF) {
+				if errors.Is(err, errEOF) {
 					log.Debug(
 						"Block batch iterator finished",
 						"start", i.startHeight,
@@ -205,7 +205,7 @@ func (i *BlockBatchIterator) iter() (err error) {
 	}
 
 	if i.current.Number.Uint64() >= destHeight {
-		return io.EOF
+		return errEOF
 	}
 
 	endHeight = i.current.Number.Uint64() + i.blocksReadPerEpoch
@@ -226,7 +226,7 @@ func (i *BlockBatchIterator) iter() (err error) {
 	}
 
 	if i.isEnd {
-		return io.EOF
+		return errEOF
 	}
 
 	i.current = endHeader
@@ -235,7 +235,7 @@ func (i *BlockBatchIterator) iter() (err error) {
 		return errContinue
 	}
 
-	return io.EOF
+	return errEOF
 }
 
 // updateCurrent updates the iterator's current cursor.
