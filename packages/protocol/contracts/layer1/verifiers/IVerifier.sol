@@ -1,50 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/TaikoData.sol";
+import "../based/ITaikoInbox.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.
 /// @custom:security-contact security@taiko.xyz
 interface IVerifier {
     struct Context {
+        uint64 batchId;
         bytes32 metaHash;
-        bytes32 blobHash;
-        address prover;
-        uint64 blockId;
-        bool isContesting;
-        bool blobUsed;
-        address msgSender;
+        ITaikoInbox.Transition transition;
     }
 
-    struct ContextV2 {
-        bytes32 metaHash;
-        bytes32 blobHash;
-        address prover;
-        uint64 blockId;
-        bool isContesting;
-        bool blobUsed;
-        address msgSender;
-        TaikoData.Transition tran;
-    }
-
-    /// @notice Verifies a proof.
-    /// @param _ctx The context of the proof verification.
-    /// @param _tran The transition to verify.
-    /// @param _proof The proof to verify.
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external;
-
-    /// @notice Verifies multiple proofs.
+    /// @notice Verifies multiple proofs. This function must throw if the proof cannot be verified.
     /// @param _ctxs The array of contexts for the proof verifications.
     /// @param _proof The batch proof to verify.
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
-    )
-        external;
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external;
 }

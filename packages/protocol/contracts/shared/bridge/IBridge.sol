@@ -131,6 +131,10 @@ interface IBridge {
     /// @return true if the message was sent.
     function isMessageSent(Message calldata _message) external view returns (bool);
 
+    /// @notice Returns the unique id of the next bridge message
+    /// @return A unique id
+    function nextMessageId() external view returns (uint64);
+
     /// @notice Hash the message
     /// @param _message The message struct variable to be hashed.
     /// @return The message's hash.
