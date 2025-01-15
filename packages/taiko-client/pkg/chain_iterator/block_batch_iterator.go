@@ -144,9 +144,16 @@ func (i *BlockBatchIterator) Iter() error {
 			}
 			if err := i.iter(); err != nil {
 				if errors.Is(err, io.EOF) {
+					log.Debug(
+						"Block batch iterator finished",
+						"start", i.startHeight,
+						"end", i.endHeight,
+						"current", i.current.Number,
+					)
 					break
 				}
 				if errors.Is(err, errContinue) {
+					log.Debug("Block batch iterator continues", "current", i.current.Number)
 					continue
 				}
 				log.Error("Block batch iterator callback error", "error", err)
@@ -211,6 +218,8 @@ func (i *BlockBatchIterator) iter() (err error) {
 	if endHeader, err = i.client.HeaderByNumber(i.ctx, new(big.Int).SetUint64(endHeight)); err != nil {
 		return err
 	}
+
+	log.Debug("Iterating blocks", "start", i.current.Number, "end", endHeader.Number)
 
 	if err := i.onBlocks(i.ctx, i.current, endHeader, i.updateCurrent, i.end); err != nil {
 		return err
@@ -286,6 +295,8 @@ func (i *BlockBatchIterator) rewindOnReorgDetected() error {
 	if err != nil {
 		return err
 	}
+
+	log.Debug("Rewind on reorg detected", "oldCurrent", i.current.Number, "newCurrent", current.Number)
 
 	i.current = current
 	return nil
