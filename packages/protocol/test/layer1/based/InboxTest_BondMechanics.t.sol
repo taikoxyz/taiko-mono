@@ -26,7 +26,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
              }),
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 256,
+            maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
