@@ -60,7 +60,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
-    function test_block_rejection_due_to_missing_txlist_and_blobindex() external {
+    function test_batch_rejection_due_to_missing_txlist_and_blobindex() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -77,7 +77,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "");
     }
 
-    function test_propose_block_with_empty_txlist_and_valid_blobindex() external {
+    function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -134,7 +134,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds1);
     }
 
-    function test_prove_block_with_mismatched_txlist() external {
+    function test_prove_batch_with_mismatched_txlist() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
