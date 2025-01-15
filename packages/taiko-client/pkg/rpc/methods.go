@@ -238,13 +238,24 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	// stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
-	// if err != nil {
-	// 	return nil, err
-	// }
+	var l1Height *big.Int
+	if c.PacayaClients.ForkHeight == 0 {
+		stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO: use stateVars.A.GenesisHeight
-	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(0))
+		l1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+	} else {
+		slotA, _, err := c.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return nil, err
+		}
+
+		l1Height = new(big.Int).SetUint64(slotA.GenesisHeight)
+	}
+
+	return c.L1.HeaderByNumber(ctxWithTimeout, l1Height)
 }
 
 // L2ParentByBlockID fetches the block header from L2 execution engine with the largest block id that
@@ -473,12 +484,26 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
-		// TODO: fix this
-		// stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
-		// if err != nil {
-		// 	return err
-		// }
-		// progress.HighestBlockID = new(big.Int).SetUint64(stateVars.B.NumBlocks - 1)
+		// Try get the highest block ID from the Pacaya protocol state variables.
+		stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			// If can't fetch the Pacaya protocol state variables, we will try to get the highest block ID from
+			// the Ontake protocol state variables.
+			_, slotB, err := c.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
+			if err != nil {
+				return err
+			}
+			progress.HighestBlockID = new(big.Int).SetUint64(slotB.NumBlocks - 1)
+			return err
+		}
+
+		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
+		if err != nil {
+			return err
+		}
+
+		progress.HighestBlockID = new(big.Int).SetUint64(batch.LastBlockId)
+
 		return nil
 	})
 	g.Go(func() error {
@@ -813,7 +838,7 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 				0,
 				errors.New("failed to parse parentGasUsed from anchor transaction calldata")
 		}
-	case "anchorV2":
+	case "anchorV2", "anchorV3":
 		args := map[string]interface{}{}
 
 		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
@@ -825,25 +850,25 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 			return common.Hash{},
 				0,
 				0,
-				errors.New("failed to parse anchorBlockId from anchorV2 transaction calldata")
+				errors.New("failed to parse anchorBlockId from anchorV2 / anchorV3 transaction calldata")
 		}
 		l1StateRoot, ok = args["_anchorStateRoot"].([32]byte)
 		if !ok {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("failed to parse anchorStateRoot from anchorV2 transaction calldata")
+				errors.New("failed to parse anchorStateRoot from anchorV2 / anchorV3 transaction calldata")
 		}
 		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
 		if !ok {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("failed to parse parentGasUsed from anchorV2 transaction calldata")
+				errors.New("failed to parse parentGasUsed from anchorV2 / anchorV3 transaction calldata")
 		}
 	default:
 		return common.Hash{}, 0, 0, fmt.Errorf(
-			"invalid method name for anchor / anchorV2 transaction: %s",
+			"invalid method name for anchor / anchorV2 / anchorV3 transaction: %s",
 			method.Name,
 		)
 	}
@@ -902,61 +927,14 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 	return tiers, nil
 }
 
-// GetTaikoDataSlotBByNumber fetches the state variables by block number.
-func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (*ontakeBindings.TaikoDataSlotB, error) {
-	iter, err := c.OntakeClients.TaikoL1.FilterStateVariablesUpdated(
-		&bind.FilterOpts{Context: ctx, Start: number, End: &number},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	for iter.Next() {
-		return &iter.Event.SlotB, nil
-	}
-	if iter.Error() != nil {
-		return nil, fmt.Errorf("failed to get state variables by block number %d: %w", number, iter.Error())
-	}
-
-	return nil, fmt.Errorf("failed to get state variables by block number %d", number)
-}
-
 // GetGuardianProverAddress fetches the guardian prover address from the protocol.
 func (c *Client) GetGuardianProverAddress(ctx context.Context) (common.Address, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.OntakeClients.TaikoL1.Resolve0(&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false)
-}
-
-// WaitL1NewPendingTransaction waits until the L1 account has a new pending transaction.
-func (c *Client) WaitL1NewPendingTransaction(
-	ctx context.Context,
-	address common.Address,
-	oldPendingNonce uint64,
-) error {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	ticker := time.NewTicker(rpcPollingInterval)
-	defer ticker.Stop()
-
-	for ; true; <-ticker.C {
-		if ctxWithTimeout.Err() != nil {
-			return ctxWithTimeout.Err()
-		}
-
-		nonce, err := c.L1.PendingNonceAt(ctxWithTimeout, address)
-		if err != nil {
-			return err
-		}
-
-		if nonce != oldPendingNonce {
-			break
-		}
-	}
-
-	return nil
+	return c.OntakeClients.TaikoL1.Resolve0(
+		&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false,
+	)
 }
 
 // CalculateBaseFeeOnTake calculates the base fee after ontake fork from the L2 protocol.
