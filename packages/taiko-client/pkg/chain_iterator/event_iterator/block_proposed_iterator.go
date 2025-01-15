@@ -132,6 +132,13 @@ func assembleBlockProposedIteratorCallback(
 			log.Debug("Processing BlockProposedV2 event", "block", event.BlockId, "l1BlockHeight", event.Raw.BlockNumber)
 
 			if lastBlockID != 0 && event.BlockId.Uint64() != lastBlockID+1 {
+				log.Warn(
+					"BlockProposedV2 event is not continuous, rescan the L1 chain",
+					"fromL1Block", start.Number,
+					"toL1Block", endHeight,
+					"lastScannedBlockID", lastBlockID,
+					"currentScannedBlockID", event.BlockId.Uint64(),
+				)
 				return fmt.Errorf(
 					"BlockProposedV2 event is not continuous, lastScannedBlockID: %d, currentScannedBlockID: %d",
 					lastBlockID, event.BlockId.Uint64(),
