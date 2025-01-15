@@ -14,7 +14,8 @@ contract InboxTest_BondMechanics is InboxTestBase {
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token
+            livenessBondBase: 125e18, // 125 Taiko token per batch
+            livenessBondPerBlock: 5e18, // 5 Taiko token per block
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -126,5 +127,13 @@ contract InboxTest_BondMechanics is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
+    }
+
+    function test_inbox_bonds_multiple_blocks_per_batch() external transactBy(Alice) {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](2);
+
+        ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "txList");
+        assertEq(meta.livenessBond, 125e18 + 5e18 * 2);
     }
 }
