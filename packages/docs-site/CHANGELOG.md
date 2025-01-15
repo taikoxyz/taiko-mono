@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.21.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.3...docs-site-v1.21.4) (2025-01-15)
+
+
+### Chores
+
+* **docs-site:** update network config and add batch proof guide ([#18776](https://github.com/taikoxyz/taiko-mono/issues/18776)) ([8710cd8](https://github.com/taikoxyz/taiko-mono/commit/8710cd866d407bca4eb977142d5e38786de94672))
+
 ## [1.21.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.2...docs-site-v1.21.3) (2025-01-13)
 
 
