@@ -20,6 +20,7 @@ const (
 	DefaultBlocksReadPerEpoch = 1000
 	DefaultRetryInterval      = 12 * time.Second
 	DefaultBlockConfirmations = 0
+	BackOffMaxRetries         = 5
 )
 
 var (
@@ -163,7 +164,13 @@ func (i *BlockBatchIterator) Iter() error {
 		return nil
 	}
 
-	if err := backoff.Retry(iterOp, backoff.WithContext(backoff.NewConstantBackOff(i.retryInterval), i.ctx)); err != nil {
+	if err := backoff.Retry(
+		iterOp,
+		backoff.WithMaxRetries(
+			backoff.WithContext(backoff.NewConstantBackOff(i.retryInterval), i.ctx),
+			BackOffMaxRetries,
+		),
+	); err != nil {
 		return err
 	}
 
