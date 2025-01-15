@@ -125,6 +125,7 @@ func assembleBlockProposedIteratorCallback(
 
 		for iterOntake.Next() {
 			event := iterOntake.Event
+			log.Debug("Processing BlockProposedV2 event", "block", event.BlockId, "l1BlockHeight", event.Raw.BlockNumber)
 
 			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataOntake(event), eventIter.end); err != nil {
 				log.Warn("Error while processing BlockProposedV2 events, keep retrying", "error", err)
