@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	errEOF      = errors.New("End of batch")
+	errEOF      = errors.New("end of batch")
 	errContinue = errors.New("continue")
 )
 
