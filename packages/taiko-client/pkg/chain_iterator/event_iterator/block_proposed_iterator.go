@@ -163,6 +163,8 @@ func assembleBlockProposedIteratorCallback(
 
 			log.Debug("Updating current block cursor for processing BlockProposedV2 events", "block", current.Number)
 
+			lastBlockID = event.BlockId.Uint64()
+
 			updateCurrentFunc(current)
 		}
 
