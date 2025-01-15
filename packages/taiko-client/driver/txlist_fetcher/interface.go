@@ -10,5 +10,5 @@ import (
 
 // TxListFetcher is responsible for fetching the L2 txList bytes from L1
 type TxListFetcher interface {
-	Fetch(ctx context.Context, tx *types.Transaction, meta metadata.TaikoBlockMetaDataOntake) ([]byte, error)
+	FetchOntake(ctx context.Context, tx *types.Transaction, meta metadata.TaikoBlockMetaDataOntake) ([]byte, error)
 }

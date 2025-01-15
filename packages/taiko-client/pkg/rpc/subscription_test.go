@@ -17,31 +17,31 @@ func TestSubscribeEvent(t *testing.T) {
 	}))
 }
 
-func TestSubscribeBlockVerified(t *testing.T) {
-	require.NotNil(t, SubscribeBlockVerified(
+func TestSubscribeBlockVerifiedV2(t *testing.T) {
+	require.NotNil(t, SubscribeBlockVerifiedV2(
 		newTestClient(t).OntakeClients.TaikoL1,
-		make(chan *ontakeBindings.TaikoL1ClientBlockVerified, 1024)),
+		make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, 1024)),
 	)
 }
 
 func TestSubscribeBlockProposed(t *testing.T) {
-	require.NotNil(t, SubscribeBlockProposed(
+	require.NotNil(t, SubscribeBlockProposedV2(
 		newTestClient(t).OntakeClients.TaikoL1,
-		make(chan *ontakeBindings.TaikoL1ClientBlockProposed, 1024)),
+		make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2, 1024)),
 	)
 }
 
 func TestSubscribeTransitionProved(t *testing.T) {
-	require.NotNil(t, SubscribeTransitionProved(
+	require.NotNil(t, SubscribeTransitionProvedV2(
 		newTestClient(t).OntakeClients.TaikoL1,
-		make(chan *ontakeBindings.TaikoL1ClientTransitionProved, 1024)),
+		make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, 1024)),
 	)
 }
 
 func TestSubscribeTransitionContested(t *testing.T) {
-	require.NotNil(t, SubscribeTransitionContested(
+	require.NotNil(t, SubscribeTransitionContestedV2(
 		newTestClient(t).OntakeClients.TaikoL1,
-		make(chan *ontakeBindings.TaikoL1ClientTransitionContested, 1024)),
+		make(chan *ontakeBindings.TaikoL1ClientTransitionContestedV2, 1024)),
 	)
 }
 

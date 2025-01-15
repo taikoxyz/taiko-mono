@@ -27,7 +27,7 @@ func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *B
 }
 
 // Fetch implements the TxListFetcher interface.
-func (d *BlobFetcher) Fetch(
+func (d *BlobFetcher) FetchOntake(
 	ctx context.Context,
 	_ *types.Transaction,
 	meta metadata.TaikoBlockMetaDataOntake,

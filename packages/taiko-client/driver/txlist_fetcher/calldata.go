@@ -24,7 +24,7 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 }
 
 // Fetch fetches the txList bytes from the transaction's calldata.
-func (d *CalldataFetcher) Fetch(
+func (d *CalldataFetcher) FetchOntake(
 	ctx context.Context,
 	tx *types.Transaction,
 	meta metadata.TaikoBlockMetaDataOntake,
