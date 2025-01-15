@@ -251,9 +251,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             } else {
                 Transition memory oldTran = state.transitions[slot][tid];
 
-                bool isDifferentTransition = oldTran.blockHash != tran.blockHash
-                    || (oldTran.stateRoot != 0 && oldTran.stateRoot != tran.stateRoot);
-                require(isDifferentTransition, SameTransition());
+                bool isSameTransition = oldTran.blockHash == tran.blockHash
+                    && (oldTran.stateRoot == 0 || oldTran.stateRoot == tran.stateRoot);
+                require(!isSameTransition, SameTransition());
 
                 isConflictingOverwrite = true;
                 emit TransitionOverwritten(meta.batchId, oldTran, tran);
