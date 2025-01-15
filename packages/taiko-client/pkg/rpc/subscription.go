@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // SubscribeEvent creates a event subscription, will retry if the established subscription failed.
@@ -26,24 +27,6 @@ func SubscribeEvent(
 			return handler(ctx)
 		},
 	)
-}
-
-// SubscribeBlockVerified subscribes the protocol's BlockVerified events.
-func SubscribeBlockVerified(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientBlockVerified,
-) event.Subscription {
-	return SubscribeEvent("BlockVerified", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchBlockVerified(nil, ch, nil, nil)
-		if err != nil {
-			log.Error("Create TaikoL1.BlockVerified subscription error", "error", err)
-			return nil, err
-		}
-
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
-	})
 }
 
 // SubscribeBlockVerifiedV2 subscribes the protocol's BlockVerifiedV2 events.
@@ -64,15 +47,15 @@ func SubscribeBlockVerifiedV2(
 	})
 }
 
-// SubscribeBlockProposed subscribes the protocol's BlockProposed events.
-func SubscribeBlockProposed(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientBlockProposed,
+// SubscribeBatchesVerifiedPacaya subscribes the Pacaya protocol's BatchesVerified events.
+func SubscribeBatchesVerifiedPacaya(
+	taikoInbox *pacayaBindings.TaikoInboxClient,
+	ch chan *pacayaBindings.TaikoInboxClientBatchesVerified,
 ) event.Subscription {
-	return SubscribeEvent("BlockProposed", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchBlockProposed(nil, ch, nil, nil)
+	return SubscribeEvent("BatchesVerified", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoInbox.WatchBatchesVerified(nil, ch)
 		if err != nil {
-			log.Error("Create TaikoL1.BlockProposed subscription error", "error", err)
+			log.Error("Create TaikoInbox.BatchesVerified subscription error", "error", err)
 			return nil, err
 		}
 
@@ -100,15 +83,15 @@ func SubscribeBlockProposedV2(
 	})
 }
 
-// SubscribeTransitionProved subscribes the protocol's TransitionProved events.
-func SubscribeTransitionProved(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientTransitionProved,
+// SubscribeBatchProposedPacaya subscribes the Pacaya protocol's BatchProposed events.
+func SubscribeBatchProposedPacaya(
+	taikoInbox *pacayaBindings.TaikoInboxClient,
+	ch chan *pacayaBindings.TaikoInboxClientBatchProposed,
 ) event.Subscription {
-	return SubscribeEvent("TransitionProved", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchTransitionProved(nil, ch, nil)
+	return SubscribeEvent("BatchProposed", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoInbox.WatchBatchProposed(nil, ch)
 		if err != nil {
-			log.Error("Create TaikoL1.TransitionProved subscription error", "error", err)
+			log.Error("Create TaikoInbox.BatchProposed subscription error", "error", err)
 			return nil, err
 		}
 
@@ -136,15 +119,15 @@ func SubscribeTransitionProvedV2(
 	})
 }
 
-// SubscribeTransitionContested subscribes the protocol's TransitionContested events.
-func SubscribeTransitionContested(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientTransitionContested,
+// SubscribeBatchesProvedPacaya subscribes the Pacaya protocol's BatchesProved events.
+func SubscribeBatchesProvedPacaya(
+	taikoInbox *pacayaBindings.TaikoInboxClient,
+	ch chan *pacayaBindings.TaikoInboxClientBatchesProved,
 ) event.Subscription {
-	return SubscribeEvent("TransitionContested", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchTransitionContested(nil, ch, nil)
+	return SubscribeEvent("BatchesProved", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoInbox.WatchBatchesProved(nil, ch)
 		if err != nil {
-			log.Error("Create TaikoL1.TransitionContested subscription error", "error", err)
+			log.Error("Create TaikoInbox.BatchesProved subscription error", "error", err)
 			return nil, err
 		}
 
