@@ -2,7 +2,6 @@ package chainiterator
 
 import (
 	"context"
-	"io"
 	"math/big"
 	"testing"
 	"time"
@@ -110,7 +109,7 @@ func (s *BlockBatchIteratorTestSuite) TestIterWithLessThanConfirmations() {
 	})
 
 	s.Nil(err)
-	s.Equal(io.EOF, iter.iter())
+	s.Equal(errEOF, iter.iter())
 	s.Equal(headHeight, lastEnd)
 }
 
