@@ -41,21 +41,21 @@ func NewTxListDecompressor(
 //  2. The transaction list bytes must be able to be RLP decoded into a list of transactions.
 func (v *TxListDecompressor) TryDecompress(
 	chainID *big.Int,
-	blockID *big.Int,
+	blockOrBatchID *big.Int,
 	txListBytes []byte,
 	blobUsed bool,
 	postPacaya bool,
 ) []byte {
 	if chainID.Cmp(params.HeklaNetworkID) != 0 && !postPacaya {
-		return v.tryDecompressHekla(blockID, txListBytes, blobUsed)
+		return v.tryDecompressHekla(blockOrBatchID, txListBytes, blobUsed)
 	}
 
-	return v.tryDecompress(blockID, txListBytes, blobUsed)
+	return v.tryDecompress(blockOrBatchID, txListBytes, blobUsed)
 }
 
 // tryDecompress is the inner implementation of TryDecompress.
 func (v *TxListDecompressor) tryDecompress(
-	blockID *big.Int,
+	blockOrBatchID *big.Int,
 	txListBytes []byte,
 	blobUsed bool,
 ) []byte {
@@ -67,7 +67,11 @@ func (v *TxListDecompressor) tryDecompress(
 	// If calldata is used, the compressed bytes of the transaction list must be
 	// less than or equal to maxBytesPerTxList.
 	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
-		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
+		log.Info(
+			"Compressed transactions list binary too large",
+			"length", len(txListBytes),
+			"blockOrBatchID", blockOrBatchID,
+		)
 		return []byte{}
 	}
 
@@ -78,17 +82,17 @@ func (v *TxListDecompressor) tryDecompress(
 
 	// Decompress the transaction list bytes.
 	if txListBytes, err = utils.Decompress(txListBytes); err != nil {
-		log.Info("Failed to decompress tx list bytes", "blockID", blockID, "error", err)
+		log.Info("Failed to decompress tx list bytes", "blockOrBatchID", blockOrBatchID, "error", err)
 		return []byte{}
 	}
 
 	// Try to RLP decode the transaction list bytes.
 	if err = rlp.DecodeBytes(txListBytes, &txs); err != nil {
-		log.Info("Failed to decode transactions list bytes", "blockID", blockID, "error", err)
+		log.Info("Failed to decode transactions list bytes", "blockOrBatchID", blockOrBatchID, "error", err)
 		return []byte{}
 	}
 
-	log.Info("Transaction list is valid", "blockID", blockID)
+	log.Info("Transaction list is valid", "blockOrBatchID", blockOrBatchID)
 	return txListBytes
 }
 

@@ -3,6 +3,7 @@ package encoding
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
@@ -459,6 +460,18 @@ func EncodeProveBlocksBatchProof(
 		return nil, fmt.Errorf("failed to abi.encode TaikoL1.proveBlocks input item after ontake fork, %w", err)
 	}
 	return input, nil
+}
+
+// CalculatePacayaDifficulty calculates the difficulty for the given pacaya block.
+func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
+	args := []interface{}{"TAIKO_DIFFICULTY", blockNum}
+
+	packed, err := abi.Arguments{}.PackValues(args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode pacaya difficulty, %w", err)
+	}
+
+	return packed, nil
 }
 
 // UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
