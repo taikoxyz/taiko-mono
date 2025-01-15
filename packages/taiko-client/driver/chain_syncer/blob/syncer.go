@@ -225,7 +225,7 @@ func (s *Syncer) onBlockProposed(
 	if s.progressTracker.Triggered() {
 		// Already synced through beacon sync, just skip this event.
 		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
-			log.Debug("Skip already synced block", "blockID", meta.GetBlockID())
+			log.Debug("Skip already beacon synced block", "blockID", meta.GetBlockID())
 			return nil
 		}
 
