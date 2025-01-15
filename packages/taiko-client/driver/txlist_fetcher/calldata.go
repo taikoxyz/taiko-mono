@@ -33,13 +33,7 @@ func (d *CalldataFetcher) FetchOntake(
 		return nil, pkg.ErrBlobUsed
 	}
 
-	// If the given L2 block is not an ontake block, decode the txlist from calldata directly.
-	// TODO: fix t his
-	// if !meta.IsOntakeBlock() {
-	// 	return encoding.UnpackTxListBytes(tx.Data())
-	// }
-
-	// Otherwise, fetch the txlist data from the `CalldataTxList` event.
+	// Fetch the txlist data from the `CalldataTxList` event.
 	end := meta.GetRawBlockHeight().Uint64()
 	iter, err := d.rpc.OntakeClients.TaikoL1.FilterCalldataTxList(
 		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
@@ -59,4 +53,38 @@ func (d *CalldataFetcher) FetchOntake(
 	}
 
 	return nil, fmt.Errorf("calldata for block %d not found", meta.GetBlockID())
+}
+
+// Fetch fetches the txList bytes from the transaction's calldata.
+func (d *CalldataFetcher) FetchPacaya(
+	ctx context.Context,
+	tx *types.Transaction,
+	meta metadata.TaikoBatchMetaDataPacaya,
+) ([]byte, error) {
+	if meta.GetNumBlobs() != 0 {
+		return nil, pkg.ErrBlobUsed
+	}
+
+	// Fetch the txlist data from the `BatchProposed` event.
+	end := meta.GetRawBlockHeight().Uint64()
+	iter, err := d.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
+		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for iter.Next() {
+		if iter.Event.Meta.BatchId != meta.GetBatchID().Uint64() {
+			continue
+		}
+		return iter.Event.TxListInCalldata, nil
+	}
+
+	if iter.Error() != nil {
+		return nil, fmt.Errorf(
+			"failed to fetch calldata for batch %d: %w", meta.GetBatchID(), iter.Error(),
+		)
+	}
+
+	return nil, fmt.Errorf("calldata for batch %d not found", meta.GetBatchID())
 }

@@ -26,7 +26,7 @@ func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *B
 	return &BlobFetcher{l1Beacon, ds}
 }
 
-// Fetch implements the TxListFetcher interface.
+// FetchOntake implements the TxListFetcher interface.
 func (d *BlobFetcher) FetchOntake(
 	ctx context.Context,
 	_ *types.Transaction,
@@ -77,4 +77,74 @@ func (d *BlobFetcher) FetchOntake(
 	}
 
 	return nil, pkg.ErrSidecarNotFound
+}
+
+// FetchPacaya implements the TxListFetcher interface.
+func (d *BlobFetcher) FetchPacaya(
+	ctx context.Context,
+	tx *types.Transaction,
+	meta metadata.TaikoBatchMetaDataPacaya,
+) ([]byte, error) {
+	if meta.GetNumBlobs() == 0 {
+		return nil, pkg.ErrBlobUsed
+	}
+
+	var b []byte
+	// Fetch the L1 block sidecars.
+	sidecars, err := d.dataSource.GetBlobs(
+		ctx,
+		meta.GetProposedAt(),
+		tx.BlobHashes()[0], // TODO: use firstBlob index.
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"Fetch sidecars",
+		"blockNumber", meta.GetRawBlockHeight(),
+		"sidecars", len(sidecars),
+	)
+
+	for i := range meta.GetNumBlobs() {
+		// Compare the blob hash with the sidecar's kzg commitment.
+		for j, sidecar := range sidecars {
+			log.Debug(
+				"Block sidecar",
+				"index", j,
+				"KzgCommitment", sidecar.KzgCommitment,
+				"blobHash", tx.BlobHashes()[i], // TODO: use first blob index.
+			)
+
+			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == tx.BlobHashes()[i] {
+				blob := eth.Blob(common.FromHex(sidecar.Blob))
+				bytes, err := blob.ToData()
+				if err != nil {
+					return nil, err
+				}
+
+				b = append(b, bytes...)
+			}
+		}
+	}
+	if len(b) == 0 {
+		return nil, pkg.ErrSidecarNotFound
+	}
+
+	if meta.GetTxListOffset()+meta.GetTxListSize() > uint32(len(b)) {
+		log.Warn(
+			"Invalid txlist offset and size in metadata",
+			"offset", meta.GetTxListOffset(),
+			"size", meta.GetTxListSize(),
+			"blobSize", len(b),
+		)
+		return nil, pkg.ErrBlobSizeTooSmall
+	}
+
+	if meta.GetTxListSize() == 0 {
+		return b[meta.GetTxListOffset():], nil
+	}
+
+	return b[meta.GetTxListOffset() : meta.GetTxListOffset()+meta.GetTxListSize()], nil
 }
