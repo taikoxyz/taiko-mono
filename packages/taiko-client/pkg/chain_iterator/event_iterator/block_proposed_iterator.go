@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -111,6 +112,8 @@ func assembleBlockProposedIteratorCallback(
 	) error {
 		endHeight := end.Number.Uint64()
 
+		log.Debug("Iterating BlockProposed events", "start", start.Number, "end", endHeight)
+
 		iterOntake, err := taikoL1.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
@@ -124,10 +127,12 @@ func assembleBlockProposedIteratorCallback(
 			event := iterOntake.Event
 
 			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataOntake(event), eventIter.end); err != nil {
+				log.Warn("Error while processing BlockProposedV2 events, keep retrying", "error", err)
 				return err
 			}
 
 			if eventIter.isEnd {
+				log.Debug("BlockProposedIterator is ended", "start", start.Number, "end", endHeight)
 				endFunc()
 				return nil
 			}
@@ -137,9 +142,16 @@ func assembleBlockProposedIteratorCallback(
 				return err
 			}
 
+			log.Debug("Updating current block cursor for processing BlockProposedV2 events", "block", current.Number)
+
 			updateCurrentFunc(current)
 		}
 
-		return iterOntake.Error()
+		if err := iterOntake.Error(); err != nil {
+			log.Error("Error while iterating BlockProposedV2 events", "error", err)
+			return err
+		}
+
+		return nil
 	}
 }
