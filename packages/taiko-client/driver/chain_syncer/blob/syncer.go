@@ -198,6 +198,7 @@ func (s *Syncer) onBlockProposed(
 	}
 	// Ignore those already inserted blocks.
 	if s.lastInsertedBlockID != nil && meta.GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
+		log.Debug("Skip already inserted block", "blockID", meta.GetBlockID(), "lastInsertedBlockID", s.lastInsertedBlockID)
 		return nil
 	}
 
