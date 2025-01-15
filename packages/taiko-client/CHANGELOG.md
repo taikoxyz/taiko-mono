@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.43.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.43.0...taiko-alethia-client-v0.43.1) (2025-01-15)
+
+
+### Chores
+
+* **taiko-client:** add more logs for `BlockProposedIterator` ([#18772](https://github.com/taikoxyz/taiko-mono/issues/18772)) ([1b02bc0](https://github.com/taikoxyz/taiko-mono/commit/1b02bc08b5e87b66e1645e139a4804ec433cf2dd))
+* **taiko-client:** ensure event block IDs are continuous ([#18775](https://github.com/taikoxyz/taiko-mono/issues/18775)) ([b359be0](https://github.com/taikoxyz/taiko-mono/commit/b359be028cdd19f3b40ed414f641ea799a2fe055))
+* **taiko-client:** more logs for `BlockBatchIterator` ([#18774](https://github.com/taikoxyz/taiko-mono/issues/18774)) ([3945f60](https://github.com/taikoxyz/taiko-mono/commit/3945f60171e2733a0888e7bde914634dfa260958))
+
 ## [0.43.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.42.1...taiko-alethia-client-v0.43.0) (2025-01-14)
 
 
