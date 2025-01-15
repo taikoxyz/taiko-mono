@@ -282,6 +282,43 @@ func (s *Syncer) onBlockProposedOntake(
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
+	baseFee, err := s.rpc.CalculateBaseFee(
+		ctx,
+		parent,
+		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+		false,
+		(*pacayaBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
+		meta.GetTimestamp(),
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Info(
+		"L2 baseFee",
+		"blockID", meta.GetBlockID(),
+		"baseFee", utils.WeiToGWei(baseFee),
+		"parentGasUsed", parent.GasUsed,
+	)
+
+	// Assemble a TaikoL2.anchorV2 transaction
+	anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
+	if err != nil {
+		return fmt.Errorf("failed to fetch anchor block: %w", err)
+	}
+	anchorTx, err := s.anchorConstructor.AssembleAnchorV2Tx(
+		ctx,
+		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+		anchorBlockHeader.Root,
+		parent.GasUsed,
+		(*ontakeBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
+		new(big.Int).Add(parent.Number, common.Big1),
+		baseFee,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
+	}
+
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
 	payloadData, err := s.insertNewHead(
 		ctx,
@@ -294,6 +331,7 @@ func (s *Syncer) onBlockProposedOntake(
 				Difficulty:            meta.GetDifficulty(),
 				Timestamp:             meta.GetTimestamp(),
 				ParentHash:            parent.Hash(),
+				BaseFee:               baseFee,
 				L1Origin: &rawdb.L1Origin{
 					BlockID:       meta.GetBlockID(),
 					L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
@@ -308,6 +346,7 @@ func (s *Syncer) onBlockProposedOntake(
 			BaseFeeConfig:   (*pacayaBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
 			Parent:          parent,
 		},
+		anchorTx,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert new head to L2 execution engine: %w", err)
@@ -473,6 +512,47 @@ func (s *Syncer) onBlockProposedPacaya(
 			timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 		}
 
+		baseFee, err := s.rpc.CalculateBaseFee(
+			ctx,
+			parent,
+			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+			true,
+			(*pacayaBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
+			timestamp,
+		)
+		if err != nil {
+			return err
+		}
+
+		log.Info(
+			"L2 baseFee",
+			"blockID", blockID,
+			"baseFee", utils.WeiToGWei(baseFee),
+			"parentGasUsed", parent.GasUsed,
+			"batchID", meta.GetBatchID(),
+			"indexInBatch", i,
+		)
+
+		// Assemble a TaikoAnchor.anchorV3 transaction
+		anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
+		if err != nil {
+			return fmt.Errorf("failed to fetch anchor block: %w", err)
+		}
+		anchorTx, err := s.anchorConstructor.AssembleAnchorV3Tx(
+			ctx,
+			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+			anchorBlockHeader.Root,
+			meta.GetAnchorInput(),
+			parent.GasUsed,
+			meta.GetBaseFeeConfig(),
+			meta.GetSignalSlots(),
+			new(big.Int).Add(parent.Number, common.Big1),
+			baseFee,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
+		}
+
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
 		payloadData, err := s.insertNewHead(
 			ctx,
@@ -499,6 +579,7 @@ func (s *Syncer) onBlockProposedPacaya(
 				BaseFeeConfig:   (*pacayaBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
 				Parent:          parent,
 			},
+			anchorTx,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert new head to L2 execution engine: %w", err)
@@ -543,6 +624,7 @@ type insertNewHeadMetaData struct {
 func (s *Syncer) insertNewHead(
 	ctx context.Context,
 	meta *insertNewHeadMetaData,
+	anchorTx *types.Transaction,
 ) (*engine.ExecutableData, error) {
 	log.Debug(
 		"Try to insert a new L2 head block",
@@ -553,9 +635,8 @@ func (s *Syncer) insertNewHead(
 
 	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
 	var (
-		txList   []*types.Transaction
-		anchorTx *types.Transaction
-		err      error
+		txList []*types.Transaction
+		err    error
 	)
 	if len(meta.TxListBytes) != 0 {
 		if err := rlp.DecodeBytes(meta.TxListBytes, &txList); err != nil {
@@ -563,43 +644,6 @@ func (s *Syncer) insertNewHead(
 			return nil, err
 		}
 	}
-
-	if meta.createExecutionPayloadsMetaData.BaseFee, err = s.rpc.CalculateBaseFee(
-		ctx,
-		meta.Parent,
-		meta.AnchorBlockID,
-		true,
-		meta.BaseFeeConfig,
-		meta.createExecutionPayloadsMetaData.Timestamp,
-	); err != nil {
-		return nil, err
-	}
-
-	// Assemble a TaikoL2.anchorV2 transaction
-	// TODO: fix anchorV3
-	anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.AnchorBlockHash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch anchor block: %w", err)
-	}
-	anchorTx, err = s.anchorConstructor.AssembleAnchorV2Tx(
-		ctx,
-		meta.AnchorBlockID,
-		anchorBlockHeader.Root,
-		meta.Parent.GasUsed,
-		(*ontakeBindings.LibSharedDataBaseFeeConfig)(meta.BaseFeeConfig),
-		new(big.Int).Add(meta.Parent.Number, common.Big1),
-		meta.createExecutionPayloadsMetaData.BaseFee,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
-	}
-
-	log.Info(
-		"L2 baseFee",
-		"blockID", meta.BlockID,
-		"baseFee", utils.WeiToGWei(meta.createExecutionPayloadsMetaData.BaseFee),
-		"parentGasUsed", meta.Parent.GasUsed,
-	)
 
 	// Insert the anchor transaction at the head of the transactions list
 	txList = append([]*types.Transaction{anchorTx}, txList...)

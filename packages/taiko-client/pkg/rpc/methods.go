@@ -322,7 +322,7 @@ func (c *Client) CalculateBaseFee(
 	ctx context.Context,
 	l2Head *types.Header,
 	anchorBlockID *big.Int,
-	isOntake bool,
+	postPacaya bool,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
 ) (*big.Int, error) {
@@ -331,24 +331,14 @@ func (c *Client) CalculateBaseFee(
 		err     error
 	)
 
-	if isOntake {
-		if baseFee, err = c.calculateBaseFeeOntake(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
+	if postPacaya {
+		if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
 			return nil, err
 		}
 	} else {
-		baseFeeInfo, err := c.OntakeClients.TaikoL2.GetBasefee(
-			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-			anchorBlockID.Uint64(),
-			uint32(l2Head.GasUsed),
-		)
-		if err != nil {
+		if baseFee, err = c.calculateBaseFeeOntake(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
 			return nil, err
 		}
-		baseFee = baseFeeInfo.Basefee
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	log.Info(
@@ -356,7 +346,7 @@ func (c *Client) CalculateBaseFee(
 		"fee", utils.WeiToGWei(baseFee),
 		"l2Head", l2Head.Number,
 		"anchorBlockID", anchorBlockID,
-		"isOntake", isOntake,
+		"postPacaya", postPacaya,
 	)
 
 	return baseFee, nil
@@ -392,7 +382,7 @@ func (c *Client) GetPoolContent(
 		ctx,
 		l2Head,
 		l1Head.Number,
-		chainConfig.IsOntake(new(big.Int).Add(l2Head.Number, common.Big1)),
+		chainConfig.IsPacaya(new(big.Int).Add(l2Head.Number, common.Big1)),
 		baseFeeConfig,
 		uint64(time.Now().Unix()),
 	)
@@ -1028,6 +1018,26 @@ func (c *Client) calculateBaseFeeOntake(
 			return baseFeeInfo.Basefee, nil
 		}
 		return nil, err
+	}
+
+	return baseFeeInfo.Basefee, nil
+}
+
+// calculateBaseFeePacaya calculates the base fee after pacaya fork from the L2 protocol.
+func (c *Client) calculateBaseFeePacaya(
+	ctx context.Context,
+	l2Head *types.Header,
+	currentTimestamp uint64,
+	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+) (*big.Int, error) {
+	baseFeeInfo, err := c.PacayaClients.TaikoAnchor.GetBasefeeV2(
+		&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+		uint32(l2Head.GasUsed),
+		currentTimestamp,
+		*baseFeeConfig,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", err)
 	}
 
 	return baseFeeInfo.Basefee, nil

@@ -158,9 +158,6 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		close(sink)
 	}()
 
-	ontakeForkHeight, err := s.RPCClient.OntakeClients.TaikoL2.OntakeForkHeight(nil)
-	s.Nil(err)
-
 	protocolConfigs, err := s.RPCClient.GetProtocolConfigs(nil)
 	s.Nil(err)
 
@@ -168,7 +165,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		context.Background(),
 		l2Head,
 		l1Head.Number,
-		l2Head.Number.Uint64()+1 >= ontakeForkHeight,
+		l2Head.Number.Uint64()+1 >= s.RPCClient.PacayaClients.ForkHeight,
 		protocolConfigs.BaseFeeConfig(),
 		l1Head.Time,
 	)
