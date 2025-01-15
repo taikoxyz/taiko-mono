@@ -205,7 +205,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         Config memory config = getConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
 
-        bool hasConflictingOverwrite;
+        bool hasConflictingProof;
         for (uint256 i; i < metas.length; ++i) {
             BatchMetadata memory meta = metas[i];
 
@@ -244,7 +244,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 }
             }
 
-            bool isConflictingOverwrite;
+            bool isConflictingProof;
             if (tid == 0) {
                 // This transition is new, we need to use the next available ID.
                 tid = batch.nextTransitionId++;
@@ -255,8 +255,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                     && (oldTran.stateRoot == 0 || oldTran.stateRoot == tran.stateRoot);
                 require(!isSameTransition, SameTransition());
 
-                isConflictingOverwrite = true;
-                emit TransitionOverwritten(meta.batchId, oldTran, tran);
+                isConflictingProof = true;
+                emit ConflictingProof(meta.batchId, oldTran, tran);
             }
 
             Transition storage ts = state.transitions[slot][tid];
@@ -266,7 +266,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 unchecked {
                     uint256 deadline =
                         uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
-                    if (block.timestamp <= deadline && !isConflictingOverwrite) {
+
+                    if (block.timestamp <= deadline && !isConflictingProof) {
                         _creditBond(meta.proposer, meta.livenessBond);
                     }
 
@@ -289,7 +290,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
             ts.blockHash = tran.blockHash;
 
-            hasConflictingOverwrite = hasConflictingOverwrite || isConflictingOverwrite;
+            hasConflictingProof = hasConflictingProof || isConflictingProof;
         }
 
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
@@ -305,7 +306,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             emit BatchesProved(verifier, batchIds, trans);
         }
 
-        if (hasConflictingOverwrite) {
+        if (hasConflictingProof) {
             _pause();
             emit Paused(verifier);
         } else {
