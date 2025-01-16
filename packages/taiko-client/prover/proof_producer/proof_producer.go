@@ -38,7 +38,6 @@ type ProofRequestOptions struct {
 	BlockID            *big.Int
 	ProverAddress      common.Address
 	ProposeBlockTxHash common.Hash
-	TaikoL2            common.Address
 	MetaHash           common.Hash
 	BlockHash          common.Hash
 	ParentHash         common.Hash

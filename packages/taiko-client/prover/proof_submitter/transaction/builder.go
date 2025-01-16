@@ -13,6 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -187,6 +188,66 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 				blockIDs,
 				input,
 				tierProof,
+			); err != nil {
+				return nil, err
+			}
+			to = a.taikoL1Address
+		}
+
+		return &txmgr.TxCandidate{
+			TxData:   data,
+			To:       &to,
+			Blobs:    nil,
+			GasLimit: txOpts.GasLimit,
+			Value:    txOpts.Value,
+		}, nil
+	}
+}
+
+// BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
+func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.BatchProofs) TxBuilder {
+	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
+		var (
+			data        []byte
+			to          common.Address
+			err         error
+			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.Proofs))
+			transitions = make([]pacayaBindings.ITaikoInboxTransition, len(batchProof.Proofs))
+			batchIDs    = make([]uint64, len(batchProof.Proofs))
+		)
+		for i, proof := range batchProof.Proofs {
+			metas[i] = proof.Meta
+			transitions[i] = pacayaBindings.ITaikoInboxTransition{
+				ParentHash: proof.Header.ParentHash,
+				BlockHash:  proof.Opts.BlockHash,
+				StateRoot:  proof.Opts.StateRoot,
+			}
+			batchIDs[i] = proof.Meta.TaikoBatchMetaDataPacaya().GetBatchID().Uint64()
+		}
+		log.Info(
+			"Build batch proof submission transaction",
+			"batchIDs", batchIDs,
+			"gasLimit", txOpts.GasLimit,
+		)
+		input, err := encoding.EncodeProveBatchesInput(metas, transitions)
+		if err != nil {
+			return nil, err
+		}
+
+		if a.proverSetAddress != ZeroAddress {
+			if data, err = encoding.ProverSetABI.Pack(
+				"proveBatches",
+				input,
+				batchProof.BatchProof,
+			); err != nil {
+				return nil, err
+			}
+			to = a.proverSetAddress
+		} else {
+			if data, err = encoding.TaikoInboxABI.Pack(
+				"proveBatches",
+				input,
+				batchProof.BatchProof,
 			); err != nil {
 				return nil, err
 			}

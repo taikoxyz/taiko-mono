@@ -245,6 +245,130 @@ var (
 			},
 		},
 	}
+	batchMetaDataComponents = []abi.ArgumentMarshaling{
+		{
+			Name: "txListHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "coinbase",
+			Type: "address",
+		},
+		{
+			Name: "batchId",
+			Type: "uint64",
+		},
+		{
+			Name: "gasLimit",
+			Type: "uint32",
+		},
+		{
+			Name: "lastBlockTimestamp",
+			Type: "uint64",
+		},
+		{
+			Name: "parentMetaHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "proposer",
+			Type: "address",
+		},
+		{
+			Name: "livenessBond",
+			Type: "uint96",
+		},
+		{
+			Name: "proposedAt",
+			Type: "uint64",
+		},
+		{
+			Name: "proposedIn",
+			Type: "uint64",
+		},
+		{
+			Name: "txListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "txListSize",
+			Type: "uint32",
+		},
+		{
+			Name: "numBlobs",
+			Type: "uint8",
+		},
+		{
+			Name: "anchorBlockId",
+			Type: "uint64",
+		},
+		{
+			Name: "anchorBlockHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "signalSlots",
+			Type: "bytes32[]",
+		},
+		{
+			Name: "blocks",
+			Type: "tuple[]",
+			Components: []abi.ArgumentMarshaling{
+				{
+					Name: "numTransactions",
+					Type: "uint16",
+				},
+				{
+					Name: "timeShift",
+					Type: "uint8",
+				},
+			},
+		},
+		{
+			Name: "anchorInput",
+			Type: "bytes32",
+		},
+		{
+			Name: "baseFeeConfig",
+			Type: "tuple",
+			Components: []abi.ArgumentMarshaling{
+				{
+					Name: "adjustmentQuotient",
+					Type: "uint8",
+				},
+				{
+					Name: "sharingPctg",
+					Type: "uint8",
+				},
+				{
+					Name: "gasIssuancePerSecond",
+					Type: "uint32",
+				},
+				{
+					Name: "minGasExcess",
+					Type: "uint64",
+				},
+				{
+					Name: "maxGasIssuancePerBlock",
+					Type: "uint32",
+				},
+			},
+		},
+	}
+	batchTransitionComponents = []abi.ArgumentMarshaling{
+		{
+			Name: "parentHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "blockHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "stateRoot",
+			Type: "bytes32",
+		},
+	}
 )
 
 var (
@@ -253,7 +377,9 @@ var (
 	batchParamsComponentsType, _     = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
 	batchParamsComponentsArgs        = abi.Arguments{{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType}}
 	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
+	batchMetaDataComponentsType, _   = abi.NewType("tuple", "ITaikoInbox.BatchMetadata", batchMetaDataComponents)
 	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
+	batchTransitionComponentsType, _ = abi.NewType("tuple", "ITaikoInbox.Transition", batchTransitionComponents)
 	tierProofComponentsType, _       = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
 	proveOntakeBlockInputArgs        = abi.Arguments{
 		{Name: "TaikoData.BlockMetadataV2", Type: blockMetadataV2ComponentsType},
@@ -266,6 +392,10 @@ var (
 	}
 	proveBlocksBatchProofArgs = abi.Arguments{
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
+	}
+	proveBatchesInputArgs = abi.Arguments{
+		{Name: "ITaikoInbox.BlockMetadata", Type: batchMetaDataComponentsType},
+		{Name: "TaikoData.Transition", Type: batchTransitionComponentsType},
 	}
 )
 
@@ -436,11 +566,35 @@ func EncodeProveBlocksInput(
 	b := make([][]byte, 0, len(metas))
 	for i := range metas {
 		input, err := proveBlocksInputArgs.Pack(
-			metas[i].(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+			metas[i].TaikoBlockMetaDataOntake(),
 			transitions[i],
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to abi.encode TaikoL1.proveBlocks input item after ontake fork, %w", err)
+		}
+
+		b = append(b, input)
+	}
+
+	return b, nil
+}
+
+// EncodeProveBatchesInput performs the solidity `abi.encode` for the given TaikoInbox.proveBatches input.
+func EncodeProveBatchesInput(
+	metas []metadata.TaikoProposalMetaData,
+	transitions []pacayaBindings.ITaikoInboxTransition,
+) ([][]byte, error) {
+	if len(metas) != len(transitions) {
+		return nil, fmt.Errorf("both arrays of TaikoBlockMetaData and TaikoInboxTransition must be equal in length")
+	}
+	b := make([][]byte, 0, len(metas))
+	for i := range metas {
+		input, err := proveBatchesInputArgs.Pack(
+			metas[i].TaikoBatchMetaDataPacaya(),
+			transitions[i],
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after ontake fork, %w", err)
 		}
 
 		b = append(b, input)

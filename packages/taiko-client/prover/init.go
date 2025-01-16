@@ -95,7 +95,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 func (p *Prover) initProofSubmitters(
 	txBuilder *transaction.ProveBlockTxBuilder,
 	tiers []*rpc.TierProviderTierWithID,
-) error {
+) (err error) {
 	for _, tier := range p.sharedState.GetTiers() {
 		var (
 			bufferSize = p.cfg.SGXProofBufferSize
@@ -165,6 +165,29 @@ func (p *Prover) initProofSubmitters(
 		}
 
 		p.proofSubmitters = append(p.proofSubmitters, submitter)
+	}
+
+	// TODO(David): replace OP producer later, when upstream prover service is ready.
+	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitter(
+		p.rpc,
+		&proofProducer.OptimisticProofProducer{},
+		p.proofGenerationCh,
+		p.batchProofGenerationCh,
+		p.aggregationNotify,
+		p.cfg.ProverSetAddress,
+		p.cfg.TaikoL2Address,
+		p.cfg.Graffiti,
+		p.cfg.ProveBlockGasLimit,
+		p.txmgr,
+		p.privateTxmgr,
+		txBuilder,
+		tiers,
+		p.IsGuardianProver(),
+		p.cfg.GuardianProofSubmissionDelay,
+		0,
+		p.cfg.ForceBatchProvingInterval,
+	); err != nil {
+		return err
 	}
 
 	return nil

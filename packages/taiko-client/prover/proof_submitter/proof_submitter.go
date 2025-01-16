@@ -133,6 +133,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			return err
 		}
 		metaHash = blockInfo.MetaHash
+	} else {
+		batch, err := s.rpc.GetBatchByID(ctx, meta.TaikoBatchMetaDataPacaya().GetBatchID())
+		if err != nil {
+			return err
+		}
+		metaHash = batch.MetaHash
 	}
 
 	// Request proof.
@@ -140,8 +146,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		BlockID:            header.Number,
 		ProverAddress:      s.proverAddress,
 		ProposeBlockTxHash: meta.TaikoBlockMetaDataOntake().GetTxHash(),
-		TaikoL2:            s.taikoL2Address,
-		MetaHash:           blockInfo.MetaHash,
+		MetaHash:           metaHash,
 		BlockHash:          header.Hash(),
 		ParentHash:         header.ParentHash,
 		StateRoot:          header.Root,
@@ -254,27 +259,58 @@ func (s *ProofSubmitter) SubmitProof(
 	ctx context.Context,
 	proofWithHeader *proofProducer.ProofWithHeader,
 ) (err error) {
-	log.Info(
-		"Submit block proof",
-		"blockID", proofWithHeader.BlockID,
-		"coinbase", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-		"parentHash", proofWithHeader.Header.ParentHash,
-		"hash", proofWithHeader.Opts.BlockHash,
-		"stateRoot", proofWithHeader.Opts.StateRoot,
-		"proof", common.Bytes2Hex(proofWithHeader.Proof),
-		"tier", proofWithHeader.Tier,
-	)
+	if proofWithHeader.Meta.IsPacaya() {
+		log.Info(
+			"Submit batch proof",
+			"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"coinbase", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetCoinbase(),
+			"parentHash", proofWithHeader.Header.ParentHash,
+			"hash", proofWithHeader.Opts.BlockHash,
+			"stateRoot", proofWithHeader.Opts.StateRoot,
+			"proof", common.Bytes2Hex(proofWithHeader.Proof),
+		)
+	} else {
+		log.Info(
+			"Submit block proof",
+			"blockID", proofWithHeader.BlockID,
+			"coinbase", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+			"parentHash", proofWithHeader.Header.ParentHash,
+			"hash", proofWithHeader.Opts.BlockHash,
+			"stateRoot", proofWithHeader.Opts.StateRoot,
+			"proof", common.Bytes2Hex(proofWithHeader.Proof),
+			"tier", proofWithHeader.Tier,
+		)
+	}
 
 	// Check if we still need to generate a new proof for that block.
-	proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, s.proverAddress, s.proverSetAddress)
-	if err != nil {
-		return err
+	var proofStatus *rpc.BlockProofStatus
+	if !proofWithHeader.Meta.IsPacaya() {
+		if proofStatus, err = rpc.GetBlockProofStatus(
+			ctx,
+			s.rpc,
+			proofWithHeader.BlockID,
+			s.proverAddress,
+			s.proverSetAddress,
+		); err != nil {
+			return err
+		}
+	} else {
+		if proofStatus, err = rpc.GetBlockProofStatus(
+			ctx,
+			s.rpc,
+			proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			s.proverAddress,
+			s.proverSetAddress,
+		); err != nil {
+			return err
+		}
 	}
+
 	if proofStatus.IsSubmitted && !proofStatus.Invalid {
 		return nil
 	}
 
-	if s.isGuardian {
+	if s.isGuardian && !proofWithHeader.Meta.IsPacaya() {
 		_, expiredAt, _, err := handler.IsProvingWindowExpired(s.rpc, proofWithHeader.Meta, s.tiers)
 		if err != nil {
 			return fmt.Errorf("failed to check if the proving window is expired: %w", err)
@@ -321,31 +357,52 @@ func (s *ProofSubmitter) SubmitProof(
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
 
-	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
-	if err = s.sender.Send(
-		ctx,
-		proofWithHeader,
-		s.txBuilder.Build(
-			proofWithHeader.BlockID,
-			proofWithHeader.Meta,
-			&ontakeBindings.TaikoDataTransition{
-				ParentHash: proofWithHeader.Header.ParentHash,
-				BlockHash:  proofWithHeader.Opts.BlockHash,
-				StateRoot:  proofWithHeader.Opts.StateRoot,
-				Graffiti:   s.graffiti,
-			},
-			&ontakeBindings.TaikoDataTierProof{
-				Tier: proofWithHeader.Tier,
-				Data: proofWithHeader.Proof,
-			},
-			proofWithHeader.Tier,
-		),
-	); err != nil {
-		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-			return nil
+	if proofWithHeader.Meta.IsPacaya() {
+		// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
+		if err = s.sender.Send(
+			ctx,
+			proofWithHeader,
+			s.txBuilder.BuildProveBatchesPacaya(
+				&proofProducer.BatchProofs{
+					Proofs:     []*proofProducer.ProofWithHeader{proofWithHeader},
+					BatchProof: proofWithHeader.Proof, // TODO: use a real proof when the upstream service is ready
+				},
+			),
+		); err != nil {
+			if err.Error() == transaction.ErrUnretryableSubmission.Error() {
+				return nil
+			}
+			metrics.ProverSubmissionErrorCounter.Add(1)
+			return err
 		}
-		metrics.ProverSubmissionErrorCounter.Add(1)
-		return err
+	} else {
+
+		// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
+		if err = s.sender.Send(
+			ctx,
+			proofWithHeader,
+			s.txBuilder.Build(
+				proofWithHeader.BlockID,
+				proofWithHeader.Meta,
+				&ontakeBindings.TaikoDataTransition{
+					ParentHash: proofWithHeader.Header.ParentHash,
+					BlockHash:  proofWithHeader.Opts.BlockHash,
+					StateRoot:  proofWithHeader.Opts.StateRoot,
+					Graffiti:   s.graffiti,
+				},
+				&ontakeBindings.TaikoDataTierProof{
+					Tier: proofWithHeader.Tier,
+					Data: proofWithHeader.Proof,
+				},
+				proofWithHeader.Tier,
+			),
+		); err != nil {
+			if err.Error() == transaction.ErrUnretryableSubmission.Error() {
+				return nil
+			}
+			metrics.ProverSubmissionErrorCounter.Add(1)
+			return err
+		}
 	}
 
 	metrics.ProverSentProofCounter.Add(1)
