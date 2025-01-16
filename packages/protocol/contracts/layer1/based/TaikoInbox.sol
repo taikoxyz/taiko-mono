@@ -280,14 +280,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 state.transitionIds[meta.batchId][tran.parentHash] = tid;
             }
 
-            if (meta.batchId % config.stateRootSyncInternal == 0) {
-                // This batch is a "sync batch", we need to save the state root.
-                ts.stateRoot = tran.stateRoot;
-            } else {
-                // This batch is not a "sync batch", we need to zero out the storage slot.
-                ts.stateRoot = bytes32(0);
-            }
-
+            ts.stateRoot =
+                meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
             ts.blockHash = tran.blockHash;
 
             hasConflictingProof = hasConflictingProof || isConflictingProof;
@@ -312,6 +306,30 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         } else {
             _verifyBatches(config, stats2, metas.length);
         }
+    }
+
+    function writeTransition(uint64 _batchId, Transition calldata _tran) external onlyOwner {
+        Config memory config = getConfig();
+        uint256 slot = _batchId % config.batchRingBufferSize;
+        Batch storage batch = state.batches[slot];
+        require(batch.batchId == _batchId, BatchNotFound());
+
+        uint24 tid = state.transitionIds[_batchId][_tran.parentHash];
+        if (tid == 0) {
+            tid = batch.nextTransitionId++;
+        }
+
+        Transition storage ts = state.transitions[slot][tid];
+        if (tid == 1) {
+            ts.parentHash = _tran.parentHash;
+        } else {
+            state.transitionIds[_batchId][_tran.parentHash] = tid;
+        }
+
+        // This batch is a "sync batch", we need to save the state root.
+        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _tran.stateRoot : bytes32(0);
+        ts.blockHash = _tran.blockHash;
+        emit TransitionWritten(_batchId, tid, _tran);
     }
 
     /// @inheritdoc ITaikoInbox
