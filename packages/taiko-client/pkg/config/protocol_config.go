@@ -60,7 +60,7 @@ func (c *OntakeProtocolConfigs) ForkHeightsPacaya() uint64 {
 	return c.pacayaForkHeight
 }
 
-// MaxProposals implements the ProtocolConfigs interface.
+// LivenessBond implements the ProtocolConfigs interface.
 func (c *OntakeProtocolConfigs) LivenessBond() *big.Int {
 	return c.configs.LivenessBond
 }
@@ -107,7 +107,7 @@ func (c *PacayaProtocolConfigs) ForkHeightsPacaya() uint64 {
 
 // MaxProposals implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) LivenessBond() *big.Int {
-	return c.configs.LivenessBondBase // TODO: fix this value
+	return c.configs.LivenessBondBase // TODO: add livenessBondPerBlock
 }
 
 // MaxProposals implements the ProtocolConfigs interface.
