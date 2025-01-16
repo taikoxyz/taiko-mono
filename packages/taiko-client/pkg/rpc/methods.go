@@ -10,6 +10,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -630,18 +631,6 @@ func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 	return &t, nil
 }
 
-// GetL2BlockInfo fetches the L2 block information from the protocol.
-func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (ontakeBindings.TaikoDataBlockV2, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	blockInfo, err := c.OntakeClients.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
-	if err != nil {
-		return ontakeBindings.TaikoDataBlockV2{}, err
-	}
-	return *encoding.TaikoDataBlockToV2(&blockInfo), nil
-}
-
 // GetL2BlockInfoV2 fetches the V2 L2 block information from the protocol.
 func (c *Client) GetL2BlockInfoV2(ctx context.Context, blockID *big.Int) (ontakeBindings.TaikoDataBlockV2, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
@@ -689,6 +678,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 	var (
 		result                 = new(ReorgCheckResult)
 		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+		err                    error
 	)
 	defer cancel()
 
@@ -696,15 +686,22 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			state, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
-			if err != nil {
-				return result, err
+			var genesisHeight *big.Int
+			if c.PacayaClients.ForkHeight == 0 {
+				state, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+				if err != nil {
+					return result, err
+				}
+				genesisHeight = new(big.Int).SetUint64(state.Stats1.GenesisHeight)
+			} else {
+				slot1, _, err := c.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctxWithTimeout})
+				if err != nil {
+					return result, err
+				}
+				genesisHeight = new(big.Int).SetUint64(slot1.GenesisHeight)
 			}
 
-			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(
-				ctxWithTimeout,
-				new(big.Int).SetUint64(state.Stats1.GenesisHeight),
-			); err != nil {
+			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight); err != nil {
 				return nil, err
 			}
 
@@ -836,17 +833,18 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 }
 
 // getSyncedL1SnippetFromAnchor parses the anchor transaction calldata, and returns the synced L1 snippet,
-func (c *Client) getSyncedL1SnippetFromAnchor(
-	tx *types.Transaction,
-) (
+func (c *Client) getSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	l1StateRoot common.Hash,
 	l1Height uint64,
 	parentGasUsed uint32,
 	err error,
 ) {
-	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
-	if err != nil {
-		return common.Hash{}, 0, 0, fmt.Errorf("failed to get TaikoL2.Anchor method by ID: %w", err)
+	var method *abi.Method
+	if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
+		method, err = encoding.TaikoL2ABI.MethodById(tx.Data())
+		if err != nil {
+			return common.Hash{}, 0, 0, fmt.Errorf("failed to get TaikoL2.Anchor method by ID: %w", err)
+		}
 	}
 
 	var ok bool
@@ -928,7 +926,11 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	tierRouterAddress, err := c.OntakeClients.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
+	tierRouterAddress, err := c.OntakeClients.TaikoL1.Resolve0(
+		&bind.CallOpts{Context: ctx},
+		StringToBytes32("tier_router"),
+		false,
+	)
 	if err != nil {
 		return nil, err
 	}

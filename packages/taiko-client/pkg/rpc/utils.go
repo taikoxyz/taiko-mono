@@ -240,11 +240,11 @@ func GetBatchProofStatus(
 		return nil, err
 	}
 
-	// Get the transition state from TaikoL1 contract.
-	if _, err = cli.PacayaClients.TaikoInbox.GetTransition(
+	// Get the transition state from TaikoInbox contract.
+	if _, err = cli.PacayaClients.TaikoInbox.GetTransition0(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		batchId.Uint64(),
-		common.Big1, // TODO: use the right transition id
+		parent.Hash(),
 	); err != nil {
 		if !strings.Contains(encoding.TryParsingCustomError(err).Error(), "TransitionNotFound") {
 			return nil, encoding.TryParsingCustomError(err)
@@ -254,7 +254,6 @@ func GetBatchProofStatus(
 		return &BlockProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
 
-	// TODO: check if the transition state is valid.
 	// Status 2, a valid proof has been submitted.
 	return &BlockProofStatus{IsSubmitted: true, ParentHeader: parent}, nil
 }

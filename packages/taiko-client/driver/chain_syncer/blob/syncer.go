@@ -825,6 +825,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 }
 
 // retrievePastBlock find proper L1 header and L2 block id to reset when there is a mismatch
+// TODO: fix this function
 func (s *Syncer) retrievePastBlock(
 	ctx context.Context,
 	blockID uint64,
@@ -852,13 +853,8 @@ func (s *Syncer) retrievePastBlock(
 	}
 
 	blockNum := new(big.Int).SetUint64(currentBlockID)
-	var blockInfo ontakeBindings.TaikoDataBlockV2
-	if s.state.IsOnTake(blockNum) {
-		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
-	} else {
-		blockInfo, err = s.rpc.GetL2BatchInfoPacaya(ctx, blockNum)
-	}
 
+	blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, blockNum)
 	if err != nil {
 		return nil, err
 	}
