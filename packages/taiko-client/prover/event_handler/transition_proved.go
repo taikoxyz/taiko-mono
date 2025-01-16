@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -115,5 +116,21 @@ func (h *TransitionProvedEventHandler) Handle(
 			}
 		}()
 	}
+	return nil
+}
+
+// Handle implements the TransitionProvedHandler interface.
+func (h *TransitionProvedEventHandler) HandlePacaya(
+	ctx context.Context,
+	e *pacayaBindings.TaikoInboxClientBatchesProved,
+) error {
+	lastBatchID := e.BatchIds[len(e.BatchIds)-1]
+
+	batch, err := h.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))
+	if err != nil {
+		return err
+	}
+	metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId))
+
 	return nil
 }

@@ -106,7 +106,7 @@ func NewProofSubmitter(
 // RequestProof implements the Submitter interface.
 func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
-		blockInfo ontakeBindings.TaikoDataBlockV2
+		metaHash common.Hash
 	)
 
 	header, err := s.rpc.WaitL2Header(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
@@ -127,8 +127,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
 	}
 
-	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID()); err != nil {
-		return err
+	if !meta.IsPacaya() {
+		blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
+		if err != nil {
+			return err
+		}
+		metaHash = blockInfo.MetaHash
 	}
 
 	// Request proof.

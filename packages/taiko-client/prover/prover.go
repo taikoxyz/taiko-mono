@@ -60,8 +60,9 @@ type Prover struct {
 	assignmentExpiredHandler   handler.AssignmentExpiredHandler
 
 	// Proof submitters
-	proofSubmitters []proofSubmitter.Submitter
-	proofContester  proofSubmitter.Contester
+	proofSubmitters      []proofSubmitter.Submitter
+	proofSubmitterPacaya proofSubmitter.Submitter
+	proofContester       proofSubmitter.Contester
 
 	assignmentExpiredCh chan metadata.TaikoProposalMetaData
 	proveNotify         chan struct{}
@@ -349,6 +350,8 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-blockProposedV2Ch:
 			reqProving()
+		case <-batchProposedCh:
+			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -440,6 +443,18 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 
 // requestProofOp requests a new proof generation operation.
 func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uint16) error {
+	if meta.IsPacaya() {
+		if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
+			log.Error(
+				"Request new batch proof error",
+				"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+				"error", err,
+			)
+			return err
+		}
+
+		return nil
+	}
 	if p.IsGuardianProver() {
 		if minTier > encoding.TierGuardianMinorityID {
 			minTier = encoding.TierGuardianMajorityID
