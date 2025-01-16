@@ -108,7 +108,7 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 		if s.state.IsOnTake(blockNum) {
 			blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
 		} else {
-			blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockNum)
+			blockInfo, err = s.rpc.GetL2BatchInfoPacaya(ctx, blockNum)
 		}
 		if err != nil {
 			return nil, err

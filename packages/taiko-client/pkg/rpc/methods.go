@@ -33,7 +33,7 @@ var (
 	defaultWaitTimeout = 3 * time.Minute
 )
 
-// GetProtocolConfigs gets the protocol configs from TaikoInbox contract.
+// GetProtocolConfigs gets the protocol configs from TaikoInbox or TaikoL2 contract.
 func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -42,12 +42,8 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	l2Head, err := c.L2.BlockNumber(opts.Context)
+	configs, err := c.PacayaClients.TaikoInbox.GetConfig(opts)
 	if err != nil {
-		return nil, err
-	}
-
-	if l2Head < c.PacayaClients.ForkHeight {
 		configs, err := c.OntakeClients.TaikoL1.GetConfig(opts)
 		if err != nil {
 			return nil, err
@@ -55,10 +51,6 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 		return config.NewOntakeProtocolConfigs(&configs, c.OntakeClients.ForkHeight), nil
 	}
 
-	configs, err := c.PacayaClients.TaikoInbox.GetConfig(opts)
-	if err != nil {
-		return nil, err
-	}
 	return config.NewPacayaProtocolConfigs(&configs), nil
 }
 
@@ -110,6 +102,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
 	if protocolConfigs.ForkHeightsPacaya() == 0 {
+		// Fetch the genesis `BatchesVerified` event.
 		iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
 		if err != nil {
 			return err
@@ -117,13 +110,15 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		if iter.Next() {
 			l2GenesisHash = iter.Event.BlockHash
 		}
+		if iter.Error() != nil {
+			return iter.Error()
+		}
 	} else if protocolConfigs.ForkHeightsOntake() == 0 {
-		// Fetch the genesis `BlockVerified2` event.
+		// Fetch the genesis `BlockVerifiedV2` event.
 		iter, err := c.OntakeClients.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
 			return err
 		}
-
 		if iter.Next() {
 			l2GenesisHash = iter.Event.BlockHash
 		}
@@ -136,7 +131,6 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
 		if iter.Next() {
 			l2GenesisHash = iter.Event.BlockHash
 		}
@@ -145,17 +139,17 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		}
 	}
 
-	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "TaikoL1", common.BytesToHash(l2GenesisHash[:]))
+	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", common.BytesToHash(l2GenesisHash[:]))
 
 	if l2GenesisHash == (common.Hash{}) {
-		log.Warn("Genesis block not found in TaikoL1")
+		log.Warn("Genesis block not found in Taiko contract")
 		return nil
 	}
 
-	// Node's genesis header and TaikoL1 contract's genesis header must match.
+	// Node's genesis header and Taiko contract's genesis header must match.
 	if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
 		return fmt.Errorf(
-			"genesis header hash mismatch, node: %s, TaikoL1 contract: %s",
+			"genesis header hash mismatch, node: %s, Taiko contract: %s",
 			nodeGenesis.Hash(),
 			common.BytesToHash(l2GenesisHash[:]),
 		)
@@ -244,14 +238,12 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 		if err != nil {
 			return nil, err
 		}
-
 		l1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
 	} else {
 		slotA, _, err := c.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctxWithTimeout})
 		if err != nil {
 			return nil, err
 		}
-
 		l1Height = new(big.Int).SetUint64(slotA.GenesisHeight)
 	}
 
@@ -313,6 +305,7 @@ func (c *Client) L2ParentByBlockID(ctx context.Context, blockID *big.Int) (*type
 	return c.L2.HeaderByHash(ctxWithTimeout, parentHash)
 }
 
+// WaitL2Header keeps waiting for the L2 block header of the given block ID.
 func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Header, error) {
 	var (
 		ctxWithTimeout = ctx
@@ -560,7 +553,25 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	defer cancel()
 	opts.Context = ctxWithTimeout
 
-	return GetProtocolStateVariables(c.PacayaClients.TaikoInbox, opts)
+	var (
+		states *struct {
+			Stats1 pacayaBindings.ITaikoInboxStats1
+			Stats2 pacayaBindings.ITaikoInboxStats2
+		}
+		err error
+	)
+
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
+		return err
+	})
+	g.Go(func() error {
+		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
+		return err
+	})
+
+	return states, g.Wait()
 }
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
@@ -584,8 +595,8 @@ func (c *Client) GetProtocolStateVariablesOntake(opts *bind.CallOpts) (
 	return c.OntakeClients.TaikoL1.GetStateVariables(opts)
 }
 
-// GetLastVerifiedBlock gets the last verified block from TaikoL1 contract.
-func (c *Client) GetLastVerifiedBlock(ctx context.Context) (*struct {
+// GetLastVerifiedBlockOntake gets the last verified block from TaikoL1 contract.
+func (c *Client) GetLastVerifiedBlockOntake(ctx context.Context) (*struct {
 	BlockId    uint64 //nolint:stylecheck
 	BlockHash  [32]byte
 	StateRoot  [32]byte
@@ -685,7 +696,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			state, err := GetProtocolStateVariables(c.PacayaClients.TaikoInbox, &bind.CallOpts{Context: ctxWithTimeout})
+			state, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
 			if err != nil {
 				return result, err
 			}

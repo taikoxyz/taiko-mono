@@ -38,42 +38,6 @@ var (
 	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
 
-// GetProtocolStateVariables gets the protocol states from TaikoInbox contract.
-func GetProtocolStateVariables(
-	taikoInboxClient *pacayaBindings.TaikoInboxClient,
-	opts *bind.CallOpts,
-) (*struct {
-	Stats1 pacayaBindings.ITaikoInboxStats1
-	Stats2 pacayaBindings.ITaikoInboxStats2
-}, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
-	defer cancel()
-
-	var (
-		states *struct {
-			Stats1 pacayaBindings.ITaikoInboxStats1
-			Stats2 pacayaBindings.ITaikoInboxStats2
-		}
-		err error
-	)
-
-	g := new(errgroup.Group)
-	g.Go(func() error {
-		states.Stats1, err = taikoInboxClient.GetStats1(opts)
-		return err
-	})
-	g.Go(func() error {
-		states.Stats2, err = taikoInboxClient.GetStats2(opts)
-		return err
-	})
-
-	return states, g.Wait()
-}
-
 // CheckProverBalance checks if the prover has the necessary allowance and
 // balance for a prover to pay the liveness bond.
 func CheckProverBalance(

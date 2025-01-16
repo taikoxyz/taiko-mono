@@ -30,7 +30,7 @@ func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, e
 		return id.Uint64() <= lastVerifiedTransition.BlockId, nil
 	}
 
-	lastVerifiedBlock, err := rpc.GetLastVerifiedBlock(ctx)
+	lastVerifiedBlock, err := rpc.GetLastVerifiedBlockOntake(ctx)
 	if err != nil {
 		return false, err
 	}

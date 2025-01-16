@@ -661,7 +661,7 @@ func (s *Syncer) insertNewHead(
 	}
 
 	var lastVerifiedBlockHash common.Hash
-	lastVerifiedBlockInfo, err := s.rpc.GetLastVerifiedBlock(ctx)
+	lastVerifiedBlockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
 	}
@@ -854,7 +854,7 @@ func (s *Syncer) retrievePastBlock(
 	if s.state.IsOnTake(blockNum) {
 		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
 	} else {
-		blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockNum)
+		blockInfo, err = s.rpc.GetL2BatchInfoPacaya(ctx, blockNum)
 	}
 
 	if err != nil {
