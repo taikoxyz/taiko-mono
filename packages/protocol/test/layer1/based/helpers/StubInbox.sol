@@ -38,6 +38,15 @@ contract StubInbox is ITaikoInbox {
         returns (ITaikoInbox.Transition memory)
     { }
 
+    function getTransition(
+        uint64 _batchId,
+        bytes32 _parentHash
+    )
+        external
+        view
+        returns (ITaikoInbox.Transition memory)
+    { }
+
     function getLastVerifiedTransition()
         external
         view
