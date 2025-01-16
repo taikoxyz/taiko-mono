@@ -320,6 +320,19 @@ interface ITaikoInbox {
         view
         returns (ITaikoInbox.Transition memory);
 
+    /// @notice Retrieves a specific transition by batch ID and parent Hash. This function may
+    /// revert if the transition is not found.
+    /// @param _batchId The batch ID.
+    /// @param _parentHash The parent hash.
+    /// @return The specified transition.
+    function getTransition(
+        uint64 _batchId,
+        bytes32 _parentHash
+    )
+        external
+        view
+        returns (ITaikoInbox.Transition memory);
+
     /// @notice Retrieves the transition used for the last verified batch.
     /// @return batchId_ The batch ID of the last verified transition.
     /// @return blockId_ The block ID of the last verified block.
