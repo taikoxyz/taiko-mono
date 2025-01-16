@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"math/big"
+	"time"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -15,6 +17,7 @@ type ProtocolConfigs interface {
 	ForkHeightsPacaya() uint64
 	LivenessBond() *big.Int
 	MaxProposals() uint64
+	ProvingWindow() (time.Duration, error)
 }
 
 // OntakeProtocolConfigs is the configuration for the Ontake fork protocol.
@@ -67,6 +70,11 @@ func (c *OntakeProtocolConfigs) MaxProposals() uint64 {
 	return c.configs.BlockMaxProposals
 }
 
+// ProvingWindow implements the ProtocolConfigs interface.
+func (c *OntakeProtocolConfigs) ProvingWindow() (time.Duration, error) {
+	return 0, fmt.Errorf("proving window is not supported in Ontake protocol configs")
+}
+
 // PacayaProtocolConfigs is the configuration for the Pacaya fork protocol.
 type PacayaProtocolConfigs struct {
 	configs *pacayaBindings.ITaikoInboxConfig
@@ -105,4 +113,9 @@ func (c *PacayaProtocolConfigs) LivenessBond() *big.Int {
 // MaxProposals implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) MaxProposals() uint64 {
 	return c.configs.MaxBatchProposals
+}
+
+// ProvingWindow implements the ProtocolConfigs interface.
+func (c *PacayaProtocolConfigs) ProvingWindow() (time.Duration, error) {
+	return time.Duration(c.configs.ProvingWindow) * time.Second, nil
 }

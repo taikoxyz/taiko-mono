@@ -271,7 +271,7 @@ func (s *ProofSubmitter) SubmitProof(
 	}
 
 	if s.isGuardian {
-		_, expiredAt, _, err := handler.IsProvingWindowExpired(proofWithHeader.Meta, s.tiers)
+		_, expiredAt, _, err := handler.IsProvingWindowExpired(s.rpc, proofWithHeader.Meta, s.tiers)
 		if err != nil {
 			return fmt.Errorf("failed to check if the proving window is expired: %w", err)
 		}
@@ -379,7 +379,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	if err != nil {
 		return err
 	}
-	stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		log.Warn(
 			"Failed to fetch state variables",

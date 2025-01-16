@@ -205,7 +205,7 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 			return 0, false, err
 		}
 	case downloader.FullSync.String():
-		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: s.ctx})
+		stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: s.ctx})
 		if err != nil {
 			return 0, false, err
 		}

@@ -56,24 +56,37 @@ func (h *AssignmentExpiredEventHandler) Handle(
 		"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
 	)
 
-	// Check if we still need to generate a new proof for that block.
-	proofStatus, err := rpc.GetBlockProofStatus(
-		ctx,
-		h.rpc,
-		meta.TaikoBlockMetaDataOntake().GetBlockID(),
-		h.proverAddress,
-		h.proverSetAddress,
+	var (
+		proofStatus *rpc.BlockProofStatus
+		err         error
 	)
-	if err != nil {
-		return err
+	// Check if we still need to generate a new proof for that block.
+	if meta.IsPacaya() {
+		if proofStatus, err = rpc.GetBatchProofStatus(
+			ctx,
+			h.rpc,
+			meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		); err != nil {
+			return err
+		}
+	} else {
+		if proofStatus, err = rpc.GetBlockProofStatus(
+			ctx,
+			h.rpc,
+			meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			h.proverAddress,
+			h.proverSetAddress,
+		); err != nil {
+			return err
+		}
 	}
+
 	if !proofStatus.IsSubmitted {
-		go func() {
-			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-				Tier: meta.TaikoBlockMetaDataOntake().GetMinTier(),
-				Meta: meta,
-			}
-		}()
+		reqBody := &proofProducer.ProofRequestBody{Meta: meta}
+		if !meta.IsPacaya() {
+			reqBody.Tier = meta.TaikoBlockMetaDataOntake().GetMinTier()
+		}
+		go func() { h.proofSubmissionCh <- reqBody }()
 		return nil
 	}
 	// If there is already a proof submitted and there is no need to contest

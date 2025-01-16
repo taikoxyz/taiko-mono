@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
@@ -27,5 +28,17 @@ func (h *BlockVerifiedEventHandler) Handle(e *ontakeBindings.TaikoL1ClientBlockV
 		"blockID", e.BlockId,
 		"hash", common.BytesToHash(e.BlockHash[:]),
 		"prover", e.Prover,
+	)
+}
+
+// Handle handles the BatchVerified event.
+func (h *BlockVerifiedEventHandler) HandlePacaya(e *pacayaBindings.TaikoInboxClientBatchesVerified) {
+	metrics.ProverLatestVerifiedIDGauge.Set(float64(e.BatchId))
+
+	log.Info(
+		"New verified block",
+		"lastBlockID", e.BatchId,
+		"hash", common.BytesToHash(e.BlockHash[:]),
+		"blockHash", e.BlockHash,
 	)
 }

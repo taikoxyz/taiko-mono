@@ -14,6 +14,11 @@ type TaikoProposalMetaData interface {
 	TaikoBlockMetaDataOntake() TaikoBlockMetaDataOntake
 	TaikoBatchMetaDataPacaya() TaikoBatchMetaDataPacaya
 	IsPacaya() bool
+	GetRawBlockHeight() *big.Int
+	GetRawBlockHash() common.Hash
+	GetTxIndex() uint
+	GetTxHash() common.Hash
+	GetProposer() common.Address
 }
 
 type TaikoBlockMetaDataOntake interface {

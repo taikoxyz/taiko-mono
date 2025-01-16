@@ -190,7 +190,7 @@ func (s *Sender) ValidateProof(
 	var verifiedID = latestVerifiedID
 	// 2. Check if latest verified head is ahead of this block proof.
 	if verifiedID == nil {
-		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+		stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			log.Warn(
 				"Failed to fetch state variables",

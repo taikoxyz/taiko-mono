@@ -209,7 +209,7 @@ func (d *Driver) reportProtocolStatus() {
 			}
 
 			if d.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head)) {
-				vars, err := d.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: d.ctx})
+				vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
 				if err != nil {
 					log.Error("Failed to get protocol state variables", "error", err)
 					continue

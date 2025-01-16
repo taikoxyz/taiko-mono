@@ -73,7 +73,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		err           error
 	)
 	if c.PacayaClients.ForkHeight == 0 {
-		stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
 		if err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 
 	var l1Height *big.Int
 	if c.PacayaClients.ForkHeight == 0 {
-		stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
 		if err != nil {
 			return nil, err
 		}
@@ -256,6 +256,19 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	}
 
 	return c.L1.HeaderByNumber(ctxWithTimeout, l1Height)
+}
+
+// GetBatchByID fetches the batch by ID from the Pacaya protocol.
+func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBindings.ITaikoInboxBatch, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+
+	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+	}
+
+	return &batch, nil
 }
 
 // L2ParentByBlockID fetches the block header from L2 execution engine with the largest block id that
@@ -485,7 +498,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	})
 	g.Go(func() error {
 		// Try get the highest block ID from the Pacaya protocol state variables.
-		stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			// If can't fetch the Pacaya protocol state variables, we will try to get the highest block ID from
 			// the Ontake protocol state variables.
@@ -530,8 +543,8 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	return progress, nil
 }
 
-// GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
-func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
+// GetProtocolStateVariablesPacaya gets the protocol states from TaikoL1 contract.
+func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	Stats1 pacayaBindings.ITaikoInboxStats1
 	Stats2 pacayaBindings.ITaikoInboxStats2
 }, error) {
@@ -587,6 +600,23 @@ func (c *Client) GetLastVerifiedBlock(ctx context.Context) (*struct {
 	}
 
 	return &b, nil
+}
+
+// GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
+func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
+	BatchId uint64
+	BlockId uint64
+	Tran    pacayaBindings.ITaikoInboxTransition
+}, error) {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	t, err := c.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.

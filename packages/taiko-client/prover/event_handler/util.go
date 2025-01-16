@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -22,11 +21,20 @@ var (
 
 // isBlockVerified checks whether the given L2 block has been verified.
 func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
-	lastVerifiedTransition, err := rpc.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctx})
+	if rpc.PacayaClients.ForkHeight > id.Uint64() {
+		lastVerifiedTransition, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		return id.Uint64() <= lastVerifiedTransition.BlockId, nil
+	}
+
+	lastVerifiedBlock, err := rpc.GetLastVerifiedBlock(ctx)
 	if err != nil {
 		return false, err
 	}
-	return id.Uint64() <= lastVerifiedTransition.BlockId, nil
+	return id.Uint64() <= lastVerifiedBlock.BlockId, nil
 }
 
 // isValidProof checks if the given proof is a valid one, comparing to current L2 node canonical chain.
@@ -117,12 +125,26 @@ func getMetadataFromBlockID(
 // proving window of the given proposed block is expired, and the second return parameter is the time
 // remaining til proving window is expired.
 func IsProvingWindowExpired(
+	rpc *rpc.Client,
 	metadata metadata.TaikoProposalMetaData,
 	tiers []*rpc.TierProviderTierWithID,
 ) (bool, time.Time, time.Duration, error) {
-	provingWindow, err := getProvingWindow(metadata.TaikoBlockMetaDataOntake().GetMinTier(), tiers)
-	if err != nil {
-		return false, time.Time{}, 0, fmt.Errorf("failed to get proving window: %w", err)
+	var (
+		provingWindow time.Duration
+		err           error
+	)
+	if metadata.IsPacaya() {
+		protocolConfigs, err := rpc.GetProtocolConfigs(nil)
+		if err != nil {
+			return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya protocol configs: %w", err)
+		}
+		if provingWindow, err = protocolConfigs.ProvingWindow(); err != nil {
+			return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya proving window: %w", err)
+		}
+	} else {
+		if provingWindow, err = getProvingWindow(metadata.TaikoBlockMetaDataOntake().GetMinTier(), tiers); err != nil {
+			return false, time.Time{}, 0, fmt.Errorf("failed to get Ontake proving window: %w", err)
+		}
 	}
 
 	var (

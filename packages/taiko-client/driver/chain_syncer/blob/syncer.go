@@ -793,7 +793,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		err              error
 	)
 
-	stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}

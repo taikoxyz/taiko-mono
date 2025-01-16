@@ -60,7 +60,7 @@ func (s *State) Close() {
 
 // init fetches the latest status and initializes the state instance.
 func (s *State) init(ctx context.Context) error {
-	stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
 	}

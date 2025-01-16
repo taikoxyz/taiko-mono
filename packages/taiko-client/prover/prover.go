@@ -20,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -295,16 +296,25 @@ func (p *Prover) eventLoop() {
 	blockVerifiedV2Ch := make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
 	transitionProvedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
 	transitionContestedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
+	batchProposedCh := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, chBufferSize)
+	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
+	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
 	// Subscriptions
 	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.OntakeClients.TaikoL1, blockProposedV2Ch)
 	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.OntakeClients.TaikoL1, blockVerifiedV2Ch)
 	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.OntakeClients.TaikoL1, transitionProvedV2Ch)
 	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.OntakeClients.TaikoL1, transitionContestedV2Ch)
+	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
+	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
+	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
 	defer func() {
 		blockProposedV2Sub.Unsubscribe()
 		blockVerifiedV2Sub.Unsubscribe()
 		transitionProvedV2Sub.Unsubscribe()
 		transitionContestedV2Sub.Unsubscribe()
+		batchProposedSub.Unsubscribe()
+		batchesVerifiedSub.Unsubscribe()
+		batchesProvedSub.Unsubscribe()
 	}()
 
 	for {

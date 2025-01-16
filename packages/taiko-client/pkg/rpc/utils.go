@@ -247,6 +247,54 @@ func GetBlockProofStatus(
 	}, nil
 }
 
+// GetBatchesProofStatus checks whether the L2 blocks batch still needs a new proof.
+func GetBatchProofStatus(
+	ctx context.Context,
+	cli *Client,
+	batchId *big.Int,
+) (*BlockProofStatus, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+
+	var (
+		parentID *big.Int
+		batch    *pacayaBindings.ITaikoInboxBatch
+		err      error
+	)
+	if batch, err = cli.GetBatchByID(ctx, new(big.Int).Sub(batchId, common.Big1)); err != nil {
+		return nil, err
+	}
+	if batchId.Uint64() == cli.PacayaClients.ForkHeight {
+		parentID = new(big.Int).Sub(batchId, common.Big1)
+	} else {
+		parentID = new(big.Int).SetUint64(batch.LastBlockId)
+	}
+
+	// Get the local L2 parent header.
+	parent, err := cli.L2.HeaderByNumber(ctxWithTimeout, parentID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the transition state from TaikoL1 contract.
+	if _, err = cli.PacayaClients.TaikoInbox.GetTransition(
+		&bind.CallOpts{Context: ctxWithTimeout},
+		batchId.Uint64(),
+		common.Big1, // TODO: use the right transition id
+	); err != nil {
+		if !strings.Contains(encoding.TryParsingCustomError(err).Error(), "TransitionNotFound") {
+			return nil, encoding.TryParsingCustomError(err)
+		}
+
+		// Status 1, no proof on chain at all.
+		return &BlockProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
+	}
+
+	// TODO: check if the transition state is valid.
+	// Status 2, a valid proof has been submitted.
+	return &BlockProofStatus{IsSubmitted: true, ParentHeader: parent}, nil
+}
+
 // BatchGetBlocksProofStatus checks whether the batch of L2 blocks still need new proofs or new contests.
 // Here are the possible status:
 // 1. No proof on chain at all.

@@ -176,7 +176,7 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 		return err
 	}
 
-	stateVars, err := p.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: p.ctx})
+	stateVars, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: p.ctx})
 	if err != nil {
 		return err
 	}
