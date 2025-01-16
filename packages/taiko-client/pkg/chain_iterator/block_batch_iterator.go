@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	errEOF      = errors.New("end of batch")
+	errEOF      = errors.New("end of blockBatchIterator batch")
 	errContinue = errors.New("continue")
 )
 
