@@ -128,8 +128,10 @@ interface ITaikoInbox {
         uint64 maxBatchesToVerify;
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
-        /// @notice The amount of Taiko token as a prover liveness bond.
-        uint96 livenessBond;
+        /// @notice The amount of Taiko token as a prover liveness bond per batch.
+        uint96 livenessBondBase;
+        /// @notice The amount of Taiko token as a prover liveness bond per block.
+        uint96 livenessBondPerBlock;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -202,10 +204,12 @@ interface ITaikoInbox {
     /// @param transitions The transitions data.
     event BatchesProved(address verifier, uint64[] batchIds, Transition[] transitions);
 
-    /// @notice Emitted when a transition is overwritten by another one.
+    /// @notice Emitted when a transition is overwritten by a conflicting one with the same parent
+    /// hash but different block hash or state root.
     /// @param batchId The batch ID.
-    /// @param tran The transition data that has been overwritten.
-    event TransitionOverwritten(uint64 batchId, Transition tran);
+    /// @param oldTran The old transition overwritten.
+    /// @param newTran The new transition.
+    event ConflictingProof(uint64 batchId, Transition oldTran, Transition newTran);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
@@ -237,7 +241,7 @@ interface ITaikoInbox {
     error NotFirstProposal();
     error NotPreconfRouter();
     error ParentMetaHashMismatch();
-    error ProverNotPermitted();
+    error SameTransition();
     error SignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
@@ -246,6 +250,7 @@ interface ITaikoInbox {
     error TooManyBlocks();
     error TooManySignals();
     error TransitionNotFound();
+    error ZeroAnchorBlockHash();
 
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded parameters consisting of:
@@ -310,6 +315,19 @@ interface ITaikoInbox {
     function getTransition(
         uint64 _batchId,
         uint24 _tid
+    )
+        external
+        view
+        returns (ITaikoInbox.Transition memory);
+
+    /// @notice Retrieves a specific transition by batch ID and parent Hash. This function may
+    /// revert if the transition is not found.
+    /// @param _batchId The batch ID.
+    /// @param _parentHash The parent hash.
+    /// @return The specified transition.
+    function getTransition(
+        uint64 _batchId,
+        bytes32 _parentHash
     )
         external
         view

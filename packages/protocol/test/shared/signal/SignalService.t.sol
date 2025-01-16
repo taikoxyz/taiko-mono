@@ -133,6 +133,14 @@ contract TestSignalService is CommonTest {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
+            _app: randAddress(),
+            _signal: randBytes32(),
+            _proof: hex""
+        });
+
         // proofs.length must > 0 in order not to revert
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](0);
 
@@ -578,7 +586,7 @@ contract TestSignalService is CommonTest {
         );
     }
 
-    function test_SignalService_getSyncedChainData() public {
+    function test_SignalService_getSyncedChainData_isSignalSent() public {
         vm.chainId(167_001);
 
         bytes32 kind = LibStrings.H_STATE_ROOT;
@@ -598,6 +606,12 @@ contract TestSignalService is CommonTest {
         assertEq(returnedBlockId, blockId);
         assertEq(returnedChainData, expectedChainData);
 
+        bytes32 signal = signalService.signalForChainData(chainId, kind, blockId);
+        bool isSignalSent = signalService.isSignalSent(address(signalService), signal);
+        assertEq(isSignalSent, true);
+        isSignalSent = signalService.isSignalSent(signal);
+        assertEq(isSignalSent, false);
+
         // Test for topBlockId is returned when blockId is 0
         uint64 unsetBlockId = 0;
         expectedChainData = randBytes32();
@@ -614,6 +628,10 @@ contract TestSignalService is CommonTest {
         uint64 invalidBlockId = blockId + 100; // BlockId that was not synced
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
         signalService.getSyncedChainData(chainId, kind, invalidBlockId);
+
+        signal = signalService.signalForChainData(chainId, kind, invalidBlockId);
+        isSignalSent = signalService.isSignalSent(address(signalService), signal);
+        assertEq(isSignalSent, false);
     }
 
     function test_SignalService_signalForChainData() public view {

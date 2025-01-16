@@ -213,6 +213,7 @@ func (s *Syncer) onBlockProposedOntake(
 	}
 	// Ignore those already inserted blocks.
 	if s.lastInsertedBlockID != nil && meta.GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
+		log.Debug("Skip already inserted block", "blockID", meta.GetBlockID(), "lastInsertedBlockID", s.lastInsertedBlockID)
 		return nil
 	}
 
@@ -243,6 +244,7 @@ func (s *Syncer) onBlockProposedOntake(
 	if s.progressTracker.Triggered() {
 		// Already synced through beacon sync, just skip this event.
 		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+			log.Debug("Skip already beacon synced block", "blockID", meta.GetBlockID())
 			return nil
 		}
 

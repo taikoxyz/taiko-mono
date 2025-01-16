@@ -12,7 +12,8 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token
+            livenessBondBase: 125e18, // 125 Taiko token per batch
+            livenessBondPerBlock: 5e18, // 5 Taiko token per block
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -24,7 +25,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
              }),
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 256,
+            maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
@@ -59,7 +60,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
-    function test_block_rejection_due_to_missing_txlist_and_blobindex() external {
+    function test_batch_rejection_due_to_missing_txlist_and_blobindex() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -76,7 +77,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "");
     }
 
-    function test_propose_block_with_empty_txlist_and_valid_blobindex() external {
+    function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -133,7 +134,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds1);
     }
 
-    function test_prove_block_with_mismatched_txlist() external {
+    function test_prove_batch_with_mismatched_txlist() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;

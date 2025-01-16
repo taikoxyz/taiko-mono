@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -30,9 +28,6 @@ type L2ChainSyncer struct {
 	// Monitors
 	progressTracker *beaconsync.SyncProgressTracker
 
-	// Sync mode
-	syncMode string
-
 	// If this flag is activated, will try P2P beacon sync if current node is behind of the protocol's
 	// the latest verified block head
 	p2pSync bool
@@ -52,11 +47,7 @@ func New(
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
 
-	syncMode, err := rpc.L2.GetSyncMode(ctx)
-	if err != nil {
-		return nil, err
-	}
-	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, syncMode, tracker)
+	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
 	blobSyncer, err := blob.NewSyncer(
 		ctx,
 		rpc,
@@ -77,7 +68,6 @@ func New(
 		beaconSyncer:    beaconSyncer,
 		blobSyncer:      blobSyncer,
 		progressTracker: tracker,
-		syncMode:        syncMode,
 		p2pSync:         p2pSync,
 	}, nil
 }
@@ -193,32 +183,9 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 		return 0, false, nil
 	}
 
-	// For full sync mode, we will use the verified block head,
-	// and for snap sync mode, we will use the latest block head.
-	var (
-		blockID uint64
-		err     error
-	)
-	switch s.syncMode {
-	case downloader.SnapSync.String():
-		if blockID, err = s.rpc.L2CheckPoint.BlockNumber(s.ctx); err != nil {
-			return 0, false, err
-		}
-	case downloader.FullSync.String():
-		stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: s.ctx})
-		if err != nil {
-			return 0, false, err
-		}
-		lastVerifiedBatch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(
-			&bind.CallOpts{Context: s.ctx},
-			stateVars.Stats2.LastVerifiedBatchId,
-		)
-		if err != nil {
-			return 0, false, err
-		}
-		blockID = lastVerifiedBatch.LastBlockId
-	default:
-		return 0, false, fmt.Errorf("invalid sync mode: %s", s.syncMode)
+	blockID, err := s.rpc.L2CheckPoint.BlockNumber(s.ctx)
+	if err != nil {
+		return 0, false, err
 	}
 
 	// If the protocol's block head is zero, we simply return false.

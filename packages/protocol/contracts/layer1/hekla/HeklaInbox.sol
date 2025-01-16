@@ -16,7 +16,8 @@ contract HeklaInbox is TaikoInbox {
             batchRingBufferSize: 324_512,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token
+            livenessBondBase: 125e18, // 125 Taiko token per batch
+            livenessBondPerBlock: 5e18, // 5 Taiko token per block
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -28,7 +29,7 @@ contract HeklaInbox is TaikoInbox {
              }),
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 256,
+            maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 840_512,
                 pacaya: 840_512 * 10 // TODO
