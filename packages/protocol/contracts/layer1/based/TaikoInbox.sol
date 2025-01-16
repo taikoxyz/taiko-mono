@@ -326,7 +326,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             state.transitionIds[_batchId][_tran.parentHash] = tid;
         }
 
-        // This batch is a "sync batch", we need to save the state root.
         ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _tran.stateRoot : bytes32(0);
         ts.blockHash = _tran.blockHash;
         emit TransitionWritten(_batchId, tid, _tran);
