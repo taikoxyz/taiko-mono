@@ -371,15 +371,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     )
         external
         view
-        returns (Transition memory tran_)
+        returns (Transition memory)
     {
         Config memory config = getConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
-        uint24 _tid = state.transitionIds[_batchId][_parentHash];
-        require(_tid != 0 && _tid < batch.nextTransitionId, TransitionNotFound());
-        return state.transitions[slot][_tid];
+
+        uint24 tid = state.transitionIds[_batchId][_parentHash];
+        require(tid != 0 && tid < batch.nextTransitionId, TransitionNotFound());
+        return state.transitions[slot][tid];
     }
 
     /// @inheritdoc ITaikoInbox
