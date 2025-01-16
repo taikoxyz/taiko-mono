@@ -676,8 +676,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 totalShift += _params.blocks[i].timeShift;
             }
 
-            require(lastBlockTimestamp_ + totalShift >= block.timestamp, TimestampTooSmall());
-
             uint64 firstBlockTimestamp = lastBlockTimestamp_ - totalShift;
 
             require(
