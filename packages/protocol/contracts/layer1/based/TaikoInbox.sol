@@ -46,7 +46,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         __Taiko_init(_owner, _rollupResolver, _genesisBlockHash);
     }
 
-    /// @notice Proposes multiple batches.
+    /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded parameters consisting of:
     /// - proposer: The address of the proposer, which is set by the PreconfTaskManager if
     ///             enabled; otherwise, it must be address(0).
