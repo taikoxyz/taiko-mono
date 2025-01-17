@@ -63,6 +63,10 @@ func (d *BlobFetcher) Fetch(
 				return nil, err
 			}
 
+			if meta.GetBlobTxListLength() == 0 {
+				return bytes, nil
+			}
+
 			b, err := sliceTxList(meta.GetBlockID(), bytes, meta.GetBlobTxListOffset(), meta.GetBlobTxListLength())
 			if err != nil {
 				log.Warn("Invalid txlist offset and size in metadata", "blockID", meta.GetBlockID(), "err", err)
