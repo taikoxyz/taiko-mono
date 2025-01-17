@@ -34,6 +34,15 @@ import (
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
 
+// eventHandlers contains all event handlers which will be used by the prover.
+type eventHandlers struct {
+	blockProposedHandler       handler.BlockProposedHandler
+	blockVerifiedHandler       handler.BlockVerifiedHandler
+	transitionContestedHandler handler.TransitionContestedHandler
+	transitionProvedHandler    handler.TransitionProvedHandler
+	assignmentExpiredHandler   handler.AssignmentExpiredHandler
+}
+
 // Prover keeps trying to prove newly proposed blocks.
 type Prover struct {
 	// Configurations
@@ -53,16 +62,12 @@ type Prover struct {
 	sharedState *state.SharedState
 
 	// Event handlers
-	blockProposedHandler       handler.BlockProposedHandler
-	blockVerifiedHandler       handler.BlockVerifiedHandler
-	transitionContestedHandler handler.TransitionContestedHandler
-	transitionProvedHandler    handler.TransitionProvedHandler
-	assignmentExpiredHandler   handler.AssignmentExpiredHandler
+	eventHandlers *eventHandlers
 
 	// Proof submitters
-	proofSubmitters      []proofSubmitter.Submitter
-	proofSubmitterPacaya proofSubmitter.Submitter
-	proofContester       proofSubmitter.Contester
+	proofSubmittersOntake []proofSubmitter.Submitter
+	proofContesterOntake  proofSubmitter.Contester
+	proofSubmitterPacaya  proofSubmitter.Submitter
 
 	assignmentExpiredCh chan metadata.TaikoProposalMetaData
 	proveNotify         chan struct{}
@@ -197,7 +202,7 @@ func InitFromConfig(
 	}
 
 	// Proof contester
-	p.proofContester = proofSubmitter.NewProofContester(
+	p.proofContesterOntake = proofSubmitter.NewProofContester(
 		p.rpc,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
@@ -337,17 +342,17 @@ func (p *Prover) eventLoop() {
 		case tier := <-p.aggregationNotify:
 			p.withRetry(func() error { return p.aggregateOp(tier) })
 		case e := <-blockVerifiedV2Ch:
-			p.blockVerifiedHandler.Handle(e)
+			p.eventHandlers.blockVerifiedHandler.Handle(e)
 		case e := <-transitionProvedV2Ch:
 			p.withRetry(func() error {
-				return p.transitionProvedHandler.Handle(p.ctx, e)
+				return p.eventHandlers.transitionProvedHandler.Handle(p.ctx, e)
 			})
 		case e := <-transitionContestedV2Ch:
 			p.withRetry(func() error {
-				return p.transitionContestedHandler.Handle(p.ctx, e)
+				return p.eventHandlers.transitionContestedHandler.Handle(p.ctx, e)
 			})
 		case m := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, m) })
+			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-blockProposedV2Ch:
 			reqProving()
 		case <-batchProposedCh:
@@ -370,7 +375,7 @@ func (p *Prover) proveOp() error {
 		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
-		OnBlockProposedEvent: p.blockProposedHandler.Handle,
+		OnBlockProposedEvent: p.eventHandlers.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
 	})
 	if err != nil {
@@ -384,7 +389,7 @@ func (p *Prover) proveOp() error {
 // aggregateOp aggregates all proofs in buffer.
 func (p *Prover) aggregateOp(tier uint16) error {
 	g, gCtx := errgroup.WithContext(p.ctx)
-	for _, submitter := range p.proofSubmitters {
+	for _, submitter := range p.proofSubmittersOntake {
 		g.Go(func() error {
 			if submitter.AggregationEnabled() && submitter.Tier() == tier {
 				if err := submitter.AggregateProofs(gCtx); err != nil {
@@ -412,7 +417,7 @@ func (p *Prover) aggregateOp(tier uint16) error {
 
 // contestProofOp performs a proof contest operation.
 func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
-	if err := p.proofContester.SubmitContest(
+	if err := p.proofContesterOntake.SubmitContest(
 		p.ctx,
 		req.BlockID,
 		req.ProposedIn,
@@ -550,7 +555,7 @@ func (p *Prover) Name() string {
 
 // selectSubmitter returns the proof submitter with the given minTier.
 func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
-	for _, s := range p.proofSubmitters {
+	for _, s := range p.proofSubmittersOntake {
 		if s.Tier() >= minTier {
 			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
 				continue
@@ -567,7 +572,7 @@ func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
 
 // getSubmitterByTier returns the proof submitter with the given tier.
 func (p *Prover) getSubmitterByTier(tier uint16) proofSubmitter.Submitter {
-	for _, s := range p.proofSubmitters {
+	for _, s := range p.proofSubmittersOntake {
 		if s.Tier() == tier {
 			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
 				continue

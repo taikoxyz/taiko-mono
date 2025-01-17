@@ -151,7 +151,7 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 	// Valid block
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	s.Nil(s.p.blockProposedHandler.Handle(context.Background(), m, func() {}))
+	s.Nil(s.p.eventHandlers.blockProposedHandler.Handle(context.Background(), m, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(
@@ -163,7 +163,7 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 		s.proposer,
 		s.d.ChainSyncer().BlobSyncer(),
 	) {
-		s.Nil(s.p.blockProposedHandler.Handle(context.Background(), m, func() {}))
+		s.Nil(s.p.eventHandlers.blockProposedHandler.Handle(context.Background(), m, func() {}))
 		req := <-s.p.proofSubmissionCh
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 		s.Nil(s.p.selectSubmitter(
@@ -174,7 +174,7 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 
 func (s *ProverTestSuite) TestOnBlockVerifiedEmptyBlockHash() {
 	s.NotPanics(func() {
-		s.p.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
+		s.p.eventHandlers.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 			BlockId:   common.Big1,
 			BlockHash: common.Hash{},
 		})
@@ -211,7 +211,7 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 func (s *ProverTestSuite) TestOnBlockVerified() {
 	id := testutils.RandomHash().Big().Uint64()
 	s.NotPanics(func() {
-		s.p.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
+		s.p.eventHandlers.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 			BlockId: testutils.RandomHash().Big(),
 			Raw: types.Log{
 				BlockHash:   testutils.RandomHash(),
@@ -225,10 +225,11 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.p.cfg.ContesterMode = false
 	s.Nil(s.p.initEventHandlers())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	s.Nil(s.p.transitionProvedHandler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
-		BlockId: m.TaikoBlockMetaDataOntake().GetBlockID(),
-		Tier:    m.TaikoBlockMetaDataOntake().GetMinTier(),
-	}))
+	s.Nil(s.p.eventHandlers.transitionProvedHandler.Handle(
+		context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
+			BlockId: m.TaikoBlockMetaDataOntake().GetBlockID(),
+			Tier:    m.TaikoBlockMetaDataOntake().GetMinTier(),
+		}))
 	s.p.cfg.ContesterMode = true
 	s.Nil(s.p.initEventHandlers())
 
@@ -274,7 +275,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Nil(s.p.initEventHandlers())
 
 	s.Greater(header.Number.Uint64(), uint64(0))
-	s.Nil(s.p.transitionProvedHandler.Handle(context.Background(), event))
+	s.Nil(s.p.eventHandlers.transitionProvedHandler.Handle(context.Background(), event))
 	contestReq := <-s.p.proofContestCh
 	s.Nil(s.p.contestProofOp(contestReq))
 
@@ -283,7 +284,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Equal(header.Hash(), common.BytesToHash(contestedEvent.Tran.BlockHash[:]))
 	s.Equal(header.ParentHash, common.BytesToHash(contestedEvent.Tran.ParentHash[:]))
 
-	s.Nil(s.p.transitionContestedHandler.Handle(context.Background(), contestedEvent))
+	s.Nil(s.p.eventHandlers.transitionContestedHandler.Handle(context.Background(), contestedEvent))
 
 	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT"))
 	s.True(s.p.IsGuardianProver())
@@ -296,7 +297,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 		s.p.cfg.GuardianProverMajorityAddress,
 		s.p.cfg.GuardianProverMinorityAddress,
 	)
-	s.p.proofSubmitters = nil
+	s.p.proofSubmittersOntake = nil
 	// Protocol proof tiers
 	tiers, err := s.RPCClient.GetTiers(context.Background())
 	s.Nil(err)

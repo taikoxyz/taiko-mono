@@ -164,10 +164,9 @@ func (p *Prover) initProofSubmitters(
 			return err
 		}
 
-		p.proofSubmitters = append(p.proofSubmitters, submitter)
+		p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 	}
 
-	// TODO(David): replace OP producer later, when upstream prover service is ready.
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitter(
 		p.rpc,
 		&proofProducer.OptimisticProofProducer{},
@@ -199,14 +198,27 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 		return err
 	}
 
-	stateVars, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: p.ctx})
-	if err != nil {
-		return err
-	}
-
 	if startingBlockID == nil {
-		if stateVars.Stats2.LastVerifiedBatchId == 0 { // TODO: update to block
-			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(0)) // TODO: use genesis height
+		var (
+			lastVerifiedBlockID *big.Int
+			genesisHeight       *big.Int
+		)
+		stateVars, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: p.ctx})
+		if err != nil {
+			slot1, _, err := p.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: p.ctx})
+			if err != nil {
+				return err
+			}
+
+			lastVerifiedBlockID = new(big.Int).SetUint64(slot1.LastSyncedBlockId)
+			genesisHeight = new(big.Int).SetUint64(slot1.GenesisHeight)
+		} else {
+			lastVerifiedBlockID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
+			genesisHeight = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+		}
+
+		if lastVerifiedBlockID.Cmp(common.Big0) == 0 {
+			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, genesisHeight)
 			if err != nil {
 				return err
 			}
@@ -215,7 +227,7 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 			return nil
 		}
 
-		startingBlockID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId) // TODO: update to block
+		startingBlockID = lastVerifiedBlockID
 	}
 
 	log.Info("Init L1Current cursor", "startingBlockID", startingBlockID)
@@ -249,6 +261,7 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 
 // initEventHandlers initialize all event handlers which will be used by the current prover.
 func (p *Prover) initEventHandlers() error {
+	p.eventHandlers = &eventHandlers{}
 	// ------- BlockProposed -------
 	opts := &handler.NewBlockProposedEventHandlerOps{
 		SharedState:           p.sharedState,
@@ -265,17 +278,17 @@ func (p *Prover) initEventHandlers() error {
 		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
 	}
 	if p.IsGuardianProver() {
-		p.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
+		p.eventHandlers.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
 			&handler.NewBlockProposedGuardianEventHandlerOps{
 				NewBlockProposedEventHandlerOps: opts,
 				GuardianProverHeartbeater:       p.guardianProverHeartbeater,
 			},
 		)
 	} else {
-		p.blockProposedHandler = handler.NewBlockProposedEventHandler(opts)
+		p.eventHandlers.blockProposedHandler = handler.NewBlockProposedEventHandler(opts)
 	}
 	// ------- TransitionProved -------
-	p.transitionProvedHandler = handler.NewTransitionProvedEventHandler(
+	p.eventHandlers.transitionProvedHandler = handler.NewTransitionProvedEventHandler(
 		p.rpc,
 		p.proofContestCh,
 		p.proofSubmissionCh,
@@ -283,13 +296,13 @@ func (p *Prover) initEventHandlers() error {
 		p.IsGuardianProver(),
 	)
 	// ------- TransitionContested -------
-	p.transitionContestedHandler = handler.NewTransitionContestedEventHandler(
+	p.eventHandlers.transitionContestedHandler = handler.NewTransitionContestedEventHandler(
 		p.rpc,
 		p.proofSubmissionCh,
 		p.cfg.ContesterMode,
 	)
 	// ------- AssignmentExpired -------
-	p.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
+	p.eventHandlers.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
 		p.rpc,
 		p.ProverAddress(),
 		p.cfg.ProverSetAddress,
@@ -304,7 +317,7 @@ func (p *Prover) initEventHandlers() error {
 	if err != nil {
 		return err
 	}
-	p.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(guardianProverAddress)
+	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(guardianProverAddress)
 
 	return nil
 }

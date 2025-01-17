@@ -497,13 +497,14 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 	return reorgCheckResult, nil
 }
 
-// retrievePastBlock find proper L1 header and L2 block id to reset when there is a mismatch
+// retrievePastBlock find proper L1 header and L2 block id to reset when there is a mismatch.
 // TODO: fix this function
 func (s *Syncer) retrievePastBlock(
 	ctx context.Context,
 	blockID uint64,
 	retries uint64,
-	genesisL1Header *types.Header) (*rpc.ReorgCheckResult, error) {
+	genesisL1Header *types.Header,
+) (*rpc.ReorgCheckResult, error) {
 	if retries > s.maxRetrieveExponent {
 		return &rpc.ReorgCheckResult{
 			IsReorged:                 true,
