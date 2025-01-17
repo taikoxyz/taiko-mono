@@ -16,8 +16,8 @@ import (
 var (
 	l1Endpoint      = os.Getenv("L1_WS")
 	l2Endpoint      = os.Getenv("L2_HTTP")
-	taikoL1         = os.Getenv("TAIKO_L1")
-	taikoL2         = os.Getenv("TAIKO_L2")
+	taikoL1         = os.Getenv("TAIKO_INBOX")
+	taikoL2         = os.Getenv("TAIKO_ANCHOR")
 	taikoToken      = os.Getenv("TAIKO_TOKEN")
 	proposeInterval = "10s"
 	rpcTimeout      = "5s"

@@ -558,7 +558,10 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 		states *struct {
 			Stats1 pacayaBindings.ITaikoInboxStats1
 			Stats2 pacayaBindings.ITaikoInboxStats2
-		}
+		} = new(struct {
+			Stats1 pacayaBindings.ITaikoInboxStats1
+			Stats2 pacayaBindings.ITaikoInboxStats2
+		})
 		err error
 	)
 

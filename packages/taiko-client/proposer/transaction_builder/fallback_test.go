@@ -127,8 +127,8 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 	return NewBuilderWithFallback(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_L2")),
-		common.HexToAddress(os.Getenv("TAIKO_L1")),
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},
 		10_000_000,
 		chainConfig,

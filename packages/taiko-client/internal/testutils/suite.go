@@ -54,8 +54,8 @@ func (s *ClientTestSuite) SetupTest() {
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
 		L1Endpoint:                    os.Getenv("L1_WS"),
 		L2Endpoint:                    os.Getenv("L2_WS"),
-		TaikoL1Address:                common.HexToAddress(os.Getenv("TAIKO_L1")),
-		TaikoL2Address:                common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoL1Address:                common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:                common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:             common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
 		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
@@ -73,7 +73,7 @@ func (s *ClientTestSuite) SetupTest() {
 	allowance, err := rpcCli.PacayaClients.TaikoToken.Allowance(
 		nil,
 		crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey),
-		common.HexToAddress(os.Getenv("TAIKO_L1")),
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 	)
 	s.Nil(err)
 
@@ -149,7 +149,7 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 
 	data, err := encoding.TaikoTokenABI.Pack(
 		"approve",
-		common.HexToAddress(os.Getenv("TAIKO_L1")),
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		bigInt,
 	)
 	s.Nil(err)
