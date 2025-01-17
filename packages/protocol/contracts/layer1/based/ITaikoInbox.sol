@@ -63,6 +63,7 @@ interface ITaikoInbox {
         uint64 proposedIn; // Used by node/client
         uint32 txListOffset;
         uint32 txListSize;
+        uint8 firstBlobIndex;
         uint8 numBlobs;
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
