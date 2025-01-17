@@ -107,6 +107,11 @@ func (m *TaikoDataBlockMetadataPacaya) GetTxListSize() uint32 {
 	return m.TxListSize
 }
 
+// GetFirstBlobIndex returns the index of the first blob of this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetFirstBlobIndex() uint8 {
+	return m.FirstBlobIndex
+}
+
 // GetNumBlobs returns the number of the used blobs.
 func (m *TaikoDataBlockMetadataPacaya) GetNumBlobs() uint8 {
 	return m.NumBlobs

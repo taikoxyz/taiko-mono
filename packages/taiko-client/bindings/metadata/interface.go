@@ -63,6 +63,7 @@ type TaikoBatchMetaDataPacaya interface {
 	GetProposedIn() uint64
 	GetTxListOffset() uint32
 	GetTxListSize() uint32
+	GetFirstBlobIndex() uint8
 	GetNumBlobs() uint8
 	GetAnchorBlockID() uint64
 	GetAnchorBlockHash() common.Hash

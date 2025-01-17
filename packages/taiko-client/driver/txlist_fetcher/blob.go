@@ -94,7 +94,7 @@ func (d *BlobFetcher) FetchPacaya(
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
 		meta.GetProposedAt(),
-		tx.BlobHashes()[0], // TODO: use firstBlob index.
+		tx.BlobHashes()[meta.GetFirstBlobIndex()],
 	)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (d *BlobFetcher) FetchPacaya(
 				"Block sidecar",
 				"index", j,
 				"KzgCommitment", sidecar.KzgCommitment,
-				"blobHash", tx.BlobHashes()[i], // TODO: use first blob index.
+				"blobHash", tx.BlobHashes()[i],
 			)
 
 			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
