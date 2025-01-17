@@ -3,6 +3,8 @@ package txlistdecoder
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -61,12 +63,24 @@ func (d *BlobFetcher) Fetch(
 				return nil, err
 			}
 
-			if meta.GetBlobTxListLength() == 0 {
-				return bytes[meta.GetBlobTxListOffset():], nil
+			b, err := sliceTxList(meta.GetBlockID(), bytes, meta.GetBlobTxListOffset(), meta.GetBlobTxListLength())
+			if err != nil {
+				log.Warn("Invalid txlist offset and size in metadata", "blockID", meta.GetBlockID(), "err", err)
+				return []byte{}, nil
 			}
-			return bytes[meta.GetBlobTxListOffset() : meta.GetBlobTxListOffset()+meta.GetBlobTxListLength()], nil
+			return b, nil
 		}
 	}
 
 	return nil, pkg.ErrSidecarNotFound
+}
+
+// sliceTxList returns the sliced txList bytes from the given offset and length.
+func sliceTxList(id *big.Int, b []byte, offset, length uint32) ([]byte, error) {
+	if offset+length > uint32(len(b)) {
+		return nil, fmt.Errorf(
+			"invalid txlist offset and size in metadata (%d): offset=%d, size=%d, blobSize=%d", id, offset, length, len(b),
+		)
+	}
+	return b[offset : offset+length], nil
 }
