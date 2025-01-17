@@ -17,7 +17,7 @@ type ProverEventHandlerTestSuite struct {
 }
 
 func (s *ProverEventHandlerTestSuite) TestGetProvingWindowNotFound() {
-	_, err := getProvingWindow(
+	_, err := getProvingWindowOntake(
 		encoding.TierGuardianMajorityID+1,
 		[]*rpc.TierProviderTierWithID{},
 	)

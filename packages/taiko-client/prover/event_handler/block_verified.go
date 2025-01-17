@@ -36,9 +36,8 @@ func (h *BlockVerifiedEventHandler) HandlePacaya(e *pacayaBindings.TaikoInboxCli
 	metrics.ProverLatestVerifiedIDGauge.Set(float64(e.BatchId))
 
 	log.Info(
-		"New verified block",
-		"lastBlockID", e.BatchId,
+		"New verified batch",
+		"batchID", e.BatchId,
 		"hash", common.BytesToHash(e.BlockHash[:]),
-		"blockHash", e.BlockHash,
 	)
 }

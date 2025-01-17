@@ -61,8 +61,8 @@ func isValidProof(
 		l2Header.Root == stateRoot, nil
 }
 
-// getProvingWindow returns the provingWindow of the given tier.
-func getProvingWindow(
+// getProvingWindowOntake returns the provingWindow of the given tier.
+func getProvingWindowOntake(
 	tier uint16,
 	tiers []*rpc.TierProviderTierWithID,
 ) (time.Duration, error) {
@@ -75,8 +75,8 @@ func getProvingWindow(
 	return 0, errTierNotFound
 }
 
-// getMetadataFromBlockID fetches the block meta from the onchain event by the given block id.
-func getMetadataFromBlockID(
+// getMetadataFromBlockIDOntake fetches the block meta from the onchain event by the given block id.
+func getMetadataFromBlockIDOntake(
 	ctx context.Context,
 	rpc *rpc.Client,
 	id *big.Int,
@@ -115,7 +115,7 @@ func getMetadataFromBlockID(
 	}
 
 	if m == nil {
-		return nil, fmt.Errorf("failed to find BlockProposed event for block %d", id)
+		return nil, fmt.Errorf("failed to find BlockProposedV2 event for block %d", id)
 	}
 
 	return m, nil
@@ -142,7 +142,10 @@ func IsProvingWindowExpired(
 			return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya proving window: %w", err)
 		}
 	} else {
-		if provingWindow, err = getProvingWindow(metadata.TaikoBlockMetaDataOntake().GetMinTier(), tiers); err != nil {
+		if provingWindow, err = getProvingWindowOntake(
+			metadata.TaikoBlockMetaDataOntake().GetMinTier(),
+			tiers,
+		); err != nil {
 			return false, time.Time{}, 0, fmt.Errorf("failed to get Ontake proving window: %w", err)
 		}
 	}

@@ -86,6 +86,14 @@ func (h *BlockProposedEventHandler) Handle(
 	meta metadata.TaikoProposalMetaData,
 	end eventIterator.EndBlockProposedEventIterFunc,
 ) error {
+	// If there are newly generated proofs, we need to submit them as soon as possible,
+	// to avoid proof submission timeout.
+	if len(h.proofGenerationCh) > 0 {
+		log.Info("onBlockProposed callback early return", "proofGenerationChannelLength", len(h.proofGenerationCh))
+		end()
+		return nil
+	}
+
 	var blockID *big.Int
 	if meta.IsPacaya() {
 		batch, err := h.rpc.GetBatchByID(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
@@ -95,13 +103,6 @@ func (h *BlockProposedEventHandler) Handle(
 		blockID = new(big.Int).SetUint64(batch.LastBlockId)
 	} else {
 		blockID = meta.TaikoBlockMetaDataOntake().GetBlockID()
-	}
-	// If there are newly generated proofs, we need to submit them as soon as possible,
-	// to avoid proof submission timeout.
-	if len(h.proofGenerationCh) > 0 {
-		log.Info("onBlockProposed callback early return", "proofGenerationChannelLength", len(h.proofGenerationCh))
-		end()
-		return nil
 	}
 
 	// Wait for the corresponding L2 block being mined in node.
@@ -120,22 +121,36 @@ func (h *BlockProposedEventHandler) Handle(
 	}
 
 	// If the current block is handled, just skip it.
-	if meta.TaikoBlockMetaDataOntake().GetBlockID().Uint64() <= h.sharedState.GetLastHandledBlockID() {
+	if blockID.Uint64() <= h.sharedState.GetLastHandledBlockID() {
 		return nil
 	}
 
-	log.Info(
-		"New BlockProposed event",
-		"l1Height", meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
-		"l1Hash", meta.TaikoBlockMetaDataOntake().GetRawBlockHash(),
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-		"assignedProver", meta.TaikoBlockMetaDataOntake().GetAssignedProver(),
-		"blobHash", meta.TaikoBlockMetaDataOntake().GetBlobHash(),
-		"livenessBond", utils.WeiToEther(meta.TaikoBlockMetaDataOntake().GetLivenessBond()),
-		"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
-		"blobUsed", meta.TaikoBlockMetaDataOntake().GetBlobUsed(),
-	)
-	metrics.ProverReceivedProposedBlockGauge.Set(float64(meta.TaikoBlockMetaDataOntake().GetBlockID().Uint64()))
+	if meta.IsPacaya() {
+		log.Info(
+			"New BatchProposed event",
+			"l1Height", meta.GetRawBlockHeight(),
+			"l1Hash", meta.GetRawBlockHash(),
+			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"lastBlockID", blockID,
+			"assignedProver", meta.GetProposer(),
+			"numBlobs", meta.TaikoBatchMetaDataPacaya().GetNumBlobs(),
+			"blocks", meta.TaikoBatchMetaDataPacaya().GetNumBlobs(),
+		)
+	} else {
+		log.Info(
+			"New BlockProposedV2 event",
+			"l1Height", meta.GetRawBlockHeight(),
+			"l1Hash", meta.GetRawBlockHash(),
+			"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			"assignedProver", meta.GetProposer(),
+			"blobHash", meta.TaikoBlockMetaDataOntake().GetBlobHash(),
+			"livenessBond", utils.WeiToEther(meta.TaikoBlockMetaDataOntake().GetLivenessBond()),
+			"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
+			"blobUsed", meta.TaikoBlockMetaDataOntake().GetBlobUsed(),
+		)
+	}
+
+	metrics.ProverReceivedProposedBlockGauge.Set(float64(blockID.Uint64()))
 
 	// Move l1Current cursor.
 	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.TaikoBlockMetaDataOntake().GetRawBlockHash())
@@ -149,15 +164,29 @@ func (h *BlockProposedEventHandler) Handle(
 	go func() {
 		if err := backoff.Retry(
 			func() error {
-				if err := h.checkExpirationAndSubmitProof(ctx, blockID, meta); err != nil {
-					log.Error(
-						"Failed to check proof status and submit proof",
-						"error", err,
-						"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-						"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
-						"maxRetrys", h.backOffMaxRetrys,
-					)
-					return err
+				if meta.IsPacaya() {
+					if err := h.checkExpirationAndSubmitProofPacaya(ctx, meta, blockID); err != nil {
+						log.Error(
+							"Failed to check proof status and submit proof",
+							"error", err,
+							"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+							"numBlobs", meta.TaikoBatchMetaDataPacaya().GetNumBlobs(),
+							"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
+							"maxRetrys", h.backOffMaxRetrys,
+						)
+						return err
+					}
+				} else {
+					if err := h.checkExpirationAndSubmitProofOntake(ctx, meta); err != nil {
+						log.Error(
+							"Failed to check proof status and submit proof",
+							"error", err,
+							"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+							"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
+							"maxRetrys", h.backOffMaxRetrys,
+						)
+						return err
+					}
 				}
 				return nil
 			},
@@ -236,39 +265,111 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 	return nil
 }
 
-// checkExpirationAndSubmitProof checks whether the proposed block's proving window is expired,
+// checkExpirationAndSubmitProofPacaya checks whether the proposed batch's proving window is expired,
 // and submits a new proof if necessary.
-func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
+func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	ctx context.Context,
-	blockID *big.Int,
+	meta metadata.TaikoProposalMetaData,
+	lastBlockID *big.Int,
+) error {
+	// Check whether the batch has been verified.
+	isVerified, err := isBlockVerified(ctx, h.rpc, lastBlockID)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to check if the current L2 batch (%d) is verified: %w",
+			meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			err,
+		)
+	}
+	if isVerified {
+		log.Info("📋 Batch has been verified", "batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID())
+		return nil
+	}
+
+	proofStatus, err := rpc.GetBatchProofStatus(
+		ctx,
+		h.rpc,
+		meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to check whether the L2 batch needs a new proof: %w", err)
+	}
+
+	// If there is already a proof submitted on chain.
+	if proofStatus.IsSubmitted {
+		// If there is a valid proof already, we skip proving this block here.
+		if !proofStatus.Invalid {
+			log.Info(
+				"A valid proof has been submitted, skip proving",
+				"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+				"parent", proofStatus.ParentHeader.Hash(),
+			)
+			return nil
+		}
+
+		// we need to submit a valid proof.
+		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
+		return nil
+	}
+
+	windowExpired, _, timeToExpire, err := IsProvingWindowExpired(h.rpc, meta, nil)
+	if err != nil {
+		return fmt.Errorf("failed to check if the proving window is expired: %w", err)
+	}
+
+	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
+	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
+	if !windowExpired &&
+		meta.GetProposer() != h.proverAddress &&
+		meta.GetProposer() != h.proverSetAddress {
+		log.Info(
+			"Proposed batch is not provable by current prover at the moment",
+			"blockOrBatchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"prover", meta.GetProposer(),
+			"timeToExpire", timeToExpire,
+		)
+	}
+	if h.proveUnassignedBlocks {
+		log.Info(
+			"Add proposed block to wait for proof window expiration",
+			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"assignProver", meta.GetProposer(),
+			"timeToExpire", timeToExpire,
+		)
+		time.AfterFunc(
+			// Add another 72 seconds, to ensure one more L1 block will be mined before the proof submission
+			timeToExpire+proofExpirationDelay,
+			func() { h.assignmentExpiredCh <- meta },
+		)
+	}
+
+	return nil
+}
+
+// checkExpirationAndSubmitProofOntake checks whether the proposed block's proving window is expired,
+// and submits a new proof if necessary.
+func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofOntake(
+	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 ) error {
 	// Check whether the block has been verified.
-	isVerified, err := isBlockVerified(ctx, h.rpc, blockID)
+	isVerified, err := isBlockVerified(ctx, h.rpc, meta.TaikoBlockMetaDataOntake().GetBlockID())
 	if err != nil {
 		return fmt.Errorf("failed to check if the current L2 block is verified: %w", err)
 	}
 	if isVerified {
-		log.Info("📋 Block has been verified", "blockID", blockID)
+		log.Info("📋 Block has been verified", "blockID", meta.TaikoBlockMetaDataOntake().GetBlockID())
 		return nil
 	}
 
 	var proofStatus *rpc.BlockProofStatus
-	if meta.IsPacaya() {
-		proofStatus, err = rpc.GetBatchProofStatus(
-			ctx,
-			h.rpc,
-			blockID,
-		)
-	} else {
-		proofStatus, err = rpc.GetBlockProofStatus(
-			ctx,
-			h.rpc,
-			blockID,
-			h.proverAddress,
-			h.proverSetAddress,
-		)
-	}
+	proofStatus, err = rpc.GetBlockProofStatus(
+		ctx,
+		h.rpc,
+		meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		h.proverAddress,
+		h.proverSetAddress,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to check whether the L2 block needs a new proof: %w", err)
 	}
@@ -331,21 +432,12 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 	if !windowExpired &&
 		meta.GetProposer() != h.proverAddress &&
 		meta.GetProposer() != h.proverSetAddress {
-		if meta.IsPacaya() {
-			log.Info(
-				"Proposed batch is not provable by current prover at the moment",
-				"blockOrBatchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-				"prover", meta.GetProposer(),
-				"timeToExpire", timeToExpire,
-			)
-		} else {
-			log.Info(
-				"Proposed block is not provable by current prover at the moment",
-				"blockiD", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-				"prover", meta.GetProposer(),
-				"timeToExpire", timeToExpire,
-			)
-		}
+		log.Info(
+			"Proposed batch is not provable by current prover at the moment",
+			"blockOrBatchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"prover", meta.GetProposer(),
+			"timeToExpire", timeToExpire,
+		)
 
 		if h.proveUnassignedBlocks {
 			log.Info(

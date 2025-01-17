@@ -75,7 +75,7 @@ func (h *TransitionProvedEventHandler) Handle(
 		return nil
 	}
 	// If the proof is invalid, we contest it.
-	meta, err := getMetadataFromBlockID(ctx, h.rpc, e.BlockId, new(big.Int).SetUint64(e.ProposedIn))
+	meta, err := getMetadataFromBlockIDOntake(ctx, h.rpc, e.BlockId, new(big.Int).SetUint64(e.ProposedIn))
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (h *TransitionProvedEventHandler) Handle(
 		"stateRoot", common.Bytes2Hex(e.Tran.StateRoot[:]),
 	)
 	if h.isGuardian {
-		meta, err := getMetadataFromBlockID(
+		meta, err := getMetadataFromBlockIDOntake(
 			ctx,
 			h.rpc,
 			e.BlockId,
