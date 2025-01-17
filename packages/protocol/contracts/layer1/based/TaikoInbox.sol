@@ -67,7 +67,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         require(!stats2.paused, ContractPaused());
 
         Config memory config = getConfig();
-        require(stats2.numBatches >= config.forkHeights.pacaya, InvalidForkHeight());
 
         unchecked {
             require(
@@ -209,7 +208,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         for (uint256 i; i < metas.length; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.batchId >= config.forkHeights.pacaya, InvalidForkHeight());
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
 
@@ -308,27 +306,41 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         }
     }
 
-    function writeTransition(uint64 _batchId, Transition calldata _tran) external onlyOwner {
+    /// @notice Manually write a transition for a batch.
+    /// @dev This function is supposed to be used by the owner to force prove a transition for a
+    /// block that has not been verified.
+    function writeTransition(
+        uint64 _batchId,
+        bytes32 _parentHash,
+        bytes32 _blockHash,
+        bytes32 _stateRoot
+    )
+        external
+        onlyOwner
+    {
+        require(_blockHash != 0 && _parentHash != 0 && _stateRoot != 0, InvalidParams());
+        require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
+
         Config memory config = getConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
 
-        uint24 tid = state.transitionIds[_batchId][_tran.parentHash];
+        uint24 tid = state.transitionIds[_batchId][_parentHash];
         if (tid == 0) {
             tid = batch.nextTransitionId++;
         }
 
         Transition storage ts = state.transitions[slot][tid];
         if (tid == 1) {
-            ts.parentHash = _tran.parentHash;
+            ts.parentHash = _parentHash;
         } else {
-            state.transitionIds[_batchId][_tran.parentHash] = tid;
+            state.transitionIds[_batchId][_parentHash] = tid;
         }
 
-        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _tran.stateRoot : bytes32(0);
-        ts.blockHash = _tran.blockHash;
-        emit TransitionWritten(_batchId, tid, _tran);
+        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
+        ts.blockHash = _blockHash;
+        emit TransitionWritten(_batchId, tid, Transition(_parentHash, _blockHash, _stateRoot));
     }
 
     /// @inheritdoc ITaikoInbox
@@ -454,7 +466,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     /// @inheritdoc ITaikoInbox
     function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
         Config memory config = getConfig();
-        require(_batchId >= config.forkHeights.pacaya, InvalidForkHeight());
 
         batch_ = state.batches[_batchId % config.batchRingBufferSize];
         require(batch_.batchId == _batchId, BatchNotFound());

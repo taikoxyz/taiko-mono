@@ -236,8 +236,8 @@ interface ITaikoInbox {
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InsufficientBond();
-    error InvalidForkHeight();
     error InvalidGenesisBlockHash();
+    error InvalidParams();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
