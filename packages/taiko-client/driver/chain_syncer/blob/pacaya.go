@@ -99,7 +99,7 @@ func (s *Syncer) insertNewHeadPacaya(
 		if err != nil {
 			return fmt.Errorf("failed to encode tx list: %w", err)
 		}
-		blockID := new(big.Int).SetUint64(meta.GetBatchID().Uint64() + uint64(i))
+		blockID := new(big.Int).SetUint64(parent.Number.Uint64() + uint64(i))
 		difficulty, err := encoding.CalculatePacayaDifficulty(blockID)
 		if err != nil {
 			return fmt.Errorf("failed to calculate difficulty: %w", err)
