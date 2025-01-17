@@ -154,15 +154,15 @@ func (s *State) eventLoop(ctx context.Context) {
 			s.setHeadBlockID(e.BlockId)
 		case e := <-batchProposedPacayaCh:
 			if err := backoff.Retry(func() error {
-				batchInfo, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, e.Meta.BatchId)
+				batchInfo, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(e.Meta.BatchId))
 				if err != nil {
-					log.Error("Failed to fetch the latest batch info from protocol", "error", err)
+					log.Error("Failed to fetch the latest batch info from Pacaya protocol", "error", err)
 					return err
 				}
 				s.setHeadBlockID(new(big.Int).SetUint64(batchInfo.LastBlockId))
 				return nil
 			}, backoff.WithContext(backoff.NewExponentialBackOff(), ctx)); err != nil {
-				log.Error("Failed to fetch the latest L2 head from protocol", "error", err)
+				log.Error("Failed to fetch the latest L2 head from Pacaya protocol", "error", err)
 			}
 		case e := <-transitionProvedV2Ch:
 			log.Info(
@@ -190,7 +190,7 @@ func (s *State) eventLoop(ctx context.Context) {
 			log.Info(
 				"📈 Batches verified",
 				"lastVerifiedBatchId", e.BatchId,
-				"lastVerifiedBlockhash", common.Hash(e.BlockHash),
+				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
