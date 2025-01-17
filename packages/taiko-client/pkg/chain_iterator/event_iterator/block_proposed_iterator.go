@@ -57,8 +57,9 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 	}
 
 	iterator := &BlockProposedIterator{
-		ctx:     ctx,
-		taikoL1: cfg.TaikoL1,
+		ctx:        ctx,
+		taikoL1:    cfg.TaikoL1,
+		taikoInbox: cfg.TaikoInbox,
 	}
 
 	// Initialize the inner block iterator.
@@ -114,10 +115,12 @@ func assembleBlockProposedIteratorCallback(
 		var (
 			endHeight   = end.Number.Uint64()
 			lastBlockID uint64
+			lastBatchID uint64
 		)
 
-		log.Debug("Iterating BlockProposed events", "start", start.Number, "end", endHeight)
+		log.Debug("Iterating BlockProposedV2 / BatchProposed events", "start", start.Number, "end", endHeight)
 
+		// Iterate the BlockProposedV2 events at first.
 		iterOntake, err := taikoL1.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			nil,
@@ -168,6 +171,12 @@ func assembleBlockProposedIteratorCallback(
 			updateCurrentFunc(current)
 		}
 
+		// Check if there is any error during the iteration.
+		if iterOntake.Error() != nil {
+			return iterOntake.Error()
+		}
+
+		// Iterate the BatchProposed events.
 		iterPacaya, err := taikoInbox.FilterBatchProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 		)
@@ -178,12 +187,29 @@ func assembleBlockProposedIteratorCallback(
 
 		for iterPacaya.Next() {
 			event := iterPacaya.Event
+			log.Debug("Processing BatchProposed event", "batch", event.Meta.BatchId, "l1BlockHeight", event.Raw.BlockNumber)
+
+			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
+				log.Warn(
+					"BatchProposed event is not continuous, rescan the L1 chain",
+					"fromL1Block", start.Number,
+					"toL1Block", endHeight,
+					"lastScannedBlockID", lastBlockID,
+					"currentScannedBlockID", event.Meta.BatchId,
+				)
+				return fmt.Errorf(
+					"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
+					lastBlockID, event.Meta.BatchId,
+				)
+			}
 
 			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {
+				log.Warn("Error while processing BatchProposed events, keep retrying", "error", err)
 				return err
 			}
 
 			if eventIter.isEnd {
+				log.Debug("BlockProposedIterator is ended", "start", start.Number, "end", endHeight)
 				endFunc()
 				return nil
 			}
@@ -193,13 +219,14 @@ func assembleBlockProposedIteratorCallback(
 				return err
 			}
 
+			log.Debug("Updating current block cursor for processing BatchProposed events", "block", current.Number)
+
+			lastBlockID = event.Meta.BatchId
+
 			updateCurrentFunc(current)
 		}
 
 		// Check if there is any error during the iteration.
-		if iterOntake.Error() != nil {
-			return iterOntake.Error()
-		}
 		if iterPacaya.Error() != nil {
 			return iterPacaya.Error()
 		}
