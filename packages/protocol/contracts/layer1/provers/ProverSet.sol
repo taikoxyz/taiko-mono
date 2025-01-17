@@ -5,8 +5,6 @@ import "./ProverSetBase.sol";
 
 contract ProverSet is ProverSetBase {
     using Address for address;
-
-    error NotFirstProposal();
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
@@ -34,7 +32,7 @@ contract ProverSet is ProverSetBase {
         uint64 blockNumber = abi.decode(
             inbox().functionStaticCall(abi.encodeWithSignature("lastProposedIn()")), (uint64)
         );
-        require(blockNumber != block.number, NotFirstProposal());
+        require(blockNumber != block.number, NOT_FIRST_PROPOSAL());
         inbox().functionCall(
             abi.encodeWithSignature("proposeBlocksV2(bytes[],bytes[])", _params, _txList)
         );
