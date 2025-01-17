@@ -8,6 +8,7 @@ import "src/shared/based/LibSharedData.sol";
 /// blocks.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoAnchorDeprecated {
+    // @dev Error selectors: 0xe5801216
     error L2_DEPRECATED_METHOD();
 
     modifier deprecated() {

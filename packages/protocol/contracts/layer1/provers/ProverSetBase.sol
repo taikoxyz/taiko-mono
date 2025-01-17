@@ -28,9 +28,13 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
 
     event ProverEnabled(address indexed prover, bool indexed enabled);
 
+    // @dev Error selectors: 0x343b80b1
     error INVALID_STATUS();
+    // @dev Error selectors: 0x436d1c03
     error INVALID_BOND_TOKEN();
+    // @dev Error selectors: 0xe5816e19
     error PERMISSION_DENIED();
+    // @dev Error selectors: 0x231cfa25
     error NOT_FIRST_PROPOSAL();
 
     modifier onlyAuthorized() {

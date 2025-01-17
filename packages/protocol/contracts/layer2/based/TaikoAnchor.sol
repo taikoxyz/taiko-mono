@@ -80,13 +80,21 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         uint256 basefee
     );
 
+    // @dev Error selectors: 0x6daa9a9e
     error L2_BASEFEE_MISMATCH();
+    // @dev Error selectors: 0x1799c89b
     error L2_FORK_ERROR();
+    // @dev Error selectors: 0x413cd128
     error L2_INVALID_L1_CHAIN_ID();
+    // @dev Error selectors: 0x8f972ecb
     error L2_INVALID_L2_CHAIN_ID();
+    // @dev Error selectors: 0x053fd547
     error L2_INVALID_PARAM();
+    // @dev Error selectors: 0x6494e9f7
     error L2_INVALID_SENDER();
+    // @dev Error selectors: 0xd719258d
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    // @dev Error selectors: 0xb41f3c82
     error L2_TOO_LATE();
 
     modifier onlyGoldenTouch() {

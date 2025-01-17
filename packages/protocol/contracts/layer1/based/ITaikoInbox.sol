@@ -217,40 +217,75 @@ interface ITaikoInbox {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
+    // @dev Error selectors: 0xfe1698b2
     error AnchorBlockIdSmallerThanParent();
+    // @dev Error selectors: 0x7f14daf8
     error AnchorBlockIdTooLarge();
+    // @dev Error selectors: 0x46afbf54
     error AnchorBlockIdTooSmall();
+    // @dev Error selectors: 0x83c7eca6
     error ArraySizesMismatch();
+    // @dev Error selectors: 0x9e15e1bc
     error BatchNotFound();
+    // @dev Error selectors: 0xc63c8bfd
     error BatchVerified();
+    // @dev Error selectors: 0xf765f45e
     error BlobNotFound();
+    // @dev Error selectors: 0xfeb32ebd
     error BlockNotFound();
+    // @dev Error selectors: 0xf911438d
     error BlobNotSpecified();
+    // @dev Error selectors: 0xab35696f
     error ContractPaused();
+    // @dev Error selectors: 0x10213ad7
     error CustomProposerMissing();
+    // @dev Error selectors: 0xc25c48e2
     error CustomProposerNotAllowed();
+    // @dev Error selectors: 0x018ad7d6
     error EtherNotPaidAsBond();
+    // @dev Error selectors: 0xe92c469f
     error InsufficientBond();
+    // @dev Error selectors: 0x02e8f25e
     error InvalidForkHeight();
+    // @dev Error selectors: 0xcd21cd43
     error InvalidGenesisBlockHash();
+    // @dev Error selectors: 0xac97cfc7
     error InvalidTransitionBlockHash();
+    // @dev Error selectors: 0x19ead341
     error InvalidTransitionParentHash();
+    // @dev Error selectors: 0x6c0118eb
     error InvalidTransitionStateRoot();
+    // @dev Error selectors: 0x419b53b7
     error MetaHashMismatch();
+    // @dev Error selectors: 0x798ee6f1
     error MsgValueNotZero();
+    // @dev Error selectors: 0x367b91ca
     error NoBlocksToProve();
+    // @dev Error selectors: 0x09e29fae
     error NotFirstProposal();
+    // @dev Error selectors: 0xd370b999
     error NotPreconfRouter();
+    // @dev Error selectors: 0xff626f77
     error ParentMetaHashMismatch();
+    // @dev Error selectors: 0xed6222ff
     error SameTransition();
+    // @dev Error selectors: 0x8601a5fe
     error SignalNotSent();
+    // @dev Error selectors: 0x21389b84
     error TimestampSmallerThanParent();
+    // @dev Error selectors: 0x3d32ffdb
     error TimestampTooLarge();
+    // @dev Error selectors: 0x1999aed2
     error TimestampTooSmall();
+    // @dev Error selectors: 0xa464214b
     error TooManyBatches();
+    // @dev Error selectors: 0x7f06d57a
     error TooManyBlocks();
+    // @dev Error selectors: 0xc577d383
     error TooManySignals();
+    // @dev Error selectors: 0x76be38bc
     error TransitionNotFound();
+    // @dev Error selectors: 0x2b44f010
     error ZeroAnchorBlockHash();
 
     /// @notice Proposes a batch of blocks.
