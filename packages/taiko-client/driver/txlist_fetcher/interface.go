@@ -1,4 +1,4 @@
-package txlistdecoder
+package txlistfetcher
 
 import (
 	"context"

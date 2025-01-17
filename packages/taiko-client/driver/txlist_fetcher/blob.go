@@ -1,4 +1,4 @@
-package txlistdecoder
+package txlistfetcher
 
 import (
 	"context"
@@ -132,19 +132,5 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, pkg.ErrSidecarNotFound
 	}
 
-	if meta.GetTxListOffset()+meta.GetTxListSize() > uint32(len(b)) {
-		log.Warn(
-			"Invalid txlist offset and size in metadata",
-			"offset", meta.GetTxListOffset(),
-			"size", meta.GetTxListSize(),
-			"blobSize", len(b),
-		)
-		return nil, pkg.ErrBlobSizeTooSmall
-	}
-
-	if meta.GetTxListSize() == 0 {
-		return b[meta.GetTxListOffset():], nil
-	}
-
-	return b[meta.GetTxListOffset() : meta.GetTxListOffset()+meta.GetTxListSize()], nil
+	return sliceTxList(meta.GetBatchID(), b, meta.GetTxListOffset(), meta.GetTxListSize())
 }

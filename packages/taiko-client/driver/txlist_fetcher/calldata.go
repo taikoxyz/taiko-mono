@@ -1,4 +1,4 @@
-package txlistdecoder
+package txlistfetcher
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 	return &CalldataFetcher{rpc: rpc}
 }
 
-// Fetch fetches the txList bytes from the transaction's calldata.
+// Fetch fetches the txList bytes from the transaction's calldata, by parsing the `BlockProposedV2` event.
 func (d *CalldataFetcher) FetchOntake(
 	ctx context.Context,
 	tx *types.Transaction,
@@ -55,7 +55,7 @@ func (d *CalldataFetcher) FetchOntake(
 	return nil, fmt.Errorf("calldata for block %d not found", meta.GetBlockID())
 }
 
-// Fetch fetches the txList bytes from the transaction's calldata.
+// FetchPacaya fetches the txList bytes from the transaction's calldata, by parsing the `BatchProposed` event.
 func (d *CalldataFetcher) FetchPacaya(
 	ctx context.Context,
 	tx *types.Transaction,
@@ -77,7 +77,7 @@ func (d *CalldataFetcher) FetchPacaya(
 		if iter.Event.Meta.BatchId != meta.GetBatchID().Uint64() {
 			continue
 		}
-		return iter.Event.TxListInCalldata, nil
+		return sliceTxList(meta.GetBatchID(), iter.Event.TxListInCalldata, meta.GetTxListOffset(), meta.GetTxListSize())
 	}
 
 	if iter.Error() != nil {
