@@ -13,7 +13,7 @@ The cooldown window describes how long after the proof has been provided that th
 
 The proving window describes how long a prover has to provide a proof for a block after they have been assigned the block (i.e. a block has been proposed with them as the assigned prover).
 
-You can find all the corresponding values below in the [deployed TierProviderBase contract](https://etherscan.io/address/0x394E30d83d020469a1F8b16E89D7fD5FdB1935b0#code#F3#L1)!
+You can find all the corresponding values below for Mainnet in the [deployed TierProviderBase contract](https://etherscan.io/address/0x394E30d83d020469a1F8b16E89D7fD5FdB1935b0#code#F3#L1)!
 
 | Tier              | Cooldown Window | Proving Window | Bond      |
 | ----------------- | --------------- | -------------- | --------- |
@@ -23,6 +23,18 @@ You can find all the corresponding values below in the [deployed TierProviderBas
 | SGX & ZK          | 240 minutes     | 420 minutes    | 225 TAIKO |
 | Guardian Minority | 240 minutes     | 240 minutes    | 225 TAIKO |
 | Guardian          | 240 minutes     | 240 minutes    | 0 TAIKO   |
+
+You can find all the corresponding values below for Hekla in the [most recent protocol release](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/tiers/TierProviderBase.sol)
+
+| Tier              | Cooldown Window | Proving Window | Bond      |
+| ----------------- | --------------- | -------------- | --------- |
+| Optimistic        | 1440 minutes    | 60 minutes     | 75 TAIKO  |
+| SGX               | 240 minutes     | 60 minutes     | 150 TAIKO |
+| TDX               | 240 minutes     | 60 minutes     | 150 TAIKO |
+| ZK SP1            | 240 minutes     | 120 minutes    | 225 TAIKO |
+| ZK R0             | 240 minutes     | 120 minutes    | 225 TAIKO |
+| Guardian Minority | 240 minutes     | 120 minutes    | 300 TAIKO |
+| Guardian          | 480 minutes     | 0 minutes      | 0 TAIKO   |
 
 ## Tier configuration (Mainnet)
 

@@ -34,7 +34,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         bondToken = deployBondToken();
     }
 
-    function test_inbox_query_right_after_genesis_block() external view {
+    function test_inbox_query_right_after_genesis_batch() external view {
         // - All stats are correct and expected
         ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         assertEq(stats1.lastSyncedBatchId, 0);
@@ -75,7 +75,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         inbox.getBatch(1);
     }
 
-    function test_inbox_max_block_proposal()
+    function test_inbox_max_batch_proposal()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(9)
@@ -120,7 +120,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1 });
     }
 
-    function test_inbox_exceed_max_block_proposal_will_revert()
+    function test_inbox_exceed_max_batch_proposal_will_revert()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(9)
@@ -173,14 +173,14 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         }
     }
 
-    function test_inbox_prove_block_not_exist_will_revert() external transactBy(Alice) {
+    function test_inbox_prove_batch_not_exist_will_revert() external transactBy(Alice) {
         uint64[] memory batchIds = new uint64[](1);
         batchIds[0] = 1;
         vm.expectRevert(ITaikoInbox.BatchNotFound.selector);
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
-    function test_inbox_prove_verified_block_will_revert()
+    function test_inbox_prove_verified_batch_will_revert()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(1)
@@ -426,7 +426,30 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         }
     }
 
-    function test_inbox_reprove_the_same_block_is_ok()
+    function test_inbox_reprove_the_same_batch_with_same_transition_will_revert()
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(1)
+        WhenLogAllBatchesAndTransitions
+    {
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
+
+        metas[0] = _loadMetadata(1);
+
+        transitions[0].parentHash = bytes32(uint256(0x100));
+        transitions[0].blockHash = bytes32(uint256(0x101));
+        transitions[0].stateRoot = bytes32(uint256(0x102));
+
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        _logAllBatchesAndTransitions();
+
+        vm.expectRevert(ITaikoInbox.SameTransition.selector);
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+    }
+
+    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_or_state_root_will_pause_inbox(
+    )
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(1)
@@ -443,23 +466,11 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
         _logAllBatchesAndTransitions();
 
-        transitions[0].parentHash = bytes32(uint256(0x100));
-        transitions[0].blockHash = bytes32(uint256(0x111));
-        transitions[0].stateRoot = bytes32(uint256(0x112));
+        transitions[0].blockHash = bytes32(uint256(0x103));
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
         _logAllBatchesAndTransitions();
 
-        transitions[0].parentHash = bytes32(uint256(0x200));
-        transitions[0].blockHash = bytes32(uint256(0x201));
-        transitions[0].stateRoot = bytes32(uint256(0x202));
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
-        _logAllBatchesAndTransitions();
-
-        transitions[0].parentHash = bytes32(uint256(0x200));
-        transitions[0].blockHash = bytes32(uint256(0x211));
-        transitions[0].stateRoot = bytes32(uint256(0x212));
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
-        _logAllBatchesAndTransitions();
+        assertTrue(EssentialContract(address(inbox)).paused());
     }
 
     function test_proposeBatch_reverts_for_invalid_proposer_and_preconfRouter()

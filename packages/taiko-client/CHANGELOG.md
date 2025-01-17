@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.43.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.42.1...taiko-alethia-client-v0.43.0) (2025-01-14)
+
+
+### Features
+
+* **taiko-client:** only check and trigger P2P sync progress right after starting ([#18745](https://github.com/taikoxyz/taiko-mono/issues/18745)) ([a05e4c9](https://github.com/taikoxyz/taiko-mono/commit/a05e4c99bbcfd5f6f6e37b4222616e40b31cfbaf))
+* **taiko-client:** remove soft blocks implementation ([#18744](https://github.com/taikoxyz/taiko-mono/issues/18744)) ([f645b23](https://github.com/taikoxyz/taiko-mono/commit/f645b23ae11bf5df9b5199d9a683d6b9f2c12d4b))
+* **taiko-client:** soft block driver APIs ([#18273](https://github.com/taikoxyz/taiko-mono/issues/18273)) ([9fff7ff](https://github.com/taikoxyz/taiko-mono/commit/9fff7ff3cce99e915e8142a090a7fad2f1af5bd4))
+
+
+### Bug Fixes
+
+* **taiko-client:** check inner iterator errors in `BlockProposedIterator` ([#18757](https://github.com/taikoxyz/taiko-mono/issues/18757)) ([404efcc](https://github.com/taikoxyz/taiko-mono/commit/404efcc0ad7c5494635a53df94ea72108fa69bf2))
+* **taiko-client:** check the `blockID` of the last verified block before using it as `FinalizedBlockHash` ([#18739](https://github.com/taikoxyz/taiko-mono/issues/18739)) ([8c364b1](https://github.com/taikoxyz/taiko-mono/commit/8c364b1f493cfda2823e3efc49ec0e8a8985884a))
+* **taiko-client:** remove `finalizedBlock` info when P2P syncing ([#18735](https://github.com/taikoxyz/taiko-mono/issues/18735)) ([d81a630](https://github.com/taikoxyz/taiko-mono/commit/d81a6309c2e303eca57238c4e252b93083a55d2f))
+* **taiko-client:** revert `tracker.triggered` related changes ([#18737](https://github.com/taikoxyz/taiko-mono/issues/18737)) ([e76d865](https://github.com/taikoxyz/taiko-mono/commit/e76d865a3f482b6165f2b7cc5bb0f4a5065b3bc2))
+
+
+### Chores
+
+* **taiko-client:** add softBlock server start log ([#18731](https://github.com/taikoxyz/taiko-mono/issues/18731)) ([23594ff](https://github.com/taikoxyz/taiko-mono/commit/23594ff2e44f51b0409c76368429d2c3a156a802))
+* **taiko-client:** bump `taiko-geth` dep ([#18730](https://github.com/taikoxyz/taiko-mono/issues/18730)) ([554f679](https://github.com/taikoxyz/taiko-mono/commit/554f679b01199da363587adee0ec88a0c1846483))
+* **taiko-client:** cleanup some unused variables in `bindings` package ([#18752](https://github.com/taikoxyz/taiko-mono/issues/18752)) ([13ccc54](https://github.com/taikoxyz/taiko-mono/commit/13ccc5466e40422b971f426661f3d7adef8d3d17))
+* **taiko-client:** improve `TxBuilderWithFallback` logs ([#18738](https://github.com/taikoxyz/taiko-mono/issues/18738)) ([01ebba3](https://github.com/taikoxyz/taiko-mono/commit/01ebba3a61d0bbd8251bed1f91b09b9abfcc99c7))
+
+
+### Tests
+
+* **taiko-client:** improve tests for blob sync ([#18764](https://github.com/taikoxyz/taiko-mono/issues/18764)) ([4df3edc](https://github.com/taikoxyz/taiko-mono/commit/4df3edc04b0d241b2bb540f4f664ff0c3dd0449a))
+
 ## [0.42.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.42.0...taiko-alethia-client-v0.42.1) (2025-01-07)
 
 
