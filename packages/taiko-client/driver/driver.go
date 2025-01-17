@@ -209,34 +209,44 @@ func (d *Driver) reportProtocolStatus() {
 			}
 
 			if d.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head)) {
-				vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
-				if err != nil {
-					log.Error("Failed to get protocol state variables", "error", err)
-					continue
-				}
-
-				log.Info(
-					"📖 Protocol status",
-					"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
-					"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
-					"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
-				)
+				d.reportProtocolStatusPacaya(maxNumProposals)
 			} else {
-				_, slotB, err := d.rpc.OntakeClients.TaikoL1.GetStateVariables(&bind.CallOpts{Context: d.ctx})
-				if err != nil {
-					log.Error("Failed to get protocol state variables", "error", err)
-					continue
-				}
-
-				log.Info(
-					"📖 Protocol status",
-					"lastVerifiedBlockId", slotB.LastVerifiedBlockId,
-					"pendingBlocks", slotB.NumBlocks-slotB.LastVerifiedBlockId-1,
-					"availableSlots", slotB.LastVerifiedBlockId+maxNumProposals-slotB.NumBlocks,
-				)
+				d.reportProtocolStatusOntake(maxNumProposals)
 			}
 		}
 	}
+}
+
+// reportProtocolStatusPacaya reports some status for Pacaya protocol.
+func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
+	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Error("Failed to get protocol state variables", "error", err)
+		return
+	}
+
+	log.Info(
+		"📖 Protocol status",
+		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
+		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
+		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
+	)
+}
+
+// reportProtocolStatusOntake reports some status for Ontake protocol.
+func (d *Driver) reportProtocolStatusOntake(maxNumProposals uint64) {
+	_, slotB, err := d.rpc.OntakeClients.TaikoL1.GetStateVariables(&bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Error("Failed to get protocol state variables", "error", err)
+		return
+	}
+
+	log.Info(
+		"📖 Protocol status",
+		"lastVerifiedBlockId", slotB.LastVerifiedBlockId,
+		"pendingBlocks", slotB.NumBlocks-slotB.LastVerifiedBlockId-1,
+		"availableSlots", slotB.LastVerifiedBlockId+maxNumProposals-slotB.NumBlocks,
+	)
 }
 
 // exchangeTransitionConfigLoop keeps exchanging transition configs with the
