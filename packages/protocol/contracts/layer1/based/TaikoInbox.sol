@@ -141,6 +141,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             proposedIn: uint64(block.number),
             txListOffset: params.txListOffset,
             txListSize: params.txListSize,
+            firstBlobIndex: params.firstBlobIndex,
             numBlobs: calldataUsed ? 0 : params.numBlobs,
             anchorBlockId: anchorBlockId,
             anchorBlockHash: blockhash(anchorBlockId),
