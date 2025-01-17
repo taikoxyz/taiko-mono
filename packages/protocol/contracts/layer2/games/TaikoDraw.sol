@@ -69,6 +69,7 @@ contract TaikoDraw {
     uint256 public constant MAX_MULTIPLIER = 10;
     uint256 public constant MAX_TICKETS_PER_USER = 20;
     uint256 public constant MAX_PLAYERS_PER_TICKET = 10;
+    uint256 public constant MAX_TICKET_NUMBER = 2500;
     uint256 public constant TICKET_FEE = 10 ether; // 10 TAIKO
     uint256 public constant REVEAL_BOND = 10 ether; // 10 TAIKO
     uint256 public constant COMMIT_PERIOD_DURATION = 2 days;
@@ -173,8 +174,10 @@ contract TaikoDraw {
         // Calculate ticket numbers
         uint24[] memory ticketNumbers = new uint24[](userCommit.numTickets);
         for (uint256 i; i < userCommit.numTickets; ++i) {
-            ticketNumbers[i] =
-                uint24(uint256(keccak256(abi.encodePacked("TICKET", msg.sender, round, _seed, i))));
+            ticketNumbers[i] = uint24(
+                uint256(keccak256(abi.encodePacked("TICKET", msg.sender, round, _seed, i)))
+                    % MAX_TICKET_NUMBER + 1
+            );
 
             // Update ticket-to-players mapping
             Ticket storage ticket = tickets[ticketNumbers[i]];
@@ -205,8 +208,10 @@ contract TaikoDraw {
         if (currentRound == round && isInCommitPhase) {
             winners_ = new Player[](0);
         } else {
-            winningTicket_ =
-                uint24(uint256(keccak256(abi.encodePacked("WINNER", _aggregatedSeeds))));
+            winningTicket_ = uint24(
+                uint256(keccak256(abi.encodePacked("WINNER", _aggregatedSeeds))) % MAX_TICKET_NUMBER
+                    + 1
+            );
             Ticket storage ticket = tickets[winningTicket_];
             winners_ = new Player[](ticket.players.length);
 
