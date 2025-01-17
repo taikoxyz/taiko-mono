@@ -23,7 +23,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ///   - A participation fee proportional to `multiplier * numTickets`.
 ///   - A fixed reveal bond to discourage spamming.
 /// - Commits are stored per user for the current round.
-/// - Users failing to reveal their commit forfeit their bond, which is added to the next round’s
+/// - Users failing to reveal their commit forfeit their bond, which is added to the next round's
 /// pool.
 ///
 /// ## Reveal Period
@@ -61,24 +61,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ///
 /// ## Edge Cases
 /// - If no reveals occur, all tokens roll over to the next round.
-/// - Unclaimed reveal bonds are added to the next round’s pool.
+/// - Unclaimed reveal bonds are added to the next round's pool.
 /// - Duplicate reveals or invalid seeds are rejected without affecting contract state.
 
 contract TaikoDraw {
     // Constants
-    uint8 public constant MAX_MULTIPLIER = 10;
-    uint8 public constant MAX_TICKETS_PER_USER = 20;
-    uint8 public constant MAX_PLAYERS_PER_TICKET = 10;
-    uint128 public constant TICKET_FEE = 10 ether;
+    uint256 public constant MAX_MULTIPLIER = 10;
+    uint256 public constant MAX_TICKETS_PER_USER = 20;
+    uint256 public constant MAX_PLAYERS_PER_TICKET = 10;
+    uint256 public constant TICKET_FEE = 10 ether;
     uint256 public constant REVEAL_BOND = 10 ether;
     uint256 public constant COMMIT_PERIOD_DURATION = 2 days;
     uint256 public constant REVEAL_PERIOD_DURATION = 2 days;
-
-    // State Variables
-    IERC20 public immutable token;
-    uint64 public immutable startTime;
-    uint64 public round;
-    bytes32 private _random;
 
     // Structs
     struct Commit {
@@ -98,16 +92,29 @@ contract TaikoDraw {
         Player[] players;
     }
 
-    // Mappings
-    mapping(address => Commit) public commits;
-    mapping(uint24 => Ticket) public tickets;
-
     // Events
     event Committed(
         address indexed user, uint256 indexed round, uint8 multiplier, uint8 numTickets
     );
     event Revealed(address indexed user, uint256 indexed round, uint24[] ticketNumbers);
     event RoundEnded(uint256 indexed round, uint24 winingTicket, Player[] winners, uint256 prize);
+
+    // Custom Errors
+    error OperationDenied();
+    error InvalidMultiplier();
+    error InvalidNumTickets();
+    error FeeTransferFailed();
+    error InvalidRound();
+    error InvalidSeed();
+    error BondRefundFailed();
+
+    // State Variables
+    IERC20 public immutable token;
+    uint64 public immutable startTime;
+    uint64 public round;
+    bytes32 private _aggregatedSeeds;
+    mapping(address player => Commit commit) public commits;
+    mapping(uint24 ticketNumber => Ticket ticket) public tickets;
 
     // Constructor
     constructor(address _token) {
@@ -119,13 +126,12 @@ contract TaikoDraw {
     // Modifiers
     modifier duringCommitPeriod(bool _isInCommitPeriod) {
         (uint64 currentRound, bool isInCommitPeriod) = _currentRoundAndPhase();
-        require(isInCommitPeriod == _isInCommitPeriod, "Wrong phase");
+        if (isInCommitPeriod != _isInCommitPeriod) revert OperationDenied();
 
         if (round != currentRound) {
             _settle();
             round = currentRound;
         }
-
         _;
     }
 
@@ -138,12 +144,12 @@ contract TaikoDraw {
         external
         duringCommitPeriod(true)
     {
-        require(_multiplier > 0 && _multiplier <= MAX_MULTIPLIER, "Invalid multiplier");
-        require(_numTickets > 0 && _numTickets <= MAX_TICKETS_PER_USER, "Invalid numTickets");
+        if (_multiplier == 0 || _multiplier > MAX_MULTIPLIER) revert InvalidMultiplier();
+        if (_numTickets == 0 || _numTickets > MAX_TICKETS_PER_USER) revert InvalidNumTickets();
 
         // Calculate participation fee and transfer tokens
         uint256 fee = TICKET_FEE * _multiplier * _numTickets + REVEAL_BOND;
-        require(token.transferFrom(msg.sender, address(this), fee), "Fee transfer failed");
+        if (!token.transferFrom(msg.sender, address(this), fee)) revert FeeTransferFailed();
 
         // Store commit
         commits[msg.sender] = Commit({
@@ -159,11 +165,10 @@ contract TaikoDraw {
     // Reveal Function
     function reveal(bytes32 _seed) external duringCommitPeriod(false) {
         Commit memory userCommit = commits[msg.sender];
-        require(userCommit.round == round, "Invalid round");
-        require(
-            userCommit.commitHash == keccak256(abi.encodePacked("COMMIT", msg.sender, round, _seed)),
-            "Invalid seed"
-        );
+        if (userCommit.round != round) revert InvalidRound();
+        if (
+            userCommit.commitHash != keccak256(abi.encodePacked("COMMIT", msg.sender, round, _seed))
+        ) revert InvalidSeed();
 
         // Calculate ticket numbers
         uint24[] memory ticketNumbers = new uint24[](userCommit.numTickets);
@@ -185,10 +190,11 @@ contract TaikoDraw {
         }
 
         // Update winning ticket
-        _random = _random ^ keccak256(abi.encodePacked("RANDOM", msg.sender, _seed, round));
+        _aggregatedSeeds =
+            _aggregatedSeeds ^ keccak256(abi.encodePacked("RANDOM", msg.sender, _seed, round));
 
         // Refund reveal bond
-        require(token.transfer(msg.sender, REVEAL_BOND), "Bond refund failed");
+        if (!token.transfer(msg.sender, REVEAL_BOND)) revert BondRefundFailed();
 
         emit Revealed(msg.sender, round, ticketNumbers);
     }
@@ -199,7 +205,8 @@ contract TaikoDraw {
         if (currentRound == round && isInCommitPhase) {
             winners_ = new Player[](0);
         } else {
-            winningTicket_ = uint24(uint256(keccak256(abi.encodePacked("WINNER", _random))));
+            winningTicket_ =
+                uint24(uint256(keccak256(abi.encodePacked("WINNER", _aggregatedSeeds))));
             Ticket storage ticket = tickets[winningTicket_];
             winners_ = new Player[](ticket.players.length);
 
