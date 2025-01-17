@@ -2,6 +2,67 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+/// @title Taiko Draw
+/// @notice A lottery game utilizing a commit-and-reveal scheme to ensure fairness and transparency.
+///         Users commit a secret seed and later reveal it to validate their participation. The game
+///         incentivizes activity using Taiko tokens.
+///
+/// ## Game Overview
+/// - The game operates in two phases: commit and reveal.
+/// - Participants use Taiko tokens to pay fees proportional to their number of tickets and
+/// multiplier.
+/// - The game is ownerless, non-upgradeable, and ensures trustless operation.
+///
+/// ## Commit Period
+/// - Users provide:
+///   - A secret `seed`.
+///   - A `multiplier` (maximum value: 10).
+///   - The number of tickets (`numTickets`, maximum value: 20).
+/// - The commit is hashed as `hash("COMMIT", msg.sender, round, seed)` and stored on-chain.
+/// - Fees include:
+///   - A participation fee proportional to `multiplier * numTickets`.
+///   - A fixed reveal bond to discourage spamming.
+/// - Commits are stored per user for the current round.
+/// - Users failing to reveal their commit forfeit their bond, which is added to the next round’s
+/// pool.
+///
+/// ## Reveal Period
+/// - Participants reveal their `seed` to validate the commit hash.
+/// - Valid seeds are processed to derive ticket numbers: `hash("TICKET", msg.sender, round, seed,
+/// indexOfTicket) % 2**24`.
+/// - The winning ticket is updated based on revealed seeds to ensure fairness:
+///   `winningTicket = hash("WINNER", winningTicket XOR seed, round, msg.sender) % 2**24`.
+/// - Reveal bonds are refunded upon successful reveal.
+/// - Each ticket maps to a list of players, with a limit of 10 players per ticket to optimize gas
+/// costs.
+/// - Invalid reveals revert the transaction and invalidate associated tickets.
+///
+/// ## End of Round
+/// - At the end of the reveal phase:
+///   - The temporary winner becomes the final winner.
+///   - If no players reveal, all tokens roll over to the next round.
+///   - If there are winners:
+///     - 80% of the token balance is distributed proportionally based on their multiplier.
+///     - 20% is retained for the next round.
+/// - The next round begins automatically with the first commit transaction.
+///
+/// ## Contract Initialization
+/// - The contract is initialized with:
+///   - An ERC20 token address for handling fees and bonds.
+///   - A bootstrapping function to deposit initial tokens and mark the start of the first round.
+/// - The contract is immutable and non-upgradeable for trustless operation.
+///
+/// ## Optimization Considerations
+/// - Compact storage types (`uint8`, `uint24`, `uint64`) are used to minimize costs.
+/// - Limits are applied to:
+///   - Tickets per user (`numTickets`: max 20).
+///   - Players per ticket (max 10) to prevent gas exhaustion.
+/// - Storage slots are reused where feasible for efficiency.
+///
+/// ## Edge Cases
+/// - If no reveals occur, all tokens roll over to the next round.
+/// - Unclaimed reveal bonds are added to the next round’s pool.
+/// - Duplicate reveals or invalid seeds are rejected without affecting contract state.
 
 contract TaikoDraw {
     // Constants
