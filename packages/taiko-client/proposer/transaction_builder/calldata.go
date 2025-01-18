@@ -124,13 +124,13 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		to            = &b.taikoL1Address
 		data          []byte
 		encodedParams []byte
-		blockParams   []*pacayaBindings.ITaikoInboxBlockParams
+		blockParams   []pacayaBindings.ITaikoInboxBlockParams
 		allTxs        types.Transactions
 	)
 
 	for _, txs := range txBatch {
 		allTxs = append(allTxs, txs...)
-		blockParams = append(blockParams, &pacayaBindings.ITaikoInboxBlockParams{
+		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
 			NumTransactions: uint16(len(txs)),
 			TimeShift:       0,
 		})
@@ -158,7 +158,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 
-		if data, err = encoding.ProverSetABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
+		if data, err = encoding.ProverSetPavayaABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
 			return nil, err
 		}
 	} else {

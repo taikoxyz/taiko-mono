@@ -476,7 +476,7 @@ func init() {
 		log.Crit("Get ForkRouter ABI error", "error", err)
 	}
 
-	if TaikoInboxABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
+	if TaikoInboxABI, err = pacayaBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoInbox ABI error", "error", err)
 	}
 

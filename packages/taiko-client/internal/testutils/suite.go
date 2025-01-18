@@ -52,15 +52,13 @@ func (s *ClientTestSuite) SetupTest() {
 	s.NotEmpty(jwtSecret)
 
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:                    os.Getenv("L1_WS"),
-		L2Endpoint:                    os.Getenv("L2_WS"),
-		TaikoL1Address:                common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:                common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:             common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
-		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
-		L2EngineEndpoint:              os.Getenv("L2_AUTH"),
-		JwtSecret:                     string(jwtSecret),
+		L1Endpoint:        os.Getenv("L1_WS"),
+		L2Endpoint:        os.Getenv("L2_WS"),
+		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		L2EngineEndpoint:  os.Getenv("L2_AUTH"),
+		JwtSecret:         string(jwtSecret),
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
@@ -92,20 +90,6 @@ func (s *ClientTestSuite) SetupTest() {
 		s.Greater(proverBalance.Cmp(common.Big0), 0)
 
 		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), proverBalance)
-		s.Nil(err)
-
-		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(
-			opts,
-			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
-			new(big.Int).Div(proverBalance, common.Big2),
-		)
-		s.Nil(err)
-
-		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(
-			opts,
-			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
-			new(big.Int).Div(proverBalance, common.Big2),
-		)
 		s.Nil(err)
 
 		// Increase allowance for TaikoL1

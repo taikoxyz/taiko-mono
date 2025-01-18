@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"bytes"
 	"context"
 	"math/big"
 	"os"
@@ -15,20 +14,19 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataOnly() {
 	builder := s.newTestBuilderWithFallback(false, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}, {2}})
+	candidate, err := builder.BuildPacaya(context.Background(), s.txsToPropose)
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataWithBlobAllowed() {
 	builder := s.newTestBuilderWithFallback(true, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}, {2}})
+	candidate, err := builder.BuildPacaya(context.Background(), s.txsToPropose)
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }
@@ -43,9 +41,7 @@ func (s *TransactionBuilderTestSuite) TestBlobAllowed() {
 func (s *TransactionBuilderTestSuite) TestFallback() {
 	// By default, blob fee should be cheaper.
 	builder := s.newTestBuilderWithFallback(true, true, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{
-		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-	})
+	candidate, err := builder.BuildPacaya(context.Background(), s.txsToPropose)
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 
@@ -60,9 +56,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 			nil
 	})
 
-	candidate, err = builder.BuildOntake(context.Background(), [][]byte{
-		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-	})
+	candidate, err = builder.BuildPacaya(context.Background(), s.txsToPropose)
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 
@@ -73,13 +67,11 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 	) (*big.Int, *big.Int, *big.Int, error) {
 		return new(big.Int).SetUint64(1024 * params.GWei),
 			new(big.Int).SetUint64(1024 * params.GWei),
-			new(big.Int).SetUint64(1024 * params.GWei),
+			new(big.Int).SetUint64(1 * params.GWei),
 			nil
 	})
 
-	candidate, err = builder.BuildOntake(context.Background(), [][]byte{
-		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-	})
+	candidate, err = builder.BuildPacaya(context.Background(), s.txsToPropose)
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }

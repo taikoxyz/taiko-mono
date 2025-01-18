@@ -65,7 +65,7 @@ type BatchParams struct {
 	NumBlobs                 uint8
 	RevertIfNotFirstProposal bool
 	SignalSlots              [][32]byte
-	Blocks                   []*pacaya.ITaikoInboxBlockParams
+	Blocks                   []pacaya.ITaikoInboxBlockParams
 }
 
 // TierFee should be same with TaikoData.TierFee.

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
@@ -17,6 +18,7 @@ type TransactionBuilderTestSuite struct {
 	testutils.ClientTestSuite
 	calldataTxBuilder *CalldataTransactionBuilder
 	blobTxBuiler      *BlobTransactionBuilder
+	txsToPropose      []types.Transactions
 }
 
 func (s *TransactionBuilderTestSuite) SetupTest() {
@@ -51,6 +53,17 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		chainConfig,
 		false,
 	)
+
+	for i := 0; i < 100; i++ {
+		s.txsToPropose = append(s.txsToPropose, []*types.Transaction{types.NewTransaction(
+			uint64(i),
+			common.Address{},
+			common.Big0,
+			0,
+			common.Big0,
+			nil,
+		)})
+	}
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldata() {
