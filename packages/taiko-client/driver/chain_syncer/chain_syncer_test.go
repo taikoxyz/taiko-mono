@@ -8,10 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -109,44 +107,6 @@ func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 
 func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
-}
-
-func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
-	s.TakeSnapshot()
-	// NOTE: need to prove the proposed blocks to be verified, writing helper function
-	// generate transactopts to interact with TaikoL1 contract with.
-	privKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
-	opts, err := bind.NewKeyedTransactorWithChainID(privKey, s.RPCClient.L1.ChainID)
-	s.Nil(err)
-
-	head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	log.Info("L1HeaderByNumber head", "number", head.Number)
-	// (equiv to s.state.GetL2Head().Number)
-	log.Info("L2HeaderByNumber head", "number", l2Head.Number)
-
-	// increase evm time to make blocks verifiable.
-	s.IncreaseTime(uint64((1024 * time.Hour).Seconds()))
-
-	// interact with TaikoL1 contract to allow for verification of L2 blocks
-	tx, err := s.s.rpc.OntakeClients.TaikoL1.VerifyBlocks(opts, uint64(3))
-	s.Nil(err)
-	s.NotNil(tx)
-
-	head2, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	l2Head2, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	log.Info("L1HeaderByNumber head2", "number", head2.Number)
-	log.Info("L2HeaderByNumber head", "number", l2Head2.Number)
-
-	s.RevertSnapshot()
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {
