@@ -3,6 +3,8 @@ package txlistfetcher
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -70,9 +72,15 @@ func (d *BlobFetcher) FetchOntake(
 			}
 
 			if meta.GetBlobTxListLength() == 0 {
-				return bytes[meta.GetBlobTxListOffset():], nil
+				return bytes, nil
 			}
-			return bytes[meta.GetBlobTxListOffset() : meta.GetBlobTxListOffset()+meta.GetBlobTxListLength()], nil
+
+			b, err := sliceTxList(meta.GetBlockID(), bytes, meta.GetBlobTxListOffset(), meta.GetBlobTxListLength())
+			if err != nil {
+				log.Warn("Invalid txlist offset and size in metadata", "blockID", meta.GetBlockID(), "err", err)
+				return []byte{}, nil
+			}
+			return b, nil
 		}
 	}
 
