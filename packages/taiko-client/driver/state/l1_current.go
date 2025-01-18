@@ -58,7 +58,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		if err != nil {
 			return fmt.Errorf("failed to find batch for block ID (%d): %w", blockID, err)
 		}
-		proposedIn = batch.ProposedIn
+		proposedIn = batch.AnchorBlockId
 	} else {
 		blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, blockID)
 		if err != nil {
@@ -105,10 +105,8 @@ func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacay
 			return lastBatch, nil
 		}
 
-		if batch.LastBlockId > blockID {
-			lastBatch = batch
-			lastBatchID = batch.BatchId
-			continue
-		}
+		lastBatch = batch
+		lastBatchID = batch.BatchId
+		continue
 	}
 }
