@@ -117,7 +117,6 @@ func (s *ProposerTestSuite) SetupTest() {
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
-	s.T().Skip() // TODO: fix this test
 	if os.Getenv("L2_NODE") == "l2_reth" {
 		s.T().Skip()
 	}

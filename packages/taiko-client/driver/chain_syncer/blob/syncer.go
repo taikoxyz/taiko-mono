@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -351,13 +350,24 @@ func (s *Syncer) createPayloadAndSetHead(
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
-	var lastVerifiedBlockHash common.Hash
-	lastVerifiedBlockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
+	var (
+		lastVerifiedBlockID   uint64
+		lastVerifiedBlockHash common.Hash
+	)
+	lastVerifiedTs, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-	}
-	if payload.Number > lastVerifiedBlockInfo.BlockId {
-		lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
+		lastVerifiedBlockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+		}
+
+		if payload.Number > lastVerifiedBlockID {
+			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
+		}
+	} else {
+		if payload.Number > lastVerifiedTs.BlockId {
+			lastVerifiedBlockHash = lastVerifiedTs.Tran.BlockHash
+		}
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -464,24 +474,36 @@ func (s *Syncer) createExecutionPayloads(
 // the corresponding L2 EE block hash.
 func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.ReorgCheckResult, error) {
 	var (
-		reorgCheckResult = new(rpc.ReorgCheckResult)
-		err              error
+		reorgCheckResult      = new(rpc.ReorgCheckResult)
+		lastVerifiedBlockID   uint64
+		lastVerifiedBlockHash common.Hash
+		err                   error
 	)
 
-	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		return nil, err
+		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		lastVerifiedBlockID = blockInfo.BlockId
+		lastVerifiedBlockHash = blockInfo.BlockHash
+	} else {
+		lastVerifiedBlockID = ts.BlockId
+		lastVerifiedBlockHash = ts.Tran.BlockHash
 	}
 
-	lastVerifiedBatch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(
-		&bind.CallOpts{Context: s.ctx},
-		stateVars.Stats2.LastVerifiedBatchId,
-	)
-	if err != nil {
-		return nil, err
+	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID {
+		return reorgCheckResult, nil
 	}
 
-	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBatch.LastBlockId {
+	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(lastVerifiedBlockID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
+	}
+
+	if header.Hash() == lastVerifiedBlockHash {
 		return reorgCheckResult, nil
 	}
 
@@ -489,104 +511,9 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch genesis L1 header: %w", err)
 	}
-	reorgCheckResult, err = s.retrievePastBlock(ctx, lastVerifiedBatch.LastBlockId, 0, genesisL1Header)
-	if err != nil {
-		return nil, err
-	}
+	reorgCheckResult.IsReorged = true
+	reorgCheckResult.L1CurrentToReset = genesisL1Header
 
-	return reorgCheckResult, nil
-}
-
-// retrievePastBlock find proper L1 header and L2 block id to reset when there is a mismatch.
-// TODO: fix this function
-func (s *Syncer) retrievePastBlock(
-	ctx context.Context,
-	blockID uint64,
-	retries uint64,
-	genesisL1Header *types.Header,
-) (*rpc.ReorgCheckResult, error) {
-	if retries > s.maxRetrieveExponent {
-		return &rpc.ReorgCheckResult{
-			IsReorged:                 true,
-			L1CurrentToReset:          genesisL1Header,
-			LastHandledBlockIDToReset: new(big.Int).SetUint64(blockID),
-		}, nil
-	}
-
-	var (
-		reorgCheckResult = new(rpc.ReorgCheckResult)
-		err              error
-		currentBlockID   uint64
-		l1HeaderToSet    = genesisL1Header
-	)
-
-	if val := uint64(1 << retries); blockID > val {
-		currentBlockID = blockID - val + 1
-	} else {
-		currentBlockID = 0
-	}
-
-	blockNum := new(big.Int).SetUint64(currentBlockID)
-
-	blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, blockNum)
-	if err != nil {
-		return nil, err
-	}
-	ts, err := s.rpc.GetTransition(
-		ctx,
-		new(big.Int).SetUint64(blockInfo.BlockId),
-		uint32(blockInfo.VerifiedTransitionId.Uint64()),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	l2Header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(currentBlockID))
-	if err != nil {
-		return nil, err
-	}
-	if ts.BlockHash == l2Header.Hash() {
-		// To reduce the number of call contracts by bringing forward the termination condition judgement
-		if retries == 0 {
-			return nil, nil
-		}
-		l1Origin, err := s.rpc.L2.L1OriginByID(ctx, new(big.Int).SetUint64(currentBlockID))
-		if err != nil {
-			if err.Error() == ethereum.NotFound.Error() {
-				log.Info(
-					"L1Origin not found in retrievePastBlock because the L2 EE is just synced through P2P",
-					"blockID",
-					currentBlockID,
-				)
-				// Can't find l1Origin in L2 EE, so we call the contract to get block info
-				blockInfo, err := s.rpc.OntakeClients.TaikoL1.GetBlock(&bind.CallOpts{Context: ctx}, currentBlockID)
-				if err != nil {
-					return nil, err
-				}
-				if blockInfo.ProposedIn != 0 {
-					l1HeaderToSet, err = s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockInfo.ProposedIn))
-					if err != nil {
-						return nil, err
-					}
-				}
-			} else {
-				return nil, err
-			}
-		} else {
-			l1HeaderToSet, err = s.rpc.L1.HeaderByNumber(ctx, l1Origin.L1BlockHeight)
-			if err != nil {
-				return nil, err
-			}
-		}
-		reorgCheckResult.IsReorged = retries > 0
-		reorgCheckResult.L1CurrentToReset = l1HeaderToSet
-		reorgCheckResult.LastHandledBlockIDToReset = new(big.Int).SetUint64(currentBlockID)
-	} else {
-		reorgCheckResult, err = s.retrievePastBlock(ctx, blockID, retries+1, genesisL1Header)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return reorgCheckResult, nil
 }
 

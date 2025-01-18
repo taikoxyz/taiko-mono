@@ -17,7 +17,7 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -34,8 +34,8 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
+	sub, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -57,7 +57,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	var txHash common.Hash
 	for i := 0; i < 3; i++ {
 		event := <-sink
-		metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataOntake(event))
+		metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataPacaya(event))
 		txHash = event.Raw.TxHash
 	}
 
@@ -84,8 +84,8 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
+	sub, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink)
 	s.Nil(err)
 
 	defer func() {
@@ -113,7 +113,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	var (
 		event  = <-sink
 		txHash = event.Raw.TxHash
-		meta   = metadata.NewTaikoDataBlockMetadataOntake(event)
+		meta   = metadata.NewTaikoDataBlockMetadataPacaya(event)
 	)
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)
@@ -150,8 +150,8 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
+	sub, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()

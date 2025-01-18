@@ -46,7 +46,7 @@ func isValidProof(
 	blockHash common.Hash,
 	stateRoot common.Hash,
 ) (bool, error) {
-	parent, err := rpc.L2ParentByBlockID(ctx, blockID)
+	parent, err := rpc.L2ParentByCurrentBlockID(ctx, blockID)
 	if err != nil {
 		return false, err
 	}

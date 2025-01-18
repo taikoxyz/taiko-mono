@@ -39,7 +39,7 @@ func (s *Syncer) insertNewHeadOntake(
 
 		parent, err = s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
 	} else {
-		parent, err = s.rpc.L2ParentByBlockID(ctx, meta.GetBlockID())
+		parent, err = s.rpc.L2ParentByCurrentBlockID(ctx, meta.GetBlockID())
 	}
 	if err != nil {
 		return fmt.Errorf("failed to fetch L2 parent block: %w", err)

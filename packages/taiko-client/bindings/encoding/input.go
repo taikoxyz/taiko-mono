@@ -397,6 +397,12 @@ var (
 		{Name: "ITaikoInbox.BlockMetadata", Type: batchMetaDataComponentsType},
 		{Name: "TaikoData.Transition", Type: batchTransitionComponentsType},
 	}
+	stringType, _             = abi.NewType("string", "", nil)
+	uint256Type, _            = abi.NewType("uint256", "", nil)
+	PacayaDifficultyInputArgs = abi.Arguments{
+		{Name: "TAIKO_DIFFICULTY", Type: stringType},
+		{Name: "block.number", Type: uint256Type},
+	}
 )
 
 // Contract ABIs.
@@ -618,9 +624,7 @@ func EncodeProveBlocksBatchProof(
 
 // CalculatePacayaDifficulty calculates the difficulty for the given pacaya block.
 func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
-	args := []interface{}{"TAIKO_DIFFICULTY", blockNum}
-
-	packed, err := abi.Arguments{}.PackValues(args)
+	packed, err := PacayaDifficultyInputArgs.Pack("TAIKO_DIFFICULTY", blockNum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode pacaya difficulty, %w", err)
 	}

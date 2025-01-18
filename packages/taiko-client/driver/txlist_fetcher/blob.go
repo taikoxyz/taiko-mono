@@ -3,8 +3,6 @@ package txlistfetcher
 import (
 	"context"
 	"crypto/sha256"
-	"fmt"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"

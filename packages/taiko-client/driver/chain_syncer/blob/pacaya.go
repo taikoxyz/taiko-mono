@@ -54,8 +54,13 @@ func (s *Syncer) insertNewHeadPacaya(
 	var (
 		parent          *types.Header
 		lastPayloadData *engine.ExecutableData
+		allTxs          types.Transactions
 		txListCursor    = 0
 	)
+	if err = rlp.DecodeBytes(txsInBatchBytes, &allTxs); err != nil {
+		return fmt.Errorf("failed to decode tx list: %w", err)
+	}
+
 	for i, blockInfo := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 		// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
@@ -81,7 +86,8 @@ func (s *Syncer) insertNewHeadPacaya(
 			} else {
 				parentNumber = new(big.Int).SetUint64(lastPayloadData.Number)
 			}
-			parent, err = s.rpc.L2ParentByBlockID(ctx, parentNumber)
+
+			parent, err = s.rpc.L2ParentByCurrentBlockID(ctx, new(big.Int).Add(parentNumber, common.Big1))
 		}
 		if err != nil {
 			return fmt.Errorf("failed to fetch L2 parent block: %w", err)
@@ -94,12 +100,11 @@ func (s *Syncer) insertNewHeadPacaya(
 			"beaconSyncTriggered", s.progressTracker.Triggered(),
 		)
 
-		txsInBlock := txsInBatchBytes[txListCursor:blockInfo.NumTransactions]
-		txListBytes, err := rlp.EncodeToBytes(txsInBlock)
+		txListBytes, err := rlp.EncodeToBytes(allTxs[txListCursor:blockInfo.NumTransactions])
 		if err != nil {
 			return fmt.Errorf("failed to encode tx list: %w", err)
 		}
-		blockID := new(big.Int).SetUint64(parent.Number.Uint64() + uint64(i))
+		blockID := new(big.Int).SetUint64(parent.Number.Uint64() + 1)
 		difficulty, err := encoding.CalculatePacayaDifficulty(blockID)
 		if err != nil {
 			return fmt.Errorf("failed to calculate difficulty: %w", err)
@@ -170,6 +175,7 @@ func (s *Syncer) insertNewHeadPacaya(
 					},
 					TxListBytes: txListBytes,
 					Withdrawals: make([]*types.Withdrawal, 0),
+					BaseFee:     baseFee,
 				},
 				AnchorBlockID:   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 				AnchorBlockHash: meta.GetAnchorBlockHash(),

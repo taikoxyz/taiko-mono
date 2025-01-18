@@ -264,9 +264,9 @@ func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBin
 	return &batch, nil
 }
 
-// L2ParentByBlockID fetches the block header from L2 execution engine with the largest block id that
+// L2ParentByCurrentBlockID fetches the block header from L2 execution engine with the largest block id that
 // smaller than the given `blockId`.
-func (c *Client) L2ParentByBlockID(ctx context.Context, blockID *big.Int) (*types.Header, error) {
+func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int) (*types.Header, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
