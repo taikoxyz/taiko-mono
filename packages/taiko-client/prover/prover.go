@@ -152,11 +152,9 @@ func InitFromConfig(
 	}
 
 	// Protocol proof tiers
-	tiers, err := p.rpc.GetTiers(ctx)
-	if err != nil {
-		return err
+	if err := p.initProofTiers(ctx); err != nil {
+		return fmt.Errorf("initialize proof tiers error: %w", err)
 	}
-	p.sharedState.SetTiers(tiers)
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
 		p.rpc,
@@ -197,7 +195,7 @@ func InitFromConfig(
 	}
 
 	// Proof submitters
-	if err := p.initProofSubmitters(txBuilder, tiers); err != nil {
+	if err := p.initProofSubmitters(txBuilder, p.sharedState.GetTiers()); err != nil {
 		return err
 	}
 

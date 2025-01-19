@@ -249,7 +249,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				input,
 				batchProof.BatchProof,
 			); err != nil {
-				return nil, err
+				return nil, encoding.TryParsingCustomError(err)
 			}
 			to = a.taikoL1Address
 		}

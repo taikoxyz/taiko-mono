@@ -96,7 +96,7 @@ func (h *BlockProposedEventHandler) Handle(
 
 	var blockID *big.Int
 	if meta.IsPacaya() {
-		batch, err := h.rpc.GetBatchByID(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
+		batch, err := h.rpc.GetBatchByID(ctx, meta.TaikoBatchMetaDataPacaya().GetBatchID())
 		if err != nil {
 			return fmt.Errorf("failed to get batch by ID: %w", err)
 		}
@@ -106,8 +106,8 @@ func (h *BlockProposedEventHandler) Handle(
 	}
 
 	// Wait for the corresponding L2 block being mined in node.
-	if _, err := h.rpc.WaitL2Header(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID()); err != nil {
-		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", meta.TaikoBlockMetaDataOntake().GetBlockID(), err)
+	if _, err := h.rpc.WaitL2Header(ctx, blockID); err != nil {
+		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", blockID, err)
 	}
 
 	// Check if the L1 chain has reorged at first.
@@ -153,12 +153,12 @@ func (h *BlockProposedEventHandler) Handle(
 	metrics.ProverReceivedProposedBlockGauge.Set(float64(blockID.Uint64()))
 
 	// Move l1Current cursor.
-	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.TaikoBlockMetaDataOntake().GetRawBlockHash())
+	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.GetRawBlockHash())
 	if err != nil {
 		return err
 	}
 	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledBlockID(meta.TaikoBlockMetaDataOntake().GetBlockID().Uint64())
+	h.sharedState.SetLastHandledBlockID(blockID.Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
@@ -328,20 +328,33 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 			"prover", meta.GetProposer(),
 			"timeToExpire", timeToExpire,
 		)
+
+		if h.proveUnassignedBlocks {
+			log.Info(
+				"Add proposed block to wait for proof window expiration",
+				"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+				"assignProver", meta.GetProposer(),
+				"timeToExpire", timeToExpire,
+			)
+			time.AfterFunc(
+				// Add another 72 seconds, to ensure one more L1 block will be mined before the proof submission
+				timeToExpire+proofExpirationDelay,
+				func() { h.assignmentExpiredCh <- meta },
+			)
+
+			return nil
+		}
 	}
-	if h.proveUnassignedBlocks {
-		log.Info(
-			"Add proposed block to wait for proof window expiration",
-			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			"assignProver", meta.GetProposer(),
-			"timeToExpire", timeToExpire,
-		)
-		time.AfterFunc(
-			// Add another 72 seconds, to ensure one more L1 block will be mined before the proof submission
-			timeToExpire+proofExpirationDelay,
-			func() { h.assignmentExpiredCh <- meta },
-		)
-	}
+
+	log.Info(
+		"Proposed batch is provable",
+		"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+		"assignProver", meta.GetProposer(),
+	)
+
+	metrics.ProverProofsAssigned.Add(1)
+
+	h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 
 	return nil
 }

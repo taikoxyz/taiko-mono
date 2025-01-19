@@ -27,7 +27,7 @@ func (o *OptimisticProofProducer) RequestProof(
 	log.Info(
 		"Request optimistic proof",
 		"blockID", blockID,
-		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		"proposer", meta.GetProposer(),
 		"hash", header.Hash(),
 	)
 

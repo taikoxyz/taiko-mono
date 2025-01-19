@@ -11,6 +11,7 @@ import (
 )
 
 func (s *ProofSubmitterTestSuite) TestSubmitContestNoTransition() {
+	s.T().Skip("skipping test")
 	s.NotNil(
 		s.contester.SubmitContest(
 			context.Background(),

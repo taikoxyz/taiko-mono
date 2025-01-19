@@ -21,7 +21,7 @@ var (
 
 // isBlockVerified checks whether the given L2 block has been verified.
 func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
-	if rpc.PacayaClients.ForkHeight > id.Uint64() {
+	if id.Uint64() >= rpc.PacayaClients.ForkHeight {
 		lastVerifiedTransition, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 		if err != nil {
 			return false, err
@@ -131,6 +131,7 @@ func IsProvingWindowExpired(
 ) (bool, time.Time, time.Duration, error) {
 	var (
 		provingWindow time.Duration
+		timestamp     uint64
 		err           error
 	)
 	if metadata.IsPacaya() {
@@ -141,6 +142,7 @@ func IsProvingWindowExpired(
 		if provingWindow, err = protocolConfigs.ProvingWindow(); err != nil {
 			return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya proving window: %w", err)
 		}
+		timestamp = metadata.TaikoBatchMetaDataPacaya().GetProposedAt()
 	} else {
 		if provingWindow, err = getProvingWindowOntake(
 			metadata.TaikoBlockMetaDataOntake().GetMinTier(),
@@ -148,11 +150,12 @@ func IsProvingWindowExpired(
 		); err != nil {
 			return false, time.Time{}, 0, fmt.Errorf("failed to get Ontake proving window: %w", err)
 		}
+		timestamp = metadata.TaikoBlockMetaDataOntake().GetTimestamp()
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.TaikoBlockMetaDataOntake().GetTimestamp() + uint64(provingWindow.Seconds())
+		expiredAt = timestamp + uint64(provingWindow.Seconds())
 	)
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

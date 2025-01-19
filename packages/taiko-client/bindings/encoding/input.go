@@ -251,6 +251,10 @@ var (
 			Type: "bytes32",
 		},
 		{
+			Name: "extraData",
+			Type: "bytes32",
+		},
+		{
 			Name: "coinbase",
 			Type: "address",
 		},
@@ -293,6 +297,10 @@ var (
 		{
 			Name: "txListSize",
 			Type: "uint32",
+		},
+		{
+			Name: "firstBlobIndex",
+			Type: "uint8",
 		},
 		{
 			Name: "numBlobs",
@@ -372,16 +380,16 @@ var (
 )
 
 var (
-	blockParamsV2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
-	blockParamsV2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
-	batchParamsComponentsType, _     = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
-	batchParamsComponentsArgs        = abi.Arguments{{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType}}
-	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
-	batchMetaDataComponentsType, _   = abi.NewType("tuple", "ITaikoInbox.BatchMetadata", batchMetaDataComponents)
-	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
-	batchTransitionComponentsType, _ = abi.NewType("tuple", "ITaikoInbox.Transition", batchTransitionComponents)
-	tierProofComponentsType, _       = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
-	proveOntakeBlockInputArgs        = abi.Arguments{
+	blockParamsV2ComponentsType, _        = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
+	blockParamsV2ComponentsArgs           = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
+	batchParamsComponentsType, _          = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
+	batchParamsComponentsArgs             = abi.Arguments{{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType}}
+	blockMetadataV2ComponentsType, _      = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
+	batchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", batchMetaDataComponents)
+	transitionComponentsType, _           = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
+	batchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", batchTransitionComponents)
+	tierProofComponentsType, _            = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
+	proveOntakeBlockInputArgs             = abi.Arguments{
 		{Name: "TaikoData.BlockMetadataV2", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
@@ -394,8 +402,8 @@ var (
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
 	proveBatchesInputArgs = abi.Arguments{
-		{Name: "ITaikoInbox.BlockMetadata", Type: batchMetaDataComponentsType},
-		{Name: "TaikoData.Transition", Type: batchTransitionComponentsType},
+		{Name: "ITaikoInbox.BlockMetadata[]", Type: batchMetaDataComponentsArrayType},
+		{Name: "TaikoData.Transition[]", Type: batchTransitionComponentsArrayType},
 	}
 	stringType, _             = abi.NewType("string", "", nil)
 	uint256Type, _            = abi.NewType("uint256", "", nil)
@@ -572,7 +580,7 @@ func EncodeProveBlocksInput(
 	b := make([][]byte, 0, len(metas))
 	for i := range metas {
 		input, err := proveBlocksInputArgs.Pack(
-			metas[i].TaikoBlockMetaDataOntake(),
+			metas[i].TaikoBlockMetaDataOntake().InnerMetadata(),
 			transitions[i],
 		)
 		if err != nil {
@@ -589,24 +597,23 @@ func EncodeProveBlocksInput(
 func EncodeProveBatchesInput(
 	metas []metadata.TaikoProposalMetaData,
 	transitions []pacayaBindings.ITaikoInboxTransition,
-) ([][]byte, error) {
+) ([]byte, error) {
 	if len(metas) != len(transitions) {
 		return nil, fmt.Errorf("both arrays of TaikoBlockMetaData and TaikoInboxTransition must be equal in length")
 	}
-	b := make([][]byte, 0, len(metas))
+	pacayaMetas := make([]pacayaBindings.ITaikoInboxBatchMetadata, 0)
 	for i := range metas {
-		input, err := proveBatchesInputArgs.Pack(
-			metas[i].TaikoBatchMetaDataPacaya(),
-			transitions[i],
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after ontake fork, %w", err)
-		}
-
-		b = append(b, input)
+		pacayaMetas = append(pacayaMetas, *metas[i].TaikoBatchMetaDataPacaya().InnerMetadata())
+	}
+	input, err := proveBatchesInputArgs.Pack(
+		pacayaMetas,
+		transitions,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after ontake fork, %w", err)
 	}
 
-	return b, nil
+	return input, nil
 }
 
 // EncodeProveBlocksBatchProof performs the solidity `abi.encode` for the given TaikoL1.proveBlocks batchProof.

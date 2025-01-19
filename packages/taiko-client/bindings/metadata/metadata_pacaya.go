@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
@@ -173,6 +172,6 @@ func (m *TaikoDataBlockMetadataPacaya) IsOntakeBlock() bool {
 }
 
 // InnerMetadata returns the inner metadata.
-func (m *TaikoDataBlockMetadataPacaya) InnerMetadata() *ontakeBindings.TaikoDataBlockMetadataV2 {
-	return nil
+func (m *TaikoDataBlockMetadataPacaya) InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata {
+	return &m.ITaikoInboxBatchMetadata
 }

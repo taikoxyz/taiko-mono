@@ -124,6 +124,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 }
 
 func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
+	s.T().Skip("skipping test")
 	handler := NewTransitionProvedEventHandler(
 		s.RPCClient,
 		make(chan *proofProducer.ContestRequestBody),

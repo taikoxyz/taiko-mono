@@ -315,9 +315,25 @@ func (p *Prover) initEventHandlers() error {
 	// ------- BlockVerified -------
 	guardianProverAddress, err := p.rpc.GetGuardianProverAddress(p.ctx)
 	if err != nil {
-		return err
+		log.Debug("Failed to get guardian prover address", "error", encoding.TryParsingCustomError(err))
+		p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(common.Address{})
+		return nil
 	}
 	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(guardianProverAddress)
 
+	return nil
+}
+
+// initProofTiers initializes the proof tiers for the current prover.
+func (p *Prover) initProofTiers(ctx context.Context) error {
+	// Check if the current protocol is in Pacaya fork.
+	if _, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx}); err == nil {
+		return nil
+	}
+	tiers, err := p.rpc.GetTiers(ctx)
+	if err != nil {
+		return err
+	}
+	p.sharedState.SetTiers(tiers)
 	return nil
 }

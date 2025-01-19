@@ -47,6 +47,7 @@ type TaikoBlockMetaDataOntake interface {
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
 	GetTxHash() common.Hash
+	InnerMetadata() *ontakeBindings.TaikoDataBlockMetadataV2
 }
 
 type TaikoBatchMetaDataPacaya interface {
@@ -75,4 +76,5 @@ type TaikoBatchMetaDataPacaya interface {
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
 	GetTxHash() common.Hash
+	InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata
 }

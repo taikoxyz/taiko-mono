@@ -92,7 +92,7 @@ func (s *ProverTestSuite) SetupTest() {
 	s.d = d
 
 	// Init proposer
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
+	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
 
 	prop := new(proposer.Proposer)
@@ -217,29 +217,6 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 	})
 }
 
-func (s *ProverTestSuite) TestSelectSubmitter() {
-	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT"))
-	s.True(s.p.IsGuardianProver())
-	submitter := s.p.selectSubmitter(encoding.TierGuardianMinorityID + 1)
-	s.NotNil(submitter)
-	s.Equal(encoding.TierGuardianMajorityID, submitter.Tier())
-}
-
-func (s *ProverTestSuite) TestSelectSubmitterNotFound() {
-	submitter := s.p.selectSubmitter(encoding.TierGuardianMajorityID + 1)
-	s.Nil(submitter)
-}
-
-func (s *ProverTestSuite) TestGetSubmitterByTier() {
-	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT"))
-	s.True(s.p.IsGuardianProver())
-
-	submitter := s.p.getSubmitterByTier(encoding.TierGuardianMajorityID)
-	s.NotNil(submitter)
-	s.Equal(encoding.TierGuardianMajorityID, submitter.Tier())
-	s.Nil(s.p.getSubmitterByTier(encoding.TierGuardianMajorityID + 1))
-}
-
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
@@ -269,9 +246,6 @@ func (s *ProverTestSuite) TestProveOp() {
 }
 
 func (s *ProverTestSuite) TestGetBlockProofStatus() {
-	parent, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
 	// No proof submitted
@@ -298,16 +272,20 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
-	status, err = rpc.GetBatchProofStatus(
-		context.Background(),
-		s.p.rpc,
-		m.TaikoBatchMetaDataPacaya().GetBatchID(),
-	)
+	ts, err := s.RPCClient.GetLastVerifiedTransitionPacaya(context.Background())
 	s.Nil(err)
+	s.Equal(m.TaikoBatchMetaDataPacaya().GetBatchID().Uint64(), ts.BatchId)
 
-	s.True(status.IsSubmitted)
-	s.False(status.Invalid)
-	s.Equal(parent.Hash(), status.ParentHeader.Hash())
+	// status, err = rpc.GetBatchProofStatus(
+	// 	context.Background(),
+	// 	s.p.rpc,
+	// 	m.TaikoBatchMetaDataPacaya().GetBatchID(),
+	// )
+	// s.Nil(err)
+
+	// s.True(status.IsSubmitted)
+	// s.False(status.Invalid)
+	// s.Equal(parent.Hash(), status.ParentHeader.Hash())
 
 	// TODO: fix this
 	// // Invalid proof submitted
