@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
 
-contract InboxTest_ProposeAndProve is InboxTestBase {
+contract InboxTest_StopBatch is InboxTestBase {
     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -34,7 +34,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         bondToken = deployBondToken();
     }
 
-    function test_inbox_propose_stopBatchId()
+    function test_inbox_num_batches_verified()
         external
         transactBy(Alice)
         WhenMultipleBatchesAreProposedWithDefaultParameters(9)
