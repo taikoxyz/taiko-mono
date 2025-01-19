@@ -564,8 +564,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         SyncBlock memory synced;
 
-        uint256 stopBatchId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId)
-            .min(_stats2.numBatches);
+        uint256 stopBatchId = (
+            _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
+        ).min(_stats2.numBatches);
 
         for (++batchId; batchId < stopBatchId; ++batchId) {
             slot = batchId % _config.batchRingBufferSize;
