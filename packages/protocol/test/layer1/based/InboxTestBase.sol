@@ -200,6 +200,7 @@ abstract contract InboxTestBase is Layer1Test {
                     unicode"│    │    └── stateRoot:",
                     Strings.toHexString(uint256(ts.stateRoot))
                 );
+                console2.log(unicode"│    │    └── prover:", ts.prover);
                 console2.log(
                     unicode"│    │    └── inProvingWindow:",
                     ts.inProvingWindow ? "true" : "false"

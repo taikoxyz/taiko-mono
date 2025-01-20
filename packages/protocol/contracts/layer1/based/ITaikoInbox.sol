@@ -58,6 +58,7 @@ interface ITaikoInbox {
         uint64 lastBlockTimestamp;
         bytes32 parentMetaHash;
         address proposer;
+        uint96 livenessBond;
         uint64 proposedAt; // Used by node/client
         uint64 proposedIn; // Used by node/client
         uint32 txListOffset;

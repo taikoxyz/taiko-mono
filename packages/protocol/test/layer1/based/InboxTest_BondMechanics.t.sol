@@ -101,7 +101,8 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(aliceBondBalanceAfterProof, bondAmount - livenessBond / 2);
     }
 
-    // function test_inbox_bonds_half_liveness_bond_returned_to_actual_prover_out_of_proving_window()
+    // function
+    // test_inbox_bonds_half_liveness_bond_returned_to_actual_prover_out_of_proving_window()
     //     external
     // {
     //     vm.warp(1_000_000);
