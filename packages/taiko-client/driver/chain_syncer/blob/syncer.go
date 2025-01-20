@@ -82,6 +82,7 @@ func NewSyncer(
 			client,
 			progressTracker,
 			blobDataSource,
+			txListDecompressor,
 			constructor,
 		),
 		blocksInserterPacaya: blocksInserter.NewBlocksInserterPacaya(
@@ -230,24 +231,6 @@ func (s *Syncer) onBlockProposed(
 		return nil
 	}
 
-	if meta.IsPacaya() {
-		log.Info(
-			"New BatchProposed event",
-			"l1Height", meta.GetRawBlockHeight(),
-			"l1Hash", meta.GetRawBlockHash(),
-			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			"lastBlockID", lastBlockID,
-			"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
-		)
-	} else {
-		log.Info(
-			"New BlockProposedV2 event",
-			"l1Height", meta.GetRawBlockHeight(),
-			"l1Hash", meta.GetRawBlockHash(),
-			"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-		)
-	}
-
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
 	// only happen when testing.
 	if timestamp > uint64(time.Now().Unix()) {
@@ -270,12 +253,28 @@ func (s *Syncer) onBlockProposed(
 	}
 
 	// Insert new blocks to L2 EE's chain.
-	if !meta.IsPacaya() {
-		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx, endIter); err != nil {
+	if meta.IsPacaya() {
+		log.Info(
+			"New BatchProposed event",
+			"l1Height", meta.GetRawBlockHeight(),
+			"l1Hash", meta.GetRawBlockHash(),
+			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"lastBlockID", lastBlockID,
+			"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
+		)
+		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx, endIter); err != nil {
 			return err
 		}
 	} else {
-		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx, endIter); err != nil {
+		log.Info(
+			"New BatchProposed event",
+			"l1Height", meta.GetRawBlockHeight(),
+			"l1Hash", meta.GetRawBlockHash(),
+			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"lastBlockID", lastBlockID,
+			"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
+		)
+		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx, endIter); err != nil {
 			return err
 		}
 	}

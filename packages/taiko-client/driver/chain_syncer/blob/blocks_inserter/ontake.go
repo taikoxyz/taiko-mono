@@ -15,6 +15,7 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -23,10 +24,11 @@ import (
 
 // BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
 type BlocksInserterOntake struct {
-	rpc               *rpc.Client
-	progressTracker   *beaconsync.SyncProgressTracker
-	blobDatasource    *rpc.BlobDataSource
-	anchorConstructor *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	rpc                *rpc.Client
+	progressTracker    *beaconsync.SyncProgressTracker
+	blobDatasource     *rpc.BlobDataSource
+	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
+	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -34,13 +36,15 @@ func NewBlocksInserterOntake(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobDatasource *rpc.BlobDataSource,
+	txListDecompressor *txListDecompressor.TxListDecompressor,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 ) *BlocksInserterOntake {
 	return &BlocksInserterOntake{
-		rpc:               rpc,
-		progressTracker:   progressTracker,
-		blobDatasource:    blobDatasource,
-		anchorConstructor: anchorConstructor,
+		rpc:                rpc,
+		progressTracker:    progressTracker,
+		blobDatasource:     blobDatasource,
+		txListDecompressor: txListDecompressor,
+		anchorConstructor:  anchorConstructor,
 	}
 }
 
@@ -152,7 +156,12 @@ func (i *BlocksInserterOntake) InsertBlocks(
 					L1BlockHeight: meta.GetRawBlockHeight(),
 					L1BlockHash:   meta.GetRawBlockHash(),
 				},
-				TxListBytes: txListBytes,
+				Txs: i.txListDecompressor.TryDecompress(
+					i.rpc.L2.ChainID,
+					txListBytes,
+					meta.GetBlobUsed(),
+					false,
+				),
 				Withdrawals: make([]*types.Withdrawal, 0),
 			},
 			AnchorBlockID:   new(big.Int).SetUint64(meta.GetAnchorBlockID()),

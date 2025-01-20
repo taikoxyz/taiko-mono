@@ -33,7 +33,7 @@ type createExecutionPayloadsMetaData struct {
 	Timestamp             uint64
 	ParentHash            common.Hash
 	L1Origin              *rawdb.L1Origin
-	TxListBytes           []byte
+	Txs                   types.Transactions
 	BaseFee               *big.Int
 	Withdrawals           []*types.Withdrawal
 }

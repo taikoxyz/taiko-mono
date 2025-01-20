@@ -31,29 +31,11 @@ func createPayloadAndSetHead(
 		"l1Origin", meta.L1Origin,
 	)
 
-	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
-	var (
-		txList []*types.Transaction
-		err    error
-	)
-	if len(meta.TxListBytes) != 0 {
-		if err := rlp.DecodeBytes(meta.TxListBytes, &txList); err != nil {
-			log.Error("Invalid txList bytes", "blockID", meta.createExecutionPayloadsMetaData.BlockID)
-			return nil, err
-		}
-	}
-
-	// Insert the anchor transaction at the head of the transactions list
-	txList = append([]*types.Transaction{anchorTx}, txList...)
-	if meta.createExecutionPayloadsMetaData.TxListBytes, err = rlp.EncodeToBytes(txList); err != nil {
-		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
-		return nil, err
-	}
-
 	payload, err := createExecutionPayloads(
 		ctx,
 		rpc,
 		meta.createExecutionPayloadsMetaData,
+		anchorTx,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
@@ -103,7 +85,15 @@ func createExecutionPayloads(
 	ctx context.Context,
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
+	anchorTx *types.Transaction,
 ) (payloadData *engine.ExecutableData, err error) {
+	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
+	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
+	if err != nil {
+		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
+		return nil, err
+	}
+
 	fc := &engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash}
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
@@ -114,7 +104,7 @@ func createExecutionPayloads(
 			Beneficiary: meta.SuggestedFeeRecipient,
 			GasLimit:    uint64(meta.GasLimit) + consensus.AnchorGasLimit,
 			Timestamp:   meta.Timestamp,
-			TxList:      meta.TxListBytes,
+			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,
 			ExtraData:   meta.ExtraData,
 		},

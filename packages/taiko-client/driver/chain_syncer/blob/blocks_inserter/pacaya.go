@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -79,23 +78,17 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
-	txsInBatchBytes := i.txListDecompressor.TryDecompress(
-		i.rpc.L2.ChainID,
-		meta.GetBatchID(),
-		txListBytes,
-		meta.GetNumBlobs() != 0,
-		true,
-	)
-
 	var (
+		allTxs = i.txListDecompressor.TryDecompress(
+			i.rpc.L2.ChainID,
+			txListBytes,
+			meta.GetNumBlobs() != 0,
+			true,
+		)
 		parent          *types.Header
 		lastPayloadData *engine.ExecutableData
-		allTxs          types.Transactions
 		txListCursor    = 0
 	)
-	if err = rlp.DecodeBytes(txsInBatchBytes, &allTxs); err != nil {
-		return fmt.Errorf("failed to decode tx list: %w", err)
-	}
 
 	for j, blockInfo := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
@@ -136,10 +129,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		txListBytes, err := rlp.EncodeToBytes(allTxs[txListCursor:blockInfo.NumTransactions])
-		if err != nil {
-			return fmt.Errorf("failed to encode tx list: %w", err)
-		}
 		blockID := new(big.Int).SetUint64(parent.Number.Uint64() + 1)
 		difficulty, err := encoding.CalculatePacayaDifficulty(blockID)
 		if err != nil {
@@ -210,7 +199,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 						L1BlockHeight: meta.GetRawBlockHeight(),
 						L1BlockHash:   meta.GetRawBlockHash(),
 					},
-					TxListBytes: txListBytes,
+					Txs:         allTxs[txListCursor:blockInfo.NumTransactions],
 					Withdrawals: make([]*types.Withdrawal, 0),
 					BaseFee:     baseFee,
 				},
