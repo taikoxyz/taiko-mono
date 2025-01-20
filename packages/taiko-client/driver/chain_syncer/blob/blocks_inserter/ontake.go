@@ -1,4 +1,4 @@
-package blob
+package blocks_inserter
 
 import (
 	"context"
@@ -9,37 +9,68 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// insertNewHeadOntake inserts a new Ontake block to the L2 execution engine.
-func (s *Syncer) insertNewHeadOntake(
+// BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
+type BlocksInserterOntake struct {
+	rpc               *rpc.Client
+	progressTracker   *beaconsync.SyncProgressTracker
+	blobDatasource    *rpc.BlobDataSource
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+}
+
+// NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
+func NewBlocksInserterOntake(
+	rpc *rpc.Client,
+	progressTracker *beaconsync.SyncProgressTracker,
+	blobDatasource *rpc.BlobDataSource,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+) *BlocksInserterOntake {
+	return &BlocksInserterOntake{
+		rpc:               rpc,
+		progressTracker:   progressTracker,
+		blobDatasource:    blobDatasource,
+		anchorConstructor: anchorConstructor,
+	}
+}
+
+// InsertBlocks inserts a new Ontake block to the L2 execution engine.
+func (i *BlocksInserterOntake) InsertBlocks(
 	ctx context.Context,
-	meta metadata.TaikoBlockMetaDataOntake,
-	tx *types.Transaction,
+	metadata metadata.TaikoProposalMetaData,
+	proposingTx *types.Transaction,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
+	if metadata.IsPacaya() {
+		return fmt.Errorf("metadata is not for Ontake fork")
+	}
 	// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 	// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
 	var (
+		meta   = metadata.TaikoBlockMetaDataOntake()
 		parent *types.Header
 		err    error
 	)
-	if s.progressTracker.Triggered() {
+	if i.progressTracker.Triggered() {
 		// Already synced through beacon sync, just skip this event.
-		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+		if meta.GetBlockID().Cmp(i.progressTracker.LastSyncedBlockID()) <= 0 {
 			log.Debug("Skip already beacon synced block", "blockID", meta.GetBlockID())
 			return nil
 		}
 
-		parent, err = s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
+		parent, err = i.rpc.L2.HeaderByHash(ctx, i.progressTracker.LastSyncedBlockHash())
 	} else {
-		parent, err = s.rpc.L2ParentByCurrentBlockID(ctx, meta.GetBlockID())
+		parent, err = i.rpc.L2ParentByCurrentBlockID(ctx, meta.GetBlockID())
 	}
 	if err != nil {
 		return fmt.Errorf("failed to fetch L2 parent block: %w", err)
@@ -49,22 +80,22 @@ func (s *Syncer) insertNewHeadOntake(
 		"Parent block",
 		"blockID", parent.Number,
 		"hash", parent.Hash(),
-		"beaconSyncTriggered", s.progressTracker.Triggered(),
+		"beaconSyncTriggered", i.progressTracker.Triggered(),
 	)
 
 	// Fetch and decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
 	if meta.GetBlobUsed() {
-		txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
+		txListFetcher = txlistFetcher.NewBlobTxListFetcher(i.rpc.L1Beacon, i.blobDatasource)
 	} else {
-		txListFetcher = txlistFetcher.NewCalldataFetch(s.rpc)
+		txListFetcher = txlistFetcher.NewCalldataFetch(i.rpc)
 	}
-	txListBytes, err := txListFetcher.FetchOntake(ctx, tx, meta)
+	txListBytes, err := txListFetcher.FetchOntake(ctx, proposingTx, meta)
 	if err != nil {
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
-	baseFee, err := s.rpc.CalculateBaseFee(
+	baseFee, err := i.rpc.CalculateBaseFee(
 		ctx,
 		parent,
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
@@ -84,11 +115,11 @@ func (s *Syncer) insertNewHeadOntake(
 	)
 
 	// Assemble a TaikoL2.anchorV2 transaction
-	anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
+	anchorBlockHeader, err := i.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
 	if err != nil {
 		return fmt.Errorf("failed to fetch anchor block: %w", err)
 	}
-	anchorTx, err := s.anchorConstructor.AssembleAnchorV2Tx(
+	anchorTx, err := i.anchorConstructor.AssembleAnchorV2Tx(
 		ctx,
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		anchorBlockHeader.Root,
@@ -102,8 +133,9 @@ func (s *Syncer) insertNewHeadOntake(
 	}
 
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
-	payloadData, err := s.createPayloadAndSetHead(
+	payloadData, err := createPayloadAndSetHead(
 		ctx,
+		i.rpc,
 		&createPayloadAndSetHeadMetaData{
 			createExecutionPayloadsMetaData: &createExecutionPayloadsMetaData{
 				BlockID:               meta.GetBlockID(),

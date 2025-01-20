@@ -2,59 +2,26 @@ package blob
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob/blocks_inserter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
-
-// createExecutionPayloadsMetaData is a struct that contains all the necessary metadata
-// for creating a new execution payloads.
-type createExecutionPayloadsMetaData struct {
-	BlockID               *big.Int
-	ExtraData             []byte
-	SuggestedFeeRecipient common.Address
-	GasLimit              uint64
-	Difficulty            common.Hash
-	Timestamp             uint64
-	ParentHash            common.Hash
-	L1Origin              *rawdb.L1Origin
-	TxListBytes           []byte
-	BaseFee               *big.Int
-	Withdrawals           []*types.Withdrawal
-}
-
-// createPayloadAndSetHeadMetaData is a struct that contains all the necessary metadata
-// for inserting a new head block to the L2 execution engine's local block chain.
-type createPayloadAndSetHeadMetaData struct {
-	*createExecutionPayloadsMetaData
-	AnchorBlockID   *big.Int
-	AnchorBlockHash common.Hash
-	BaseFeeConfig   *pacayaBindings.LibSharedDataBaseFeeConfig
-	Parent          *types.Header
-}
 
 // Syncer responsible for letting the L2 execution engine catching up with protocol's latest
 // pending block through deriving L1 calldata.
@@ -62,14 +29,15 @@ type Syncer struct {
 	ctx                context.Context
 	rpc                *rpc.Client
 	state              *state.State
-	progressTracker    *beaconsync.SyncProgressTracker          // Sync progress tracker
-	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
-	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	// Used by BlockInserter
+	progressTracker    *beaconsync.SyncProgressTracker        // Sync progress tracker
+	txListDecompressor *txListDecompressor.TxListDecompressor // Transactions list decompressor
+
+	// Blocks inserters
+	blocksInserterOntake blocksInserter.Inserter // Ontake blocks inserter
+	blocksInserterPacaya blocksInserter.Inserter // Pacaya blocks inserter
+
 	lastInsertedBlockID *big.Int
 	reorgDetectedFlag   bool
-	maxRetrieveExponent uint64
-	blobDatasource      *rpc.BlobDataSource
 }
 
 // NewSyncer creates a new syncer instance.
@@ -91,24 +59,37 @@ func NewSyncer(
 	if err != nil {
 		return nil, err
 	}
+	blobDataSource := rpc.NewBlobDataSource(
+		ctx,
+		client,
+		blobServerEndpoint,
+		socialScanEndpoint,
+	)
+
+	txListDecompressor := txListDecompressor.NewTxListDecompressor(
+		uint64(protocolConfigs.BlockMaxGasLimit()),
+		rpc.BlockMaxTxListBytes,
+		client.L2.ChainID,
+	)
 
 	return &Syncer{
-		ctx:               ctx,
-		rpc:               client,
-		state:             state,
-		progressTracker:   progressTracker,
-		anchorConstructor: constructor,
-		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(protocolConfigs.BlockMaxGasLimit()),
-			rpc.BlockMaxTxListBytes,
-			client.L2.ChainID,
-		),
-		maxRetrieveExponent: maxRetrieveExponent,
-		blobDatasource: rpc.NewBlobDataSource(
-			ctx,
+		ctx:                ctx,
+		rpc:                client,
+		state:              state,
+		progressTracker:    progressTracker,
+		txListDecompressor: txListDecompressor,
+		blocksInserterOntake: blocksInserter.NewBlocksInserterOntake(
 			client,
-			blobServerEndpoint,
-			socialScanEndpoint,
+			progressTracker,
+			blobDataSource,
+			constructor,
+		),
+		blocksInserterPacaya: blocksInserter.NewBlocksInserterPacaya(
+			client,
+			progressTracker,
+			blobDataSource,
+			txListDecompressor,
+			constructor,
 		),
 	}, nil
 }
@@ -290,11 +271,11 @@ func (s *Syncer) onBlockProposed(
 
 	// Insert new blocks to L2 EE's chain.
 	if !meta.IsPacaya() {
-		if err := s.insertNewHeadOntake(ctx, meta.TaikoBlockMetaDataOntake(), tx, endIter); err != nil {
+		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx, endIter); err != nil {
 			return err
 		}
 	} else {
-		if err := s.insertNewHeadPacaya(ctx, meta.TaikoBatchMetaDataPacaya(), tx, endIter); err != nil {
+		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx, endIter); err != nil {
 			return err
 		}
 	}
@@ -307,167 +288,6 @@ func (s *Syncer) onBlockProposed(
 	}
 
 	return nil
-}
-
-// createPayloadAndSetHead tries to insert a new head block to the L2 execution engine's local
-// block chain through Engine APIs.
-func (s *Syncer) createPayloadAndSetHead(
-	ctx context.Context,
-	meta *createPayloadAndSetHeadMetaData,
-	anchorTx *types.Transaction,
-) (*engine.ExecutableData, error) {
-	log.Debug(
-		"Try to insert a new L2 head block",
-		"parentNumber", meta.Parent.Number,
-		"parentHash", meta.Parent.Hash(),
-		"l1Origin", meta.L1Origin,
-	)
-
-	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
-	var (
-		txList []*types.Transaction
-		err    error
-	)
-	if len(meta.TxListBytes) != 0 {
-		if err := rlp.DecodeBytes(meta.TxListBytes, &txList); err != nil {
-			log.Error("Invalid txList bytes", "blockID", meta.createExecutionPayloadsMetaData.BlockID)
-			return nil, err
-		}
-	}
-
-	// Insert the anchor transaction at the head of the transactions list
-	txList = append([]*types.Transaction{anchorTx}, txList...)
-	if meta.createExecutionPayloadsMetaData.TxListBytes, err = rlp.EncodeToBytes(txList); err != nil {
-		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
-		return nil, err
-	}
-
-	payload, err := s.createExecutionPayloads(
-		ctx,
-		meta.createExecutionPayloadsMetaData,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
-	}
-
-	var (
-		lastVerifiedBlockID   uint64
-		lastVerifiedBlockHash common.Hash
-	)
-	lastVerifiedTs, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
-	if err != nil {
-		lastVerifiedBlockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-		}
-
-		if payload.Number > lastVerifiedBlockID {
-			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
-		}
-	} else {
-		if payload.Number > lastVerifiedTs.BlockId {
-			lastVerifiedBlockHash = lastVerifiedTs.Tran.BlockHash
-		}
-	}
-
-	fc := &engine.ForkchoiceStateV1{
-		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      lastVerifiedBlockHash,
-		FinalizedBlockHash: lastVerifiedBlockHash,
-	}
-
-	// Update the fork choice
-	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
-	if err != nil {
-		return nil, err
-	}
-	if fcRes.PayloadStatus.Status != engine.VALID {
-		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
-	}
-
-	return payload, nil
-}
-
-// createExecutionPayloads creates a new execution payloads through
-// Engine APIs.
-func (s *Syncer) createExecutionPayloads(
-	ctx context.Context,
-	meta *createExecutionPayloadsMetaData,
-) (payloadData *engine.ExecutableData, err error) {
-	fc := &engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash}
-	attributes := &engine.PayloadAttributes{
-		Timestamp:             meta.Timestamp,
-		Random:                meta.Difficulty,
-		SuggestedFeeRecipient: meta.SuggestedFeeRecipient,
-		Withdrawals:           meta.Withdrawals,
-		BlockMetadata: &engine.BlockMetadata{
-			Beneficiary: meta.SuggestedFeeRecipient,
-			GasLimit:    uint64(meta.GasLimit) + consensus.AnchorGasLimit,
-			Timestamp:   meta.Timestamp,
-			TxList:      meta.TxListBytes,
-			MixHash:     meta.Difficulty,
-			ExtraData:   meta.ExtraData,
-		},
-		BaseFeePerGas: meta.BaseFee,
-		L1Origin:      meta.L1Origin,
-	}
-
-	log.Debug(
-		"PayloadAttributes",
-		"blockID", meta.BlockID,
-		"timestamp", attributes.Timestamp,
-		"random", attributes.Random,
-		"suggestedFeeRecipient", attributes.SuggestedFeeRecipient,
-		"withdrawals", len(attributes.Withdrawals),
-		"gasLimit", attributes.BlockMetadata.GasLimit,
-		"timestamp", attributes.BlockMetadata.Timestamp,
-		"mixHash", attributes.BlockMetadata.MixHash,
-		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
-		"extraData", string(attributes.BlockMetadata.ExtraData),
-		"l1OriginHeight", attributes.L1Origin.L1BlockHeight,
-		"l1OriginHash", attributes.L1Origin.L1BlockHash,
-	)
-
-	// Step 1, prepare a payload
-	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, attributes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update fork choice: %w", err)
-	}
-	if fcRes.PayloadStatus.Status != engine.VALID {
-		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
-	}
-	if fcRes.PayloadID == nil {
-		return nil, errors.New("empty payload ID")
-	}
-
-	// Step 2, get the payload
-	payload, err := s.rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get payload: %w", err)
-	}
-
-	log.Debug(
-		"Payload",
-		"blockID", meta.BlockID,
-		"baseFee", utils.WeiToGWei(payload.BaseFeePerGas),
-		"number", payload.Number,
-		"hash", payload.BlockHash,
-		"gasLimit", payload.GasLimit,
-		"gasUsed", payload.GasUsed,
-		"timestamp", payload.Timestamp,
-		"withdrawalsHash", payload.WithdrawalsHash,
-	)
-
-	// Step 3, execute the payload
-	execStatus, err := s.rpc.L2Engine.NewPayload(ctx, payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a new payload: %w", err)
-	}
-	if execStatus.Status != engine.VALID {
-		return nil, fmt.Errorf("unexpected NewPayload response status: %s", execStatus.Status)
-	}
-
-	return payload, nil
 }
 
 // checkLastVerifiedBlockMismatch checks if there is a mismatch between protocol's last verified block hash and

@@ -1,4 +1,4 @@
-package blob
+package blocks_inserter
 
 import (
 	"context"
@@ -11,22 +11,58 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// insertNewHeadPacaya inserts a new Pacaya block to the L2 execution engine.
-func (s *Syncer) insertNewHeadPacaya(
+// BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
+type BlocksInserterPacaya struct {
+	rpc                *rpc.Client
+	progressTracker    *beaconsync.SyncProgressTracker
+	blobDatasource     *rpc.BlobDataSource
+	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
+	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+}
+
+// NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
+func NewBlocksInserterPacaya(
+	rpc *rpc.Client,
+	progressTracker *beaconsync.SyncProgressTracker,
+	blobDatasource *rpc.BlobDataSource,
+	txListDecompressor *txListDecompressor.TxListDecompressor,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+) *BlocksInserterPacaya {
+	return &BlocksInserterPacaya{
+		rpc:                rpc,
+		progressTracker:    progressTracker,
+		blobDatasource:     blobDatasource,
+		txListDecompressor: txListDecompressor,
+		anchorConstructor:  anchorConstructor,
+	}
+}
+
+// InsertBlocks inserts a new Ontake block to the L2 execution engine.
+func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
-	meta metadata.TaikoBatchMetaDataPacaya,
-	tx *types.Transaction,
+	metadata metadata.TaikoProposalMetaData,
+	proposingTx *types.Transaction,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
-	batch, err := s.rpc.GetBatchByID(ctx, meta.GetBatchID())
+	if !metadata.IsPacaya() {
+		return fmt.Errorf("metadata is not for Pacaya fork")
+	}
+	meta := metadata.TaikoBatchMetaDataPacaya()
+
+	batch, err := i.rpc.GetBatchByID(ctx, meta.GetBatchID())
 	if err != nil {
 		return fmt.Errorf("failed to fetch batch: %w", err)
 	}
@@ -34,17 +70,17 @@ func (s *Syncer) insertNewHeadPacaya(
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
 	if meta.GetNumBlobs() != 0 {
-		txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
+		txListFetcher = txlistFetcher.NewBlobTxListFetcher(i.rpc.L1Beacon, i.blobDatasource)
 	} else {
-		txListFetcher = txlistFetcher.NewCalldataFetch(s.rpc)
+		txListFetcher = txlistFetcher.NewCalldataFetch(i.rpc)
 	}
-	txListBytes, err := txListFetcher.FetchPacaya(ctx, tx, meta)
+	txListBytes, err := txListFetcher.FetchPacaya(ctx, proposingTx, meta)
 	if err != nil {
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
-	txsInBatchBytes := s.txListDecompressor.TryDecompress(
-		s.rpc.L2.ChainID,
+	txsInBatchBytes := i.txListDecompressor.TryDecompress(
+		i.rpc.L2.ChainID,
 		meta.GetBatchID(),
 		txListBytes,
 		meta.GetNumBlobs() != 0,
@@ -61,23 +97,23 @@ func (s *Syncer) insertNewHeadPacaya(
 		return fmt.Errorf("failed to decode tx list: %w", err)
 	}
 
-	for i, blockInfo := range meta.GetBlocks() {
+	for j, blockInfo := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 		// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
-		if s.progressTracker.Triggered() {
+		if i.progressTracker.Triggered() {
 			// Already synced through beacon sync, just skip this event.
-			if new(big.Int).SetUint64(batch.LastBlockId).Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+			if new(big.Int).SetUint64(batch.LastBlockId).Cmp(i.progressTracker.LastSyncedBlockID()) <= 0 {
 				return nil
 			}
 
-			parent, err = s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
+			parent, err = i.rpc.L2.HeaderByHash(ctx, i.progressTracker.LastSyncedBlockHash())
 		} else {
 			var parentNumber *big.Int
 			if lastPayloadData == nil {
-				if batch.BatchId == s.rpc.PacayaClients.ForkHeight {
+				if batch.BatchId == i.rpc.PacayaClients.ForkHeight {
 					parentNumber = new(big.Int).SetUint64(batch.BatchId - 1)
 				} else {
-					lastBatch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batch.BatchId-1))
+					lastBatch, err := i.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batch.BatchId-1))
 					if err != nil {
 						return fmt.Errorf("failed to fetch last batch (%d): %w", batch.BatchId-1, err)
 					}
@@ -87,7 +123,7 @@ func (s *Syncer) insertNewHeadPacaya(
 				parentNumber = new(big.Int).SetUint64(lastPayloadData.Number)
 			}
 
-			parent, err = s.rpc.L2ParentByCurrentBlockID(ctx, new(big.Int).Add(parentNumber, common.Big1))
+			parent, err = i.rpc.L2ParentByCurrentBlockID(ctx, new(big.Int).Add(parentNumber, common.Big1))
 		}
 		if err != nil {
 			return fmt.Errorf("failed to fetch L2 parent block: %w", err)
@@ -97,7 +133,7 @@ func (s *Syncer) insertNewHeadPacaya(
 			"Parent block",
 			"blockID", parent.Number,
 			"hash", parent.Hash(),
-			"beaconSyncTriggered", s.progressTracker.Triggered(),
+			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
 		txListBytes, err := rlp.EncodeToBytes(allTxs[txListCursor:blockInfo.NumTransactions])
@@ -114,7 +150,7 @@ func (s *Syncer) insertNewHeadPacaya(
 			timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 		}
 
-		baseFee, err := s.rpc.CalculateBaseFee(
+		baseFee, err := i.rpc.CalculateBaseFee(
 			ctx,
 			parent,
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
@@ -132,15 +168,15 @@ func (s *Syncer) insertNewHeadPacaya(
 			"baseFee", utils.WeiToGWei(baseFee),
 			"parentGasUsed", parent.GasUsed,
 			"batchID", meta.GetBatchID(),
-			"indexInBatch", i,
+			"indexInBatch", j,
 		)
 
 		// Assemble a TaikoAnchor.anchorV3 transaction
-		anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
+		anchorBlockHeader, err := i.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
 		if err != nil {
 			return fmt.Errorf("failed to fetch anchor block: %w", err)
 		}
-		anchorTx, err := s.anchorConstructor.AssembleAnchorV3Tx(
+		anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
 			ctx,
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			anchorBlockHeader.Root,
@@ -156,8 +192,9 @@ func (s *Syncer) insertNewHeadPacaya(
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
-		if lastPayloadData, err = s.createPayloadAndSetHead(
+		if lastPayloadData, err = createPayloadAndSetHead(
 			ctx,
+			i.rpc,
 			&createPayloadAndSetHeadMetaData{
 				createExecutionPayloadsMetaData: &createExecutionPayloadsMetaData{
 					BlockID:               blockID,
@@ -197,7 +234,7 @@ func (s *Syncer) insertNewHeadPacaya(
 			"baseFee", utils.WeiToGWei(lastPayloadData.BaseFeePerGas),
 			"withdrawals", len(lastPayloadData.Withdrawals),
 			"batchID", meta.GetBatchID(),
-			"indexInBatch", i,
+			"indexInBatch", j,
 		)
 
 		txListCursor += int(blockInfo.NumTransactions)
