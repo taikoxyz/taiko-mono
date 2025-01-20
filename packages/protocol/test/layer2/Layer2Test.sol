@@ -19,7 +19,7 @@ abstract contract Layer2Test is CommonTest {
             deploy({
                 name: "taiko",
                 impl: taikoAnchorImpl,
-                data: abi.encodeCall(TaikoAnchor.init, (address(0), address(resolver), l1ChainId, 0))
+                data: abi.encodeCall(TaikoAnchor.init, (address(0), l1ChainId, 0))
             })
         );
     }
@@ -34,9 +34,9 @@ abstract contract Layer2Test is CommonTest {
         return DelegateOwner(
             deploy({
                 name: "delegate_owner",
-                impl: address(new DelegateOwner()),
+                impl: address(new DelegateOwner(address(resolver))),
                 data: abi.encodeCall(
-                    DelegateOwner.init, (remoteOwner, address(resolver), remoteChainId, address(0))
+                    DelegateOwner.init, (remoteOwner, remoteChainId, address(0))
                 )
             })
         );

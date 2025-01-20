@@ -94,18 +94,16 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _;
     }
 
-    constructor(uint64 _pacayaForkHeight) {
+    constructor(address _resolver, uint64 _pacayaForkHeight) EssentialContract(_resolver) {
         pacayaForkHeight = _pacayaForkHeight;
     }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupResolver The {IResolver} used by this rollup.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _initialGasExcess The initial parentGasExcess.
     function init(
         address _owner,
-        address _rollupResolver,
         uint64 _l1ChainId,
         uint64 _initialGasExcess
     )

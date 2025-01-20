@@ -20,7 +20,7 @@ abstract contract TaikoTokenBase0 is EssentialContract {
 /// @notice The base contract for both the canonical and the bridged Taiko token.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable {
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 
     constructor(address _resolver) TaikoTokenBase0(_resolver){}
 

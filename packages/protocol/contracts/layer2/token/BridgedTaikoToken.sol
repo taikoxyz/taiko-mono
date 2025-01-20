@@ -9,11 +9,13 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// use this contract.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
+
+    constructor(address _resolver) TaikoTokenBase(_resolver){}
+    
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
         __ERC20_init("Taiko Token", "TAIKO");
         __ERC20Votes_init();
         __ERC20Permit_init("Taiko Token");

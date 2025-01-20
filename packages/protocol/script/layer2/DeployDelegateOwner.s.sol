@@ -15,8 +15,8 @@ contract DeployDelegateOwner is BaseScript {
     function run() external broadcast {
         deploy({
             name: "delegate_owner",
-            impl: address(new DelegateOwner()),
-            data: abi.encodeCall(DelegateOwner.init, (l1Owner, l2Sam, 1, l2Admin))
+            impl: address(new DelegateOwner(l2Sam)),
+            data: abi.encodeCall(DelegateOwner.init, (l1Owner,  1, l2Admin))
         });
     }
 }
