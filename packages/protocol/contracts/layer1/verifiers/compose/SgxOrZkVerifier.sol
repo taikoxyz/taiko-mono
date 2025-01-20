@@ -25,7 +25,7 @@ contract SgxAndZkVerifier is ComposeVerifier {
         override
         returns (bool)
     {
-        if (_verifiers.length > 1) return false;
+        if (_verifiers.length != 1) return false;
 
         return _verifiers[0] == sgxVerifier || _verifiers[0] == risc0Verifier
             || _verifiers[0] == sp1Verifier;
