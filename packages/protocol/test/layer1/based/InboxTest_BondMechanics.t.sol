@@ -5,8 +5,6 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_BondMechanics is InboxTestBase {
-    uint16 constant provingWindow = 1 hours;
-
     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -37,125 +35,95 @@ contract InboxTest_BondMechanics is InboxTestBase {
         bondToken = deployBondToken();
     }
 
-    function test_inbox_bonds_debit_and_credit_proved_by_proposer() external {
+    function test_inbox_bonds_debit_and_credit_proved_by_proposer_in_proving_window() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
-        uint256 bondAmount = 1000 ether;
+        uint256 bondBalance = 1000 ether;
 
-        setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = getConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
+        uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
 
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.bondBalanceOf(Alice), bondAmount);
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance);
     }
 
-    function test_inbox_bonds_debit_and_credit_proved_by_non_proposer() external {
-        vm.warp(1_000_000);
-
-        uint256 initialBondBalance = 100_000 ether;
-        uint256 bondAmount = 1000 ether;
-
-        setupBondTokenState(Alice, initialBondBalance, bondAmount);
-
-        vm.prank(Alice);
-        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
-
-        vm.prank(Bob);
-        _proveBatchesWithCorrectTransitions(batchIds);
-
-        assertEq(inbox.bondBalanceOf(Alice), bondAmount);
-    }
-
-    function test_inbox_bonds_half_liveness_bond_returned_to_proposer_out_of_proving_window()
+    function test_inbox_bonds_debit_and_credit_proved_by_non_proposer_in_proving_window()
         external
     {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
-        uint256 bondAmount = 1000 ether;
+        uint256 bondBalance = 1000 ether;
 
-        setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = getConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
 
-        uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
-        uint256 livenessBond = bondAmount - aliceBondBalanceAfterProposal;
+        vm.prank(Bob);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
-        // Simulate waiting for blocks after proving deadline
-        uint256 secondsPerBlock = 12;
-        uint256 blocksToWait = provingWindow / secondsPerBlock + 1;
-        simulateBlockDelay(secondsPerBlock, blocksToWait);
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance);
+        assertEq(inbox.bondBalanceOf(Bob), 0);
+    }
 
+    function test_inbox_bonds_half_returned_to_proposer_out_of_proving_window() external {
+        vm.warp(1_000_000);
+
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondBalance = 1000 ether;
+
+        setupBondTokenState(Alice, initialBondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = getConfig();
+
+        vm.prank(Alice);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
+
+        vm.warp(block.timestamp + getConfig().provingWindow + 1);
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        uint256 aliceBondBalanceAfterProof = inbox.bondBalanceOf(Alice);
-        assertEq(aliceBondBalanceAfterProof, bondAmount - livenessBond / 2);
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond / 2);
     }
 
-    // function
-    // test_inbox_bonds_half_liveness_bond_returned_to_actual_prover_out_of_proving_window()
-    //     external
-    // {
-    //     vm.warp(1_000_000);
+    function test_inbox_bonds_half_returned_to_non_proposer_out_of_proving_window() external {
+        vm.warp(1_000_000);
 
-    //     uint256 initialBondBalance = 100_000 ether;
-    //     uint256 bondAmount = 1000 ether;
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondBalance = 1000 ether;
 
-    //     setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-    //     vm.prank(Alice);
-    //     uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        ITaikoInbox.Config memory config = getConfig();
+        uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
 
-    //     uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
-    //     uint256 livenessBond = bondAmount - aliceBondBalanceAfterProposal;
+        vm.prank(Alice);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
 
-    //     // Simulate waiting for blocks after proving deadline
-    //     uint256 secondsPerBlock = 12;
-    //     uint256 blocksToWait = provingWindow / secondsPerBlock + 1;
-    //     simulateBlockDelay(secondsPerBlock, blocksToWait);
+        vm.warp(block.timestamp + getConfig().provingWindow + 1);
+        vm.prank(Bob);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
-    //     vm.prank(Alice);
-    //     _proveBatchesWithCorrectTransitions(batchIds);
-
-    //     uint256 aliceBondBalanceAfterProof = inbox.bondBalanceOf(Alice);
-    //     assertEq(aliceBondBalanceAfterProof, bondAmount - livenessBond / 2);
-    // }
-
-    // function test_inbox_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window()
-    //     external
-    // {
-    //     vm.warp(1_000_000);
-
-    //     uint256 initialBondBalance = 100_000 ether;
-    //     uint256 bondAmount = 1000 ether;
-
-    //     setupBondTokenState(Alice, initialBondBalance, bondAmount);
-
-    //     vm.prank(Alice);
-    //     uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-
-    //     uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
-    //     assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
-
-    //     // Simulate waiting for exactly the proving window
-    //     uint256 secondsPerBlock = 12;
-    //     uint256 blocksToWait = provingWindow / secondsPerBlock;
-    //     simulateBlockDelay(secondsPerBlock, blocksToWait);
-
-    //     vm.prank(Alice);
-    //     _proveBatchesWithCorrectTransitions(batchIds);
-
-    //     assertEq(inbox.bondBalanceOf(Alice), bondAmount);
-    // }
+        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
+        assertEq(inbox.bondBalanceOf(Bob), livenessBond / 2);
+    }
 
     function test_inbox_bonds_multiple_blocks_per_batch() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
@@ -163,6 +131,9 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "txList");
         ITaikoInbox.Batch memory batch = inbox.getBatch(meta.batchId);
-        assertEq(batch.livenessBond, 125e18 + 5e18 * 2);
+
+        ITaikoInbox.Config memory config = getConfig();
+        uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock * 2;
+        assertEq(batch.livenessBond, livenessBond);
     }
 }

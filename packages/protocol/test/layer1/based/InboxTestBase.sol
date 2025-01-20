@@ -181,6 +181,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── metahash:", Strings.toHexString(uint256(batch.metaHash)));
             console2.log(unicode"│    |── lastBlockTimestamp:", batch.lastBlockTimestamp);
             console2.log(unicode"│    |── lastBlockId:", batch.lastBlockId);
+            console2.log(unicode"│    |── livenessBond:", batch.livenessBond);
             console2.log(unicode"│    |── anchorBlockId:", batch.anchorBlockId);
             console2.log(unicode"│    |── nextTransitionId:", batch.nextTransitionId);
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
@@ -201,9 +202,10 @@ abstract contract InboxTestBase is Layer1Test {
                     Strings.toHexString(uint256(ts.stateRoot))
                 );
                 console2.log(unicode"│    │    └── prover:", ts.prover);
+
                 console2.log(
                     unicode"│    │    └── inProvingWindow:",
-                    ts.inProvingWindow ? "true" : "false"
+                    ts.inProvingWindow ? "Y" : "N"
                 );
             }
         }
@@ -254,13 +256,5 @@ abstract contract InboxTestBase is Layer1Test {
 
         vm.prank(user);
         inbox.depositBond(bondAmount);
-    }
-
-    function simulateBlockDelay(uint256 secondsPerBlock, uint256 blocksToWait) internal {
-        uint256 targetBlock = block.number + blocksToWait;
-        uint256 targetTime = block.timestamp + (blocksToWait * secondsPerBlock);
-
-        vm.roll(targetBlock);
-        vm.warp(targetTime);
     }
 }
