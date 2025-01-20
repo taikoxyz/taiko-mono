@@ -56,21 +56,22 @@ abstract contract Layer1Test is CommonTest {
         );
     }
 
-    function deployPreconfRouterAndWhitelist(
-        bytes32 _genesisBlockHash,
-        ITaikoInbox.Config memory _config
-    )
-        internal
-        returns (TaikoInbox)
-    {
-        return TaikoInbox(
+    function deployWhitelist() internal returns (PreconfWhitelist) {
+        return PreconfWhitelist(
             deploy({
-                name: "taiko",
-                impl: address(new ConfigurableInbox()),
-                data: abi.encodeCall(
-                    ConfigurableInbox.initWithConfig,
-                    (address(0), address(resolver), _genesisBlockHash, _config)
-                    )
+                name: "preconf_whitelist",
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(address(0))
+            })
+        );
+    }
+
+    function deployPreconfTaskManager() internal returns (PreconfTaskManager) {
+        return PreconfTaskManager(
+            deploy({
+                name: "preconf_router",
+                impl: address(new PreconfTaskManager()),
+                data: abi.encodeCall(address(0), address(resolver))
             })
         );
     }
