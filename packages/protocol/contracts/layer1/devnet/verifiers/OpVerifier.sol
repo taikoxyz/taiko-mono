@@ -4,9 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
-import "../based/ITaikoInbox.sol";
-import "./LibPublicInput.sol";
-import "./IVerifier.sol";
+import "../../verifiers/IVerifier.sol";
 
 /// @title OpVerifier
 /// @notice This contract is the implementation of verifying optimism signature proofs

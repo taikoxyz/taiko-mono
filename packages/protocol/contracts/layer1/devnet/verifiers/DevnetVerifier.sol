@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ComposeVerifier.sol";
+import "../../verifiers/compose/ComposeVerifier.sol";
 
 /// @title DevnetVerifier.sol
 /// @notice OP or SGX or SP1 or Risc0 verifier
