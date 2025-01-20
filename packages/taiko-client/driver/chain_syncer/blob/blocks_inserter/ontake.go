@@ -1,4 +1,4 @@
-package blocks_inserter
+package blocksinserter
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -128,7 +127,7 @@ func (i *BlocksInserterOntake) InsertBlocks(
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		anchorBlockHeader.Root,
 		parent.GasUsed,
-		(*ontakeBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
+		meta.GetBaseFeeConfig(),
 		new(big.Int).Add(parent.Number, common.Big1),
 		baseFee,
 	)

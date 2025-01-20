@@ -89,7 +89,11 @@ func (s *ClientTestSuite) SetupTest() {
 		proverBalance := new(big.Int).Div(balance, common.Big3)
 		s.Greater(proverBalance.Cmp(common.Big0), 0)
 
-		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), proverBalance)
+		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(
+			opts,
+			crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey),
+			proverBalance,
+		)
 		s.Nil(err)
 
 		// Increase allowance for TaikoL1

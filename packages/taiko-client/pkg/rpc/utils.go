@@ -215,7 +215,7 @@ func GetBlockProofStatus(
 func GetBatchProofStatus(
 	ctx context.Context,
 	cli *Client,
-	batchId *big.Int,
+	batchID *big.Int,
 ) (*BlockProofStatus, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -225,11 +225,11 @@ func GetBatchProofStatus(
 		batch    *pacayaBindings.ITaikoInboxBatch
 		err      error
 	)
-	if batch, err = cli.GetBatchByID(ctx, new(big.Int).Sub(batchId, common.Big1)); err != nil {
+	if batch, err = cli.GetBatchByID(ctx, new(big.Int).Sub(batchID, common.Big1)); err != nil {
 		return nil, err
 	}
-	if batchId.Uint64() == cli.PacayaClients.ForkHeight {
-		parentID = new(big.Int).Sub(batchId, common.Big1)
+	if batchID.Uint64() == cli.PacayaClients.ForkHeight {
+		parentID = new(big.Int).Sub(batchID, common.Big1)
 	} else {
 		parentID = new(big.Int).SetUint64(batch.LastBlockId)
 	}
@@ -243,7 +243,7 @@ func GetBatchProofStatus(
 	// Get the transition state from TaikoInbox contract.
 	if _, err = cli.PacayaClients.TaikoInbox.GetTransition0(
 		&bind.CallOpts{Context: ctxWithTimeout},
-		batchId.Uint64(),
+		batchID.Uint64(),
 		parent.Hash(),
 	); err != nil {
 		if !strings.Contains(encoding.TryParsingCustomError(err).Error(), "TransitionNotFound") {

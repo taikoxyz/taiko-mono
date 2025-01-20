@@ -619,8 +619,8 @@ func (c *Client) GetLastVerifiedBlockOntake(ctx context.Context) (*struct {
 
 // GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
 func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
-	BatchId uint64
-	BlockId uint64
+	BatchId uint64 //nolint:stylecheck
+	BlockId uint64 //nolint:stylecheck
 	Tran    pacayaBindings.ITaikoInboxTransition
 }, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)

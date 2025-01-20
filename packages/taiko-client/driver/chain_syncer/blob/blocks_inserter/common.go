@@ -1,4 +1,4 @@
-package blocks_inserter
+package blocksinserter
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func createPayloadAndSetHead(
 		lastVerifiedBlockID   uint64
 		lastVerifiedBlockHash common.Hash
 	)
-	lastVerifiedTs, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
+	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
 		lastVerifiedBlockInfo, err := rpc.GetLastVerifiedBlockOntake(ctx)
 		if err != nil {
@@ -56,8 +56,8 @@ func createPayloadAndSetHead(
 			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
 		}
 	} else {
-		if payload.Number > lastVerifiedTs.BlockId {
-			lastVerifiedBlockHash = lastVerifiedTs.Tran.BlockHash
+		if payload.Number > lastVerifiedTS.BlockId {
+			lastVerifiedBlockHash = lastVerifiedTS.Tran.BlockHash
 		}
 	}
 
@@ -102,7 +102,7 @@ func createExecutionPayloads(
 		Withdrawals:           meta.Withdrawals,
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.SuggestedFeeRecipient,
-			GasLimit:    uint64(meta.GasLimit) + consensus.AnchorGasLimit,
+			GasLimit:    meta.GasLimit + consensus.AnchorGasLimit,
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,

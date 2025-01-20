@@ -1,4 +1,4 @@
-package blocks_inserter
+package blocksinserter
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
@@ -144,7 +143,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			parent,
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			true,
-			(*pacayaBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
+			meta.GetBaseFeeConfig(),
 			timestamp,
 		)
 		if err != nil {
@@ -205,7 +204,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				},
 				AnchorBlockID:   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 				AnchorBlockHash: meta.GetAnchorBlockHash(),
-				BaseFeeConfig:   (*pacayaBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
+				BaseFeeConfig:   meta.GetBaseFeeConfig(),
 				Parent:          parent,
 			},
 			anchorTx,

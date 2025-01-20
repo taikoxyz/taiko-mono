@@ -285,24 +285,24 @@ func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
 	return fmt.Errorf("proof aggregation has not been implemented for Pacaya")
 }
 
-// Producer implementes the Submitter interface.
+// Producer implements the Submitter interface.
 func (s *ProofSubmitterPacaya) Producer() proofProducer.ProofProducer {
 	return s.proofProducer
 }
 
-// Tier implementes the Submitter interface.
+// Tier implements the Submitter interface.
 func (s *ProofSubmitterPacaya) Tier() uint16 {
 	log.Warn("Tier is not implemented for Pacaya submitter")
 	return 0
 }
 
-// BufferSize implementes the Submitter interface.
+// BufferSize implements the Submitter interface.
 func (s *ProofSubmitterPacaya) BufferSize() uint64 {
 	log.Warn("BufferSize is not implemented for Pacaya submitter")
 	return 0
 }
 
-// AggregationEnabled implementes the Submitter interface.
+// AggregationEnabled implements the Submitter interface.
 func (s *ProofSubmitterPacaya) AggregationEnabled() bool {
 	return false
 }
