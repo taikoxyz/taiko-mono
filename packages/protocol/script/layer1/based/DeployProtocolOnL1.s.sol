@@ -126,7 +126,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
                     TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
-                ),
+                    ),
                 registerTo: sharedResolver
             });
         } else {
@@ -235,7 +235,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(new MainnetInbox()),
             data: abi.encodeCall(
                 TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
-            )
+                )
         });
 
         TaikoInbox taikoInbox = TaikoInbox(address(new DevnetInbox()));
@@ -245,7 +245,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(taikoInbox),
             data: abi.encodeCall(
                 TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
-            ),
+                ),
             registerTo: rollupResolver
         });
 
@@ -254,27 +254,23 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(new ProverSet()),
             data: abi.encodeCall(
                 ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
-            )
+                )
         });
 
         PreconfWhitelist whitelist = new PreconfWhitelist();
 
-        if(vm.envBool("DEPLOY_WHITELIST")) {
+        if (vm.envBool("DEPLOY_WHITELIST")) {
             deployProxy({
                 name: "preconf_whitelist",
                 impl: address(whitelist),
-                data: abi.encodeCall(
-                    PreconfWhitelist.init, (owner)
-                ),
+                data: abi.encodeCall(PreconfWhitelist.init, (owner)),
                 registerTo: rollupResolver
             });
-        
+
             deployProxy({
                 name: "preconf_router",
                 impl: address(new PreconfTaskManager()),
-                data: abi.encodeCall(
-                    PreconfTaskManager.init, (owner, rollupResolver)
-                ),
+                data: abi.encodeCall(PreconfTaskManager.init, (owner, rollupResolver)),
                 registerTo: rollupResolver
             });
         }

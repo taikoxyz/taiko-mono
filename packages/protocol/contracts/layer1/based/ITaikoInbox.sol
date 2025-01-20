@@ -158,7 +158,7 @@ interface ITaikoInbox {
         // Ring buffer for transitions
         mapping(
             uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId => Transition ts)
-        ) transitions;
+            ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5
         Stats2 stats2; // slot 6

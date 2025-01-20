@@ -137,7 +137,7 @@ contract TestBridge1 is CommonTest {
             gasLimit: 1_000_000,
             data: abi.encodeCall(
                 MessageReceiver_SendingHalfEtherBalance.onMessageInvocation, abi.encode(Carol)
-            )
+                )
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message

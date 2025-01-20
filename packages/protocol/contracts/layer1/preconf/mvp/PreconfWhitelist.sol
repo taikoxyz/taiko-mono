@@ -6,15 +6,10 @@ import "src/shared/common/EssentialContract.sol";
 contract PreconfWhitelist is EssentialContract {
     address[] private whitelist;
 
-    mapping(address => bool) private isWhitelisted;
+    mapping(address proposer => bool whitelisted) private isWhitelisted;
 
-    function init(
-        address _owner
-    )
-        external
-        initializer
-    {
-         __Essential_init(_owner);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     function eligibleProposer(address _proposer) external view returns (bool) {

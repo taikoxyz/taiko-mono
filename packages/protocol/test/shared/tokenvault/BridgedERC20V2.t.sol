@@ -131,7 +131,7 @@ contract TestBridgedERC20V2 is CommonTest {
                 data: abi.encodeCall(
                     BridgedERC20V2.init,
                     (deployer, address(resolver), srcToken, taikoChainId, srcDecimals, _name, _name)
-                )
+                    )
             })
         );
     }

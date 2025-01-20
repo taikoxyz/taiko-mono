@@ -83,7 +83,7 @@ contract TestERC20Airdrop is Layer1Test {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(resolver), randAddress(), 100, 18, "SOME", "Some Token")
-                )
+                    )
             })
         );
 
@@ -103,7 +103,7 @@ contract TestERC20Airdrop is Layer1Test {
                         address(token),
                         address(vault)
                     )
-                )
+                    )
             })
         );
     }

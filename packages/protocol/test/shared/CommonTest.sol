@@ -194,7 +194,7 @@ abstract contract CommonTest is Test, Script {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(resolver), srcToken, _ethereumChainId, decimals, symbol, name)
-                )
+                    )
             })
         );
     }

@@ -32,7 +32,7 @@ contract DeployTokenUnlock is BaseScript {
                 impl: TOKEN_UNLOCK_IMPL,
                 data: abi.encodeCall(
                     TokenUnlock.init, (OWNER, ROLLUP_ADDRESS_MANAGER, recipients[i], TGE)
-                )
+                    )
             });
             console2.log("grantee:", recipients[i]);
             console2.log("proxy. :", proxy);
