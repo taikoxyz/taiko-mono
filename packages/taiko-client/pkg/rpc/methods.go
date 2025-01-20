@@ -55,6 +55,18 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	return config.NewPacayaProtocolConfigs(&configs), nil
 }
 
+// ResolvePacaya resolves the address from TaikoInbox contract.
+func (c *Client) ResolvePacaya(opts *bind.CallOpts, name string) (common.Address, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.PacayaClients.TaikoInbox.Resolve0(opts, StringToBytes32(name), false)
+}
+
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context) error {

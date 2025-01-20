@@ -213,8 +213,14 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			err         error
 			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.Proofs))
 			transitions = make([]pacayaBindings.ITaikoInboxTransition, len(batchProof.Proofs))
+			subProofs   = make([]encoding.SubProof, len(batchProof.Proofs))
 			batchIDs    = make([]uint64, len(batchProof.Proofs))
 		)
+		// NOTE: op_verifier is the only verifier address for now.
+		opVerifier, err := a.rpc.ResolvePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier")
+		if err != nil {
+			return nil, err
+		}
 		for i, proof := range batchProof.Proofs {
 			metas[i] = proof.Meta
 			transitions[i] = pacayaBindings.ITaikoInboxTransition{
@@ -223,6 +229,10 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				StateRoot:  proof.Opts.LastBlockStateRoot,
 			}
 			batchIDs[i] = proof.Meta.TaikoBatchMetaDataPacaya().GetBatchID().Uint64()
+			subProofs[i] = encoding.SubProof{
+				Verifier: opVerifier,
+				Proof:    batchProof.BatchProof,
+			}
 		}
 		log.Info(
 			"Build batch proof submission transaction",
@@ -233,22 +243,18 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 		if err != nil {
 			return nil, err
 		}
+		encodedSubProofs, err := encoding.EncodeBatchesSubProofs(subProofs)
+		if err != nil {
+			return nil, err
+		}
 
 		if a.proverSetAddress != ZeroAddress {
-			if data, err = encoding.ProverSetABI.Pack(
-				"proveBatches",
-				input,
-				batchProof.BatchProof,
-			); err != nil {
-				return nil, err
+			if data, err = encoding.ProverSetABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
+				return nil, encoding.TryParsingCustomError(err)
 			}
 			to = a.proverSetAddress
 		} else {
-			if data, err = encoding.TaikoInboxABI.Pack(
-				"proveBatches",
-				input,
-				batchProof.BatchProof,
-			); err != nil {
+			if data, err = encoding.TaikoInboxABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
 			to = a.taikoL1Address

@@ -68,6 +68,12 @@ type BatchParams struct {
 	Blocks                   []pacaya.ITaikoInboxBlockParams
 }
 
+// SubProof should be same with ComposeVerifier.SubProof.
+type SubProof struct {
+	Verifier common.Address
+	Proof    []byte
+}
+
 // TierFee should be same with TaikoData.TierFee.
 type TierFee struct {
 	Tier uint16

@@ -377,19 +377,35 @@ var (
 			Type: "bytes32",
 		},
 	}
+	subProofComponents = []abi.ArgumentMarshaling{
+		{
+			Name: "verifier",
+			Type: "address",
+		},
+		{
+			Name: "proof",
+			Type: "bytes",
+		},
+	}
 )
 
 var (
-	blockParamsV2ComponentsType, _        = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
-	blockParamsV2ComponentsArgs           = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
-	batchParamsComponentsType, _          = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
-	batchParamsComponentsArgs             = abi.Arguments{{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType}}
+	blockParamsV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
+	blockParamsV2ComponentsArgs    = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
+	batchParamsComponentsType, _   = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
+	batchParamsComponentsArgs      = abi.Arguments{
+		{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType},
+	}
 	blockMetadataV2ComponentsType, _      = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
 	batchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", batchMetaDataComponents)
 	transitionComponentsType, _           = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
 	batchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", batchTransitionComponents)
 	tierProofComponentsType, _            = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
-	proveOntakeBlockInputArgs             = abi.Arguments{
+	subProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", subProofComponents)
+	subProofsComponentsArrayArgs          = abi.Arguments{
+		{Name: "ComposeVerifier.SubProof[]", Type: subProofsComponentsArrayType},
+	}
+	proveOntakeBlockInputArgs = abi.Arguments{
 		{Name: "TaikoData.BlockMetadataV2", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
@@ -544,6 +560,15 @@ func EncodeBatchParams(params *BatchParams) ([]byte, error) {
 	b, err := batchParamsComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
+	}
+	return b, nil
+}
+
+// EncodeBatchesSubProofs performs the solidity `abi.encode` for the given pacaya batchParams.
+func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
+	b, err := subProofsComponentsArrayArgs.Pack(subProofs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode pacaya batch subproofs, %w", err)
 	}
 	return b, nil
 }
