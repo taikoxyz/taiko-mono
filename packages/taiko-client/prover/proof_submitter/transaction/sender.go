@@ -115,15 +115,15 @@ func (s *Sender) Send(
 		log.Info(
 			"💰 Your batch proof was accepted",
 			"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			"parentHash", proofWithHeader.Header.ParentHash,
+			"parentHash", proofWithHeader.LastHeader.ParentHash,
 		)
 	} else {
 		log.Info(
 			"💰 Your block proof was accepted",
 			"blockID", proofWithHeader.BlockID,
-			"parentHash", proofWithHeader.Header.ParentHash,
-			"hash", proofWithHeader.Header.Hash(),
-			"stateRoot", proofWithHeader.Opts.StateRoot,
+			"parentHash", proofWithHeader.LastHeader.ParentHash,
+			"hash", proofWithHeader.LastHeader.Hash(),
+			"stateRoot", proofWithHeader.Opts.LastBlockStateRoot,
 			"txHash", receipt.TxHash,
 			"tier", proofWithHeader.Tier,
 			"isContest", len(proofWithHeader.Proof) == 0,

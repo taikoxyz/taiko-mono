@@ -142,7 +142,7 @@ func (p *Prover) initProofSubmitters(
 			return fmt.Errorf("unsupported tier: %d", tier.ID)
 		}
 
-		if submitter, err = proofSubmitter.NewProofSubmitter(
+		if submitter, err = proofSubmitter.NewProofSubmitterOntake(
 			p.rpc,
 			producer,
 			p.proofGenerationCh,
@@ -167,7 +167,7 @@ func (p *Prover) initProofSubmitters(
 		p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 	}
 
-	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitter(
+	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
 		&proofProducer.OptimisticProofProducer{},
 		p.proofGenerationCh,
@@ -180,11 +180,6 @@ func (p *Prover) initProofSubmitters(
 		p.txmgr,
 		p.privateTxmgr,
 		txBuilder,
-		tiers,
-		p.IsGuardianProver(),
-		p.cfg.GuardianProofSubmissionDelay,
-		0,
-		p.cfg.ForceBatchProvingInterval,
 	); err != nil {
 		return err
 	}

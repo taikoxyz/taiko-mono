@@ -181,24 +181,24 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
 			return s.p.submitProofOp(&producer.ProofWithHeader{
-				BlockID: common.Big1,
-				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
-				Header:  &types.Header{},
-				Proof:   []byte{},
-				Tier:    encoding.TierOptimisticID,
-				Opts:    &producer.ProofRequestOptions{},
+				BlockID:    common.Big1,
+				Meta:       &metadata.TaikoDataBlockMetadataOntake{},
+				LastHeader: &types.Header{},
+				Proof:      []byte{},
+				Tier:       encoding.TierOptimisticID,
+				Opts:       &producer.ProofRequestOptions{},
 			})
 		})
 	})
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
 			return s.p.submitProofOp(&producer.ProofWithHeader{
-				BlockID: common.Big1,
-				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
-				Header:  &types.Header{},
-				Proof:   []byte{},
-				Tier:    encoding.TierOptimisticID,
-				Opts:    &producer.ProofRequestOptions{},
+				BlockID:    common.Big1,
+				Meta:       &metadata.TaikoDataBlockMetadataOntake{},
+				LastHeader: &types.Header{},
+				Proof:      []byte{},
+				Tier:       encoding.TierOptimisticID,
+				Opts:       &producer.ProofRequestOptions{},
 			})
 		})
 	})

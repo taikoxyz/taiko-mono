@@ -35,27 +35,27 @@ type ContestRequestBody struct {
 
 // ProofRequestOptions contains all options that need to be passed to a backend proof producer service.
 type ProofRequestOptions struct {
-	BlockID            *big.Int
-	ProverAddress      common.Address
-	ProposeBlockTxHash common.Hash
-	MetaHash           common.Hash
-	BlockHash          common.Hash
-	ParentHash         common.Hash
-	StateRoot          common.Hash
-	EventL1Hash        common.Hash
-	Graffiti           string
-	GasUsed            uint64
-	ParentGasUsed      uint64
-	Compressed         bool
+	LastBlockID            *big.Int
+	ProverAddress          common.Address
+	ProposeBlockTxHash     common.Hash
+	MetaHash               common.Hash
+	LastBlockHash          common.Hash
+	LastParentHash         common.Hash
+	LastBlockStateRoot     common.Hash
+	EventL1Hash            common.Hash
+	Graffiti               string
+	LastBlockGasUsed       uint64
+	FistBlockParentGasUsed uint64
+	Compressed             bool
 }
 
 type ProofWithHeader struct {
-	BlockID *big.Int
-	Meta    metadata.TaikoProposalMetaData
-	Header  *types.Header
-	Proof   []byte
-	Opts    *ProofRequestOptions
-	Tier    uint16
+	BlockID    *big.Int
+	Meta       metadata.TaikoProposalMetaData
+	LastHeader *types.Header
+	Proof      []byte
+	Opts       *ProofRequestOptions
+	Tier       uint16
 }
 
 type BatchProofs struct {

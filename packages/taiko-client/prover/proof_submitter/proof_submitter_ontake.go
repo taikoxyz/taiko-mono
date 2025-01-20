@@ -10,7 +10,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -25,17 +24,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
-var (
-	_                              Submitter = (*ProofSubmitter)(nil)
-	submissionDelayRandomBumpRange float64   = 20
-	proofPollingInterval                     = 10 * time.Second
-	ProofTimeout                             = 3 * time.Hour
-	ErrInvalidProof                          = errors.New("invalid proof found")
-)
-
-// ProofSubmitter is responsible requesting proofs for the given L2
+// ProofSubmitterOntake is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
-type ProofSubmitter struct {
+type ProofSubmitterOntake struct {
 	rpc               *rpc.Client
 	proofProducer     proofProducer.ProofProducer
 	resultCh          chan *proofProducer.ProofWithHeader
@@ -57,8 +48,8 @@ type ProofSubmitter struct {
 	forceBatchProvingInterval time.Duration
 }
 
-// NewProofSubmitter creates a new ProofSubmitter instance.
-func NewProofSubmitter(
+// NewProofSubmitterOntake creates a new ProofSubmitter instance.
+func NewProofSubmitterOntake(
 	rpcClient *rpc.Client,
 	proofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofWithHeader,
@@ -76,13 +67,13 @@ func NewProofSubmitter(
 	submissionDelay time.Duration,
 	proofBufferSize uint64,
 	forceBatchProvingInterval time.Duration,
-) (*ProofSubmitter, error) {
+) (*ProofSubmitterOntake, error) {
 	anchorValidator, err := validator.New(taikoL2Address, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ProofSubmitter{
+	return &ProofSubmitterOntake{
 		rpc:                       rpcClient,
 		proofProducer:             proofProducer,
 		resultCh:                  resultCh,
@@ -103,122 +94,14 @@ func NewProofSubmitter(
 	}, nil
 }
 
-// RequestProofPacaya requests proof for the given Taiko batch after Pacaya fork.
-func (s *ProofSubmitter) RequestProofPacaya(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
-	var (
-		metaHash common.Hash
-		header   *types.Header
-		parent   *types.Header
-		err      error
-	)
-
-	batch, err := s.rpc.GetBatchByID(ctx, meta.TaikoBatchMetaDataPacaya().GetBatchID())
-	if err != nil {
-		return err
-	}
-	if header, err = s.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(batch.LastBlockId)); err != nil {
-		return fmt.Errorf(
-			"failed to fetch l2 Header, blockID: %d, error: %w",
-			batch.LastBlockId,
-			err,
-		)
-	}
-
-	if header.TxHash == types.EmptyTxsHash {
-		return errors.New("no transaction in block")
-	}
-
-	if parent, err = s.rpc.L2.HeaderByHash(ctx, header.ParentHash); err != nil {
-		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
-	}
-
-	metaHash = batch.MetaHash
-
-	// Request proof.
-	opts := &proofProducer.ProofRequestOptions{
-		BlockID:            header.Number,
-		ProverAddress:      s.proverAddress,
-		ProposeBlockTxHash: meta.GetTxHash(),
-		MetaHash:           metaHash,
-		BlockHash:          header.Hash(),
-		ParentHash:         header.ParentHash,
-		StateRoot:          header.Root,
-		EventL1Hash:        meta.GetRawBlockHash(),
-		Graffiti:           common.Bytes2Hex(s.graffiti[:]),
-		GasUsed:            header.GasUsed,
-		ParentGasUsed:      parent.GasUsed,
-	}
-
-	// If the prover set address is provided, we use that address as the prover on chain.
-	if s.proverSetAddress != rpc.ZeroAddress {
-		opts.ProverAddress = s.proverSetAddress
-	}
-	startTime := time.Now()
-
-	// Send the generated proof.
-	if err := backoff.Retry(
-		func() error {
-			if ctx.Err() != nil {
-				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
-				return nil
-			}
-			// Check if there is a need to generate proof
-			proofStatus, err := rpc.GetBatchProofStatus(
-				ctx,
-				s.rpc,
-				new(big.Int).SetUint64(batch.BatchId),
-			)
-			if err != nil {
-				return err
-			}
-			if proofStatus.IsSubmitted && !proofStatus.Invalid {
-				return nil
-			}
-
-			result, err := s.proofProducer.RequestProof(
-				ctx,
-				opts,
-				new(big.Int).SetUint64(batch.BatchId),
-				meta,
-				header,
-				startTime,
-			)
-			if err != nil {
-				// If request proof has timed out in retry, let's cancel the proof generating and skip
-				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
-					log.Error("Request proof has timed out, start to cancel", "batchID", batch.BatchId)
-					if cancelErr := s.proofProducer.RequestCancel(ctx, opts); cancelErr != nil {
-						log.Error("Failed to request cancellation of proof", "err", cancelErr)
-					}
-					return nil
-				}
-				return fmt.Errorf("failed to request proof (id: %d): %w", batch.BatchId, err)
-			}
-
-			s.resultCh <- result
-			metrics.ProverQueuedProofCounter.Add(1)
-			return nil
-		},
-		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
-	); err != nil {
-		log.Error("Request proof error", "batchID", batch.BatchId, "error", err)
-		return err
-	}
-
-	return nil
-}
-
 // RequestProof implements the Submitter interface.
-func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
+func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
 		metaHash common.Hash
 		header   *types.Header
 		parent   *types.Header
 		err      error
 	)
-	if meta.IsPacaya() {
-		return s.RequestProofPacaya(ctx, meta)
-	}
 
 	if header, err = s.rpc.WaitL2Header(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID()); err != nil {
 		return fmt.Errorf(
@@ -244,18 +127,18 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 
 	// Request proof.
 	opts := &proofProducer.ProofRequestOptions{
-		BlockID:            header.Number,
-		ProverAddress:      s.proverAddress,
-		ProposeBlockTxHash: meta.GetTxHash(),
-		MetaHash:           metaHash,
-		BlockHash:          header.Hash(),
-		ParentHash:         header.ParentHash,
-		StateRoot:          header.Root,
-		EventL1Hash:        meta.GetRawBlockHash(),
-		Graffiti:           common.Bytes2Hex(s.graffiti[:]),
-		GasUsed:            header.GasUsed,
-		ParentGasUsed:      parent.GasUsed,
-		Compressed:         s.proofBuffer.Enabled(),
+		LastBlockID:            header.Number,
+		ProverAddress:          s.proverAddress,
+		ProposeBlockTxHash:     meta.GetTxHash(),
+		MetaHash:               metaHash,
+		LastBlockHash:          header.Hash(),
+		LastParentHash:         header.ParentHash,
+		LastBlockStateRoot:     header.Root,
+		EventL1Hash:            meta.GetRawBlockHash(),
+		Graffiti:               common.Bytes2Hex(s.graffiti[:]),
+		LastBlockGasUsed:       header.GasUsed,
+		FistBlockParentGasUsed: parent.GasUsed,
+		Compressed:             s.proofBuffer.Enabled(),
 	}
 
 	// If the prover set address is provided, we use that address as the prover on chain.
@@ -268,7 +151,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 	if err := backoff.Retry(
 		func() error {
 			if ctx.Err() != nil {
-				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
+				log.Error("Failed to request proof, context is canceled", "blockID", opts.LastBlockID, "error", ctx.Err())
 				return nil
 			}
 			// Check if the proof buffer is full.
@@ -285,7 +168,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			proofStatus, err := rpc.GetBlockProofStatus(
 				ctx,
 				s.rpc,
-				opts.BlockID,
+				opts.LastBlockID,
 				opts.ProverAddress,
 				s.proverSetAddress,
 			)
@@ -307,7 +190,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			if err != nil {
 				// If request proof has timed out in retry, let's cancel the proof generating and skip
 				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
-					log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
+					log.Error("Request proof has timed out, start to cancel", "blockID", opts.LastBlockID)
 					if cancelErr := s.proofProducer.RequestCancel(ctx, opts); cancelErr != nil {
 						log.Error("Failed to request cancellation of proof", "err", cancelErr)
 					}
@@ -356,53 +239,32 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 }
 
 // SubmitProof implements the Submitter interface.
-func (s *ProofSubmitter) SubmitProof(
+func (s *ProofSubmitterOntake) SubmitProof(
 	ctx context.Context,
 	proofWithHeader *proofProducer.ProofWithHeader,
 ) (err error) {
-	if proofWithHeader.Meta.IsPacaya() {
-		log.Info(
-			"Submit batch proof",
-			"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			"coinbase", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetCoinbase(),
-			"parentHash", proofWithHeader.Header.ParentHash,
-			"hash", proofWithHeader.Opts.BlockHash,
-			"stateRoot", proofWithHeader.Opts.StateRoot,
-			"proof", common.Bytes2Hex(proofWithHeader.Proof),
-		)
-	} else {
-		log.Info(
-			"Submit block proof",
-			"blockID", proofWithHeader.BlockID,
-			"coinbase", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-			"parentHash", proofWithHeader.Header.ParentHash,
-			"hash", proofWithHeader.Opts.BlockHash,
-			"stateRoot", proofWithHeader.Opts.StateRoot,
-			"proof", common.Bytes2Hex(proofWithHeader.Proof),
-			"tier", proofWithHeader.Tier,
-		)
-	}
+	log.Info(
+		"Submit block proof",
+		"blockID", proofWithHeader.BlockID,
+		"coinbase", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		"parentHash", proofWithHeader.LastHeader.ParentHash,
+		"hash", proofWithHeader.Opts.LastBlockHash,
+		"stateRoot", proofWithHeader.Opts.LastBlockStateRoot,
+		"proof", common.Bytes2Hex(proofWithHeader.Proof),
+		"tier", proofWithHeader.Tier,
+	)
 
 	// Check if we still need to generate a new proof for that block.
 	var proofStatus *rpc.BlockProofStatus
-	if proofWithHeader.Meta.IsPacaya() {
-		if proofStatus, err = rpc.GetBatchProofStatus(
-			ctx,
-			s.rpc,
-			proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-		); err != nil {
-			return err
-		}
-	} else {
-		if proofStatus, err = rpc.GetBlockProofStatus(
-			ctx,
-			s.rpc,
-			proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			s.proverAddress,
-			s.proverSetAddress,
-		); err != nil {
-			return err
-		}
+
+	if proofStatus, err = rpc.GetBlockProofStatus(
+		ctx,
+		s.rpc,
+		proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		s.proverAddress,
+		s.proverSetAddress,
+	); err != nil {
+		return err
 	}
 
 	if proofStatus.IsSubmitted && !proofStatus.Invalid {
@@ -441,9 +303,9 @@ func (s *ProofSubmitter) SubmitProof(
 	metrics.ProverReceivedProofCounter.Add(1)
 
 	// Get the corresponding L2 block.
-	block, err := s.rpc.L2.BlockByHash(ctx, proofWithHeader.Header.Hash())
+	block, err := s.rpc.L2.BlockByHash(ctx, proofWithHeader.LastHeader.Hash())
 	if err != nil {
-		return fmt.Errorf("failed to get L2 block with given hash %s: %w", proofWithHeader.Header.Hash(), err)
+		return fmt.Errorf("failed to get L2 block with given hash %s: %w", proofWithHeader.LastHeader.Hash(), err)
 	}
 
 	if block.Transactions().Len() == 0 {
@@ -456,51 +318,31 @@ func (s *ProofSubmitter) SubmitProof(
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
 
-	if proofWithHeader.Meta.IsPacaya() {
-		// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
-		if err = s.sender.Send(
-			ctx,
-			proofWithHeader,
-			s.txBuilder.BuildProveBatchesPacaya(
-				&proofProducer.BatchProofs{
-					Proofs:     []*proofProducer.ProofWithHeader{proofWithHeader},
-					BatchProof: proofWithHeader.Proof,
-				},
-			),
-		); err != nil {
-			if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-				return nil
-			}
-			metrics.ProverSubmissionErrorCounter.Add(1)
-			return err
+	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
+	if err = s.sender.Send(
+		ctx,
+		proofWithHeader,
+		s.txBuilder.Build(
+			proofWithHeader.BlockID,
+			proofWithHeader.Meta,
+			&ontakeBindings.TaikoDataTransition{
+				ParentHash: proofWithHeader.LastHeader.ParentHash,
+				BlockHash:  proofWithHeader.Opts.LastBlockHash,
+				StateRoot:  proofWithHeader.Opts.LastBlockStateRoot,
+				Graffiti:   s.graffiti,
+			},
+			&ontakeBindings.TaikoDataTierProof{
+				Tier: proofWithHeader.Tier,
+				Data: proofWithHeader.Proof,
+			},
+			proofWithHeader.Tier,
+		),
+	); err != nil {
+		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
+			return nil
 		}
-	} else {
-		// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
-		if err = s.sender.Send(
-			ctx,
-			proofWithHeader,
-			s.txBuilder.Build(
-				proofWithHeader.BlockID,
-				proofWithHeader.Meta,
-				&ontakeBindings.TaikoDataTransition{
-					ParentHash: proofWithHeader.Header.ParentHash,
-					BlockHash:  proofWithHeader.Opts.BlockHash,
-					StateRoot:  proofWithHeader.Opts.StateRoot,
-					Graffiti:   s.graffiti,
-				},
-				&ontakeBindings.TaikoDataTierProof{
-					Tier: proofWithHeader.Tier,
-					Data: proofWithHeader.Proof,
-				},
-				proofWithHeader.Tier,
-			),
-		); err != nil {
-			if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-				return nil
-			}
-			metrics.ProverSubmissionErrorCounter.Add(1)
-			return err
-		}
+		metrics.ProverSubmissionErrorCounter.Add(1)
+		return err
 	}
 
 	metrics.ProverSentProofCounter.Add(1)
@@ -510,7 +352,7 @@ func (s *ProofSubmitter) SubmitProof(
 }
 
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
-func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
+func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
 		"Batch submit block proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
@@ -538,7 +380,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	if err != nil {
 		return err
 	}
-	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
 	if err != nil {
 		log.Warn(
 			"Failed to fetch state variables",
@@ -549,8 +391,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	for i, proof := range batchProof.Proofs {
 		uint64BlockIDs = append(uint64BlockIDs, proof.BlockID.Uint64())
 		// Check if this proof is still needed to be submitted.
-		// TODO: use stateVars.B.LastVerifiedBlockId
-		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId))
+		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(blockInfo.BlockId))
 		if err != nil {
 			return err
 		}
@@ -567,11 +408,11 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		}
 
 		// Get the corresponding L2 block.
-		block, err := s.rpc.L2.BlockByHash(ctx, proof.Header.Hash())
+		block, err := s.rpc.L2.BlockByHash(ctx, proof.LastHeader.Hash())
 		if err != nil {
 			log.Error(
 				"Failed to get L2 block with given hash",
-				"hash", proof.Header.Hash(),
+				"hash", proof.LastHeader.Hash(),
 				"error", err,
 			)
 			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
@@ -624,7 +465,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 }
 
 // AggregateProofs read all data from buffer and aggregate them.
-func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
+func (s *ProofSubmitterOntake) AggregateProofs(ctx context.Context) error {
 	startTime := time.Now()
 	if err := backoff.Retry(
 		func() error {
@@ -670,7 +511,7 @@ func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 }
 
 // getRandomBumpedSubmissionDelay returns a random bumped submission delay.
-func (s *ProofSubmitter) getRandomBumpedSubmissionDelay(expiredAt time.Time) (time.Duration, error) {
+func (s *ProofSubmitterOntake) getRandomBumpedSubmissionDelay(expiredAt time.Time) (time.Duration, error) {
 	if s.submissionDelay == 0 {
 		return s.submissionDelay, nil
 	}
@@ -693,21 +534,21 @@ func (s *ProofSubmitter) getRandomBumpedSubmissionDelay(expiredAt time.Time) (ti
 }
 
 // Producer returns the inner proof producer.
-func (s *ProofSubmitter) Producer() proofProducer.ProofProducer {
+func (s *ProofSubmitterOntake) Producer() proofProducer.ProofProducer {
 	return s.proofProducer
 }
 
 // Tier returns the proof tier of the current proof submitter.
-func (s *ProofSubmitter) Tier() uint16 {
+func (s *ProofSubmitterOntake) Tier() uint16 {
 	return s.proofProducer.Tier()
 }
 
 // BufferSize returns the size of the proof buffer.
-func (s *ProofSubmitter) BufferSize() uint64 {
+func (s *ProofSubmitterOntake) BufferSize() uint64 {
 	return s.proofBuffer.MaxLength
 }
 
 // AggregationEnabled returns whether the proof submitter's aggregation feature is enabled.
-func (s *ProofSubmitter) AggregationEnabled() bool {
+func (s *ProofSubmitterOntake) AggregationEnabled() bool {
 	return s.proofBuffer.Enabled()
 }

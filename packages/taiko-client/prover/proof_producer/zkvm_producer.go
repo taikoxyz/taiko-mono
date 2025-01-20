@@ -97,12 +97,12 @@ func (s *ZKvmProofProducer) RequestProof(
 	}
 
 	return &ProofWithHeader{
-		BlockID: blockID,
-		Header:  header,
-		Meta:    meta,
-		Proof:   proof,
-		Opts:    opts,
-		Tier:    s.Tier(),
+		BlockID:    blockID,
+		LastHeader: header,
+		Meta:       meta,
+		Proof:      proof,
+		Opts:       opts,
+		Tier:       s.Tier(),
 	}, nil
 }
 
@@ -177,7 +177,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 
 	output, err := s.requestProof(zkCtx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "blockID", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		log.Error("Failed to request proof", "blockID", opts.LastBlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
 		return nil, err
 	}
 
@@ -196,7 +196,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	}
 	log.Info(
 		"Proof generated",
-		"blockID", opts.BlockID,
+		"blockID", opts.LastBlockID,
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
@@ -227,7 +227,7 @@ func (s *ZKvmProofProducer) requestProof(
 	case ZKProofTypeSP1:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.BlockID,
+			Block:    opts.LastBlockID,
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			SP1: &SP1RequestProofBodyParam{
@@ -239,7 +239,7 @@ func (s *ZKvmProofProducer) requestProof(
 	default:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.BlockID,
+			Block:    opts.LastBlockID,
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			RISC0: &RISC0RequestProofBodyParam{
@@ -269,7 +269,7 @@ func (s *ZKvmProofProducer) requestProof(
 
 	log.Debug(
 		"Send proof generation request",
-		"blockID", opts.BlockID,
+		"blockID", opts.LastBlockID,
 		"zkProofType", s.ZKProofType,
 		"input", string(jsonValue),
 	)
@@ -281,7 +281,7 @@ func (s *ZKvmProofProducer) requestProof(
 
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request proof, id: %d, statusCode: %d", opts.BlockID, res.StatusCode)
+		return nil, fmt.Errorf("failed to request proof, id: %d, statusCode: %d", opts.LastBlockID, res.StatusCode)
 	}
 
 	resBytes, err := io.ReadAll(res.Body)
@@ -291,7 +291,7 @@ func (s *ZKvmProofProducer) requestProof(
 
 	log.Debug(
 		"Proof generation output",
-		"blockID", opts.BlockID,
+		"blockID", opts.LastBlockID,
 		"zkType", s.ZKProofType,
 		"output", string(resBytes),
 	)
@@ -328,7 +328,7 @@ func (s *ZKvmProofProducer) requestCancel(
 	case ZKProofTypeSP1:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.BlockID,
+			Block:    opts.LastBlockID,
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			SP1: &SP1RequestProofBodyParam{
@@ -340,7 +340,7 @@ func (s *ZKvmProofProducer) requestCancel(
 	default:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.BlockID,
+			Block:    opts.LastBlockID,
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			RISC0: &RISC0RequestProofBodyParam{

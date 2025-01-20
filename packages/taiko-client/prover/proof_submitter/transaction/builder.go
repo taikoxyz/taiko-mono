@@ -148,9 +148,9 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 		for i, proof := range batchProof.Proofs {
 			metas[i] = proof.Meta
 			transitions[i] = ontakeBindings.TaikoDataTransition{
-				ParentHash: proof.Header.ParentHash,
-				BlockHash:  proof.Opts.BlockHash,
-				StateRoot:  proof.Opts.StateRoot,
+				ParentHash: proof.LastHeader.ParentHash,
+				BlockHash:  proof.Opts.LastBlockHash,
+				StateRoot:  proof.Opts.LastBlockStateRoot,
 				Graffiti:   graffiti,
 			}
 			blockIDs[i] = proof.BlockID.Uint64()
@@ -218,9 +218,9 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 		for i, proof := range batchProof.Proofs {
 			metas[i] = proof.Meta
 			transitions[i] = pacayaBindings.ITaikoInboxTransition{
-				ParentHash: proof.Header.ParentHash,
-				BlockHash:  proof.Opts.BlockHash,
-				StateRoot:  proof.Opts.StateRoot,
+				ParentHash: proof.LastHeader.ParentHash,
+				BlockHash:  proof.Opts.LastBlockHash,
+				StateRoot:  proof.Opts.LastBlockStateRoot,
 			}
 			batchIDs[i] = proof.Meta.TaikoBatchMetaDataPacaya().GetBatchID().Uint64()
 		}

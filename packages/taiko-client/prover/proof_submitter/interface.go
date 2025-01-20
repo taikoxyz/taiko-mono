@@ -2,12 +2,22 @@ package submitter
 
 import (
 	"context"
+	"errors"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+)
+
+var (
+	_                              Submitter = (*ProofSubmitterOntake)(nil)
+	submissionDelayRandomBumpRange float64   = 20
+	proofPollingInterval                     = 10 * time.Second
+	ProofTimeout                             = 3 * time.Hour
+	ErrInvalidProof                          = errors.New("invalid proof found")
 )
 
 // Submitter is the interface for submitting proofs of the L2 blocks.

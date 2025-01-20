@@ -48,12 +48,12 @@ func (g *GuardianProofProducer) RequestProof(
 
 	if g.returnLivenessBond {
 		return &ProofWithHeader{
-			BlockID: blockID,
-			Meta:    meta,
-			Header:  header,
-			Proof:   crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")),
-			Opts:    opts,
-			Tier:    g.tier,
+			BlockID:    blockID,
+			Meta:       meta,
+			LastHeader: header,
+			Proof:      crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")),
+			Opts:       opts,
+			Tier:       g.tier,
 		}, nil
 	}
 

@@ -23,12 +23,12 @@ func (o *DummyProofProducer) RequestProof(
 	_ time.Time,
 ) (*ProofWithHeader, error) {
 	return &ProofWithHeader{
-		BlockID: blockID,
-		Meta:    meta,
-		Header:  header,
-		Proof:   bytes.Repeat([]byte{0xff}, 100),
-		Opts:    opts,
-		Tier:    tier,
+		BlockID:    blockID,
+		Meta:       meta,
+		LastHeader: header,
+		Proof:      bytes.Repeat([]byte{0xff}, 100),
+		Opts:       opts,
+		Tier:       tier,
 	}, nil
 }
 

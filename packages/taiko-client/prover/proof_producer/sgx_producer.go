@@ -120,12 +120,12 @@ func (s *SGXProofProducer) RequestProof(
 	metrics.ProverSgxProofGeneratedCounter.Add(1)
 
 	return &ProofWithHeader{
-		BlockID: blockID,
-		Header:  header,
-		Meta:    meta,
-		Proof:   proof,
-		Opts:    opts,
-		Tier:    s.Tier(),
+		BlockID:    blockID,
+		LastHeader: header,
+		Meta:       meta,
+		Proof:      proof,
+		Opts:       opts,
+		Tier:       s.Tier(),
 	}, nil
 }
 
@@ -178,7 +178,7 @@ func (s *SGXProofProducer) RequestCancel(
 ) error {
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ProofType,
-		Block:    opts.BlockID,
+		Block:    opts.LastBlockID,
 		Prover:   opts.ProverAddress.Hex()[2:],
 		Graffiti: opts.Graffiti,
 		SGX: &SGXRequestProofBodyParam{
@@ -357,14 +357,14 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	output, err := s.requestProof(ctx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "blockID", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		log.Error("Failed to request proof", "blockID", opts.LastBlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
 		return nil, err
 	}
 
 	if output == nil {
 		log.Info(
 			"Proof generating",
-			"blockID", opts.BlockID,
+			"blockID", opts.LastBlockID,
 			"time", time.Since(requestAt),
 			"producer", "SGXProofProducer",
 		)
@@ -391,7 +391,7 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	log.Info(
 		"Proof generated",
-		"blockID", opts.BlockID,
+		"blockID", opts.LastBlockID,
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
@@ -407,7 +407,7 @@ func (s *SGXProofProducer) requestProof(
 ) (*RaikoRequestProofBodyResponseV2, error) {
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ProofType,
-		Block:    opts.BlockID,
+		Block:    opts.LastBlockID,
 		Prover:   opts.ProverAddress.Hex()[2:],
 		Graffiti: opts.Graffiti,
 		SGX: &SGXRequestProofBodyParam{
@@ -440,7 +440,7 @@ func (s *SGXProofProducer) requestProof(
 
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request proof, id: %d, statusCode: %d", opts.BlockID, res.StatusCode)
+		return nil, fmt.Errorf("failed to request proof, id: %d, statusCode: %d", opts.LastBlockID, res.StatusCode)
 	}
 
 	resBytes, err := io.ReadAll(res.Body)
@@ -450,7 +450,7 @@ func (s *SGXProofProducer) requestProof(
 
 	log.Debug(
 		"Proof generation output",
-		"blockID", opts.BlockID,
+		"blockID", opts.LastBlockID,
 		"proofType", "sgx",
 		"output", string(resBytes),
 	)

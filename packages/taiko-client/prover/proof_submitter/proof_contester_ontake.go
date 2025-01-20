@@ -18,10 +18,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
-var _ Contester = (*ProofContester)(nil)
+var _ Contester = (*ProofContesterOntake)(nil)
 
-// ProofContester is responsible for contesting wrong L2 transitions.
-type ProofContester struct {
+// ProofContesterOntake is responsible for contesting wrong L2 transitions.
+type ProofContesterOntake struct {
 	rpc       *rpc.Client
 	txBuilder *transaction.ProveBlockTxBuilder
 	sender    *transaction.Sender
@@ -37,8 +37,8 @@ func NewProofContester(
 	proverSetAddress common.Address,
 	graffiti string,
 	builder *transaction.ProveBlockTxBuilder,
-) *ProofContester {
-	return &ProofContester{
+) *ProofContesterOntake {
+	return &ProofContesterOntake{
 		rpc:       rpcClient,
 		txBuilder: builder,
 		sender:    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
@@ -47,7 +47,7 @@ func NewProofContester(
 }
 
 // SubmitContest submits a TaikoL1.proveBlock transaction to contest a L2 block transition.
-func (c *ProofContester) SubmitContest(
+func (c *ProofContesterOntake) SubmitContest(
 	ctx context.Context,
 	blockID *big.Int,
 	proposedIn *big.Int,
@@ -97,13 +97,13 @@ func (c *ProofContester) SubmitContest(
 	return c.sender.Send(
 		ctx,
 		&proofProducer.ProofWithHeader{
-			BlockID: blockID,
-			Meta:    meta,
-			Header:  header,
-			Proof:   []byte{},
+			BlockID:    blockID,
+			Meta:       meta,
+			LastHeader: header,
+			Proof:      []byte{},
 			Opts: &proofProducer.ProofRequestOptions{
-				EventL1Hash: l1HeaderProposedIn.Hash(),
-				StateRoot:   header.Root,
+				EventL1Hash:        l1HeaderProposedIn.Hash(),
+				LastBlockStateRoot: header.Root,
 			},
 			Tier: tier,
 		},

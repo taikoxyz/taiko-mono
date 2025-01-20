@@ -47,7 +47,7 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, res.BlockID, blockID)
-	require.Equal(t, res.Header, header)
+	require.Equal(t, res.LastHeader, header)
 	require.Equal(t, res.Tier, encoding.TierGuardianMajorityID)
 	require.NotEmpty(t, res.Proof)
 }
@@ -86,7 +86,7 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, res.BlockID, blockID)
-	require.Equal(t, res.Header, header)
+	require.Equal(t, res.LastHeader, header)
 	require.Equal(t, res.Tier, encoding.TierGuardianMajorityID)
 	require.NotEmpty(t, res.Proof)
 	require.Equal(t, res.Proof, crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")))
@@ -125,7 +125,7 @@ func TestMinorityRequestProof(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, res.BlockID, blockID)
-	require.Equal(t, res.Header, header)
+	require.Equal(t, res.LastHeader, header)
 	require.Equal(t, res.Tier, encoding.TierGuardianMinorityID)
 	require.NotEmpty(t, res.Proof)
 }
@@ -163,7 +163,7 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, res.BlockID, blockID)
-	require.Equal(t, res.Header, header)
+	require.Equal(t, res.LastHeader, header)
 	require.Equal(t, res.Tier, encoding.TierGuardianMinorityID)
 	require.NotEmpty(t, res.Proof)
 	require.Equal(t, res.Proof, crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")))
