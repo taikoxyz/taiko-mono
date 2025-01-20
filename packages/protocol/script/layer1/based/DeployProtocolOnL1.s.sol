@@ -15,8 +15,11 @@ import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/devnet/verifiers/OpVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
+import "src/layer1/based/ForkRouter.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -27,6 +30,7 @@ import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -245,21 +249,52 @@ contract DeployProtocolOnL1 is DeployCapability {
                 TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
             )
         });
+        addressNotNull(vm.envAddress("TAIKO_INBOX"), "TAIKO_INBOX");
+        address oldFork = vm.envAddress("TAIKO_INBOX");
+        address newFork = address(new DevnetInbox());
 
-        TaikoInbox taikoInbox = TaikoInbox(address(new DevnetInbox()));
-
-        deployProxy({
+        address taikoInboxAddr = deployProxy({
             name: "taiko",
-            impl: address(taikoInbox),
-            data: abi.encodeCall(
-                TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
-            ),
+            impl: address(new ForkRouter(oldFork, newFork)),
+            data: "",
             registerTo: rollupResolver
         });
 
-        address sgxVerifier = deployProxy({
+        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+
+        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
+        address opVerifier = deployProxy({
+            name: "op_verifier",
+            impl: address(new OpVerifier(l2ChainId)),
+            data: abi.encodeCall(OpVerifier.init, (owner, rollupResolver))
+        });
+
+        address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
+
+        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(owner, rollupResolver, l2ChainId);
+
+        deployProxy({
+            name: "proof_verifier",
+            impl: address(new DevnetVerifier(opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)),
+            data: abi.encodeCall(ComposeVerifier.init, (owner, rollupResolver)),
+            registerTo: rollupResolver
+        });
+
+        deployProxy({
+            name: "prover_set",
+            impl: address(new ProverSet()),
+            data: abi.encodeCall(
+                ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
+            )
+        });
+    }
+
+    function deploySgxVerifier(address owner, address rollupResolver, uint64 l2ChainId) private returns (address sgxVerifier) {
+         sgxVerifier = deployProxy({
             name: "sgx_verifier",
-            impl: address(new SgxVerifier()),
+            impl: address(new SgxVerifier(l2ChainId)),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupResolver))
         });
 
@@ -270,7 +305,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
         address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
 
-        address automataProxy = deployProxy({
+        address automataProxy= deployProxy({
             name: "automata_dcap_attestation",
             impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
@@ -278,15 +313,21 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             registerTo: rollupResolver
         });
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
+        console2.log("AutomataDcapVaAttestation", automataProxy);
+    }
 
+    function deployZKVerifiers(address owner, address rollupResolver, uint64 l2ChainId) private returns (address risc0Verifier, address sp1Verifier) {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupResolver, "risc0_groth16_verifier", address(verifier));
 
-        address risc0Verifier = deployProxy({
+        risc0Verifier = deployProxy({
             name: "risc0_verifier",
-            impl: address(new Risc0Verifier()),
+            impl: address(new Risc0Verifier(l2ChainId)),
             data: abi.encodeCall(Risc0Verifier.init, (owner, rollupResolver))
         });
 
@@ -294,31 +335,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
         register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
 
-        address sp1Verifier = deployProxy({
+        sp1Verifier = deployProxy({
             name: "sp1_verifier",
-            impl: address(new SP1Verifier()),
+            impl: address(new SP1Verifier(l2ChainId)),
             data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver))
-        });
-
-        // TODO: wait the PR that introduce the SgxOrZkVerifier
-        deployProxy({
-            name: "proof_verifier",
-            impl: address(new SP1Verifier(sgxVerifier, risc0Verifier, sp1Verifier)),
-            data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver)),
-            registerTo: rollupResolver
-        });
-
-        // Log addresses for the user to register sgx instance
-        console2.log("SigVerifyLib", address(sigVerifyLib));
-        console2.log("PemCertChainLib", address(pemCertChainLib));
-        console2.log("AutomataDcapVaAttestation", automataProxy);
-
-        deployProxy({
-            name: "prover_set",
-            impl: address(new ProverSet()),
-            data: abi.encodeCall(
-                ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
-            )
         });
     }
 
