@@ -81,6 +81,7 @@ interface ITaikoInbox {
     }
 
     //  @notice Struct represeting transition storage
+    /// @notice 4 slots used.
     struct TransitionState {
         bytes32 parentHash;
         bytes32 blockHash;
@@ -92,7 +93,7 @@ interface ITaikoInbox {
     /// @notice 3 slots used.
     struct Batch {
         bytes32 metaHash; // slot 1
-        uint64 lastBlockId;
+        uint64 lastBlockId; // slot 2
         uint96 _reserved3;
         uint96 livenessBond;
         uint64 batchId; // slot 3

@@ -263,9 +263,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 ts.blockHash = tran.blockHash;
                 ts.stateRoot =
                     meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
-                uint256 deadline =
-                    uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
-                bool inProvingWindow = block.timestamp <= deadline;
+
+                bool inProvingWindow = block.timestamp
+                    <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+
                 ts.inProvingWindow = inProvingWindow;
                 ts.prover = inProvingWindow ? meta.proposer : msg.sender;
             }
