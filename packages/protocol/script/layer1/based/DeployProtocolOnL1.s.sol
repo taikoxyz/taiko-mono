@@ -15,6 +15,8 @@ import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
+import "src/layer1/preconf/mvp/PreconfTaskManager.sol";
+import "src/layer1/preconf/mvp/PreconfWhitelist.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
@@ -254,6 +256,28 @@ contract DeployProtocolOnL1 is DeployCapability {
                 ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
             )
         });
+
+        PreconfWhitelist whitelist = new PreconfWhitelist();
+
+        if(vm.envBool("DEPLOY_WHITELIST")) {
+            deployProxy({
+                name: "preconf_whitelist",
+                impl: address(whitelist),
+                data: abi.encodeCall(
+                    PreconfWhitelist.init, (owner)
+                ),
+                registerTo: rollupResolver
+            });
+        
+            deployProxy({
+                name: "preconf_router",
+                impl: address(new PreconfTaskManager()),
+                data: abi.encodeCall(
+                    PreconfTaskManager.init, (owner, rollupResolver)
+                ),
+                registerTo: rollupResolver
+            });
+        }
     }
 
     function deployAuxContracts() private {
