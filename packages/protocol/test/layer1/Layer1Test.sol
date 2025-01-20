@@ -9,6 +9,8 @@ import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/team/ERC20Airdrop.sol";
 import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
+import "src/layer1/preconf/mvp/PreconfWhitelist.sol";
+import "src/layer1/preconf/mvp/PreconfTaskManager.sol";
 import "test/shared/CommonTest.sol";
 
 contract ConfigurableInbox is TaikoInbox {
