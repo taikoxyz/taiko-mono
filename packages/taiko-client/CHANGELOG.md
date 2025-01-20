@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.43.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.43.0...taiko-alethia-client-v0.43.1) (2025-01-17)
+
+
+### Chores
+
+* **taiko-client:** add more logs for `BlockProposedIterator` ([#18772](https://github.com/taikoxyz/taiko-mono/issues/18772)) ([1b02bc0](https://github.com/taikoxyz/taiko-mono/commit/1b02bc08b5e87b66e1645e139a4804ec433cf2dd))
+* **taiko-client:** ensure event block IDs are continuous ([#18775](https://github.com/taikoxyz/taiko-mono/issues/18775)) ([b359be0](https://github.com/taikoxyz/taiko-mono/commit/b359be028cdd19f3b40ed414f641ea799a2fe055))
+* **taiko-client:** improve `BlobFetcher` ([#18786](https://github.com/taikoxyz/taiko-mono/issues/18786)) ([fc32df8](https://github.com/taikoxyz/taiko-mono/commit/fc32df89baf5838092d3bbea8c2babee304a4c8d))
+* **taiko-client:** make full sync to sync to the latest header ([#18771](https://github.com/taikoxyz/taiko-mono/issues/18771)) ([65f763b](https://github.com/taikoxyz/taiko-mono/commit/65f763b5629c75056abc49e824e1bb5536d7cd4e))
+* **taiko-client:** more logs for `BlockBatchIterator` ([#18774](https://github.com/taikoxyz/taiko-mono/issues/18774)) ([3945f60](https://github.com/taikoxyz/taiko-mono/commit/3945f60171e2733a0888e7bde914634dfa260958))
+* **taiko-client:** rename `io.EOF` in iterators ([#18777](https://github.com/taikoxyz/taiko-mono/issues/18777)) ([c634425](https://github.com/taikoxyz/taiko-mono/commit/c6344250bcbfe9acfae84fcbd003a7bfefe24146))
+
 ## [0.43.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.42.1...taiko-alethia-client-v0.43.0) (2025-01-14)
 
 
