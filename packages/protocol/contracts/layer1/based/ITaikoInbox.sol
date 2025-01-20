@@ -80,7 +80,7 @@ interface ITaikoInbox {
         bytes32 stateRoot;
     }
 
-    //  @notice Struct represeting transition storage
+    //  @notice Struct representing transition storage
     /// @notice 4 slots used.
     struct TransitionState {
         bytes32 parentHash;
