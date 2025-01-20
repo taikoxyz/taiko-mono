@@ -69,117 +69,116 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 stats2.numBatches < stats2.lastVerifiedBatchId + config.maxBatchProposals,
                 TooManyBatches()
             );
-        }
 
-        BatchParams memory params = abi.decode(_params, (BatchParams));
+            BatchParams memory params = abi.decode(_params, (BatchParams));
 
-        {
-            address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
-            if (preconfRouter == address(0)) {
-                require(params.proposer == address(0), CustomProposerNotAllowed());
-                params.proposer = msg.sender;
+            {
+                address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
+                if (preconfRouter == address(0)) {
+                    require(params.proposer == address(0), CustomProposerNotAllowed());
+                    params.proposer = msg.sender;
+                } else {
+                    require(msg.sender == preconfRouter, NotPreconfRouter());
+                    require(params.proposer != address(0), CustomProposerMissing());
+                }
+
+                if (params.coinbase == address(0)) {
+                    params.coinbase = params.proposer;
+                }
+            }
+
+            if (params.revertIfNotFirstProposal) {
+                require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
+            }
+
+            // Keep track of last batch's information.
+            Batch storage lastBatch =
+                state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
+
+            bool calldataUsed = _txList.length != 0;
+
+            require(calldataUsed || params.numBlobs != 0, BlobNotSpecified());
+
+            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
+                params,
+                config.maxAnchorHeightOffset,
+                config.maxSignalsToReceive,
+                config.maxBlocksPerBatch,
+                lastBatch
+            );
+
+            // This section constructs the metadata for the proposed batch, which is crucial for
+            // nodes/clients to process the batch. The metadata itself is not stored on-chain;
+            // instead, only its hash is kept.
+            // The metadata must be supplied as calldata prior to proving the batch, enabling the
+            // computation and verification of its integrity through the comparison of the metahash.
+            //
+            // Note that `difficulty` has been removed from the metadata. The client and prover must
+            // use
+            // the following approach to calculate a block's difficulty:
+            //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
+
+            meta_ = BatchMetadata({
+                txListHash: calldataUsed
+                    ? keccak256(_txList)
+                    : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
+                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+                coinbase: params.coinbase,
+                batchId: stats2.numBatches,
+                gasLimit: config.blockMaxGasLimit,
+                lastBlockTimestamp: lastBlockTimestamp,
+                parentMetaHash: lastBatch.metaHash,
+                proposer: params.proposer,
+                livenessBond: config.livenessBondBase
+                    + config.livenessBondPerBlock * uint96(params.blocks.length),
+                proposedAt: uint64(block.timestamp),
+                proposedIn: uint64(block.number),
+                txListOffset: params.txListOffset,
+                txListSize: params.txListSize,
+                firstBlobIndex: params.firstBlobIndex,
+                numBlobs: calldataUsed ? 0 : params.numBlobs,
+                anchorBlockId: anchorBlockId,
+                anchorBlockHash: blockhash(anchorBlockId),
+                signalSlots: params.signalSlots,
+                blocks: params.blocks,
+                anchorInput: params.anchorInput,
+                baseFeeConfig: config.baseFeeConfig
+            });
+
+            require(meta_.anchorBlockHash != 0, ZeroAnchorBlockHash());
+            require(meta_.txListHash != 0, BlobNotFound());
+            bytes32 metaHash = keccak256(abi.encode(meta_));
+
+            Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
+
+            // SSTORE #1
+            batch.metaHash = metaHash;
+
+            // SSTORE #2 {{
+            batch.batchId = stats2.numBatches;
+            batch.lastBlockTimestamp = lastBlockTimestamp;
+            batch.anchorBlockId = anchorBlockId;
+            batch.nextTransitionId = 1;
+            batch.verifiedTransitionId = 0;
+            batch.reserved4 = 0;
+            // SSTORE }}
+
+            // SSTORE #3 {{
+            if (stats2.numBatches == config.forkHeights.pacaya) {
+                batch.lastBlockId = batch.batchId + uint8(params.blocks.length) - 1;
             } else {
-                require(msg.sender == preconfRouter, NotPreconfRouter());
-                require(params.proposer != address(0), CustomProposerMissing());
+                batch.lastBlockId = lastBatch.lastBlockId + uint8(params.blocks.length);
             }
+            batch.livenessBond = meta_.livenessBond;
+            batch._reserved3 = 0;
+            // SSTORE }}
 
-            if (params.coinbase == address(0)) {
-                params.coinbase = params.proposer;
-            }
-        }
-
-        if (params.revertIfNotFirstProposal) {
-            require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
-        }
-
-        // Keep track of last batch's information.
-        Batch storage lastBatch;
-        unchecked {
-            lastBatch = state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
-        }
-
-        bool calldataUsed = _txList.length != 0;
-
-        require(calldataUsed || params.numBlobs != 0, BlobNotSpecified());
-
-        (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
-            params,
-            config.maxAnchorHeightOffset,
-            config.maxSignalsToReceive,
-            config.maxBlocksPerBatch,
-            lastBatch
-        );
-
-        // This section constructs the metadata for the proposed batch, which is crucial for
-        // nodes/clients to process the batch. The metadata itself is not stored on-chain;
-        // instead, only its hash is kept.
-        // The metadata must be supplied as calldata prior to proving the batch, enabling the
-        // computation and verification of its integrity through the comparison of the metahash.
-        //
-        // Note that `difficulty` has been removed from the metadata. The client and prover must use
-        // the following approach to calculate a block's difficulty:
-        //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-        meta_ = BatchMetadata({
-            txListHash: calldataUsed
-                ? keccak256(_txList)
-                : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
-            extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-            coinbase: params.coinbase,
-            batchId: stats2.numBatches,
-            gasLimit: config.blockMaxGasLimit,
-            lastBlockTimestamp: lastBlockTimestamp,
-            parentMetaHash: lastBatch.metaHash,
-            proposer: params.proposer,
-            livenessBond: config.livenessBondBase
-                + config.livenessBondPerBlock * uint96(params.blocks.length),
-            proposedAt: uint64(block.timestamp),
-            proposedIn: uint64(block.number),
-            txListOffset: params.txListOffset,
-            txListSize: params.txListSize,
-            firstBlobIndex: params.firstBlobIndex,
-            numBlobs: calldataUsed ? 0 : params.numBlobs,
-            anchorBlockId: anchorBlockId,
-            anchorBlockHash: blockhash(anchorBlockId),
-            signalSlots: params.signalSlots,
-            blocks: params.blocks,
-            anchorInput: params.anchorInput,
-            baseFeeConfig: config.baseFeeConfig
-        });
-
-        require(meta_.anchorBlockHash != 0, ZeroAnchorBlockHash());
-        require(meta_.txListHash != 0, BlobNotFound());
-        bytes32 metaHash = keccak256(abi.encode(meta_));
-
-        Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
-        // SSTORE #1
-        batch.metaHash = metaHash;
-
-        // SSTORE #2 {{
-        batch.batchId = stats2.numBatches;
-        batch.lastBlockTimestamp = lastBlockTimestamp;
-        batch.anchorBlockId = anchorBlockId;
-        batch.nextTransitionId = 1;
-        batch.verifiedTransitionId = 0;
-        batch.reserved4 = 0;
-        // SSTORE }}
-
-        // SSTORE #3 {{
-        if (stats2.numBatches == config.forkHeights.pacaya) {
-            batch.lastBlockId = batch.batchId + uint8(params.blocks.length) - 1;
-        } else {
-            batch.lastBlockId = lastBatch.lastBlockId + uint8(params.blocks.length);
-        }
-        batch.livenessBond = meta_.livenessBond;
-        batch._reserved3 = 0;
-        // SSTORE }}
-
-        unchecked {
             stats2.numBatches += 1;
             stats2.lastProposedIn = uint56(block.number);
-        }
 
-        _debitBond(params.proposer, meta_.livenessBond);
-        emit BatchProposed(meta_, calldataUsed, _txList);
+            _debitBond(params.proposer, meta_.livenessBond);
+            emit BatchProposed(meta_, calldataUsed, _txList);
+        } // end-of-unchecked
 
         _verifyBatches(config, stats2, 1);
     }
@@ -257,19 +256,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
+            ts.parentHash = tran.parentHash;
+            ts.blockHash = tran.blockHash;
+            ts.stateRoot =
+                meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
 
+            bool inProvingWindow;
             unchecked {
-                ts.parentHash = tran.parentHash;
-                ts.blockHash = tran.blockHash;
-                ts.stateRoot =
-                    meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
-
-                bool inProvingWindow = block.timestamp
+                inProvingWindow = block.timestamp
                     <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
-
-                ts.inProvingWindow = inProvingWindow;
-                ts.prover = inProvingWindow ? meta.proposer : msg.sender;
             }
+
+            ts.inProvingWindow = inProvingWindow;
+            ts.prover = inProvingWindow ? meta.proposer : msg.sender;
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
@@ -565,9 +564,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         SyncBlock memory synced;
 
-        uint256 stopBatchId = (
-            _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
-        ).min(_stats2.numBatches);
+        uint256 stopBatchId;
+        unchecked {
+            stopBatchId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1)
+                .min(_stats2.numBatches);
+        }
 
         for (++batchId; batchId < stopBatchId; ++batchId) {
             slot = batchId % _config.batchRingBufferSize;
