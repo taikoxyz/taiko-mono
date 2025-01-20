@@ -563,8 +563,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         for (++batchId; batchId < stopBatchId; ++batchId) {
             slot = batchId % _config.batchRingBufferSize;
             batch = state.batches[slot];
+            uint24 nextTransitionId = batch.nextTransitionId;
 
-            // FIX
+            if (nextTransitionId == 1) break;
+
             TransitionState storage ts = state.transitions[slot][1];
             if (ts.parentHash == blockHash) {
                 tid = 1;
@@ -584,7 +586,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 synced.stateRoot = ts.stateRoot;
             }
 
-            for (uint24 i = 2; i < batch.nextTransitionId; ++i) {
+            for (uint24 i = 2; i < nextTransitionId; ++i) {
                 ts = state.transitions[slot][i];
                 delete state.transitionIds[batchId][ts.parentHash];
             }
