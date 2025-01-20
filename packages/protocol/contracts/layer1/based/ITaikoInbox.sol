@@ -84,8 +84,8 @@ interface ITaikoInbox {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
-        bool inProvingWindow;
         address prover;
+        bool inProvingWindow;
     }
 
     /// @notice 3 slots used.
