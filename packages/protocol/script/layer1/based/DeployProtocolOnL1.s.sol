@@ -2,11 +2,18 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
+import { SP1Verifier as SuccinctVerifier } from
+    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
+import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
@@ -17,6 +24,9 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -246,6 +256,62 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             registerTo: rollupResolver
         });
+
+        address sgxVerifier = deployProxy({
+            name: "sgx_verifier",
+            impl: address(new SgxVerifier()),
+            data: abi.encodeCall(SgxVerifier.init, (owner, rollupResolver))
+        });
+
+        // No need to proxy these, because they are 3rd party. If we want to modify, we simply
+        // change the registerAddress("automata_dcap_attestation", address(attestation));
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        address automataProxy = deployProxy({
+            name: "automata_dcap_attestation",
+            impl: automataDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
+
+        // Deploy r0 groth16 verifier
+        RiscZeroGroth16Verifier verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        register(rollupResolver, "risc0_groth16_verifier", address(verifier));
+
+        address risc0Verifier = deployProxy({
+            name: "risc0_verifier",
+            impl: address(new Risc0Verifier()),
+            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupResolver))
+        });
+
+        // Deploy sp1 plonk verifier
+        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
+        register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
+
+        address sp1Verifier = deployProxy({
+            name: "sp1_verifier",
+            impl: address(new SP1Verifier()),
+            data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver))
+        });
+
+        // TODO: wait the PR that introduce the SgxOrZkVerifier
+        deployProxy({
+            name: "proof_verifier",
+            impl: address(new SP1Verifier(sgxVerifier, risc0Verifier, sp1Verifier)),
+            data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver)),
+            registerTo: rollupResolver
+        });
+
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
+        console2.log("AutomataDcapVaAttestation", automataProxy);
 
         deployProxy({
             name: "prover_set",
