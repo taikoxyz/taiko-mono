@@ -13,6 +13,9 @@ contract Fork is EssentialContract, IFork {
         __isActive = _isActive;
     }
 
+    function init() external {
+        __Essential_init(address(0));
+    }
 
     function name() public view returns (bytes32) {
         return __name;

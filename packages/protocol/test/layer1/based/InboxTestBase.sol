@@ -37,7 +37,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         inbox = deployInbox(correctBlockhash(0), getConfig());
 
-        signalService = deploySignalService(address(new SignalService()));
+        signalService = deploySignalService(address(new SignalService(address(resolver))));
         signalService.authorize(address(inbox), true);
 
         resolver.registerAddress(

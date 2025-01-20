@@ -23,8 +23,8 @@ contract TestSP1Verifier is Layer1Test {
         sp1Verifier = SP1Verifier(
             deploy({
                 name: "tier_zkvm_sp1",
-                impl: address(new SP1Verifier(taikoChainId)),
-                data: abi.encodeCall(SP1Verifier.init, (address(0), address(resolver)))
+                impl: address(new SP1Verifier(address(resolver), taikoChainId)),
+                data: abi.encodeCall(SP1Verifier.init, (address(0)))
             })
         );
 

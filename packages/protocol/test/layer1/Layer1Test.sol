@@ -18,14 +18,13 @@ contract ConfigurableInbox is TaikoInbox {
 
     function initWithConfig(
         address _owner,
-        address _rollupResolver,
         bytes32 _genesisBlockHash,
         ITaikoInbox.Config memory _config
     )
         external
         initializer
     {
-        __Taiko_init(_owner, _rollupResolver, _genesisBlockHash);
+        __Taiko_init(_owner,  _genesisBlockHash);
         __config = _config;
     }
 
@@ -49,10 +48,10 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox()),
+                impl: address(new ConfigurableInbox(address(resolver))),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig,
-                    (address(0), address(resolver), _genesisBlockHash, _config)
+                    (address(0),  _genesisBlockHash, _config)
                 )
             })
         );
@@ -62,7 +61,7 @@ abstract contract Layer1Test is CommonTest {
         return TaikoToken(
             deploy({
                 name: "bond_token",
-                impl: address(new TaikoToken()),
+                impl: address(new TaikoToken(address(resolver))),
                 data: abi.encodeCall(TaikoToken.init, (address(0), address(this)))
             })
         );
@@ -72,8 +71,8 @@ abstract contract Layer1Test is CommonTest {
         return SgxVerifier(
             deploy({
                 name: "tier_sgx",
-                impl: address(new SgxVerifier(taikoChainId)),
-                data: abi.encodeCall(SgxVerifier.init, (address(0), address(resolver)))
+                impl: address(new SgxVerifier(address(resolver),taikoChainId)),
+                data: abi.encodeCall(SgxVerifier.init, (address(0)))
             })
         );
     }

@@ -162,7 +162,7 @@ abstract contract CommonTest is Test, Script {
             deploy({
                 name: "signal_service",
                 impl: signalServiceImpl,
-                data: abi.encodeCall(SignalService.init, (address(0), ))
+                data: abi.encodeCall(SignalService.init, (address(0) ))
             })
         );
     }
@@ -171,7 +171,7 @@ abstract contract CommonTest is Test, Script {
         return TaikoToken(
             deploy({
                 name: "taiko_token",
-                impl: address(new TaikoToken()),
+                impl: address(new TaikoToken(address(resolver))),
                 data: abi.encodeCall(TaikoToken.init, (address(0), address(this)))
             })
         );
@@ -190,10 +190,10 @@ abstract contract CommonTest is Test, Script {
         return BridgedERC20(
             deploy({
                 name: "erc20_token",
-                impl: address(new BridgedERC20()),
+                impl: address(new BridgedERC20(address(resolver))),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (address(0), , srcToken, _ethereumChainId, decimals, symbol, name)
+                    (address(0),  srcToken, _ethereumChainId, decimals, symbol, name)
                 )
             })
         );
@@ -204,7 +204,7 @@ abstract contract CommonTest is Test, Script {
             deploy({
                 name: "bridge",
                 impl: bridgeImpl,
-                data: abi.encodeCall(Bridge.init, (address(0), ))
+                data: abi.encodeCall(Bridge.init, (address(0) ))
             })
         );
     }
@@ -213,8 +213,8 @@ abstract contract CommonTest is Test, Script {
         return QuotaManager(
             deploy({
                 name: "quota_manager",
-                impl: address(new QuotaManager()),
-                data: abi.encodeCall(QuotaManager.init, (address(0), , 24 hours))
+                impl: address(new QuotaManager(address(resolver))),
+                data: abi.encodeCall(QuotaManager.init, (address(0),  24 hours))
             })
         );
     }
@@ -223,7 +223,7 @@ abstract contract CommonTest is Test, Script {
         return ERC20Vault(
             deploy({
                 name: "erc20_vault",
-                impl: address(new ERC20Vault()),
+                impl: address(new ERC20Vault(address(resolver))),
                 data: abi.encodeCall(ERC20Vault.init, (address(0) ))
             })
         );
@@ -233,7 +233,7 @@ abstract contract CommonTest is Test, Script {
         return ERC721Vault(
             deploy({
                 name: "erc721_vault",
-                impl: address(new ERC721Vault()),
+                impl: address(new ERC721Vault(address(resolver))),
                 data: abi.encodeCall(ERC721Vault.init, (address(0) ))
             })
         );
@@ -243,7 +243,7 @@ abstract contract CommonTest is Test, Script {
         return ERC1155Vault(
             deploy({
                 name: "erc1155_vault",
-                impl: address(new ERC1155Vault()),
+                impl: address(new ERC1155Vault(address(resolver)    )),
                 data: abi.encodeCall(ERC1155Vault.init, (address(0) ))
             })
         );
