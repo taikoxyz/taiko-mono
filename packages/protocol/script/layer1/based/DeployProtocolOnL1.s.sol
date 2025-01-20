@@ -249,8 +249,8 @@ contract DeployProtocolOnL1 is DeployCapability {
                 TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
             )
         });
-        addressNotNull(vm.envAddress("TAIKO_INBOX"), "TAIKO_INBOX");
-        address oldFork = vm.envAddress("TAIKO_INBOX");
+        addressNotNull(vm.envAddress("OLD_FORK_TAIKO_INBOX"), "OLD_FORK_TAIKO_INBOX");
+        address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         address newFork = address(new DevnetInbox());
 
         address taikoInboxAddr = deployProxy({
