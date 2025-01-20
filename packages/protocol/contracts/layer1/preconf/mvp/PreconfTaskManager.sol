@@ -8,13 +8,11 @@ import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
 import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
 import "src/layer1/preconf/iface/IPreconfRegistry.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
-
-import "./IPreconfWhitelist.sol";
-
-import "src/shared/common/EssentialContract.sol";
-
 import "src/shared/libs/LibStrings.sol";
 
+
+import "src/shared/common/EssentialContract.sol";
+import "./IPreconfWhitelist.sol";
 /// @title PreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
 contract PreconfTaskManager is EssentialContract {
