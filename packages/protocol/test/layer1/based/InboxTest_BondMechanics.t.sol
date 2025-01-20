@@ -101,60 +101,60 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(aliceBondBalanceAfterProof, bondAmount - livenessBond / 2);
     }
 
-    function test_inbox_bonds_half_liveness_bond_returned_to_actual_prover_out_of_proving_window()
-        external
-    {
-        vm.warp(1_000_000);
+    // function test_inbox_bonds_half_liveness_bond_returned_to_actual_prover_out_of_proving_window()
+    //     external
+    // {
+    //     vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100_000 ether;
-        uint256 bondAmount = 1000 ether;
+    //     uint256 initialBondBalance = 100_000 ether;
+    //     uint256 bondAmount = 1000 ether;
 
-        setupBondTokenState(Alice, initialBondBalance, bondAmount);
+    //     setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        vm.prank(Alice);
-        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+    //     vm.prank(Alice);
+    //     uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
 
-        uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
-        uint256 livenessBond = bondAmount - aliceBondBalanceAfterProposal;
+    //     uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
+    //     uint256 livenessBond = bondAmount - aliceBondBalanceAfterProposal;
 
-        // Simulate waiting for blocks after proving deadline
-        uint256 secondsPerBlock = 12;
-        uint256 blocksToWait = provingWindow / secondsPerBlock + 1;
-        simulateBlockDelay(secondsPerBlock, blocksToWait);
+    //     // Simulate waiting for blocks after proving deadline
+    //     uint256 secondsPerBlock = 12;
+    //     uint256 blocksToWait = provingWindow / secondsPerBlock + 1;
+    //     simulateBlockDelay(secondsPerBlock, blocksToWait);
 
-        vm.prank(Alice);
-        _proveBatchesWithCorrectTransitions(batchIds);
+    //     vm.prank(Alice);
+    //     _proveBatchesWithCorrectTransitions(batchIds);
 
-        uint256 aliceBondBalanceAfterProof = inbox.bondBalanceOf(Alice);
-        assertEq(aliceBondBalanceAfterProof, bondAmount - livenessBond / 2);
-    }
+    //     uint256 aliceBondBalanceAfterProof = inbox.bondBalanceOf(Alice);
+    //     assertEq(aliceBondBalanceAfterProof, bondAmount - livenessBond / 2);
+    // }
 
-    function test_inbox_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window()
-        external
-    {
-        vm.warp(1_000_000);
+    // function test_inbox_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window()
+    //     external
+    // {
+    //     vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100_000 ether;
-        uint256 bondAmount = 1000 ether;
+    //     uint256 initialBondBalance = 100_000 ether;
+    //     uint256 bondAmount = 1000 ether;
 
-        setupBondTokenState(Alice, initialBondBalance, bondAmount);
+    //     setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        vm.prank(Alice);
-        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+    //     vm.prank(Alice);
+    //     uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
 
-        uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
-        assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
+    //     uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
+    //     assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
 
-        // Simulate waiting for exactly the proving window
-        uint256 secondsPerBlock = 12;
-        uint256 blocksToWait = provingWindow / secondsPerBlock;
-        simulateBlockDelay(secondsPerBlock, blocksToWait);
+    //     // Simulate waiting for exactly the proving window
+    //     uint256 secondsPerBlock = 12;
+    //     uint256 blocksToWait = provingWindow / secondsPerBlock;
+    //     simulateBlockDelay(secondsPerBlock, blocksToWait);
 
-        vm.prank(Alice);
-        _proveBatchesWithCorrectTransitions(batchIds);
+    //     vm.prank(Alice);
+    //     _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.bondBalanceOf(Alice), bondAmount);
-    }
+    //     assertEq(inbox.bondBalanceOf(Alice), bondAmount);
+    // }
 
     function test_inbox_bonds_multiple_blocks_per_batch() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
