@@ -260,12 +260,7 @@ interface ITaikoInbox {
     error ZeroAnchorBlockHash();
 
     /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded parameters consisting of:
-    /// - proposer: The address of the proposer, which is set by the PreconfTaskManager if
-    ///             enabled; otherwise, it must be address(0).
-    /// - coinbase: The address that will receive the block rewards; defaults to the proposer's
-    ///             address if set to address(0).
-    /// - batchParams: Batch parameters.
+    /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
     /// @return Batch metadata.
