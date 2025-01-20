@@ -6,8 +6,7 @@ import "./ProverSetBase.sol";
 contract ProverSet is ProverSetBase {
     using Address for address;
 
-    constructor(address _resolver) ProverSetBase(_resolver){
-    }
+    constructor(address _resolver) ProverSetBase(_resolver) { }
 
     // ================ Pacaya calls ================
 

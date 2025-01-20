@@ -20,7 +20,9 @@ contract TestTaikoAnchor is Layer2Test {
             })
         );
 
-        anchor = deployAnchor(address(new TaikoAnchor_NoBaseFeeCheck(address(resolver))), ethereumChainId);
+        anchor = deployAnchor(
+            address(new TaikoAnchor_NoBaseFeeCheck(address(resolver))), ethereumChainId
+        );
 
         signalService.authorize(address(anchor), true);
         mineOneBlockAndWrap(30 seconds);

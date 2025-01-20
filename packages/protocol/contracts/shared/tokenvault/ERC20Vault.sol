@@ -195,8 +195,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_METAHASH_MISMATCH();
     error VAULT_NOT_ON_L1();
 
-    constructor(address _resolver) BaseVault(_resolver){
-    }
+    constructor(address _resolver) BaseVault(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -587,14 +586,7 @@ contract ERC20Vault is BaseVault {
     function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
         bytes memory data = abi.encodeCall(
             IBridgedERC20Initializable.init,
-            (
-                owner(),
-                ctoken.addr,
-                ctoken.chainId,
-                ctoken.decimals,
-                ctoken.symbol,
-                ctoken.name
-            )
+            (owner(), ctoken.addr, ctoken.chainId, ctoken.decimals, ctoken.symbol, ctoken.name)
         );
 
         btoken = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC20, false), data));

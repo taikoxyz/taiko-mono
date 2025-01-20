@@ -60,8 +60,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver){
-    }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke

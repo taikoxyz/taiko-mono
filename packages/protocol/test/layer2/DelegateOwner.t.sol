@@ -22,14 +22,17 @@ contract TestDelegateOwner is Layer2Test {
     function setUpOnTaiko() internal override {
         tMulticall = new Multicall3();
         tDelegateOwner = deployDelegateOwner(eBridge, ethereumChainId);
-        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        tSignalService = deploySignalService(
+            address(new SignalService_WithoutProofVerification(address(resolver)))
+        );
         tBridge = deployBridge(address(new Bridge(address(resolver))));
     }
 
     function test_delegate_owner_single_non_delegatecall() public onTaiko {
         vm.startPrank(deployer);
-        EssentialContract_EmptyStub stub1 =
-            _deployEssentialContract_EmptyStub("stub1", address(new EssentialContract_EmptyStub(address(resolver))));
+        EssentialContract_EmptyStub stub1 = _deployEssentialContract_EmptyStub(
+            "stub1", address(new EssentialContract_EmptyStub(address(resolver)))
+        );
         vm.stopPrank();
 
         bytes memory data = abi.encode(

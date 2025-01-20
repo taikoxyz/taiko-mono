@@ -23,8 +23,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     error CV_INVALID_SUB_VERIFIER_ORDER();
     error CV_VERIFIERS_INSUFFICIENT();
 
-  
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {

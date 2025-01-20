@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "../../Layer1Test.sol";
 
 contract MockMerkleClaimable is MerkleClaimable {
-
     function init(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) external initializer {
         __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
     }

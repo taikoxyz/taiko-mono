@@ -57,8 +57,7 @@ contract BridgedERC20 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_MINT_DISALLOWED();
 
-    constructor(address _resolver) EssentialContract(_resolver){
-    }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @inheritdoc IBridgedERC20Initializable
     function init(

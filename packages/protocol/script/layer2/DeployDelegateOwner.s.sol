@@ -16,7 +16,7 @@ contract DeployDelegateOwner is BaseScript {
         deploy({
             name: "delegate_owner",
             impl: address(new DelegateOwner(l2Sam)),
-            data: abi.encodeCall(DelegateOwner.init, (l1Owner,  1, l2Admin))
+            data: abi.encodeCall(DelegateOwner.init, (l1Owner, 1, l2Admin))
         });
     }
 }

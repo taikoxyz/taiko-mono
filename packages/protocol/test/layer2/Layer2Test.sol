@@ -35,9 +35,7 @@ abstract contract Layer2Test is CommonTest {
             deploy({
                 name: "delegate_owner",
                 impl: address(new DelegateOwner(address(resolver))),
-                data: abi.encodeCall(
-                    DelegateOwner.init, (remoteOwner, remoteChainId, address(0))
-                )
+                data: abi.encodeCall(DelegateOwner.init, (remoteOwner, remoteChainId, address(0)))
             })
         );
     }

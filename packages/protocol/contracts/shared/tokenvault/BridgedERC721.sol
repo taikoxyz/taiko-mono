@@ -27,8 +27,7 @@ contract BridgedERC721 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_BURN();
 
-    constructor(address _resolver) EssentialContract(_resolver){
-    }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @inheritdoc IBridgedERC721Initializable
     function init(

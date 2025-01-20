@@ -32,8 +32,7 @@ contract BridgedERC1155 is
 
     error BTOKEN_INVALID_PARAMS();
 
-    constructor(address _resolver) EssentialContract(_resolver){
-    }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @inheritdoc IBridgedERC1155Initializable
     function init(

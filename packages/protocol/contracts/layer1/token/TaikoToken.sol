@@ -16,7 +16,6 @@ contract TaikoToken is TaikoTokenBase {
 
     error TT_INVALID_PARAM();
 
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _recipient The address to receive initial token minting.

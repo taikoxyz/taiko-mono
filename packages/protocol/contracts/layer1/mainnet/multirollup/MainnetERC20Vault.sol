@@ -11,7 +11,7 @@ import "../libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {ER20Vault}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetERC20Vault is ERC20Vault {
-    constructor(address _resolver) ERC20Vault(_resolver){}
+    constructor(address _resolver) ERC20Vault(_resolver) { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);

@@ -13,7 +13,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
 
     uint256[49] private __gap;
 
-    constructor() EssentialContract(address(this)){}
+    constructor() EssentialContract(address(this)) { }
 
     /// @notice Emitted when an address is registered.
     /// @param chainId The chainId for the address mapping.

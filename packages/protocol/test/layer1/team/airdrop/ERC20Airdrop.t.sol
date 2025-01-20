@@ -5,7 +5,6 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../../Layer1Test.sol";
 
 contract ERC20AirdropNoVerify is ERC20Airdrop {
-
     function _verifyMerkleProof(
         bytes32[] calldata, /*proof*/
         bytes32, /*merkleRoot*/
@@ -82,8 +81,7 @@ contract TestERC20Airdrop is Layer1Test {
                 name: "some_token",
                 impl: address(new BridgedERC20(address(resolver))),
                 data: abi.encodeCall(
-                    BridgedERC20.init,
-                    (address(0),  randAddress(), 100, 18, "SOME", "Some Token")
+                    BridgedERC20.init, (address(0), randAddress(), 100, 18, "SOME", "Some Token")
                 )
             })
         );

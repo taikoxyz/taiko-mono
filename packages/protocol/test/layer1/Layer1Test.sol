@@ -14,7 +14,7 @@ import "test/shared/CommonTest.sol";
 contract ConfigurableInbox is TaikoInbox {
     ITaikoInbox.Config private __config;
 
-    constructor(address _resolver) TaikoInbox(_resolver){}
+    constructor(address _resolver) TaikoInbox(_resolver) { }
 
     function initWithConfig(
         address _owner,
@@ -24,7 +24,7 @@ contract ConfigurableInbox is TaikoInbox {
         external
         initializer
     {
-        __Taiko_init(_owner,  _genesisBlockHash);
+        __Taiko_init(_owner, _genesisBlockHash);
         __config = _config;
     }
 
@@ -50,8 +50,7 @@ abstract contract Layer1Test is CommonTest {
                 name: "taiko",
                 impl: address(new ConfigurableInbox(address(resolver))),
                 data: abi.encodeCall(
-                    ConfigurableInbox.initWithConfig,
-                    (address(0),  _genesisBlockHash, _config)
+                    ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )
             })
         );
@@ -61,7 +60,7 @@ abstract contract Layer1Test is CommonTest {
         return TaikoToken(
             deploy({
                 name: "bond_token",
-                impl: address(new TaikoToken(address(resolver))),
+                impl: address(new TaikoToken()),
                 data: abi.encodeCall(TaikoToken.init, (address(0), address(this)))
             })
         );
@@ -71,7 +70,7 @@ abstract contract Layer1Test is CommonTest {
         return SgxVerifier(
             deploy({
                 name: "tier_sgx",
-                impl: address(new SgxVerifier(address(resolver),taikoChainId)),
+                impl: address(new SgxVerifier(address(resolver), taikoChainId)),
                 data: abi.encodeCall(SgxVerifier.init, (address(0)))
             })
         );

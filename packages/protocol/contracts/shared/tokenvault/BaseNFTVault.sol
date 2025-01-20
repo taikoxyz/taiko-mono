@@ -123,8 +123,6 @@ abstract contract BaseNFTVault is BaseVault {
     error VAULT_INTERFACE_NOT_SUPPORTED();
     error VAULT_TOKEN_ARRAY_MISMATCH();
 
-   
-
     modifier withValidOperation(BridgeTransferOp memory _op) {
         if (_op.tokenIds.length != _op.amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
@@ -134,5 +132,5 @@ abstract contract BaseNFTVault is BaseVault {
         _;
     }
 
-     constructor(address _resolver) BaseVault(_resolver){}
+    constructor(address _resolver) BaseVault(_resolver) { }
 }

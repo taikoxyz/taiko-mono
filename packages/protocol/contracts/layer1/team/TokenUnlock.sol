@@ -72,7 +72,7 @@ contract TokenUnlock is EssentialContract {
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver){}
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
@@ -116,8 +116,7 @@ contract TokenUnlock is EssentialContract {
             TAIKO_TOKEN_NOT_USED_AS_BOND_TOKEN()
         );
 
-        bytes memory data =
-            abi.encodeCall(ProverSetBase.init, (owner(), address(this)));
+        bytes memory data = abi.encodeCall(ProverSetBase.init, (owner(), address(this)));
         proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
 
         isProverSet[proverSet_] = true;

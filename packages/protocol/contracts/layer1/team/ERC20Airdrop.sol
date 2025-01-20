@@ -20,9 +20,8 @@ contract ERC20Airdrop is MerkleClaimable {
 
     uint256[48] private __gap;
 
+    constructor() MerkleClaimable() { }
 
-    constructor() MerkleClaimable() {}
-    
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract.
     /// @param _claimStart The start time of the claim period.

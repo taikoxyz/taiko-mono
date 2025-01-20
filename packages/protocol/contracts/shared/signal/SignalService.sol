@@ -42,8 +42,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_SIGNAL_NOT_RECEIVED();
     error SS_UNAUTHORIZED();
 
-    constructor(address _resolver) EssentialContract(_resolver){
-    }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.

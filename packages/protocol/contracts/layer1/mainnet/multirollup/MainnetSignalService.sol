@@ -11,7 +11,7 @@ import "../libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {SignalService}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetSignalService is SignalService {
-    constructor(address _resolver) SignalService(_resolver){}
+    constructor(address _resolver) SignalService(_resolver) { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);

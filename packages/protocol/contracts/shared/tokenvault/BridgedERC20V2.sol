@@ -28,8 +28,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
 
-    constructor(address _resolver) BridgedERC20(_resolver){
-    }
+    constructor(address _resolver) BridgedERC20(_resolver) { }
 
     /// @inheritdoc IBridgedERC20Initializable
     /// @dev This function is called when the bridge deploys a new bridged ERC20 token, so this

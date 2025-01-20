@@ -109,12 +109,10 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
-    constructor(address _resolver){
+    constructor(address _resolver) {
         resolver = _resolver;
         _disableInitializers();
     }
-
-  
 
     /// @notice Pauses the contract.
     function pause() public whenNotPaused {
@@ -163,7 +161,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     function resolve(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
         return IResolver(resolver).resolve(block.chainid, _name, _allowZeroAddress);
     }
-
 
     function __Essential_init(address _owner) internal virtual onlyInitializing {
         __Context_init();
