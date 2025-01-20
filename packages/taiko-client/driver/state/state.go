@@ -6,7 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -24,10 +23,9 @@ type State struct {
 	// Feeds
 	l1HeadsFeed event.Feed // L1 new heads notification feed
 
-	l1Head        atomic.Value // Latest known L1 head
-	l2Head        atomic.Value // Current L2 execution engine's local chain head
-	l2HeadBlockID atomic.Value // Latest known L2 block ID in protocol
-	l1Current     atomic.Value // Current L1 block sync cursor
+	l1Head    atomic.Value // Latest known L1 head
+	l2Head    atomic.Value // Current L2 execution engine's local chain head
+	l1Current atomic.Value // Current L1 block sync cursor
 
 	// Constants
 	GenesisL1Height  *big.Int
@@ -96,12 +94,6 @@ func (s *State) init(ctx context.Context) error {
 	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
 	s.setL2Head(l2Head)
 
-	batch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
-	if err != nil {
-		return err
-	}
-	s.setHeadBlockID(new(big.Int).SetUint64(batch.LastBlockId))
-
 	return nil
 }
 
@@ -114,10 +106,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		// Channels for subscriptions.
 		l1HeadCh                = make(chan *types.Header, 10)
 		l2HeadCh                = make(chan *types.Header, 10)
-		blockProposedV2Ch       = make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2, 10)
 		transitionProvedV2Ch    = make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, 10)
 		blockVerifiedV2Ch       = make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, 10)
-		batchProposedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchProposed, 10)
 		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
 		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
 
@@ -125,13 +115,11 @@ func (s *State) eventLoop(ctx context.Context) {
 		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
 		l2HeadSub                  = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
 		l2BlockVerifiedV2Sub       = rpc.SubscribeBlockVerifiedV2(s.rpc.OntakeClients.TaikoL1, blockVerifiedV2Ch)
-		l2BlockProposedV2Sub       = rpc.SubscribeBlockProposedV2(s.rpc.OntakeClients.TaikoL1, blockProposedV2Ch)
 		l2TransitionProvedV2Sub    = rpc.SubscribeTransitionProvedV2(s.rpc.OntakeClients.TaikoL1, transitionProvedV2Ch)
 		l2BatchesVerifiedPacayaSub = rpc.SubscribeBatchesVerifiedPacaya(
 			s.rpc.PacayaClients.TaikoInbox,
 			batchesVerifiedPacayaCh,
 		)
-		l2BatchProposedPacayaSub = rpc.SubscribeBatchProposedPacaya(s.rpc.PacayaClients.TaikoInbox, batchProposedPacayaCh)
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
 	)
 
@@ -139,10 +127,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		l1HeadSub.Unsubscribe()
 		l2HeadSub.Unsubscribe()
 		l2BlockVerifiedV2Sub.Unsubscribe()
-		l2BlockProposedV2Sub.Unsubscribe()
 		l2TransitionProvedV2Sub.Unsubscribe()
 		l2BatchesVerifiedPacayaSub.Unsubscribe()
-		l2BatchProposedPacayaSub.Unsubscribe()
 		l2BatchesProvedPacayaSub.Unsubscribe()
 	}()
 
@@ -150,20 +136,6 @@ func (s *State) eventLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-blockProposedV2Ch:
-			s.setHeadBlockID(e.BlockId)
-		case e := <-batchProposedPacayaCh:
-			if err := backoff.Retry(func() error {
-				batchInfo, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(e.Meta.BatchId))
-				if err != nil {
-					log.Error("Failed to fetch the latest batch info from Pacaya protocol", "error", err)
-					return err
-				}
-				s.setHeadBlockID(new(big.Int).SetUint64(batchInfo.LastBlockId))
-				return nil
-			}, backoff.WithContext(backoff.NewExponentialBackOff(), ctx)); err != nil {
-				log.Error("Failed to fetch the latest L2 head from Pacaya protocol", "error", err)
-			}
 		case e := <-transitionProvedV2Ch:
 			log.Info(
 				"✅ Transition proven",
@@ -235,18 +207,6 @@ func (s *State) setL2Head(l2Head *types.Header) {
 // GetL2Head reads the L2 head concurrent safely.
 func (s *State) GetL2Head() *types.Header {
 	return s.l2Head.Load().(*types.Header)
-}
-
-// setHeadBlockID sets the last pending block ID concurrent safely.
-func (s *State) setHeadBlockID(id *big.Int) {
-	log.Debug("New head block ID", "ID", id)
-	metrics.DriverL2HeadIDGauge.Set(float64(id.Uint64()))
-	s.l2HeadBlockID.Store(id)
-}
-
-// GetHeadBlockID reads the last pending block ID concurrent safely.
-func (s *State) GetHeadBlockID() *big.Int {
-	return s.l2HeadBlockID.Load().(*big.Int)
 }
 
 // SubL1HeadsFeed registers a subscription of new L1 heads.
