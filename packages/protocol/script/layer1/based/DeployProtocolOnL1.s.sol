@@ -251,7 +251,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
-        if (oldFork == address(0)){
+        if (oldFork == address(0)) {
             oldFork = address(new DevnetInbox());
         }
         address newFork = address(new DevnetInbox());
