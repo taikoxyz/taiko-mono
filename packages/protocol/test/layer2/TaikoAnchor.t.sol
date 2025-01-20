@@ -32,18 +32,18 @@ contract TestTaikoAnchor is Layer2Test {
         vm.fee(1);
 
         vm.prank(anchor.GOLDEN_TOUCH_ADDRESS());
-        _anchorV2(BLOCK_GAS_LIMIT);
+        _anchorV3(BLOCK_GAS_LIMIT);
 
         vm.prank(anchor.GOLDEN_TOUCH_ADDRESS());
         vm.expectRevert(TaikoAnchor.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
-        _anchorV2(BLOCK_GAS_LIMIT);
+        _anchorV3(BLOCK_GAS_LIMIT);
     }
 
     // calling anchor in the same block more than once should fail
     function test_anchor_AnchorTx_revert_from_wrong_signer() external onTaiko {
         vm.fee(1);
         vm.expectRevert(TaikoAnchor.L2_INVALID_SENDER.selector);
-        _anchorV2(BLOCK_GAS_LIMIT);
+        _anchorV3(BLOCK_GAS_LIMIT);
     }
 
     function test_anchor_AnchorTx_signing(bytes32 digest) external onTaiko {
@@ -106,7 +106,7 @@ contract TestTaikoAnchor is Layer2Test {
 
     /// forge-config: default.fuzz_runs = 2000
     /// forge-config: default.fuzz_runs_show_logs = true
-    function test_fuzz_anchorV2(
+    function test_fuzz_anchorV3(
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
@@ -157,7 +157,7 @@ contract TestTaikoAnchor is Layer2Test {
         assertTrue(newGasTarget != anchor.parentGasTarget());
     }
 
-    function _anchorV2(uint32 parentGasUsed) private {
+    function _anchorV3(uint32 parentGasUsed) private {
         bytes32 anchorStateRoot = randBytes32();
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: 8,

@@ -217,6 +217,12 @@ interface ITaikoInbox {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
+    /// @notice Emitted when a transition is written to the state by the owner.
+    /// @param batchId The ID of the batch containing the transition.
+    /// @param tid The ID of the transition within the batch.
+    /// @param tran The transition data.
+    event TransitionWritten(uint64 batchId, uint24 tid, Transition tran);
+
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
     error AnchorBlockIdTooSmall();
@@ -231,8 +237,8 @@ interface ITaikoInbox {
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InsufficientBond();
-    error InvalidForkHeight();
     error InvalidGenesisBlockHash();
+    error InvalidParams();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
