@@ -10,6 +10,7 @@ library LibStrings {
     bytes32 internal constant B_BRIDGE_WATCHDOG = bytes32("bridge_watchdog");
     bytes32 internal constant B_BRIDGED_ERC1155 = bytes32("bridged_erc1155");
     bytes32 internal constant B_BRIDGED_ERC20 = bytes32("bridged_erc20");
+    bytes32 internal constant B_ETHER_BRIDGE_WRAPPER = bytes32("ether_bridge_wrapper");
     bytes32 internal constant B_BRIDGED_ERC721 = bytes32("bridged_erc721");
     bytes32 internal constant B_CHAIN_WATCHDOG = bytes32("chain_watchdog");
     bytes32 internal constant B_ERC1155_VAULT = bytes32("erc1155_vault");
