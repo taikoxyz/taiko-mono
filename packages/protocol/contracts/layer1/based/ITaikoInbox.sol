@@ -80,6 +80,14 @@ interface ITaikoInbox {
         bytes32 stateRoot;
     }
 
+    //  @notice Struct represeting transition storage
+    struct TransitionState {
+        bytes32 parentHash;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+        bool inProvingWindow;
+    }
+
     /// @notice 3 slots used.
     struct Batch {
         bytes32 metaHash; // slot 1
@@ -157,7 +165,8 @@ interface ITaikoInbox {
         mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
-            uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId => Transition ts)
+            uint256 batchId_mod_batchRingBufferSize
+                => mapping(uint24 transitionId => TransitionState ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5
@@ -210,7 +219,7 @@ interface ITaikoInbox {
     /// @param batchId The batch ID.
     /// @param oldTran The old transition overwritten.
     /// @param newTran The new transition.
-    event ConflictingProof(uint64 batchId, Transition oldTran, Transition newTran);
+    event ConflictingProof(uint64 batchId, TransitionState oldTran, Transition newTran);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
@@ -220,8 +229,8 @@ interface ITaikoInbox {
     /// @notice Emitted when a transition is written to the state by the owner.
     /// @param batchId The ID of the batch containing the transition.
     /// @param tid The ID of the transition within the batch.
-    /// @param tran The transition data.
-    event TransitionWritten(uint64 batchId, uint24 tid, Transition tran);
+    /// @param ts The transition state written.
+    event TransitionWritten(uint64 batchId, uint24 tid, TransitionState ts);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
@@ -313,45 +322,45 @@ interface ITaikoInbox {
     /// revert if the transition is not found.
     /// @param _batchId The batch ID.
     /// @param _tid The transition ID.
-    /// @return The specified transition.
+    /// @return The specified transition state.
     function getTransition(
         uint64 _batchId,
         uint24 _tid
     )
         external
         view
-        returns (ITaikoInbox.Transition memory);
+        returns (ITaikoInbox.TransitionState memory);
 
     /// @notice Retrieves a specific transition by batch ID and parent Hash. This function may
     /// revert if the transition is not found.
     /// @param _batchId The batch ID.
     /// @param _parentHash The parent hash.
-    /// @return The specified transition.
+    /// @return The specified transition state.
     function getTransition(
         uint64 _batchId,
         bytes32 _parentHash
     )
         external
         view
-        returns (ITaikoInbox.Transition memory);
+        returns (ITaikoInbox.TransitionState memory);
 
     /// @notice Retrieves the transition used for the last verified batch.
     /// @return batchId_ The batch ID of the last verified transition.
     /// @return blockId_ The block ID of the last verified block.
-    /// @return tran_ The last verified transition.
+    /// @return ts_ The last verified transition.
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_);
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
 
     /// @notice Retrieves the transition used for the last synced batch.
     /// @return batchId_ The batch ID of the last synced transition.
     /// @return blockId_ The block ID of the last synced block.
-    /// @return tran_ The last synced transition.
+    /// @return ts_ The last synced transition.
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_);
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
 
     /// @notice Retrieves the transition used for verifying a batch.
     /// @param _batchId The batch ID.
@@ -359,7 +368,7 @@ interface ITaikoInbox {
     function getBatchVerifyingTransition(uint64 _batchId)
         external
         view
-        returns (Transition memory);
+        returns (TransitionState memory);
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.

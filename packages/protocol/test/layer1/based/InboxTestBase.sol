@@ -186,19 +186,23 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
             for (uint24 j = 1; j < batch.nextTransitionId; ++j) {
-                ITaikoInbox.Transition memory tran = inbox.getTransition(batch.batchId, j);
+                ITaikoInbox.TransitionState memory ts = inbox.getTransition(batch.batchId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",
-                    Strings.toHexString(uint256(tran.parentHash))
+                    Strings.toHexString(uint256(ts.parentHash))
                 );
                 console2.log(
                     unicode"│    │    |── blockHash:",
-                    Strings.toHexString(uint256(tran.blockHash))
+                    Strings.toHexString(uint256(ts.blockHash))
                 );
                 console2.log(
                     unicode"│    │    └── stateRoot:",
-                    Strings.toHexString(uint256(tran.stateRoot))
+                    Strings.toHexString(uint256(ts.stateRoot))
+                );
+                console2.log(
+                    unicode"│    │    └── inProvingWindow:",
+                    ts.inProvingWindow ? "true" : "false"
                 );
             }
         }

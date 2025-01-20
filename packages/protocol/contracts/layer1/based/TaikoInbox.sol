@@ -244,7 +244,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 // This transition is new, we need to use the next available ID.
                 tid = batch.nextTransitionId++;
             } else {
-                Transition memory oldTran = state.transitions[slot][tid];
+                TransitionState memory oldTran = state.transitions[slot][tid];
 
                 bool isSameTransition = oldTran.blockHash == tran.blockHash
                     && (oldTran.stateRoot == 0 || oldTran.stateRoot == tran.stateRoot);
@@ -254,30 +254,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 emit ConflictingProof(meta.batchId, oldTran, tran);
             }
 
-            Transition storage ts = state.transitions[slot][tid];
-            if (tid == 1) {
-                // Ensure that only the proposer can prove the first transition before the
-                // proving deadline.
-                unchecked {
-                    uint256 deadline =
-                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+            TransitionState storage ts = state.transitions[slot][tid];
 
-                    if (block.timestamp <= deadline && !isConflictingProof) {
-                        _creditBond(meta.proposer, meta.livenessBond);
-                    }
+            unchecked {
+                uint256 deadline =
+                    uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
 
-                    ts.parentHash = tran.parentHash;
-                }
-            } else {
-                // No need to write parent hash to storage for transitions with id != 1 as the
-                // parent hash is not used at all, instead, we need to update the parent hash to ID
-                // mapping.
-                state.transitionIds[meta.batchId][tran.parentHash] = tid;
+                ts.parentHash = tran.parentHash;
+                ts.blockHash = tran.blockHash;
+
+                ts.stateRoot =
+                    meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
+                ts.inProvingWindow = block.timestamp <= deadline;
             }
 
-            ts.stateRoot =
-                meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
-            ts.blockHash = tran.blockHash;
+            if (tid == 1) {
+                ts.parentHash = tran.parentHash;
+            } else {
+                state.transitionIds[meta.batchId][tran.parentHash] = tid;
+            }
 
             hasConflictingProof = hasConflictingProof || isConflictingProof;
         }
@@ -310,7 +305,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         uint64 _batchId,
         bytes32 _parentHash,
         bytes32 _blockHash,
-        bytes32 _stateRoot
+        bytes32 _stateRoot,
+        bool _inProvingWindow
     )
         external
         onlyOwner
@@ -328,16 +324,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             tid = batch.nextTransitionId++;
         }
 
-        Transition storage ts = state.transitions[slot][tid];
+        TransitionState storage ts = state.transitions[slot][tid];
+        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
+        ts.blockHash = _blockHash;
+        ts.inProvingWindow = _inProvingWindow;
+
         if (tid == 1) {
             ts.parentHash = _parentHash;
         } else {
             state.transitionIds[_batchId][_parentHash] = tid;
         }
 
-        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
-        ts.blockHash = _blockHash;
-        emit TransitionWritten(_batchId, tid, Transition(_parentHash, _blockHash, _stateRoot));
+        emit TransitionWritten(
+            _batchId, tid, TransitionState(_parentHash, _blockHash, _stateRoot, _inProvingWindow)
+        );
     }
 
     /// @inheritdoc ITaikoInbox
@@ -380,7 +380,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     )
         external
         view
-        returns (Transition memory tran_)
+        returns (TransitionState memory)
     {
         Config memory config = getConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
@@ -397,7 +397,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     )
         external
         view
-        returns (Transition memory)
+        returns (TransitionState memory)
     {
         Config memory config = getConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
@@ -413,22 +413,22 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
         blockId_ = getBatch(batchId_).lastBlockId;
-        tran_ = getBatchVerifyingTransition(batchId_);
+        ts_ = getBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats1.lastSyncedBatchId;
         blockId_ = getBatch(batchId_).lastBlockId;
-        tran_ = getBatchVerifyingTransition(batchId_);
+        ts_ = getBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -472,7 +472,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     function getBatchVerifyingTransition(uint64 _batchId)
         public
         view
-        returns (Transition memory tran_)
+        returns (TransitionState memory ts_)
     {
         Config memory config = getConfig();
 
@@ -481,7 +481,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         require(batch.batchId == _batchId, BatchNotFound());
 
         if (batch.verifiedTransitionId != 0) {
-            tran_ = state.transitions[slot][batch.verifiedTransitionId];
+            ts_ = state.transitions[slot][batch.verifiedTransitionId];
         }
     }
 
@@ -569,7 +569,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             batch = state.batches[slot];
 
             // FIX
-            Transition storage ts = state.transitions[slot][1];
+            TransitionState storage ts = state.transitions[slot][1];
             if (ts.parentHash == blockHash) {
                 tid = 1;
             } else {
