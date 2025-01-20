@@ -2,14 +2,24 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
+import { SP1Verifier as SuccinctVerifier } from
+    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
+import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/devnet/verifiers/OpVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
+import "src/layer1/based/ForkRouter.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -17,6 +27,10 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -236,14 +250,39 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
         });
 
-        TaikoInbox taikoInbox = TaikoInbox(address(new DevnetInbox()));
+        address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
+        if (oldFork == address(0)) {
+            oldFork = address(new DevnetInbox());
+        }
+        address newFork = address(new DevnetInbox());
+
+        address taikoInboxAddr = deployProxy({
+            name: "taiko",
+            impl: address(new ForkRouter(oldFork, newFork)),
+            data: "",
+            registerTo: rollupResolver
+        });
+
+        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+
+        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
+        address opVerifier = deployProxy({
+            name: "op_verifier",
+            impl: address(new OpVerifier(l2ChainId)),
+            data: abi.encodeCall(OpVerifier.init, (owner, rollupResolver))
+        });
+
+        address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
+
+        (address risc0Verifier, address sp1Verifier) =
+            deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
         deployProxy({
-            name: "taiko",
-            impl: address(taikoInbox),
-            data: abi.encodeCall(
-                TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
-            ),
+            name: "proof_verifier",
+            impl: address(new DevnetVerifier(opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)),
+            data: abi.encodeCall(ComposeVerifier.init, (owner, rollupResolver)),
             registerTo: rollupResolver
         });
 
@@ -253,6 +292,71 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(
                 ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
             )
+        });
+    }
+
+    function deploySgxVerifier(
+        address owner,
+        address rollupResolver,
+        uint64 l2ChainId
+    )
+        private
+        returns (address sgxVerifier)
+    {
+        sgxVerifier = deployProxy({
+            name: "sgx_verifier",
+            impl: address(new SgxVerifier(l2ChainId)),
+            data: abi.encodeCall(SgxVerifier.init, (owner, rollupResolver))
+        });
+
+        // No need to proxy these, because they are 3rd party. If we want to modify, we simply
+        // change the registerAddress("automata_dcap_attestation", address(attestation));
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        address automataProxy = deployProxy({
+            name: "automata_dcap_attestation",
+            impl: automataDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
+        console2.log("AutomataDcapVaAttestation", automataProxy);
+    }
+
+    function deployZKVerifiers(
+        address owner,
+        address rollupResolver,
+        uint64 l2ChainId
+    )
+        private
+        returns (address risc0Verifier, address sp1Verifier)
+    {
+        // Deploy r0 groth16 verifier
+        RiscZeroGroth16Verifier verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        register(rollupResolver, "risc0_groth16_verifier", address(verifier));
+
+        risc0Verifier = deployProxy({
+            name: "risc0_verifier",
+            impl: address(new Risc0Verifier(l2ChainId)),
+            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupResolver))
+        });
+
+        // Deploy sp1 plonk verifier
+        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
+        register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
+
+        sp1Verifier = deployProxy({
+            name: "sp1_verifier",
+            impl: address(new SP1Verifier(l2ChainId)),
+            data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver))
         });
     }
 
