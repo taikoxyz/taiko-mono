@@ -63,7 +63,7 @@ abstract contract Layer1Test is CommonTest {
             deploy({
                 name: "preconf_whitelist",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(address(0))
+                data: abi.encodeCall(PreconfWhitelist.init, address(0))
             })
         );
     }
@@ -73,7 +73,7 @@ abstract contract Layer1Test is CommonTest {
             deploy({
                 name: "preconf_router",
                 impl: address(new PreconfTaskManager()),
-                data: abi.encodeCall(address(0), address(resolver))
+                data: abi.encodeCall(PreconfTaskManager.init, address(0), address(resolver))
             })
         );
     }
