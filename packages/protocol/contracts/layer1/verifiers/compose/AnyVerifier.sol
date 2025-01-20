@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "./ComposeVerifier.sol";
 
-/// @title SgxOrZkVerifier
+/// @title AnyVerifier.sol
 /// @notice SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
-contract SgxOrZkVerifier is ComposeVerifier {
+contract AnyVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
     address public immutable sgxVerifier;
