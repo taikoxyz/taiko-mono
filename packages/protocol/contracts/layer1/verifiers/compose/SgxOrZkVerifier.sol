@@ -6,7 +6,7 @@ import "./ComposeVerifier.sol";
 /// @title SgxOrZkVerifier
 /// @notice SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
-contract SgxAndZkVerifier is ComposeVerifier {
+contract SgxOrZkVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
     address public immutable sgxVerifier;
