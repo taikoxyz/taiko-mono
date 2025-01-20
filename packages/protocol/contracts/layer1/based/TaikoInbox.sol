@@ -574,7 +574,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             batch = state.batches[slot];
             uint24 nextTransitionId = batch.nextTransitionId;
 
-            if (nextTransitionId == 1) break;
+            if (nextTransitionId <= 1) break;
 
             TransitionState storage ts = state.transitions[slot][1];
             if (ts.parentHash == blockHash) {
