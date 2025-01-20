@@ -72,14 +72,14 @@ contract TokenUnlock is EssentialContract {
         _;
     }
 
+    constructor(address _resolver) EssentialContract(_resolver){}
+
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
-    /// @param _rollupResolver The {IResolver} used by this rollup
     /// @param _recipient Who will be the grantee for this contract.
     /// @param _tgeTimestamp The token generation event timestamp.
     function init(
         address _owner,
-        address _rollupResolver,
         address _recipient,
         uint64 _tgeTimestamp
     )
@@ -90,7 +90,7 @@ contract TokenUnlock is EssentialContract {
     {
         if (_owner == _recipient) revert INVALID_PARAM();
 
-        __Essential_init(_owner, _rollupResolver);
+        __Essential_init(_owner);
 
         recipient = _recipient;
         tgeTimestamp = _tgeTimestamp;
@@ -117,7 +117,7 @@ contract TokenUnlock is EssentialContract {
         );
 
         bytes memory data =
-            abi.encodeCall(ProverSetBase.init, (owner(), address(this), address(resolver())));
+            abi.encodeCall(ProverSetBase.init, (owner(), address(this)));
         proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
 
         isProverSet[proverSet_] = true;

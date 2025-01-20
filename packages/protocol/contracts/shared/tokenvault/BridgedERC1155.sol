@@ -32,10 +32,12 @@ contract BridgedERC1155 is
 
     error BTOKEN_INVALID_PARAMS();
 
+    constructor(address _resolver) EssentialContract(_resolver){
+    }
+
     /// @inheritdoc IBridgedERC1155Initializable
     function init(
         address _owner,
-        address _sharedResolver,
         address _srcToken,
         uint256 _srcChainId,
         string calldata _symbol,
@@ -48,7 +50,7 @@ contract BridgedERC1155 is
         // The symbol and the name can be empty for ERC1155 tokens so we use some placeholder data
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _sharedResolver);
+        __Essential_init(_owner);
 
         // The token URI here is not important as the client will have to read the URI from the
         // canonical contract to fetch meta data.

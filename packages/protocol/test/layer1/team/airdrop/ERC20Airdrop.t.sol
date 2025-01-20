@@ -5,6 +5,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../../Layer1Test.sol";
 
 contract ERC20AirdropNoVerify is ERC20Airdrop {
+    constructor() ERC20Airdrop(address(0)){}
+
     function _verifyMerkleProof(
         bytes32[] calldata, /*proof*/
         bytes32, /*merkleRoot*/

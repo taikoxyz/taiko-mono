@@ -112,7 +112,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         external
         initializer
     {
-        __Essential_init(_owner, _rollupResolver);
+        __Essential_init(_owner);
 
         require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
         require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());

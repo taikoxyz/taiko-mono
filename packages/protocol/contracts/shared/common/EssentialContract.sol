@@ -11,8 +11,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
-    address private __resolver;
-    uint256[49] private __gapFromOldAddressResolver;
+    address public immutable resolver;
+    uint256[50] private __gapFromOldAddressResolver;
 
     /// @dev Slot 1.
     uint8 internal __reentry;
@@ -27,8 +27,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @notice Emitted when the contract is unpaused.
     /// @param account The account that unpaused the contract.
     event Unpaused(address account);
-
-    event ResolverUpdated(address oldResolver, address newResolver);
 
     error INVALID_PAUSE_STATUS();
     error FUNC_NOT_IMPLEMENTED();
@@ -111,14 +109,12 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
-    constructor() {
+    constructor(address _resolver){
+        resolver = _resolver;
         _disableInitializers();
     }
 
-    function setResolver(address _resolver) external onlyOwner {
-        emit ResolverUpdated(__resolver, _resolver);
-        __resolver = _resolver;
-    }
+  
 
     /// @notice Pauses the contract.
     function pause() public whenNotPaused {
@@ -161,25 +157,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         view
         returns (address)
     {
-        return resolver().resolve(_chainId, _name, _allowZeroAddress);
+        return IResolver(resolver).resolve(_chainId, _name, _allowZeroAddress);
     }
 
     function resolve(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
-        return resolver().resolve(block.chainid, _name, _allowZeroAddress);
+        return IResolver(resolver).resolve(block.chainid, _name, _allowZeroAddress);
     }
 
-    function resolver() public view virtual returns (IResolver) {
-        require(__resolver != address(0), RESOLVER_NOT_FOUND());
-        return IResolver(__resolver);
-    }
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _resolver The address of the {DefaultResolver} contract.
-    function __Essential_init(address _owner, address _resolver) internal nonZeroAddr(_resolver) {
-        __Essential_init(_owner);
-        __resolver = _resolver;
-    }
 
     function __Essential_init(address _owner) internal virtual onlyInitializing {
         __Context_init();

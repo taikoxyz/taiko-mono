@@ -11,6 +11,8 @@ import "../libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {ER721Vault}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetERC721Vault is ERC721Vault {
+    constructor(address _resolver) ERC721Vault(_resolver){}
+
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
     }

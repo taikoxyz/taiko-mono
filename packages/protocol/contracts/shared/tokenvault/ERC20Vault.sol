@@ -195,11 +195,13 @@ contract ERC20Vault is BaseVault {
     error VAULT_METAHASH_MISMATCH();
     error VAULT_NOT_ON_L1();
 
+    constructor(address _resolver) BaseVault(_resolver){
+    }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Change bridged token.
@@ -587,7 +589,6 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20Initializable.init,
             (
                 owner(),
-                address(resolver()),
                 ctoken.addr,
                 ctoken.chainId,
                 ctoken.decimals,

@@ -80,15 +80,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_PROOF();
     error SGX_RA_NOT_SUPPORTED();
 
-    constructor(uint64 _taikoChainId) {
+    constructor(address _resolver, uint64 _taikoChainId) EssentialContract(_resolver){
         taikoChainId = _taikoChainId;
     }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupResolver The {IResolver} used by this rollup.
-    function init(address _owner, address _rollupResolver) external initializer {
-        __Essential_init(_owner, _rollupResolver);
+       function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Adds trusted SGX instances to the registry.

@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "src/shared/signal/SignalService.sol";
 
 contract SignalService_WithoutProofVerification is SignalService {
+    constructor(address _resolver) SignalService(_resolver){}
+
     function proveSignalReceived(
         uint64, /*srcChainId*/
         address, /*app*/

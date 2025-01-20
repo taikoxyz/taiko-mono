@@ -14,6 +14,8 @@ import "test/shared/CommonTest.sol";
 contract ConfigurableInbox is TaikoInbox {
     ITaikoInbox.Config private __config;
 
+    constructor(address _resolver) TaikoInbox(_resolver){}
+
     function initWithConfig(
         address _owner,
         address _rollupResolver,

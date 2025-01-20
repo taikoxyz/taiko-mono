@@ -28,13 +28,15 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
 
+    constructor(address _resolver) BridgedERC20(_resolver){
+    }
+
     /// @inheritdoc IBridgedERC20Initializable
     /// @dev This function is called when the bridge deploys a new bridged ERC20 token, so this
     /// function must also cover the logic in init2(), we use
     /// `reinitializer(2)` instead of `initializer`.
     function init(
         address _owner,
-        address _sharedResolver,
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,
@@ -48,7 +50,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _sharedResolver);
+        __Essential_init(_owner);
         __ERC20_init(_name, _symbol);
         // Set contract properties
         srcToken = _srcToken;

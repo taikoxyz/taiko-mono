@@ -8,14 +8,11 @@ contract Fork is EssentialContract, IFork {
     bytes32 private immutable __name;
     bool private immutable __isActive;
 
-    constructor(bytes32 _name, bool _isActive) {
+    constructor(bytes32 _name, bool _isActive) EssentialContract(address(0)) {
         __name = _name;
         __isActive = _isActive;
     }
 
-    function init() external initializer {
-        __Essential_init(msg.sender);
-    }
 
     function name() public view returns (bytes32) {
         return __name;
