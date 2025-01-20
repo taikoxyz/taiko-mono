@@ -171,7 +171,7 @@ abstract contract CommonTest is Test, Script {
         return TaikoToken(
             deploy({
                 name: "taiko_token",
-                impl: address(new TaikoToken(address(resolver))),
+                impl: address(new TaikoToken()),
                 data: abi.encodeCall(TaikoToken.init, (address(0), address(this)))
             })
         );
