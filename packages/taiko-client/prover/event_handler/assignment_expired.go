@@ -49,27 +49,31 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 ) error {
-	log.Info(
-		"Proof assignment window is expired",
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-		"assignedProver", meta.TaikoBlockMetaDataOntake().GetAssignedProver(),
-		"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
-	)
-
 	var (
 		proofStatus *rpc.BlockProofStatus
 		err         error
 	)
 	// Check if we still need to generate a new proof for that block.
 	if meta.IsPacaya() {
+		log.Info(
+			"Proof assignment window is expired",
+			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"assignedProver", meta.GetProposer(),
+		)
 		if proofStatus, err = rpc.GetBatchProofStatus(
 			ctx,
 			h.rpc,
-			meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			meta.TaikoBatchMetaDataPacaya().GetBatchID(),
 		); err != nil {
 			return err
 		}
 	} else {
+		log.Info(
+			"Proof assignment window is expired",
+			"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			"assignedProver", meta.TaikoBlockMetaDataOntake().GetAssignedProver(),
+			"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
+		)
 		if proofStatus, err = rpc.GetBlockProofStatus(
 			ctx,
 			h.rpc,
