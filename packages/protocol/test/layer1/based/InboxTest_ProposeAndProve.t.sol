@@ -220,6 +220,17 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(tran.blockHash, correctBlockhash(9));
         assertEq(tran.stateRoot, bytes32(uint256(0)));
 
+        vm.expectRevert(ITaikoInbox.TransitionNotFound.selector);
+        tran = inbox.getTransition(9, uint24(0));
+
+        tran = inbox.getTransition(9, uint24(1));
+        assertEq(tran.parentHash, correctBlockhash(8));
+        assertEq(tran.blockHash, correctBlockhash(9));
+        assertEq(tran.stateRoot, bytes32(uint256(0)));
+
+        vm.expectRevert(ITaikoInbox.TransitionNotFound.selector);
+        tran = inbox.getTransition(9, tran.parentHash);
+
         (batchId, blockId, tran) = inbox.getLastSyncedTransition();
         assertEq(batchId, 5);
         assertEq(blockId, 5);
