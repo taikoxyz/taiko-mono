@@ -273,7 +273,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
 
-        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(owner, rollupResolver, l2ChainId);
+        (address risc0Verifier, address sp1Verifier) =
+            deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
         deployProxy({
             name: "proof_verifier",
@@ -291,8 +292,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function deploySgxVerifier(address owner, address rollupResolver, uint64 l2ChainId) private returns (address sgxVerifier) {
-         sgxVerifier = deployProxy({
+    function deploySgxVerifier(
+        address owner,
+        address rollupResolver,
+        uint64 l2ChainId
+    )
+        private
+        returns (address sgxVerifier)
+    {
+        sgxVerifier = deployProxy({
             name: "sgx_verifier",
             impl: address(new SgxVerifier(l2ChainId)),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupResolver))
@@ -305,7 +313,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
         address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
 
-        address automataProxy= deployProxy({
+        address automataProxy = deployProxy({
             name: "automata_dcap_attestation",
             impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
@@ -319,7 +327,14 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("AutomataDcapVaAttestation", automataProxy);
     }
 
-    function deployZKVerifiers(address owner, address rollupResolver, uint64 l2ChainId) private returns (address risc0Verifier, address sp1Verifier) {
+    function deployZKVerifiers(
+        address owner,
+        address rollupResolver,
+        uint64 l2ChainId
+    )
+        private
+        returns (address risc0Verifier, address sp1Verifier)
+    {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
