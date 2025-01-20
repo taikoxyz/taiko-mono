@@ -227,7 +227,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             uint24 tid;
             uint24 nextTransitionId = batch.nextTransitionId;
             if (nextTransitionId > 1) {
-                // This batch has been proved at least once.
+                // This batch has at least one transition.
                 if (state.transitions[slot][1].parentHash == tran.parentHash) {
                     // Overwrite the first transition.
                     tid = 1;
@@ -239,33 +239,31 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 }
             }
 
-            bool isConflictingProof;
             if (tid == 0) {
                 // This transition is new, we need to use the next available ID.
-                tid = batch.nextTransitionId++;
+                unchecked {
+                    tid = batch.nextTransitionId++;
+                }
             } else {
-                TransitionState memory oldTran = state.transitions[slot][tid];
+                TransitionState memory _ts = state.transitions[slot][tid];
 
-                bool isSameTransition = oldTran.blockHash == tran.blockHash
-                    && (oldTran.stateRoot == 0 || oldTran.stateRoot == tran.stateRoot);
+                bool isSameTransition = _ts.blockHash == tran.blockHash
+                    && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
                 require(!isSameTransition, SameTransition());
 
-                isConflictingProof = true;
-                emit ConflictingProof(meta.batchId, oldTran, tran);
+                hasConflictingProof = true;
+                emit ConflictingProof(meta.batchId, _ts, tran);
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
 
             unchecked {
-                uint256 deadline =
-                    uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
-
                 ts.parentHash = tran.parentHash;
                 ts.blockHash = tran.blockHash;
-
                 ts.stateRoot =
                     meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
-                ts.inProvingWindow = block.timestamp <= deadline;
+                ts.inProvingWindow = block.timestamp
+                    <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
             }
 
             if (tid == 1) {
@@ -273,8 +271,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             } else {
                 state.transitionIds[meta.batchId][tran.parentHash] = tid;
             }
-
-            hasConflictingProof = hasConflictingProof || isConflictingProof;
         }
 
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
