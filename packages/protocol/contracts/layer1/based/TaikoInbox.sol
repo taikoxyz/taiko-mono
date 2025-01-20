@@ -130,8 +130,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             lastBlockTimestamp: lastBlockTimestamp,
             parentMetaHash: lastBatch.metaHash,
             proposer: params.proposer,
-            livenessBond: config.livenessBondBase
-                + config.livenessBondPerBlock * uint96(params.blocks.length),
+           
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
             txListOffset: params.txListOffset,
@@ -163,12 +162,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         batch.reserved4 = 0;
         // SSTORE }}
 
+
+        uint96 livenessBond = config.livenessBondBase
+                + config.livenessBondPerBlock * uint96(params.blocks.length);
         // SSTORE #3 {{
         if (stats2.numBatches == config.forkHeights.pacaya) {
             batch.lastBlockId = batch.batchId + uint8(params.blocks.length) - 1;
         } else {
             batch.lastBlockId = lastBatch.lastBlockId + uint8(params.blocks.length);
         }
+        batch.livenessBond = livenessBond;
         batch._reserved3 = 0;
         // SSTORE }}
 
@@ -177,7 +180,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
         }
 
-        _debitBond(params.proposer, meta_.livenessBond);
+        _debitBond(params.proposer, livenessBond);
         emit BatchProposed(meta_, calldataUsed, _txList);
 
         _verifyBatches(config, stats2, 1);
@@ -324,6 +327,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
         ts.blockHash = _blockHash;
         ts.inProvingWindow = _inProvingWindow;
+        ts.prover = msg.sender;
 
         if (tid == 1) {
             ts.parentHash = _parentHash;
@@ -332,7 +336,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         }
 
         emit TransitionWritten(
-            _batchId, tid, TransitionState(_parentHash, _blockHash, _stateRoot, _inProvingWindow)
+            _batchId, tid, TransitionState(_parentHash, _blockHash, _stateRoot, _inProvingWindow, msg.sender)
         );
     }
 
@@ -570,14 +574,22 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             TransitionState storage ts = state.transitions[slot][1];
             if (ts.parentHash == blockHash) {
                 tid = 1;
-            } else {
+            } else if (nextTransitionId > 2){
                 uint24 _tid = state.transitionIds[batchId][blockHash];
                 if (_tid == 0) break;
                 tid = _tid;
                 ts = state.transitions[slot][tid];
+            } else {
+                break;
             }
 
             blockHash = ts.blockHash;
+
+            if (ts.inProvingWindow) {
+                _creditBond(batch.proposer, batch.livenessBond);
+            } else {
+                _creditBond(ts.prover, batch.livenessBond);
+            }
 
             if (batchId % _config.stateRootSyncInternal == 0) {
                 synced.batchId = batchId;

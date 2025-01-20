@@ -58,7 +58,6 @@ interface ITaikoInbox {
         uint64 lastBlockTimestamp;
         bytes32 parentMetaHash;
         address proposer;
-        uint96 livenessBond;
         uint64 proposedAt; // Used by node/client
         uint64 proposedIn; // Used by node/client
         uint32 txListOffset;
@@ -86,13 +85,15 @@ interface ITaikoInbox {
         bytes32 blockHash;
         bytes32 stateRoot;
         bool inProvingWindow;
+        address prover;
     }
 
     /// @notice 3 slots used.
     struct Batch {
         bytes32 metaHash; // slot 1
         uint64 lastBlockId;
-        uint192 _reserved3;
+        uint96 _reserved3;
+        uint96 livenessBond;
         uint64 batchId; // slot 3
         uint64 lastBlockTimestamp;
         uint64 anchorBlockId;
