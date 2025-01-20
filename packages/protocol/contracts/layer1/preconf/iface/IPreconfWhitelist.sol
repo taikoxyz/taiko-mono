@@ -14,6 +14,7 @@ interface IPreconfWhitelist {
 
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
+    error InvalidOperatorAddress();
 
     /// @notice Adds a new operator to the whitelist.
     /// @param _operatorAddress The address of the operator to be added.

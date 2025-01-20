@@ -23,6 +23,12 @@ contract WhitelistTest is WhitelistTestBase {
         whitelist.addOperator(operator);
     }
 
+    function test_addOperator_invalidAddress() external {
+        vm.prank(whitelistOwner);
+        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.addOperator(address(0));
+    }
+
     function test_removeOperator() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;

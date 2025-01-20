@@ -10,6 +10,8 @@ import "src/shared/common/EssentialContract.sol";
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IPreconfRouter {
+    uint256[50] private __gap;
+
     function init(address _owner, address _sharedResolver) external initializer {
         __Essential_init(_owner, _sharedResolver);
     }
@@ -21,20 +23,18 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         bytes calldata _batchTxList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
         address selectedOperator =
             IPreconfWhitelist(resolve(LibStrings.B_PRECONF_WHITELIST, false)).getOperatorForEpoch();
-        require(msg.sender == selectedOperator, NOT_THE_OPERATOR());
-
-        // Force set the `proposer` field in the batch params to be the sender
-        ITaikoInbox.BatchParams memory batchParams =
-            abi.decode(_batchParams, (ITaikoInbox.BatchParams));
-        batchParams.proposer = msg.sender;
+        require(msg.sender == selectedOperator, NotTheOperator());
 
         // Call the proposeBatch function on the TaikoInbox
         address taikoInbox = resolve(LibStrings.B_TAIKO, false);
-        return ITaikoInbox(taikoInbox).proposeBatch(abi.encode(batchParams), _batchTxList);
+        meta_ = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
+
+        // Verify that the sender had set itself as the proposer
+        require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
     }
 }

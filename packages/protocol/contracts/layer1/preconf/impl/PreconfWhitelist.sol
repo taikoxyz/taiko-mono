@@ -16,6 +16,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     // Maps operator index to their corresponding operator addresses
     mapping(uint256 operatorIndex => address operator) public operatorIndexToOperator;
 
+    uint256[50] private __gap;
+
     function init(address _owner, address _sharedResolver) external initializer {
         __Essential_init(_owner, _sharedResolver);
     }
@@ -25,12 +27,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         external
         onlyFromOwnerOrNamed(LibStrings.B_PRECONF_WHITELIST_OWNER)
     {
+        require(_operatorAddress != address(0), InvalidOperatorAddress());
+
         // For simplicity, we assume that the whitelist owner does not add the same operator more
         // than once.
-        operatorIndexToOperator[operatorCount] = _operatorAddress;
-        unchecked {
-            ++operatorCount;
-        }
+        operatorIndexToOperator[operatorCount++] = _operatorAddress;
 
         emit OperatorAdded(_operatorAddress);
     }
@@ -49,9 +50,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             // Bring the last operator to this operator's index
             address lastOperator = operatorIndexToOperator[_operatorCount - 1];
             operatorIndexToOperator[_operatorIndex] = lastOperator;
-
-            // Remove the now duplicate operator at the last index
-            delete operatorIndexToOperator[_operatorCount - 1];
 
             --operatorCount;
         }
