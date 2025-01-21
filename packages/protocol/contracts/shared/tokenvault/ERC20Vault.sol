@@ -68,8 +68,8 @@ contract ERC20Vault is BaseVault {
         uint256 amount;
         // Fields below are used to constrain a solve operation to only pass if an L2 batch
         // containing the initial "intent" transaction is included.
-        uint64 l2BlockId;
-        bytes32 l2BlockMetaHash;
+        uint64 l2BatchId;
+        bytes32 l2BatchMetaHash;
     }
 
     /// @notice Mappings from bridged tokens to their canonical tokens.
@@ -195,11 +195,12 @@ contract ERC20Vault is BaseVault {
     error VAULT_METAHASH_MISMATCH();
     error VAULT_NOT_ON_L1();
 
+    constructor(address _resolver) BaseVault(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Change bridged token.
@@ -405,13 +406,13 @@ contract ERC20Vault is BaseVault {
     // to the recipient.
     /// @param _op Parameters for the solve operation
     function solve(SolverOp memory _op) external nonReentrant whenNotPaused {
-        if (_op.l2BlockMetaHash != 0) {
+        if (_op.l2BatchMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
             address taiko = resolve(LibStrings.B_TAIKO, false);
             require(ITaiko(taiko).isOnL1(), VAULT_NOT_ON_L1());
 
-            bytes32 l2BlockMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BlockId).metaHash;
-            require(l2BlockMetaHash == _op.l2BlockMetaHash, VAULT_METAHASH_MISMATCH());
+            bytes32 l2BatchMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BatchId).metaHash;
+            require(l2BatchMetaHash == _op.l2BatchMetaHash, VAULT_METAHASH_MISMATCH());
         }
 
         // Record the solver's address
@@ -585,15 +586,7 @@ contract ERC20Vault is BaseVault {
     function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
         bytes memory data = abi.encodeCall(
             IBridgedERC20Initializable.init,
-            (
-                owner(),
-                address(resolver()),
-                ctoken.addr,
-                ctoken.chainId,
-                ctoken.decimals,
-                ctoken.symbol,
-                ctoken.name
-            )
+            (owner(), ctoken.addr, ctoken.chainId, ctoken.decimals, ctoken.symbol, ctoken.name)
         );
 
         btoken = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC20, false), data));

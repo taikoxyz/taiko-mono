@@ -15,11 +15,14 @@ contract DevnetVerifier is ComposeVerifier {
     address public immutable sp1Verifier;
 
     constructor(
+        address _resolver,
         address _opVerifier,
         address _sgxVerifier,
         address _risc0Verifier,
         address _sp1Verifier
-    ) {
+    )
+        EssentialContract(_resolver)
+    {
         opVerifier = _opVerifier;
         sgxVerifier = _sgxVerifier;
         risc0Verifier = _risc0Verifier;

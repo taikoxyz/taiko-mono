@@ -11,6 +11,8 @@ import "./libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is TaikoInbox {
+    constructor(address _resolver) TaikoInbox(_resolver) { }
+
     function getConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
@@ -20,7 +22,7 @@ contract MainnetInbox is TaikoInbox {
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!
-            maxBatchProposals: 324_000, // DO NOT CHANGE!!!
+            maxUnverifiedBatches: 324_000, // DO NOT CHANGE!!!
             batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,

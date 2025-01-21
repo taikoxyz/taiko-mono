@@ -11,10 +11,12 @@ contract UpgradeHeklaOntakeL1 is BaseScript {
     function run() external broadcast {
         // Taiko
         UUPSUpgradeable(0x79C9109b764609df928d16fC4a91e9081F7e87DB).upgradeTo(
-            address(new HeklaInbox())
+            address(new HeklaInbox(address(resolver)))
         );
         // Bridge
-        UUPSUpgradeable(0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807).upgradeTo(address(new Bridge()));
+        UUPSUpgradeable(0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807).upgradeTo(
+            address(new Bridge(address(resolver)))
+        );
         // Rollup address manager
         UUPSUpgradeable(0x1F027871F286Cf4B7F898B21298E7B3e090a8403).upgradeTo(
             address(new DefaultResolver())
@@ -25,10 +27,10 @@ contract UpgradeHeklaOntakeL1 is BaseScript {
         );
         // Prover set
         UUPSUpgradeable(0xD3f681bD6B49887A48cC9C9953720903967E9DC0).upgradeTo(
-            address(new ProverSet())
+            address(new ProverSet(address(resolver)))
         );
         UUPSUpgradeable(0x335103c4fa2F55451975082136F1478eCFeB84B9).upgradeTo(
-            address(new ProverSet())
+            address(new ProverSet(address(resolver)))
         );
     }
 }

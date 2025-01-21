@@ -7,7 +7,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            maxBatchProposals: 10,
+            maxUnverifiedBatches: 10,
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
@@ -78,7 +78,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     function test_inbox_max_batch_proposal()
         external
         transactBy(Alice)
-        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(10)
         WhenLogAllBatchesAndTransitions
     {
         // - All stats are correct and expected
@@ -88,7 +88,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats1.lastSyncedAt, 0);
 
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
-        assertEq(stats2.numBatches, 10);
+        assertEq(stats2.numBatches, 11);
         assertEq(stats2.lastVerifiedBatchId, 0);
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
@@ -104,7 +104,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.verifiedTransitionId, 1);
 
         // Verify block data
-        for (uint64 i = 1; i < 10; ++i) {
+        for (uint64 i = 1; i <= 10; ++i) {
             batch = inbox.getBatch(i);
             assertEq(batch.batchId, i);
             assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
@@ -123,7 +123,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     function test_inbox_exceed_max_batch_proposal_will_revert()
         external
         transactBy(Alice)
-        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(10)
         WhenLogAllBatchesAndTransitions
     {
         // - Proposing one block block will revert
