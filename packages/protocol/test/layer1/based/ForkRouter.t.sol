@@ -36,37 +36,37 @@ contract TestForkRouter is Layer1Test {
             data: abi.encodeCall(Fork.init, ())
         });
 
-        assertTrue(ForkRouter(payable(proxy)).isForkRouter());
-        assertEq(Fork(proxy).name(), "fork1");
+        assertTrue(ForkRouter(payable(router)).isForkRouter());
+        assertEq(Fork(router).name(), "fork1");
 
         // If we upgrade the proxy's impl to a fork, then alling isForkRouter will throw,
         // so we should never do this in production.
 
-        Fork(proxy).upgradeTo(fork1);
+        Fork(router).upgradeTo(fork1);
         vm.expectRevert();
-        ForkRouter(payable(proxy)).isForkRouter();
+        ForkRouter(payable(router)).isForkRouter();
 
         address fork2 = address(new Fork("fork2", true));
-        Fork(proxy).upgradeTo(address(new ForkRouter(fork1, fork2)));
-        assertEq(Fork(proxy).name(), "fork2");
+        Fork(router).upgradeTo(address(new ForkRouter(fork1, fork2)));
+        assertEq(Fork(router).name(), "fork2");
     }
 
     function test_ForkManager_routing_to_old_fork() public transactBy(deployer) {
         address fork1 = address(new Fork("fork1", false));
         address fork2 = address(new Fork("fork2", false));
 
-        address proxy = deploy({
+        address router = deploy({
             name: "fork_router",
             impl: address(new ForkRouter(fork1, fork2)),
             data: abi.encodeCall(Fork.init, ())
         });
 
-        assertTrue(ForkRouter(payable(proxy)).isForkRouter());
-        assertEq(Fork(proxy).name(), "fork1");
+        assertTrue(ForkRouter(payable(router)).isForkRouter());
+        assertEq(Fork(router).name(), "fork1");
 
         fork2 = address(new Fork("fork2", true));
-        Fork(proxy).upgradeTo(address(new ForkRouter(fork1, fork2)));
-        assertTrue(ForkRouter(payable(proxy)).isForkRouter());
-        assertEq(Fork(proxy).name(), "fork2");
+        Fork(router).upgradeTo(address(new ForkRouter(fork1, fork2)));
+        assertTrue(ForkRouter(payable(router)).isForkRouter());
+        assertEq(Fork(router).name(), "fork2");
     }
 }
