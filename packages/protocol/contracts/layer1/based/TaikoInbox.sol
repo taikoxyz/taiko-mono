@@ -174,7 +174,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
 
             _debitBond(params.proposer, meta_.livenessBond);
-            emit BatchProposed(meta_, new bytes(0), _txList);
+            emit BatchProposed(meta_, forcedTxList, _txList);
         } // end-of-unchecked
 
         _verifyBatches(config, stats2, 1);
