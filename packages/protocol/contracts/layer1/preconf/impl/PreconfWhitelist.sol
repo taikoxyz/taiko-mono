@@ -18,8 +18,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     uint256[50] private __gap;
 
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @inheritdoc IPreconfWhitelist

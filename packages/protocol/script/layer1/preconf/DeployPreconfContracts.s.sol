@@ -20,15 +20,15 @@ contract DeployPreconfContracts is BaseScript {
         // Deploy PreconfWhitelist
         deploy(
             LibStrings.B_PRECONF_WHITELIST,
-            address(new PreconfWhitelist()),
-            abi.encodeCall(PreconfWhitelist.init, (contractOwner, sharedResolver))
+            address(new PreconfWhitelist(sharedResolver)),
+            abi.encodeCall(PreconfWhitelist.init, (contractOwner))
         );
 
         // Deploy PreconfRouter
         deploy(
             LibStrings.B_PRECONF_ROUTER,
-            address(new PreconfRouter()),
-            abi.encodeCall(PreconfRouter.init, (contractOwner, sharedResolver))
+            address(new PreconfRouter(sharedResolver)),
+            abi.encodeCall(PreconfRouter.init, (contractOwner))
         );
     }
 }

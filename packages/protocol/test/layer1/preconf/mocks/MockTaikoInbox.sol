@@ -7,8 +7,10 @@ import "src/shared/common/EssentialContract.sol";
 contract MockTaikoInbox is EssentialContract {
     bytes32 internal metaHash;
 
-    function init(address _owner, address _resolver) external initializer {
-        __Essential_init(_owner, _resolver);
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     function proposeBatch(
@@ -36,6 +38,7 @@ contract MockTaikoInbox is EssentialContract {
             proposedIn: uint64(block.number),
             txListOffset: params.txListOffset,
             txListSize: params.txListSize,
+            firstBlobIndex: 0,
             numBlobs: params.numBlobs,
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value

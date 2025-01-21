@@ -20,16 +20,16 @@ abstract contract RouterTestBase is Layer1Test {
 
         deploy({
             name: "taiko",
-            impl: address(new MockTaikoInbox()),
-            data: abi.encodeCall(MockTaikoInbox.init, (address(0), address(resolver)))
+            impl: address(new MockTaikoInbox(address(resolver))),
+            data: abi.encodeCall(MockTaikoInbox.init, (address(0)))
         });
 
         // Deploy and initialize whitelist first
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, address(resolver)))
+                impl: address(new PreconfWhitelist(address(resolver))),
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner))
             })
         );
 
@@ -37,8 +37,8 @@ abstract contract RouterTestBase is Layer1Test {
         router = PreconfRouter(
             deploy({
                 name: "preconf_router",
-                impl: address(new PreconfRouter()),
-                data: abi.encodeCall(PreconfRouter.init, (routerOwner, address(resolver)))
+                impl: address(new PreconfRouter(address(resolver))),
+                data: abi.encodeCall(PreconfRouter.init, (routerOwner))
             })
         );
     }
