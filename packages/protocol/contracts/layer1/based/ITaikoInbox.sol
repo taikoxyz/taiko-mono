@@ -208,8 +208,9 @@ interface ITaikoInbox {
 
     /// @notice Emitted when a batch is proposed.
     /// @param meta The metadata of the proposed batch.
-    /// @param txListInCalldata The tx list in calldata.
-    event BatchProposed(BatchMetadata meta, bytes txListInCalldata);
+    /// @param forcedTxList The forced transactions.
+    /// @param txList The tx list in calldata.
+    event BatchProposed(BatchMetadata meta, bytes forcedTxList, bytes txList);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -372,12 +373,14 @@ interface ITaikoInbox {
         returns (TransitionState memory);
 
     /// @notice Calculates the hash of transaction list (DA) hash.
-    /// @param _txListInCallDataHash The hash of the transaction list.
+    /// @param _forcedTxListHash The hash of forced transactions.
+    /// @param _txListHash The hash of the transaction list.
     /// @param _firstBlobIndex The index of the first blob.
     /// @param _numBlobs The number of blobs.
     /// @return The calculated hash of the transaction list.
     function calcTxListHash(
-        bytes32 _txListInCallDataHash,
+        bytes32 _forcedTxListHash,
+        bytes32 _txListHash,
         uint8 _firstBlobIndex,
         uint8 _numBlobs
     )

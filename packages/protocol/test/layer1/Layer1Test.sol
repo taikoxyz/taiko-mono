@@ -32,7 +32,17 @@ contract ConfigurableInbox is TaikoInbox {
         return __config;
     }
 
-    function calcTxListHash(bytes32, uint8, uint8) public pure override returns (bytes32) {
+    function calcTxListHash(
+        bytes32,
+        bytes32,
+        uint8,
+        uint8
+    )
+        public
+        pure
+        override
+        returns (bytes32)
+    {
         return keccak256("BLOB");
     }
 }

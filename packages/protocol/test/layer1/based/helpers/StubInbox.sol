@@ -69,7 +69,7 @@ contract StubInbox is ITaikoInbox {
 
     function getStats2() external view returns (Stats2 memory) { }
 
-    function calcTxListHash(bytes32, uint8, uint8) public view returns (bytes32) { }
+    function calcTxListHash(bytes32, bytes32, uint8, uint8) public view returns (bytes32) { }
 
     function getConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
 }

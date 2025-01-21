@@ -44,13 +44,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded BlockParams.
-    /// @param _txListInCalldata The transaction list in calldata. The actual txList is the
-    /// concatenation of `_txList` and bytes segment [txListOffset, txListOffset + txListSize] from
-    /// blobs.
+    /// @param _txList The transaction list in calldata. The actual txList is the concatenation of
+    /// `_txList` and bytes segment [txListOffset, txListOffset + txListSize] from blobs.
     /// @return meta_ Batch metadata.
     function proposeBatch(
         bytes calldata _params,
-        bytes calldata _txListInCalldata
+        bytes calldata _txList
     )
         external
         nonReentrant
@@ -112,7 +111,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             meta_ = BatchMetadata({
                 txListHash: calcTxListHash(
-                    keccak256(_txListInCalldata), params.firstBlobIndex, params.numBlobs
+                    0, keccak256(_txList), params.firstBlobIndex, params.numBlobs
                 ),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
@@ -169,7 +168,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
 
             _debitBond(params.proposer, meta_.livenessBond);
-            emit BatchProposed(meta_, _txListInCalldata);
+            emit BatchProposed(meta_, new bytes(0), _txList);
         } // end-of-unchecked
 
         _verifyBatches(config, stats2, 1);
@@ -483,6 +482,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     /// @inheritdoc ITaikoInbox
     function calcTxListHash(
+        bytes32 _forcedTxListHash,
         bytes32 _txListHash,
         uint8 _firstBlobIndex,
         uint8 _numBlobs
@@ -493,12 +493,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         returns (bytes32)
     {
         unchecked {
-            bytes32[] memory hashes = new bytes32[](_numBlobs + 1);
+            bytes32[] memory hashes = new bytes32[](_numBlobs + 2);
+            hashes[0] = _txListHash;
+            hashes[1] = _forcedTxListHash;
+
             for (uint256 i; i < _numBlobs; ++i) {
-                hashes[i] = blobhash(_firstBlobIndex + i);
-                require(hashes[i] != 0, BlobNotFound());
+                hashes[2 + i] = blobhash(_firstBlobIndex + i);
+                require(hashes[2 + i] != 0, BlobNotFound());
             }
-            hashes[_numBlobs] = _txListHash;
+
             return keccak256(abi.encode(hashes));
         }
     }
