@@ -489,7 +489,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     // Internal functions ----------------------------------------------------------------------
 
-    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal {
+    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
         __Essential_init(_owner);
 
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());

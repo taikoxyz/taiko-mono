@@ -13,7 +13,7 @@ contract Fork is EssentialContract, IFork {
         __isActive = _isActive;
     }
 
-    function init() external {
+    function init() external initializer {
         __Essential_init(address(0));
     }
 
@@ -36,19 +36,19 @@ contract TestForkRouter is Layer1Test {
             data: abi.encodeCall(Fork.init, ())
         });
 
-        // assertTrue(ForkRouter(payable(proxy)).isForkRouter());
-        // assertEq(Fork(proxy).name(), "fork1");
+        assertTrue(ForkRouter(payable(proxy)).isForkRouter());
+        assertEq(Fork(proxy).name(), "fork1");
 
-        // // If we upgrade the proxy's impl to a fork, then alling isForkRouter will throw,
-        // // so we should never do this in production.
+        // If we upgrade the proxy's impl to a fork, then alling isForkRouter will throw,
+        // so we should never do this in production.
 
-        // Fork(proxy).upgradeTo(fork1);
-        // vm.expectRevert();
-        // ForkRouter(payable(proxy)).isForkRouter();
+        Fork(proxy).upgradeTo(fork1);
+        vm.expectRevert();
+        ForkRouter(payable(proxy)).isForkRouter();
 
-        // address fork2 = address(new Fork("fork2", true));
-        // Fork(proxy).upgradeTo(address(new ForkRouter(fork1, fork2)));
-        // assertEq(Fork(proxy).name(), "fork2");
+        address fork2 = address(new Fork("fork2", true));
+        Fork(proxy).upgradeTo(address(new ForkRouter(fork1, fork2)));
+        assertEq(Fork(proxy).name(), "fork2");
     }
 
     function test_ForkManager_routing_to_old_fork() public transactBy(deployer) {

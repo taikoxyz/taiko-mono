@@ -26,7 +26,7 @@ contract ForkRouter is UUPSUpgradeable, Ownable2StepUpgradeable {
         require(_oldFork != address(0) || IFork(_newFork).isForkActive(), NewForkNotActive());
         oldFork = _oldFork;
         newFork = _newFork;
-    _disableInitializers();
+        _disableInitializers();
     }
 
     fallback() external payable virtual {
