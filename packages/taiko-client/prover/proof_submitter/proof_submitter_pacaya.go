@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -239,7 +240,7 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 				return nil
 			}
 			metrics.ProverSubmissionErrorCounter.Add(1)
-			return err
+			return encoding.TryParsingCustomError(err)
 		}
 	} else {
 		// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
@@ -265,7 +266,7 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 				return nil
 			}
 			metrics.ProverSubmissionErrorCounter.Add(1)
-			return err
+			return encoding.TryParsingCustomError(err)
 		}
 	}
 
