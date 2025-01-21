@@ -11,7 +11,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
-    address public immutable resolver;
+    address private immutable __resolver;
     uint256[50] private __gapFromOldAddressResolver;
 
     /// @dev Slot 1.
@@ -110,7 +110,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     }
 
     constructor(address _resolver) {
-        resolver = _resolver;
+        __resolver = _resolver;
         _disableInitializers();
     }
 
@@ -146,6 +146,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return _loadReentryLock() == _TRUE;
     }
 
+    /// @notice Resolves a name to an address on a specific chain
+    /// @param _chainId The chain ID to resolve the name on
+    /// @param _name The name to resolve
+    /// @param _allowZeroAddress Whether to allow resolving to the zero address
+    /// @return The resolved address
     function resolve(
         uint64 _chainId,
         bytes32 _name,
@@ -155,11 +160,21 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         view
         returns (address)
     {
-        return IResolver(resolver).resolve(_chainId, _name, _allowZeroAddress);
+        return IResolver(resolver()).resolve(_chainId, _name, _allowZeroAddress);
     }
 
+    /// @notice Resolves a name to an address on the current chain
+    /// @param _name The name to resolve
+    /// @param _allowZeroAddress Whether to allow resolving to the zero address
+    /// @return The resolved address
     function resolve(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
-        return IResolver(resolver).resolve(block.chainid, _name, _allowZeroAddress);
+        return IResolver(resolver()).resolve(block.chainid, _name, _allowZeroAddress);
+    }
+
+    /// @notice Returns the address of this contract.
+    /// @return The address of this contract.
+    function resolver() public view virtual returns (address) {
+        return __resolver;
     }
 
     function __Essential_init(address _owner) internal virtual onlyInitializing {

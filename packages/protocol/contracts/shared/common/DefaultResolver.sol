@@ -13,7 +13,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
 
     uint256[49] private __gap;
 
-    constructor() EssentialContract(address(this)) { }
+    constructor() EssentialContract(address(0)) { }
 
     /// @notice Emitted when an address is registered.
     /// @param chainId The chainId for the address mapping.
@@ -46,6 +46,12 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         address oldAddress = __addresses[_chainId][_name];
         __addresses[_chainId][_name] = _newAddress;
         emit AddressRegistered(_chainId, _name, _newAddress, oldAddress);
+    }
+
+    /// @notice Returns the address of this contract.
+    /// @return The address of this contract.
+    function resolver() public view override returns (address) {
+        return address(this);
     }
 
     function getAddress(uint256 _chainId, bytes32 _name) internal view override returns (address) {
