@@ -63,13 +63,13 @@ contract EtherBridgeWrapper is EssentialContract {
     /// @notice Emitted when a bridging intent is solved
     event EtherSolved(bytes32 indexed solverCondition, address solver);
 
-    error INVALID_AMOUNT();
-    error INSUFFICIENT_VALUE();
-    error ETHER_BRIDGE_PERMISSION_DENIED();
-    error ETHER_BRDIGE_INVALID_TO_ADDR();
-    error VAULT_NOT_ON_L1();
-    error VAULT_METAHASH_MISMATCH();
-    error VAULT_ALREADY_SOLVED();
+    error InvalidAmount();
+    error InsufficientValue();
+    error EtherBridgePermissionDenied();
+    error EtherBridgeInvalidToAddr();
+    error VaultNotOnL1();
+    error VaultMetahashMismatch();
+    error VaultAlreadySolved();
 
     /// @notice Mapping from solver condition to the address of solver
     mapping(bytes32 solverCondition => address solver) public solverConditionToSolver;
@@ -91,8 +91,8 @@ contract EtherBridgeWrapper is EssentialContract {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
-        if (_op.amount == 0) revert INVALID_AMOUNT();
-        if (msg.value < _op.amount + _op.fee + _op.solverFee) revert INSUFFICIENT_VALUE();
+        if (_op.amount == 0) revert InvalidAmount();
+        if (msg.value < _op.amount + _op.fee + _op.solverFee) revert InsufficientValue();
 
         address bridge = resolve(LibStrings.B_BRIDGE, false);
 
@@ -180,15 +180,15 @@ contract EtherBridgeWrapper is EssentialContract {
         if (_op.l2BatchMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
             address taiko = resolve(LibStrings.B_TAIKO, false);
-            if (!ITaiko(taiko).isOnL1()) revert VAULT_NOT_ON_L1();
+            if (!ITaiko(taiko).isOnL1()) revert VaultNotOnL1();
 
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BatchId).metaHash;
-            if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
+            if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VaultMetahashMismatch();
         }
 
         // Record the solver's address
         bytes32 solverCondition = getSolverCondition(_op.nonce, _op.to, _op.amount);
-        if (solverConditionToSolver[solverCondition] != address(0)) revert VAULT_ALREADY_SOLVED();
+        if (solverConditionToSolver[solverCondition] != address(0)) revert VaultAlreadySolved();
         solverConditionToSolver[solverCondition] = msg.sender;
 
         // Transfer the Ether to the recipient
@@ -222,11 +222,11 @@ contract EtherBridgeWrapper is EssentialContract {
     {
         ctx_ = IBridge(msg.sender).context();
         address selfOnSourceChain = resolve(ctx_.srcChainId, name(), false);
-        if (ctx_.from != selfOnSourceChain) revert ETHER_BRIDGE_PERMISSION_DENIED();
+        if (ctx_.from != selfOnSourceChain) revert EtherBridgePermissionDenied();
     }
 
     function checkToAddress(address _to) internal view {
-        if (_to == address(0) || _to == address(this)) revert ETHER_BRDIGE_INVALID_TO_ADDR();
+        if (_to == address(0) || _to == address(this)) revert EtherBridgeInvalidToAddr();
     }
 
     function name() public pure returns (bytes32) {
