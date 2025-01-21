@@ -21,6 +21,7 @@ lint:
 test:
 	@PACKAGE=${PACKAGE} \
 	L2_NODE=$${L2_NODE:-l2_geth} \
+	DEPLOY_OLD_FORK="true" \
 	RUN_TESTS=true \
 		./integration_test/entrypoint.sh
 

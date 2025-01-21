@@ -14,6 +14,28 @@ check_command "docker"
 internal/docker/start.sh
 trap "internal/docker/stop.sh" EXIT INT KILL ERR
 
+# deploy old fork l1 contracts
+if [ $DEPLOY_OLD_FORK ];then
+    echo "Deploying old fork contracts....."
+    git checkout protocol-v1.11.0
+    source integration_test/l1_env.sh
+    cd ../protocol && pnpm clean && pnpm install &&
+    forge script script/layer1/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
+      --fork-url "$L1_HTTP" \
+      --broadcast \
+      --ffi \
+      -vvvvv \
+      --evm-version cancun \
+      --private-key "$PRIVATE_KEY" \
+      --block-gas-limit 200000000 \
+      --legacy
+    export OLD_FORK_TAIKO_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
+    echo "Old fork taiko inbox contract: $OLD_FORK_TAIKO_INBOX"
+    git checkout pacaya_fork && pnpm clean && pnpm install && cd ../taiko-client
+  else
+    echo "Don't deploy old fork contracts"
+fi
+
 # deploy l1 contracts
 integration_test/deploy_l1_contract.sh
 
