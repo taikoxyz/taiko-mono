@@ -32,6 +32,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     using LibMath for uint256;
 
     State public state; // storage layout much match Ontake fork
+    uint256[50] private __gap;
 
     // External functions ------------------------------------------------------------------------
 
