@@ -113,7 +113,9 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(taikoAnchorProxy.owner());
 
-        taikoAnchorProxy.upgradeTo(address(new TaikoAnchor(0)));
+        taikoAnchorProxy.upgradeTo(
+            address(new TaikoAnchor(getPredeployedContractAddress("RollupResolver"), 0))
+        );
 
         vm.stopPrank();
     }
@@ -176,7 +178,7 @@ contract TestGenerateGenesis is Test {
         bridgeProxy.unpause();
         assertEq(bridgeProxy.paused(), false);
 
-        bridgeProxy.upgradeTo(address(new Bridge()));
+        bridgeProxy.upgradeTo(address(new Bridge(getPredeployedContractAddress("SharedResolver"))));
 
         vm.stopPrank();
     }
@@ -198,7 +200,9 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(erc20VaultProxy.owner());
 
-        erc20VaultProxy.upgradeTo(address(new ERC20Vault()));
+        erc20VaultProxy.upgradeTo(
+            address(new ERC20Vault(getPredeployedContractAddress("SharedResolver")))
+        );
 
         vm.stopPrank();
     }
@@ -220,7 +224,9 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(erc721VaultProxy.owner());
 
-        erc721VaultProxy.upgradeTo(address(new ERC721Vault()));
+        erc721VaultProxy.upgradeTo(
+            address(new ERC721Vault(getPredeployedContractAddress("SharedResolver")))
+        );
 
         vm.stopPrank();
     }
@@ -244,7 +250,9 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(erc1155VaultProxy.owner());
 
-        erc1155VaultProxy.upgradeTo(address(new ERC1155Vault()));
+        erc1155VaultProxy.upgradeTo(
+            address(new ERC1155Vault(getPredeployedContractAddress("SharedResolver")))
+        );
 
         vm.stopPrank();
     }
@@ -262,7 +270,9 @@ contract TestGenerateGenesis is Test {
         // SignalService signalService =
         //     SignalService(payable(getPredeployedContractAddress("SignalServiceImpl")));
 
-        signalServiceProxy.upgradeTo(address(new SignalService()));
+        signalServiceProxy.upgradeTo(
+            address(new SignalService(getPredeployedContractAddress("SharedResolver")))
+        );
 
         vm.stopPrank();
     }
