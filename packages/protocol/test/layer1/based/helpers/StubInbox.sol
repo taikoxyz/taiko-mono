@@ -35,7 +35,7 @@ contract StubInbox is ITaikoInbox {
         external
         view
         virtual
-        returns (ITaikoInbox.Transition memory)
+        returns (ITaikoInbox.TransitionState memory)
     { }
 
     function getTransition(
@@ -44,25 +44,25 @@ contract StubInbox is ITaikoInbox {
     )
         external
         view
-        returns (ITaikoInbox.Transition memory)
+        returns (ITaikoInbox.TransitionState memory)
     { }
 
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory)
     { }
 
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory)
     { }
 
     function getBatchVerifyingTransition(uint64 _batchId)
         external
         view
-        returns (Transition memory)
+        returns (TransitionState memory)
     { }
 
     function getStats1() external view returns (Stats1 memory) { }
