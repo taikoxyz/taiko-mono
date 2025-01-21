@@ -268,15 +268,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
-        taikoInbox.init(owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"));
+        taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
 
         uint64 l2ChainId = taikoInbox.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         address opVerifier = deployProxy({
             name: "op_verifier",
-            impl: address(new OpVerifier(l2ChainId)),
-            data: abi.encodeCall(OpVerifier.init, (owner, rollupResolver))
+            impl: address(new OpVerifier(address(rollupResolver), l2ChainId)),
+            data: abi.encodeCall(OpVerifier.init, (owner))
         });
 
         address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
@@ -286,8 +286,12 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         deployProxy({
             name: "proof_verifier",
-            impl: address(new DevnetVerifier(opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)),
-            data: abi.encodeCall(ComposeVerifier.init, (owner, rollupResolver)),
+            impl: address(
+                new DevnetVerifier(
+                    address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                )
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (owner)),
             registerTo: rollupResolver
         });
 
@@ -308,8 +312,8 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         sgxVerifier = deployProxy({
             name: "sgx_verifier",
-            impl: address(new SgxVerifier(l2ChainId)),
-            data: abi.encodeCall(SgxVerifier.init, (owner, rollupResolver))
+            impl: address(new SgxVerifier(address(rollupResolver), l2ChainId)),
+            data: abi.encodeCall(SgxVerifier.init, (owner))
         });
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
@@ -348,8 +352,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         risc0Verifier = deployProxy({
             name: "risc0_verifier",
-            impl: address(new Risc0Verifier(l2ChainId)),
-            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupResolver))
+            impl: address(new Risc0Verifier(address(rollupResolver), l2ChainId)),
+            data: abi.encodeCall(Risc0Verifier.init, (owner))
         });
 
         // Deploy sp1 plonk verifier
@@ -358,8 +362,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         sp1Verifier = deployProxy({
             name: "sp1_verifier",
-            impl: address(new SP1Verifier(l2ChainId)),
-            data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver))
+            impl: address(new SP1Verifier(address(rollupResolver), l2ChainId)),
+            data: abi.encodeCall(SP1Verifier.init, (owner))
         });
     }
 
