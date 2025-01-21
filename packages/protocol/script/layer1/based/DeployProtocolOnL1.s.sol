@@ -272,7 +272,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         address opVerifier = deployProxy({
             name: "op_verifier",
             impl: address(new OpVerifier(l2ChainId)),
-            data: abi.encodeCall(OpVerifier.init, (owner, rollupResolver))
+            data: abi.encodeCall(OpVerifier.init, (owner, rollupResolver)),
+            registerTo: rollupResolver
         });
 
         address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
@@ -307,7 +308,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         sgxVerifier = deployProxy({
             name: "sgx_verifier",
             impl: address(new SgxVerifier(l2ChainId)),
-            data: abi.encodeCall(SgxVerifier.init, (owner, rollupResolver))
+            data: abi.encodeCall(SgxVerifier.init, (owner, rollupResolver)),
+            registerTo: rollupResolver
         });
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
@@ -347,7 +349,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         risc0Verifier = deployProxy({
             name: "risc0_verifier",
             impl: address(new Risc0Verifier(l2ChainId)),
-            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupResolver))
+            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupResolver)),
+            registerTo: rollupResolver
         });
 
         // Deploy sp1 plonk verifier
@@ -357,7 +360,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         sp1Verifier = deployProxy({
             name: "sp1_verifier",
             impl: address(new SP1Verifier(l2ChainId)),
-            data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver))
+            data: abi.encodeCall(SP1Verifier.init, (owner, rollupResolver)),
+            registerTo: rollupResolver
         });
     }
 
