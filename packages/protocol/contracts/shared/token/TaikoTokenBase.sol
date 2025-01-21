@@ -20,7 +20,7 @@ abstract contract TaikoTokenBase0 is EssentialContract {
 /// @notice The base contract for both the canonical and the bridged Taiko token.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable {
-    uint256[49] private __gap;
+    uint256[50] private __gap;
 
     function clock() public view override returns (uint48) {
         return SafeCastUpgradeable.toUint48(block.timestamp);
