@@ -371,6 +371,20 @@ interface ITaikoInbox {
         view
         returns (TransitionState memory);
 
+    /// @notice Calculates the hash of transaction list (DA) hash.
+    /// @param _txListInCallDataHash The hash of the transaction list.
+    /// @param _firstBlobIndex The index of the first blob.
+    /// @param _numBlobs The number of blobs.
+    /// @return The calculated hash of the transaction list.
+    function calcTxListHash(
+        bytes32 _txListInCallDataHash,
+        uint8 _firstBlobIndex,
+        uint8 _numBlobs
+    )
+        external
+        view
+        returns (bytes32);
+
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
     function getConfig() external view returns (Config memory);

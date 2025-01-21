@@ -92,7 +92,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             Batch storage lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
-
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
                 params,
                 config.maxAnchorHeightOffset,
@@ -112,7 +111,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             // use the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             meta_ = BatchMetadata({
-                txListHash: _calcTxListHash(
+                txListHash: calcTxListHash(
                     keccak256(_txListInCalldata), params.firstBlobIndex, params.numBlobs
                 ),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
@@ -483,6 +482,28 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     }
 
     /// @inheritdoc ITaikoInbox
+    function calcTxListHash(
+        bytes32 _txListHash,
+        uint8 _firstBlobIndex,
+        uint8 _numBlobs
+    )
+        public
+        view
+        virtual
+        returns (bytes32)
+    {
+        unchecked {
+            bytes32[] memory hashes = new bytes32[](_numBlobs + 1);
+            for (uint256 i; i < _numBlobs; ++i) {
+                hashes[i] = blobhash(_firstBlobIndex + i);
+                require(hashes[i] != 0, BlobNotFound());
+            }
+            hashes[_numBlobs] = _txListHash;
+            return keccak256(abi.encode(hashes));
+        }
+    }
+
+    /// @inheritdoc ITaikoInbox
     function getConfig() public view virtual returns (Config memory);
 
     // Internal functions ----------------------------------------------------------------------
@@ -515,27 +536,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     function _pause() internal override {
         state.stats2.paused = true;
-    }
-
-    function _calcTxListHash(
-        bytes32 _txListHash,
-        uint8 _firstBlobIndex,
-        uint8 _numBlobs
-    )
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        unchecked {
-            bytes32[] memory hashes = new bytes32[](_numBlobs + 1);
-            for (uint256 i; i < _numBlobs; ++i) {
-                hashes[i] = blobhash(_firstBlobIndex + i);
-                require(hashes[i] != 0, BlobNotFound());
-            }
-            hashes[_numBlobs] = _txListHash;
-            return keccak256(abi.encode(hashes));
-        }
     }
 
     // Private functions -----------------------------------------------------------------------
