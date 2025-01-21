@@ -55,6 +55,10 @@ cat ../protocol/out/layer1/ForkRouter.sol/ForkRouter.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ForkRouter --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_fork_router.go
 
+cat ../protocol/out/layer1/ComposeVerifier.sol/ComposeVerifier.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
+
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"

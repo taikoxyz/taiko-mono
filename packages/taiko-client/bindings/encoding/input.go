@@ -448,6 +448,7 @@ var (
 	// Pacaya fork
 	TaikoInboxABI       *abi.ABI
 	TaikoAnchorABI      *abi.ABI
+	ComposeVerifierABI  *abi.ABI
 	ForkRouterPacayaABI *abi.ABI
 	TaikoTokenPacayaABI *abi.ABI
 	ProverSetPavayaABI  *abi.ABI
@@ -514,6 +515,10 @@ func init() {
 		log.Crit("Get TaikoAnchor ABI error", "error", err)
 	}
 
+	if ComposeVerifierABI, err = pacayaBindings.ComposeVerifierMetaData.GetAbi(); err != nil {
+		log.Crit("Get ComposeVerifier ABI error", "error", err)
+	}
+
 	if ForkRouterPacayaABI, err = pacayaBindings.ForkRouterMetaData.GetAbi(); err != nil {
 		log.Crit("Get ForkRouter ABI error", "error", err)
 	}
@@ -540,6 +545,7 @@ func init() {
 		ForkRouterABI.Errors,
 		TaikoInboxABI.Errors,
 		TaikoAnchorABI.Errors,
+		ComposeVerifierABI.Errors,
 		ForkRouterPacayaABI.Errors,
 		TaikoTokenPacayaABI.Errors,
 		ProverSetPavayaABI.Errors,
