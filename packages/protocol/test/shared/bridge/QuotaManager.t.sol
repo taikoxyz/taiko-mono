@@ -19,6 +19,9 @@ contract TestQuotaManager is CommonTest {
 
         vm.expectRevert();
         qm.updateQuota(Ether, 10 ether);
+        
+        vm.expectRevert();
+        qm.setQuotaPeriod(24 hours);
 
         vm.prank(deployer);
         qm.updateQuota(Ether, 10 ether);
@@ -26,6 +29,10 @@ contract TestQuotaManager is CommonTest {
 
         vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
         qm.consumeQuota(Ether, 5 ether);
+
+        vm.prank(bridge);
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        qm.consumeQuota(Ether, 11 ether);
 
         vm.prank(bridge);
         qm.consumeQuota(Ether, 6 ether);
@@ -38,6 +45,18 @@ contract TestQuotaManager is CommonTest {
 
         vm.warp(block.timestamp + 24 hours);
         assertEq(qm.availableQuota(Ether, 0), 10 ether);
+
+        vm.startPrank(deployer);
+        vm.expectRevert(QuotaManager.QM_INVALID_PARAM.selector);
+        qm.setQuotaPeriod(0);
+
+        qm.setQuotaPeriod(12 hours);
+        vm.stopPrank();
+
+        vm.prank(bridge);
+        qm.consumeQuota(Ether, 5 ether);
+        assertEq(qm.availableQuota(Ether, 0), 5 ether);
+        assertEq(qm.availableQuota(Ether, 6 hours), 5 ether + 10 ether * 6 / 12);
     }
 
     function test_quota_manager_consume_unconfigged() public {
