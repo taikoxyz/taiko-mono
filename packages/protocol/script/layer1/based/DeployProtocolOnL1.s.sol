@@ -264,6 +264,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+        taikoInbox.init(owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"));
 
         uint64 l2ChainId = taikoInbox.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
