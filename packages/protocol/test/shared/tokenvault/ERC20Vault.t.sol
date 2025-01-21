@@ -23,8 +23,8 @@ contract TestERC20Vault is CommonTest {
     BridgedERC20 private tStETH;
 
     function setUpOnEthereum() internal override {
-        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
-        eBridge = deployBridge(address(new Bridge()));
+        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        eBridge = deployBridge(address(new Bridge(address(resolver))));
         eVault = deployERC20Vault();
 
         eERC20Token1 = new FreeMintERC20Token("ERC20", "ERC20");
@@ -33,20 +33,20 @@ contract TestERC20Vault is CommonTest {
         eERC20Token2 = new FreeMintERC20Token("", "123456abcdefgh");
         eERC20Token2.mint(Alice);
 
-        register("bridged_erc20", address(new BridgedERC20()));
+        register("bridged_erc20", address(new BridgedERC20(address(resolver))));
 
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
+        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
         tVault = deployERC20Vault();
         tBridge = new PrankDestBridge(eVault);
         taikoInbox = new PrankTaikoInbox();
 
         register("bridge", address(tBridge));
-        register("bridged_erc20", address(new BridgedERC20()));
+        register("bridged_erc20", address(new BridgedERC20(address(resolver))));
         register("taiko", address(taikoInbox));
 
         tUSDC = deployBridgedERC20(randAddress(), 100, 18, "USDC", "USDC coin");

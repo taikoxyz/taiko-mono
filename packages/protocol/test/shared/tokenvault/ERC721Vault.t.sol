@@ -17,23 +17,23 @@ contract TestERC721Vault is CommonTest {
     PrankDestBridge private tBridge;
 
     function setUpOnEthereum() internal override {
-        deploySignalService(address(new SignalService_WithoutProofVerification()));
-        eBridge = deployBridge(address(new Bridge()));
+        deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        eBridge = deployBridge(address(new Bridge(address(resolver))));
         eVault = deployERC721Vault();
 
-        register("bridged_erc721", address(new BridgedERC721()));
+        register("bridged_erc721", address(new BridgedERC721(address(resolver))));
 
         vm.deal(Alice, 100 ether);
         vm.deal(Bob, 100 ether);
     }
 
     function setUpOnTaiko() internal override {
-        deploySignalService(address(new SignalService_WithoutProofVerification()));
+        deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
         tVault = deployERC721Vault();
         tBridge = new PrankDestBridge(tVault);
 
         register("bridge", address(tBridge));
-        register("bridged_erc721", address(new BridgedERC721()));
+        register("bridged_erc721", address(new BridgedERC721(address(resolver))));
 
         vm.deal(address(tBridge), 100 ether);
     }

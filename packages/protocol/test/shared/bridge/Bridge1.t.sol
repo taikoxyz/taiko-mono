@@ -41,15 +41,15 @@ contract TestBridge1 is CommonTest {
 
     function setUpOnEthereum() internal override {
         eMessageReceiver = new MessageReceiver_SendingHalfEtherBalance();
-        eBridge = deployBridge(address(new Bridge()));
-        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
+        eBridge = deployBridge(address(new Bridge(address(resolver))));
+        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
 
         vm.deal(Alice, 100 ether);
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
-        tBridge = deployBridge(address(new Bridge()));
+        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        tBridge = deployBridge(address(new Bridge(address(resolver))));
         vm.deal(address(tBridge), 100 ether);
     }
 
