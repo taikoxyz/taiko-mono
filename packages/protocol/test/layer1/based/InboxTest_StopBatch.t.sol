@@ -7,7 +7,7 @@ contract InboxTest_StopBatch is InboxTestBase {
     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            maxBatchProposals: 10,
+            maxUnverifiedBatches: 10,
             batchRingBufferSize: 15,
             maxBatchesToVerify: 1,
             blockMaxGasLimit: 240_000_000,

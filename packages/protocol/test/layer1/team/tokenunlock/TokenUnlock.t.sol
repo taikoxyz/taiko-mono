@@ -44,13 +44,13 @@ contract TestTokenUnlock is Layer1Test {
         register("bond_token", address(taikoToken));
         register("taiko_token", address(taikoToken));
         register("taiko", taikoL1);
-        register("prover_set", address(new ProverSet()));
+        register("prover_set", address(new ProverSet(address(resolver))));
 
         target = TokenUnlock(
             deploy({
                 name: "token_unlock",
-                impl: address(new TokenUnlock()),
-                data: abi.encodeCall(TokenUnlock.init, (Alice, address(resolver), Bob, TGE))
+                impl: address(new TokenUnlock(address(resolver))),
+                data: abi.encodeCall(TokenUnlock.init, (Alice, Bob, TGE))
             })
         );
     }

@@ -35,15 +35,14 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId) {
+    constructor(address _resolver, uint64 _taikoChainId) EssentialContract(_resolver) {
         taikoChainId = _taikoChainId;
     }
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _rollupResolver The {IResolver} used by this rollup
-    function init(address _owner, address _rollupResolver) external initializer {
-        __Essential_init(_owner, _rollupResolver);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity
