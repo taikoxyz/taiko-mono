@@ -45,7 +45,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. The actual txList is the concatenation of
-    /// forcedTxList, `_txList` and bytes segment [txListOffset, txListOffset + txListSize] from
+    /// forcedTxList, `_txList` and bytes segment [blobByteOffset, blobByteOffset + blobByteSize]
+    /// from
     /// blobs.
     /// @return meta_ Batch metadata.
     function proposeBatch(
@@ -110,10 +111,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             // Note that `difficulty` has been removed from the metadata. The client and prover must
             // use the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
+
+            bytes memory forcedTxList = ""; // TODO
+            bytes32 txListHash = calcTxListHash(
+                keccak256(forcedTxList), keccak256(_txList), params.firstBlobIndex, params.numBlobs
+            );
+
             meta_ = BatchMetadata({
-                txListHash: calcTxListHash(
-                    0, keccak256(_txList), params.firstBlobIndex, params.numBlobs
-                ),
+                txListHash: txListHash,
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
                 batchId: stats2.numBatches,
@@ -125,8 +130,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                     + config.livenessBondPerBlock * uint96(params.blocks.length),
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
-                txListOffset: params.txListOffset,
-                txListSize: params.txListSize,
+                blobByteOffset: params.blobByteOffset,
+                blobByteSize: params.blobByteSize,
                 firstBlobIndex: params.firstBlobIndex,
                 numBlobs: params.numBlobs,
                 anchorBlockId: anchorBlockId,

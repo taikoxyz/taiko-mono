@@ -36,8 +36,8 @@ contract MockTaikoInbox is EssentialContract {
             livenessBond: 0, // Mock value
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
-            txListOffset: params.txListOffset,
-            txListSize: params.txListSize,
+            blobByteOffset: params.blobByteOffset,
+            blobByteSize: params.blobByteSize,
             firstBlobIndex: 0,
             numBlobs: params.numBlobs,
             anchorBlockId: params.anchorBlockId,

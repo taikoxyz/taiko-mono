@@ -36,8 +36,8 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         bytes32 anchorInput;
         uint64 lastBlockTimestamp;
-        uint32 txListOffset;
-        uint32 txListSize;
+        uint32 blobByteOffset;
+        uint32 blobByteSize;
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
@@ -61,8 +61,8 @@ interface ITaikoInbox {
         uint96 livenessBond;
         uint64 proposedAt; // Used by node/client
         uint64 proposedIn; // Used by node/client
-        uint32 txListOffset;
-        uint32 txListSize;
+        uint32 blobByteOffset;
+        uint32 blobByteSize;
         uint8 firstBlobIndex;
         uint8 numBlobs;
         uint64 anchorBlockId;
