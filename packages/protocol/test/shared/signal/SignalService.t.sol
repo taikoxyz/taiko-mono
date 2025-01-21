@@ -30,7 +30,8 @@ contract TestSignalService is CommonTest {
     address private taiko = randAddress();
 
     function setUpOnEthereum() internal override {
-        mockSignalService = deploySignalService(address(new SignalServiceNoHopCheck(address(resolver))));
+        mockSignalService =
+            deploySignalService(address(new SignalServiceNoHopCheck(address(resolver))));
         mockSignalService.authorize(taiko, true);
 
         signalService = deploySignalService(address(new SignalService(address(resolver))));

@@ -5,7 +5,9 @@ import "../CommonTest.sol";
 import "../helpers/CanSayHelloWorld.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
-contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld { }
+contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld {
+    constructor(address _resolver) BridgedERC20V2(_resolver) { }
+}
 
 contract PrankTaikoInbox {
     ITaikoInbox.Batch internal batch;

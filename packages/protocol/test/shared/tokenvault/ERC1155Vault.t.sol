@@ -20,7 +20,9 @@ contract TestERC1155Vault is CommonTest {
     function setUpOnEthereum() internal override {
         eERC1155Token = new FreeMintERC1155Token("http://example.host.com/");
 
-        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        eSignalService = deploySignalService(
+            address(new SignalService_WithoutProofVerification(address(resolver)))
+        );
         eBridge = deployBridge(address(new Bridge(address(resolver))));
         eVault = deployERC1155Vault();
 
@@ -34,7 +36,9 @@ contract TestERC1155Vault is CommonTest {
     function setUpOnTaiko() internal override {
         tVault = deployERC1155Vault();
         tBridge = new PrankDestBridge(tVault);
-        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        tSignalService = deploySignalService(
+            address(new SignalService_WithoutProofVerification(address(resolver)))
+        );
 
         register("bridge", address(tBridge));
         register("bridged_erc1155", address(new BridgedERC1155(address(resolver))));
@@ -673,7 +677,8 @@ contract TestERC1155Vault is CommonTest {
 
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
-        BridgedERC1155_WithHelloWorld newBridgedContract = new BridgedERC1155_WithHelloWorld(address(resolver));
+        BridgedERC1155_WithHelloWorld newBridgedContract =
+            new BridgedERC1155_WithHelloWorld(address(resolver));
         vm.prank(deployer);
         BridgedERC1155(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 

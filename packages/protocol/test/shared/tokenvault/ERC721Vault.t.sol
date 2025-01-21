@@ -638,7 +638,8 @@ contract TestERC721Vault is CommonTest {
 
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
-        BridgedERC721_WithHelloWorld newBridgedContract = new BridgedERC721_WithHelloWorld();
+        BridgedERC721_WithHelloWorld newBridgedContract =
+            new BridgedERC721_WithHelloWorld(address(resolver));
         vm.prank(deployer);
         BridgedERC721(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 

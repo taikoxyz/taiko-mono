@@ -23,7 +23,9 @@ contract TestERC20Vault is CommonTest {
     BridgedERC20 private tStETH;
 
     function setUpOnEthereum() internal override {
-        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        eSignalService = deploySignalService(
+            address(new SignalService_WithoutProofVerification(address(resolver)))
+        );
         eBridge = deployBridge(address(new Bridge(address(resolver))));
         eVault = deployERC20Vault();
 
@@ -40,7 +42,9 @@ contract TestERC20Vault is CommonTest {
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification(address(resolver))));
+        tSignalService = deploySignalService(
+            address(new SignalService_WithoutProofVerification(address(resolver)))
+        );
         tVault = deployERC20Vault();
         tBridge = new PrankDestBridge(eVault);
         taikoInbox = new PrankTaikoInbox();
@@ -511,7 +515,8 @@ contract TestERC20Vault is CommonTest {
 
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
-        BridgedERC20V2_WithHelloWorld newBridgedContract = new BridgedERC20V2_WithHelloWorld();
+        BridgedERC20V2_WithHelloWorld newBridgedContract =
+            new BridgedERC20V2_WithHelloWorld(address(resolver));
         vm.stopPrank();
         vm.prank(deployer);
         BridgedERC20(payable(bridgedAddressAfter)).upgradeTo(address(newBridgedContract));
