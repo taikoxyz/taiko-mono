@@ -60,7 +60,6 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
-
     function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
         vm.warp(1_000_000);
 
@@ -96,10 +95,15 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
+        bytes32[] memory hashes = new bytes32[](1);
+
         bytes memory txList1 = abi.encodePacked("txList1");
+        hashes[0] = keccak256(txList1);
+        bytes32 expectedHash1 = keccak256(abi.encode(hashes));
+
         bytes memory txList2 = abi.encodePacked("txList2");
-        bytes32 expectedHash1 = keccak256(txList1);
-        bytes32 expectedHash2 = keccak256(txList2);
+        hashes[0] = keccak256(txList2);
+        bytes32 expectedHash2 = keccak256(abi.encode(hashes));
 
         vm.prank(Alice);
         uint64[] memory batchIds1 = _proposeBatchesWithDefaultParameters(1, txList1);
