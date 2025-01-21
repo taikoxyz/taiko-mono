@@ -112,7 +112,7 @@ func (c *PacayaProtocolConfigs) LivenessBond() *big.Int {
 
 // MaxProposals implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) MaxProposals() uint64 {
-	return c.configs.MaxBatchProposals
+	return c.configs.MaxUnverifiedBatches
 }
 
 // ProvingWindow implements the ProtocolConfigs interface.
