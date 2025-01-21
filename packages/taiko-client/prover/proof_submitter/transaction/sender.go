@@ -115,6 +115,7 @@ func (s *Sender) Send(
 		log.Info(
 			"💰 Your batch proof was accepted",
 			"batchID", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"blocks", len(proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBlocks()),
 		)
 	} else {
 		log.Info(
