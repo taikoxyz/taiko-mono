@@ -18,11 +18,12 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     uint256[50] private __gap;
 
+    constructor(address _resolver) BaseNFTVault(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Transfers ERC721 tokens to this vault and sends a message to the
@@ -243,14 +244,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
             IBridgedERC721Initializable.init,
-            (
-                owner(),
-                address(resolver()),
-                _ctoken.addr,
-                _ctoken.chainId,
-                _ctoken.symbol,
-                _ctoken.name
-            )
+            (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC721, false), data));

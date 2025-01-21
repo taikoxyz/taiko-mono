@@ -15,12 +15,14 @@ contract TestTaikoAnchor is Layer2Test {
         signalService = SignalService(
             deploy({
                 name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
+                impl: address(new SignalService(address(resolver))),
+                data: abi.encodeCall(SignalService.init, (address(0)))
             })
         );
 
-        anchor = deployAnchor(address(new TaikoAnchor_NoBaseFeeCheck()), ethereumChainId);
+        anchor = deployAnchor(
+            address(new TaikoAnchor_NoBaseFeeCheck(address(resolver))), ethereumChainId
+        );
 
         signalService.authorize(address(anchor), true);
         mineOneBlockAndWrap(30 seconds);

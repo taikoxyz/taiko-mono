@@ -30,15 +30,14 @@ contract SP1Verifier is EssentialContract, IVerifier {
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId) {
+    constructor(address _resolver, uint64 _taikoChainId) EssentialContract(_resolver) {
         taikoChainId = _taikoChainId;
     }
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _resolver The IResolver address.
-    function init(address _owner, address _resolver) external initializer {
-        __Essential_init(_owner, _resolver);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Sets/unsets an the program's verification key as trusted entity

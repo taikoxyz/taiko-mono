@@ -12,6 +12,8 @@ import "../libs/LibStrings.sol";
 abstract contract TaikoTokenBase0 is EssentialContract {
     // solhint-disable var-name-mixedcase
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
+
+    constructor() EssentialContract(address(0)) { }
 }
 
 /// @title TaikoTokenBase

@@ -16,8 +16,8 @@ contract DeploySP1Verifier is BaseScript {
 
         deploy({
             name: "tier_zkvm_sp1",
-            impl: address(new SP1Verifier(LibNetwork.TAIKO_MAINNET)),
-            data: abi.encodeCall(SP1Verifier.init, (address(0), resolver))
+            impl: address(new SP1Verifier(address(resolver), LibNetwork.TAIKO_MAINNET)),
+            data: abi.encodeCall(SP1Verifier.init, (address(0)))
         });
     }
 }

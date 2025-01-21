@@ -35,6 +35,8 @@ abstract contract BaseVault is
     error VAULT_INVALID_TO_ADDR();
     error VAULT_PERMISSION_DENIED();
 
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
     /// @return true if the contract supports the interface, false otherwise.

@@ -35,15 +35,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     // External functions ------------------------------------------------------------------------
 
-    function init(
-        address _owner,
-        address _rollupResolver,
-        bytes32 _genesisBlockHash
-    )
-        external
-        initializer
-    {
-        __Taiko_init(_owner, _rollupResolver, _genesisBlockHash);
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
+    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+        __Taiko_init(_owner, _genesisBlockHash);
     }
 
     /// @notice Proposes a batch of blocks.
@@ -66,7 +61,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         unchecked {
             require(
-                stats2.numBatches < stats2.lastVerifiedBatchId + config.maxBatchProposals,
+                stats2.numBatches <= stats2.lastVerifiedBatchId + config.maxUnverifiedBatches,
                 TooManyBatches()
             );
 
@@ -494,14 +489,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     // Internal functions ----------------------------------------------------------------------
 
-    function __Taiko_init(
-        address _owner,
-        address _rollupResolver,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
-        __Essential_init(_owner, _rollupResolver);
+    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
+        __Essential_init(_owner);
 
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
         state.transitions[0][1].blockHash = _genesisBlockHash;

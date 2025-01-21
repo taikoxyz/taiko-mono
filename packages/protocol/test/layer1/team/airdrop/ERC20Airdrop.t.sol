@@ -79,10 +79,9 @@ contract TestERC20Airdrop is Layer1Test {
         token = BridgedERC20(
             deploy({
                 name: "some_token",
-                impl: address(new BridgedERC20()),
+                impl: address(new BridgedERC20(address(resolver))),
                 data: abi.encodeCall(
-                    BridgedERC20.init,
-                    (address(0), address(resolver), randAddress(), 100, 18, "SOME", "Some Token")
+                    BridgedERC20.init, (address(0), randAddress(), 100, 18, "SOME", "Some Token")
                 )
             })
         );
