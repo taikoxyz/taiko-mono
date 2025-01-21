@@ -86,7 +86,7 @@ contract RouterTest is RouterTestBase {
         // Warp to arbitrary slot in epoch 2
         vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
-        // Prank as David (not the selected oeprator) and propose blocks
+        // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
         vm.expectRevert(IPreconfRouter.NotTheOperator.selector);
         router.proposePreconfedBlocks("", "", "");
