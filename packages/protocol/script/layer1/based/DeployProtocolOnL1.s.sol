@@ -25,6 +25,8 @@ import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -108,6 +110,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy other contracts
         if (block.chainid != 1) {
             deployAuxContracts();
+        }
+
+        if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
+            deployPreconfContracts(contractOwner, sharedResolver);
         }
 
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -378,6 +384,27 @@ contract DeployProtocolOnL1 is DeployCapability {
         address bullToken =
             address(new FreeMintERC20Token_With50PctgMintAndTransferFailure("Bull Token", "BULL"));
         console2.log("BullToken", bullToken);
+    }
+
+    function deployPreconfContracts(
+        address owner,
+        address resolver
+    ) private returns (address whitelist, address router) {
+        whitelist = deployProxy({
+            name: "preconf_whitelist",
+            impl: address(new PreconfWhitelist(resolver)),
+            data: abi.encodeCall(PreconfWhitelist.init, (owner)),
+            registerTo: resolver
+        });
+
+        router = deployProxy({
+            name: "preconf_router",
+            impl: address(new PreconfRouter(resolver)),
+            data: abi.encodeCall(PreconfRouter.init, (owner)),
+            registerTo: resolver
+        });
+
+        return (whitelist, router);
     }
 
     function addressNotNull(address addr, string memory err) private pure {
