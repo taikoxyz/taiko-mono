@@ -33,7 +33,7 @@ contract WhitelistTest is WhitelistTestBase {
     function test_addOperator_alreadyAdded() external {
         address operator = Bob;
 
-        vm.prank(whitelistOwner);
+        vm.startPrank(whitelistOwner);
         whitelist.addOperator(operator);
 
         assertEq(whitelist.operatorCount(), 1);
@@ -42,6 +42,8 @@ contract WhitelistTest is WhitelistTestBase {
 
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
         whitelist.addOperator(operator);
+
+        vm.stopPrank();
     }
 
     function test_removeOperator() external {
