@@ -57,10 +57,11 @@ contract BridgedERC20 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_MINT_DISALLOWED();
 
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
     /// @inheritdoc IBridgedERC20Initializable
     function init(
         address _owner,
-        address _sharedResolver,
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,
@@ -73,7 +74,7 @@ contract BridgedERC20 is
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _sharedResolver);
+        __Essential_init(_owner);
         __ERC20_init(_name, _symbol);
 
         // Set contract properties

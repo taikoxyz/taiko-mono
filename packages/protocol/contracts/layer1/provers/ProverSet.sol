@@ -5,6 +5,9 @@ import "./ProverSetBase.sol";
 
 contract ProverSet is ProverSetBase {
     using Address for address;
+
+    constructor(address _resolver) ProverSetBase(_resolver) { }
+
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.

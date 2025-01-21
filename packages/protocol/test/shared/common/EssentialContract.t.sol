@@ -6,6 +6,8 @@ import "../CommonTest.sol";
 contract Target1 is EssentialContract {
     uint256 public count;
 
+    constructor() EssentialContract(address(0)) { }
+
     function init(address _owner) external initializer {
         __Essential_init(_owner);
         count = 100;

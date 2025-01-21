@@ -18,11 +18,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     uint256[50] private __gap;
 
+    constructor(address _resolver) BaseNFTVault(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
         __ERC1155Receiver_init();
     }
     /// @notice Transfers ERC1155 tokens to this vault and sends a message to
@@ -287,14 +288,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
             IBridgedERC1155Initializable.init,
-            (
-                owner(),
-                address(resolver()),
-                _ctoken.addr,
-                _ctoken.chainId,
-                _ctoken.symbol,
-                _ctoken.name
-            )
+            (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC1155, false), data));

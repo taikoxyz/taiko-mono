@@ -29,19 +29,13 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
 
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
     /// @param _quotaPeriod The time required to restore all quota.
-    function init(
-        address _owner,
-        address _sharedResolver,
-        uint24 _quotaPeriod
-    )
-        external
-        initializer
-    {
-        __Essential_init(_owner, _sharedResolver);
+    function init(address _owner, uint24 _quotaPeriod) external initializer {
+        __Essential_init(_owner);
         _setQuotaPeriod(_quotaPeriod);
     }
 

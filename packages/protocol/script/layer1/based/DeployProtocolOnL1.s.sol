@@ -149,15 +149,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy Bridging contracts
         deployProxy({
             name: "signal_service",
-            impl: address(new MainnetSignalService()),
-            data: abi.encodeCall(SignalService.init, (address(0), sharedResolver)),
+            impl: address(new MainnetSignalService(address(sharedResolver))),
+            data: abi.encodeCall(SignalService.init, (address(0))),
             registerTo: sharedResolver
         });
 
         address brdige = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge()),
-            data: abi.encodeCall(Bridge.init, (address(0), sharedResolver)),
+            impl: address(new MainnetBridge(address(sharedResolver))),
+            data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });
 
@@ -172,29 +172,29 @@ contract DeployProtocolOnL1 is DeployCapability {
             "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"bridge\", address(remoteBridge))"
+            "sharedResolver.registerAddress(remoteChainId, 'bridge', address(remoteBridge))"
         );
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Vaults
         deployProxy({
             name: "erc20_vault",
-            impl: address(new MainnetERC20Vault()),
-            data: abi.encodeCall(ERC20Vault.init, (owner, sharedResolver)),
+            impl: address(new MainnetERC20Vault(address(sharedResolver))),
+            data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });
 
         deployProxy({
             name: "erc721_vault",
-            impl: address(new MainnetERC721Vault()),
-            data: abi.encodeCall(ERC721Vault.init, (owner, sharedResolver)),
+            impl: address(new MainnetERC721Vault(address(sharedResolver))),
+            data: abi.encodeCall(ERC721Vault.init, (owner)),
             registerTo: sharedResolver
         });
 
         deployProxy({
             name: "erc1155_vault",
-            impl: address(new MainnetERC1155Vault()),
-            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedResolver)),
+            impl: address(new MainnetERC1155Vault(address(sharedResolver))),
+            data: abi.encodeCall(ERC1155Vault.init, (owner)),
             registerTo: sharedResolver
         });
 
@@ -203,20 +203,26 @@ contract DeployProtocolOnL1 is DeployCapability {
             "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
+            "sharedResolver.registerAddress(remoteChainId, 'erc20_vault', address(remoteERC20Vault))"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"erc721_vault\", address(remoteERC721Vault))"
+            "sharedResolver.registerAddress(remoteChainId, 'erc721_vault', address(remoteERC721Vault))"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"erc1155_vault\", address(remoteERC1155Vault))"
+            "sharedResolver.registerAddress(remoteChainId, 'erc1155_vault', address(remoteERC1155Vault))"
         );
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Bridged token implementations
-        register(sharedResolver, "bridged_erc20", address(new BridgedERC20()));
-        register(sharedResolver, "bridged_erc721", address(new BridgedERC721()));
-        register(sharedResolver, "bridged_erc1155", address(new BridgedERC1155()));
+        register(
+            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
+        );
     }
 
     function deployRollupContracts(
@@ -244,17 +250,15 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         deployProxy({
             name: "mainnet_taiko",
-            impl: address(new MainnetInbox()),
-            data: abi.encodeCall(
-                TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
-            )
+            impl: address(new MainnetInbox(address(rollupResolver))),
+            data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         if (oldFork == address(0)) {
-            oldFork = address(new DevnetInbox());
+            oldFork = address(new DevnetInbox(address(rollupResolver)));
         }
-        address newFork = address(new DevnetInbox());
+        address newFork = address(new DevnetInbox(address(rollupResolver)));
 
         address taikoInboxAddr = deployProxy({
             name: "taiko",
@@ -264,7 +268,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
-        taikoInbox.init(owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"));
+        taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
 
         uint64 l2ChainId = taikoInbox.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
@@ -283,17 +287,19 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         deployProxy({
             name: "proof_verifier",
-            impl: address(new DevnetVerifier(opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)),
-            data: abi.encodeCall(ComposeVerifier.init, (owner, rollupResolver)),
+            impl: address(
+                new DevnetVerifier(
+                    address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                )
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (owner)),
             registerTo: rollupResolver
         });
 
         deployProxy({
             name: "prover_set",
-            impl: address(new ProverSet()),
-            data: abi.encodeCall(
-                ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
-            )
+            impl: address(new ProverSet(address(rollupResolver))),
+            data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
         });
     }
 

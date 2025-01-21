@@ -121,8 +121,8 @@ interface ITaikoInbox {
     struct Config {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
-        /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
-        uint64 maxBatchProposals;
+        /// @notice The maximum number of unverified batches the protocol supports.
+        uint64 maxUnverifiedBatches;
         /// @notice Size of the batch ring buffer, allowing extra space for proposals.
         uint64 batchRingBufferSize;
         /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
