@@ -177,6 +177,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return __resolver;
     }
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function __Essential_init(address _owner) internal virtual onlyInitializing {
         __Context_init();
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);
