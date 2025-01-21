@@ -15,7 +15,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
@@ -218,56 +217,28 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 		return fmt.Errorf("invalid block without anchor transaction, blockID %s", proofWithHeader.BlockID)
 	}
 
-	// Validate TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction inside the L2 block.
+	// Validate TaikoAnchor.anchorV3 transaction inside the L2 block.
 	anchorTx := block.Transactions()[0]
 	if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
 
-	if proofWithHeader.Meta.IsPacaya() {
-		// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
-		if err = s.sender.Send(
-			ctx,
-			proofWithHeader,
-			s.txBuilder.BuildProveBatchesPacaya(
-				&proofProducer.BatchProofs{
-					Proofs:     []*proofProducer.ProofWithHeader{proofWithHeader},
-					BatchProof: proofWithHeader.Proof,
-				},
-			),
-		); err != nil {
-			if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-				return nil
-			}
-			metrics.ProverSubmissionErrorCounter.Add(1)
-			return encoding.TryParsingCustomError(err)
+	// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
+	if err = s.sender.Send(
+		ctx,
+		proofWithHeader,
+		s.txBuilder.BuildProveBatchesPacaya(
+			&proofProducer.BatchProofs{
+				Proofs:     []*proofProducer.ProofWithHeader{proofWithHeader},
+				BatchProof: proofWithHeader.Proof,
+			},
+		),
+	); err != nil {
+		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
+			return nil
 		}
-	} else {
-		// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
-		if err = s.sender.Send(
-			ctx,
-			proofWithHeader,
-			s.txBuilder.Build(
-				proofWithHeader.BlockID,
-				proofWithHeader.Meta,
-				&ontakeBindings.TaikoDataTransition{
-					ParentHash: proofWithHeader.LastHeader.ParentHash,
-					BlockHash:  proofWithHeader.Opts.LastBlockHash,
-					StateRoot:  proofWithHeader.Opts.LastBlockStateRoot,
-				},
-				&ontakeBindings.TaikoDataTierProof{
-					Tier: proofWithHeader.Tier,
-					Data: proofWithHeader.Proof,
-				},
-				proofWithHeader.Tier,
-			),
-		); err != nil {
-			if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-				return nil
-			}
-			metrics.ProverSubmissionErrorCounter.Add(1)
-			return encoding.TryParsingCustomError(err)
-		}
+		metrics.ProverSubmissionErrorCounter.Add(1)
+		return encoding.TryParsingCustomError(err)
 	}
 
 	metrics.ProverSentProofCounter.Add(1)
