@@ -19,7 +19,7 @@ contract TestQuotaManager is CommonTest {
 
         vm.expectRevert();
         qm.updateQuota(Ether, 10 ether);
-        
+
         vm.expectRevert();
         qm.setQuotaPeriod(24 hours);
 
