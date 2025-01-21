@@ -13,7 +13,7 @@ contract DevnetInbox is TaikoInbox {
     function getConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: 167_001,
-            maxBatchProposals: 324_000,
+            maxUnverifiedBatches: 324_000,
             batchRingBufferSize: 360_000,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,

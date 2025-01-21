@@ -65,7 +65,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         unchecked {
             require(
-                stats2.numBatches < stats2.lastVerifiedBatchId + config.maxBatchProposals,
+                stats2.numBatches <= stats2.lastVerifiedBatchId + config.maxUnverifiedBatches,
                 TooManyBatches()
             );
         }

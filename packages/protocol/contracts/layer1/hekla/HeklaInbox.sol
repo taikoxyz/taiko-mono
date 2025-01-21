@@ -13,7 +13,7 @@ contract HeklaInbox is TaikoInbox {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
-            maxBatchProposals: 324_000,
+            maxUnverifiedBatches: 324_000,
             // Never change this value as ring buffer is being reused!!!
             batchRingBufferSize: 324_512,
             maxBatchesToVerify: 16,

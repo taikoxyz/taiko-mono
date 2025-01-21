@@ -165,10 +165,10 @@ abstract contract InboxTestBase is Layer1Test {
         console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
 
         // console2.log("stats2.numBatches:", stats2.numBatches);
-        // console2.log("getConfig().maxBatchProposals:", getConfig().maxBatchProposals);
+        // console2.log("getConfig().maxUnverifiedBatches:", getConfig().maxUnverifiedBatches);
 
-        uint64 firstBatchId = stats2.numBatches > getConfig().maxBatchProposals
-            ? stats2.numBatches - getConfig().maxBatchProposals
+        uint64 firstBatchId = stats2.numBatches > getConfig().maxUnverifiedBatches
+            ? stats2.numBatches - getConfig().maxUnverifiedBatches
             : 0;
 
         for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {
