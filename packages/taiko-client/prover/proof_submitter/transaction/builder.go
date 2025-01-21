@@ -141,11 +141,11 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 			data        []byte
 			to          common.Address
 			err         error
-			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.Proofs))
-			transitions = make([]ontakeBindings.TaikoDataTransition, len(batchProof.Proofs))
-			blockIDs    = make([]uint64, len(batchProof.Proofs))
+			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.ProofResponses))
+			transitions = make([]ontakeBindings.TaikoDataTransition, len(batchProof.ProofResponses))
+			blockIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
-		for i, proof := range batchProof.Proofs {
+		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta
 			transitions[i] = ontakeBindings.TaikoDataTransition{
 				ParentHash: proof.Opts.OntakeOptions().ParentHash,
@@ -211,17 +211,17 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			data        []byte
 			to          common.Address
 			err         error
-			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.Proofs))
-			transitions = make([]pacayaBindings.ITaikoInboxTransition, len(batchProof.Proofs))
-			subProofs   = make([]encoding.SubProof, len(batchProof.Proofs))
-			batchIDs    = make([]uint64, len(batchProof.Proofs))
+			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.ProofResponses))
+			transitions = make([]pacayaBindings.ITaikoInboxTransition, len(batchProof.ProofResponses))
+			subProofs   = make([]encoding.SubProof, len(batchProof.ProofResponses))
+			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
 		// NOTE: op_verifier is the only verifier address for now.
 		opVerifier, err := a.rpc.ResolvePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier")
 		if err != nil {
 			return nil, err
 		}
-		for i, proof := range batchProof.Proofs {
+		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta
 			transitions[i] = pacayaBindings.ITaikoInboxTransition{
 				ParentHash: proof.Opts.PacayaOptions().Headers[i].ParentHash,

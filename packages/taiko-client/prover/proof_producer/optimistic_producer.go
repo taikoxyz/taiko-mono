@@ -21,7 +21,7 @@ func (o *OptimisticProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
-) (*ProofWithHeader, error) {
+) (*ProofResponse, error) {
 	log.Info(
 		"Request optimistic proof",
 		"blockID", blockID,
@@ -34,7 +34,7 @@ func (o *OptimisticProofProducer) RequestProof(
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (o *OptimisticProofProducer) Aggregate(
 	_ context.Context,
-	items []*ProofWithHeader,
+	items []*ProofResponse,
 	_ time.Time,
 ) (*BatchProofs, error) {
 	log.Info(

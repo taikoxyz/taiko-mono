@@ -97,7 +97,7 @@ func (s *SGXProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
-) (*ProofWithHeader, error) {
+) (*ProofResponse, error) {
 	log.Info(
 		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
@@ -116,7 +116,7 @@ func (s *SGXProofProducer) RequestProof(
 
 	metrics.ProverSgxProofGeneratedCounter.Add(1)
 
-	return &ProofWithHeader{
+	return &ProofResponse{
 		BlockID: blockID,
 		Meta:    meta,
 		Proof:   proof,
@@ -128,7 +128,7 @@ func (s *SGXProofProducer) RequestProof(
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (s *SGXProofProducer) Aggregate(
 	ctx context.Context,
-	items []*ProofWithHeader,
+	items []*ProofResponse,
 	requestAt time.Time,
 ) (*BatchProofs, error) {
 	log.Info(
@@ -160,10 +160,10 @@ func (s *SGXProofProducer) Aggregate(
 	metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
 
 	return &BatchProofs{
-		Proofs:     items,
-		BatchProof: batchProof,
-		Tier:       s.Tier(),
-		BlockIDs:   blockIDs,
+		ProofResponses: items,
+		BatchProof:     batchProof,
+		Tier:           s.Tier(),
+		BlockIDs:       blockIDs,
 	}, nil
 }
 

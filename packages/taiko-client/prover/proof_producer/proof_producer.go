@@ -32,7 +32,7 @@ type ContestRequestBody struct {
 	Tier       uint16
 }
 
-type ProofWithHeader struct {
+type ProofResponse struct {
 	BlockID *big.Int
 	Meta    metadata.TaikoProposalMetaData
 	Proof   []byte
@@ -41,10 +41,10 @@ type ProofWithHeader struct {
 }
 
 type BatchProofs struct {
-	Proofs     []*ProofWithHeader
-	BatchProof []byte
-	Tier       uint16
-	BlockIDs   []*big.Int
+	ProofResponses []*ProofResponse
+	BatchProof     []byte
+	Tier           uint16
+	BlockIDs       []*big.Int
 }
 
 type ProofProducer interface {
@@ -54,10 +54,10 @@ type ProofProducer interface {
 		blockID *big.Int,
 		meta metadata.TaikoProposalMetaData,
 		requestAt time.Time,
-	) (*ProofWithHeader, error)
+	) (*ProofResponse, error)
 	Aggregate(
 		ctx context.Context,
-		items []*ProofWithHeader,
+		items []*ProofResponse,
 		requestAt time.Time,
 	) (*BatchProofs, error)
 	RequestCancel(

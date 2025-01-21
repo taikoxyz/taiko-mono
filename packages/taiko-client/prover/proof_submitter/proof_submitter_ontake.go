@@ -29,7 +29,7 @@ import (
 type ProofSubmitterOntake struct {
 	rpc               *rpc.Client
 	proofProducer     proofProducer.ProofProducer
-	resultCh          chan *proofProducer.ProofWithHeader
+	resultCh          chan *proofProducer.ProofResponse
 	batchResultCh     chan *proofProducer.BatchProofs
 	aggregationNotify chan uint16
 	anchorValidator   *validator.AnchorTxValidator
@@ -52,7 +52,7 @@ type ProofSubmitterOntake struct {
 func NewProofSubmitterOntake(
 	rpcClient *rpc.Client,
 	proofProducer proofProducer.ProofProducer,
-	resultCh chan *proofProducer.ProofWithHeader,
+	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
 	aggregationNotify chan uint16,
 	proverSetAddress common.Address,
@@ -240,15 +240,15 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 // SubmitProof implements the Submitter interface.
 func (s *ProofSubmitterOntake) SubmitProof(
 	ctx context.Context,
-	proofWithHeader *proofProducer.ProofWithHeader,
+	proofResponse *proofProducer.ProofResponse,
 ) (err error) {
 	log.Info(
 		"Submit block proof",
-		"blockID", proofWithHeader.BlockID,
-		"coinbase", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-		"parentHash", proofWithHeader.Opts.OntakeOptions().ParentHash,
-		"proof", common.Bytes2Hex(proofWithHeader.Proof),
-		"tier", proofWithHeader.Tier,
+		"blockID", proofResponse.BlockID,
+		"coinbase", proofResponse.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
+		"proof", common.Bytes2Hex(proofResponse.Proof),
+		"tier", proofResponse.Tier,
 	)
 
 	// Check if we still need to generate a new proof for that block.
@@ -257,7 +257,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	if proofStatus, err = rpc.GetBlockProofStatus(
 		ctx,
 		s.rpc,
-		proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		proofResponse.Meta.TaikoBlockMetaDataOntake().GetBlockID(),
 		s.proverAddress,
 		s.proverSetAddress,
 	); err != nil {
@@ -269,7 +269,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	}
 
 	if s.isGuardian {
-		_, expiredAt, _, err := handler.IsProvingWindowExpired(s.rpc, proofWithHeader.Meta, s.tiers)
+		_, expiredAt, _, err := handler.IsProvingWindowExpired(s.rpc, proofResponse.Meta, s.tiers)
 		if err != nil {
 			return fmt.Errorf("failed to check if the proving window is expired: %w", err)
 		}
@@ -285,7 +285,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 		proofStatus, err := rpc.GetBlockProofStatus(
 			ctx,
 			s.rpc,
-			proofWithHeader.BlockID,
+			proofResponse.BlockID,
 			s.proverAddress,
 			s.proverSetAddress,
 		)
@@ -300,17 +300,17 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	metrics.ProverReceivedProofCounter.Add(1)
 
 	// Get the corresponding L2 block.
-	block, err := s.rpc.L2.BlockByHash(ctx, proofWithHeader.Opts.OntakeOptions().BlockHash)
+	block, err := s.rpc.L2.BlockByHash(ctx, proofResponse.Opts.OntakeOptions().BlockHash)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to get L2 block with given hash %s: %w",
-			proofWithHeader.Opts.OntakeOptions().BlockHash,
+			proofResponse.Opts.OntakeOptions().BlockHash,
 			err,
 		)
 	}
 
 	if block.Transactions().Len() == 0 {
-		return fmt.Errorf("invalid block without anchor transaction, blockID %s", proofWithHeader.BlockID)
+		return fmt.Errorf("invalid block without anchor transaction, blockID %s", proofResponse.BlockID)
 	}
 
 	// Validate TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction inside the L2 block.
@@ -322,21 +322,21 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
 	if err = s.sender.Send(
 		ctx,
-		proofWithHeader,
+		proofResponse,
 		s.txBuilder.Build(
-			proofWithHeader.BlockID,
-			proofWithHeader.Meta,
+			proofResponse.BlockID,
+			proofResponse.Meta,
 			&ontakeBindings.TaikoDataTransition{
-				ParentHash: proofWithHeader.Opts.OntakeOptions().ParentHash,
-				BlockHash:  proofWithHeader.Opts.OntakeOptions().BlockHash,
-				StateRoot:  proofWithHeader.Opts.OntakeOptions().StateRoot,
+				ParentHash: proofResponse.Opts.OntakeOptions().ParentHash,
+				BlockHash:  proofResponse.Opts.OntakeOptions().BlockHash,
+				StateRoot:  proofResponse.Opts.OntakeOptions().StateRoot,
 				Graffiti:   s.graffiti,
 			},
 			&ontakeBindings.TaikoDataTierProof{
-				Tier: proofWithHeader.Tier,
-				Data: proofWithHeader.Proof,
+				Tier: proofResponse.Tier,
+				Data: proofResponse.Proof,
 			},
-			proofWithHeader.Tier,
+			proofResponse.Tier,
 		),
 	); err != nil {
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
@@ -347,7 +347,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	}
 
 	metrics.ProverSentProofCounter.Add(1)
-	metrics.ProverLatestProvenBlockIDGauge.Set(float64(proofWithHeader.BlockID.Uint64()))
+	metrics.ProverLatestProvenBlockIDGauge.Set(float64(proofResponse.BlockID.Uint64()))
 
 	return nil
 }
@@ -357,7 +357,7 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 	log.Info(
 		"Batch submit block proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
-		"size", len(batchProof.Proofs),
+		"size", len(batchProof.ProofResponses),
 		"firstID", batchProof.BlockIDs[0],
 		"lastID", batchProof.BlockIDs[len(batchProof.BlockIDs)-1],
 		"tier", batchProof.Tier,
@@ -367,7 +367,7 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 		latestProvenBlockID = common.Big0
 		uint64BlockIDs      []uint64
 	)
-	if len(batchProof.Proofs) == 0 {
+	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
 	}
 	// Check if the proof has already been submitted.
@@ -375,7 +375,7 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 		ctx,
 		s.rpc,
 		batchProof.BlockIDs,
-		batchProof.Proofs[0].Opts.GetProverAddress(),
+		batchProof.ProofResponses[0].Opts.GetProverAddress(),
 		s.proverSetAddress,
 	)
 	if err != nil {
@@ -389,7 +389,7 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 		)
 		return err
 	}
-	for i, proof := range batchProof.Proofs {
+	for i, proof := range batchProof.ProofResponses {
 		uint64BlockIDs = append(uint64BlockIDs, proof.BlockID.Uint64())
 		// Check if this proof is still needed to be submitted.
 		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(blockInfo.BlockId))

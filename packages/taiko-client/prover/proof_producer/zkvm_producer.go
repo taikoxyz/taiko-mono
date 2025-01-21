@@ -69,7 +69,7 @@ func (s *ZKvmProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
-) (*ProofWithHeader, error) {
+) (*ProofResponse, error) {
 	if meta.IsPacaya() {
 		return nil, fmt.Errorf("zk proof generation is not supported for Pacaya")
 	}
@@ -97,7 +97,7 @@ func (s *ZKvmProofProducer) RequestProof(
 		metrics.ProverSp1ProofGeneratedCounter.Add(1)
 	}
 
-	return &ProofWithHeader{
+	return &ProofResponse{
 		BlockID: blockID,
 		Meta:    meta,
 		Proof:   proof,
@@ -117,7 +117,7 @@ func (s *ZKvmProofProducer) RequestCancel(
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (s *ZKvmProofProducer) Aggregate(
 	ctx context.Context,
-	items []*ProofWithHeader,
+	items []*ProofResponse,
 	requestAt time.Time,
 ) (*BatchProofs, error) {
 	log.Info(
@@ -155,10 +155,10 @@ func (s *ZKvmProofProducer) Aggregate(
 	}
 
 	return &BatchProofs{
-		Proofs:     items,
-		BatchProof: batchProof,
-		Tier:       s.Tier(),
-		BlockIDs:   blockIDs,
+		ProofResponses: items,
+		BatchProof:     batchProof,
+		Tier:           s.Tier(),
+		BlockIDs:       blockIDs,
 	}, nil
 }
 

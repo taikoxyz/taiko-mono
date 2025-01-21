@@ -180,7 +180,7 @@ func (s *ProverTestSuite) TestOnBlockVerifiedEmptyBlockHash() {
 func (s *ProverTestSuite) TestSubmitProofOp() {
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&producer.ProofWithHeader{
+			return s.p.submitProofOp(&producer.ProofResponse{
 				BlockID: common.Big1,
 				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
 				Proof:   []byte{},
@@ -191,7 +191,7 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 	})
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&producer.ProofWithHeader{
+			return s.p.submitProofOp(&producer.ProofResponse{
 				BlockID: common.Big1,
 				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
 				Proof:   []byte{},
@@ -306,10 +306,10 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	// req = <-s.p.proofSubmissionCh
 	// s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 
-	// proofWithHeader := <-s.p.proofGenerationCh
-	// proofWithHeader.Opts.BlockHash = testutils.RandomHash()
+	// proofResponse := <-s.p.proofGenerationCh
+	// proofResponse.Opts.BlockHash = testutils.RandomHash()
 	// s.Nil(s.p.selectSubmitter(
-	// 	m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
+	// 	m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), proofResponse),
 	// )
 
 	// status, err = rpc.GetBlockProofStatus(
@@ -323,7 +323,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	// s.True(status.IsSubmitted)
 	// s.True(status.Invalid)
 	// s.Equal(parent.Hash(), status.ParentHeader.Hash())
-	// s.Equal(proofWithHeader.Opts.BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
+	// s.Equal(proofResponse.Opts.BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
 }
 
 func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {

@@ -37,7 +37,7 @@ func (g *GuardianProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
-) (*ProofWithHeader, error) {
+) (*ProofResponse, error) {
 	if opts.IsPacaya() {
 		return nil, fmt.Errorf("guardian proofs generation is not supported for Pacaya")
 	}
@@ -48,7 +48,7 @@ func (g *GuardianProofProducer) RequestProof(
 	)
 
 	if g.returnLivenessBond {
-		return &ProofWithHeader{
+		return &ProofResponse{
 			BlockID: blockID,
 			Meta:    meta,
 			Proof:   crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")),
@@ -71,7 +71,7 @@ func (g *GuardianProofProducer) RequestCancel(
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (g *GuardianProofProducer) Aggregate(
 	_ context.Context,
-	_ []*ProofWithHeader,
+	_ []*ProofResponse,
 	_ time.Time,
 ) (*BatchProofs, error) {
 	return nil, nil

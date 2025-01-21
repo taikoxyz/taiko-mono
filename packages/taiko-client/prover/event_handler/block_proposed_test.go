@@ -16,7 +16,7 @@ func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
 		SharedState:           &state.SharedState{},
 		ProverAddress:         common.Address{},
 		RPC:                   s.RPCClient,
-		ProofGenerationCh:     make(chan *proofProducer.ProofWithHeader),
+		ProofGenerationCh:     make(chan *proofProducer.ProofResponse),
 		AssignmentExpiredCh:   make(chan metadata.TaikoProposalMetaData),
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
 		ProofContestCh:        make(chan *proofProducer.ContestRequestBody),

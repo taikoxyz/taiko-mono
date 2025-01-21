@@ -76,7 +76,7 @@ type Prover struct {
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
 	proofContestCh         chan *proofProducer.ContestRequestBody
-	proofGenerationCh      chan *proofProducer.ProofWithHeader
+	proofGenerationCh      chan *proofProducer.ProofResponse
 	batchProofGenerationCh chan *proofProducer.BatchProofs
 
 	// Transactions manager
@@ -139,7 +139,7 @@ func InitFromConfig(
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
 	chBufferSize := p.protocolConfigs.MaxProposals()
-	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
+	p.proofGenerationCh = make(chan *proofProducer.ProofResponse, chBufferSize)
 	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
@@ -327,8 +327,8 @@ func (p *Prover) eventLoop() {
 			return
 		case req := <-p.proofContestCh:
 			p.withRetry(func() error { return p.contestProofOp(req) })
-		case proofWithHeader := <-p.proofGenerationCh:
-			p.withRetry(func() error { return p.submitProofOp(proofWithHeader) })
+		case proofResponse := <-p.proofGenerationCh:
+			p.withRetry(func() error { return p.submitProofOp(proofResponse) })
 		case batchProof := <-p.batchProofGenerationCh:
 			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
@@ -488,26 +488,26 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 }
 
 // submitProofOp performs a proof submission operation.
-func (p *Prover) submitProofOp(proofWithHeader *proofProducer.ProofWithHeader) error {
-	submitter := p.getSubmitterByTier(proofWithHeader.Tier)
+func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error {
+	submitter := p.getSubmitterByTier(proofResponse.Tier)
 	if submitter == nil {
 		return nil
 	}
 
-	if err := submitter.SubmitProof(p.ctx, proofWithHeader); err != nil {
+	if err := submitter.SubmitProof(p.ctx, proofResponse); err != nil {
 		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
 			log.Error(
 				"Proof submission reverted",
-				"blockID", proofWithHeader.BlockID,
-				"minTier", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
+				"blockID", proofResponse.BlockID,
+				"minTier", proofResponse.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
 				"error", err,
 			)
 			return nil
 		}
 		log.Error(
 			"Submit proof error",
-			"blockID", proofWithHeader.BlockID,
-			"minTier", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
+			"blockID", proofResponse.BlockID,
+			"minTier", proofResponse.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
 			"error", err,
 		)
 		return err

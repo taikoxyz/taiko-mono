@@ -23,7 +23,7 @@ var (
 // Submitter is the interface for submitting proofs of the L2 blocks.
 type Submitter interface {
 	RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error
-	SubmitProof(ctx context.Context, proofWithHeader *proofProducer.ProofWithHeader) error
+	SubmitProof(ctx context.Context, proofResponse *proofProducer.ProofResponse) error
 	BatchSubmitProofs(ctx context.Context, proofsWithHeaders *proofProducer.BatchProofs) error
 	AggregateProofs(ctx context.Context) error
 	Producer() proofProducer.ProofProducer

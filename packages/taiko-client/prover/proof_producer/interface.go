@@ -78,7 +78,7 @@ type ProofRequestOptionsPacaya struct {
 	EventL1Hash        common.Hash
 }
 
-// IsPacaya implements the ProofRequestOptions interface.
+// IsPacaya implemenwts the ProofRequestOptions interface.
 func (o *ProofRequestOptionsPacaya) IsPacaya() bool {
 	return true
 }

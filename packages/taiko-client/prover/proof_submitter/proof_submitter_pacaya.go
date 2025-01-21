@@ -27,7 +27,7 @@ import (
 type ProofSubmitterPacaya struct {
 	rpc                *rpc.Client
 	proofProducer      proofProducer.ProofProducer
-	resultCh           chan *proofProducer.ProofWithHeader
+	resultCh           chan *proofProducer.ProofResponse
 	batchResultCh      chan *proofProducer.BatchProofs
 	aggregationNotify  chan uint16
 	anchorValidator    *validator.AnchorTxValidator
@@ -42,7 +42,7 @@ type ProofSubmitterPacaya struct {
 func NewProofSubmitterPacaya(
 	rpcClient *rpc.Client,
 	proofProducer proofProducer.ProofProducer,
-	resultCh chan *proofProducer.ProofWithHeader,
+	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
 	aggregationNotify chan uint16,
 	proverSetAddress common.Address,
@@ -175,19 +175,19 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 // SubmitProof implements the Submitter interface.
 func (s *ProofSubmitterPacaya) SubmitProof(
 	ctx context.Context,
-	proofWithHeader *proofProducer.ProofWithHeader,
+	proofResponse *proofProducer.ProofResponse,
 ) (err error) {
 	log.Info(
 		"Submit batch proof",
-		"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-		"coinbase", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetCoinbase(),
-		"proof", common.Bytes2Hex(proofWithHeader.Proof),
+		"batchID", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+		"coinbase", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetCoinbase(),
+		"proof", common.Bytes2Hex(proofResponse.Proof),
 	)
 	// Check if we still need to generate a new proof for that block.
 	proofStatus, err := rpc.GetBatchProofStatus(
 		ctx,
 		s.rpc,
-		proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+		proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
 	)
 	if err != nil {
 		return err
@@ -202,11 +202,11 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 	// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
 	if err = s.sender.Send(
 		ctx,
-		proofWithHeader,
+		proofResponse,
 		s.txBuilder.BuildProveBatchesPacaya(
 			&proofProducer.BatchProofs{
-				Proofs:     []*proofProducer.ProofWithHeader{proofWithHeader},
-				BatchProof: proofWithHeader.Proof,
+				ProofResponses: []*proofProducer.ProofResponse{proofResponse},
+				BatchProof:     proofResponse.Proof,
 			},
 		),
 	); err != nil {
@@ -218,7 +218,7 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 	}
 
 	metrics.ProverSentProofCounter.Add(1)
-	metrics.ProverLatestProvenBlockIDGauge.Set(float64(proofWithHeader.BlockID.Uint64()))
+	metrics.ProverLatestProvenBlockIDGauge.Set(float64(proofResponse.BlockID.Uint64()))
 
 	return nil
 }

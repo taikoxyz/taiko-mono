@@ -34,7 +34,7 @@ type ProofSubmitterTestSuite struct {
 	contester              *ProofContesterOntake
 	blobSyncer             *blob.Syncer
 	proposer               *proposer.Proposer
-	proofCh                chan *producer.ProofWithHeader
+	proofCh                chan *producer.ProofResponse
 	batchProofGenerationCh chan *producer.BatchProofs
 	aggregationNotify      chan uint16
 }
@@ -42,7 +42,7 @@ type ProofSubmitterTestSuite struct {
 func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
-	s.proofCh = make(chan *producer.ProofWithHeader, 1024)
+	s.proofCh = make(chan *producer.ProofResponse, 1024)
 	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
 	s.aggregationNotify = make(chan uint16, 1)
 
@@ -252,7 +252,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 	s.T().Skip("skipping test")
 	s.Error(
 		s.submitter.SubmitProof(
-			context.Background(), &producer.ProofWithHeader{
+			context.Background(), &producer.ProofResponse{
 				BlockID: common.Big256,
 				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
 				Opts:    &producer.ProofRequestOptionsOntake{},
@@ -266,8 +266,8 @@ func (s *ProofSubmitterTestSuite) TestSubmitProofs() {
 	s.T().Skip("skipping test")
 	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
 		s.Nil(s.submitter.RequestProof(context.Background(), m))
-		proofWithHeader := <-s.proofCh
-		s.Nil(s.submitter.SubmitProof(context.Background(), proofWithHeader))
+		proofResponse := <-s.proofCh
+		s.Nil(s.submitter.SubmitProof(context.Background(), proofResponse))
 	}
 }
 
@@ -275,9 +275,9 @@ func (s *ProofSubmitterTestSuite) TestGuardianSubmitProofs() {
 	s.T().Skip("skipping test")
 	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
 		s.Nil(s.submitter.RequestProof(context.Background(), m))
-		proofWithHeader := <-s.proofCh
-		proofWithHeader.Tier = encoding.TierGuardianMajorityID
-		s.Nil(s.submitter.SubmitProof(context.Background(), proofWithHeader))
+		proofResponse := <-s.proofCh
+		proofResponse.Tier = encoding.TierGuardianMajorityID
+		s.Nil(s.submitter.SubmitProof(context.Background(), proofResponse))
 	}
 }
 

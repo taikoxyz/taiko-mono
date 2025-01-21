@@ -18,8 +18,8 @@ func (o *DummyProofProducer) RequestProof(
 	meta metadata.TaikoProposalMetaData,
 	tier uint16,
 	_ time.Time,
-) (*ProofWithHeader, error) {
-	return &ProofWithHeader{
+) (*ProofResponse, error) {
+	return &ProofResponse{
 		BlockID: blockID,
 		Meta:    meta,
 		Proof:   bytes.Repeat([]byte{0xff}, 100),
@@ -30,12 +30,12 @@ func (o *DummyProofProducer) RequestProof(
 
 // RequestBatchProofs returns a dummy proof aggregation to the result channel.
 func (o *DummyProofProducer) RequestBatchProofs(
-	proofs []*ProofWithHeader,
+	proofs []*ProofResponse,
 	tier uint16,
 ) (*BatchProofs, error) {
 	return &BatchProofs{
-		Proofs:     proofs,
-		BatchProof: bytes.Repeat([]byte{0xbb}, 100),
-		Tier:       tier,
+		ProofResponses: proofs,
+		BatchProof:     bytes.Repeat([]byte{0xbb}, 100),
+		Tier:           tier,
 	}, nil
 }

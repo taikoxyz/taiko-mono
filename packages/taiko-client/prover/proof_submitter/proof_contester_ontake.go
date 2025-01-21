@@ -96,7 +96,7 @@ func (c *ProofContesterOntake) SubmitContest(
 	}
 	return c.sender.Send(
 		ctx,
-		&proofProducer.ProofWithHeader{
+		&proofProducer.ProofResponse{
 			BlockID: blockID,
 			Meta:    meta,
 			Proof:   []byte{},

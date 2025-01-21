@@ -33,7 +33,7 @@ type BlockProposedEventHandler struct {
 	proverAddress         common.Address
 	proverSetAddress      common.Address
 	rpc                   *rpc.Client
-	proofGenerationCh     chan<- *proofProducer.ProofWithHeader
+	proofGenerationCh     chan<- *proofProducer.ProofResponse
 	assignmentExpiredCh   chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh     chan<- *proofProducer.ProofRequestBody
 	proofContestCh        chan<- *proofProducer.ContestRequestBody
@@ -51,7 +51,7 @@ type NewBlockProposedEventHandlerOps struct {
 	ProverAddress         common.Address
 	ProverSetAddress      common.Address
 	RPC                   *rpc.Client
-	ProofGenerationCh     chan *proofProducer.ProofWithHeader
+	ProofGenerationCh     chan *proofProducer.ProofResponse
 	AssignmentExpiredCh   chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh     chan *proofProducer.ProofRequestBody
 	ProofContestCh        chan *proofProducer.ContestRequestBody

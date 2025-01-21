@@ -46,17 +46,17 @@ func NewSender(
 // Send sends the given proof to the TaikoL1 smart contract with a backoff policy.
 func (s *Sender) Send(
 	ctx context.Context,
-	proofWithHeader *producer.ProofWithHeader,
+	proofResponse *producer.ProofResponse,
 	buildTx TxBuilder,
 ) (err error) {
 	var proofStatus *rpc.BlockProofStatus
 
 	// Check if the proof has already been submitted.
-	if proofWithHeader.Meta.IsPacaya() {
+	if proofResponse.Meta.IsPacaya() {
 		if proofStatus, err = rpc.GetBatchProofStatus(
 			ctx,
 			s.rpc,
-			proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
 		); err != nil {
 			return err
 		}
@@ -64,8 +64,8 @@ func (s *Sender) Send(
 		if proofStatus, err = rpc.GetBlockProofStatus(
 			ctx,
 			s.rpc,
-			proofWithHeader.BlockID,
-			proofWithHeader.Opts.GetProverAddress(),
+			proofResponse.BlockID,
+			proofResponse.Opts.GetProverAddress(),
 			s.proverSetAddress,
 		); err != nil {
 			return err
@@ -73,11 +73,11 @@ func (s *Sender) Send(
 	}
 
 	if proofStatus.IsSubmitted && !proofStatus.Invalid {
-		return fmt.Errorf("a valid proof for block %d is already submitted", proofWithHeader.BlockID)
+		return fmt.Errorf("a valid proof for block %d is already submitted", proofResponse.BlockID)
 	}
 
 	// Check if this proof is still needed to be submitted.
-	ok, err := s.ValidateProof(ctx, proofWithHeader, nil)
+	ok, err := s.ValidateProof(ctx, proofResponse, nil)
 	if err != nil || !ok {
 		return err
 	}
@@ -101,8 +101,8 @@ func (s *Sender) Send(
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		log.Error(
 			"Failed to submit proof",
-			"blockID", proofWithHeader.BlockID,
-			"tier", proofWithHeader.Tier,
+			"blockID", proofResponse.BlockID,
+			"tier", proofResponse.Tier,
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
@@ -111,20 +111,20 @@ func (s *Sender) Send(
 		return ErrUnretryableSubmission
 	}
 
-	if proofWithHeader.Meta.IsPacaya() {
+	if proofResponse.Meta.IsPacaya() {
 		log.Info(
 			"💰 Your batch proof was accepted",
-			"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"batchID", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
 		)
 	} else {
 		log.Info(
 			"💰 Your block proof was accepted",
-			"blockID", proofWithHeader.BlockID,
-			"parentHash", proofWithHeader.Opts.OntakeOptions().ParentHash,
-			"hash", proofWithHeader.Opts.OntakeOptions().BlockHash,
+			"blockID", proofResponse.BlockID,
+			"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
+			"hash", proofResponse.Opts.OntakeOptions().BlockHash,
 			"txHash", receipt.TxHash,
-			"tier", proofWithHeader.Tier,
-			"isContest", len(proofWithHeader.Proof) == 0,
+			"tier", proofResponse.Tier,
+			"isContest", len(proofResponse.Proof) == 0,
 		)
 	}
 
@@ -180,26 +180,26 @@ func (s *Sender) SendBatchProof(
 // latest verified head is not ahead of this block proof.
 func (s *Sender) ValidateProof(
 	ctx context.Context,
-	proofWithHeader *producer.ProofWithHeader,
+	proofResponse *producer.ProofResponse,
 	latestVerifiedID *big.Int,
 ) (bool, error) {
 	// 1. Check if the corresponding L1 block is still in the canonical chain.
-	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofWithHeader.Meta.GetRawBlockHeight())
+	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofResponse.Meta.GetRawBlockHeight())
 	if err != nil {
 		log.Warn(
 			"Failed to fetch L1 block",
-			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
+			"blockID", proofResponse.BlockID,
+			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
 			"error", err,
 		)
 		return false, err
 	}
-	if l1Header.Hash() != proofWithHeader.Opts.GetRawBlockHash() {
+	if l1Header.Hash() != proofResponse.Opts.GetRawBlockHash() {
 		log.Warn(
 			"Reorg detected, skip the current proof submission",
-			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
-			"l1HashOld", proofWithHeader.Opts.GetRawBlockHash(),
+			"blockID", proofResponse.BlockID,
+			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
+			"l1HashOld", proofResponse.Opts.GetRawBlockHash(),
 			"l1HashNew", l1Header.Hash(),
 		)
 		return false, nil
@@ -208,7 +208,7 @@ func (s *Sender) ValidateProof(
 	var verifiedID = latestVerifiedID
 	// 2. Check if latest verified head is ahead of this block proof.
 	if verifiedID == nil {
-		if proofWithHeader.Meta.IsPacaya() {
+		if proofResponse.Meta.IsPacaya() {
 			ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 			if err != nil {
 				return false, err
@@ -223,20 +223,20 @@ func (s *Sender) ValidateProof(
 		}
 	}
 
-	if proofWithHeader.Meta.IsPacaya() {
-		if verifiedID.Cmp(proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID()) >= 0 {
+	if proofResponse.Meta.IsPacaya() {
+		if verifiedID.Cmp(proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID()) >= 0 {
 			log.Info(
 				"Batch is already verified, skip current proof submission",
-				"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+				"batchID", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
 				"latestVerifiedID", latestVerifiedID,
 			)
 			return false, nil
 		}
 	} else {
-		if verifiedID.Cmp(proofWithHeader.BlockID) >= 0 {
+		if verifiedID.Cmp(proofResponse.BlockID) >= 0 {
 			log.Info(
 				"Block is already verified, skip current proof submission",
-				"blockID", proofWithHeader.BlockID.Uint64(),
+				"blockID", proofResponse.BlockID.Uint64(),
 				"latestVerifiedID", latestVerifiedID,
 			)
 			return false, nil
