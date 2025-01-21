@@ -32,6 +32,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     using LibMath for uint256;
 
     State public state; // storage layout much match Ontake fork
+    uint256[50] private __gap;
 
     // External functions ------------------------------------------------------------------------
 
@@ -42,14 +43,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     }
 
     /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded parameters consisting of:
-    /// - proposer: The address of the proposer, which is set by the PreconfTaskManager if
-    ///             enabled; otherwise, it must be address(0).
-    /// - coinbase: The address that will receive the block rewards; defaults to the proposer's
-    ///             address if set to address(0).
-    /// - batchParams: Batch parameters.
-    /// @param _txList      The transaction list in calldata.
-    /// @return meta_       Batch metadata.
+    /// @param _params ABI-encoded BlockParams.
+    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
+    /// for data availability.
+    /// @return meta_ Batch metadata.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
@@ -68,116 +65,116 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 stats2.numBatches <= stats2.lastVerifiedBatchId + config.maxUnverifiedBatches,
                 TooManyBatches()
             );
-        }
 
-        BatchParams memory params = abi.decode(_params, (BatchParams));
+            BatchParams memory params = abi.decode(_params, (BatchParams));
 
-        {
-            address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
-            if (preconfRouter == address(0)) {
-                require(params.proposer == address(0), CustomProposerNotAllowed());
-                params.proposer = msg.sender;
+            {
+                address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
+                if (preconfRouter == address(0)) {
+                    require(params.proposer == address(0), CustomProposerNotAllowed());
+                    params.proposer = msg.sender;
+                } else {
+                    require(msg.sender == preconfRouter, NotPreconfRouter());
+                    require(params.proposer != address(0), CustomProposerMissing());
+                }
+
+                if (params.coinbase == address(0)) {
+                    params.coinbase = params.proposer;
+                }
+            }
+
+            if (params.revertIfNotFirstProposal) {
+                require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
+            }
+
+            // Keep track of last batch's information.
+            Batch storage lastBatch =
+                state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
+
+            bool calldataUsed = _txList.length != 0;
+
+            require(calldataUsed || params.numBlobs != 0, BlobNotSpecified());
+
+            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
+                params,
+                config.maxAnchorHeightOffset,
+                config.maxSignalsToReceive,
+                config.maxBlocksPerBatch,
+                lastBatch
+            );
+
+            // This section constructs the metadata for the proposed batch, which is crucial for
+            // nodes/clients to process the batch. The metadata itself is not stored on-chain;
+            // instead, only its hash is kept.
+            // The metadata must be supplied as calldata prior to proving the batch, enabling the
+            // computation and verification of its integrity through the comparison of the metahash.
+            //
+            // Note that `difficulty` has been removed from the metadata. The client and prover must
+            // use
+            // the following approach to calculate a block's difficulty:
+            //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
+
+            meta_ = BatchMetadata({
+                txListHash: calldataUsed
+                    ? keccak256(_txList)
+                    : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
+                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+                coinbase: params.coinbase,
+                batchId: stats2.numBatches,
+                gasLimit: config.blockMaxGasLimit,
+                lastBlockTimestamp: lastBlockTimestamp,
+                parentMetaHash: lastBatch.metaHash,
+                proposer: params.proposer,
+                livenessBond: config.livenessBondBase
+                    + config.livenessBondPerBlock * uint96(params.blocks.length),
+                proposedAt: uint64(block.timestamp),
+                proposedIn: uint64(block.number),
+                txListOffset: params.txListOffset,
+                txListSize: params.txListSize,
+                firstBlobIndex: params.firstBlobIndex,
+                numBlobs: calldataUsed ? 0 : params.numBlobs,
+                anchorBlockId: anchorBlockId,
+                anchorBlockHash: blockhash(anchorBlockId),
+                signalSlots: params.signalSlots,
+                blocks: params.blocks,
+                anchorInput: params.anchorInput,
+                baseFeeConfig: config.baseFeeConfig
+            });
+
+            require(meta_.anchorBlockHash != 0, ZeroAnchorBlockHash());
+            require(meta_.txListHash != 0, BlobNotFound());
+            bytes32 metaHash = keccak256(abi.encode(meta_));
+
+            Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
+
+            // SSTORE #1
+            batch.metaHash = metaHash;
+
+            // SSTORE #2 {{
+            batch.batchId = stats2.numBatches;
+            batch.lastBlockTimestamp = lastBlockTimestamp;
+            batch.anchorBlockId = anchorBlockId;
+            batch.nextTransitionId = 1;
+            batch.verifiedTransitionId = 0;
+            batch.reserved4 = 0;
+            // SSTORE }}
+
+            // SSTORE #3 {{
+            if (stats2.numBatches == config.forkHeights.pacaya) {
+                batch.lastBlockId = batch.batchId + uint64(params.blocks.length) - 1;
             } else {
-                require(msg.sender == preconfRouter, NotPreconfRouter());
-                require(params.proposer != address(0), CustomProposerMissing());
+                batch.lastBlockId = lastBatch.lastBlockId + uint64(params.blocks.length);
             }
+            batch.livenessBond = meta_.livenessBond;
+            batch._reserved3 = 0;
+            // SSTORE }}
 
-            if (params.coinbase == address(0)) {
-                params.coinbase = params.proposer;
-            }
-        }
-
-        if (params.revertIfNotFirstProposal) {
-            require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
-        }
-
-        // Keep track of last batch's information.
-        Batch storage lastBatch;
-        unchecked {
-            lastBatch = state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
-        }
-
-        bool calldataUsed = _txList.length != 0;
-
-        require(calldataUsed || params.numBlobs != 0, BlobNotSpecified());
-
-        (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
-            params,
-            config.maxAnchorHeightOffset,
-            config.maxSignalsToReceive,
-            config.maxBlocksPerBatch,
-            lastBatch
-        );
-
-        // This section constructs the metadata for the proposed batch, which is crucial for
-        // nodes/clients to process the batch. The metadata itself is not stored on-chain;
-        // instead, only its hash is kept.
-        // The metadata must be supplied as calldata prior to proving the batch, enabling the
-        // computation and verification of its integrity through the comparison of the metahash.
-        //
-        // Note that `difficulty` has been removed from the metadata. The client and prover must use
-        // the following approach to calculate a block's difficulty:
-        //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-        meta_ = BatchMetadata({
-            txListHash: calldataUsed
-                ? keccak256(_txList)
-                : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
-            extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-            coinbase: params.coinbase,
-            batchId: stats2.numBatches,
-            gasLimit: config.blockMaxGasLimit,
-            lastBlockTimestamp: lastBlockTimestamp,
-            parentMetaHash: lastBatch.metaHash,
-            proposer: params.proposer,
-            livenessBond: config.livenessBondBase
-                + config.livenessBondPerBlock * uint96(params.blocks.length),
-            proposedAt: uint64(block.timestamp),
-            proposedIn: uint64(block.number),
-            txListOffset: params.txListOffset,
-            txListSize: params.txListSize,
-            firstBlobIndex: params.firstBlobIndex,
-            numBlobs: calldataUsed ? 0 : params.numBlobs,
-            anchorBlockId: anchorBlockId,
-            anchorBlockHash: blockhash(anchorBlockId),
-            signalSlots: params.signalSlots,
-            blocks: params.blocks,
-            anchorInput: params.anchorInput,
-            baseFeeConfig: config.baseFeeConfig
-        });
-
-        require(meta_.anchorBlockHash != 0, ZeroAnchorBlockHash());
-        require(meta_.txListHash != 0, BlobNotFound());
-        bytes32 metaHash = keccak256(abi.encode(meta_));
-
-        Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
-        // SSTORE #1
-        batch.metaHash = metaHash;
-
-        // SSTORE #2 {{
-        batch.batchId = stats2.numBatches;
-        batch.lastBlockTimestamp = lastBlockTimestamp;
-        batch.anchorBlockId = anchorBlockId;
-        batch.nextTransitionId = 1;
-        batch.verifiedTransitionId = 0;
-        batch.reserved4 = 0;
-        // SSTORE }}
-
-        // SSTORE #3 {{
-        if (stats2.numBatches == config.forkHeights.pacaya) {
-            batch.lastBlockId = batch.batchId + uint64(params.blocks.length) - 1;
-        } else {
-            batch.lastBlockId = lastBatch.lastBlockId + uint64(params.blocks.length);
-        }
-        batch._reserved3 = 0;
-        // SSTORE }}
-
-        unchecked {
             stats2.numBatches += 1;
             stats2.lastProposedIn = uint56(block.number);
-        }
 
-        _debitBond(params.proposer, meta_.livenessBond);
-        emit BatchProposed(meta_, calldataUsed, _txList);
+            _debitBond(params.proposer, meta_.livenessBond);
+            emit BatchProposed(meta_, calldataUsed, _txList);
+        } // end-of-unchecked
 
         _verifyBatches(config, stats2, 1);
     }
@@ -226,7 +223,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             uint24 tid;
             uint24 nextTransitionId = batch.nextTransitionId;
             if (nextTransitionId > 1) {
-                // This batch has been proved at least once.
+                // This batch has at least one transition.
                 if (state.transitions[slot][1].parentHash == tran.parentHash) {
                     // Overwrite the first transition.
                     tid = 1;
@@ -238,47 +235,42 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 }
             }
 
-            bool isConflictingProof;
             if (tid == 0) {
                 // This transition is new, we need to use the next available ID.
-                tid = batch.nextTransitionId++;
-            } else {
-                Transition memory oldTran = state.transitions[slot][tid];
-
-                bool isSameTransition = oldTran.blockHash == tran.blockHash
-                    && (oldTran.stateRoot == 0 || oldTran.stateRoot == tran.stateRoot);
-                require(!isSameTransition, SameTransition());
-
-                isConflictingProof = true;
-                emit ConflictingProof(meta.batchId, oldTran, tran);
-            }
-
-            Transition storage ts = state.transitions[slot][tid];
-            if (tid == 1) {
-                // Ensure that only the proposer can prove the first transition before the
-                // proving deadline.
                 unchecked {
-                    uint256 deadline =
-                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
-
-                    if (block.timestamp <= deadline && !isConflictingProof) {
-                        _creditBond(meta.proposer, meta.livenessBond);
-                    }
-
-                    ts.parentHash = tran.parentHash;
+                    tid = batch.nextTransitionId++;
                 }
             } else {
-                // No need to write parent hash to storage for transitions with id != 1 as the
-                // parent hash is not used at all, instead, we need to update the parent hash to ID
-                // mapping.
-                state.transitionIds[meta.batchId][tran.parentHash] = tid;
+                TransitionState memory _ts = state.transitions[slot][tid];
+
+                bool isSameTransition = _ts.blockHash == tran.blockHash
+                    && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
+                require(!isSameTransition, SameTransition());
+
+                hasConflictingProof = true;
+                emit ConflictingProof(meta.batchId, _ts, tran);
             }
 
+            TransitionState storage ts = state.transitions[slot][tid];
+            ts.parentHash = tran.parentHash;
+            ts.blockHash = tran.blockHash;
             ts.stateRoot =
                 meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
-            ts.blockHash = tran.blockHash;
 
-            hasConflictingProof = hasConflictingProof || isConflictingProof;
+            bool inProvingWindow;
+            unchecked {
+                inProvingWindow = block.timestamp
+                    <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+            }
+
+            ts.inProvingWindow = inProvingWindow;
+            ts.prover = inProvingWindow ? meta.proposer : msg.sender;
+
+            if (tid == 1) {
+                ts.parentHash = tran.parentHash;
+            } else {
+                state.transitionIds[meta.batchId][tran.parentHash] = tid;
+            }
         }
 
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
@@ -309,7 +301,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         uint64 _batchId,
         bytes32 _parentHash,
         bytes32 _blockHash,
-        bytes32 _stateRoot
+        bytes32 _stateRoot,
+        address _prover,
+        bool _inProvingWindow
     )
         external
         onlyOwner
@@ -327,16 +321,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             tid = batch.nextTransitionId++;
         }
 
-        Transition storage ts = state.transitions[slot][tid];
+        TransitionState storage ts = state.transitions[slot][tid];
+        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
+        ts.blockHash = _blockHash;
+        ts.prover = _prover;
+        ts.inProvingWindow = _inProvingWindow;
+
         if (tid == 1) {
             ts.parentHash = _parentHash;
         } else {
             state.transitionIds[_batchId][_parentHash] = tid;
         }
 
-        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
-        ts.blockHash = _blockHash;
-        emit TransitionWritten(_batchId, tid, Transition(_parentHash, _blockHash, _stateRoot));
+        emit TransitionWritten(
+            _batchId,
+            tid,
+            TransitionState(_parentHash, _blockHash, _stateRoot, _prover, _inProvingWindow)
+        );
     }
 
     /// @inheritdoc ITaikoInbox
@@ -379,7 +380,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     )
         external
         view
-        returns (Transition memory tran_)
+        returns (TransitionState memory)
     {
         Config memory config = getConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
@@ -396,7 +397,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     )
         external
         view
-        returns (Transition memory)
+        returns (TransitionState memory)
     {
         Config memory config = getConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
@@ -412,22 +413,22 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
         blockId_ = getBatch(batchId_).lastBlockId;
-        tran_ = getBatchVerifyingTransition(batchId_);
+        ts_ = getBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory tran_)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats1.lastSyncedBatchId;
         blockId_ = getBatch(batchId_).lastBlockId;
-        tran_ = getBatchVerifyingTransition(batchId_);
+        ts_ = getBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -471,7 +472,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     function getBatchVerifyingTransition(uint64 _batchId)
         public
         view
-        returns (Transition memory tran_)
+        returns (TransitionState memory ts_)
     {
         Config memory config = getConfig();
 
@@ -480,7 +481,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         require(batch.batchId == _batchId, BatchNotFound());
 
         if (batch.verifiedTransitionId != 0) {
-            tran_ = state.transitions[slot][batch.verifiedTransitionId];
+            ts_ = state.transitions[slot][batch.verifiedTransitionId];
         }
     }
 
@@ -553,26 +554,35 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
         SyncBlock memory synced;
 
-        uint256 stopBatchId = (
-            _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
-        ).min(_stats2.numBatches);
+        uint256 stopBatchId;
+        unchecked {
+            stopBatchId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1)
+                .min(_stats2.numBatches);
+        }
 
         for (++batchId; batchId < stopBatchId; ++batchId) {
             slot = batchId % _config.batchRingBufferSize;
             batch = state.batches[slot];
+            uint24 nextTransitionId = batch.nextTransitionId;
 
-            // FIX
-            Transition storage ts = state.transitions[slot][1];
+            if (nextTransitionId <= 1) break;
+
+            TransitionState storage ts = state.transitions[slot][1];
             if (ts.parentHash == blockHash) {
                 tid = 1;
-            } else {
+            } else if (nextTransitionId > 2) {
                 uint24 _tid = state.transitionIds[batchId][blockHash];
                 if (_tid == 0) break;
                 tid = _tid;
                 ts = state.transitions[slot][tid];
+            } else {
+                break;
             }
 
             blockHash = ts.blockHash;
+
+            uint96 bondToReturn = ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
+            _creditBond(ts.prover, bondToReturn);
 
             if (batchId % _config.stateRootSyncInternal == 0) {
                 synced.batchId = batchId;
@@ -581,7 +591,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 synced.stateRoot = ts.stateRoot;
             }
 
-            for (uint24 i = 2; i < batch.nextTransitionId; ++i) {
+            for (uint24 i = 2; i < nextTransitionId; ++i) {
                 ts = state.transitions[slot][i];
                 delete state.transitionIds[batchId][ts.parentHash];
             }
