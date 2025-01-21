@@ -76,46 +76,42 @@ func NewProofSubmitterPacaya(
 // RequestProof requests proof for the given Taiko batch after Pacaya fork.
 func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
-		metaHash common.Hash
-		header   *types.Header
-		parent   *types.Header
-		err      error
+		headers []*types.Header
+		err     error
 	)
 
 	batch, err := s.rpc.GetBatchByID(ctx, meta.TaikoBatchMetaDataPacaya().GetBatchID())
 	if err != nil {
 		return err
 	}
-	if header, err = s.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(batch.LastBlockId)); err != nil {
-		return fmt.Errorf(
-			"failed to fetch l2 Header, blockID: %d, error: %w",
-			batch.LastBlockId,
-			err,
+	for i := 0; i < len(meta.TaikoBatchMetaDataPacaya().GetBlocks()); i++ {
+		header, err := s.rpc.WaitL2Header(
+			ctx,
+			new(big.Int).SetUint64(batch.LastBlockId-uint64(len(meta.TaikoBatchMetaDataPacaya().GetBlocks()))+uint64(i)+1),
 		)
-	}
+		if err != nil {
+			return fmt.Errorf(
+				"failed to fetch l2 Header, blockID: %d, error: %w",
+				batch.LastBlockId,
+				err,
+			)
+		}
 
-	if header.TxHash == types.EmptyTxsHash {
-		return errors.New("no transaction in block")
-	}
+		if header.TxHash == types.EmptyTxsHash {
+			return errors.New("no transaction in block")
+		}
 
-	if parent, err = s.rpc.L2.HeaderByHash(ctx, header.ParentHash); err != nil {
-		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
+		headers = append(headers, header)
 	}
-
-	metaHash = batch.MetaHash
 
 	// Request proof.
-	opts := &proofProducer.ProofRequestOptions{
-		LastBlockID:            header.Number,
-		ProverAddress:          s.proverAddress,
-		ProposeBlockTxHash:     meta.GetTxHash(),
-		MetaHash:               metaHash,
-		LastBlockHash:          header.Hash(),
-		LastParentHash:         header.ParentHash,
-		LastBlockStateRoot:     header.Root,
-		EventL1Hash:            meta.GetRawBlockHash(),
-		LastBlockGasUsed:       header.GasUsed,
-		FistBlockParentGasUsed: parent.GasUsed,
+	opts := &proofProducer.ProofRequestOptionsPacaya{
+		BatchID:            meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+		ProverAddress:      s.proverAddress,
+		ProposeBlockTxHash: meta.GetTxHash(),
+		MetaHash:           batch.MetaHash,
+		EventL1Hash:        meta.GetRawBlockHash(),
+		Headers:            headers,
 	}
 
 	// If the prover set address is provided, we use that address as the prover on chain.
@@ -128,7 +124,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 	if err := backoff.Retry(
 		func() error {
 			if ctx.Err() != nil {
-				log.Error("Failed to request proof, context is canceled", "blockID", opts.LastBlockID, "error", ctx.Err())
+				log.Error("Failed to request proof, context is canceled", "batchID", opts.BatchID, "error", ctx.Err())
 				return nil
 			}
 			// Check if there is a need to generate proof
@@ -149,7 +145,6 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				opts,
 				new(big.Int).SetUint64(batch.BatchId),
 				meta,
-				header,
 				startTime,
 			)
 			if err != nil {
@@ -186,9 +181,6 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 		"Submit batch proof",
 		"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
 		"coinbase", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetCoinbase(),
-		"lastBlockParentHash", proofWithHeader.LastHeader.ParentHash,
-		"lastBlockHash", proofWithHeader.Opts.LastBlockHash,
-		"lastBlockStateRoot", proofWithHeader.Opts.LastBlockStateRoot,
 		"proof", common.Bytes2Hex(proofWithHeader.Proof),
 	)
 	// Check if we still need to generate a new proof for that block.
@@ -206,22 +198,6 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 	}
 
 	metrics.ProverReceivedProofCounter.Add(1)
-
-	// Get the corresponding L2 block.
-	block, err := s.rpc.L2.BlockByHash(ctx, proofWithHeader.LastHeader.Hash())
-	if err != nil {
-		return fmt.Errorf("failed to get L2 block with given hash %s: %w", proofWithHeader.LastHeader.Hash(), err)
-	}
-
-	if block.Transactions().Len() == 0 {
-		return fmt.Errorf("invalid block without anchor transaction, blockID %s", proofWithHeader.BlockID)
-	}
-
-	// Validate TaikoAnchor.anchorV3 transaction inside the L2 block.
-	anchorTx := block.Transactions()[0]
-	if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
-		return fmt.Errorf("invalid anchor transaction: %w", err)
-	}
 
 	// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
 	if err = s.sender.Send(

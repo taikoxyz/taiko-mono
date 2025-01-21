@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
@@ -15,20 +13,18 @@ type DummyProofProducer struct{}
 
 // RequestProof returns a dummy proof to the result channel.
 func (o *DummyProofProducer) RequestProof(
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
-	header *types.Header,
 	tier uint16,
 	_ time.Time,
 ) (*ProofWithHeader, error) {
 	return &ProofWithHeader{
-		BlockID:    blockID,
-		Meta:       meta,
-		LastHeader: header,
-		Proof:      bytes.Repeat([]byte{0xff}, 100),
-		Opts:       opts,
-		Tier:       tier,
+		BlockID: blockID,
+		Meta:    meta,
+		Proof:   bytes.Repeat([]byte{0xff}, 100),
+		Opts:    opts,
+		Tier:    tier,
 	}, nil
 }
 

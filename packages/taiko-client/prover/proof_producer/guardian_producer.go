@@ -2,10 +2,10 @@ package producer
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -33,37 +33,37 @@ func NewGuardianProofProducer(
 // RequestProof implements the ProofProducer interface.
 func (g *GuardianProofProducer) RequestProof(
 	_ context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
-	header *types.Header,
 	requestAt time.Time,
 ) (*ProofWithHeader, error) {
+	if opts.IsPacaya() {
+		return nil, fmt.Errorf("guardian proofs generation is not supported for Pacaya")
+	}
 	log.Info(
 		"Request guardian proof",
 		"blockID", blockID,
 		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-		"hash", header.Hash(),
 	)
 
 	if g.returnLivenessBond {
 		return &ProofWithHeader{
-			BlockID:    blockID,
-			Meta:       meta,
-			LastHeader: header,
-			Proof:      crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")),
-			Opts:       opts,
-			Tier:       g.tier,
+			BlockID: blockID,
+			Meta:    meta,
+			Proof:   crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")),
+			Opts:    opts,
+			Tier:    g.tier,
 		}, nil
 	}
 
-	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier(), requestAt)
+	return g.DummyProofProducer.RequestProof(opts, blockID, meta, g.Tier(), requestAt)
 }
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (g *GuardianProofProducer) RequestCancel(
 	_ context.Context,
-	_ *ProofRequestOptions,
+	_ ProofRequestOptions,
 ) error {
 	return nil
 }

@@ -126,19 +126,19 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 	metaHash = blockInfo.MetaHash
 
 	// Request proof.
-	opts := &proofProducer.ProofRequestOptions{
-		LastBlockID:            header.Number,
-		ProverAddress:          s.proverAddress,
-		ProposeBlockTxHash:     meta.GetTxHash(),
-		MetaHash:               metaHash,
-		LastBlockHash:          header.Hash(),
-		LastParentHash:         header.ParentHash,
-		LastBlockStateRoot:     header.Root,
-		EventL1Hash:            meta.GetRawBlockHash(),
-		Graffiti:               common.Bytes2Hex(s.graffiti[:]),
-		LastBlockGasUsed:       header.GasUsed,
-		FistBlockParentGasUsed: parent.GasUsed,
-		Compressed:             s.proofBuffer.Enabled(),
+	opts := &proofProducer.ProofRequestOptionsOntake{
+		BlockID:            header.Number,
+		ProverAddress:      s.proverAddress,
+		ProposeBlockTxHash: meta.GetTxHash(),
+		MetaHash:           metaHash,
+		BlockHash:          header.Hash(),
+		ParentHash:         header.ParentHash,
+		StateRoot:          header.Root,
+		EventL1Hash:        meta.GetRawBlockHash(),
+		Graffiti:           common.Bytes2Hex(s.graffiti[:]),
+		GasUsed:            header.GasUsed,
+		ParentGasUsed:      parent.GasUsed,
+		Compressed:         s.proofBuffer.Enabled(),
 	}
 
 	// If the prover set address is provided, we use that address as the prover on chain.
@@ -151,7 +151,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 	if err := backoff.Retry(
 		func() error {
 			if ctx.Err() != nil {
-				log.Error("Failed to request proof, context is canceled", "blockID", opts.LastBlockID, "error", ctx.Err())
+				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
 				return nil
 			}
 			// Check if the proof buffer is full.
@@ -168,7 +168,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 			proofStatus, err := rpc.GetBlockProofStatus(
 				ctx,
 				s.rpc,
-				opts.LastBlockID,
+				opts.BlockID,
 				opts.ProverAddress,
 				s.proverSetAddress,
 			)
@@ -184,13 +184,12 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 				opts,
 				meta.TaikoBlockMetaDataOntake().GetBlockID(),
 				meta,
-				header,
 				startTime,
 			)
 			if err != nil {
 				// If request proof has timed out in retry, let's cancel the proof generating and skip
 				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
-					log.Error("Request proof has timed out, start to cancel", "blockID", opts.LastBlockID)
+					log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
 					if cancelErr := s.proofProducer.RequestCancel(ctx, opts); cancelErr != nil {
 						log.Error("Failed to request cancellation of proof", "err", cancelErr)
 					}
@@ -247,9 +246,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 		"Submit block proof",
 		"blockID", proofWithHeader.BlockID,
 		"coinbase", proofWithHeader.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-		"parentHash", proofWithHeader.LastHeader.ParentHash,
-		"hash", proofWithHeader.Opts.LastBlockHash,
-		"stateRoot", proofWithHeader.Opts.LastBlockStateRoot,
+		"parentHash", proofWithHeader.Opts.OntakeOptions().ParentHash,
 		"proof", common.Bytes2Hex(proofWithHeader.Proof),
 		"tier", proofWithHeader.Tier,
 	)
@@ -303,9 +300,13 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	metrics.ProverReceivedProofCounter.Add(1)
 
 	// Get the corresponding L2 block.
-	block, err := s.rpc.L2.BlockByHash(ctx, proofWithHeader.LastHeader.Hash())
+	block, err := s.rpc.L2.BlockByHash(ctx, proofWithHeader.Opts.OntakeOptions().BlockHash)
 	if err != nil {
-		return fmt.Errorf("failed to get L2 block with given hash %s: %w", proofWithHeader.LastHeader.Hash(), err)
+		return fmt.Errorf(
+			"failed to get L2 block with given hash %s: %w",
+			proofWithHeader.Opts.OntakeOptions().BlockHash,
+			err,
+		)
 	}
 
 	if block.Transactions().Len() == 0 {
@@ -326,9 +327,9 @@ func (s *ProofSubmitterOntake) SubmitProof(
 			proofWithHeader.BlockID,
 			proofWithHeader.Meta,
 			&ontakeBindings.TaikoDataTransition{
-				ParentHash: proofWithHeader.LastHeader.ParentHash,
-				BlockHash:  proofWithHeader.Opts.LastBlockHash,
-				StateRoot:  proofWithHeader.Opts.LastBlockStateRoot,
+				ParentHash: proofWithHeader.Opts.OntakeOptions().ParentHash,
+				BlockHash:  proofWithHeader.Opts.OntakeOptions().BlockHash,
+				StateRoot:  proofWithHeader.Opts.OntakeOptions().StateRoot,
 				Graffiti:   s.graffiti,
 			},
 			&ontakeBindings.TaikoDataTierProof{
@@ -374,7 +375,7 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 		ctx,
 		s.rpc,
 		batchProof.BlockIDs,
-		batchProof.Proofs[0].Opts.ProverAddress,
+		batchProof.Proofs[0].Opts.GetProverAddress(),
 		s.proverSetAddress,
 	)
 	if err != nil {
@@ -408,11 +409,11 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 		}
 
 		// Get the corresponding L2 block.
-		block, err := s.rpc.L2.BlockByHash(ctx, proof.LastHeader.Hash())
+		block, err := s.rpc.L2.BlockByHash(ctx, proof.Opts.OntakeOptions().BlockHash)
 		if err != nil {
 			log.Error(
 				"Failed to get L2 block with given hash",
-				"hash", proof.LastHeader.Hash(),
+				"hash", proof.Opts.OntakeOptions().BlockHash,
 				"error", err,
 			)
 			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())

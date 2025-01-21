@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
@@ -254,11 +253,10 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 	s.Error(
 		s.submitter.SubmitProof(
 			context.Background(), &producer.ProofWithHeader{
-				BlockID:    common.Big256,
-				Meta:       &metadata.TaikoDataBlockMetadataOntake{},
-				LastHeader: &types.Header{},
-				Opts:       &producer.ProofRequestOptions{},
-				Proof:      bytes.Repeat([]byte{0xff}, 100),
+				BlockID: common.Big256,
+				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
+				Opts:    &producer.ProofRequestOptionsOntake{},
+				Proof:   bytes.Repeat([]byte{0xff}, 100),
 			},
 		),
 	)

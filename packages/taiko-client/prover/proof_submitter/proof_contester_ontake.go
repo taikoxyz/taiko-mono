@@ -97,13 +97,12 @@ func (c *ProofContesterOntake) SubmitContest(
 	return c.sender.Send(
 		ctx,
 		&proofProducer.ProofWithHeader{
-			BlockID:    blockID,
-			Meta:       meta,
-			LastHeader: header,
-			Proof:      []byte{},
-			Opts: &proofProducer.ProofRequestOptions{
-				EventL1Hash:        l1HeaderProposedIn.Hash(),
-				LastBlockStateRoot: header.Root,
+			BlockID: blockID,
+			Meta:    meta,
+			Proof:   []byte{},
+			Opts: &proofProducer.ProofRequestOptionsOntake{
+				EventL1Hash: l1HeaderProposedIn.Hash(),
+				StateRoot:   header.Root,
 			},
 			Tier: tier,
 		},

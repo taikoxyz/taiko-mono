@@ -65,7 +65,7 @@ func (s *Sender) Send(
 			ctx,
 			s.rpc,
 			proofWithHeader.BlockID,
-			proofWithHeader.Opts.ProverAddress,
+			proofWithHeader.Opts.GetProverAddress(),
 			s.proverSetAddress,
 		); err != nil {
 			return err
@@ -115,15 +115,13 @@ func (s *Sender) Send(
 		log.Info(
 			"💰 Your batch proof was accepted",
 			"batchID", proofWithHeader.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			"parentHash", proofWithHeader.LastHeader.ParentHash,
 		)
 	} else {
 		log.Info(
 			"💰 Your block proof was accepted",
 			"blockID", proofWithHeader.BlockID,
-			"parentHash", proofWithHeader.LastHeader.ParentHash,
-			"hash", proofWithHeader.LastHeader.Hash(),
-			"stateRoot", proofWithHeader.Opts.LastBlockStateRoot,
+			"parentHash", proofWithHeader.Opts.OntakeOptions().ParentHash,
+			"hash", proofWithHeader.Opts.OntakeOptions().BlockHash,
 			"txHash", receipt.TxHash,
 			"tier", proofWithHeader.Tier,
 			"isContest", len(proofWithHeader.Proof) == 0,
@@ -196,12 +194,12 @@ func (s *Sender) ValidateProof(
 		)
 		return false, err
 	}
-	if l1Header.Hash() != proofWithHeader.Opts.EventL1Hash {
+	if l1Header.Hash() != proofWithHeader.Opts.GetRawBlockHash() {
 		log.Warn(
 			"Reorg detected, skip the current proof submission",
 			"blockID", proofWithHeader.BlockID,
 			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
-			"l1HashOld", proofWithHeader.Opts.EventL1Hash,
+			"l1HashOld", proofWithHeader.Opts.GetRawBlockHash(),
 			"l1HashNew", l1Header.Hash(),
 		)
 		return false, nil

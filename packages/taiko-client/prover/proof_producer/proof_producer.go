@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
@@ -33,29 +32,12 @@ type ContestRequestBody struct {
 	Tier       uint16
 }
 
-// ProofRequestOptions contains all options that need to be passed to a backend proof producer service.
-type ProofRequestOptions struct {
-	LastBlockID            *big.Int
-	ProverAddress          common.Address
-	ProposeBlockTxHash     common.Hash
-	MetaHash               common.Hash
-	LastBlockHash          common.Hash
-	LastParentHash         common.Hash
-	LastBlockStateRoot     common.Hash
-	EventL1Hash            common.Hash
-	Graffiti               string
-	LastBlockGasUsed       uint64
-	FistBlockParentGasUsed uint64
-	Compressed             bool
-}
-
 type ProofWithHeader struct {
-	BlockID    *big.Int
-	Meta       metadata.TaikoProposalMetaData
-	LastHeader *types.Header
-	Proof      []byte
-	Opts       *ProofRequestOptions
-	Tier       uint16
+	BlockID *big.Int
+	Meta    metadata.TaikoProposalMetaData
+	Proof   []byte
+	Opts    ProofRequestOptions
+	Tier    uint16
 }
 
 type BatchProofs struct {
@@ -68,10 +50,9 @@ type BatchProofs struct {
 type ProofProducer interface {
 	RequestProof(
 		ctx context.Context,
-		opts *ProofRequestOptions,
+		opts ProofRequestOptions,
 		blockID *big.Int,
 		meta metadata.TaikoProposalMetaData,
-		header *types.Header,
 		requestAt time.Time,
 	) (*ProofWithHeader, error)
 	Aggregate(
@@ -81,7 +62,7 @@ type ProofProducer interface {
 	) (*BatchProofs, error)
 	RequestCancel(
 		ctx context.Context,
-		opts *ProofRequestOptions,
+		opts ProofRequestOptions,
 	) error
 	Tier() uint16
 }

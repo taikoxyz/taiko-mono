@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -66,23 +65,25 @@ type ZKvmProofProducer struct {
 // RequestProof implements the ProofProducer interface.
 func (s *ZKvmProofProducer) RequestProof(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
-	header *types.Header,
 	requestAt time.Time,
 ) (*ProofWithHeader, error) {
+	if meta.IsPacaya() {
+		return nil, fmt.Errorf("zk proof generation is not supported for Pacaya")
+	}
+
 	log.Info(
 		"Request zk proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-		"hash", header.Hash(),
 		"zkType", s.ZKProofType,
 		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), requestAt)
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, s.Tier(), requestAt)
 	}
 
 	proof, err := s.callProverDaemon(ctx, opts, requestAt)
@@ -97,19 +98,18 @@ func (s *ZKvmProofProducer) RequestProof(
 	}
 
 	return &ProofWithHeader{
-		BlockID:    blockID,
-		LastHeader: header,
-		Meta:       meta,
-		Proof:      proof,
-		Opts:       opts,
-		Tier:       s.Tier(),
+		BlockID: blockID,
+		Meta:    meta,
+		Proof:   proof,
+		Opts:    opts,
+		Tier:    s.Tier(),
 	}, nil
 }
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (s *ZKvmProofProducer) RequestCancel(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 ) error {
 	return s.requestCancel(ctx, opts)
 }
@@ -139,8 +139,8 @@ func (s *ZKvmProofProducer) Aggregate(
 	batchProof, err := s.requestBatchProof(
 		ctx,
 		blockIDs,
-		items[0].Opts.ProverAddress,
-		items[0].Opts.Graffiti,
+		items[0].Opts.GetProverAddress(),
+		items[0].Opts.GetGraffiti(),
 		requestAt,
 	)
 	if err != nil {
@@ -165,7 +165,7 @@ func (s *ZKvmProofProducer) Aggregate(
 // callProverDaemon keeps polling the proverd service to get the requested proof.
 func (s *ZKvmProofProducer) callProverDaemon(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 	requestAt time.Time,
 ) ([]byte, error) {
 	var (
@@ -177,7 +177,12 @@ func (s *ZKvmProofProducer) callProverDaemon(
 
 	output, err := s.requestProof(zkCtx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "blockID", opts.LastBlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		log.Error(
+			"Failed to request proof",
+			"blockID", opts.OntakeOptions().BlockID,
+			"error", err,
+			"endpoint", s.RaikoHostEndpoint,
+		)
 		return nil, err
 	}
 
@@ -188,7 +193,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		return nil, ErrRetry
 	}
 
-	if !opts.Compressed {
+	if !opts.OntakeOptions().Compressed {
 		if len(output.Data.Proof.Proof) == 0 {
 			return nil, errEmptyProof
 		}
@@ -196,7 +201,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	}
 	log.Info(
 		"Proof generated",
-		"blockID", opts.LastBlockID,
+		"blockID", opts.OntakeOptions().BlockID,
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
@@ -212,13 +217,13 @@ func (s *ZKvmProofProducer) callProverDaemon(
 // requestProof sends a RPC request to proverd to try to get the requested proof.
 func (s *ZKvmProofProducer) requestProof(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
 	var (
 		reqBody   RaikoRequestProofBody
 		recursion string
 	)
-	if opts.Compressed {
+	if opts.OntakeOptions().Compressed {
 		recursion = RecursionCompressed
 	} else {
 		recursion = RecursionPlonk
@@ -227,9 +232,9 @@ func (s *ZKvmProofProducer) requestProof(
 	case ZKProofTypeSP1:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.LastBlockID,
-			Prover:   opts.ProverAddress.Hex()[2:],
-			Graffiti: opts.Graffiti,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
 			SP1: &SP1RequestProofBodyParam{
 				Recursion: recursion,
 				Prover:    "network",
@@ -239,9 +244,9 @@ func (s *ZKvmProofProducer) requestProof(
 	default:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.LastBlockID,
-			Prover:   opts.ProverAddress.Hex()[2:],
-			Graffiti: opts.Graffiti,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
 			RISC0: &RISC0RequestProofBodyParam{
 				Bonsai:       true,
 				Snark:        true,
@@ -269,7 +274,7 @@ func (s *ZKvmProofProducer) requestProof(
 
 	log.Debug(
 		"Send proof generation request",
-		"blockID", opts.LastBlockID,
+		"blockID", opts.OntakeOptions().BlockID,
 		"zkProofType", s.ZKProofType,
 		"input", string(jsonValue),
 	)
@@ -281,7 +286,11 @@ func (s *ZKvmProofProducer) requestProof(
 
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request proof, id: %d, statusCode: %d", opts.LastBlockID, res.StatusCode)
+		return nil, fmt.Errorf(
+			"failed to request proof, id: %d, statusCode: %d",
+			opts.OntakeOptions().BlockID,
+			res.StatusCode,
+		)
 	}
 
 	resBytes, err := io.ReadAll(res.Body)
@@ -291,7 +300,7 @@ func (s *ZKvmProofProducer) requestProof(
 
 	log.Debug(
 		"Proof generation output",
-		"blockID", opts.LastBlockID,
+		"blockID", opts.OntakeOptions().BlockID,
 		"zkType", s.ZKProofType,
 		"output", string(resBytes),
 	)
@@ -313,13 +322,17 @@ func (s *ZKvmProofProducer) requestProof(
 
 func (s *ZKvmProofProducer) requestCancel(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 ) error {
+	if opts.IsPacaya() {
+		return fmt.Errorf("proof cancellation is not supported for Pacaya fork")
+	}
+
 	var (
 		reqBody   RaikoRequestProofBody
 		recursion string
 	)
-	if opts.Compressed {
+	if opts.OntakeOptions().Compressed {
 		recursion = RecursionCompressed
 	} else {
 		recursion = RecursionPlonk
@@ -328,9 +341,9 @@ func (s *ZKvmProofProducer) requestCancel(
 	case ZKProofTypeSP1:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.LastBlockID,
-			Prover:   opts.ProverAddress.Hex()[2:],
-			Graffiti: opts.Graffiti,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
 			SP1: &SP1RequestProofBodyParam{
 				Recursion: recursion,
 				Prover:    "network",
@@ -340,9 +353,9 @@ func (s *ZKvmProofProducer) requestCancel(
 	default:
 		reqBody = RaikoRequestProofBody{
 			Type:     s.ZKProofType,
-			Block:    opts.LastBlockID,
-			Prover:   opts.ProverAddress.Hex()[2:],
-			Graffiti: opts.Graffiti,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
 			RISC0: &RISC0RequestProofBodyParam{
 				Bonsai:       true,
 				Snark:        true,

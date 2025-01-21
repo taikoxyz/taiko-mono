@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -94,22 +93,20 @@ type RaikoProofData struct {
 // RequestProof implements the ProofProducer interface.
 func (s *SGXProofProducer) RequestProof(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
-	header *types.Header,
 	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
-		"hash", header.Hash(),
 		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), requestAt)
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, s.Tier(), requestAt)
 	}
 
 	proof, err := s.callProverDaemon(ctx, opts, requestAt)
@@ -120,12 +117,11 @@ func (s *SGXProofProducer) RequestProof(
 	metrics.ProverSgxProofGeneratedCounter.Add(1)
 
 	return &ProofWithHeader{
-		BlockID:    blockID,
-		LastHeader: header,
-		Meta:       meta,
-		Proof:      proof,
-		Opts:       opts,
-		Tier:       s.Tier(),
+		BlockID: blockID,
+		Meta:    meta,
+		Proof:   proof,
+		Opts:    opts,
+		Tier:    s.Tier(),
 	}, nil
 }
 
@@ -153,8 +149,8 @@ func (s *SGXProofProducer) Aggregate(
 	batchProof, err := s.requestBatchProof(
 		ctx,
 		blockIDs,
-		items[0].Opts.ProverAddress,
-		items[0].Opts.Graffiti,
+		items[0].Opts.GetProverAddress(),
+		items[0].Opts.GetGraffiti(),
 		requestAt,
 	)
 	if err != nil {
@@ -174,13 +170,16 @@ func (s *SGXProofProducer) Aggregate(
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (s *SGXProofProducer) RequestCancel(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 ) error {
+	if opts.IsPacaya() {
+		return fmt.Errorf("sgx proof cancellation is not supported for Pacaya fork")
+	}
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ProofType,
-		Block:    opts.LastBlockID,
-		Prover:   opts.ProverAddress.Hex()[2:],
-		Graffiti: opts.Graffiti,
+		Block:    opts.OntakeOptions().BlockID,
+		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+		Graffiti: opts.OntakeOptions().Graffiti,
 		SGX: &SGXRequestProofBodyParam{
 			Setup:     false,
 			Bootstrap: false,
@@ -345,7 +344,7 @@ func (s *SGXProofProducer) requestBatchProof(
 // callProverDaemon keeps polling the proverd service to get the requested proof.
 func (s *SGXProofProducer) callProverDaemon(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 	requestAt time.Time,
 ) ([]byte, error) {
 	var (
@@ -357,14 +356,19 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	output, err := s.requestProof(ctx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "blockID", opts.LastBlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		log.Error(
+			"Failed to request proof",
+			"blockID", opts.OntakeOptions().BlockID,
+			"error", err,
+			"endpoint", s.RaikoHostEndpoint,
+		)
 		return nil, err
 	}
 
 	if output == nil {
 		log.Info(
 			"Proof generating",
-			"blockID", opts.LastBlockID,
+			"blockID", opts.OntakeOptions().BlockID,
 			"time", time.Since(requestAt),
 			"producer", "SGXProofProducer",
 		)
@@ -391,7 +395,7 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	log.Info(
 		"Proof generated",
-		"blockID", opts.LastBlockID,
+		"blockID", opts.OntakeOptions().BlockID,
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
@@ -403,13 +407,17 @@ func (s *SGXProofProducer) callProverDaemon(
 // requestProof sends a RPC request to proverd to try to get the requested proof.
 func (s *SGXProofProducer) requestProof(
 	ctx context.Context,
-	opts *ProofRequestOptions,
+	opts ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
+	if opts.IsPacaya() {
+		return nil, fmt.Errorf("sgx proof generation is not supported for Pacaya fork")
+	}
+
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ProofType,
-		Block:    opts.LastBlockID,
-		Prover:   opts.ProverAddress.Hex()[2:],
-		Graffiti: opts.Graffiti,
+		Block:    opts.OntakeOptions().BlockID,
+		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+		Graffiti: opts.OntakeOptions().Graffiti,
 		SGX: &SGXRequestProofBodyParam{
 			Setup:     false,
 			Bootstrap: false,
@@ -440,7 +448,9 @@ func (s *SGXProofProducer) requestProof(
 
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request proof, id: %d, statusCode: %d", opts.LastBlockID, res.StatusCode)
+		return nil, fmt.Errorf(
+			"failed to request proof, id: %d, statusCode: %d", opts.OntakeOptions().BlockID, res.StatusCode,
+		)
 	}
 
 	resBytes, err := io.ReadAll(res.Body)
@@ -450,7 +460,7 @@ func (s *SGXProofProducer) requestProof(
 
 	log.Debug(
 		"Proof generation output",
-		"blockID", opts.LastBlockID,
+		"blockID", opts.OntakeOptions().BlockID,
 		"proofType", "sgx",
 		"output", string(resBytes),
 	)
