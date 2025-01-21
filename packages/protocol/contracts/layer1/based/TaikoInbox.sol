@@ -165,9 +165,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
             // SSTORE #3 {{
             if (stats2.numBatches == config.forkHeights.pacaya) {
-                batch.lastBlockId = batch.batchId + uint8(params.blocks.length) - 1;
+                batch.lastBlockId = batch.batchId + uint64(params.blocks.length) - 1;
             } else {
-                batch.lastBlockId = lastBatch.lastBlockId + uint8(params.blocks.length);
+                batch.lastBlockId = lastBatch.lastBlockId + uint64(params.blocks.length);
             }
             batch.livenessBond = meta_.livenessBond;
             batch._reserved3 = 0;
