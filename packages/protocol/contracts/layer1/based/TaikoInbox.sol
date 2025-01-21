@@ -44,12 +44,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded BlockParams.
-    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
-    /// for data availability.
+    /// @param _txListInCalldata The transaction list in calldata. The actual txList is the
+    /// concatenation of `_txList` and bytes segment [txListOffset, txListOffset + txListSize] from
+    /// blobs.
     /// @return meta_ Batch metadata.
     function proposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txListInCalldata
     )
         external
         nonReentrant
@@ -91,9 +92,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             Batch storage lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
-            bool calldataUsed = _txList.length != 0;
-
-            require(calldataUsed || params.numBlobs != 0, BlobNotSpecified());
 
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
                 params,
@@ -106,18 +104,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             // This section constructs the metadata for the proposed batch, which is crucial for
             // nodes/clients to process the batch. The metadata itself is not stored on-chain;
             // instead, only its hash is kept.
+            //
             // The metadata must be supplied as calldata prior to proving the batch, enabling the
             // computation and verification of its integrity through the comparison of the metahash.
             //
             // Note that `difficulty` has been removed from the metadata. The client and prover must
-            // use
-            // the following approach to calculate a block's difficulty:
+            // use the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-
             meta_ = BatchMetadata({
-                txListHash: calldataUsed
-                    ? keccak256(_txList)
-                    : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
+                txListHash: _calcTxListHash(
+                    keccak256(_txListInCalldata), params.firstBlobIndex, params.numBlobs
+                ),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
                 batchId: stats2.numBatches,
@@ -132,7 +129,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 txListOffset: params.txListOffset,
                 txListSize: params.txListSize,
                 firstBlobIndex: params.firstBlobIndex,
-                numBlobs: calldataUsed ? 0 : params.numBlobs,
+                numBlobs: params.numBlobs,
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
                 signalSlots: params.signalSlots,
@@ -173,7 +170,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
 
             _debitBond(params.proposer, meta_.livenessBond);
-            emit BatchProposed(meta_, calldataUsed, _txList);
+            emit BatchProposed(meta_, _txListInCalldata);
         } // end-of-unchecked
 
         _verifyBatches(config, stats2, 1);
@@ -521,6 +518,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     }
 
     function _calcTxListHash(
+        bytes32 _txListHash,
         uint8 _firstBlobIndex,
         uint8 _numBlobs
     )
@@ -529,12 +527,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         virtual
         returns (bytes32)
     {
-        bytes32[] memory blobHashes = new bytes32[](_numBlobs);
-        for (uint256 i; i < _numBlobs; ++i) {
-            blobHashes[i] = blobhash(_firstBlobIndex + i);
-            require(blobHashes[i] != 0, BlobNotFound());
+        unchecked {
+            bytes32[] memory hashes = new bytes32[](_numBlobs + 1);
+            for (uint256 i; i < _numBlobs; ++i) {
+                hashes[i] = blobhash(_firstBlobIndex + i);
+                require(hashes[i] != 0, BlobNotFound());
+            }
+            hashes[_numBlobs] = _txListHash;
+            return keccak256(abi.encode(hashes));
         }
-        return keccak256(abi.encode(blobHashes));
     }
 
     // Private functions -----------------------------------------------------------------------

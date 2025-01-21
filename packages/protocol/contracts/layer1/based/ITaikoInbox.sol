@@ -208,9 +208,8 @@ interface ITaikoInbox {
 
     /// @notice Emitted when a batch is proposed.
     /// @param meta The metadata of the proposed batch.
-    /// @param calldataUsed Whether calldata is used for txList DA.
     /// @param txListInCalldata The tx list in calldata.
-    event BatchProposed(BatchMetadata meta, bool calldataUsed, bytes txListInCalldata);
+    event BatchProposed(BatchMetadata meta, bytes txListInCalldata);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -243,7 +242,6 @@ interface ITaikoInbox {
     error BatchVerified();
     error BlobNotFound();
     error BlockNotFound();
-    error BlobNotSpecified();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();

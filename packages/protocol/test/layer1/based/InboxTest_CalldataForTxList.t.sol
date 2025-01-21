@@ -60,22 +60,6 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
-    function test_batch_rejection_due_to_missing_txlist_and_blobindex() external {
-        vm.warp(1_000_000);
-
-        uint256 initialBondBalance = 100_000 ether;
-        uint256 bondAmount = 1000 ether;
-
-        setupBondTokenState(Alice, initialBondBalance, bondAmount);
-
-        ITaikoInbox.BatchParams memory params;
-        params.blocks = new ITaikoInbox.BlockParams[](1);
-
-        vm.prank(Alice);
-        vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
-        // With empty txList
-        inbox.proposeBatch(abi.encode(params), "");
-    }
 
     function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
         vm.warp(1_000_000);
