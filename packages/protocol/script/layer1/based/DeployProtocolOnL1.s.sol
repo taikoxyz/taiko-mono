@@ -389,7 +389,10 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deployPreconfContracts(
         address owner,
         address resolver
-    ) private returns (address whitelist, address router) {
+    )
+        private
+        returns (address whitelist, address router)
+    {
         whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist(resolver)),
