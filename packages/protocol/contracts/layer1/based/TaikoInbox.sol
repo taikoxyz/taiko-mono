@@ -45,7 +45,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. The actual txList is the concatenation of
-    /// `_txList` and bytes segment [txListOffset, txListOffset + txListSize] from blobs.
+    /// forcedTxList, `_txList` and bytes segment [txListOffset, txListOffset + txListSize] from
+    /// blobs.
     /// @return meta_ Batch metadata.
     function proposeBatch(
         bytes calldata _params,
@@ -494,8 +495,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     {
         unchecked {
             bytes32[] memory hashes = new bytes32[](_numBlobs + 2);
-            hashes[0] = _txListHash;
-            hashes[1] = _forcedTxListHash;
+            hashes[0] = _forcedTxListHash;
+            hashes[1] = _txListHash;
 
             for (uint256 i; i < _numBlobs; ++i) {
                 hashes[2 + i] = blobhash(_firstBlobIndex + i);
