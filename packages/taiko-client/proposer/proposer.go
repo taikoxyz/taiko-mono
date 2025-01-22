@@ -354,7 +354,10 @@ func (p *Proposer) ProposeTxListOntake(
 		p.rpc,
 		proverAddress,
 		p.TaikoL1Address,
-		new(big.Int).Mul(p.protocolConfigs.LivenessBond(), new(big.Int).SetUint64(uint64(len(txLists)))),
+		new(big.Int).Mul(
+			p.protocolConfigs.LivenessBond(),
+			new(big.Int).SetUint64(uint64(len(txLists))),
+		),
 	)
 
 	if err != nil {
@@ -407,7 +410,13 @@ func (p *Proposer) ProposeTxListPacaya(
 		p.rpc,
 		proverAddress,
 		p.TaikoL1Address,
-		p.protocolConfigs.LivenessBond(),
+		new(big.Int).Add(
+			p.protocolConfigs.LivenessBond(),
+			new(big.Int).Mul(
+				p.protocolConfigs.LivenessBondPerBlock(),
+				new(big.Int).SetUint64(uint64(len(txBatch))),
+			),
+		),
 	)
 
 	if err != nil {
