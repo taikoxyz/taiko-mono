@@ -1,4 +1,8 @@
 # How to debug test cases?
+- set up config
+```
+export L2_NODE=l2_geth
+```
 
 - start docker compose
 

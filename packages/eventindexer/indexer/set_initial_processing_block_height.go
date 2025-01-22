@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -25,7 +26,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	switch mode {
 	case Sync:
 		// get most recently processed block height from the DB
-		latest, err := i.eventRepo.FindLatestBlockID(
+		latest, err := i.eventRepo.FindLatestBlockID(ctx,
 			i.srcChainID,
 		)
 		if err != nil {
@@ -40,6 +41,8 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	default:
 		return eventindexer.ErrInvalidMode
 	}
+
+	slog.Info("startingBlock", "startingBlock", startingBlock)
 
 	i.latestIndexedBlockNumber = startingBlock
 

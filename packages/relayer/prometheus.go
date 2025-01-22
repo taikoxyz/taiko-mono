@@ -130,4 +130,24 @@ var (
 		Name: "unprofitable_message_after_transacting_ops_total",
 		Help: "The total number of processed events that ended up unprofitable",
 	})
+	MessageSentEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_after_retry_error_count",
+		Help: "The total number of errors logged for MessageSent events after retries",
+	})
+	MessageStatusChangedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_status_changed_events_after_retry_error_count",
+		Help: "The total number of errors logged for MessageStatusChanged events after retries",
+	})
+	ChainDataSyncedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "chain_data_synced_events_after_retry_error_count",
+		Help: "The total number of errors logged for ChainDataSynced events after retries",
+	})
+	MessageProcessedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_processed_events_after_retry_error_count",
+		Help: "The total number of errors logged for MessageProcessed events after retries",
+	})
+	RelayerKeyBalanceGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "relayer_key_balance",
+		Help: "Current balance of the relayer key",
+	})
 )

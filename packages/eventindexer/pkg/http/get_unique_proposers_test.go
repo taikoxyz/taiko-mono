@@ -15,7 +15,7 @@ import (
 )
 
 func Test_GetUniqueProposers(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	_, err := srv.eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
 		Name:         "name",

@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 func TestOptimisticRequestProof(t *testing.T) {
@@ -41,8 +41,9 @@ func TestOptimisticRequestProof(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 
@@ -78,8 +79,9 @@ func TestProofCancel(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 }

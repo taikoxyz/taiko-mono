@@ -1,11 +1,12 @@
 import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
-import { getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
+import { getAddress, getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatusError, ProcessMessageError, ReleaseError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -40,13 +41,15 @@ export abstract class Bridge {
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
 
-    const { srcOwner } = message;
+    const { srcOwner, destOwner } = message;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
     const userAddress = wallet.account.address;
-    // Are we the owner of the message?
-    if (srcOwner.toLowerCase() !== userAddress.toLowerCase()) {
-      throw new WrongOwnerError('user cannot process this as it is not their message');
+    // Are we the owner of the message, either src or dest?
+    if (getAddress(srcOwner) !== getAddress(userAddress) && getAddress(destOwner) !== getAddress(userAddress)) {
+      if (bridgeTx.message?.gasLimit === 0) {
+        throw new WrongOwnerError('user cannot process this as it is not their message');
+      }
     }
 
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
@@ -166,7 +169,7 @@ export abstract class Bridge {
   abstract estimateGas(args: BridgeArgs): Promise<bigint>;
   abstract bridge(args: BridgeArgs): Promise<Hash>;
 
-  async processMessage(args: ClaimArgs): Promise<Hash> {
+  async processMessage(args: ClaimArgs, force = false): Promise<Hash> {
     const { messageStatus, destBridgeAddress } = await this.beforeProcessing(args);
     let blockNumber;
 
@@ -203,7 +206,7 @@ export abstract class Bridge {
         // Initial claim
         await this.beforeClaiming({ ...args, messageStatus });
 
-        txHash = await this.processNewMessage({ ...args, bridgeContract, client });
+        txHash = await this.processNewMessage({ ...args, bridgeContract, client }, force);
       } else if (messageStatus === MessageStatus.RETRIABLE) {
         // Claiming after a failed attempt
         await this.beforeRetrying({ ...args, messageStatus });
@@ -225,7 +228,7 @@ export abstract class Bridge {
     }
   }
 
-  private async processNewMessage(args: ProcessMessageType): Promise<Hash> {
+  private async processNewMessage(args: ProcessMessageType, force = false): Promise<Hash> {
     const { bridgeTx, bridgeContract, client } = args;
     const { message } = bridgeTx;
     if (!message) throw new ProcessMessageError('Message is not defined');
@@ -261,24 +264,30 @@ export abstract class Bridge {
       estimatedGas = 1_300_000n;
     }
 
-    const { request } = await simulateContract(config, {
-      address: bridgeContract.address,
-      abi: bridgeContract.abi,
-      functionName: 'processMessage',
-      args: [message, proof],
-      gas: estimatedGas,
-    });
-    log('Simulate contract for processMessage', request);
+    if (message.to && (await isSmartContract(message.to, Number(message.destChainId)))) {
+      log(`Recipient is a smart contract, increasing fees by 5 percent`);
+      estimatedGas = (estimatedGas * 105n) / 100n;
+    }
+    if (force) {
+      return await writeContract(config, {
+        address: bridgeContract.address,
+        abi: bridgeContract.abi,
+        functionName: 'processMessage',
+        args: [message, proof],
+        gas: estimatedGas,
+      });
+    } else {
+      const { request } = await simulateContract(config, {
+        address: bridgeContract.address,
+        abi: bridgeContract.abi,
+        functionName: 'processMessage',
+        args: [message, proof],
+        gas: estimatedGas,
+      });
+      log('Simulate contract for processMessage', request);
 
-    return await writeContract(config, request);
-
-    // return await writeContract(config, {
-    //   address: bridgeContract.address,
-    //   abi: bridgeContract.abi,
-    //   functionName: 'processMessage',
-    //   args: [message, proof],
-    //   gas: estimatedGas,
-    // });
+      return await writeContract(config, request);
+    }
   }
 
   private async retryMessage(args: RetryMessageArgs): Promise<Hash> {
@@ -290,10 +299,13 @@ export abstract class Bridge {
 
     if (!message) throw new ProcessMessageError('Message is not defined');
 
-    const estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
+    let estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
       account: client.account,
     });
-
+    if (message.to && (await isSmartContract(message.to, Number(message.destChainId)))) {
+      log(`Recipient is a smart contract, increasing fees by 5 percent`);
+      estimatedGas = (estimatedGas * 105n) / 100n;
+    }
     log('Estimated gas for retryMessage', estimatedGas);
 
     const { request } = await simulateContract(config, {
@@ -316,8 +328,14 @@ export abstract class Bridge {
 
     log('Estimating gas for recallMessage', bridgeContract.address, [message, proof]);
 
-    const estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
+    let estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
     log('Estimated gas for recallMessage', estimatedGas);
+
+    if (message.from && (await isSmartContract(message.from, Number(message.srcChainId)))) {
+      log(`Sender is a smart contract, increasing fees by 5 percent`);
+      estimatedGas = (estimatedGas * 105n) / 100n;
+    }
+    log('Estimated gas for retryMessage', estimatedGas);
 
     const { request } = await simulateContract(config, {
       address: bridgeContract.address,

@@ -12,10 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoL2.anchor) in
@@ -69,12 +70,17 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 	return c.rpc.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
 }
 
-func (c *AnchorTxConstructor) AssembleNullAnchorTx(
+// AssembleAnchorV2Tx assembles a signed TaikoL2.anchorV2 transaction.
+func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 	ctx context.Context,
-	// Height of the L2 block which including the TaikoL2.anchor transaction.
+	// Parameters of the TaikoL2.anchorV2 transaction.
+	anchorBlockID *big.Int,
+	anchorStateRoot common.Hash,
+	parentGasUsed uint64,
+	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
+	// Height of the L2 block which including the TaikoL2.anchorV2 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
-	gasUsed uint64,
 ) (*types.Transaction, error) {
 	opts, err := c.transactOpts(ctx, l2Height, baseFee)
 	if err != nil {
@@ -82,18 +88,22 @@ func (c *AnchorTxConstructor) AssembleNullAnchorTx(
 	}
 
 	log.Info(
-		"Null anchor arguments",
+		"AnchorV2 arguments",
 		"l2Height", l2Height,
+		"anchorBlockId", anchorBlockID,
+		"anchorStateRoot", anchorStateRoot,
+		"parentGasUsed", parentGasUsed,
+		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
+		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
 		"baseFee", utils.WeiToGWei(baseFee),
-		"gasUsed", gasUsed,
 	)
 
-	return c.rpc.TaikoL2.Anchor(
+	return c.rpc.TaikoL2.AnchorV2(
 		opts,
-		common.BigToHash(common.Big0),
-		common.BigToHash(common.Big0),
-		common.Big0.Uint64(),
-		uint32(gasUsed),
+		anchorBlockID.Uint64(),
+		anchorStateRoot,
+		uint32(parentGasUsed),
+		*baseFeeConfig,
 	)
 }
 

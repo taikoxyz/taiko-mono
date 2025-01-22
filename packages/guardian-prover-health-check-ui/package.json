@@ -1,6 +1,6 @@
 {
 	"name": "guardian-prover-health-check-ui",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
@@ -18,7 +18,7 @@
 	"devDependencies": {
 		"@playwright/test": "^1.43.1",
 		"@sveltejs/adapter-auto": "^3.2.0",
-		"@sveltejs/kit": "^2.5.5",
+		"@sveltejs/kit": "^2.5.21",
 		"@sveltejs/vite-plugin-svelte": "^3.1.0",
 		"@tailwindcss/nesting": "0.0.0-insiders.565cd3e",
 		"@typescript-eslint/eslint-plugin": "^7.4.0",

@@ -3,15 +3,15 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
-	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/blob"
+	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
 
@@ -75,34 +75,33 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 // GetBlobs get blob sidecar by meta
 func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
-	meta *bindings.TaikoDataBlockMetadata,
-) ([]*blob.Sidecar, error) {
-	if !meta.BlobUsed {
-		return nil, pkg.ErrBlobUnused
-	}
-
+	timestamp uint64,
+	blobHash common.Hash,
+) ([]*structs.Sidecar, error) {
 	var (
-		sidecars []*blob.Sidecar
+		sidecars []*structs.Sidecar
 		err      error
 	)
 	if ds.client.L1Beacon == nil {
 		sidecars, err = nil, pkg.ErrBeaconNotFound
 	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, meta.Timestamp)
+		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
 	}
 	if err != nil {
-		log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+		if !errors.Is(err, pkg.ErrBeaconNotFound) {
+			log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+		}
 		if ds.blobServerEndpoint == nil && ds.socialScanEndpoint == nil {
 			log.Info("No blob server endpoint set")
 			return nil, err
 		}
-		blobs, err := ds.getBlobFromServer(ctx, meta.BlobHash)
+		blobs, err := ds.getBlobFromServer(ctx, blobHash)
 		if err != nil {
 			return nil, err
 		}
-		sidecars = make([]*blob.Sidecar, len(blobs.Data))
+		sidecars = make([]*structs.Sidecar, len(blobs.Data))
 		for index, value := range blobs.Data {
-			sidecars[index] = &blob.Sidecar{
+			sidecars[index] = &structs.Sidecar{
 				KzgCommitment: value.KzgCommitment,
 				Blob:          value.Blob,
 			}
@@ -135,7 +134,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 		SetHeader("Accept", "application/json").
 		Get(requestURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get blob from server, request_url: %s, err: %w", requestURL, err)
 	}
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf(

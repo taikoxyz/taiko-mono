@@ -4,7 +4,7 @@
   import { browser } from '$app/environment';
   import { Button } from '$components/core/Button';
   import { account } from '$stores/account';
-  import { Modal, ModalBody, ModalFooter, ModalTitle } from '$ui/Modal';
+  import { Modal, ModalBody, ModalTitle } from '$ui/Modal';
 
   import {
     bodyWrapperClasses,
@@ -44,13 +44,12 @@
         <input type="checkbox" bind:checked={isTermsChecked} class="checkbox border bg-overlay-background" />
         <span class="label-text text-content-secondary">I agree to the terms and conditions mentioned above.</span>
       </label>
-    </ModalBody>
-    <ModalFooter>
+
       <div class={footerWrapperClasses}>
         <Button on:click={acceptTerms} disabled={!isTermsChecked} type="primary" wide block>
           {$t('buttons.confirm')}
         </Button>
       </div>
-    </ModalFooter>
+    </ModalBody>
   </div>
 </Modal>

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -20,7 +21,7 @@ type EndBlockProposedEventIterFunc func()
 // iterated.
 type OnBlockProposedEvent func(
 	context.Context,
-	*bindings.TaikoL1ClientBlockProposed,
+	metadata.TaikoBlockMetaData,
 	EndBlockProposedEventIterFunc,
 ) error
 
@@ -97,7 +98,7 @@ func (i *BlockProposedIterator) end() {
 // by a event iterator's inner block iterator.
 func assembleBlockProposedIteratorCallback(
 	client *rpc.EthClient,
-	taikoL1Client *bindings.TaikoL1Client,
+	taikoL1 *bindings.TaikoL1Client,
 	filterQuery []*big.Int,
 	callback OnBlockProposedEvent,
 	eventIter *BlockProposedIterator,
@@ -109,7 +110,8 @@ func assembleBlockProposedIteratorCallback(
 		endFunc chainIterator.EndIterFunc,
 	) error {
 		endHeight := end.Number.Uint64()
-		iter, err := taikoL1Client.FilterBlockProposed(
+
+		iter, err := taikoL1.FilterBlockProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
 			nil,
@@ -119,10 +121,39 @@ func assembleBlockProposedIteratorCallback(
 		}
 		defer iter.Close()
 
+		iterOntake, err := taikoL1.FilterBlockProposedV2(
+			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
+			filterQuery,
+		)
+		if err != nil {
+			return err
+		}
+		defer iterOntake.Close()
+
 		for iter.Next() {
 			event := iter.Event
 
-			if err := callback(ctx, event, eventIter.end); err != nil {
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataLegacy(event), eventIter.end); err != nil {
+				return err
+			}
+
+			if eventIter.isEnd {
+				endFunc()
+				return nil
+			}
+
+			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			if err != nil {
+				return err
+			}
+
+			updateCurrentFunc(current)
+		}
+
+		for iterOntake.Next() {
+			event := iterOntake.Event
+
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataOntake(event), eventIter.end); err != nil {
 				return err
 			}
 

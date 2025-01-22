@@ -3,6 +3,11 @@ package repo
 import (
 	"context"
 	"net/http"
+	"strings"
+	"time"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+	"golang.org/x/exp/slog"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
@@ -11,16 +16,16 @@ import (
 )
 
 type NFTBalanceRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewNFTBalanceRepository(db eventindexer.DB) (*NFTBalanceRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewNFTBalanceRepository(dbHandler db.DB) (*NFTBalanceRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &NFTBalanceRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
@@ -37,7 +42,7 @@ func (r *NFTBalanceRepository) increaseBalanceInDB(
 		ChainID:         opts.ChainID,
 	}
 
-	err := db.
+	err := db.WithContext(ctx).
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -74,7 +79,7 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 		ChainID:         opts.ChainID,
 	}
 
-	err := db.
+	err := db.WithContext(ctx).
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -112,20 +117,40 @@ func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	increaseOpts eventindexer.UpdateNFTBalanceOpts,
 	decreaseOpts eventindexer.UpdateNFTBalanceOpts,
 ) (increasedBalance *eventindexer.NFTBalance, decreasedBalance *eventindexer.NFTBalance, err error) {
-	err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
-		increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
-		if err != nil {
+	retries := 10
+	for retries > 0 {
+		err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+			increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
+			if err != nil {
+				return err
+			}
+
+			if decreaseOpts.Amount != 0 {
+				decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
+			}
+
 			return err
+		})
+
+		if err == nil {
+			break
 		}
 
-		if decreaseOpts.Amount != 0 {
-			decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
+		if strings.Contains(err.Error(), "Deadlock") {
+			slog.Warn("database deadlock")
+
+			retries--
+
+			time.Sleep(100 * time.Millisecond) // backoff before retrying
+
+			continue
 		}
 
-		return err
-	})
-	if err != nil {
 		return nil, nil, errors.Wrap(err, "r.db.Transaction")
+	}
+
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return increasedBalance, decreasedBalance, nil

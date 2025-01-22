@@ -211,7 +211,7 @@ export class BridgeProver {
   }
 
   async getEncodedSignalProofForRecall({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
-    const { message, msgHash } = bridgeTx;
+    const { blockNumber, message, msgHash } = bridgeTx;
 
     log('msgHash', msgHash);
     if (!message) throw new ProofGenerationError('Message is not defined');
@@ -304,8 +304,36 @@ export class BridgeProver {
       // Get the signalServiceAddress for the source chain
       const destSignalServiceAddress =
         routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
+      const srcSignalServiceAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].signalServiceAddress;
 
-      const block = await destChainClient.getBlock({ blockTag: 'latest' });
+      const syncedChainData = await readContract(config, {
+        address: srcSignalServiceAddress,
+        abi: signalServiceAbi,
+        functionName: 'getSyncedChainData',
+        args: [destChainId, keccak256(toBytes('STATE_ROOT')), 0n],
+        chainId: Number(srcChainId),
+      });
+
+      log('syncedChainData', syncedChainData);
+
+      const latestSyncedblock = syncedChainData[0];
+
+      const synced = latestSyncedblock >= hexToBigInt(blockNumber);
+      log('synced', synced, latestSyncedblock, hexToBigInt(blockNumber));
+      if (!synced) {
+        throw new BlockNotSyncedError('block is not synced yet');
+      }
+
+      // Get the block based on the blocknumber from the destination chain
+      let block;
+      try {
+        block = await destChainClient.getBlock({ blockNumber: latestSyncedblock });
+        if (!block || block.hash === null || block.number === null) {
+          throw new BlockNotFoundError({ blockNumber: latestSyncedblock });
+        }
+      } catch {
+        throw new BlockNotFoundError({ blockNumber: latestSyncedblock });
+      }
 
       const signal = await this.getSignalForFailedMessage(msgHash);
 
@@ -330,7 +358,7 @@ export class BridgeProver {
 
       // Build the hopProof
       const hopProof: HopProof = {
-        chainId: BigInt(destChainId),
+        chainId: BigInt(srcChainId),
         blockId: BigInt(block.number),
         rootHash: block.stateRoot,
         cacheOption: 0n, // Todo: could be configurable

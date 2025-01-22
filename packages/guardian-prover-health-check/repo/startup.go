@@ -5,26 +5,28 @@ import (
 	"net/http"
 
 	"github.com/morkid/paginate"
-	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"gorm.io/gorm"
+
+	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
 )
 
 type StartupRepository struct {
-	db DB
+	db db.DB
 }
 
-func NewStartupRepository(db DB) (*StartupRepository, error) {
-	if db == nil {
-		return nil, ErrNoDB
+func NewStartupRepository(dbHandler db.DB) (*StartupRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &StartupRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
-func (r *StartupRepository) startQuery() *gorm.DB {
-	return r.db.GormDB().Table("startups")
+func (r *StartupRepository) startQuery(ctx context.Context) *gorm.DB {
+	return r.db.GormDB().WithContext(ctx).Table("startups")
 }
 
 func (r *StartupRepository) GetByGuardianProverAddress(
@@ -36,7 +38,7 @@ func (r *StartupRepository) GetByGuardianProverAddress(
 		DefaultSize: 100,
 	})
 
-	reqCtx := pg.With(r.startQuery().Order("created_at desc").
+	reqCtx := pg.With(r.startQuery(ctx).Order("created_at desc").
 		Where("guardian_prover_address = ?", address))
 
 	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.Startup{})
@@ -50,7 +52,7 @@ func (r *StartupRepository) GetMostRecentByGuardianProverAddress(
 ) (*guardianproverhealthcheck.Startup, error) {
 	s := &guardianproverhealthcheck.Startup{}
 
-	if err := r.startQuery().Order("created_at desc").
+	if err := r.startQuery(ctx).Order("created_at desc").
 		Where("guardian_prover_address = ?", address).Limit(1).
 		Scan(s).Error; err != nil {
 		return nil, err
@@ -59,7 +61,7 @@ func (r *StartupRepository) GetMostRecentByGuardianProverAddress(
 	return s, nil
 }
 
-func (r *StartupRepository) Save(opts guardianproverhealthcheck.SaveStartupOpts) error {
+func (r *StartupRepository) Save(ctx context.Context, opts *guardianproverhealthcheck.SaveStartupOpts) error {
 	b := &guardianproverhealthcheck.Startup{
 		GuardianProverAddress: opts.GuardianProverAddress,
 		GuardianProverID:      opts.GuardianProverID,
@@ -68,7 +70,7 @@ func (r *StartupRepository) Save(opts guardianproverhealthcheck.SaveStartupOpts)
 		L1NodeVersion:         opts.L1NodeVersion,
 		L2NodeVersion:         opts.L2NodeVersion,
 	}
-	if err := r.startQuery().Create(b).Error; err != nil {
+	if err := r.startQuery(ctx).Create(b).Error; err != nil {
 		return err
 	}
 

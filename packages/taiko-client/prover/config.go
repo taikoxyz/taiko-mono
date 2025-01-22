@@ -14,21 +14,19 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
 	L1WsEndpoint                            string
-	L1HttpEndpoint                          string
 	L2WsEndpoint                            string
 	L2HttpEndpoint                          string
 	TaikoL1Address                          common.Address
 	TaikoL2Address                          common.Address
 	TaikoTokenAddress                       common.Address
-	AssignmentHookAddress                   common.Address
 	ProverSetAddress                        common.Address
 	L1ProverPrivKey                         *ecdsa.PrivateKey
 	StartingBlockID                         *big.Int
@@ -45,23 +43,22 @@ type Config struct {
 	RPCTimeout                              time.Duration
 	ProveBlockGasLimit                      uint64
 	HTTPServerPort                          uint64
-	Capacity                                uint64
-	MinOptimisticTierFee                    *big.Int
-	MinSgxTierFee                           *big.Int
-	MinSgxAndZkVMTierFee                    *big.Int
 	MinEthBalance                           *big.Int
-	MinTaikoTokenBalance                    *big.Int
 	MaxExpiry                               time.Duration
-	MaxProposedIn                           uint64
-	MaxBlockSlippage                        uint64
 	Allowance                               *big.Int
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
+	RaikoZKVMHostEndpoint                   string
 	RaikoJWT                                string
+	RaikoRequestTimeout                     time.Duration
 	L1NodeVersion                           string
 	L2NodeVersion                           string
 	BlockConfirmations                      uint64
 	TxmgrConfigs                            *txmgr.CLIConfig
+	PrivateTxmgrConfigs                     *txmgr.CLIConfig
+	SGXProofBufferSize                      uint64
+	ZKVMProofBufferSize                     uint64
+	ForceBatchProvingInterval               time.Duration
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -116,31 +113,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	minOptimisticTierFee, err := utils.GWeiToWei(c.Float64(flags.MinOptimisticTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minSgxTierFee, err := utils.GWeiToWei(c.Float64(flags.MinSgxTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minSgxAndZkVMTierFee, err := utils.GWeiToWei(c.Float64(flags.MinSgxAndZkVMTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minEthBalance, err := utils.EtherToWei(c.Float64(flags.MinEthBalance.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minTaikoTokenBalance, err := utils.EtherToWei(c.Float64(flags.MinTaikoTokenBalance.Name))
-	if err != nil {
-		return nil, err
-	}
-
 	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
 		return nil, errors.New("empty raiko host endpoint")
 	}
@@ -154,17 +126,17 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
-		L1HttpEndpoint:                          c.String(flags.L1HTTPEndpoint.Name),
 		L2WsEndpoint:                            c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:                          c.String(flags.L2HTTPEndpoint.Name),
 		TaikoL1Address:                          common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
 		TaikoL2Address:                          common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
 		TaikoTokenAddress:                       common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
-		AssignmentHookAddress:                   common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
 		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
+		RaikoZKVMHostEndpoint:                   c.String(flags.RaikoZKVMHostEndpoint.Name),
 		RaikoJWT:                                common.Bytes2Hex(jwtSecret),
+		RaikoRequestTimeout:                     c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingBlockID:                         startingBlockID,
 		Dummy:                                   c.Bool(flags.Dummy.Name),
 		GuardianProverMinorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMinority.Name)),
@@ -179,24 +151,24 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		EnableLivenessBondProof:                 c.Bool(flags.EnableLivenessBondProof.Name),
 		RPCTimeout:                              c.Duration(flags.RPCTimeout.Name),
 		ProveBlockGasLimit:                      c.Uint64(flags.TxGasLimit.Name),
-		Capacity:                                c.Uint64(flags.ProverCapacity.Name),
 		HTTPServerPort:                          c.Uint64(flags.ProverHTTPServerPort.Name),
-		MinOptimisticTierFee:                    minOptimisticTierFee,
-		MinSgxTierFee:                           minSgxTierFee,
-		MinSgxAndZkVMTierFee:                    minSgxAndZkVMTierFee,
-		MinEthBalance:                           minEthBalance,
-		MinTaikoTokenBalance:                    minTaikoTokenBalance,
 		MaxExpiry:                               c.Duration(flags.MaxExpiry.Name),
-		MaxBlockSlippage:                        c.Uint64(flags.MaxAcceptableBlockSlippage.Name),
-		MaxProposedIn:                           c.Uint64(flags.MaxProposedIn.Name),
 		Allowance:                               allowance,
 		L1NodeVersion:                           c.String(flags.L1NodeVersion.Name),
 		L2NodeVersion:                           c.String(flags.L2NodeVersion.Name),
 		BlockConfirmations:                      c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
-			c.String(flags.L1HTTPEndpoint.Name),
+			c.String(flags.L1WSEndpoint.Name),
 			l1ProverPrivKey,
 			c,
 		),
+		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+			c.String(flags.L1PrivateEndpoint.Name),
+			l1ProverPrivKey,
+			c,
+		),
+		SGXProofBufferSize:        c.Uint64(flags.SGXBatchSize.Name),
+		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
+		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 	}, nil
 }

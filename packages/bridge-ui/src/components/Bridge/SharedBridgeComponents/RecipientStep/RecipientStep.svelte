@@ -4,7 +4,10 @@
   import { Alert } from '$components/Alert';
   import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
 
+  import DestOwner from './DestOwner.svelte';
+
   let recipientComponent: Recipient;
+  let destOwnerComponent: DestOwner;
   let processingFeeComponent: ProcessingFee;
 
   export let hasEnoughEth: boolean = false;
@@ -18,6 +21,7 @@
 
 <div class="mt-[30px] space-y-[16px]">
   <Recipient bind:this={recipientComponent} />
+  <DestOwner bind:this={destOwnerComponent} />
   <ProcessingFee bind:this={processingFeeComponent} bind:hasEnoughEth />
 </div>
 <div class="h-sep my-[30px]" />

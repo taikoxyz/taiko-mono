@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +27,6 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		destEthClient:             &mock.EthClient{},
 		destERC20Vault:            &mock.TokenVault{},
 		srcSignalService:          &mock.SignalService{},
-		mu:                        &sync.Mutex{},
 		ecdsaKey:                  privateKey,
 		prover:                    prover,
 		srcCaller:                 &mock.Caller{},
@@ -49,6 +47,5 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		maxMessageRetries:  5,
 		destQuotaManager:   &mock.QuotaManager{},
 		processingTxHashes: make(map[common.Hash]bool, 0),
-		processingTxHashMu: &sync.Mutex{},
 	}
 }

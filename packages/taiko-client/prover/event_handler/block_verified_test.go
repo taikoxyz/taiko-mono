@@ -11,7 +11,7 @@ func (s *EventHandlerTestSuite) TestBlockVerifiedHandle() {
 	handler := &BlockVerifiedEventHandler{}
 	id := testutils.RandomHash().Big().Uint64()
 	s.NotPanics(func() {
-		handler.Handle(&bindings.TaikoL1ClientBlockVerified{
+		handler.Handle(&bindings.TaikoL1ClientBlockVerifiedV2{
 			BlockId: testutils.RandomHash().Big(),
 			Raw: types.Log{
 				BlockHash:   testutils.RandomHash(),

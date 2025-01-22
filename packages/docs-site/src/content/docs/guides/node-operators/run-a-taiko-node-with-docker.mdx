@@ -72,7 +72,7 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
     It's recommended to [run a local L1 node](/guides/node-operators/run-an-ethereum-testnet-node) but you browse around for other RPC Providers. Keep in mind they will **eventually rate limit your node** and it will stop syncing, so a local L1 node is recommended for a proper setup.
 
-    For Mainnet, the L1 Node will need to be an Ethereum node; for Testnet, the L1 Node will need to be a Etherem testnet (Holesky) node.
+    For Mainnet, the L1 Node will need to be an Ethereum node; for Testnet, the L1 Node will need to be an Etherem testnet (Holesky) node.
     </Aside>
 
     Next, you will set the L1 node endpoints. If you are running a local L1 node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545`, `ws://127.0.0.1:8546` and `http://127.0.0.1:5052` because that is local to inside the simple-taiko-node Docker networking. Instead you can try:

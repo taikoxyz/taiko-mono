@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.0...fork-diff-v0.6.1) (2024-10-04)
+
+
+### Documentation
+
+* **fork-diff:** update geth fork diff for upstream merge ([#18206](https://github.com/taikoxyz/taiko-mono/issues/18206)) ([cf303b6](https://github.com/taikoxyz/taiko-mono/commit/cf303b6ae2ab3588721fee2bc9d98ba2c20ecff9))
+
 ## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.5.0...fork-diff-v0.6.0) (2024-06-06)
 
 

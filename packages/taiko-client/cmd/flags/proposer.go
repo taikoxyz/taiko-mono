@@ -2,8 +2,6 @@ package flags
 
 import (
 	"github.com/urfave/cli/v2"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 )
 
 // Required flags used by proposer.
@@ -14,13 +12,6 @@ var (
 		Required: true,
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_PROPOSER_PRIV_KEY"},
-	}
-	ProverEndpoints = &cli.StringFlag{
-		Name:     "proverEndpoints",
-		Usage:    "Comma-delineated list of prover endpoints proposer should query when attempting to propose a block",
-		Required: true,
-		Category: proposerCategory,
-		EnvVars:  []string{"PROVER_ENDPOINTS"},
 	}
 	L2SuggestedFeeRecipient = &cli.StringFlag{
 		Name:     "l2.suggestedFeeRecipient",
@@ -33,33 +24,6 @@ var (
 
 // Optional flags used by proposer.
 var (
-	// Tier fee related.
-	OptimisticTierFee = &cli.Float64Flag{
-		Name:     "tierFee.optimistic",
-		Usage:    "Initial tier fee (in GWei) paid to prover to generate an optimistic proofs",
-		Category: proposerCategory,
-		EnvVars:  []string{"TIER_FEE_OPTIMISTIC"},
-	}
-	SgxTierFee = &cli.Float64Flag{
-		Name:     "tierFee.sgx",
-		Usage:    "Initial tier fee (in GWei) paid to prover to generate a SGX proofs",
-		Category: proposerCategory,
-		EnvVars:  []string{"TIER_FEE_SGX"},
-	}
-	TierFeePriceBump = &cli.Uint64Flag{
-		Name:     "tierFee.priceBump",
-		Usage:    "Price bump percentage when no prover wants to accept the block at initial fee",
-		Value:    10,
-		Category: proposerCategory,
-		EnvVars:  []string{"TIER_FEE_PRICE_BUMP"},
-	}
-	MaxTierFeePriceBumps = &cli.Uint64Flag{
-		Name:     "tierFee.maxPriceBumps",
-		Usage:    "If nobody accepts block at initial tier fee, how many iterations to increase tier fee before giving up",
-		Category: proposerCategory,
-		Value:    3,
-		EnvVars:  []string{"TIER_FEE_MAX_PRICE_BUMPS"},
-	}
 	// Proposing epoch related.
 	ProposeInterval = &cli.DurationFlag{
 		Name:     "epoch.interval",
@@ -82,6 +46,13 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TX_LIST_BYTES"},
 	}
+	MinTip = &cli.Float64Flag{
+		Name:     "epoch.minTip",
+		Usage:    "Minimum tip (in GWei) for a transaction to propose",
+		Category: proposerCategory,
+		Value:    0,
+		EnvVars:  []string{"EPOCH_MIN_TIP"},
+	}
 	MinProposingInternal = &cli.DurationFlag{
 		Name:     "epoch.minProposingInterval",
 		Usage:    "Minimum time interval to force proposing a block, even if there are no transaction in mempool",
@@ -89,13 +60,12 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_PROPOSING_INTERNAL"},
 	}
-	// Proposing metadata related.
-	ExtraData = &cli.StringFlag{
-		Name:     "extraData",
-		Usage:    "Block extra data set by the proposer (default = client version)",
-		Value:    version.CommitVersion(),
+	AllowZeroInterval = &cli.Uint64Flag{
+		Name:     "epoch.allowZeroInterval",
+		Usage:    "If set, after this many epochs, proposer will allow propose zero tip transactions once",
 		Category: proposerCategory,
-		EnvVars:  []string{"EXTRA_DATA"},
+		Value:    0,
+		EnvVars:  []string{"EPOCH_ALLOW_ZERO_INTERVAL"},
 	}
 	// Transactions pool related.
 	TxPoolLocals = &cli.StringSliceFlag{
@@ -118,13 +88,6 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"TX_POOL_MAX_TX_LISTS_PER_EPOCH"},
 	}
-	ProposeBlockIncludeParentMetaHash = &cli.BoolFlag{
-		Name:     "includeParentMetaHash",
-		Usage:    "Include parent meta hash when proposing block",
-		Value:    false,
-		Category: proposerCategory,
-		EnvVars:  []string{"INCLUDE_PARENT_META_HASH"},
-	}
 	// Transaction related.
 	BlobAllowed = &cli.BoolFlag{
 		Name:    "l1.blobAllowed",
@@ -132,12 +95,20 @@ var (
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
 	}
-	L1BlockBuilderTip = &cli.Uint64Flag{
-		Name:     "l1.blockBuilderTip",
-		Usage:    "Amount you wish to tip the L1 block builder",
-		Value:    0,
+	FallbackToCalldata = &cli.BoolFlag{
+		Name:     "l1.fallbackToCalldata",
+		Usage:    "If set to true, proposer will use calldata as DA when blob fee is more expensive than using calldata",
+		Value:    false,
 		Category: proposerCategory,
-		EnvVars:  []string{"L1_BLOCK_BUILDER_TIP"},
+		EnvVars:  []string{"L1_FALLBACK_TO_CALLDATA"},
+	}
+	RevertProtectionEnabled = &cli.BoolFlag{
+		Name: "l1.revertProtection",
+		Usage: "Enable revert protection within your ProverSet contract, " +
+			"this is effective only if your PBS service supports revert protection",
+		Value:    false,
+		Category: proposerCategory,
+		EnvVars:  []string{"L1_REVERT_PROTECTION"},
 	}
 )
 
@@ -152,18 +123,13 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProposeInterval,
 	TxPoolLocals,
 	TxPoolLocalsOnly,
-	ExtraData,
 	MinGasUsed,
 	MinTxListBytes,
+	MinTip,
 	MinProposingInternal,
+	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
-	ProverEndpoints,
-	OptimisticTierFee,
-	SgxTierFee,
-	TierFeePriceBump,
-	MaxTierFeePriceBumps,
-	ProposeBlockIncludeParentMetaHash,
-	AssignmentHookAddress,
 	BlobAllowed,
-	L1BlockBuilderTip,
+	FallbackToCalldata,
+	RevertProtectionEnabled,
 }, TxmgrFlags)

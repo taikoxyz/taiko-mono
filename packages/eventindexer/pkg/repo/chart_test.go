@@ -5,25 +5,25 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 func Test_NewChartRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      eventindexer.DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			eventindexer.ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 
@@ -43,7 +43,7 @@ func Test_GetDB(t *testing.T) {
 
 	chartRepo, err := NewChartRepository(db)
 	assert.Equal(t, nil, err)
-	assert.NotNil(t, chartRepo.getDB())
+	assert.NotNil(t, chartRepo.getDB(context.Background()))
 }
 
 func Test_Integration_FindChart(t *testing.T) {

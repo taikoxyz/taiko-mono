@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"strings"
 	"time"
 
@@ -12,16 +13,16 @@ import (
 )
 
 type AccountRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewAccountRepository(db eventindexer.DB) (*AccountRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewAccountRepository(dbHandler db.DB) (*AccountRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &AccountRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
@@ -33,7 +34,7 @@ func (r *AccountRepository) Save(
 	// only insert if address doesn't exist
 	a := &eventindexer.Account{}
 
-	if err := r.db.GormDB().Where("address = ?", address.Hex()).First(a).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Where("address = ?", address.Hex()).First(a).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return err
 		}

@@ -2,8 +2,12 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"math/big"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -11,17 +15,42 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
 	ZeroAddress         common.Address
 	BlobBytes                  = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
 	BlockMaxTxListBytes uint64 = (params.BlobTxBytesPerFieldElement - 1) * params.BlobTxFieldElementsPerBlob
+	// DefaultInterruptSignals is a set of default interrupt signals.
+	DefaultInterruptSignals = []os.Signal{
+		os.Interrupt,
+		os.Kill,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	}
+	ErrInvalidLength = errors.New("invalid length")
+	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
+
+// GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
+func GetProtocolConfigs(
+	taikoL1Client *bindings.TaikoL1Client,
+	opts *bind.CallOpts,
+) (bindings.TaikoDataConfig, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return taikoL1Client.GetConfig(opts)
+}
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func GetProtocolStateVariables(
@@ -31,9 +60,33 @@ func GetProtocolStateVariables(
 	A bindings.TaikoDataSlotA
 	B bindings.TaikoDataSlotB
 }, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+	// Notice: sloB.LastProposedIn and slotB.LastUnpausedAt are always 0
+	// before upgrading contract, but we can ignore it since we won't use it.
+
+	var slotBV1 bindings.TaikoDataSlotBV1
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrSlotBMarshal) {
+			slotA, slotBV1, err = taikoL1Client.GetStateVariablesV1(opts)
+			if err != nil {
+				return nil, err
+			}
+			slotB = bindings.TaikoDataSlotB{
+				NumBlocks:           slotBV1.NumBlocks,
+				LastVerifiedBlockId: slotBV1.LastVerifiedBlockId,
+				ProvingPaused:       slotBV1.ProvingPaused,
+				LastProposedIn:      nil,
+				LastUnpausedAt:      slotBV1.LastUnpausedAt,
+			}
+		} else {
+			return nil, err
+		}
 	}
 	return &struct {
 		A bindings.TaikoDataSlotA
@@ -50,7 +103,7 @@ func CheckProverBalance(
 	address common.Address,
 	bond *big.Int,
 ) (bool, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Check allowance on taiko token contract
@@ -60,31 +113,47 @@ func CheckProverBalance(
 	}
 
 	log.Info(
-		"Prover allowance for TaikoL1 contract",
+		"Prover allowance for the contract",
 		"allowance", utils.WeiToEther(allowance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
 	)
 
-	// Check prover's taiko token balance
-	balance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	// Check prover's taiko token bondBalance
+	bondBalance, err := rpc.TaikoL1.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	if err != nil {
+		return false, err
+	}
+
+	// Check prover's taiko token tokenBalance
+	tokenBalance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
 
 	log.Info(
 		"Prover's wallet taiko token balance",
-		"balance", utils.WeiToEther(balance),
+		"bondBalance", utils.WeiToEther(bondBalance),
+		"tokenBalance", utils.WeiToEther(tokenBalance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
 	)
 
-	if bond.Cmp(allowance) > 0 || bond.Cmp(balance) > 0 {
+	if bond.Cmp(allowance) > 0 && bond.Cmp(bondBalance) > 0 {
 		log.Info(
-			"Assigned prover does not have required on-chain token balance or allowance",
-			"providedProver", prover.Hex(),
-			"taikoTokenBalance", utils.WeiToEther(balance),
+			"Assigned prover does not have required on-chain token allowance",
 			"allowance", utils.WeiToEther(allowance),
+			"bondBalance", utils.WeiToEther(bondBalance),
+			"bond", utils.WeiToEther(bond),
+		)
+		return false, nil
+	}
+
+	if bond.Cmp(bondBalance) > 0 && bond.Cmp(tokenBalance) > 0 {
+		log.Info(
+			"Assigned prover does not have required on-chain token balance",
+			"bondBalance", utils.WeiToEther(bondBalance),
+			"tokenBalance", utils.WeiToEther(tokenBalance),
 			"bond", utils.WeiToEther(bond),
 		)
 		return false, nil
@@ -114,7 +183,7 @@ func GetBlockProofStatus(
 	proverAddress common.Address,
 	proverSetAddress common.Address,
 ) (*BlockProofStatus, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Get the local L2 parent header.
@@ -143,7 +212,8 @@ func GetBlockProofStatus(
 		return nil, err
 	}
 
-	if header.Hash() != transition.BlockHash || transition.StateRoot != header.Root {
+	if header.Hash() != transition.BlockHash ||
+		(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
 		log.Info(
 			"Different block hash or state root detected, try submitting a contest",
 			"localBlockHash", header.Hash(),
@@ -197,10 +267,140 @@ func GetBlockProofStatus(
 	}, nil
 }
 
+// BatchGetBlocksProofStatus checks whether the batch of L2 blocks still need new proofs or new contests.
+// Here are the possible status:
+// 1. No proof on chain at all.
+// 2. A valid proof has been submitted.
+// 3. An invalid proof has been submitted, and there is no valid contest.
+// 4. An invalid proof has been submitted, and there is a valid contest.
+func BatchGetBlocksProofStatus(
+	ctx context.Context,
+	cli *Client,
+	ids []*big.Int,
+	proverAddress common.Address,
+	proverSetAddress common.Address,
+) ([]*BlockProofStatus, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+	var (
+		parentHashes   = make([][32]byte, len(ids))
+		parentIDs      = make([]*big.Int, len(ids))
+		blockIDs       = make([]*big.Int, len(ids))
+		uint64BlockIDs = make([]uint64, len(ids))
+		result         = make([]*BlockProofStatus, len(ids))
+		highestBlockID = big.NewInt(0)
+	)
+	for i, id := range ids {
+		parentIDs[i] = new(big.Int).Sub(id, common.Big1)
+		blockIDs[i] = id
+		uint64BlockIDs[i] = id.Uint64()
+		if id.Cmp(highestBlockID) > 0 {
+			highestBlockID = id
+		}
+	}
+	// Get the local L2 parent headers.
+	parents, err := cli.L2.BatchHeadersByNumbers(ctxWithTimeout, parentIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) != len(ids) {
+		return nil, ErrInvalidLength
+	}
+	for i := range ids {
+		parentHashes[i] = parents[i].Hash()
+	}
+	// Get the transition state from TaikoL1 contract.
+	transitions, err := cli.TaikoL1.GetTransitions(
+		&bind.CallOpts{Context: ctxWithTimeout},
+		uint64BlockIDs,
+		parentHashes,
+	)
+	if err != nil {
+		return nil, err
+	}
+	_, err = cli.WaitL2Header(ctxWithTimeout, highestBlockID)
+	if err != nil {
+		return nil, err
+	}
+	blockHeaders, err := cli.L2.BatchHeadersByNumbers(ctxWithTimeout, blockIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(transitions) != len(ids) || len(blockHeaders) != len(ids) {
+		return nil, ErrInvalidLength
+	}
+	g, _ := errgroup.WithContext(ctxWithTimeout)
+	for i, transition := range transitions {
+		// No proof on chain
+		if transition.BlockHash == (common.Hash{}) {
+			result[i] = &BlockProofStatus{IsSubmitted: false, ParentHeader: parents[i]}
+			continue
+		}
+		g.Go(func() error {
+			if blockHeaders[i].Hash() != transition.BlockHash ||
+				(transition.StateRoot != (common.Hash{}) && transition.StateRoot != blockHeaders[i].Root) {
+				log.Info(
+					"Different block hash or state root detected, try submitting a contest",
+					"localBlockHash", blockHeaders[i].Hash(),
+					"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
+					"localStateRoot", blockHeaders[i].Root,
+					"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
+				)
+				result[i] = &BlockProofStatus{
+					IsSubmitted:            true,
+					Invalid:                true,
+					CurrentTransitionState: &transitions[i],
+					ParentHeader:           parents[i],
+				}
+				return nil
+			}
+
+			if proverAddress == transition.Prover ||
+				(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
+				log.Info(
+					"📬 Block's proof has already been submitted by current prover",
+					"blockID", ids[i],
+					"parent", parents[i].Hash().Hex(),
+					"hash", common.Bytes2Hex(transition.BlockHash[:]),
+					"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
+					"timestamp", transition.Timestamp,
+					"contester", transition.Contester,
+				)
+				result[i] = &BlockProofStatus{
+					IsSubmitted:            true,
+					Invalid:                transition.Contester != ZeroAddress,
+					ParentHeader:           parents[i],
+					CurrentTransitionState: &transitions[i],
+				}
+				return nil
+			}
+			log.Info(
+				"📬 Block's proof has already been submitted by another prover",
+				"blockID", ids[i],
+				"prover", transition.Prover,
+				"parent", parents[i].Hash().Hex(),
+				"hash", common.Bytes2Hex(transition.BlockHash[:]),
+				"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
+				"timestamp", transition.Timestamp,
+				"contester", transition.Contester,
+			)
+
+			result[i] = &BlockProofStatus{
+				IsSubmitted:            true,
+				Invalid:                transition.Contester != ZeroAddress,
+				ParentHeader:           parents[i],
+				CurrentTransitionState: &transitions[i],
+			}
+			return nil
+		})
+	}
+	return result, g.Wait()
+}
+
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
 // for testing purpose.
 func SetHead(ctx context.Context, client *EthClient, headNum *big.Int) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return client.SetHead(ctxWithTimeout, headNum)
@@ -214,10 +414,10 @@ func StringToBytes32(str string) [32]byte {
 	return b
 }
 
-// ctxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
+// CtxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
 // and otherwise returns the context as passed in. cancel func is always set to an empty function
 // so is safe to defer the cancel.
-func ctxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
+func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
 	if utils.IsNil(ctx) {
 		return context.WithTimeout(context.Background(), defaultTimeout)
 	}
@@ -226,4 +426,20 @@ func ctxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) 
 	}
 
 	return ctx, func() {}
+}
+
+// BlockOnInterruptsContext blocks until a SIGTERM is received.
+// Passing in signals will override the default signals.
+// The function will stop blocking if the context is closed.
+func BlockOnInterruptsContext(ctx context.Context, signals ...os.Signal) {
+	if len(signals) == 0 {
+		signals = DefaultInterruptSignals
+	}
+	interruptChannel := make(chan os.Signal, 1)
+	signal.Notify(interruptChannel, signals...)
+	select {
+	case <-interruptChannel:
+	case <-ctx.Done():
+		signal.Stop(interruptChannel)
+	}
 }

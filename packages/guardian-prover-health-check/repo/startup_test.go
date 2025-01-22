@@ -5,26 +5,27 @@ import (
 	"net/http"
 	"testing"
 
+	"gopkg.in/go-playground/assert.v1"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_NewStartupRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 
@@ -63,7 +64,7 @@ func TestIntegration_Startup_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = startupRepo.Save(tt.opts)
+			err = startupRepo.Save(context.Background(), &tt.opts)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
@@ -78,7 +79,7 @@ func TestIntegration_Startup_GetByGuardianProverID(t *testing.T) {
 	startupRepo, err := NewStartupRepository(db)
 	assert.Equal(t, nil, err)
 
-	err = startupRepo.Save(guardianproverhealthcheck.SaveStartupOpts{
+	err = startupRepo.Save(context.Background(), &guardianproverhealthcheck.SaveStartupOpts{
 		GuardianProverID:      1,
 		GuardianProverAddress: "0x123",
 		Revision:              "asdf",
@@ -89,7 +90,7 @@ func TestIntegration_Startup_GetByGuardianProverID(t *testing.T) {
 
 	assert.Equal(t, nil, err)
 
-	err = startupRepo.Save(guardianproverhealthcheck.SaveStartupOpts{
+	err = startupRepo.Save(context.Background(), &guardianproverhealthcheck.SaveStartupOpts{
 		GuardianProverID:      1,
 		GuardianProverAddress: "0x123",
 		Revision:              "zxxc",

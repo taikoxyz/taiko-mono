@@ -44,7 +44,7 @@ func (h *HealthCheckRepo) Get(
 	}, nil
 }
 
-func (h *HealthCheckRepo) Save(opts guardianproverhealthcheck.SaveHealthCheckOpts) error {
+func (h *HealthCheckRepo) Save(ctx context.Context, opts *guardianproverhealthcheck.SaveHealthCheckOpts) error {
 	h.healthChecks = append(h.healthChecks, &guardianproverhealthcheck.HealthCheck{
 		GuardianProverID: opts.GuardianProverID,
 		Alive:            opts.Alive,

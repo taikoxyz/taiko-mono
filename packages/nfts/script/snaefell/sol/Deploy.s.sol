@@ -6,6 +6,7 @@ import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { SnaefellToken } from "../../../contracts/snaefell/SnaefellToken.sol";
+import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;
@@ -13,9 +14,12 @@ contract DeployScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    // Please set owner to labs.taiko.eth (0xB73b0FC4C0Cfc73cF6e034Af6f6b42Ebe6c8b49D) on Mainnnet.
-    address owner = vm.envAddress("OWNER");
-    bytes32 root = vm.envBytes32("MERKLE_ROOT");
+    // V2 Taiko Mainnet data
+    address owner = 0x7d70236E2517f5B95247AF1d806A9E3C328a7860;
+    bytes32 root = 0xb5edb18eeaeb9c03bde474b7dd392d0594ecc3d9066c7e3c90d611086543d01e;
+    string baseURI =
+        "https://taikonfts.4everland.link/ipfs/bafkreib2bkniueraowa23nga3cdijcx7lo4734dmkpgbeiz7hu2yfop4je";
+    IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
 
     function setUp() public {
         utils = new UtilsScript();
@@ -33,15 +37,10 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        string memory baseURI = utils.getIpfsBaseURI();
-
         address impl = address(new SnaefellToken());
         address proxy = address(
             new ERC1967Proxy(
-                impl,
-                abi.encodeCall(
-                    SnaefellToken.initialize, (owner, baseURI, root, utils.getBlacklist())
-                )
+                impl, abi.encodeCall(SnaefellToken.initialize, (owner, baseURI, root, blacklist))
             )
         );
 

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -61,7 +62,7 @@ func (srv *Server) PostStartup(c echo.Context) error {
 	// expected address and recovered address will be the same until we have an auth
 	// mechanism which will allow us to store health checks that ecrecover to an unexpected
 	// address.
-	if err := srv.startupRepo.Save(guardianproverhealthcheck.SaveStartupOpts{
+	if err := srv.startupRepo.Save(context.Background(), &guardianproverhealthcheck.SaveStartupOpts{
 		GuardianProverID:      recoveredGuardianProver.ID.Uint64(),
 		GuardianVersion:       req.GuardianVersion,
 		L1NodeVersion:         req.L1NodeVersion,

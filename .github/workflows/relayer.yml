@@ -6,19 +6,21 @@ on:
     paths:
       - "packages/relayer/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/relayer/**"
-      - "go.mod"
-      - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint-relayer:
     name: lint-relayer
-    runs-on: [taiko-runner]
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/')}}
+    runs-on: [arc-runner-set]
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.21.0
+          go-version: 1.23.0
       - uses: actions/checkout@v4
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
@@ -31,7 +33,8 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-relayer:
-    runs-on: [taiko-runner]
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') }}
+    runs-on: [arc-runner-set]
     needs: lint-relayer
     steps:
       - name: Cancel Previous Runs
@@ -39,27 +42,34 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.21.0"
+          go-version: "1.23.0"
 
       - name: relayer - Unit Tests
         working-directory: ./packages/relayer
         run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
 
       - name: relayer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer
 
   push-relayer-docker-image:
-    if: ${{ github.event_name == 'pull_request' }}
+    # Skip dependabot PRs
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') && github.event.pull_request.head.repo.fork == false }}
     name: Build and push docker image
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
 
     steps:
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -91,9 +101,8 @@ jobs:
             type=sha
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64
           push: true
           context: .
           tags: ${{ steps.meta.outputs.tags }}

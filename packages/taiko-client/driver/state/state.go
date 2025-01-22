@@ -28,7 +28,8 @@ type State struct {
 	l1Current     atomic.Value // Current L1 block sync cursor
 
 	// Constants
-	GenesisL1Height *big.Int
+	GenesisL1Height  *big.Int
+	OnTakeForkHeight *big.Int
 
 	// RPC clients
 	rpc *rpc.Client
@@ -61,8 +62,16 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
+	s.OnTakeForkHeight = new(big.Int).SetUint64(protocolConfigs.OntakeForkHeight)
+
+	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
+	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -84,7 +93,7 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	log.Info("L2 execution engine head", "height", l2Head.Number, "hash", l2Head.Hash())
+	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
 	s.setL2Head(l2Head)
 
 	s.setHeadBlockID(new(big.Int).SetUint64(stateVars.B.NumBlocks - 1))
@@ -99,18 +108,24 @@ func (s *State) eventLoop(ctx context.Context) {
 
 	var (
 		// Channels for subscriptions.
-		l1HeadCh           = make(chan *types.Header, 10)
-		l2HeadCh           = make(chan *types.Header, 10)
-		blockProposedCh    = make(chan *bindings.TaikoL1ClientBlockProposed, 10)
-		transitionProvedCh = make(chan *bindings.TaikoL1ClientTransitionProved, 10)
-		blockVerifiedCh    = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
+		l1HeadCh             = make(chan *types.Header, 10)
+		l2HeadCh             = make(chan *types.Header, 10)
+		blockProposedCh      = make(chan *bindings.TaikoL1ClientBlockProposed, 10)
+		transitionProvedCh   = make(chan *bindings.TaikoL1ClientTransitionProved, 10)
+		blockVerifiedCh      = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
+		blockProposedV2Ch    = make(chan *bindings.TaikoL1ClientBlockProposedV2, 10)
+		transitionProvedV2Ch = make(chan *bindings.TaikoL1ClientTransitionProvedV2, 10)
+		blockVerifiedV2Ch    = make(chan *bindings.TaikoL1ClientBlockVerifiedV2, 10)
 
 		// Subscriptions.
-		l1HeadSub             = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
-		l2HeadSub             = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2BlockVerifiedSub    = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
-		l2BlockProposedSub    = rpc.SubscribeBlockProposed(s.rpc.TaikoL1, blockProposedCh)
-		l2TransitionProvedSub = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)
+		l1HeadSub               = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
+		l2HeadSub               = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
+		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
+		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.TaikoL1, blockProposedCh)
+		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)
+		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.TaikoL1, blockVerifiedV2Ch)
+		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.TaikoL1, blockProposedV2Ch)
+		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.TaikoL1, transitionProvedV2Ch)
 	)
 
 	defer func() {
@@ -119,6 +134,9 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2BlockVerifiedSub.Unsubscribe()
 		l2BlockProposedSub.Unsubscribe()
 		l2TransitionProvedSub.Unsubscribe()
+		l2BlockVerifiedV2Sub.Unsubscribe()
+		l2BlockProposedV2Sub.Unsubscribe()
+		l2TransitionProvedV2Sub.Unsubscribe()
 	}()
 
 	for {
@@ -127,7 +145,18 @@ func (s *State) eventLoop(ctx context.Context) {
 			return
 		case e := <-blockProposedCh:
 			s.setHeadBlockID(e.BlockId)
+		case e := <-blockProposedV2Ch:
+			s.setHeadBlockID(e.BlockId)
 		case e := <-transitionProvedCh:
+			log.Info(
+				"✅ Transition proven",
+				"blockID", e.BlockId,
+				"parentHash", common.Hash(e.Tran.ParentHash),
+				"hash", common.Hash(e.Tran.BlockHash),
+				"stateRoot", common.Hash(e.Tran.StateRoot),
+				"prover", e.Prover,
+			)
+		case e := <-transitionProvedV2Ch:
 			log.Info(
 				"✅ Transition proven",
 				"blockID", e.BlockId,
@@ -142,6 +171,13 @@ func (s *State) eventLoop(ctx context.Context) {
 				"blockID", e.BlockId,
 				"hash", common.Hash(e.BlockHash),
 				"stateRoot", common.Hash(e.StateRoot),
+				"prover", e.Prover,
+			)
+		case e := <-blockVerifiedV2Ch:
+			log.Info(
+				"📈 Block verified",
+				"blockID", e.BlockId,
+				"hash", common.Hash(e.BlockHash),
 				"prover", e.Prover,
 			)
 		case newHead := <-l1HeadCh:
@@ -178,7 +214,7 @@ func (s *State) setL2Head(l2Head *types.Header) {
 		return
 	}
 
-	log.Trace("New L2 head", "height", l2Head.Number, "hash", l2Head.Hash(), "timestamp", l2Head.Time)
+	log.Trace("New L2 head", "blockID", l2Head.Number, "hash", l2Head.Hash(), "timestamp", l2Head.Time)
 	metrics.DriverL2HeadHeightGauge.Set(float64(l2Head.Number.Uint64()))
 
 	s.l2Head.Store(l2Head)
@@ -204,4 +240,12 @@ func (s *State) GetHeadBlockID() *big.Int {
 // SubL1HeadsFeed registers a subscription of new L1 heads.
 func (s *State) SubL1HeadsFeed(ch chan *types.Header) event.Subscription {
 	return s.l1HeadsFeed.Subscribe(ch)
+}
+
+// IsOnTake returns whether num is either equal to the ontake block or greater.
+func (s *State) IsOnTake(num *big.Int) bool {
+	if s.OnTakeForkHeight == nil || num == nil {
+		return false
+	}
+	return s.OnTakeForkHeight.Cmp(num) <= 0
 }

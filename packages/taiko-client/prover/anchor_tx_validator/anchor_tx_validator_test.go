@@ -21,7 +21,7 @@ type AnchorTxValidatorTestSuite struct {
 func (s *AnchorTxValidatorTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
-	validator, err := New(common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")), s.RPCClient.L2.ChainID, s.RPCClient)
+	validator, err := New(common.HexToAddress(os.Getenv("TAIKO_L2")), s.RPCClient.L2.ChainID, s.RPCClient)
 	s.Nil(err)
 	s.v = validator
 }

@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -23,7 +24,14 @@ func (i *Indexer) saveEventToDB(
 ) (int, error) {
 	eventType, canonicalToken, amount, err := relayer.DecodeMessageData(eventData, eventValue)
 	if err != nil {
-		return 0, errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
+		slog.Error("error decoding message data", "error", err.Error())
+
+		return 0, errors.Wrap(err, "relayer.DecodeMessageData")
+	}
+
+	if eventType == relayer.EventTypeSendETH {
+		canonicalToken = nil
+		amount = eventValue
 	}
 
 	// check if we have an existing event already. this is mostly likely only true
@@ -63,7 +71,7 @@ func (i *Indexer) saveEventToDB(
 			opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
 		}
 
-		e, err := i.eventRepo.Save(ctx, opts)
+		e, err := i.eventRepo.Save(ctx, &opts)
 		if err != nil {
 			return 0, errors.Wrap(err, "svc.eventRepo.Save")
 		}

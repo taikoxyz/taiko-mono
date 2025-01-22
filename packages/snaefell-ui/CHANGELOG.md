@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/snaefell-ui-v1.0.0...snaefell-ui-v1.1.0) (2024-06-18)
+
+
+### Features
+
+* **nfts:** snaefell ui fixes ([#17391](https://github.com/taikoxyz/taiko-mono/issues/17391)) ([14a9939](https://github.com/taikoxyz/taiko-mono/commit/14a9939f417ba73fd32c35099a067ae8b56e99bb))
+* **nfts:** snaefell-ui pre-mint disclaimer ([#17484](https://github.com/taikoxyz/taiko-mono/issues/17484)) ([99731fa](https://github.com/taikoxyz/taiko-mono/commit/99731fa66a6e961d7d964b9dec43de5bfaa905bc))
+* **nfts:** snaefell-v2 contract, ui adaptations ([#17614](https://github.com/taikoxyz/taiko-mono/issues/17614)) ([728657f](https://github.com/taikoxyz/taiko-mono/commit/728657f379f755e72b1a93ff4c70998cdeed26ac))
+
+
+### Bug Fixes
+
+* **nfts:** snaefell day1 fixes ([#17420](https://github.com/taikoxyz/taiko-mono/issues/17420)) ([34f1ae2](https://github.com/taikoxyz/taiko-mono/commit/34f1ae238a6f209d6cefdb6adf6d4b42236dfe82))
+* **nfts:** snaefell fixes, v3 ([#17401](https://github.com/taikoxyz/taiko-mono/issues/17401)) ([7f40e3a](https://github.com/taikoxyz/taiko-mono/commit/7f40e3a20b3cdce375990e24cd22cd71f913fc01))
+* **nfts:** snaefell ui chains modal and counters ([#17395](https://github.com/taikoxyz/taiko-mono/issues/17395)) ([91d1a34](https://github.com/taikoxyz/taiko-mono/commit/91d1a34ee0ebdbff09b1b7c8205934104a3b8382))
+* **nfts:** snaefell ui fixes v4 ([#17414](https://github.com/taikoxyz/taiko-mono/issues/17414)) ([ee9b711](https://github.com/taikoxyz/taiko-mono/commit/ee9b711b854f3df1b8bdea91be352e53222ac4bc))
+* **nfts:** snaefell-ui figma implementations ([#17400](https://github.com/taikoxyz/taiko-mono/issues/17400)) ([cca2358](https://github.com/taikoxyz/taiko-mono/commit/cca235839ac099b351a60966dd00ce59bfd9dcd2))
+* **nfts:** snaefell-ui fix date ([#17425](https://github.com/taikoxyz/taiko-mono/issues/17425)) ([5bb8bf4](https://github.com/taikoxyz/taiko-mono/commit/5bb8bf458c5828e91e021a1b5ef481a0b2785de5))
+* **nfts:** snaefell-ui fixes ([#17398](https://github.com/taikoxyz/taiko-mono/issues/17398)) ([53b74f2](https://github.com/taikoxyz/taiko-mono/commit/53b74f20a9e1581973f3a47390d792d2f6921f96))
+* **nfts:** snaefell-ui scroll fixes ([#17402](https://github.com/taikoxyz/taiko-mono/issues/17402)) ([a72e187](https://github.com/taikoxyz/taiko-mono/commit/a72e18753c77912b69f6317394b9b95a9b61d660))
+* **nfts:** snaefell-ui, show success panel after user has minted permanently ([#17447](https://github.com/taikoxyz/taiko-mono/issues/17447)) ([efb7610](https://github.com/taikoxyz/taiko-mono/commit/efb7610417160c0c44524badcd6e5c6e590da051))
+
 ## 1.0.0 (2024-05-28)
 
 

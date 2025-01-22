@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  import { importDone, processingFeeMethod, recipientAddress } from '$components/Bridge/state';
+  import { destOwnerAddress, importDone, processingFeeMethod, recipientAddress } from '$components/Bridge/state';
   import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
   import { ProcessingFeeMethod } from '$libs/fee';
 
@@ -14,6 +14,7 @@
 
   const reset = () => {
     $recipientAddress = null;
+    $destOwnerAddress = null;
     $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   };
 

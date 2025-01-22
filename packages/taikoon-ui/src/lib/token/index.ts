@@ -1,8 +1,7 @@
-import { zeroAddress } from 'viem';
+import { chainId } from '$lib/chain';
 
 import { taikoonTokenAddress } from '../../generated/abi';
-import { web3modal } from '../../lib/connect';
-import type { IAddress, IChainId } from '../../types';
+import type { IAddress } from '../../types';
 import { balanceOf } from './balanceOf';
 import { canMint } from './canMint';
 import { estimateMintGasCost } from './estimateMintGasCost';
@@ -15,10 +14,6 @@ import { tokenURI } from './tokenURI';
 import { totalSupply } from './totalSupply';
 
 function address(): IAddress {
-  const { selectedNetworkId } = web3modal.getState();
-  if (!selectedNetworkId) return zeroAddress;
-
-  const chainId = selectedNetworkId as IChainId;
   return taikoonTokenAddress[chainId];
 }
 

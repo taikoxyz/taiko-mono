@@ -6,11 +6,19 @@
   import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
-  import { destNetwork as destChain, enteredAmount, processingFee, selectedToken } from '$components/Bridge/state';
+  import DestOwner from '$components/Bridge/SharedBridgeComponents/RecipientStep/DestOwner.svelte';
+  import {
+    destNetwork as destChain,
+    destOwnerAddress,
+    enteredAmount,
+    processingFee,
+    selectedToken,
+  } from '$components/Bridge/state';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
-  import { isStablecoin, isSupported, isWrapped, type Token, TokenType } from '$libs/token';
+  import { isWrapped, type Token, TokenType } from '$libs/token';
   import { isToken } from '$libs/token/isToken';
+  import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
 
@@ -19,6 +27,7 @@
   export let hasEnoughFundsToContinue: boolean = true;
 
   let recipientComponent: Recipient;
+  let destOwnerComponent: DestOwner;
   let processingFeeComponent: ProcessingFee;
   let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
@@ -27,14 +36,12 @@
 
   $: wrapped = $selectedToken !== null && isWrapped($selectedToken as Token);
 
-  $: unsupportedStableCoin =
-    $selectedToken !== null && !isSupported($selectedToken as Token) && isStablecoin($selectedToken as Token);
+  // $: unsupportedStableCoin =
+  //   $selectedToken !== null && !isSupported($selectedToken as Token) && isStablecoin($selectedToken as Token);
 
   $: wrappedAssetWarning = $t('bridge.alerts.wrapped_eth');
 
-  $: stableCoinWarning = $t('bridge.alerts.stable_coin');
-
-  $: if (wrapped || unsupportedStableCoin) {
+  $: if (wrapped) {
     needsManualReviewConfirmation = true;
   } else {
     needsManualReviewConfirmation = false;
@@ -106,6 +113,9 @@ Recipient & Processing Fee
     <button class="flex justify-start link" on:click={editTransactionDetails}> {$t('common.edit')} </button>
   </div>
   <Recipient bind:this={recipientComponent} small />
+  {#if $destOwnerAddress !== $account?.address && $destOwnerAddress}
+    <DestOwner bind:this={destOwnerComponent} small />
+  {/if}
   <ProcessingFee bind:this={processingFeeComponent} small bind:hasEnoughEth />
 </div>
 
@@ -116,9 +126,4 @@ Recipient & Processing Fee
 {#if wrapped}
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   <Alert type="warning">{@html wrappedAssetWarning}</Alert>
-{/if}
-
-{#if unsupportedStableCoin}
-  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  <Alert type="warning">{@html stableCoinWarning}</Alert>
 {/if}

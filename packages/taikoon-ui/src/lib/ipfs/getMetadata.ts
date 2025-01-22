@@ -1,7 +1,10 @@
-import { IpfsError } from '../error';
+import { get } from 'svelte/store';
+
+import { nftCache } from '$stores/nftCache';
+
 import Token from '../token';
-import { PUBLIC_IPFS_GATEWAY } from './config';
-import get from './get';
+import httpGet from './httpGet';
+//import get from './get';
 
 export interface ITokenMetadata {
   name: string;
@@ -10,16 +13,20 @@ export interface ITokenMetadata {
 }
 export default async function getMetadata(tokenId: number): Promise<ITokenMetadata> {
   const tokenURI = await Token.tokenURI(tokenId);
-  const hash = tokenURI.split('ipfs://').pop();
-  if (!hash) throw new IpfsError('Invalid token URI:' + tokenURI);
-  const metadata = (await get(hash, true)) as ITokenMetadata;
+  // const metadata = (await get(tokenURI, true)) as ITokenMetadata;
 
-  const imageHash = metadata.image.split('ipfs://').pop();
+  const cachedIds = get(nftCache);
+  const cached = cachedIds[tokenId];
+  let metadata;
+  if (!cached) {
+    metadata = (await httpGet(tokenURI, true)) as ITokenMetadata;
+    nftCache.set({
+      ...cachedIds,
+      [tokenId]: JSON.stringify(metadata),
+    });
+  } else {
+    metadata = JSON.parse(cached);
+  }
 
-  if (!imageHash) throw new IpfsError('Invalid image URI:' + metadata.image);
-
-  return {
-    ...metadata,
-    image: `${PUBLIC_IPFS_GATEWAY}${imageHash}`,
-  };
+  return metadata;
 }

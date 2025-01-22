@@ -1,29 +1,32 @@
 package repo
 
 import (
-	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
+	"context"
 	"gorm.io/gorm"
+
+	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
 )
 
 type SignedBlockRepository struct {
-	db DB
+	db db.DB
 }
 
-func NewSignedBlockRepository(db DB) (*SignedBlockRepository, error) {
-	if db == nil {
-		return nil, ErrNoDB
+func NewSignedBlockRepository(dbHandler db.DB) (*SignedBlockRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &SignedBlockRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
-func (r *SignedBlockRepository) startQuery() *gorm.DB {
-	return r.db.GormDB().Table("signed_blocks")
+func (r *SignedBlockRepository) startQuery(ctx context.Context) *gorm.DB {
+	return r.db.GormDB().WithContext(ctx).Table("signed_blocks")
 }
 
-func (r *SignedBlockRepository) Save(opts guardianproverhealthcheck.SaveSignedBlockOpts) error {
+func (r *SignedBlockRepository) Save(ctx context.Context, opts *guardianproverhealthcheck.SaveSignedBlockOpts) error {
 	b := &guardianproverhealthcheck.SignedBlock{
 		GuardianProverID: opts.GuardianProverID,
 		BlockID:          opts.BlockID,
@@ -31,7 +34,7 @@ func (r *SignedBlockRepository) Save(opts guardianproverhealthcheck.SaveSignedBl
 		RecoveredAddress: opts.RecoveredAddress,
 		Signature:        opts.Signature,
 	}
-	if err := r.startQuery().Create(b).Error; err != nil {
+	if err := r.startQuery(ctx).Create(b).Error; err != nil {
 		return err
 	}
 
@@ -39,31 +42,32 @@ func (r *SignedBlockRepository) Save(opts guardianproverhealthcheck.SaveSignedBl
 }
 
 func (r *SignedBlockRepository) GetByStartingBlockID(
+	ctx context.Context,
 	opts guardianproverhealthcheck.GetSignedBlocksByStartingBlockIDOpts,
 ) ([]*guardianproverhealthcheck.SignedBlock, error) {
 	var sb []*guardianproverhealthcheck.SignedBlock
 
-	if err := r.startQuery().Where("block_id >= ?", opts.StartingBlockID).Find(&sb).Error; err != nil {
+	if err := r.startQuery(ctx).Where("block_id >= ?", opts.StartingBlockID).Find(&sb).Error; err != nil {
 		return nil, err
 	}
 
 	return sb, nil
 }
 
-func (r *SignedBlockRepository) GetMostRecentByGuardianProverAddress(address string) (
+func (r *SignedBlockRepository) GetMostRecentByGuardianProverAddress(ctx context.Context, address string) (
 	*guardianproverhealthcheck.SignedBlock,
 	error) {
 	q := `SELECT *
 	FROM signed_blocks
 	WHERE block_id = (
-		SELECT MAX(block_id) 
-		FROM signed_blocks 
+		SELECT MAX(block_id)
+		FROM signed_blocks
 		WHERE recovered_address = ?
 	) AND recovered_address = ?;`
 
 	var b *guardianproverhealthcheck.SignedBlock
 
-	if err := r.startQuery().Raw(q, address, address).Scan(&b).Error; err != nil {
+	if err := r.startQuery(ctx).Raw(q, address, address).Scan(&b).Error; err != nil {
 		return nil, err
 	}
 

@@ -2,8 +2,10 @@
   import { switchChain } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
+  import { taiko, taikoHekla } from 'viem/chains';
 
-  import { config, taiko } from '$wagmi-config';
+  import { isDevelopmentEnv } from '$lib/util/isDevelopmentEnv';
+  import { config } from '$wagmi-config';
 
   import { chains, getChainImage } from '../../lib/chain';
   import { switchChainModal } from '../../stores/modal';
@@ -25,7 +27,7 @@
 
   let switchingNetwork = false;
 
-  $: selectedChains = [taiko];
+  $: selectedChains = [isDevelopmentEnv ? taikoHekla : taiko];
 
   function closeModal() {
     $switchChainModal = false;

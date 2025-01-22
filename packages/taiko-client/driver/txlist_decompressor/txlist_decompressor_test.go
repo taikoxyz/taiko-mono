@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
@@ -39,12 +39,12 @@ func (s *TxListDecompressorTestSuite) SetupTest() {
 }
 
 func (s *TxListDecompressorTestSuite) TestZeroBytes() {
-	s.Empty(s.d.TryDecompress(chainID, []byte{}, false))
+	s.Empty(s.d.TryDecompress(chainID, common.Big1, []byte{}, false))
 }
 
 func (s *TxListDecompressorTestSuite) TestCalldataSize() {
-	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes+1), false))
-	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes-1), false))
+	s.Empty(s.d.TryDecompress(chainID, common.Big1, randBytes(rpc.BlockMaxTxListBytes+1), false))
+	s.Empty(s.d.TryDecompress(chainID, common.Big1, randBytes(rpc.BlockMaxTxListBytes-1), false))
 }
 
 func (s *TxListDecompressorTestSuite) TestValidTxList() {
@@ -53,21 +53,21 @@ func (s *TxListDecompressorTestSuite) TestValidTxList() {
 	decompressed, err := utils.Decompress(compressed)
 	s.Nil(err)
 
-	s.Equal(s.d.TryDecompress(chainID, compressed, true), decompressed)
-	s.Equal(s.d.TryDecompress(chainID, compressed, false), decompressed)
+	s.Equal(s.d.TryDecompress(chainID, common.Big1, compressed, true), decompressed)
+	s.Equal(s.d.TryDecompress(chainID, common.Big1, compressed, false), decompressed)
 }
 
 func (s *TxListDecompressorTestSuite) TestInvalidTxList() {
 	compressed, err := utils.Compress(randBytes(1024))
 	s.Nil(err)
 
-	s.Zero(len(s.d.TryDecompress(chainID, compressed, true)))
-	s.Zero(len(s.d.TryDecompress(chainID, compressed, false)))
+	s.Zero(len(s.d.TryDecompress(chainID, common.Big1, compressed, true)))
+	s.Zero(len(s.d.TryDecompress(chainID, common.Big1, compressed, false)))
 }
 
 func (s *TxListDecompressorTestSuite) TestInvalidZlibBytes() {
-	s.Zero(len(s.d.TryDecompress(chainID, randBytes(1024), true)))
-	s.Zero(len(s.d.TryDecompress(chainID, randBytes(1024), false)))
+	s.Zero(len(s.d.TryDecompress(chainID, common.Big1, randBytes(1024), true)))
+	s.Zero(len(s.d.TryDecompress(chainID, common.Big1, randBytes(1024), false)))
 }
 
 func TestDriverTestSuite(t *testing.T) {
@@ -80,7 +80,6 @@ func rlpEncodedTransactionBytes(l int, signed bool) []byte {
 		var tx *types.Transaction
 		if signed {
 			txData := &types.LegacyTx{Nonce: 1, To: &testAddr, GasPrice: common.Big256, Value: common.Big1, Gas: 10}
-
 			tx = types.MustSignNewTx(testKey, types.LatestSigner(&params.ChainConfig{ChainID: chainID}), txData)
 		} else {
 			tx = types.NewTransaction(1, testAddr, common.Big1, 10, new(big.Int).SetUint64(10*params.GWei), nil)

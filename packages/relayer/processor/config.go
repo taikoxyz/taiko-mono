@@ -7,15 +7,16 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/urfave/cli/v2"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/relayer/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue/rabbitmq"
-	"github.com/urfave/cli/v2"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // hopConfig is a config struct that must be provided for an individual
@@ -76,7 +77,7 @@ type Config struct {
 	DestRPCUrl       string
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
-	OpenDBFunc       func() (DB, error)
+	OpenDBFunc       func() (db.DB, error)
 
 	hopConfigs []hopConfig
 
@@ -86,6 +87,7 @@ type Config struct {
 	TxmgrConfigs *txmgr.CLIConfig
 
 	MaxMessageRetries uint64
+	MinFeeToProcess   uint64
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -176,7 +178,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			c,
 		),
 		MaxMessageRetries: c.Uint64(flags.MaxMessageRetries.Name),
-		OpenDBFunc: func() (DB, error) {
+		MinFeeToProcess:   c.Uint64(flags.MinFeeToProcess.Name),
+		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
 				Password:        c.String(flags.DatabasePassword.Name),
@@ -185,7 +188,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 				MaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 				MaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 				MaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
-				OpenFunc: func(dsn string) (*db.DB, error) {
+				OpenFunc: func(dsn string) (db.DB, error) {
 					gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 						Logger: logger.Default.LogMode(logger.Silent),
 					})

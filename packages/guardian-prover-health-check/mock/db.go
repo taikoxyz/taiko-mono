@@ -16,3 +16,5 @@ func (db *DB) DB() (*sql.DB, error) {
 func (db *DB) GormDB() *gorm.DB {
 	return &gorm.DB{}
 }
+
+func (db *DB) Close() error { return nil }

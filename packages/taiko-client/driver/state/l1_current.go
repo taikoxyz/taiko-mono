@@ -5,6 +5,8 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -45,7 +47,15 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	}
 
 	// Fetch the block info from TaikoL1 contract, and set the L1 height.
-	blockInfo, err := s.rpc.GetL2BlockInfo(ctx, blockID)
+	var (
+		blockInfo bindings.TaikoDataBlockV2
+		err       error
+	)
+	if s.IsOnTake(blockID) {
+		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockID)
+	} else {
+		blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockID)
+	}
 	if err != nil {
 		return err
 	}

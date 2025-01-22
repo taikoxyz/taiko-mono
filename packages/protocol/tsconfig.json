@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "lib": ["es6"],
+    "types": ["node"],
+    "moduleResolution": "node",
+    "esModuleInterop": true
+  },
+  "include": ["utils/**/*.ts"],
+  "exclude": ["node_modules"]
+}

@@ -3,10 +3,11 @@ package producer
 import (
 	"bytes"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 // DummyProofProducer always returns a dummy proof.
@@ -16,9 +17,10 @@ type DummyProofProducer struct{}
 func (o *DummyProofProducer) RequestProof(
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
 	tier uint16,
+	_ time.Time,
 ) (*ProofWithHeader, error) {
 	return &ProofWithHeader{
 		BlockID: blockID,
@@ -27,5 +29,17 @@ func (o *DummyProofProducer) RequestProof(
 		Proof:   bytes.Repeat([]byte{0xff}, 100),
 		Opts:    opts,
 		Tier:    tier,
+	}, nil
+}
+
+// RequestBatchProofs returns a dummy proof aggregation to the result channel.
+func (o *DummyProofProducer) RequestBatchProofs(
+	proofs []*ProofWithHeader,
+	tier uint16,
+) (*BatchProofs, error) {
+	return &BatchProofs{
+		Proofs:     proofs,
+		BatchProof: bytes.Repeat([]byte{0xbb}, 100),
+		Tier:       tier,
 	}, nil
 }

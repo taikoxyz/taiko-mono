@@ -14,14 +14,18 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/urfave/cli/v2"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/bindings/guardianprover"
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
 	hchttp "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/http"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/repo"
-	"github.com/urfave/cli/v2"
 )
 
 type HealthChecker struct {
+	db db.DB
+
 	ctx                    context.Context
 	cancelCtx              context.CancelFunc
 	healthCheckRepo        guardianproverhealthcheck.HealthCheckRepository
@@ -41,6 +45,11 @@ func (h *HealthChecker) Close(ctx context.Context) {
 
 	if err := h.httpSrv.Shutdown(ctx); err != nil {
 		slog.Error("error encountered shutting down http server", "error", err)
+	}
+
+	// close db
+	if err := h.db.Close(); err != nil {
+		slog.Error("error encountered closing db", "error", err)
 	}
 }
 
@@ -143,6 +152,7 @@ func InitFromConfig(ctx context.Context, h *HealthChecker, cfg *Config) (err err
 		return err
 	}
 
+	h.db = db
 	h.guardianProvers = guardianProvers
 	h.numGuardians = numGuardians.Uint64()
 	h.healthCheckRepo = healthCheckRepo

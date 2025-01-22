@@ -45,5 +45,5 @@ type StartupRepository interface {
 		ctx context.Context,
 		address string,
 	) (*Startup, error)
-	Save(opts SaveStartupOpts) error
+	Save(ctx context.Context, opts *SaveStartupOpts) error
 }

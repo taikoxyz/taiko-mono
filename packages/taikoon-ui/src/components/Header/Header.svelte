@@ -56,8 +56,8 @@
       return;
     }
 
-    const canMint = await Token.canMint();
-    const totalMintCount = await User.totalWhitelistMintCount();
+    const canMint = await Token.canMint(address);
+    const totalMintCount = await User.totalWhitelistMintCount(address);
 
     displayYourTaikoonsButton = !canMint && totalMintCount > 0;
     isChecking = false;

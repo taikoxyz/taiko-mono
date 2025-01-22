@@ -1,8 +1,8 @@
 import { watchAccount } from '@wagmi/core';
 
-import { config, taiko } from '$wagmi-config';
+import { config } from '$wagmi-config';
 
-import { isSupportedChain } from '../../lib/chain';
+import { chainId, isSupportedChain } from '../../lib/chain';
 import { refreshUserBalance } from '../../lib/util/balance';
 import { account } from '../../stores/account';
 import { switchChainModal } from '../../stores/modal';
@@ -24,7 +24,7 @@ export async function startWatching() {
         const isLocalHost = false; // window.location.hostname === 'localhost';
         const isVercel = false; // window.location.hostname === 'taikoons-dev.vercel.app';
         const isSupportedChainId =
-          isLocalHost || isVercel ? isSupportedChain(Number(data.chainId)) : data.chainId === taiko.id;
+          isLocalHost || isVercel ? isSupportedChain(Number(data.chainId)) : data.chainId === chainId;
         const isConnected = data.address !== undefined;
 
         if (!isSupportedChainId && isConnected) {

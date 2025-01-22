@@ -1,6 +1,7 @@
 package guardianproverhealthcheck
 
 import (
+	"context"
 	"time"
 )
 
@@ -28,7 +29,7 @@ type GetSignedBlocksByStartingBlockIDOpts struct {
 // SignedBlockRepository defines database interaction methods to create and get
 // signed blocks submitted by guardian provers.
 type SignedBlockRepository interface {
-	Save(opts SaveSignedBlockOpts) error
-	GetByStartingBlockID(opts GetSignedBlocksByStartingBlockIDOpts) ([]*SignedBlock, error)
-	GetMostRecentByGuardianProverAddress(address string) (*SignedBlock, error)
+	Save(ctx context.Context, opts *SaveSignedBlockOpts) error
+	GetByStartingBlockID(ctx context.Context, opts GetSignedBlocksByStartingBlockIDOpts) ([]*SignedBlock, error)
+	GetMostRecentByGuardianProverAddress(ctx context.Context, address string) (*SignedBlock, error)
 }

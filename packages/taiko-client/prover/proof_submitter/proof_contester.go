@@ -12,6 +12,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
@@ -32,6 +33,7 @@ func NewProofContester(
 	rpcClient *rpc.Client,
 	gasLimit uint64,
 	txmgr *txmgr.SimpleTxManager,
+	privateTxmgr *txmgr.SimpleTxManager,
 	proverSetAddress common.Address,
 	graffiti string,
 	builder *transaction.ProveBlockTxBuilder,
@@ -39,7 +41,7 @@ func NewProofContester(
 	return &ProofContester{
 		rpc:       rpcClient,
 		txBuilder: builder,
-		sender:    transaction.NewSender(rpcClient, txmgr, proverSetAddress, gasLimit),
+		sender:    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
 		graffiti:  rpc.StringToBytes32(graffiti),
 	}
 }
@@ -50,7 +52,7 @@ func (c *ProofContester) SubmitContest(
 	blockID *big.Int,
 	proposedIn *big.Int,
 	parentHash common.Hash,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	tier uint16,
 ) error {
 	// Ensure the transition has not been contested yet.
@@ -92,7 +94,6 @@ func (c *ProofContester) SubmitContest(
 	if err != nil {
 		return err
 	}
-
 	return c.sender.Send(
 		ctx,
 		&proofProducer.ProofWithHeader{

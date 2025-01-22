@@ -16,7 +16,7 @@ import (
 )
 
 func Test_GetByAddressAndEvent(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	_, err := srv.eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
 		Name:         "name",

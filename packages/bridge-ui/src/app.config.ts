@@ -1,8 +1,8 @@
 export const gasLimitConfig = {
   GAS_RESERVE: 650_000, // based on Bridge.sol
   ethGasLimit: 100_000,
-  erc20NotDeployedGasLimit: 650_000,
-  erc20DeployedGasLimit: 200_000,
+  erc20NotDeployedGasLimit: 750_000,
+  erc20DeployedGasLimit: 500_000,
   erc721NotDeployedGasLimit: 2_400_000,
   erc721DeployedGasLimit: 1_100_000,
   erc1155NotDeployedGasLimit: 2_600_000,
@@ -42,7 +42,7 @@ export const toastConfig = {
 };
 
 export const apiService = {
-  timeout: 5000,
+  timeout: 10_000, // 10 seconds
 };
 
 export const ipfsConfig = {

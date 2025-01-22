@@ -18,7 +18,7 @@
     "mintNow": "Mint Now",
     "learnMore": "FAQs",
     "mint": "Mint",
-    "etherscan": "View on Chain Explorer",
+    "etherscan": "View on Taiko explorer",
     "share": "Share",
     "yourTaikoons": "Your Taikoons",
     "cancel": "Cancel",
@@ -85,7 +85,6 @@
             "title": "How many NFTs does the Taikoons collection consist of?",
             "text": "Taiko's Genesis NFT collection consists of 888 Taikoons."
           },
-
           {
             "title": "How many NFTs will be minted now, and how many NFTs are reserved for future activities?",
             "text": "608 NFTs will be minted now, and the remaining 280 will be reserved for future activities."

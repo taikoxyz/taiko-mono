@@ -9,12 +9,13 @@ import (
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/urfave/cli/v2"
+
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
-	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -35,10 +36,13 @@ var (
 )
 
 type Indexer struct {
-	accountRepo    eventindexer.AccountRepository
-	eventRepo      eventindexer.EventRepository
-	nftBalanceRepo eventindexer.NFTBalanceRepository
-	txRepo         eventindexer.TransactionRepository
+	db db.DB
+
+	accountRepo      eventindexer.AccountRepository
+	eventRepo        eventindexer.EventRepository
+	nftBalanceRepo   eventindexer.NFTBalanceRepository
+	erc20BalanceRepo eventindexer.ERC20BalanceRepository
+	txRepo           eventindexer.TransactionRepository
 
 	ethClient  *ethclient.Client
 	srcChainID uint64
@@ -48,12 +52,12 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1        *taikol1.TaikoL1
-	bridge         *bridge.Bridge
-	assignmentHook *assignmenthook.AssignmentHook
+	taikol1 *taikol1.TaikoL1
+	bridge  *bridge.Bridge
 
-	indexNfts bool
-	layer     string
+	indexNfts   bool
+	indexERC20s bool
+	layer       string
 
 	wg  *sync.WaitGroup
 	ctx context.Context
@@ -61,6 +65,12 @@ type Indexer struct {
 	syncMode SyncMode
 
 	blockSaveMutex *sync.Mutex
+
+	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
+	contractToMetadataMutex *sync.Mutex
+
+	ontakeForkHeight              uint64
+	isPostOntakeForkHeightReached bool
 }
 
 func (i *Indexer) Start() error {
@@ -90,7 +100,7 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 			slog.Info("event loop context done")
 			return
 		case <-t.C:
-			if err := i.filter(ctx, filterFunc); err != nil {
+			if err := i.filter(ctx); err != nil {
 				slog.Error("error filtering", "error", err)
 			}
 		}
@@ -132,6 +142,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
+	erc20BalanceRepository, err := repo.NewERC20BalanceRepository(db)
+	if err != nil {
+		return err
+	}
+
 	txRepository, err := repo.NewTransactionRepository(db)
 	if err != nil {
 		return err
@@ -169,21 +184,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		}
 	}
 
-	var assignmentHookContract *assignmenthook.AssignmentHook
-
-	if cfg.AssignmentHookAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting assignmentHookAddress", "addr", cfg.AssignmentHookAddress.Hex())
-
-		assignmentHookContract, err = assignmenthook.NewAssignmentHook(cfg.AssignmentHookAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewAssignmentHook")
-		}
-	}
-
+	i.db = db
 	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
 	i.nftBalanceRepo = nftBalanceRepository
+	i.erc20BalanceRepo = erc20BalanceRepository
 	i.txRepo = txRepository
 
 	i.srcChainID = chainID.Uint64()
@@ -191,18 +197,26 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
 	i.bridge = bridgeContract
-	i.assignmentHook = assignmentHookContract
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.wg = &sync.WaitGroup{}
 
 	i.syncMode = cfg.SyncMode
 	i.indexNfts = cfg.IndexNFTs
+	i.indexERC20s = cfg.IndexERC20s
 	i.layer = cfg.Layer
+	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
+	i.contractToMetadataMutex = &sync.Mutex{}
+	i.ontakeForkHeight = cfg.OntakeForkHeight
 
 	return nil
 }
 
 func (i *Indexer) Close(ctx context.Context) {
 	i.wg.Wait()
+
+	// Close db connection.
+	if err := i.db.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }

@@ -22,6 +22,7 @@
   import {
     activeBridge,
     destNetwork as destinationChain,
+    destOwnerAddress,
     importDone,
     recipientAddress,
     selectedNFTs,
@@ -101,6 +102,7 @@
     if (nftIdInputComponent) nftIdInputComponent.clearIds();
 
     $recipientAddress = $account?.address || null;
+    $destOwnerAddress = $account?.address || null;
     bridgingStatus = BridgingStatus.PENDING;
     $selectedToken = ETHToken;
     importMethod === null;

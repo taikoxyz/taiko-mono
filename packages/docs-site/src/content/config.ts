@@ -8,6 +8,9 @@ export const collections = {
         description: z
           .string()
           .max(160, { message: "Must be 160 characters or less." }).optional(),
+      // banner: z.object({ content: z.string() }).default({
+      //   content: '',
+      //   }),
       }),
     }),
   }),

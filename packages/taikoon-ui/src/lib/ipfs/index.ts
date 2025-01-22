@@ -1,8 +1,8 @@
-import get from './get';
 import getMetadata from './getMetadata';
+import httpGet from './httpGet';
 
 const IPFS = {
-  get,
+  get: httpGet,
   getMetadata,
 };
 

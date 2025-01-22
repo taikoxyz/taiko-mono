@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/morkid/paginate"
@@ -51,27 +52,36 @@ func (e EventType) String() string {
 // into the Data field to be unmarshalled into a concrete struct
 // dependant on the name of the event
 type Event struct {
-	ID                     int            `json:"id"`
-	Name                   string         `json:"name"`
-	Data                   datatypes.JSON `json:"data"`
-	Status                 EventStatus    `json:"status"`
-	EventType              EventType      `json:"eventType"`
-	ChainID                int64          `json:"chainID"`
-	DestChainID            int64          `json:"destChainID"`
-	SyncedChainID          uint64         `json:"syncedChainID"`
-	EmittedBlockID         uint64         `json:"emittedBlockID"`
-	BlockID                uint64         `json:"blockID"`
-	SyncedInBlockID        uint64         `json:"syncedInBlockID"`
-	SyncData               string         `json:"syncData"`
-	Kind                   string         `json:"kind"`
-	CanonicalTokenAddress  string         `json:"canonicalTokenAddress"`
-	CanonicalTokenSymbol   string         `json:"canonicalTokenSymbol"`
-	CanonicalTokenName     string         `json:"canonicalTokenName"`
-	CanonicalTokenDecimals uint8          `json:"canonicalTokenDecimals"`
-	Amount                 string         `json:"amount"`
-	MsgHash                string         `json:"msgHash"`
-	MessageOwner           string         `json:"messageOwner"`
-	Event                  string         `json:"event"`
+	ID                      int            `json:"id"`
+	Name                    string         `json:"name"`
+	Data                    datatypes.JSON `json:"data"`
+	Status                  EventStatus    `json:"status"`
+	EventType               EventType      `json:"eventType"`
+	ChainID                 int64          `json:"chainID"`
+	DestChainID             int64          `json:"destChainID"`
+	SyncedChainID           uint64         `json:"syncedChainID"`
+	EmittedBlockID          uint64         `json:"emittedBlockID"`
+	BlockID                 uint64         `json:"blockID"`
+	SyncedInBlockID         uint64         `json:"syncedInBlockID"`
+	SyncData                string         `json:"syncData"`
+	Kind                    string         `json:"kind"`
+	CanonicalTokenAddress   string         `json:"canonicalTokenAddress"`
+	CanonicalTokenSymbol    string         `json:"canonicalTokenSymbol"`
+	CanonicalTokenName      string         `json:"canonicalTokenName"`
+	CanonicalTokenDecimals  uint8          `json:"canonicalTokenDecimals"`
+	Amount                  string         `json:"amount"`
+	MsgHash                 string         `json:"msgHash"`
+	MessageOwner            string         `json:"messageOwner"`
+	Event                   string         `json:"event"`
+	ClaimedBy               string         `json:"claimedBy" gorm:"-"`
+	ProcessedTxHash         string         `json:"processedTxHash" gorm:"-"`
+	Fee                     *uint64        `json:"fee"`
+	DestChainBaseFee        *uint64        `json:"destChainBaseFee"`
+	GasTipCap               *uint64        `json:"gasTipCap"`
+	GasLimit                *uint64        `json:"gasLimit"`
+	IsProfitable            *bool          `json:"isProfitable"`
+	EstimatedOnchainFee     *uint64        `json:"estimatedOnchainFee"`
+	IsProfitableEvaluatedAt *time.Time     `json:"isProfitableEvaluatedAt"`
 }
 
 // SaveEventOpts
@@ -98,6 +108,16 @@ type SaveEventOpts struct {
 	SyncedInBlockID        uint64
 }
 
+type UpdateFeesAndProfitabilityOpts struct {
+	Fee                     uint64
+	DestChainBaseFee        uint64
+	GasTipCap               uint64
+	GasLimit                uint64
+	IsProfitable            bool
+	EstimatedOnchainFee     uint64
+	IsProfitableEvaluatedAt time.Time
+}
+
 type FindAllByAddressOpts struct {
 	Address   common.Address
 	EventType *EventType
@@ -108,13 +128,15 @@ type FindAllByAddressOpts struct {
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
-	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
+	Close() error
+	Save(ctx context.Context, opts *SaveEventOpts) (*Event, error)
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
+	UpdateFeesAndProfitability(ctx context.Context, id int, opts *UpdateFeesAndProfitabilityOpts) error
 	FindAllByAddress(
 		ctx context.Context,
 		req *http.Request,
 		opts FindAllByAddressOpts,
-	) (paginate.Page, error)
+	) (*paginate.Page, error)
 	FirstByMsgHash(
 		ctx context.Context,
 		msgHash string,
@@ -138,6 +160,7 @@ type EventRepository interface {
 	) (uint64, error)
 	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error
 	FindLatestBlockID(
+		ctx context.Context,
 		event string,
 		srcChainID uint64,
 		destChainID uint64,

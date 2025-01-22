@@ -4,12 +4,11 @@
   import { Icon } from '$components/Icon';
   import { classNames } from '$libs/util/classNames';
   import { positionElementByTarget } from '$libs/util/positionElementByTarget';
-  import { uid } from '$libs/util/uid';
 
   export let position: Position = 'top';
   export let tooltipOpen = false;
 
-  let tooltipId = `tooltip-${uid()}`;
+  let tooltipId = `tooltip-${crypto.randomUUID()}`;
   let tooltipClass = `block dialog-tooltip`;
   let classes = classNames('flex z-10 ', $$props.class || 'relative');
 

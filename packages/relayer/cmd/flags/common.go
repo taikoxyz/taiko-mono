@@ -105,12 +105,14 @@ var (
 		Usage:    "Retry interval in seconds when there is an error",
 		Category: processorCategory,
 		Value:    12,
+		EnvVars:  []string{"BACKOFF_RETRY_INTERVAL"},
 	}
 	BackOffMaxRetrys = &cli.Uint64Flag{
 		Name:     "backoff.maxRetrys",
 		Usage:    "Max retry times when there is an error",
 		Category: processorCategory,
-		Value:    3,
+		Value:    5,
+		EnvVars:  []string{"BACKOFF_MAX_RETRYS"},
 	}
 )
 

@@ -24,4 +24,8 @@ contract MockBlacklist is IMinimalBlacklist {
         }
         return false;
     }
+
+    function add(address _address) public {
+        blacklist.push(_address);
+    }
 }

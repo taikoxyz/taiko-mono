@@ -7,15 +7,16 @@
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
   import { errorToast } from '$components/core/Toast';
+  import { web3modal } from '$lib/connect';
+  import Token from '$lib/token';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
+  import { account } from '$stores/account';
   import type { IMint } from '$stores/mint';
   import { Button } from '$ui/Button';
   import { ProgressBar } from '$ui/ProgressBar';
   import { Spinner } from '$ui/Spinner';
 
-  import Token from '../../lib/token';
-  import { account } from '../../stores/account';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
   import {
@@ -55,23 +56,20 @@
 
   async function calculateGasCost() {
     isCalculating = true;
-
-    gasCost = await Token.estimateMintGasCost();
+    gasCost = await Token.estimateMintGasCost($mintState.address);
     isCalculating = false;
   }
 
   function reset() {
     canMint = false;
-    totalMintCount = 0;
-    gasCost = 0;
-    mintState.set({ ...$mintState, totalMintCount, address: zeroAddress });
-    isReady = true;
+    mintState.set({ ...$mintState, address: zeroAddress, totalMintCount: -1 });
   }
 
   async function load() {
     if (isReady && (!$account || ($account && !$account.isConnected))) {
       return reset();
     }
+    isReady = false;
 
     if (totalSupply < 0 && mintMax < 0) {
       totalSupply = await Token.totalSupply();
@@ -80,6 +78,7 @@
     }
 
     if (!$account || !$account.address || $account.address === zeroAddress) {
+      isReady = true;
       return reset();
     }
     const address = $account.address as IAddress;
@@ -87,19 +86,22 @@
     const balance = await Token.balanceOf(address);
     hasAlreadyMinted = balance > 0;
 
-    if (!hasAlreadyMinted) {
-      canMint = await Token.canMint();
+    if (totalMintCount < 0) {
+      totalMintCount = await User.totalWhitelistMintCount(address);
     }
-    if (!canMint) {
-      mintState.set({ ...$mintState, address: address.toLowerCase() as IAddress });
 
+    await calculateGasCost();
+
+    mintState.set({ ...$mintState, totalMintCount });
+
+    if (!hasAlreadyMinted) {
+      canMint = await Token.canMint(address);
+    }
+
+    if (!canMint) {
+      mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
       isReady = true;
       return;
-    }
-
-    if (totalMintCount < 0) {
-      totalMintCount = await User.totalWhitelistMintCount();
-      await calculateGasCost();
     }
 
     mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
@@ -131,19 +133,24 @@
       });
       mintState.set({ ...$mintState, tokenIds });
     } catch (e: any) {
-      console.warn(e);
-      //showMintConfirmationModal = false
+      console.error(e);
       mintState.set({ ...$mintState, isModalOpen: false });
+      if (
+        e.shortMessage &&
+        e.shortMessage ===
+          'The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.'
+      ) {
+        e.shortMessage = 'You do not have enough ETH to cover the minting cost, please bridge some ETH to Taiko.';
+      }
+      console.error('mint error', e.name);
       errorToast({
         title: 'Mint Error',
-        message: e.message,
+        message: e.shortMessage || e.message,
       });
     }
     mintState.set({ ...$mintState, isMinting: false });
     await load();
   }
-
-  import { web3modal } from '$lib/connect';
 
   let web3modalOpen = false;
 
@@ -201,7 +208,7 @@
 
         <Button class={buttonClasses} on:click={connectWallet} wide block type="primary">
           {$t('buttons.connectWallet')}</Button>
-      {:else if !canMint || $mintState.totalMintCount === 0}
+      {:else if !canMint && $mintState.totalMintCount === 0}
         <Divider />
 
         <div class={classNames('text-xl', 'text-center')}>
@@ -223,13 +230,7 @@
           <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
         </div>
 
-        <Button
-          disabled={!canMint || $mintState.totalMintCount === 0}
-          on:click={mint}
-          class={buttonClasses}
-          wide
-          block
-          type="primary">
+        <Button on:click={mint} class={buttonClasses} wide block type="primary">
           {$t('buttons.mint')}</Button>
       {/if}
     {:else}

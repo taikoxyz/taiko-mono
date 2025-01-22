@@ -9,7 +9,9 @@
     "layout": "./deployments/gen-layouts.sh",
     "fmt:sol": "forge fmt",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
-    "test": "forge test -vvv --match-path test/*.t.sol"
+    "test": "forge test -vvv --match-path test/*.t.sol",
+    "deploy:blacklist:hekla": "forge script script/blacklist/Deploy.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "deploy:blacklist:mainnet": "forge script script/blacklist/Deploy.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 100"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -33,7 +35,7 @@
     "@openzeppelin/contracts-upgradeable": "4.9.6",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.7.5",
-    "merkletreejs": "^0.3.11",
+    "merkletreejs": "^0.4.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "solady": "github:Vectorized/solady#v0.0.167"
   }

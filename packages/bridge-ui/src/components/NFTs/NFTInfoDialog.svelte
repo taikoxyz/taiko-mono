@@ -11,10 +11,9 @@
   import type { NFT } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { shortenAddress } from '$libs/util/shortenAddress';
-  import { uid } from '$libs/util/uid';
   import { connectedSourceChain } from '$stores/network';
 
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
 
   const placeholderUrl = '/placeholder.svg';
 

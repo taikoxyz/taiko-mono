@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
+	"golang.org/x/sync/errgroup"
 )
 
 func (i *Indexer) saveMessageSentEvents(
@@ -20,24 +21,37 @@ func (i *Indexer) saveMessageSentEvents(
 ) error {
 	if !events.Next() || events.Event == nil {
 		slog.Info("no MessageSent events")
+
 		return nil
 	}
+
+	wg, ctx := errgroup.WithContext(ctx)
 
 	for {
 		event := events.Event
 
-		slog.Info("new messageSent event", "owner", event.Message.From.Hex())
+		wg.Go(func() error {
+			slog.Info("new messageSent event", "owner", event.Message.From.Hex())
 
-		if err := i.saveMessageSentEvent(ctx, chainID, event); err != nil {
-			eventindexer.MessageSentEventsProcessedError.Inc()
+			if err := i.saveMessageSentEvent(ctx, chainID, event); err != nil {
+				eventindexer.MessageSentEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "i.saveMessageSentEvent")
-		}
+				return errors.Wrap(err, "i.saveMessageSentEvent")
+			}
+
+			return nil
+		})
 
 		if !events.Next() {
-			return nil
+			break
 		}
 	}
+
+	if err := wg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Indexer) saveMessageSentEvent(

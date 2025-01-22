@@ -9,7 +9,16 @@ export const modalTitleClasses = classNames(
   'border-border-divider-default',
 );
 export const bodyWrapperClasses = classNames('text-content-primary', 'py-4');
-export const footerWrapperClasses = classNames('w-full', 'flex', 'flex-row', 'items-center', 'justify-center', 'gap-4');
+export const footerWrapperClasses = classNames(
+  'w-full',
+  'flex',
+  'flex-row',
+  'items-center',
+  'justify-center',
+  'gap-4',
+  'my-6',
+  'md:mb-6',
+);
 export const spinnerSmWrapper = classNames(
   'bg-interactive-tertiary',
   'rounded-md',

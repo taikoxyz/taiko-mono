@@ -47,11 +47,13 @@ describe('mergeUniqueTransactions', () => {
   // Given
   const localTxs: BridgeTransaction[] = [
     {
-      hash: 'hash1' as Hex,
+      srcTxHash: 'hash1' as Hex,
+      destTxHash: 'destHash1' as Hex,
       from: 'address1' as Address,
       amount: BigInt(1000),
       symbol: 'symbol1',
       decimals: 2,
+      processingFee: 1111n,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
       msgStatus: MessageStatus.DONE,
@@ -62,11 +64,13 @@ describe('mergeUniqueTransactions', () => {
       tokenType: 'ERC20' as TokenType,
     },
     {
-      hash: 'hash2' as Hex,
+      srcTxHash: 'hash2' as Hex,
+      destTxHash: 'destHash2' as Hex,
       from: 'address2' as Address,
       amount: BigInt(2000),
       symbol: 'symbol2',
       decimals: 2,
+      processingFee: 1111n,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
       msgStatus: MessageStatus.DONE,
@@ -79,11 +83,13 @@ describe('mergeUniqueTransactions', () => {
 
   const relayerTx: BridgeTransaction[] = [
     {
-      hash: 'hash3' as Hex,
+      srcTxHash: 'hash3' as Hex,
+      destTxHash: 'destHash3' as Hex,
       from: 'address3' as Address,
       amount: BigInt(3000),
       symbol: 'symbol3',
       decimals: 2,
+      processingFee: 1111n,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
       msgStatus: MessageStatus.DONE,
@@ -93,11 +99,13 @@ describe('mergeUniqueTransactions', () => {
       blockNumber: '0x123',
     },
     {
-      hash: 'hash4' as Hex,
+      srcTxHash: 'hash4' as Hex,
+      destTxHash: 'destHash4' as Hex,
       from: 'address4' as Address,
       amount: BigInt(4000),
       symbol: 'symbol4',
       decimals: 2,
+      processingFee: 1111n,
       srcChainId: BigInt(1),
       destChainId: BigInt(2),
       msgStatus: MessageStatus.DONE,
@@ -136,10 +144,12 @@ describe('mergeUniqueTransactions', () => {
     const localWithOutdated = [
       ...localTxs,
       {
-        hash: 'hash3' as Hex,
+        srcTxHash: 'hash3' as Hex,
+        destTxHash: 'destHash3' as Hex,
         from: 'address2' as Address,
         amount: BigInt(2000),
         symbol: 'symbol2',
+        processingFee: 1111n,
         decimals: 2,
         srcChainId: BigInt(1),
         destChainId: BigInt(2),
@@ -164,5 +174,5 @@ describe('mergeUniqueTransactions', () => {
 });
 
 function extractHashes(transactions: BridgeTransaction[]): Hex[] {
-  return transactions.map((tx) => tx.hash);
+  return transactions.map((tx) => tx.srcTxHash);
 }

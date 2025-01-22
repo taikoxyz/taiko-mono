@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	l1Endpoint       = os.Getenv("L1_NODE_WS_ENDPOINT")
-	l1BeaconEndpoint = os.Getenv("L1_NODE_HTTP_ENDPOINT")
-	l2Endpoint       = os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT")
-	l2CheckPoint     = os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT")
-	l2EngineEndpoint = os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT")
-	taikoL1          = os.Getenv("TAIKO_L1_ADDRESS")
-	taikoL2          = os.Getenv("TAIKO_L2_ADDRESS")
+	l1Endpoint       = os.Getenv("L1_WS")
+	l1BeaconEndpoint = os.Getenv("L1_HTTP")
+	l2Endpoint       = os.Getenv("L2_WS")
+	l2CheckPoint     = os.Getenv("L2_HTTP")
+	l2EngineEndpoint = os.Getenv("L2_AUTH")
+	taikoL1          = os.Getenv("TAIKO_L1")
+	taikoL2          = os.Getenv("TAIKO_L2")
 )
 
 func (s *DriverTestSuite) TestNewConfigFromCliContext() {

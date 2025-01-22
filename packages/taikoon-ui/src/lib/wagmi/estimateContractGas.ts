@@ -5,7 +5,7 @@ import getConfig from './getConfig';
 
 export default async function estimateContractGas(params: Parameters<typeof viemEstimateContractGas>[1]) {
   try {
-    const { config } = getConfig();
+    const config = getConfig();
     const client = await getConnectorClient(config);
 
     return await viemEstimateContractGas(client, params);

@@ -14,7 +14,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 )
 
-func newTestServer(url string) *Server {
+func newTestServer() *Server {
 	_ = godotenv.Load("../.test.env")
 
 	srv := &Server{
@@ -76,16 +76,6 @@ func Test_NewServer(t *testing.T) {
 			relayer.ErrNoEventRepository,
 		},
 		{
-			"noCorsOrigins",
-			NewServerOpts{
-				Echo:          echo.New(),
-				EventRepo:     &repo.EventRepository{},
-				SrcEthClient:  &mock.EthClient{},
-				DestEthClient: &mock.EthClient{},
-			},
-			relayer.ErrNoCORSOrigins,
-		},
-		{
 			"noHttpFramework",
 			NewServerOpts{
 				EventRepo:     &repo.EventRepository{},
@@ -104,7 +94,7 @@ func Test_NewServer(t *testing.T) {
 }
 
 func Test_Health(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	req, _ := http.NewRequest(echo.GET, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -117,7 +107,7 @@ func Test_Health(t *testing.T) {
 }
 
 func Test_Root(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	req, _ := http.NewRequest(echo.GET, "/", nil)
 	rec := httptest.NewRecorder()
@@ -130,7 +120,7 @@ func Test_Root(t *testing.T) {
 }
 
 func Test_StartShutdown(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	go func() {
 		_ = srv.Start(":3928")

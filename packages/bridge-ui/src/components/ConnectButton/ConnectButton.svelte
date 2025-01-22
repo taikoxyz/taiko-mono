@@ -8,6 +8,7 @@
   import { web3modal } from '$libs/connect';
   import { refreshUserBalance, renderEthBalance } from '$libs/util/balance';
   import { noop } from '$libs/util/noop';
+  import { isMobile } from '$libs/util/responsiveCheck';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
@@ -43,15 +44,17 @@
 {#if connected}
   <button
     on:click={connectWallet}
-    class="rounded-full flex items-center pl-[8px] pr-[3px] md:max-h-[48px] max-h-[40px] min-h-[40px] wc-parent-glass !border-solid gap-2 font-bold">
+    class="rounded-full min-w-[140px] flex items-center justify-center md:pl-[8px] md:pr-[3px] md:max-h-[48px] max-h-[40px] min-h-[40px] wc-parent-glass !border-solid gap-2 font-bold {$$props.class}">
     <img
       alt="chain icon"
-      class="w-[24px]"
+      class="w-[24px] ml-[10px]"
       src={(currentChainId && getChainImage(currentChainId)) || 'chains/ethereum.svg'} />
-    <span class="flex items-center text-secondary-content justify-self-start gap-4 md:text-normal text-sm"
-      >{renderEthBalance(balance, 6)}
+    <span class="flex items-center text-secondary-content justify-self-start gap-4 md:text-normal text-sm">
+      {#if !$isMobile}
+        {renderEthBalance(balance, 6)}
+      {/if}
       <span
-        class="flex items-center text-tertiary-content btn-glass-bg rounded-full px-[10px] py-[4px] md:min-h-[38px] bg-tertiary-background">
+        class="flex items-center justify-center h-[35px] min-w-[133px] text-center text-tertiary-content btn-glass-bg rounded-full px-[10px] py-[4px] bg-tertiary-background">
         {shortenAddress(accountAddress, 4, 6)}
       </span>
     </span>

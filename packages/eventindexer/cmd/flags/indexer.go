@@ -37,13 +37,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"BRIDGE_ADDRESS"},
 	}
-	AssignmentHookAddress = &cli.StringFlag{
-		Name:     "assignmentHookAddress",
-		Usage:    "Address of the AssignmentHook contract",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
-	}
 	BlockBatchSize = &cli.Uint64Flag{
 		Name:     "blockBatchSize",
 		Usage:    "Block batch size when iterating through blocks",
@@ -74,6 +67,20 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
+	IndexERC20s = &cli.BoolFlag{
+		Name:     "indexERC20s",
+		Usage:    "Whether to index erc20 transfer events or not",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"INDEX_ERC20S"},
+	}
+	OntakeForkHeight = &cli.Uint64Flag{
+		Name:     "ontakeForkHeight",
+		Usage:    "Block number ontake fork height happened",
+		Value:    21134698,
+		Category: indexerCategory,
+		EnvVars:  []string{"ONTAKE_FORK_HEIGHT"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -82,9 +89,10 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ETHClientTimeout,
 	L1TaikoAddress,
 	BridgeAddress,
-	AssignmentHookAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
 	IndexNFTs,
+	IndexERC20s,
+	OntakeForkHeight,
 })

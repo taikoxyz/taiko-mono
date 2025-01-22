@@ -31,7 +31,7 @@ var (
 
 // ProverSetMetaData contains all meta data concerning the ProverSet contract.
 var ProverSetMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"admin\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"delegate\",\"inputs\":[{\"name\":\"_delegatee\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"enableProver\",\"inputs\":[{\"name\":\"_prover\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_isProver\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_admin\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isProver\",\"inputs\":[{\"name\":\"prover\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isProver\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidSignature\",\"inputs\":[{\"name\":\"_hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"magicValue_\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastUnpausedAt\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proveBlock\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_input\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdrawToAdmin\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockProvenBy\",\"inputs\":[{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProverEnabled\",\"inputs\":[{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":true,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PERMISSION_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"admin\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"approveAllowance\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_allowance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"delegate\",\"inputs\":[{\"name\":\"_delegatee\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositBond\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"enableProver\",\"inputs\":[{\"name\":\"_prover\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_isProver\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_admin\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_rollupAddressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isProver\",\"inputs\":[{\"name\":\"prover\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isProver\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidSignature\",\"inputs\":[{\"name\":\"_hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"magicValue_\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastUnpausedAt\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeBlockV2\",\"inputs\":[{\"name\":\"_params\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_txList\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeBlocksV2\",\"inputs\":[{\"name\":\"_paramsArr\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"_txListArr\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeBlocksV2Conditionally\",\"inputs\":[{\"name\":\"_params\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"_txList\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proveBlock\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_input\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proveBlocks\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint64[]\",\"internalType\":\"uint64[]\"},{\"name\":\"_input\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"_batchProof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdrawBond\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawEtherToAdmin\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawToAdmin\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProverEnabled\",\"inputs\":[{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":true,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_BOND_TOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NOT_FIRST_PROPOSAL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PERMISSION_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // ProverSetABI is the input ABI used to generate the binding from.
@@ -604,6 +604,27 @@ func (_ProverSet *ProverSetTransactorSession) AcceptOwnership() (*types.Transact
 	return _ProverSet.Contract.AcceptOwnership(&_ProverSet.TransactOpts)
 }
 
+// ApproveAllowance is a paid mutator transaction binding the contract method 0x0a1553a5.
+//
+// Solidity: function approveAllowance(address _address, uint256 _allowance) returns()
+func (_ProverSet *ProverSetTransactor) ApproveAllowance(opts *bind.TransactOpts, _address common.Address, _allowance *big.Int) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "approveAllowance", _address, _allowance)
+}
+
+// ApproveAllowance is a paid mutator transaction binding the contract method 0x0a1553a5.
+//
+// Solidity: function approveAllowance(address _address, uint256 _allowance) returns()
+func (_ProverSet *ProverSetSession) ApproveAllowance(_address common.Address, _allowance *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.ApproveAllowance(&_ProverSet.TransactOpts, _address, _allowance)
+}
+
+// ApproveAllowance is a paid mutator transaction binding the contract method 0x0a1553a5.
+//
+// Solidity: function approveAllowance(address _address, uint256 _allowance) returns()
+func (_ProverSet *ProverSetTransactorSession) ApproveAllowance(_address common.Address, _allowance *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.ApproveAllowance(&_ProverSet.TransactOpts, _address, _allowance)
+}
+
 // Delegate is a paid mutator transaction binding the contract method 0x5c19a95c.
 //
 // Solidity: function delegate(address _delegatee) returns()
@@ -623,6 +644,27 @@ func (_ProverSet *ProverSetSession) Delegate(_delegatee common.Address) (*types.
 // Solidity: function delegate(address _delegatee) returns()
 func (_ProverSet *ProverSetTransactorSession) Delegate(_delegatee common.Address) (*types.Transaction, error) {
 	return _ProverSet.Contract.Delegate(&_ProverSet.TransactOpts, _delegatee)
+}
+
+// DepositBond is a paid mutator transaction binding the contract method 0x4dcb05f9.
+//
+// Solidity: function depositBond(uint256 _amount) returns()
+func (_ProverSet *ProverSetTransactor) DepositBond(opts *bind.TransactOpts, _amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "depositBond", _amount)
+}
+
+// DepositBond is a paid mutator transaction binding the contract method 0x4dcb05f9.
+//
+// Solidity: function depositBond(uint256 _amount) returns()
+func (_ProverSet *ProverSetSession) DepositBond(_amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.DepositBond(&_ProverSet.TransactOpts, _amount)
+}
+
+// DepositBond is a paid mutator transaction binding the contract method 0x4dcb05f9.
+//
+// Solidity: function depositBond(uint256 _amount) returns()
+func (_ProverSet *ProverSetTransactorSession) DepositBond(_amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.DepositBond(&_ProverSet.TransactOpts, _amount)
 }
 
 // EnableProver is a paid mutator transaction binding the contract method 0xcb4cd0a4.
@@ -648,23 +690,23 @@ func (_ProverSet *ProverSetTransactorSession) EnableProver(_prover common.Addres
 
 // Init is a paid mutator transaction binding the contract method 0x184b9559.
 //
-// Solidity: function init(address _owner, address _admin, address _addressManager) returns()
-func (_ProverSet *ProverSetTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _admin common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _ProverSet.contract.Transact(opts, "init", _owner, _admin, _addressManager)
+// Solidity: function init(address _owner, address _admin, address _rollupAddressManager) returns()
+func (_ProverSet *ProverSetTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _admin common.Address, _rollupAddressManager common.Address) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "init", _owner, _admin, _rollupAddressManager)
 }
 
 // Init is a paid mutator transaction binding the contract method 0x184b9559.
 //
-// Solidity: function init(address _owner, address _admin, address _addressManager) returns()
-func (_ProverSet *ProverSetSession) Init(_owner common.Address, _admin common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _ProverSet.Contract.Init(&_ProverSet.TransactOpts, _owner, _admin, _addressManager)
+// Solidity: function init(address _owner, address _admin, address _rollupAddressManager) returns()
+func (_ProverSet *ProverSetSession) Init(_owner common.Address, _admin common.Address, _rollupAddressManager common.Address) (*types.Transaction, error) {
+	return _ProverSet.Contract.Init(&_ProverSet.TransactOpts, _owner, _admin, _rollupAddressManager)
 }
 
 // Init is a paid mutator transaction binding the contract method 0x184b9559.
 //
-// Solidity: function init(address _owner, address _admin, address _addressManager) returns()
-func (_ProverSet *ProverSetTransactorSession) Init(_owner common.Address, _admin common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _ProverSet.Contract.Init(&_ProverSet.TransactOpts, _owner, _admin, _addressManager)
+// Solidity: function init(address _owner, address _admin, address _rollupAddressManager) returns()
+func (_ProverSet *ProverSetTransactorSession) Init(_owner common.Address, _admin common.Address, _rollupAddressManager common.Address) (*types.Transaction, error) {
+	return _ProverSet.Contract.Init(&_ProverSet.TransactOpts, _owner, _admin, _rollupAddressManager)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -688,6 +730,69 @@ func (_ProverSet *ProverSetTransactorSession) Pause() (*types.Transaction, error
 	return _ProverSet.Contract.Pause(&_ProverSet.TransactOpts)
 }
 
+// ProposeBlockV2 is a paid mutator transaction binding the contract method 0x648885fb.
+//
+// Solidity: function proposeBlockV2(bytes _params, bytes _txList) returns()
+func (_ProverSet *ProverSetTransactor) ProposeBlockV2(opts *bind.TransactOpts, _params []byte, _txList []byte) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "proposeBlockV2", _params, _txList)
+}
+
+// ProposeBlockV2 is a paid mutator transaction binding the contract method 0x648885fb.
+//
+// Solidity: function proposeBlockV2(bytes _params, bytes _txList) returns()
+func (_ProverSet *ProverSetSession) ProposeBlockV2(_params []byte, _txList []byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProposeBlockV2(&_ProverSet.TransactOpts, _params, _txList)
+}
+
+// ProposeBlockV2 is a paid mutator transaction binding the contract method 0x648885fb.
+//
+// Solidity: function proposeBlockV2(bytes _params, bytes _txList) returns()
+func (_ProverSet *ProverSetTransactorSession) ProposeBlockV2(_params []byte, _txList []byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProposeBlockV2(&_ProverSet.TransactOpts, _params, _txList)
+}
+
+// ProposeBlocksV2 is a paid mutator transaction binding the contract method 0x0c8f4a10.
+//
+// Solidity: function proposeBlocksV2(bytes[] _paramsArr, bytes[] _txListArr) returns()
+func (_ProverSet *ProverSetTransactor) ProposeBlocksV2(opts *bind.TransactOpts, _paramsArr [][]byte, _txListArr [][]byte) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "proposeBlocksV2", _paramsArr, _txListArr)
+}
+
+// ProposeBlocksV2 is a paid mutator transaction binding the contract method 0x0c8f4a10.
+//
+// Solidity: function proposeBlocksV2(bytes[] _paramsArr, bytes[] _txListArr) returns()
+func (_ProverSet *ProverSetSession) ProposeBlocksV2(_paramsArr [][]byte, _txListArr [][]byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProposeBlocksV2(&_ProverSet.TransactOpts, _paramsArr, _txListArr)
+}
+
+// ProposeBlocksV2 is a paid mutator transaction binding the contract method 0x0c8f4a10.
+//
+// Solidity: function proposeBlocksV2(bytes[] _paramsArr, bytes[] _txListArr) returns()
+func (_ProverSet *ProverSetTransactorSession) ProposeBlocksV2(_paramsArr [][]byte, _txListArr [][]byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProposeBlocksV2(&_ProverSet.TransactOpts, _paramsArr, _txListArr)
+}
+
+// ProposeBlocksV2Conditionally is a paid mutator transaction binding the contract method 0xe4882785.
+//
+// Solidity: function proposeBlocksV2Conditionally(bytes[] _params, bytes[] _txList) returns()
+func (_ProverSet *ProverSetTransactor) ProposeBlocksV2Conditionally(opts *bind.TransactOpts, _params [][]byte, _txList [][]byte) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "proposeBlocksV2Conditionally", _params, _txList)
+}
+
+// ProposeBlocksV2Conditionally is a paid mutator transaction binding the contract method 0xe4882785.
+//
+// Solidity: function proposeBlocksV2Conditionally(bytes[] _params, bytes[] _txList) returns()
+func (_ProverSet *ProverSetSession) ProposeBlocksV2Conditionally(_params [][]byte, _txList [][]byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProposeBlocksV2Conditionally(&_ProverSet.TransactOpts, _params, _txList)
+}
+
+// ProposeBlocksV2Conditionally is a paid mutator transaction binding the contract method 0xe4882785.
+//
+// Solidity: function proposeBlocksV2Conditionally(bytes[] _params, bytes[] _txList) returns()
+func (_ProverSet *ProverSetTransactorSession) ProposeBlocksV2Conditionally(_params [][]byte, _txList [][]byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProposeBlocksV2Conditionally(&_ProverSet.TransactOpts, _params, _txList)
+}
+
 // ProveBlock is a paid mutator transaction binding the contract method 0x10d008bd.
 //
 // Solidity: function proveBlock(uint64 _blockId, bytes _input) returns()
@@ -707,6 +812,27 @@ func (_ProverSet *ProverSetSession) ProveBlock(_blockId uint64, _input []byte) (
 // Solidity: function proveBlock(uint64 _blockId, bytes _input) returns()
 func (_ProverSet *ProverSetTransactorSession) ProveBlock(_blockId uint64, _input []byte) (*types.Transaction, error) {
 	return _ProverSet.Contract.ProveBlock(&_ProverSet.TransactOpts, _blockId, _input)
+}
+
+// ProveBlocks is a paid mutator transaction binding the contract method 0x440b6e18.
+//
+// Solidity: function proveBlocks(uint64[] _blockId, bytes[] _input, bytes _batchProof) returns()
+func (_ProverSet *ProverSetTransactor) ProveBlocks(opts *bind.TransactOpts, _blockId []uint64, _input [][]byte, _batchProof []byte) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "proveBlocks", _blockId, _input, _batchProof)
+}
+
+// ProveBlocks is a paid mutator transaction binding the contract method 0x440b6e18.
+//
+// Solidity: function proveBlocks(uint64[] _blockId, bytes[] _input, bytes _batchProof) returns()
+func (_ProverSet *ProverSetSession) ProveBlocks(_blockId []uint64, _input [][]byte, _batchProof []byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProveBlocks(&_ProverSet.TransactOpts, _blockId, _input, _batchProof)
+}
+
+// ProveBlocks is a paid mutator transaction binding the contract method 0x440b6e18.
+//
+// Solidity: function proveBlocks(uint64[] _blockId, bytes[] _input, bytes _batchProof) returns()
+func (_ProverSet *ProverSetTransactorSession) ProveBlocks(_blockId []uint64, _input [][]byte, _batchProof []byte) (*types.Transaction, error) {
+	return _ProverSet.Contract.ProveBlocks(&_ProverSet.TransactOpts, _blockId, _input, _batchProof)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -814,6 +940,48 @@ func (_ProverSet *ProverSetTransactorSession) UpgradeToAndCall(newImplementation
 	return _ProverSet.Contract.UpgradeToAndCall(&_ProverSet.TransactOpts, newImplementation, data)
 }
 
+// WithdrawBond is a paid mutator transaction binding the contract method 0xc3daab96.
+//
+// Solidity: function withdrawBond(uint256 _amount) returns()
+func (_ProverSet *ProverSetTransactor) WithdrawBond(opts *bind.TransactOpts, _amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "withdrawBond", _amount)
+}
+
+// WithdrawBond is a paid mutator transaction binding the contract method 0xc3daab96.
+//
+// Solidity: function withdrawBond(uint256 _amount) returns()
+func (_ProverSet *ProverSetSession) WithdrawBond(_amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.WithdrawBond(&_ProverSet.TransactOpts, _amount)
+}
+
+// WithdrawBond is a paid mutator transaction binding the contract method 0xc3daab96.
+//
+// Solidity: function withdrawBond(uint256 _amount) returns()
+func (_ProverSet *ProverSetTransactorSession) WithdrawBond(_amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.WithdrawBond(&_ProverSet.TransactOpts, _amount)
+}
+
+// WithdrawEtherToAdmin is a paid mutator transaction binding the contract method 0x7ddb9fec.
+//
+// Solidity: function withdrawEtherToAdmin(uint256 _amount) returns()
+func (_ProverSet *ProverSetTransactor) WithdrawEtherToAdmin(opts *bind.TransactOpts, _amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.contract.Transact(opts, "withdrawEtherToAdmin", _amount)
+}
+
+// WithdrawEtherToAdmin is a paid mutator transaction binding the contract method 0x7ddb9fec.
+//
+// Solidity: function withdrawEtherToAdmin(uint256 _amount) returns()
+func (_ProverSet *ProverSetSession) WithdrawEtherToAdmin(_amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.WithdrawEtherToAdmin(&_ProverSet.TransactOpts, _amount)
+}
+
+// WithdrawEtherToAdmin is a paid mutator transaction binding the contract method 0x7ddb9fec.
+//
+// Solidity: function withdrawEtherToAdmin(uint256 _amount) returns()
+func (_ProverSet *ProverSetTransactorSession) WithdrawEtherToAdmin(_amount *big.Int) (*types.Transaction, error) {
+	return _ProverSet.Contract.WithdrawEtherToAdmin(&_ProverSet.TransactOpts, _amount)
+}
+
 // WithdrawToAdmin is a paid mutator transaction binding the contract method 0x8bd809fd.
 //
 // Solidity: function withdrawToAdmin(uint256 _amount) returns()
@@ -833,27 +1001,6 @@ func (_ProverSet *ProverSetSession) WithdrawToAdmin(_amount *big.Int) (*types.Tr
 // Solidity: function withdrawToAdmin(uint256 _amount) returns()
 func (_ProverSet *ProverSetTransactorSession) WithdrawToAdmin(_amount *big.Int) (*types.Transaction, error) {
 	return _ProverSet.Contract.WithdrawToAdmin(&_ProverSet.TransactOpts, _amount)
-}
-
-// Receive is a paid mutator transaction binding the contract receive function.
-//
-// Solidity: receive() payable returns()
-func (_ProverSet *ProverSetTransactor) Receive(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _ProverSet.contract.RawTransact(opts, nil) // calldata is disallowed for receive function
-}
-
-// Receive is a paid mutator transaction binding the contract receive function.
-//
-// Solidity: receive() payable returns()
-func (_ProverSet *ProverSetSession) Receive() (*types.Transaction, error) {
-	return _ProverSet.Contract.Receive(&_ProverSet.TransactOpts)
-}
-
-// Receive is a paid mutator transaction binding the contract receive function.
-//
-// Solidity: receive() payable returns()
-func (_ProverSet *ProverSetTransactorSession) Receive() (*types.Transaction, error) {
-	return _ProverSet.Contract.Receive(&_ProverSet.TransactOpts)
 }
 
 // ProverSetAdminChangedIterator is returned from FilterAdminChanged and is used to iterate over the raw logs and unpacked data for AdminChanged events raised by the ProverSet contract.
@@ -1129,159 +1276,6 @@ func (_ProverSet *ProverSetFilterer) WatchBeaconUpgraded(opts *bind.WatchOpts, s
 func (_ProverSet *ProverSetFilterer) ParseBeaconUpgraded(log types.Log) (*ProverSetBeaconUpgraded, error) {
 	event := new(ProverSetBeaconUpgraded)
 	if err := _ProverSet.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ProverSetBlockProvenByIterator is returned from FilterBlockProvenBy and is used to iterate over the raw logs and unpacked data for BlockProvenBy events raised by the ProverSet contract.
-type ProverSetBlockProvenByIterator struct {
-	Event *ProverSetBlockProvenBy // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ProverSetBlockProvenByIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ProverSetBlockProvenBy)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ProverSetBlockProvenBy)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ProverSetBlockProvenByIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ProverSetBlockProvenByIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ProverSetBlockProvenBy represents a BlockProvenBy event raised by the ProverSet contract.
-type ProverSetBlockProvenBy struct {
-	Prover  common.Address
-	BlockId uint64
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterBlockProvenBy is a free log retrieval operation binding the contract event 0x97c6d17699a8ef67a471a4e5025eb88ae673f626a5eb443e0539af38b4e56746.
-//
-// Solidity: event BlockProvenBy(address indexed prover, uint64 indexed blockId)
-func (_ProverSet *ProverSetFilterer) FilterBlockProvenBy(opts *bind.FilterOpts, prover []common.Address, blockId []uint64) (*ProverSetBlockProvenByIterator, error) {
-
-	var proverRule []interface{}
-	for _, proverItem := range prover {
-		proverRule = append(proverRule, proverItem)
-	}
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
-	}
-
-	logs, sub, err := _ProverSet.contract.FilterLogs(opts, "BlockProvenBy", proverRule, blockIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ProverSetBlockProvenByIterator{contract: _ProverSet.contract, event: "BlockProvenBy", logs: logs, sub: sub}, nil
-}
-
-// WatchBlockProvenBy is a free log subscription operation binding the contract event 0x97c6d17699a8ef67a471a4e5025eb88ae673f626a5eb443e0539af38b4e56746.
-//
-// Solidity: event BlockProvenBy(address indexed prover, uint64 indexed blockId)
-func (_ProverSet *ProverSetFilterer) WatchBlockProvenBy(opts *bind.WatchOpts, sink chan<- *ProverSetBlockProvenBy, prover []common.Address, blockId []uint64) (event.Subscription, error) {
-
-	var proverRule []interface{}
-	for _, proverItem := range prover {
-		proverRule = append(proverRule, proverItem)
-	}
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
-	}
-
-	logs, sub, err := _ProverSet.contract.WatchLogs(opts, "BlockProvenBy", proverRule, blockIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ProverSetBlockProvenBy)
-				if err := _ProverSet.contract.UnpackLog(event, "BlockProvenBy", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseBlockProvenBy is a log parse operation binding the contract event 0x97c6d17699a8ef67a471a4e5025eb88ae673f626a5eb443e0539af38b4e56746.
-//
-// Solidity: event BlockProvenBy(address indexed prover, uint64 indexed blockId)
-func (_ProverSet *ProverSetFilterer) ParseBlockProvenBy(log types.Log) (*ProverSetBlockProvenBy, error) {
-	event := new(ProverSetBlockProvenBy)
-	if err := _ProverSet.contract.UnpackLog(event, "BlockProvenBy", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

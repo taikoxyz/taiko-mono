@@ -1,4 +1,3 @@
-[![Golang](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml)
 [![GuardianProverHealthCheck](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=guardianproverhealthcheck)](https://codecov.io/gh/taikoxyz/taiko-mono)
 
 # Guardian Prover Health Check Service

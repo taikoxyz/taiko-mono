@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,13 +10,14 @@ import (
 	"github.com/cyberhorsey/webutils/testutils"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
 func Test_GetHealthChecksByGuardianProverID(t *testing.T) {
 	srv := newTestServer("")
 
-	err := srv.healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+	err := srv.healthCheckRepo.Save(context.Background(), &guardianproverhealthcheck.SaveHealthCheckOpts{
 		GuardianProverID: 1,
 		Alive:            true,
 		ExpectedAddress:  "0x123",

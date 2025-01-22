@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -62,7 +63,7 @@ func (srv *Server) PostHealthCheck(c echo.Context) error {
 	// expected address and recovered address will be the same until we have an auth
 	// mechanism which will allow us to store health checks that ecrecover to an unexpected
 	// address.
-	if err := srv.healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+	if err := srv.healthCheckRepo.Save(context.Background(), &guardianproverhealthcheck.SaveHealthCheckOpts{
 		GuardianProverID: recoveredGuardianProver.ID.Uint64(),
 		Alive:            true,
 		ExpectedAddress:  recoveredGuardianProver.Address.Hex(),

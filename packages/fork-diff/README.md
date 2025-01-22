@@ -29,4 +29,4 @@ There is a workflow dispatch you can use to manually trigger a preview or produc
 
 > It is possible that state expiry might be unnecessary in a world where Verkle Tries succeed at their goals.
 
-can anyone explain this like im 5. i dont even know what a verkle trie is outside of ppl saying merkle tries r annoying and these r better.
+Can anyone explain this like I'm 5? I don't even know what a Verkle Trie is outside of people saying Merkle Tries are annoying and these are better.

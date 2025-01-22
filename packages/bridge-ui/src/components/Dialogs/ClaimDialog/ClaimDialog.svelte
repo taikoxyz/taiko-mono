@@ -15,6 +15,7 @@
   } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import type { BridgeTransaction } from '$libs/bridge/types';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import {
     InsufficientBalanceError,
     InvalidProofError,
@@ -24,7 +25,6 @@
   } from '$libs/error';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
-  import { uid } from '$libs/util/uid';
   import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
@@ -37,7 +37,7 @@
 
   const log = getLogger('ClaimDialog');
 
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
   const dispatch = createEventDispatcher();
 
   export let dialogOpen = false;
@@ -52,9 +52,11 @@
 
   export const handleClaimClick = async () => {
     claiming = true;
-    await ClaimComponent.claim(ClaimAction.CLAIM);
+    await ClaimComponent.claim(ClaimAction.CLAIM, force);
   };
 
+  let force = false;
+  // let canForceTransaction = false;
   let canContinue = false;
   let claiming: boolean;
   let claimingDone = false;
@@ -122,6 +124,7 @@
   const handleClaimError = (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
     //TODO: update this to display info alongside toasts
     const err = event.detail.error;
+    // canForceTransaction = true;
     switch (true) {
       case err instanceof NotConnectedError:
         warningToast({ title: $t('messages.account.required') });
@@ -169,6 +172,7 @@
   const reset = () => {
     activeStep = INITIAL_STEP;
     claimingDone = false;
+    // canForceTransaction = false;
   };
 
   let previousStep: ClaimSteps;
@@ -177,7 +181,11 @@
   }
 </script>
 
-<dialog id={dialogId} class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}" class:modal-open={dialogOpen}>
+<dialog
+  id={dialogId}
+  class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}"
+  class:modal-open={dialogOpen}
+  use:closeOnEscapeOrOutsideClick={{ enabled: dialogOpen, callback: closeDialog, uuid: dialogId }}>
   <div class="modal-box relative w-full bg-neutral-background absolute md:min-h-[600px]">
     <div class="w-full f-between-center">
       <CloseButton onClick={closeDialog} />
@@ -200,7 +208,7 @@
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
       {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
       {:else if activeStep === ClaimSteps.REVIEW}
         <ReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}

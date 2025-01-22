@@ -1,9 +1,8 @@
-[![Golang](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml)
 [![Relayer](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=relayer)](https://codecov.io/gh/taikoxyz/taiko-mono)
 
 # Relayer
 
-A relayer for the Bridge to watch and sync event between Layer 1 and Taiko Layer 2.
+A relayer for the Bridge to watch and sync events between Layer 1 and Taiko Layer 2.
 
 ## Build the Source
 

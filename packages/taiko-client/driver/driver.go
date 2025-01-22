@@ -22,6 +22,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
+	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -35,9 +36,10 @@ const (
 // contract.
 type Driver struct {
 	*Config
-	rpc           *rpc.Client
-	l2ChainSyncer *chainSyncer.L2ChainSyncer
-	state         *state.State
+	rpc             *rpc.Client
+	l2ChainSyncer   *chainSyncer.L2ChainSyncer
+	softblockServer *softblocks.SoftBlockAPIServer
+	state           *state.State
 
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
@@ -63,10 +65,12 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.Config = cfg
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
+		log.Error("error initializing rpc.NewClient", "error", err)
 		return err
 	}
 
 	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
+		log.Error("error initializing state.New", "error", err)
 		return err
 	}
 
@@ -94,6 +98,18 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 
+	if d.SoftBlockServerPort > 0 {
+		if d.softblockServer, err = softblocks.New(
+			d.SoftBlockServerCORSOrigins,
+			d.SoftBlockServerJWTSecret,
+			d.l2ChainSyncer.BlobSyncer(),
+			d.rpc,
+			d.Config.SoftBlockServerCheckSig,
+		); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -104,6 +120,16 @@ func (d *Driver) Start() error {
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
 
+	// Start the soft block server if it is enabled.
+	if d.softblockServer != nil {
+		log.Info("Starting soft block server", "port", d.SoftBlockServerPort)
+		go func() {
+			if err := d.softblockServer.Start(d.SoftBlockServerPort); err != nil {
+				log.Crit("Failed to start soft block server", "error", err)
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -111,6 +137,12 @@ func (d *Driver) Start() error {
 func (d *Driver) Close(_ context.Context) {
 	d.l1HeadSub.Unsubscribe()
 	d.state.Close()
+	// Close the soft block server if it is enabled.
+	if d.softblockServer != nil {
+		if err := d.softblockServer.Shutdown(d.ctx); err != nil {
+			log.Error("Failed to shutdown soft block server", "error", err)
+		}
+	}
 	d.wg.Wait()
 }
 
@@ -180,9 +212,15 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
+	protocolConfigs, err := rpc.GetProtocolConfigs(d.rpc.TaikoL1, &bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Error("Failed to get protocol configs", "error", err)
+		return
+	}
+
 	var (
 		ticker       = time.NewTicker(protocolStatusReportInterval)
-		maxNumBlocks uint64
+		maxNumBlocks = protocolConfigs.BlockMaxProposals
 	)
 	d.wg.Add(1)
 
@@ -190,25 +228,6 @@ func (d *Driver) reportProtocolStatus() {
 		ticker.Stop()
 		d.wg.Done()
 	}()
-
-	if err := backoff.Retry(
-		func() error {
-			if d.ctx.Err() != nil {
-				return nil
-			}
-			configs, err := d.rpc.TaikoL1.GetConfig(&bind.CallOpts{Context: d.ctx})
-			if err != nil {
-				return err
-			}
-
-			maxNumBlocks = configs.BlockMaxProposals
-			return nil
-		},
-		backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx),
-	); err != nil {
-		log.Error("Failed to get protocol state variables", "error", err)
-		return
-	}
 
 	for {
 		select {
@@ -282,7 +301,7 @@ func (p *RPC) AdvanceL2ChainHeadWithNewBlocks(_ *http.Request, args *Args, reply
 	syncer := p.driver.l2ChainSyncer.BlobSyncer()
 
 	for _, txList := range args.TxLists {
-		err := syncer.MoveTheHead(p.driver.ctx, txList, args.GasUsed)
+		err := syncer.MoveTheHead(p.driver.ctx, txList)
 		if err != nil {
 			log.Error("Failed to move the head with new block", "error", err)
 			return err
@@ -304,13 +323,13 @@ func (d *Driver) startRPCServer() {
 	}
 
 	http.Handle("/rpc", s)
-	log.Info("Starting JSON-RPC server", "port", rpcPort)
+	log.Info("Starting JSON-RPC server", "port", rpcPort, "writeTimeout", d.RPCWriteTimeout)
 	// Create a custom HTTP server with timeouts
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", rpcPort),
 		Handler:      s,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: d.RPCWriteTimeout,
 		IdleTimeout:  15 * time.Second,
 	}
 

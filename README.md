@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="./packages/branding/RGB SVG (For Digital Use)/Taiko Icon/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
+  <img src="./.github/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
 </p>
 
 <h1 align="center">
-  Taiko
+  Taiko Alethia
 </h1>
 
 <p align="center">
-  A based rollup.
+  The first based rollup.
 </p>
 
 <div align="center">
@@ -17,40 +17,43 @@
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
-[![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
+[![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
 
 </div>
 
 ## Documentation
 
-End user documentation can be found at [docs.taiko.xyz](https://docs.taiko.xyz). Protocol specs can be found [here](./packages/protocol/docs/README.md).
+Get started with Taiko Alethia:
 
-Each package of the monorepo is well documented and includes a README.
+- [Taiko Alethia docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started.
+- [Protocol specs](./packages/protocol/docs/README.md) — In-depth specifications of the Taiko Alethia protocol for deeper understanding.
+- [Smart contracts](./packages/protocol/contracts/) — Taiko Alethia protocol smart contracts, fully documented with NatSpec.
 
-## Project structure
+## Packages
 
-<pre>
-taiko-mono/
-├── <a href="./CHANGELOG.md">CHANGELOG.md</a>
-├── <a href="./CONTRIBUTING.md">CONTRIBUTING.md</a>
-├── <a href="./LICENSE.md">LICENSE.md</a>
-├── <a href="./README.md">README.md</a>
-├── <a href="./packages">packages</a>
-│   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge UI.
-│   ├── <a href="./packages/docs-site">docs-site</a>: End user documentation site.
-│   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
-│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page.
-│   ├── <a href="./packages/guardian-prover-health-check">guardian-prover-health-check</a>: Guardian prover health check service.
-│   ├── <a href="./packages/guardian-prover-health-check-ui">guardian-prover-health-check-ui</a>: Guardian prover health check UI.
-│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol smart contracts.
-│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
-│   ├── <a href="./packages/supplementary-contracts">supplementary-contracts</a>: Supplementary smart contracts that are not part of the Taiko rollup protocol.
-│   ├── <a href="./packages/taiko-client">taiko-client</a>: Taiko client implementation in Go.
-│   ├── <a href="./packages/nfts">nfts</a>: Taiko NFTs.
-│   └── <a href="./packages/taikoon-ui">taikoon-ui</a>: Taikoon NFT UI.
-...
-</pre>
+> [!TIP]
+> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments)!
+
+| Package                                                                       | Description                                                        |
+| :---------------------------------------------------------------------------- | :----------------------------------------------------------------- |
+| [balance-monitor](./packages/balance-monitor)                                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
+| [blobstorage](./packages/blobstorage)                                         | Service for storing and retrieving blob data.                      |
+| [bridge-ui](./packages/bridge-ui)                                             | Bridge UI.                                                         |
+| [docs-site](./packages/docs-site)                                             | End user documentation site.                                       |
+| [eventindexer](./packages/eventindexer)                                       | Event indexer.                                                     |
+| [fork-diff](./packages/fork-diff)                                             | Fork diff page.                                                    |
+| [geth-rpc-gateway](./packages/geth-rpc-gateway)                               | RPC gateway for geth nodes.                                        |
+| [guardian-prover-health-check](./packages/guardian-prover-health-check)       | Guardian prover health check service.                              |
+| [guardian-prover-health-check-ui](./packages/guardian-prover-health-check-ui) | Guardian prover health check UI.                                   |
+| [monitors](./packages/monitors)                                               | Monitoring and alerting services.                                  |
+| [nfts](./packages/nfts)                                                       | NFT-related smart contracts and utilities.                         |
+| [protocol](./packages/protocol)                                               | Taiko Alethia protocol smart contracts.                            |
+| [relayer](./packages/relayer)                                                 | Bridge backend relayer.                                            |
+| [snaefell-ui](./packages/snaefell-ui)                                         | Snaefell UI.                                                       |
+| [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary contracts not part of the Taiko Alethia protocol.    |
+| [taiko-client](./packages/taiko-client)                                       | Taiko Alethia client implementation in Go.                         |
+| [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI.                                                        |
+| [ui-lib](./packages/ui-lib)                                                   | UI library.                                                        |
 
 ## Issues
 

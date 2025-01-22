@@ -5,8 +5,10 @@ import (
 	"net/http"
 
 	"github.com/morkid/paginate"
-	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"gorm.io/gorm"
+
+	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
 )
 
 var (
@@ -14,21 +16,21 @@ var (
 )
 
 type HealthCheckRepository struct {
-	db DB
+	db db.DB
 }
 
-func NewHealthCheckRepository(db DB) (*HealthCheckRepository, error) {
-	if db == nil {
-		return nil, ErrNoDB
+func NewHealthCheckRepository(dbHandler db.DB) (*HealthCheckRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &HealthCheckRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
-func (r *HealthCheckRepository) startQuery() *gorm.DB {
-	return r.db.GormDB().Table("health_checks")
+func (r *HealthCheckRepository) startQuery(ctx context.Context) *gorm.DB {
+	return r.db.GormDB().WithContext(ctx).Table("health_checks")
 }
 
 func (r *HealthCheckRepository) Get(
@@ -39,7 +41,7 @@ func (r *HealthCheckRepository) Get(
 		DefaultSize: 100,
 	})
 
-	reqCtx := pg.With(r.startQuery())
+	reqCtx := pg.With(r.startQuery(ctx))
 
 	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.HealthCheck{})
 
@@ -55,7 +57,7 @@ func (r *HealthCheckRepository) GetByGuardianProverAddress(
 		DefaultSize: 100,
 	})
 
-	reqCtx := pg.With(r.startQuery().Order("created_at desc").
+	reqCtx := pg.With(r.startQuery(ctx).Order("created_at desc").
 		Where("recovered_address = ?", address))
 
 	page := reqCtx.Request(req).Response(&[]guardianproverhealthcheck.HealthCheck{})
@@ -70,7 +72,7 @@ func (r *HealthCheckRepository) GetMostRecentByGuardianProverAddress(
 ) (*guardianproverhealthcheck.HealthCheck, error) {
 	hc := &guardianproverhealthcheck.HealthCheck{}
 
-	if err := r.startQuery().Order("created_at desc").
+	if err := r.startQuery(ctx).Order("created_at desc").
 		Where("recovered_address = ?", address).Limit(1).
 		Scan(hc).Error; err != nil {
 		return nil, err
@@ -79,7 +81,7 @@ func (r *HealthCheckRepository) GetMostRecentByGuardianProverAddress(
 	return hc, nil
 }
 
-func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCheckOpts) error {
+func (r *HealthCheckRepository) Save(ctx context.Context, opts *guardianproverhealthcheck.SaveHealthCheckOpts) error {
 	b := &guardianproverhealthcheck.HealthCheck{
 		Alive:            opts.Alive,
 		ExpectedAddress:  opts.ExpectedAddress,
@@ -89,7 +91,7 @@ func (r *HealthCheckRepository) Save(opts guardianproverhealthcheck.SaveHealthCh
 		LatestL1Block:    opts.LatestL1Block,
 		LatestL2Block:    opts.LatestL2Block,
 	}
-	if err := r.startQuery().Create(b).Error; err != nil {
+	if err := r.startQuery(ctx).Create(b).Error; err != nil {
 		return err
 	}
 
@@ -102,12 +104,12 @@ func (r *HealthCheckRepository) GetUptimeByGuardianProverAddress(
 ) (float64, int, error) {
 	var count int64
 
-	var query string = `SELECT COUNT(*) 
-	FROM health_checks 
+	var query string = `SELECT COUNT(*)
+	FROM health_checks
 	WHERE recovered_address = ? AND
 	created_at > NOW() - INTERVAL 1 DAY`
 
-	if err := r.db.GormDB().Raw(query, address).Scan(&count).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Raw(query, address).Scan(&count).Error; err != nil {
 		return 0, 0, err
 	}
 

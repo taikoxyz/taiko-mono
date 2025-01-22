@@ -4,7 +4,7 @@ import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi, erc721Abi, erc721VaultAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { gasLimitZero } from '$components/Bridge/state';
+import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import { gasLimitConfig } from '$config';
 import {
   ApproveError,
@@ -235,7 +235,7 @@ export class ERC721Bridge extends Bridge {
     const sendERC721Args: NFTBridgeTransferOp = {
       destChainId: BigInt(destChainId),
       to,
-      destOwner: to,
+      destOwner: get(destOwnerAddress) || to,
       token,
       gasLimit: Number(gasLimit),
       fee,

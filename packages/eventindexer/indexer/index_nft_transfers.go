@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc1155"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -33,21 +34,33 @@ func (i *Indexer) indexNFTTransfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	for _, vLog := range logs {
-		if !i.isERC721Transfer(ctx, vLog) && !i.isERC1155Transfer(ctx, vLog) {
-			continue
-		}
+	nftWg, ctx := errgroup.WithContext(ctx)
 
-		if err := i.saveNFTTransfer(ctx, chainID, vLog); err != nil {
-			return err
-		}
+	for _, vLog := range logs {
+		l := vLog
+
+		nftWg.Go(func() error {
+			if !i.isERC721Transfer(ctx, l) && !i.isERC1155Transfer(ctx, l) {
+				return nil
+			}
+
+			if err := i.saveNFTTransfer(ctx, chainID, l); err != nil {
+				return errors.Wrap(err, "i.saveNFTTransfer")
+			}
+
+			return nil
+		})
+	}
+
+	if err := nftWg.Wait(); err != nil {
+		return err
 	}
 
 	return nil
 }
 
 // isERC1155Transfer determines whether a given log is a valid ERC1155 transfer event
-func (i *Indexer) isERC1155Transfer(ctx context.Context, vLog types.Log) bool {
+func (i *Indexer) isERC1155Transfer(_ context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
 		return false
@@ -64,7 +77,7 @@ func (i *Indexer) isERC1155Transfer(ctx context.Context, vLog types.Log) bool {
 }
 
 // isERC721Transfer determines whether a given log is a valid ERC721 transfer event
-func (i *Indexer) isERC721Transfer(ctx context.Context, vLog types.Log) bool {
+func (i *Indexer) isERC721Transfer(_ context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
 		return false
@@ -102,9 +115,7 @@ func (i *Indexer) saveNFTTransfer(ctx context.Context, chainID *big.Int, vLog ty
 // saveERC721Transfer updates the user's balances on the from and to of a ERC721 transfer event
 func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[1].Bytes()[12:]))
-
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
-
 	tokenID := vLog.Topics[3].Big().Int64()
 
 	slog.Info(
@@ -151,7 +162,6 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 // the database and updates the user's balances
 func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
-
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[3].Bytes()[12:]))
 
 	slog.Info("erc1155 found")
@@ -206,8 +216,6 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			return err
 		}
 	} else if vLog.Topics[0].Hex() == transferBatchSignatureHash.Hex() {
-		slog.Info("erc1155 transfer batch")
-
 		type TransferBatchEvent struct {
 			Operator common.Address
 			From     common.Address

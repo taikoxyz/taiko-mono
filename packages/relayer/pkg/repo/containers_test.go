@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/pressly/goose/v3"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 )
 
 var (
@@ -20,7 +21,7 @@ var (
 	dbPassword = "password"
 )
 
-func testMysql(t *testing.T) (DB, func(), error) {
+func testMysql(t *testing.T) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
 		ExposedPorts: []string{"3306/tcp", "33060/tcp"},

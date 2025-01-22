@@ -13,7 +13,6 @@ var (
 	metricsHttpPort         = "1001"
 	l1TaikoAddress          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	bridgeAddress           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
-	assignmentHookAddress   = "0x83FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"
 	databaseMaxConnLifetime = "30"
@@ -51,7 +50,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(1001), c.MetricsHTTPPort)
 		assert.Equal(t, common.HexToAddress(l1TaikoAddress), c.L1TaikoAddress)
 		assert.Equal(t, common.HexToAddress(bridgeAddress), c.BridgeAddress)
-		assert.Equal(t, common.HexToAddress(assignmentHookAddress), c.AssignmentHookAddress)
 		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
 		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
 		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
@@ -77,7 +75,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabaseName.Name, "dbname",
 		"--" + flags.L1TaikoAddress.Name, l1TaikoAddress,
 		"--" + flags.BridgeAddress.Name, bridgeAddress,
-		"--" + flags.AssignmentHookAddress.Name, assignmentHookAddress,
 		"--" + flags.MetricsHTTPPort.Name, metricsHttpPort,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
 		"--" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,

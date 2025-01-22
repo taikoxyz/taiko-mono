@@ -8,7 +8,6 @@
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { classNames } from '$libs/util/classNames';
   import { truncateString } from '$libs/util/truncateString';
-  import { uid } from '$libs/util/uid';
   import { account } from '$stores';
 
   export let value: Maybe<Chain> | null = null;
@@ -22,12 +21,12 @@
 
   let classes = classNames('ChainPill relative', $$props.class);
 
-  let buttonClasses = `f-row body-regular bg-neutral-background px-2 py-[6px] !rounded-[10px] dark:hover:bg-primary-secondary-hover flex justify-start content-center ${$$props.class}`;
+  let buttonClasses = `f-row body-regular bg-neutral-background px-2 py-[6px] !rounded-full dark:hover:bg-primary-secondary-hover flex justify-start content-center ${$$props.class}`;
 
   let iconSize = 'min-w-5 max-w-5 min-h-5 max-h-5';
 
-  let buttonId = `button-${uid()}`;
-  let dialogId = `dialog-${uid()}`;
+  let buttonId = `button-${crypto.randomUUID()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
   let modalOpen = false;
 
   const handlePillClick = () => {

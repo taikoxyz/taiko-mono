@@ -33,7 +33,7 @@ func (i *Indexer) handleMessageStatusChangedEvent(
 		return nil
 	}
 
-	_, err = i.eventRepo.Save(ctx, relayer.SaveEventOpts{
+	_, err = i.eventRepo.Save(ctx, &relayer.SaveEventOpts{
 		Name:           relayer.EventNameMessageStatusChanged,
 		Data:           string(marshaled),
 		ChainID:        chainID,

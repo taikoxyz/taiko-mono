@@ -51,7 +51,7 @@ func (r *StartupRepo) GetMostRecentByGuardianProverAddress(
 	return s, nil
 }
 
-func (h *StartupRepo) Save(opts guardianproverhealthcheck.SaveStartupOpts) error {
+func (h *StartupRepo) Save(ctx context.Context, opts *guardianproverhealthcheck.SaveStartupOpts) error {
 	h.startups = append(h.startups, &guardianproverhealthcheck.Startup{
 		GuardianProverID:      opts.GuardianProverID,
 		GuardianProverAddress: opts.GuardianProverAddress,

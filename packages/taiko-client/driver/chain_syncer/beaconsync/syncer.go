@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -71,9 +72,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	}
 
 	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(s.ctx, &engine.ForkchoiceStateV1{
-		HeadBlockHash:      headPayload.BlockHash,
-		SafeBlockHash:      headPayload.BlockHash,
-		FinalizedBlockHash: headPayload.BlockHash,
+		HeadBlockHash: headPayload.BlockHash,
 	}, nil)
 	if err != nil {
 		return err
@@ -104,11 +103,22 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 
 	// If the sync mode is `full`, we need to verify the protocol verified block hash before syncing.
 	if s.syncMode == downloader.FullSync.String() {
-		blockInfo, err := s.rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(blockID))
+		blockNum := new(big.Int).SetUint64(blockID)
+		var blockInfo bindings.TaikoDataBlockV2
+		if s.state.IsOnTake(blockNum) {
+			blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
+		} else {
+			blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockNum)
+		}
 		if err != nil {
 			return nil, err
 		}
-		ts, err := s.rpc.GetTransition(ctx, new(big.Int).SetUint64(blockInfo.BlockId), blockInfo.VerifiedTransitionId)
+		ts, err := s.rpc.GetTransition(
+			ctx,
+			new(big.Int).SetUint64(blockInfo.BlockId),
+
+			uint32(blockInfo.VerifiedTransitionId.Uint64()),
+		)
 		if err != nil {
 			return nil, err
 		}

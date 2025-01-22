@@ -3,7 +3,7 @@ import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
-import { gasLimitZero } from '$components/Bridge/state';
+import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -55,7 +55,7 @@ export class ETHBridge extends Bridge {
       srcOwner: owner,
       from: owner,
 
-      destOwner: to,
+      destOwner: get(destOwnerAddress) || to,
 
       srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),

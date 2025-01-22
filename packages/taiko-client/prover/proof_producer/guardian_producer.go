@@ -3,12 +3,13 @@ package producer
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 // GuardianProofProducer always returns an optimistic (dummy) proof.
@@ -34,14 +35,14 @@ func (g *GuardianProofProducer) RequestProof(
 	_ context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request guardian proof",
 		"blockID", blockID,
-		"coinbase", meta.Coinbase,
-		"height", header.Number,
+		"coinbase", meta.GetCoinbase(),
 		"hash", header.Hash(),
 	)
 
@@ -56,7 +57,24 @@ func (g *GuardianProofProducer) RequestProof(
 		}, nil
 	}
 
-	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier())
+	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier(), requestAt)
+}
+
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
+func (g *GuardianProofProducer) RequestCancel(
+	_ context.Context,
+	_ *ProofRequestOptions,
+) error {
+	return nil
+}
+
+// Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
+func (g *GuardianProofProducer) Aggregate(
+	_ context.Context,
+	_ []*ProofWithHeader,
+	_ time.Time,
+) (*BatchProofs, error) {
+	return nil, nil
 }
 
 // Tier implements the ProofProducer interface.
