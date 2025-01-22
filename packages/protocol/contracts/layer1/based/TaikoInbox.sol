@@ -116,7 +116,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             // forced transactions.
             if (forcedTxs.length != 0) {
                 require(
-                    params.blocks[1].numTransactions >= config.minForcedTxsPerBlock,
+                    params.blocks[1].numTransactions >= config.minForcedTxsBlockTxCount,
                     BlockTooSmallForForcedTxs()
                 );
             }
