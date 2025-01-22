@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "./RouterTestBase.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 import "src/layer1/based/ITaikoInbox.sol";
+import "src/layer1/preconf/iface/IPreconfRouter.sol";
 
 contract RouterTest is RouterTestBase {
     function test_proposePreconfedBlocks() external {
@@ -54,7 +55,7 @@ contract RouterTest is RouterTestBase {
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
         ITaikoInbox.BatchMetadata memory meta =
-            router.proposePreconfedBlocks("", abi.encode(params), "");
+            router.proposePreconfedBlocks("", abi.encode(params), "", false);
 
         // Assert the proposer was set correctly in the metadata
         assertEq(meta.proposer, Carol);
@@ -88,7 +89,7 @@ contract RouterTest is RouterTestBase {
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
         vm.expectRevert(IPreconfRouter.NotTheOperator.selector);
-        router.proposePreconfedBlocks("", "", "");
+        router.proposePreconfedBlocks("", "", "", false);
     }
 
     function test_proposePreconfedBlocks_proposerNotSender() external {
@@ -139,6 +140,96 @@ contract RouterTest is RouterTestBase {
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
         vm.expectRevert(IPreconfRouter.ProposerIsNotTheSender.selector);
-        router.proposePreconfedBlocks("", abi.encode(params), "");
+        router.proposePreconfedBlocks("", abi.encode(params), "", false);
     }
+
+    function test_canProposeFallback_notExpired() external {
+        // Store a forced transaction
+        vm.deal(address(this), 1 ether);
+        router.storeForcedTx{value: 0.1 ether}(testTxList);
+
+        // Ensure fallback cannot be proposed before the inclusion window expires
+        assertFalse(router.canProposeFallback(testTxListHash));
+    }
+
+    function test_canProposeFallback_expired() external {
+        // Store a forced transaction
+        vm.deal(address(this), 1 ether);
+        router.storeForcedTx{value: 0.1 ether}(testTxList);
+
+        // Warp time beyond the inclusion window
+        vm.warp(block.timestamp + router.inclusionWindow() + 1);
+
+        // Ensure fallback can now be proposed
+        assertTrue(router.canProposeFallback(testTxListHash));
+    }
+
+    function test_storeForcedTx_success() external {
+        // Ensure the initial balance is sufficient
+        vm.deal(address(this), 10 ether);
+
+        // Store forced transaction with the correct stake
+        uint256 requiredStake = router.baseStakeAmount();
+        router.storeForcedTx{value: requiredStake}(testTxList);
+
+        // Validate stored transaction data
+        (bytes memory storedTxList, uint256 timestamp, bool included, uint256 stakeAmount) = 
+            router.forcedTxLists(testTxListHash);
+
+        assertEq(storedTxList, testTxList);
+        assertEq(timestamp, block.timestamp);
+        assertEq(included, false);
+        assertEq(stakeAmount, requiredStake);
+
+        // Ensure the pendingForcedTxHashes count is incremented
+        assertEq(router.pendingForcedTxHashes(), 1);
+    }
+
+    function test_storeForcedTx_insufficientStake() external {
+        vm.deal(address(this), 10 ether);
+
+        uint256 incorrectStake = router.getRequiredStakeAmount() - 1;
+        console2.log(router.getRequiredStakeAmount());
+        vm.expectRevert(IPreconfRouter.InsufficientStakeAmount.selector);
+        router.storeForcedTx{value: incorrectStake}(testTxList);
+    }
+
+
+    function test_storeForcedTx_dynamicStakeIncrease() external {
+        vm.deal(address(this), 10 ether);
+
+        uint256 baseStake = router.baseStakeAmount();
+
+        for (uint256 i = 0; i < 3; i++) {
+            uint256 expectedStake = baseStake * (i + 1);
+            bytes memory newTx = abi.encodePacked(testTxList, i);
+            bytes32 newTxHash = keccak256(newTx);
+
+            router.storeForcedTx{value: expectedStake}(newTx);
+
+            (, , , uint256 stakeAmount) = router.forcedTxLists(newTxHash);
+            assertEq(stakeAmount, expectedStake);
+        }
+
+        assertEq(router.pendingForcedTxHashes(), 3);
+    }
+
+    function test_storeForcedTx_duplicate() external {
+        vm.deal(address(this), 10 ether);
+
+        router.storeForcedTx{value: router.getRequiredStakeAmount()}(testTxList);
+
+        uint256 requiredStake = router.getRequiredStakeAmount();
+        vm.expectRevert(IPreconfRouter.ForcedTxListAlreadyStored.selector);
+        router.storeForcedTx{value: requiredStake}(testTxList);
+    }
+
+    function test_storeForcedTx_pendingTxCount() external {
+        vm.deal(address(this), 10 ether);
+
+        router.storeForcedTx{value: router.baseStakeAmount()}(testTxList);
+
+        assertEq(router.pendingForcedTxHashes(), 1);
+    }
+
 }

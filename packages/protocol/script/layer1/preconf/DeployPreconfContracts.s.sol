@@ -23,11 +23,10 @@ contract DeployPreconfContracts is BaseScript {
             address(new PreconfWhitelist(sharedResolver)),
             abi.encodeCall(PreconfWhitelist.init, (contractOwner))
         );
-
         // Deploy PreconfRouter
         deploy(
             LibStrings.B_PRECONF_ROUTER,
-            address(new PreconfRouter(sharedResolver)),
+            address(new PreconfRouter(sharedResolver, vm.envUint("INCLUSION_WINDOW"), vm.envUint("BASE_STAKE_AMOUNT"))),
             abi.encodeCall(PreconfRouter.init, (contractOwner))
         );
     }

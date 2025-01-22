@@ -11,10 +11,15 @@ abstract contract RouterTestBase is Layer1Test {
     PreconfWhitelist internal whitelist;
     address internal routerOwner;
     address internal whitelistOwner;
+    bytes internal testTxList = "test transaction list";
+    bytes32 internal testTxListHash;
+    uint256 internal initialTimestamp;
 
     function setUpOnEthereum() internal virtual override {
         routerOwner = Alice;
         whitelistOwner = Alice;
+        testTxListHash = keccak256(testTxList);
+        initialTimestamp = block.timestamp;
 
         vm.chainId(1);
 
@@ -37,7 +42,7 @@ abstract contract RouterTestBase is Layer1Test {
         router = PreconfRouter(
             deploy({
                 name: "preconf_router",
-                impl: address(new PreconfRouter(address(resolver))),
+                impl: address(new PreconfRouter(address(resolver), 60, 0.01 ether)),
                 data: abi.encodeCall(PreconfRouter.init, (routerOwner))
             })
         );
