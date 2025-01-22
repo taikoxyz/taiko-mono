@@ -37,8 +37,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address rollupResolver = 0x1F027871F286Cf4B7F898B21298E7B3e090a8403;
         UUPSUpgradeable(rollupResolver).upgradeTo(address(new DefaultResolver()));
         // TaikoInbox
-        // TODO: find real old fork contract address
-        address oldFork = 0x1F027871F286Cf4B7F898B21298E7B3e090a8403;
+        address oldFork = 0xefd45598d2166f9E958bb55b8E78bDEc82684d90;
         address newFork = address(new DevnetInbox(rollupResolver));
         UUPSUpgradeable(0xA4702E22F8807Df82Fe5B6dDdd99eB3Fcb0237B0).upgradeTo(
             address(new ForkRouter(oldFork, newFork))
