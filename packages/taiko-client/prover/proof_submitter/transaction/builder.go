@@ -80,40 +80,26 @@ func (a *ProveBlockTxBuilder) Build(
 				return nil, err
 			}
 
-			if meta.IsOntakeBlock() {
-				if a.proverSetAddress != ZeroAddress {
-					if data, err = encoding.ProverSetABI.Pack(
-						"proveBlocks",
-						[]uint64{blockID.Uint64()},
-						[][]byte{input},
-						[]byte{},
-					); err != nil {
-						return nil, err
-					}
-					to = a.proverSetAddress
-				} else {
-					if data, err = encoding.TaikoL1ABI.Pack(
-						"proveBlocks",
-						[]uint64{blockID.Uint64()},
-						[][]byte{input},
-						[]byte{},
-					); err != nil {
-						return nil, err
-					}
-					to = a.taikoL1Address
+			if a.proverSetAddress != ZeroAddress {
+				if data, err = encoding.ProverSetABI.Pack(
+					"proveBlocks",
+					[]uint64{blockID.Uint64()},
+					[][]byte{input},
+					[]byte{},
+				); err != nil {
+					return nil, err
 				}
+				to = a.proverSetAddress
 			} else {
-				if a.proverSetAddress != ZeroAddress {
-					if data, err = encoding.ProverSetABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
-						return nil, err
-					}
-					to = a.proverSetAddress
-				} else {
-					if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
-						return nil, err
-					}
-					to = a.taikoL1Address
+				if data, err = encoding.TaikoL1ABI.Pack(
+					"proveBlocks",
+					[]uint64{blockID.Uint64()},
+					[][]byte{input},
+					[]byte{},
+				); err != nil {
+					return nil, err
 				}
+				to = a.taikoL1Address
 			}
 		} else {
 			if tier > encoding.TierGuardianMinorityID {
@@ -124,24 +110,13 @@ func (a *ProveBlockTxBuilder) Build(
 				return nil, fmt.Errorf("tier %d need set guardianProverMinorityAddress", tier)
 			}
 
-			if meta.IsOntakeBlock() {
-				if data, err = encoding.GuardianProverABI.Pack(
-					"approveV2",
-					meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
-					*transition,
-					*tierProof,
-				); err != nil {
-					return nil, err
-				}
-			} else {
-				if data, err = encoding.GuardianProverABI.Pack(
-					"approve",
-					meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
-					*transition,
-					*tierProof,
-				); err != nil {
-					return nil, err
-				}
+			if data, err = encoding.GuardianProverABI.Pack(
+				"approveV2",
+				meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+				*transition,
+				*tierProof,
+			); err != nil {
+				return nil, err
 			}
 		}
 

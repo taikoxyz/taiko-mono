@@ -16,7 +16,7 @@ import { TrailblazersBadgesV4 } from
     "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
 import { BadgeRecruitment } from "../../contracts/trailblazers-season-2/BadgeRecruitment.sol";
 
-contract TrailblazersBadgesS2Test is Test {
+contract BadgeRecruitmentTest is Test {
     UtilsScript public utils;
 
     TrailblazersBadgesV4 public s1BadgesV4;
