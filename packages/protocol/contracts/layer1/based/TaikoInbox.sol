@@ -537,8 +537,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
                 require(blobHashes_[i] != 0, BlobNotFound());
             }
-            hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
         }
+        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
     }
 
     // Private functions -----------------------------------------------------------------------
