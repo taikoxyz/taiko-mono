@@ -82,6 +82,19 @@ definitions:
           type: integer
         type: array
     type: object
+  pacaya.LibSharedDataBaseFeeConfig:
+    properties:
+      adjustmentQuotient:
+        type: integer
+      gasIssuancePerSecond:
+        type: integer
+      maxGasIssuancePerBlock:
+        type: integer
+      minGasExcess:
+        type: integer
+      sharingPctg:
+        type: integer
+    type: object
   preconfblocks.BuildPreconfBlockRequestBody:
     properties:
       anchorBlockID:
@@ -98,6 +111,8 @@ definitions:
         items:
           type: integer
         type: array
+      baseFeeConfig:
+        $ref: '#/definitions/pacaya.LibSharedDataBaseFeeConfig'
       executableData:
         allOf:
         - $ref: '#/definitions/engine.ExecutableData'

@@ -195,6 +195,26 @@ const docTemplate = `{
                 }
             }
         },
+        "pacaya.LibSharedDataBaseFeeConfig": {
+            "type": "object",
+            "properties": {
+                "adjustmentQuotient": {
+                    "type": "integer"
+                },
+                "gasIssuancePerSecond": {
+                    "type": "integer"
+                },
+                "maxGasIssuancePerBlock": {
+                    "type": "integer"
+                },
+                "minGasExcess": {
+                    "type": "integer"
+                },
+                "sharingPctg": {
+                    "type": "integer"
+                }
+            }
+        },
         "preconfblocks.BuildPreconfBlockRequestBody": {
             "type": "object",
             "properties": {
@@ -214,6 +234,9 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "baseFeeConfig": {
+                    "$ref": "#/definitions/pacaya.LibSharedDataBaseFeeConfig"
                 },
                 "executableData": {
                     "description": "@param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.",
