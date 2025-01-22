@@ -58,6 +58,7 @@ interface ITaikoInbox {
     struct BatchInfo {
         bytes32 txsHash;
         bytes32[] blobHashes;
+        bytes32[] signalSlots;
         bytes32 extraData;
         bytes32 anchorBlockHash;
         bytes32 anchorInput;

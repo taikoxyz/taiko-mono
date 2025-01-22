@@ -117,6 +117,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             info_ = BatchInfo({
                 txsHash: bytes32(0), // to be initialised later
                 blobHashes: new bytes32[](0), // to be initialised later
+                signalSlots: params.signalSlots,
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 anchorBlockHash: blockhash(anchorBlockId),
                 anchorInput: params.anchorInput,
