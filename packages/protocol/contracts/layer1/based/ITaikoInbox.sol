@@ -57,19 +57,22 @@ interface ITaikoInbox {
     /// does not include data necessary for batch proving.
     struct BatchInfo {
         bytes32 txsHash;
+        // Data to build L2 blocks
+        BlockParams[] blocks;
         bytes32[] blobHashes;
-        bytes32[] signalSlots;
         bytes32 extraData;
-        bytes32 anchorBlockHash;
-        bytes32 anchorInput;
         address coinbase;
         uint64 proposedIn; // Used by node/client
-        uint64 anchorBlockId;
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
-        BlockParams[] blocks;
+        // Data for the L2 anchor transaction
+        uint64 anchorBlockId;
+        bytes32 anchorBlockHash; // corresponds to the `_anchorStateRoot` parameter in the anchor
+            // transaction
+        bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
+        bytes32[] signalSlots;
     }
 
     /// @dev This struct holds batch metadata essential for proving the batch.

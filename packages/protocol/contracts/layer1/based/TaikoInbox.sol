@@ -116,19 +116,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             info_ = BatchInfo({
                 txsHash: bytes32(0), // to be initialised later
+                //
+                // Data to build L2 blocks
+                blocks: params.blocks,
                 blobHashes: new bytes32[](0), // to be initialised later
-                signalSlots: params.signalSlots,
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                anchorBlockHash: blockhash(anchorBlockId),
-                anchorInput: params.anchorInput,
                 coinbase: params.coinbase,
                 proposedIn: uint64(block.number),
-                anchorBlockId: anchorBlockId,
                 blobByteOffset: params.blobParams.byteOffset,
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,
-                blocks: params.blocks,
-                baseFeeConfig: config.baseFeeConfig
+                //
+                // Data for the L2 anchor transaction, shared by all blocks in the batch
+                anchorBlockId: anchorBlockId,
+                anchorBlockHash: blockhash(anchorBlockId),
+                anchorInput: params.anchorInput,
+                baseFeeConfig: config.baseFeeConfig,
+                signalSlots: params.signalSlots
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
