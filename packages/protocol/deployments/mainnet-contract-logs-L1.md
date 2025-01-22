@@ -184,9 +184,9 @@
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
   - tier_router: `0x8a4c692F12d3a9750E744A4CE24a1d351bE52E66`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
-  - risc0_groth16_verifier: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
+  - risc0_groth16_verifier: `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9`
   - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
-  - sp1_remote_verifier: `0x2D33d748644dAb8B3FB0E07642d9dE96b816d067`
+  - sp1_remote_verifier: `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371`
   - tier_zkvm_sp1: `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452`
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
@@ -357,15 +357,17 @@
 
 #### risc0_groth16_verifier
 
-- impl: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
+- impl: `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9`
 - logs:
   - deployed on Nov 6, 2024 @commit`bfb0386`
+  - deployed on Jan 13, 2025 @commit`a58852f`
 
 #### sp1_remote_verifier
 
-- impl: `0x2D33d748644dAb8B3FB0E07642d9dE96b816d067`
+- impl: `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371`
 - logs:
   - deployed on Nov 8, 2024 @commit`0b11101`
+  - deployed on Jan 13, 2025 @commit`a58852f`
 
 #### automata_dcap_attestation
 

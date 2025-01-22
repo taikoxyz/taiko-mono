@@ -1,32 +1,22 @@
 # Changelog
 
-## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v1.10.0...taiko-alethia-protocol-v1.11.0) (2025-01-03)
+## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v1.10.0...taiko-alethia-protocol-v1.11.0) (2025-01-13)
 
 
 ### Features
 
-* **protocol:** add `DevnetTaikoL1` ([#17900](https://github.com/taikoxyz/taiko-mono/issues/17900)) ([d864cea](https://github.com/taikoxyz/taiko-mono/commit/d864cea2eb8346127992acfbd9012e675a3400cc))
 * **protocol:** add `lastProposedIn` to slotB ([#18379](https://github.com/taikoxyz/taiko-mono/issues/18379)) ([96b380a](https://github.com/taikoxyz/taiko-mono/commit/96b380a452f1055da960146b4bf1e94c1842da73))
 * **protocol:** add `proposeBlocksV2` method to `ProverSet` ([#18115](https://github.com/taikoxyz/taiko-mono/issues/18115)) ([0743a99](https://github.com/taikoxyz/taiko-mono/commit/0743a99ee6ab403024bab5834178399fbeebb4e5))
 * **protocol:** add `proveBlocks` method to `ProverSet` ([#18025](https://github.com/taikoxyz/taiko-mono/issues/18025)) ([36a2ae5](https://github.com/taikoxyz/taiko-mono/commit/36a2ae51c21a2359179755457a8933a346ccd8b3))
-* **protocol:** add `proveBlocks` to TaikoL1.sol ([fe687b3](https://github.com/taikoxyz/taiko-mono/commit/fe687b378fcb440184fd423088432dc63cf5989e))
 * **protocol:** add `TIER_ZKVM_RISC0` tier and `HeklaTierProvider` ([#17913](https://github.com/taikoxyz/taiko-mono/issues/17913)) ([64ed666](https://github.com/taikoxyz/taiko-mono/commit/64ed66628a18cb1b3fff2c4ab5d3c0149288dfe6))
-* **protocol:** add a batch proposing block function ([#17864](https://github.com/taikoxyz/taiko-mono/issues/17864)) ([3649785](https://github.com/taikoxyz/taiko-mono/commit/36497857dd3d5edb718a5cb0057327f3cde39c02))
 * **protocol:** add aggregated sgx verify test ([#18160](https://github.com/taikoxyz/taiko-mono/issues/18160)) ([8dda47b](https://github.com/taikoxyz/taiko-mono/commit/8dda47bf9ee47faa8a0d16dde0b4398d5e7019f8))
 * **protocol:** add ComposeVerifier, TeeAnyVerifier, and ZkAnyVerifier ([ee464ca](https://github.com/taikoxyz/taiko-mono/commit/ee464caef68fdec325aa22758bb69e17dd039794))
 * **protocol:** add Hekla Ontake hardfork upgrade scripts ([#18103](https://github.com/taikoxyz/taiko-mono/issues/18103)) ([a3436e8](https://github.com/taikoxyz/taiko-mono/commit/a3436e8cafbc96ebfa5742ada995adae39c572ce))
-* **protocol:** add preconfirmation support based on https://github.com/taikoxyz/taiko-mono/pull/17654 (with some renaming) (https://github.com/taikoxyz/taiko-mono/issues/14793) ([17d67d7](https://github.com/taikoxyz/taiko-mono/commit/17d67d74c511bc11c2b7d821d8a381f74ef7b6a1))
-* **protocol:** add proposeBlock2 in TaikoL1.sol and approve2 in GuardianProver.sol ([17d67d7](https://github.com/taikoxyz/taiko-mono/commit/17d67d74c511bc11c2b7d821d8a381f74ef7b6a1))
 * **protocol:** add proposer address to getMinTier func ([#17919](https://github.com/taikoxyz/taiko-mono/issues/17919)) ([d6ea6f3](https://github.com/taikoxyz/taiko-mono/commit/d6ea6f33d6bf54cba3bd6ab153e38d09abf19912))
-* **protocol:** add SP1 verification support ([#17861](https://github.com/taikoxyz/taiko-mono/issues/17861)) ([2936312](https://github.com/taikoxyz/taiko-mono/commit/29363123233f9d2d749eb626095d0c645801e384))
-* **protocol:** adjust gas excess once the gas target has changed ([a1e217e](https://github.com/taikoxyz/taiko-mono/commit/a1e217e457546d63a89da0b02135b3b63b22d19e))
 * **protocol:** adjust the zk ratio(risc0 & sp1) ([#18613](https://github.com/taikoxyz/taiko-mono/issues/18613)) ([431435e](https://github.com/taikoxyz/taiko-mono/commit/431435e6e74799caea94f53438238c63831cf07c))
 * **protocol:** adjust zk(risc0 & sp1) ratio ([#18684](https://github.com/taikoxyz/taiko-mono/issues/18684)) ([a0c21a3](https://github.com/taikoxyz/taiko-mono/commit/a0c21a382c779de54b119a6f9b2d5cd869f47f1d))
 * **protocol:** allow `local.params.parentMetaHash` to remain as 0 ([#18451](https://github.com/taikoxyz/taiko-mono/issues/18451)) ([94185fe](https://github.com/taikoxyz/taiko-mono/commit/94185feb207b9a2e74fb05a4898d25ce2008f826))
-* **protocol:** allow a grace period (4h) to defer proof submission to reduce cost ([fe687b3](https://github.com/taikoxyz/taiko-mono/commit/fe687b378fcb440184fd423088432dc63cf5989e))
-* **protocol:** allow any address to withdraw token to the recipient address ([#17843](https://github.com/taikoxyz/taiko-mono/issues/17843)) ([3d89d24](https://github.com/taikoxyz/taiko-mono/commit/3d89d24b14fea7b9e59659e689c3011fbcf4b852))
 * **protocol:** allow any ERC20 tokens or Ether to be used as bonds ([#18380](https://github.com/taikoxyz/taiko-mono/issues/18380)) ([1920521](https://github.com/taikoxyz/taiko-mono/commit/1920521a2478d1e31745742f1ddbb296cdd98f6f))
-* **protocol:** allow contract proposers to use calldata for DA ([17d67d7](https://github.com/taikoxyz/taiko-mono/commit/17d67d74c511bc11c2b7d821d8a381f74ef7b6a1))
 * **protocol:** allow msg.sender to customize block proposer addresses ([#18048](https://github.com/taikoxyz/taiko-mono/issues/18048)) ([22055cc](https://github.com/taikoxyz/taiko-mono/commit/22055cc95e51d07b6b57ab5cb2e4ccd9a97d594a))
 * **protocol:** allow owner to update recipient in TokenUnlock ([#18184](https://github.com/taikoxyz/taiko-mono/issues/18184)) ([773ae1b](https://github.com/taikoxyz/taiko-mono/commit/773ae1b11f309ee8c4e0b1c0d22b9bfa41beae0d))
 * **protocol:** change HeklaTaikoToken's clock mode to timestamp to test the DAO ([#18597](https://github.com/taikoxyz/taiko-mono/issues/18597)) ([ccc9500](https://github.com/taikoxyz/taiko-mono/commit/ccc9500d861d5cc666f038ddb8ceed00a353ee94))
@@ -40,17 +30,13 @@
 * **protocol:** increase zk(risc0 & sp1) rate in mainnet ([#18481](https://github.com/taikoxyz/taiko-mono/issues/18481)) ([f24a908](https://github.com/taikoxyz/taiko-mono/commit/f24a908e60c062ad789a34765de5a1037bdb1ff0))
 * **protocol:** introduce `getTransitions` in TaikoL1 ([#18154](https://github.com/taikoxyz/taiko-mono/issues/18154)) ([273bf53](https://github.com/taikoxyz/taiko-mono/commit/273bf53fad763b8504353e7cc14c8585e341f9d0))
 * **protocol:** introduce ForkManager to improve protocol fork management ([#18508](https://github.com/taikoxyz/taiko-mono/issues/18508)) ([ff5c196](https://github.com/taikoxyz/taiko-mono/commit/ff5c1964a303e21dfeb87f8f9c01fc82ef43a03e))
-* **protocol:** introduce risc0 proof ([#17877](https://github.com/taikoxyz/taiko-mono/issues/17877)) ([bcb57cb](https://github.com/taikoxyz/taiko-mono/commit/bcb57cb81d12d0c09656582ad9140b38015b3a58))
 * **protocol:** make `TaikoL2Deprecated` ABI go-ethereum compatible ([#18659](https://github.com/taikoxyz/taiko-mono/issues/18659)) ([05594cf](https://github.com/taikoxyz/taiko-mono/commit/05594cfe6fd188573f9db2de4e1f039ea7317c9b))
 * **protocol:** make sure `init()` covers logics in `init2()`, `init3()`.. ([#18292](https://github.com/taikoxyz/taiko-mono/issues/18292)) ([9d06958](https://github.com/taikoxyz/taiko-mono/commit/9d06958e713e530fdd610c439c7b93199d0dcc69))
 * **protocol:** measure gas per block using a debug event ([#18470](https://github.com/taikoxyz/taiko-mono/issues/18470)) ([e84e472](https://github.com/taikoxyz/taiko-mono/commit/e84e472e4a0479301d5ce1d4268d964705dcbbd0))
 * **protocol:** propose a batch blocks conditionally ([#18570](https://github.com/taikoxyz/taiko-mono/issues/18570)) ([e846f62](https://github.com/taikoxyz/taiko-mono/commit/e846f6289fea0b046ddcfcdfaf46f3727efbdf11))
 * **protocol:** protocol monitors ([#18002](https://github.com/taikoxyz/taiko-mono/issues/18002)) ([45b2087](https://github.com/taikoxyz/taiko-mono/commit/45b2087495d4f9e20083ebe2c61ecfe8d252e4b2))
-* **protocol:** relocate L2 base fee parameters to L1 configuration ([17d67d7](https://github.com/taikoxyz/taiko-mono/commit/17d67d74c511bc11c2b7d821d8a381f74ef7b6a1))
 * **protocol:** rename B_BLOCK_PROPOSER to B_PRECONF_REGISTRY ([#18255](https://github.com/taikoxyz/taiko-mono/issues/18255)) ([bf3caf7](https://github.com/taikoxyz/taiko-mono/commit/bf3caf7d986d7b03cf3bd0aa69ea97602bff80aa))
 * **protocol:** request zk proofs(risc0 & sp1) in mainnet ([#18467](https://github.com/taikoxyz/taiko-mono/issues/18467)) ([1fab427](https://github.com/taikoxyz/taiko-mono/commit/1fab427005708036c981f2b8fb47d9aa408e0d94))
-* **protocol:** return verification timestamp in getLastVerifiedBlock ([#17868](https://github.com/taikoxyz/taiko-mono/issues/17868)) ([1998288](https://github.com/taikoxyz/taiko-mono/commit/19982889f7f4c073d182a6076633c5e2c892c73a))
-* **protocol:** revert removing time as input for L2 base fee calculation ([a1e217e](https://github.com/taikoxyz/taiko-mono/commit/a1e217e457546d63a89da0b02135b3b63b22d19e))
 * **protocol:** script of `UpgradeRisc0Verifier` ([#17949](https://github.com/taikoxyz/taiko-mono/issues/17949)) ([fc12e04](https://github.com/taikoxyz/taiko-mono/commit/fc12e040c391e0f37c906b270743d3b57710f69d))
 * **protocol:** scripts to deploy new mainnet implementation contracts ([#18356](https://github.com/taikoxyz/taiko-mono/issues/18356)) ([269759b](https://github.com/taikoxyz/taiko-mono/commit/269759bccefba399f0aa6f45482f4a24330a5e47))
 * **protocol:** support backward-compatible batch-proof verification ([#17968](https://github.com/taikoxyz/taiko-mono/issues/17968)) ([c476aab](https://github.com/taikoxyz/taiko-mono/commit/c476aabe130d151f5678cd35fab99f258997f629))
@@ -66,8 +52,10 @@
 * **protocol:** update sp1 contracts ([#18097](https://github.com/taikoxyz/taiko-mono/issues/18097)) ([6f26434](https://github.com/taikoxyz/taiko-mono/commit/6f264342fe48f8d193559ac0712cc875d643b6fd))
 * **protocol:** update sp1 to 3.0.0 prod version ([#18465](https://github.com/taikoxyz/taiko-mono/issues/18465)) ([0b11101](https://github.com/taikoxyz/taiko-mono/commit/0b1110159201f94ff5a4df528eab60b306d4fb25))
 * **protocol:** upgrade script ([#18334](https://github.com/taikoxyz/taiko-mono/issues/18334)) ([2c41dd1](https://github.com/taikoxyz/taiko-mono/commit/2c41dd10989566c1b6af691c92ab2cbde734a13a))
+* **protocol:** upgrade sp1 contract to v4.0.0-rc.3 ([#18740](https://github.com/taikoxyz/taiko-mono/issues/18740)) ([a58852f](https://github.com/taikoxyz/taiko-mono/commit/a58852fd84357487b82b965dd0ab61b56de49b53))
 * **protocol:** use SP1 1.2.0-rc with more proof verification tests ([#18001](https://github.com/taikoxyz/taiko-mono/issues/18001)) ([f7bcf1d](https://github.com/taikoxyz/taiko-mono/commit/f7bcf1d63d19b641ac6b9e0e972a7f6e2ec5b38f))
 * **protocol:** user smaller cooldown windows ([#18345](https://github.com/taikoxyz/taiko-mono/issues/18345)) ([63455f9](https://github.com/taikoxyz/taiko-mono/commit/63455f91d202d88583d70bce69e799032523eb18))
+* **taiko-client:** soft block driver APIs ([#18273](https://github.com/taikoxyz/taiko-mono/issues/18273)) ([9fff7ff](https://github.com/taikoxyz/taiko-mono/commit/9fff7ff3cce99e915e8142a090a7fad2f1af5bd4))
 
 
 ### Bug Fixes
@@ -79,7 +67,6 @@
 * **protocol:** fix `chainId` in `HeklaTaikoL1` ([#17912](https://github.com/taikoxyz/taiko-mono/issues/17912)) ([8f31dd0](https://github.com/taikoxyz/taiko-mono/commit/8f31dd0ed519809f0ea0797b1e6b5937ee087108))
 * **protocol:** fix a new bug in LibProposing ([#18328](https://github.com/taikoxyz/taiko-mono/issues/18328)) ([7436bae](https://github.com/taikoxyz/taiko-mono/commit/7436bae9660cfcf1d430ca111df8c75d50908eae))
 * **protocol:** fix an issue in same transition check ([#18254](https://github.com/taikoxyz/taiko-mono/issues/18254)) ([233806e](https://github.com/taikoxyz/taiko-mono/commit/233806e4838aa12e8de436a37979ff3e614119f2))
-* **protocol:** fix BridgedERC20V2.sol initializer logic ([#17823](https://github.com/taikoxyz/taiko-mono/issues/17823)) ([d538d99](https://github.com/taikoxyz/taiko-mono/commit/d538d99f9542852821d958008d913c028629bbef))
 * **protocol:** fix bug in adjustExcess ([920bd68](https://github.com/taikoxyz/taiko-mono/commit/920bd6873d3e9e1bbb00751fb9c0056ac85b8554))
 * **protocol:** fix DCAP configuration script ([#18088](https://github.com/taikoxyz/taiko-mono/issues/18088)) ([e8618c5](https://github.com/taikoxyz/taiko-mono/commit/e8618c54a58993499e852ec2ffc2468d4f0274ba))
 * **protocol:** fix debitBond bug and add additional tests ([#18443](https://github.com/taikoxyz/taiko-mono/issues/18443)) ([75ff1f8](https://github.com/taikoxyz/taiko-mono/commit/75ff1f87412c763e6ed3431d13689a629a2dd668))
@@ -96,7 +83,6 @@
 * **protocol:** revert changes related to `proposedIn` and `proposedAt` to fix a bug ([#18333](https://github.com/taikoxyz/taiko-mono/issues/18333)) ([5cb43ab](https://github.com/taikoxyz/taiko-mono/commit/5cb43ab1e29422353de549f8386eff613291c7df))
 * **protocol:** reward non-assigned prover 7/8 liveness bond ([#18132](https://github.com/taikoxyz/taiko-mono/issues/18132)) ([9f99099](https://github.com/taikoxyz/taiko-mono/commit/9f99099ac271e6e2a0973a43084e29169386f2cd))
 * **protocol:** small fix to 1559 error check ([#18339](https://github.com/taikoxyz/taiko-mono/issues/18339)) ([4428661](https://github.com/taikoxyz/taiko-mono/commit/44286615a0e0b0a17892fe83aad96546a6b1aca1))
-* **protocol:** use block header's extraData for `basefeeSharingPctg` ([#17889](https://github.com/taikoxyz/taiko-mono/issues/17889)) ([5f3cbc9](https://github.com/taikoxyz/taiko-mono/commit/5f3cbc97cbe2636314c4a2945fdf01ef641702e7))
 
 
 ### Chores
@@ -110,6 +96,7 @@
 * **main:** release protocol 1.9.0 ([#18051](https://github.com/taikoxyz/taiko-mono/issues/18051)) ([2547ba9](https://github.com/taikoxyz/taiko-mono/commit/2547ba9409705bb759b62e59a7e5d5821349c71a))
 * **main:** release protocol 1.9.0 ([#18052](https://github.com/taikoxyz/taiko-mono/issues/18052)) ([bf45889](https://github.com/taikoxyz/taiko-mono/commit/bf45889e18e97f1186cd60fd55e1b2664dc4bf43))
 * **main:** release taiko-alethia-protocol 1.11.0 ([#18663](https://github.com/taikoxyz/taiko-mono/issues/18663)) ([42cd90d](https://github.com/taikoxyz/taiko-mono/commit/42cd90d3f0937b96095076f733f60ca26d3b5751))
+* **main:** release taiko-alethia-protocol 1.11.0 ([#18695](https://github.com/taikoxyz/taiko-mono/issues/18695)) ([7802e7f](https://github.com/taikoxyz/taiko-mono/commit/7802e7f33c445417473dcba799dd1dfc68a9aa31))
 * **protocol:** add functions to ITaikoL1 for Nethermind Preconf ([#18217](https://github.com/taikoxyz/taiko-mono/issues/18217)) ([e349d22](https://github.com/taikoxyz/taiko-mono/commit/e349d2237a1830edab305b2f0eaaeb0eaf3c623f))
 * **protocol:** change bond amounts, proving windows, and cooldown windows ([#18371](https://github.com/taikoxyz/taiko-mono/issues/18371)) ([fac5c16](https://github.com/taikoxyz/taiko-mono/commit/fac5c167357f430cfb030e7ceaa41bb8e4b938d4))
 * **protocol:** change Hekla gas issuance per sec to 100000 ([#18335](https://github.com/taikoxyz/taiko-mono/issues/18335)) ([3d448d4](https://github.com/taikoxyz/taiko-mono/commit/3d448d4a78608ea7daf1d50e877c32f8d30f1e7a))
@@ -120,7 +107,6 @@
 * **protocol:** fix lint issue in SP1Verifier ([#18213](https://github.com/taikoxyz/taiko-mono/issues/18213)) ([7874dd3](https://github.com/taikoxyz/taiko-mono/commit/7874dd3ff8a6053da8c09377b52c83e7a506f45f))
 * **protocol:** fix typos in documentation files ([#18490](https://github.com/taikoxyz/taiko-mono/issues/18490)) ([8d1f9ea](https://github.com/taikoxyz/taiko-mono/commit/8d1f9eab8e02b1868f2e24005699a8ed1d2937fa))
 * **protocol:** improve the usage of `initializer` and `reinitializer` ([#18319](https://github.com/taikoxyz/taiko-mono/issues/18319)) ([13cc007](https://github.com/taikoxyz/taiko-mono/commit/13cc0074a2295c5939cf83e23f531cb25c43bd64))
-* **protocol:** make two state variables in TaikoL2.sol public and add `adjustExcess` ([#17891](https://github.com/taikoxyz/taiko-mono/issues/17891)) ([ba21f68](https://github.com/taikoxyz/taiko-mono/commit/ba21f6836845ea0227116b701e701815f210d56d))
 * **protocol:** move two files to simplify folder structure ([#17929](https://github.com/taikoxyz/taiko-mono/issues/17929)) ([9dca4fa](https://github.com/taikoxyz/taiko-mono/commit/9dca4faa43ad938880c8e1ac54236ab292bcce6e))
 * **protocol:** optimize Taiko L1 gas cost ([#18376](https://github.com/taikoxyz/taiko-mono/issues/18376)) ([ea0158f](https://github.com/taikoxyz/taiko-mono/commit/ea0158f0cbaa974f90f9174410c705e6cbdc48aa))
 * **protocol:** re-generate layout files with diff order for comparison with new PR ([#18067](https://github.com/taikoxyz/taiko-mono/issues/18067)) ([078d336](https://github.com/taikoxyz/taiko-mono/commit/078d3367dce86a57d71d48291537e925cb1b4b91))
@@ -148,20 +134,18 @@
 * **protocol:** update code4rena-2024-03-taiko-final-report.md ([#18062](https://github.com/taikoxyz/taiko-mono/issues/18062)) ([fd68794](https://github.com/taikoxyz/taiko-mono/commit/fd68794a2de24b7a32d2d5a1c3f52c2156b6d61a))
 * **protocol:** update hekla change log about `tier_router` ([#18023](https://github.com/taikoxyz/taiko-mono/issues/18023)) ([11e27d6](https://github.com/taikoxyz/taiko-mono/commit/11e27d60b3da9a34e07bfafadb8ec3d3223867d2))
 * **protocol:** update hekla change log about sp1 ([#18020](https://github.com/taikoxyz/taiko-mono/issues/18020)) ([434bf3c](https://github.com/taikoxyz/taiko-mono/commit/434bf3ccc1715171b8cd4e7581b282f85744ebe3))
-* **protocol:** update Hekla deployment ([#17845](https://github.com/taikoxyz/taiko-mono/issues/17845)) ([d95cc36](https://github.com/taikoxyz/taiko-mono/commit/d95cc36260ee4bf2aaf69181fa6444f419cc44af))
 * **protocol:** update Hekla deployment ([#17924](https://github.com/taikoxyz/taiko-mono/issues/17924)) ([46a3e00](https://github.com/taikoxyz/taiko-mono/commit/46a3e00659534a715fb315859463bd05bbdb65a9))
 * **protocol:** update Hekla deployments ([#17975](https://github.com/taikoxyz/taiko-mono/issues/17975)) ([c96627f](https://github.com/taikoxyz/taiko-mono/commit/c96627fcdd9ba91f26eeea2b329f0eb96dd36660))
 * **protocol:** update Hekla deployments ([#18152](https://github.com/taikoxyz/taiko-mono/issues/18152)) ([6c7ff61](https://github.com/taikoxyz/taiko-mono/commit/6c7ff617b913b21b8b12b035f0d653c068830de3))
 * **protocol:** update Hekla deployments ([#18257](https://github.com/taikoxyz/taiko-mono/issues/18257)) ([fbb1c82](https://github.com/taikoxyz/taiko-mono/commit/fbb1c824e35adb452176d988f32cf06d0c72b9bf))
 * **protocol:** update Hekla deployments ([#18598](https://github.com/taikoxyz/taiko-mono/issues/18598)) ([a095c69](https://github.com/taikoxyz/taiko-mono/commit/a095c69a240d64606b09a26f2e80ad6daf18c273))
 * **protocol:** update L1 deployment ([#18299](https://github.com/taikoxyz/taiko-mono/issues/18299)) ([f60ce3e](https://github.com/taikoxyz/taiko-mono/commit/f60ce3e78bb9a2717718c3a9d7016346d5305488))
-* **protocol:** update mainnet deployment ([#17846](https://github.com/taikoxyz/taiko-mono/issues/17846)) ([ba6bf94](https://github.com/taikoxyz/taiko-mono/commit/ba6bf942213468310c6233051a90356268dea70f))
-* **protocol:** update mainnet deployment ([#17847](https://github.com/taikoxyz/taiko-mono/issues/17847)) ([92344df](https://github.com/taikoxyz/taiko-mono/commit/92344dfb8c97bae370d722f887fb2c603f96c480))
 * **protocol:** update mainnet deployment ([#18258](https://github.com/taikoxyz/taiko-mono/issues/18258)) ([eeeb4af](https://github.com/taikoxyz/taiko-mono/commit/eeeb4afeff8572115c2cf82db149cee7a723f30c))
 * **protocol:** update mainnet deployment docs ([#18366](https://github.com/taikoxyz/taiko-mono/issues/18366)) ([bbd69ca](https://github.com/taikoxyz/taiko-mono/commit/bbd69ca583257ade30ac9ea2601509af5bc0789a))
 * **protocol:** update mainnet deployment docs ([#18482](https://github.com/taikoxyz/taiko-mono/issues/18482)) ([9da8499](https://github.com/taikoxyz/taiko-mono/commit/9da849989249072e3a03e611b9c08b00295cf42c))
 * **protocol:** update mainnet deployment docs ([#18621](https://github.com/taikoxyz/taiko-mono/issues/18621)) ([eb542bf](https://github.com/taikoxyz/taiko-mono/commit/eb542bf67dea51fd42c0f5c40ee987e5acadc3fd))
 * **protocol:** update mainnet deployment docs ([#18645](https://github.com/taikoxyz/taiko-mono/issues/18645)) ([59d4f10](https://github.com/taikoxyz/taiko-mono/commit/59d4f107edc1aaac5716067634735bad03e75269))
+* **protocol:** update mainnet deployment docs ([#18754](https://github.com/taikoxyz/taiko-mono/issues/18754)) ([45f5cdc](https://github.com/taikoxyz/taiko-mono/commit/45f5cdc514d47042b6aa810c188062a85b050adf))
 * **protocol:** upgrade protocol version in hekla to 1.10.0 ([#18343](https://github.com/taikoxyz/taiko-mono/issues/18343)) ([4805024](https://github.com/taikoxyz/taiko-mono/commit/4805024c15ab63bf345dcc5f5868a4a16af0ba48))
 * **protocol:** upgrade sp1 plonk verifier 2.0.0 ([#18098](https://github.com/taikoxyz/taiko-mono/issues/18098)) ([cfd0e9e](https://github.com/taikoxyz/taiko-mono/commit/cfd0e9e4af2e42ead309e0c571b09dd20ddfe0f9))
 * **protocol:** upgrade sp1 remote verifier in Hekla ([#18469](https://github.com/taikoxyz/taiko-mono/issues/18469)) ([051b619](https://github.com/taikoxyz/taiko-mono/commit/051b619c6ce93a09c7e14dd8fafc99681c9261ad))
@@ -173,15 +157,11 @@
 
 ### Code Refactoring
 
-* **protocol:** avoid writing `livenessBond`, `proposedAt`, and `proposedIn` to storage ([17d67d7](https://github.com/taikoxyz/taiko-mono/commit/17d67d74c511bc11c2b7d821d8a381f74ef7b6a1))
-* **protocol:** convert metadata from V2 to V1 only once ([#17842](https://github.com/taikoxyz/taiko-mono/issues/17842)) ([55ced31](https://github.com/taikoxyz/taiko-mono/commit/55ced319d68fe40fe82d1c7e0a268735c3545923))
-* **protocol:** delete packages/protocol/contracts/compiled ([#17849](https://github.com/taikoxyz/taiko-mono/issues/17849)) ([1fd907c](https://github.com/taikoxyz/taiko-mono/commit/1fd907cc81807027e730c0e27e258230670522df))
 * **protocol:** extra a new function in LibProposing ([#18456](https://github.com/taikoxyz/taiko-mono/issues/18456)) ([5b4b0cd](https://github.com/taikoxyz/taiko-mono/commit/5b4b0cd271534aa72d865afa5fc55e0ee4b16b73))
 * **protocol:** extract an IBlockHash interface from TaikoL2 ([#18045](https://github.com/taikoxyz/taiko-mono/issues/18045)) ([bff481e](https://github.com/taikoxyz/taiko-mono/commit/bff481e8a2898fab8396d368de84f8f343c532f0))
 * **protocol:** introduce BlockV2 for client-side compability ([#17935](https://github.com/taikoxyz/taiko-mono/issues/17935)) ([e46cf29](https://github.com/taikoxyz/taiko-mono/commit/e46cf294862c293b73b817574669115b85e973a7))
 * **protocol:** refactor TierProvider implementations ([ee464ca](https://github.com/taikoxyz/taiko-mono/commit/ee464caef68fdec325aa22758bb69e17dd039794))
 * **protocol:** remove ProposerAccess for easier composability ([#17994](https://github.com/taikoxyz/taiko-mono/issues/17994)) ([80176a1](https://github.com/taikoxyz/taiko-mono/commit/80176a1525c374039256c779f4a2408971759d22))
-* **protocol:** remove the receive function from TaikoL1.sol ([#17865](https://github.com/taikoxyz/taiko-mono/issues/17865)) ([3542420](https://github.com/taikoxyz/taiko-mono/commit/35424204d9f41d49f4a12869ed4410b6de7f577e))
 * **protocol:** remove uncessary init2() from TaikoL2 ([#17973](https://github.com/taikoxyz/taiko-mono/issues/17973)) ([4e08881](https://github.com/taikoxyz/taiko-mono/commit/4e0888190e172c950dc5e81a5115ee0fb6df3f11))
 * **protocol:** remove unused code post Ontake fork ([#18150](https://github.com/taikoxyz/taiko-mono/issues/18150)) ([8543cec](https://github.com/taikoxyz/taiko-mono/commit/8543cecdef9d10d038bc5a7313230006acd26e22))
 * **protocol:** restructure solidity code to match compilation targets ([#18059](https://github.com/taikoxyz/taiko-mono/issues/18059)) ([adc47f4](https://github.com/taikoxyz/taiko-mono/commit/adc47f408282c25c7a50c26e31130fc495734dcc))
@@ -189,12 +169,10 @@
 * **protocol:** simplify some protocol code based on OpenZeppelin's recommendation ([#18308](https://github.com/taikoxyz/taiko-mono/issues/18308)) ([fbad703](https://github.com/taikoxyz/taiko-mono/commit/fbad703739f09d4524f9d808c3bad31d0122ec2c))
 * **protocol:** slightly change defender monitors ([#18086](https://github.com/taikoxyz/taiko-mono/issues/18086)) ([b93d056](https://github.com/taikoxyz/taiko-mono/commit/b93d056479adfc4a1f557578d8b66eda48b104a9))
 * **protocol:** slightly improve EssentialContract ([#18445](https://github.com/taikoxyz/taiko-mono/issues/18445)) ([3d077f8](https://github.com/taikoxyz/taiko-mono/commit/3d077f8ee520a116028711391c323c7badd1f2c6))
-* **protocol:** use npm to manage third-party solidity dependency ([#17881](https://github.com/taikoxyz/taiko-mono/issues/17881)) ([d524e69](https://github.com/taikoxyz/taiko-mono/commit/d524e693449de9d65154471786fa4f5e8c45a381))
 
 
 ### Tests
 
-* **protocol:** add test case of risc0 groth16 ([#17904](https://github.com/taikoxyz/taiko-mono/issues/17904)) ([90bc01d](https://github.com/taikoxyz/taiko-mono/commit/90bc01dfbef1129be1bd94e85c9ecd7c7b28b1da))
 * **protocol:** check LibEIP1559 function results in fuzz tests ([#18475](https://github.com/taikoxyz/taiko-mono/issues/18475)) ([06e190c](https://github.com/taikoxyz/taiko-mono/commit/06e190c01bc4c4aae25664e8c2c154d8cf46efa5))
 * **protocol:** fix another L2 test failure ([#18304](https://github.com/taikoxyz/taiko-mono/issues/18304)) ([b3dd4dc](https://github.com/taikoxyz/taiko-mono/commit/b3dd4dccd261a9ebda69325661d2941001268ec2))
 * **taiko-client:** use env names which defined in flag configs ([#17921](https://github.com/taikoxyz/taiko-mono/issues/17921)) ([196b74e](https://github.com/taikoxyz/taiko-mono/commit/196b74eb2b4498bc3e6511915e011a885fcc530f))
@@ -204,6 +182,7 @@
 
 * **protocol:** make the storage layout table clearer ([#18633](https://github.com/taikoxyz/taiko-mono/issues/18633)) ([7394458](https://github.com/taikoxyz/taiko-mono/commit/73944585586686ad1ce5548ce59e9ea583c4b2ee))
 * **protocol:** revert "chore(main): release taiko-alethia-protocol 1.11.0 ([#18663](https://github.com/taikoxyz/taiko-mono/issues/18663))" ([#18688](https://github.com/taikoxyz/taiko-mono/issues/18688)) ([7e6bce4](https://github.com/taikoxyz/taiko-mono/commit/7e6bce4a0dac9e4f2984ffe2d3da2fc1277fab27))
+* **protocol:** revert "chore(main): release taiko-alethia-protocol 1.11.0 ([#18695](https://github.com/taikoxyz/taiko-mono/issues/18695))" ([#18760](https://github.com/taikoxyz/taiko-mono/issues/18760)) ([e8ab39a](https://github.com/taikoxyz/taiko-mono/commit/e8ab39a9ffa0e3e3ec79efbd476864cef5e5eab4))
 * **protocol:** revert releasing protocol 1.11.0 ([#18662](https://github.com/taikoxyz/taiko-mono/issues/18662)) ([29ce093](https://github.com/taikoxyz/taiko-mono/commit/29ce093100ae76b9eb51eef0f560207422496990))
 * **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
 * **protocol:** upgrade to use solc 0.8.27 ([#18037](https://github.com/taikoxyz/taiko-mono/issues/18037)) ([3a56b57](https://github.com/taikoxyz/taiko-mono/commit/3a56b5788b3e2473381429e5fddfaac2f10fa174))

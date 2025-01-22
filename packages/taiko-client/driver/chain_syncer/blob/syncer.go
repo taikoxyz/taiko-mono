@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -47,7 +46,6 @@ type Syncer struct {
 	reorgDetectedFlag   bool
 	maxRetrieveExponent uint64
 	blobDatasource      *rpc.BlobDataSource
-	mutex               sync.Mutex
 }
 
 // NewSyncer creates a new syncer instance.
@@ -94,8 +92,6 @@ func NewSyncer(
 // ProcessL1Blocks fetches all `TaikoL1.BlockProposed` events between given
 // L1 block heights, and then tries inserting them into L2 execution engine's blockchain.
 func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	for {
 		if err := s.processL1Blocks(ctx); err != nil {
 			return err
@@ -202,6 +198,7 @@ func (s *Syncer) onBlockProposed(
 	}
 	// Ignore those already inserted blocks.
 	if s.lastInsertedBlockID != nil && meta.GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
+		log.Debug("Skip already inserted block", "blockID", meta.GetBlockID(), "lastInsertedBlockID", s.lastInsertedBlockID)
 		return nil
 	}
 
@@ -228,6 +225,7 @@ func (s *Syncer) onBlockProposed(
 	if s.progressTracker.Triggered() {
 		// Already synced through beacon sync, just skip this event.
 		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+			log.Debug("Skip already beacon synced block", "blockID", meta.GetBlockID())
 			return nil
 		}
 
@@ -419,7 +417,7 @@ func (s *Syncer) insertNewHead(
 
 	fc := &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      payload.BlockHash,
+		SafeBlockHash:      lastVerifiedBlockHash,
 		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
 
@@ -475,7 +473,7 @@ func (s *Syncer) createExecutionPayloads(
 		"timestamp", attributes.BlockMetadata.Timestamp,
 		"mixHash", attributes.BlockMetadata.MixHash,
 		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
-		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
+		"extraData", string(attributes.BlockMetadata.ExtraData),
 		"l1OriginHeight", attributes.L1Origin.L1BlockHeight,
 		"l1OriginHash", attributes.L1Origin.L1BlockHash,
 	)

@@ -34,11 +34,39 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 </Steps>
 
+Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
+
+## Enabling batch proving/proof aggregation (optional)
+
+<Aside type="danger">
+We don't recommend users utilize this function unless they already run a fairly active and successful proposer.
+
+By enabling proof aggregation, you will be opening yourself up to more risk as you will be putting up more TAIKO as bond at one time.
+
+The recommended value for SGX_BATCH_SIZE is 10+ as you will see the most gas saved at this value and above. We will NOT refund any lost bonds due to misconfiguration, please evaluate and use this function at your own risk.
+
+We highly recommend you test the function **on Hekla**, not on Mainnet.
+
+Please note that you must use the [upgraded ProverSet contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/provers/ProverSet.sol) to use this functionality.
+</Aside>
+
+Batch proving has been enabled in release 0.43.1 of [the taiko alethia client!](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-client-v0.43.1)
+
+Please use [simple-taiko-node release 1.9.0](https://github.com/taikoxyz/simple-taiko-node/releases/tag/v1.9.0) or above to enable this functionality.
+
+**This functionality can be enabled simply by setting `SGX_BATCH_SIZE` in your `.env` file to a number greater than 1.**
+
+If it is set to 1 or unset your prover will submit proofs upon assignment (standard function).
+When enabled, your prover will submit a batch of proofs when x number of blocks are assigned, x being `SGX_BATCH_SIZE`.
+
+As provers are given a proof window for every assigned proof, it can become the case that while waiting for a batch size to be fulfilled the already assigned proofs exit their proof window and become unassigned.
+To prevent this, we have introduced another flag `FORCE_BATCH_PROVING_INTERVAL`. This flag will only be functional if batch proving is enabled.
+
+This flag will force the prover to submit a batch of proofs every x minutes, regardless of the batch size being fulfilled. We don't recommend this value be set > 45 minutes, as the provingWindow is 60 minutes and any closer will put you at risk of having proof assignments expire. It is by default set to 30 minutes.
+
 <Aside>
 The following steps can be done through the [ProverSet contract](/guides/node-operators/deploy-a-proverset/#deploying-a-proverset) if you have deployed one. We highly recommend this for a stable setup.
 </Aside>
-
-Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
 
 ### Approve TaikoL1 as TAIKO spender (mainnet)
 
@@ -56,7 +84,7 @@ Please find all relevant bond, cooldown, and proving window information [here](/
       Please verify [contract addresses](/network-reference/mainnet-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
    </Aside>
 
-4. Set the amount to at least the minimum bond amount of 125 TAIKO.
+4. Set the amount to at least the minimum bond amount of 150 TAIKO.
 
    You will need 150 TAIKO for each bond you sign. After entering 150, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
 

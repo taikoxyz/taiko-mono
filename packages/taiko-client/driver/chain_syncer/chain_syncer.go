@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -30,9 +28,6 @@ type L2ChainSyncer struct {
 	// Monitors
 	progressTracker *beaconsync.SyncProgressTracker
 
-	// Sync mode
-	syncMode string
-
 	// If this flag is activated, will try P2P beacon sync if current node is behind of the protocol's
 	// the latest verified block head
 	p2pSync bool
@@ -52,11 +47,7 @@ func New(
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
 
-	syncMode, err := rpc.L2.GetSyncMode(ctx)
-	if err != nil {
-		return nil, err
-	}
-	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, syncMode, tracker)
+	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
 	blobSyncer, err := blob.NewSyncer(
 		ctx,
 		rpc,
@@ -77,7 +68,6 @@ func New(
 		beaconSyncer:    beaconSyncer,
 		blobSyncer:      blobSyncer,
 		progressTracker: tracker,
-		syncMode:        syncMode,
 		p2pSync:         p2pSync,
 	}, nil
 }
@@ -88,6 +78,7 @@ func (s *L2ChainSyncer) Sync() error {
 	if err != nil {
 		return err
 	}
+
 	// If current L2 execution engine's chain is behind of the block head to sync, and the
 	// `P2PSync` flag is set, try triggering a beacon sync in L2 execution engine to catch up the
 	// head.
@@ -99,6 +90,10 @@ func (s *L2ChainSyncer) Sync() error {
 		return nil
 	}
 
+	// Mark the beacon sync progress as finished, To make sure that
+	// we will only check and trigger P2P sync progress once right after the driver starts
+	s.progressTracker.MarkFinished()
+
 	// We have triggered at least a beacon sync in L2 execution engine, we should reset the L1Current
 	// cursor at first, before start inserting pending L2 blocks one by one.
 	if s.progressTracker.Triggered() {
@@ -108,26 +103,23 @@ func (s *L2ChainSyncer) Sync() error {
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
 
-		// Mark the beacon sync progress as finished.
-		s.progressTracker.MarkFinished()
-
 		// Get the execution engine's chain head.
 		l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, nil)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get L2 chain head: %w", err)
 		}
 
 		log.Info(
 			"L2 head information",
 			"number", l2Head.Number,
 			"hash", l2Head.Hash(),
-			"lastSyncedVerifiedBlockID", s.progressTracker.LastSyncedBlockID(),
-			"lastSyncedVerifiedBlockHash", s.progressTracker.LastSyncedBlockHash(),
+			"lastSyncedBlockID", s.progressTracker.LastSyncedBlockID(),
+			"lastSyncedBlockHash", s.progressTracker.LastSyncedBlockHash(),
 		)
 
 		// Reset the L1Current cursor.
 		if err := s.state.ResetL1Current(s.ctx, l2Head.Number); err != nil {
-			return err
+			return fmt.Errorf("failed to reset L1 current cursor: %w", err)
 		}
 
 		// Reset to the latest L2 execution engine's chain status.
@@ -140,7 +132,7 @@ func (s *L2ChainSyncer) Sync() error {
 
 // AheadOfHeadToSync checks whether the L2 chain is ahead of the head to sync in protocol.
 func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
-	log.Debug(
+	log.Info(
 		"Checking whether the execution engine is ahead of the head to sync",
 		"heightToSync", heightToSync,
 		"executionEngineHead", s.state.GetL2Head().Number,
@@ -156,12 +148,23 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 	// If the L2 execution engine's chain is behind of the block head to sync,
 	// we should keep the beacon sync.
 	if s.state.GetL2Head().Number.Uint64() < heightToSync {
+		log.Info(
+			"L2 execution engine is behind of the head to sync",
+			"heightToSync", heightToSync,
+			"executionEngineHead", s.state.GetL2Head().Number,
+		)
 		return false
 	}
 
 	// If the L2 execution engine's chain is ahead of the block head to sync,
 	// we can mark the beacon sync progress as finished.
 	if s.progressTracker.LastSyncedBlockID() != nil {
+		log.Info(
+			"L2 execution engine is ahead of the head to sync",
+			"heightToSync", heightToSync,
+			"executionEngineHead", s.state.GetL2Head().Number,
+			"lastSyncedBlockID", s.progressTracker.LastSyncedBlockID(),
+		)
 		return s.state.GetL2Head().Number.Uint64() >= s.progressTracker.LastSyncedBlockID().Uint64()
 	}
 
@@ -170,9 +173,9 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 
 // needNewBeaconSyncTriggered checks whether the current L2 execution engine needs to trigger
 // another new beacon sync, the following conditions should be met:
-// 1. The `P2PSync` flag is set.
-// 2. The protocol's latest verified block head is not zero.
-// 3. The L2 execution engine's chain is behind of the protocol's latest verified block head.
+// 1. The `--p2p.sync` flag is set.
+// 2. The protocol's (last verified) block head is not zero.
+// 3. The L2 execution engine's chain is behind of the protocol's (latest verified) block head.
 // 4. The L2 execution engine's chain has met a sync timeout issue.
 func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 	// If the flag is not set or there was a finished beacon sync, we simply return false.
@@ -180,24 +183,9 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 		return 0, false, nil
 	}
 
-	// For full sync mode, we will use the verified block head,
-	// and for snap sync mode, we will use the latest block head.
-	var blockID uint64
-	switch s.syncMode {
-	case downloader.SnapSync.String():
-		headL1Origin, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)
-		if err != nil {
-			return 0, false, err
-		}
-		blockID = headL1Origin.BlockID.Uint64()
-	case downloader.FullSync.String():
-		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: s.ctx})
-		if err != nil {
-			return 0, false, err
-		}
-		blockID = stateVars.B.LastVerifiedBlockId
-	default:
-		return 0, false, fmt.Errorf("invalid sync mode: %s", s.syncMode)
+	blockID, err := s.rpc.L2CheckPoint.BlockNumber(s.ctx)
+	if err != nil {
+		return 0, false, err
 	}
 
 	// If the protocol's block head is zero, we simply return false.

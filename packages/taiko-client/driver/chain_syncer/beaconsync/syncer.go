@@ -6,11 +6,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -22,7 +19,6 @@ type Syncer struct {
 	ctx             context.Context
 	rpc             *rpc.Client
 	state           *state.State
-	syncMode        string
 	progressTracker *SyncProgressTracker // Sync progress tracker
 }
 
@@ -31,10 +27,9 @@ func NewSyncer(
 	ctx context.Context,
 	rpc *rpc.Client,
 	state *state.State,
-	syncMode string,
 	progressTracker *SyncProgressTracker,
 ) *Syncer {
-	return &Syncer{ctx, rpc, state, syncMode, progressTracker}
+	return &Syncer{ctx, rpc, state, progressTracker}
 }
 
 // TriggerBeaconSync triggers the L2 execution engine to start performing a beacon sync, if the
@@ -99,36 +94,6 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 	header, err := s.rpc.L2CheckPoint.HeaderByNumber(s.ctx, new(big.Int).SetUint64(blockID))
 	if err != nil {
 		return nil, err
-	}
-
-	// If the sync mode is `full`, we need to verify the protocol verified block hash before syncing.
-	if s.syncMode == downloader.FullSync.String() {
-		blockNum := new(big.Int).SetUint64(blockID)
-		var blockInfo bindings.TaikoDataBlockV2
-		if s.state.IsOnTake(blockNum) {
-			blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
-		} else {
-			blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockNum)
-		}
-		if err != nil {
-			return nil, err
-		}
-		ts, err := s.rpc.GetTransition(
-			ctx,
-			new(big.Int).SetUint64(blockInfo.BlockId),
-
-			uint32(blockInfo.VerifiedTransitionId.Uint64()),
-		)
-		if err != nil {
-			return nil, err
-		}
-		if header.Hash() != ts.BlockHash {
-			return nil, fmt.Errorf(
-				"latest verified block hash mismatch: %s != %s",
-				header.Hash(),
-				common.BytesToHash(ts.BlockHash[:]),
-			)
-		}
 	}
 
 	log.Info("Block header to sync retrieved", "hash", header.Hash())
