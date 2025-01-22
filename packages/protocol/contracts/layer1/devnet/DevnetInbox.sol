@@ -32,7 +32,7 @@ contract DevnetInbox is TaikoInbox {
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             minForcedTxsPerBlock: 256,
-            forcedTxsBlockInternal: 1024,
+            forcedTxsBlockInternal: 128,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
