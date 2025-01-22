@@ -13,6 +13,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
@@ -229,4 +230,118 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 
 	return nil
+}
+
+// InsertPreconfBlockFromTransactionsBatch inserts a preconf block from transactions batch.
+func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
+	ctx context.Context,
+	executableData *engine.ExecutableData,
+	anchorBlockID uint64,
+	anchorStateRoot common.Hash,
+	anchorInput [32]byte,
+	signalSlots [][32]byte,
+	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+) (*types.Header, error) {
+	parentHeader, err := i.rpc.L2.HeaderByHash(ctx, executableData.ParentHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
+	}
+
+	if parentHeader.Number.Uint64()+1 != executableData.Number {
+		return nil, fmt.Errorf("invalid parent hash %s", executableData.ParentHash)
+	}
+
+	baseFee, err := i.rpc.CalculateBaseFee(
+		ctx,
+		parentHeader,
+		new(big.Int).SetUint64(anchorBlockID),
+		true,
+		baseFeeConfig,
+		executableData.Timestamp,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate base fee: %w", err)
+	}
+
+	log.Info(
+		"L2 baseFee for the next preconfirmation block",
+		"blockID", executableData.Number,
+		"baseFee", utils.WeiToGWei(baseFee),
+		"parentGasUsed", parentHeader.GasUsed,
+	)
+	anchorBlockHeader, err := i.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(anchorBlockID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch anchor block: %w", err)
+	}
+	if anchorBlockHeader.Root != anchorStateRoot {
+		return nil, fmt.Errorf("invalid anchor state root %s", anchorStateRoot)
+	}
+
+	// Assemble a TaikoAnchor.anchorV3 transaction
+	anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
+		ctx,
+		new(big.Int).SetUint64(anchorBlockID),
+		anchorStateRoot,
+		anchorInput,
+		parentHeader.GasUsed,
+		baseFeeConfig,
+		signalSlots,
+		new(big.Int).Add(parentHeader.Number, common.Big1),
+		baseFee,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
+	}
+	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(executableData.Number))
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate difficulty: %w", err)
+	}
+	extraData := encoding.EncodeBaseFeeConfig(baseFeeConfig)
+
+	payloadData, err := createPayloadAndSetHead(
+		ctx,
+		i.rpc,
+		&createPayloadAndSetHeadMetaData{
+			createExecutionPayloadsMetaData: &createExecutionPayloadsMetaData{
+				BlockID:               new(big.Int).SetUint64(executableData.Number),
+				ExtraData:             extraData[:],
+				SuggestedFeeRecipient: executableData.FeeRecipient,
+				GasLimit:              executableData.GasLimit,
+				Difficulty:            common.BytesToHash(difficulty),
+				Timestamp:             executableData.Timestamp,
+				ParentHash:            executableData.ParentHash,
+				L1Origin: &rawdb.L1Origin{
+					BlockID:       new(big.Int).SetUint64(executableData.Number),
+					L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+					L1BlockHeight: nil,
+					L1BlockHash:   common.Hash{},
+				},
+				Txs: append(
+					types.Transactions{anchorTx},
+					i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, executableData.Transactions[0], true, true)...,
+				),
+				Withdrawals: make([]*types.Withdrawal, 0),
+				BaseFee:     baseFee,
+			},
+			AnchorBlockID:   new(big.Int).SetUint64(anchorBlockID),
+			AnchorBlockHash: anchorBlockHeader.Hash(),
+			BaseFeeConfig:   baseFeeConfig,
+			Parent:          parentHeader,
+		},
+		anchorTx,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert new preconfirmation head to L2 execution engine: %w", err)
+	}
+
+	log.Info(
+		"⏰ New preconfirmation L2 block inserted",
+		"blockID", executableData.Number,
+		"hash", payloadData.BlockHash,
+		"transactions", len(payloadData.Transactions[0]),
+		"baseFee", utils.WeiToGWei(payloadData.BaseFeePerGas),
+		"withdrawals", len(payloadData.Withdrawals),
+	)
+
+	return i.rpc.L2.HeaderByHash(ctx, payloadData.BlockHash)
 }

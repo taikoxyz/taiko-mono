@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/labstack/echo/v4"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // ValidateSignature validates the signature of the request body.
@@ -39,9 +40,10 @@ type BuildPreconfBlockRequestBody struct {
 	// @param anchorBlockID uint64 `_anchorBlockId` parameter of the `anchorV3` transaction in the preconf block
 	AnchorBlockID uint64 `json:"anchorBlockID"`
 	// @param anchorStateRoot string `_anchorStateRoot` parameter of the `anchorV3` transaction in the preconf block
-	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
-	AnchorInput     [32]byte    `json:"anchorInput"`
-	SignalSlots     [][32]byte  `json:"signalSlots"`
+	AnchorStateRoot common.Hash                                `json:"anchorStateRoot"`
+	AnchorInput     [32]byte                                   `json:"anchorInput"`
+	SignalSlots     [][32]byte                                 `json:"signalSlots"`
+	BaseFeeConfig   *pacayaBindings.LibSharedDataBaseFeeConfig `json:"baseFeeConfig"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconf
@@ -96,6 +98,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if reqBody.ExecutableData.FeeRecipient == (common.Address{}) {
 		return s.returnError(c, http.StatusBadRequest, errors.New("empty L2 fee recipient"))
 	}
+	if len(reqBody.ExecutableData.Transactions) != 1 {
+		return s.returnError(c, http.StatusBadRequest, errors.New("only one transaction list is allowed"))
+	}
 
 	// If the `--preconfBlock.signatureCheck` flag is enabled, validate the signature.
 	if s.checkSig {
@@ -130,6 +135,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		reqBody.AnchorStateRoot,
 		reqBody.AnchorInput,
 		reqBody.SignalSlots,
+		reqBody.BaseFeeConfig,
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)

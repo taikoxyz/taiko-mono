@@ -702,3 +702,13 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 
 	return inputs, nil
 }
+
+// EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
+func EncodeBaseFeeConfig(baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig) [32]byte {
+	var (
+		bytes32Value [32]byte
+		uintValue    = new(big.Int).SetUint64(uint64(baseFeeConfig.SharingPctg))
+	)
+	copy(bytes32Value[32-len(uintValue.Bytes()):], uintValue.Bytes())
+	return bytes32Value
+}
