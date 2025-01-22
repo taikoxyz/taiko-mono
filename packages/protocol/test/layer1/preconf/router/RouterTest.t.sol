@@ -32,6 +32,8 @@ contract RouterTest is RouterTestBase {
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({ numTransactions: 1, timeShift: 1 });
 
+        ITaikoInbox.BlobParams memory blobParams;
+
         // Create batch params with correct structure
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
             proposer: Carol,
@@ -40,12 +42,9 @@ contract RouterTest is RouterTestBase {
             anchorBlockId: 0,
             anchorInput: bytes32(0),
             lastBlockTimestamp: uint64(block.timestamp),
-            txListOffset: 0,
-            txListSize: 0,
-            firstBlobIndex: 0,
-            numBlobs: 0,
             revertIfNotFirstProposal: false,
             signalSlots: new bytes32[](0),
+            blobParams: blobParams,
             blocks: blockParams
         });
 
@@ -118,6 +117,8 @@ contract RouterTest is RouterTestBase {
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({ numTransactions: 1, timeShift: 1 });
 
+        ITaikoInbox.BlobParams memory blobParams;
+
         // Create batch params with DIFFERENT proposer than sender
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
             proposer: Bob, // Set different proposer than sender (Carol)
@@ -126,12 +127,9 @@ contract RouterTest is RouterTestBase {
             anchorBlockId: 0,
             anchorInput: bytes32(0),
             lastBlockTimestamp: uint64(block.timestamp),
-            txListOffset: 0,
-            txListSize: 0,
-            firstBlobIndex: 0,
-            numBlobs: 0,
             revertIfNotFirstProposal: false,
             signalSlots: new bytes32[](0),
+            blobParams: blobParams,
             blocks: blockParams
         });
 

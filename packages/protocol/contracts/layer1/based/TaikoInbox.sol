@@ -93,7 +93,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
             bool calldataUsed = _txList.length != 0;
 
-            require(calldataUsed || params.numBlobs != 0, BlobNotSpecified());
+            require(calldataUsed || params.blobParams.numBlobs != 0, BlobNotSpecified());
 
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
                 params,
@@ -115,9 +115,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
 
             meta_ = BatchMetadata({
-                txListHash: calldataUsed
-                    ? keccak256(_txList)
-                    : _calcTxListHash(params.firstBlobIndex, params.numBlobs),
+                txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(params.blobParams),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
                 batchId: stats2.numBatches,
@@ -129,15 +127,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                     + config.livenessBondPerBlock * uint96(params.blocks.length),
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
-                txListOffset: params.txListOffset,
-                txListSize: params.txListSize,
-                firstBlobIndex: params.firstBlobIndex,
-                numBlobs: calldataUsed ? 0 : params.numBlobs,
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
                 signalSlots: params.signalSlots,
                 blocks: params.blocks,
                 anchorInput: params.anchorInput,
+                blobParams: params.blobParams,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -520,18 +515,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         state.stats2.paused = true;
     }
 
-    function _calcTxListHash(
-        uint8 _firstBlobIndex,
-        uint8 _numBlobs
-    )
+    function _calcTxListHash(BlobParams memory _blobParams)
         internal
         view
         virtual
         returns (bytes32)
     {
-        bytes32[] memory blobHashes = new bytes32[](_numBlobs);
-        for (uint256 i; i < _numBlobs; ++i) {
-            blobHashes[i] = blobhash(_firstBlobIndex + i);
+        bytes32[] memory blobHashes = new bytes32[](_blobParams.numBlobs);
+        for (uint256 i; i < _blobParams.numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobParams.firstBlobIndex + i);
             require(blobHashes[i] != 0, BlobNotFound());
         }
         return keccak256(abi.encode(blobHashes));
