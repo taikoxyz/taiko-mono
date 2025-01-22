@@ -55,8 +55,8 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	}
 	if method.Name != "anchor" && method.Name != "anchorV2" && method.Name != "anchorV3" {
 		return fmt.Errorf(
-			"invalid TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction selector, expect: %s, actual: %s",
-			"anchor / anchorV2",
+			"invalid TaikoL2.anchor / TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction selector, expect: %s, actual: %s",
+			"anchor / anchorV2 / anchorV3",
 			method.Name,
 		)
 	}

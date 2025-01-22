@@ -33,7 +33,7 @@ func (d *BlobFetcher) FetchOntake(
 	meta metadata.TaikoBlockMetaDataOntake,
 ) ([]byte, error) {
 	if !meta.GetBlobUsed() {
-		return nil, pkg.ErrBlobUsed
+		return nil, pkg.ErrBlobUnused
 	}
 
 	// Fetch the L1 block sidecars.
@@ -92,7 +92,7 @@ func (d *BlobFetcher) FetchPacaya(
 	meta metadata.TaikoBatchMetaDataPacaya,
 ) ([]byte, error) {
 	if meta.GetNumBlobs() == 0 {
-		return nil, pkg.ErrBlobUsed
+		return nil, pkg.ErrBlobUnused
 	}
 
 	var b []byte

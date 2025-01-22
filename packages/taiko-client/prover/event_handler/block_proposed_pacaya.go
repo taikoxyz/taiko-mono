@@ -8,6 +8,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
