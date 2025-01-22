@@ -26,7 +26,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
     address public oldFork = vm.envAddress("OLD_FORK");
-    address public forkRouter = vm.envAddress("FORK_ROUTER");
+    address public taikoInbox = vm.envAddress("TAIKO_INBOX");
     address public proverSet = vm.envAddress("PROVER_SET");
     address public sgxVerifier = vm.envAddress("SGX_VERIFIER");
     address public risc0Verifier = vm.envAddress("RISC0_VERIFIER");
@@ -42,7 +42,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(privateKey != 0, "invalid private key");
         require(rollupResolver != address(0), "invalid rollup resolver");
         require(oldFork != address(0), "invalid old fork");
-        require(forkRouter != address(0), "invalid fork router");
+        require(taikoInbox != address(0), "invalid taiko inbox");
         require(proverSet != address(0), "invalid prover set");
         require(sgxVerifier != address(0), "invalid sgx verifier");
         require(risc0Verifier != address(0), "invalid risc0 verifier");
@@ -63,14 +63,14 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(rollupResolver).upgradeTo(address(new DefaultResolver()));
         // TaikoInbox
         address newFork = address(new DevnetInbox(rollupResolver));
-        UUPSUpgradeable(forkRouter).upgradeTo(address(new ForkRouter(oldFork, newFork)));
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new ForkRouter(oldFork, newFork)));
 
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));
 
         // Verifier
-        TaikoInbox taikoInbox = TaikoInbox(newFork);
-        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
+        uint64 l2ChainId = taikoInboxImpl.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
         address opVerifier = deployProxy({
             name: "op_verifier",
