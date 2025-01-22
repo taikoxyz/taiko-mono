@@ -119,6 +119,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
                 meta_ = BatchMetadata({
                     txsHash: txsHash,
+                    blobHashes: blobHashes,
+                    blobByteOffset: params.blobParams.byteOffset,
+                    blobByteSize: params.blobParams.byteSize,
                     extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                     coinbase: params.coinbase,
                     batchId: stats2.numBatches,
@@ -135,9 +138,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                     signalSlots: params.signalSlots,
                     blocks: params.blocks,
                     anchorInput: params.anchorInput,
-                    blobHashes: blobHashes,
-                    blobByteOffset: params.blobParams.byteOffset,
-                    blobByteSize: params.blobParams.byteSize,
                     baseFeeConfig: config.baseFeeConfig
                 });
                 emit BatchProposed(meta_, _txList, blobHashes);

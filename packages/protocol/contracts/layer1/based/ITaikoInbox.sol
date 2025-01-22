@@ -55,6 +55,9 @@ interface ITaikoInbox {
 
     struct BatchMetadata {
         bytes32 txsHash;
+        bytes32[] blobHashes;
+        uint32 blobByteOffset;
+        uint32 blobByteSize;
         bytes32 extraData;
         address coinbase;
         uint64 batchId;
@@ -69,9 +72,6 @@ interface ITaikoInbox {
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
         bytes32 anchorInput;
-        bytes32[] blobHashes;
-        uint32 blobByteOffset;
-        uint32 blobByteSize;
         BlockParams[] blocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
