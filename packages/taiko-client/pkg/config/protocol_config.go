@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
