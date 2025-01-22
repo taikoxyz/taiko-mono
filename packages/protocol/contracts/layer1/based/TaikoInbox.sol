@@ -115,8 +115,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             info_ = BatchInfo({
-                txsHash: bytes32(0), // to be initliased later
-                blobHashes: new bytes32[](0), // to be initliased later
+                txsHash: bytes32(0), // to be initialised later
+                blobHashes: new bytes32[](0), // to be initialised later
                 blobByteOffset: params.blobParams.byteOffset,
                 blobByteSize: params.blobParams.byteSize,
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
