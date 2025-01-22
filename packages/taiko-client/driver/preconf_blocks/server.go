@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -25,8 +26,8 @@ type preconfBlockChainSyncer interface {
 		anchorStateRoot common.Hash,
 		anchorInput [32]byte,
 		signalSlots [][32]byte,
+		baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	) (*types.Header, error)
-	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
 // @title Taiko Preconfirmation Block Server API
