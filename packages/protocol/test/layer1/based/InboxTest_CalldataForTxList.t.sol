@@ -45,15 +45,15 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         // Define the txList in calldata
         bytes memory txList = abi.encodePacked("txList");
-        bytes32 expectedHash = keccak256(txList);
-
         vm.prank(Alice);
         uint64[] memory batchIds =
             _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1, txList: txList });
 
         for (uint256 i; i < batchIds.length; ++i) {
-            (ITaikoInbox.BatchMetadata memory meta,) = _loadMetadataAndInfo(batchIds[i]);
-            assertEq(meta.infoHash, expectedHash);
+            (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
+                _loadMetadataAndInfo(batchIds[i]);
+            assertEq(meta.infoHash, keccak256(abi.encode(info)));
+            assertEq(info.txsHash, keccak256(txList));
         }
 
         vm.prank(Alice);
@@ -119,14 +119,17 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         bytes32 expectedHash2 = keccak256(txList2);
 
         vm.prank(Alice);
-        uint64[] memory batchIds1 = _proposeBatchesWithDefaultParameters(1, txList1);
-        (ITaikoInbox.BatchMetadata memory meta1,) = _loadMetadataAndInfo(batchIds1[0]);
-        assertEq(meta1.infoHash, expectedHash1, "txsHash mismatch for block 1");
+        uint64[] memory batchIdsmt1 = _proposeBatchesWithDefaultParameters(1, txList1);
+
+        (, ITaikoInbox.BatchInfo memory info) = _loadMetadataAndInfo(batchIds1[0]);
+
+        assertEq(info.txsHash, expectedHash1, "txsHash mismatch for block 1");
 
         vm.prank(Alice);
         uint64[] memory batchIds2 = _proposeBatchesWithDefaultParameters(1, txList2);
-        (ITaikoInbox.BatchMetadata memory meta2,) = _loadMetadataAndInfo(batchIds2[0]);
-        assertEq(meta2.infoHash, expectedHash2, "txsHash mismatch for block 2");
+
+        (, info) = _loadMetadataAndInfo(batchIds2[0]);
+        assertEq(info.txsHash, expectedHash2, "txsHash mismatch for block 2");
 
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds2);
@@ -135,7 +138,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds1);
     }
 
-    function test_prove_batch_with_mismatched_txlist() external {
+    function test_prove_batch_with_mismatched_info_hash() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -143,25 +146,16 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        // Define a correct txList for proposal
-        bytes memory txList = abi.encodePacked("correct txList");
-
         vm.prank(Alice);
+        bytes memory txList = abi.encodePacked("txList");
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList);
-
-        // Define an incorrect txList for proof
-        bytes32 incorrectHash = keccak256(abi.encodePacked("incorrect txList"));
-
-        // Attempt to prove the block with the incorrect txList
-        (, ITaikoInbox.BatchInfo memory info) = _loadMetadataAndInfo(batchIds[0]);
-        info.txsHash = incorrectHash;
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < batchIds.length; ++i) {
-            (metas[i], info) = _loadMetadataAndInfo(batchIds[i]);
-            info.txsHash = incorrectHash;
+            (metas[i],) = _loadMetadataAndInfo(batchIds[i]);
+            metas[i].infoHash = keccak256(abi.encodePacked("incorrect info hash"));
             transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
             transitions[i].blockHash = correctBlockhash(batchIds[i]);
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);

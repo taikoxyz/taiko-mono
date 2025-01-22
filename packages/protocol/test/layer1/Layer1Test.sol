@@ -33,7 +33,7 @@ contract ConfigurableInbox is TaikoInbox {
     }
 
     function _calculateTxsHash(
-        bytes32,
+        bytes32 _txListHash,
         BlobParams memory _blobParams
     )
         internal
@@ -41,7 +41,7 @@ contract ConfigurableInbox is TaikoInbox {
         override
         returns (bytes32, bytes32[] memory)
     {
-        return (keccak256("BLOB"), new bytes32[](_blobParams.numBlobs));
+        return (_txListHash, new bytes32[](_blobParams.numBlobs));
     }
 }
 

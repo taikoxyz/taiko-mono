@@ -34,7 +34,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
         // Call the proposeBatch function on the TaikoInbox
         address taikoInbox = resolve(LibStrings.B_TAIKO, false);
-        (,meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
+        (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
