@@ -28,6 +28,7 @@ type preconfBlockChainSyncer interface {
 		signalSlots [][32]byte,
 		baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	) (*types.Header, error)
+	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
 // @title Taiko Preconfirmation Block Server API
@@ -129,4 +130,5 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
+	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 }

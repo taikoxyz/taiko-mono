@@ -365,3 +365,13 @@ func (s *Syncer) checkReorg(
 
 	return reorgCheckResult, nil
 }
+
+// BlocksInserterOntake returns the Ontake blocks inserter.
+func (s *Syncer) BlocksInserterOntake() *blocksInserter.BlocksInserterOntake {
+	return s.blocksInserterOntake.(*blocksInserter.BlocksInserterOntake)
+}
+
+// BlocksInserterPacaya returns the Pacaya blocks inserter.
+func (s *Syncer) BlocksInserterPacaya() *blocksInserter.BlocksInserterPacaya {
+	return s.blocksInserterPacaya.(*blocksInserter.BlocksInserterPacaya)
+}
