@@ -115,7 +115,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             {
                 (bytes32 txsHash, bytes32[] memory blobHashes) =
-                    _calculateTxshash(keccak256(_txList), params.blobParams);
+                    _calculateTxsHash(keccak256(_txList), params.blobParams);
 
                 meta_ = BatchMetadata({
                     txsHash: txsHash,
@@ -520,7 +520,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         state.stats2.paused = true;
     }
 
-    function _calculateTxshash(
+    function _calculateTxsHash(
         bytes32 _txListHash,
         BlobParams memory _blobParams
     )
