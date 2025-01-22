@@ -53,7 +53,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         for (uint256 i; i < batchIds.length; ++i) {
             ITaikoInbox.BatchMetadata memory meta = _loadMetadata(batchIds[i]);
-            assertEq(meta.txListHash, expectedHash);
+            assertEq(meta.txsHash, expectedHash);
         }
 
         vm.prank(Alice);
@@ -93,7 +93,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         // With empty txList
         ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "");
-        assertTrue(meta.txListHash != 0, "txListHash should not be zero for valid blobIndex");
+        assertTrue(meta.txsHash != 0, "txsHash should not be zero for valid blobIndex");
 
         _saveMetadata(meta);
 
@@ -120,12 +120,12 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         vm.prank(Alice);
         uint64[] memory batchIds1 = _proposeBatchesWithDefaultParameters(1, txList1);
         ITaikoInbox.BatchMetadata memory meta1 = _loadMetadata(batchIds1[0]);
-        assertEq(meta1.txListHash, expectedHash1, "txListHash mismatch for block 1");
+        assertEq(meta1.txsHash, expectedHash1, "txsHash mismatch for block 1");
 
         vm.prank(Alice);
         uint64[] memory batchIds2 = _proposeBatchesWithDefaultParameters(1, txList2);
         ITaikoInbox.BatchMetadata memory meta2 = _loadMetadata(batchIds2[0]);
-        assertEq(meta2.txListHash, expectedHash2, "txListHash mismatch for block 2");
+        assertEq(meta2.txsHash, expectedHash2, "txsHash mismatch for block 2");
 
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds2);
@@ -153,14 +153,14 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         // Attempt to prove the block with the incorrect txList
         ITaikoInbox.BatchMetadata memory meta = _loadMetadata(batchIds[0]);
-        meta.txListHash = incorrectHash;
+        meta.txsHash = incorrectHash;
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
         for (uint256 i; i < batchIds.length; ++i) {
             metas[i] = _loadMetadata(batchIds[i]);
-            metas[i].txListHash = incorrectHash;
+            metas[i].txsHash = incorrectHash;
             transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
             transitions[i].blockHash = correctBlockhash(batchIds[i]);
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);

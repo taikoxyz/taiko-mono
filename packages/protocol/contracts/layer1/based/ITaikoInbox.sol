@@ -54,7 +54,7 @@ interface ITaikoInbox {
     }
 
     struct BatchMetadata {
-        bytes32 txListHash;
+        bytes32 txsHash;
         bytes32 extraData;
         address coinbase;
         uint64 batchId;
@@ -69,8 +69,10 @@ interface ITaikoInbox {
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
         bytes32 anchorInput;
+        bytes32[] blobHashes;
+        uint32 blobByteOffset;
+        uint32 blobByteSize;
         BlockParams[] blocks;
-        BlobParams blobParams;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -209,9 +211,9 @@ interface ITaikoInbox {
 
     /// @notice Emitted when a batch is proposed.
     /// @param meta The metadata of the proposed batch.
-    /// @param calldataUsed Whether calldata is used for txList DA.
-    /// @param txListInCalldata The tx list in calldata.
-    event BatchProposed(BatchMetadata meta, bool calldataUsed, bytes txListInCalldata);
+    /// @param txList The tx list in calldata.
+    /// @param blobHashes The blob hashes.
+    event BatchProposed(BatchMetadata meta, bytes txList, bytes32[] blobHashes);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.

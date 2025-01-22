@@ -25,7 +25,7 @@ contract MockTaikoInbox is EssentialContract {
 
         // Create metadata with minimal required fields for testing
         meta_ = ITaikoInbox.BatchMetadata({
-            txListHash: keccak256(_txList),
+            txsHash: keccak256(_txList),
             extraData: bytes32(0),
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             batchId: 0, // Mock value
@@ -41,7 +41,9 @@ contract MockTaikoInbox is EssentialContract {
             signalSlots: params.signalSlots,
             blocks: params.blocks,
             anchorInput: params.anchorInput,
-            blobParams: params.blobParams,
+            blobHashes: new bytes32[](0),
+            blobByteOffset: 0,
+            blobByteSize: 0,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 sharingPctg: 0,
