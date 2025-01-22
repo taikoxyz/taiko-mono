@@ -310,7 +310,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		lastVerifiedBlockHash = blockInfo.BlockHash
 	} else {
 		lastVerifiedBlockID = ts.BlockId
-		lastVerifiedBlockHash = ts.Tran.BlockHash
+		lastVerifiedBlockHash = ts.Ts.BlockHash
 	}
 
 	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID {

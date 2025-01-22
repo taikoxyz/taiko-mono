@@ -57,7 +57,7 @@ func createPayloadAndSetHead(
 		}
 	} else {
 		if payload.Number > lastVerifiedTS.BlockId {
-			lastVerifiedBlockHash = lastVerifiedTS.Tran.BlockHash
+			lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
 		}
 	}
 

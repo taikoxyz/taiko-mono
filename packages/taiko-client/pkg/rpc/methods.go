@@ -633,7 +633,7 @@ func (c *Client) GetLastVerifiedBlockOntake(ctx context.Context) (*struct {
 func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 	BatchId uint64 //nolint:stylecheck
 	BlockId uint64 //nolint:stylecheck
-	Tran    pacayaBindings.ITaikoInboxTransition
+	Ts      pacayaBindings.ITaikoInboxTransitionState
 }, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
