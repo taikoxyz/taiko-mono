@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -61,13 +62,12 @@ func (b *BlobTransactionBuilder) BuildOntake(
 	txListBytesArray [][]byte,
 ) (*txmgr.TxCandidate, error) {
 	// Check if the current L2 chain is after ontake fork.
-	// TODO: query from protocol.
-	l2Head, err := b.rpc.L2.BlockNumber(ctx)
+	_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
 
-	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(l2Head)) {
+	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(slotB.NumBlocks)) {
 		return nil, fmt.Errorf("ontake transaction builder is not supported before ontake fork")
 	}
 

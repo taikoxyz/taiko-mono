@@ -150,7 +150,6 @@ func (b *TxBuilderWithFallback) BuildOntake(
 }
 
 // BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
-// TODO: improve this method to use func interface.
 func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
