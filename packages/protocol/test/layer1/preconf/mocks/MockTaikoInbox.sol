@@ -18,32 +18,28 @@ contract MockTaikoInbox is EssentialContract {
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Decode the batch params
         ITaikoInbox.BatchParams memory params = abi.decode(_params, (ITaikoInbox.BatchParams));
 
-        // Create metadata with minimal required fields for testing
-        meta_ = ITaikoInbox.BatchMetadata({
+        info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
+            blobHashes: new bytes32[](0),
+            blobByteOffset: 0,
+            blobByteSize: 0,
             extraData: bytes32(0),
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
-            batchId: 0, // Mock value
             gasLimit: 0, // Mock value
             lastBlockTimestamp: params.lastBlockTimestamp,
             parentMetaHash: params.parentMetaHash,
-            proposer: params.proposer,
             livenessBond: 0, // Mock value
-            proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             signalSlots: params.signalSlots,
             blocks: params.blocks,
             anchorInput: params.anchorInput,
-            blobHashes: new bytes32[](0),
-            blobByteOffset: 0,
-            blobByteSize: 0,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 sharingPctg: 0,
@@ -51,6 +47,13 @@ contract MockTaikoInbox is EssentialContract {
                 minGasExcess: 0,
                 maxGasIssuancePerBlock: 0
             })
+        });
+
+        meta_ = ITaikoInbox.BatchMetadata({
+            batchId: 0,
+            proposer: params.proposer,
+            proposedAt: uint64(block.timestamp),
+            infoHash: keccak256(abi.encode(info_))
         });
 
         metaHash = keccak256(abi.encode(meta_));

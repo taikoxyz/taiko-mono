@@ -53,7 +53,7 @@ contract RouterTest is RouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        ITaikoInbox.BatchMetadata memory meta =
+        (, ITaikoInbox.BatchMetadata memory meta) =
             router.proposePreconfedBlocks("", abi.encode(params), "");
 
         // Assert the proposer was set correctly in the metadata

@@ -53,27 +53,34 @@ interface ITaikoInbox {
         BlockParams[] blocks;
     }
 
-    struct BatchMetadata {
+    /// @dev This struct holds batch information essential for constructing blocks offchain, but it
+    /// does not include data necessary for batch proving.
+    struct BatchInfo {
         bytes32 txsHash;
         bytes32[] blobHashes;
         uint32 blobByteOffset;
         uint32 blobByteSize;
         bytes32 extraData;
         address coinbase;
-        uint64 batchId;
         uint32 gasLimit;
+        uint64 proposedIn; // Used by node/client
         uint64 lastBlockTimestamp;
         bytes32 parentMetaHash;
-        address proposer;
         uint96 livenessBond;
-        uint64 proposedAt; // Used by node/client
-        uint64 proposedIn; // Used by node/client
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
         bytes32 anchorInput;
         BlockParams[] blocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
+    }
+
+    /// @dev This struct holds batch metadata essential proving the batch.
+    struct BatchMetadata {
+        uint64 batchId;
+        address proposer;
+        uint64 proposedAt; // Used by node/client
+        bytes32 infoHash;
     }
 
     /// @notice Struct representing transition to be proven.
@@ -210,10 +217,10 @@ interface ITaikoInbox {
     event Stats2Updated(Stats2 stats2);
 
     /// @notice Emitted when a batch is proposed.
+    /// @param info The info of the proposed batch.
     /// @param meta The metadata of the proposed batch.
     /// @param txList The tx list in calldata.
-    /// @param blobHashes The blob hashes.
-    event BatchProposed(BatchMetadata meta, bytes txList, bytes32[] blobHashes);
+    event BatchProposed(BatchInfo info, BatchMetadata meta, bytes txList);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -278,13 +285,14 @@ interface ITaikoInbox {
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
-    /// @return Batch metadata.
+    /// @return info_ The info of the proposed batch.
+    /// @return meta_ The metadata of the proposed batch.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        returns (BatchMetadata memory);
+        returns (BatchInfo memory info_, BatchMetadata memory meta_);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _params ABI-encoded parameter containing:

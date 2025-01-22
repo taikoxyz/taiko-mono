@@ -25,7 +25,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         bytes calldata _batchTxList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
         address selectedOperator =
@@ -34,7 +34,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
         // Call the proposeBatch function on the TaikoInbox
         address taikoInbox = resolve(LibStrings.B_TAIKO, false);
-        meta_ = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
+        (info_, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());

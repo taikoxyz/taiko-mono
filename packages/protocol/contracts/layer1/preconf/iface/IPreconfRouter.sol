@@ -15,12 +15,13 @@ interface IPreconfRouter {
     /// @param _params ABI-encoded parameters for the preconfing operation.
     /// @param _batchParams ABI-encoded parameters specific to the batch.
     /// @param _batchTxList The transaction list associated to the batch.
-    /// @return meta_ BatchMetadata containing metadata about the proposed batch.
+    /// @return info_ The info of the proposed batch.
+    /// @return meta_ The metadata of the proposed batch.
     function proposePreconfedBlocks(
         bytes calldata _params,
         bytes calldata _batchParams,
         bytes calldata _batchTxList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_);
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
 }
