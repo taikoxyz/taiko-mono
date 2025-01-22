@@ -87,7 +87,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
-        params.numBlobs = 1;
+        params.blobParams.numBlobs = 1;
 
         vm.prank(Alice);
 

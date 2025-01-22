@@ -36,15 +36,12 @@ contract MockTaikoInbox is EssentialContract {
             livenessBond: 0, // Mock value
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
-            txListOffset: params.txListOffset,
-            txListSize: params.txListSize,
-            firstBlobIndex: 0,
-            numBlobs: params.numBlobs,
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             signalSlots: params.signalSlots,
             blocks: params.blocks,
             anchorInput: params.anchorInput,
+            blobParams: params.blobParams,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 sharingPctg: 0,

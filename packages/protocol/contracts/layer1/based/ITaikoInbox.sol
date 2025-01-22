@@ -29,6 +29,16 @@ interface ITaikoInbox {
         uint8 timeShift;
     }
 
+    struct BlobParams {
+        // The index of the first blob in this batch.
+        uint8 firstBlobIndex;
+        // The number of blobs in this batch. Blobs are initially concatenated and subsequently
+        // decompressed via Zlib.
+        uint8 numBlobs;
+        uint32 byteOffset;
+        uint32 byteSize;
+    }
+
     struct BatchParams {
         address proposer;
         address coinbase;
@@ -36,16 +46,10 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         bytes32 anchorInput;
         uint64 lastBlockTimestamp;
-        uint32 txListOffset;
-        uint32 txListSize;
-        // The index of the first blob in this batch.
-        uint8 firstBlobIndex;
-        // The number of blobs in this batch. Blobs are initially concatenated and subsequently
-        // decompressed via Zlib.
-        uint8 numBlobs;
         bool revertIfNotFirstProposal;
         bytes32[] signalSlots;
         // Specifies the number of blocks to be generated from this batch.
+        BlobParams blobParams;
         BlockParams[] blocks;
     }
 
@@ -61,15 +65,12 @@ interface ITaikoInbox {
         uint96 livenessBond;
         uint64 proposedAt; // Used by node/client
         uint64 proposedIn; // Used by node/client
-        uint32 txListOffset;
-        uint32 txListSize;
-        uint8 firstBlobIndex;
-        uint8 numBlobs;
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
-        BlockParams[] blocks;
         bytes32 anchorInput;
+        BlockParams[] blocks;
+        BlobParams blobParams;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
