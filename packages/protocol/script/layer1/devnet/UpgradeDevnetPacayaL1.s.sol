@@ -22,7 +22,6 @@ import "src/layer1/based/ForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 
-
 contract UpgradeDevnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
 
