@@ -95,7 +95,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         // With empty txList
         ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "");
-        assertTrue(meta.txListHash != 0, "txListHash should not be zero for valid blobIndex");
+        assertEq(meta.txListHash, 0);
 
         _saveMetadata(meta);
 
