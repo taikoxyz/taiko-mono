@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IForcedTransactionProvider
+/// @title IForcedTransactionStore
 /// @custom:security-contact security@taiko.xyz
-interface IForcedTransactionProvider {
+interface IForcedTransactionStore {
     function consumeForcedTransactions()
         external
         returns (bytes memory forcedTxs_);

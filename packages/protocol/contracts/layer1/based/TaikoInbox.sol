@@ -12,7 +12,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./IFork.sol";
 import "./ITaikoInbox.sol";
-import "./IForcedTransactionProvider.sol";
+import "./IForcedTransactionStore.sol";
 
 // import "forge-std/src/console2.sol";
 
@@ -108,7 +108,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             {
                 address provider = resolve(LibStrings.B_FORCED_TX_PROVIDER, true);
                 if (provider != address(0)) {
-                    forcedTxs = IForcedTransactionProvider(provider).consumeForcedTransactions();
+                    forcedTxs = IForcedTransactionStore(provider).consumeForcedTransactions();
                 }
             }
 
