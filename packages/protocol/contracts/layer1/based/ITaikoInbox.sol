@@ -58,29 +58,29 @@ interface ITaikoInbox {
     struct BatchInfo {
         bytes32 txsHash;
         bytes32[] blobHashes;
+        bytes32[] signalSlots;
+        bytes32 extraData;
+        bytes32 parentMetaHash;
+        bytes32 anchorBlockHash;
+        bytes32 anchorInput;
+        address coinbase;
+        uint64 proposedIn; // Used by node/client
+        uint96 livenessBond;
+        uint64 lastBlockTimestamp;
+        uint64 anchorBlockId;
         uint32 blobByteOffset;
         uint32 blobByteSize;
-        bytes32 extraData;
-        address coinbase;
         uint32 gasLimit;
-        uint64 proposedIn; // Used by node/client
-        uint64 lastBlockTimestamp;
-        bytes32 parentMetaHash;
-        uint96 livenessBond;
-        uint64 anchorBlockId;
-        bytes32 anchorBlockHash;
-        bytes32[] signalSlots;
-        bytes32 anchorInput;
         BlockParams[] blocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
     /// @dev This struct holds batch metadata essential proving the batch.
     struct BatchMetadata {
-        uint64 batchId;
-        address proposer;
-        uint64 proposedAt; // Used by node/client
         bytes32 infoHash;
+        address proposer;
+        uint64 batchId;
+        uint64 proposedAt; // Used by node/client
     }
 
     /// @notice Struct representing transition to be proven.

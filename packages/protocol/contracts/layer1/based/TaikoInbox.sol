@@ -117,21 +117,21 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             info_ = BatchInfo({
                 txsHash: bytes32(0), // to be initialised later
                 blobHashes: new bytes32[](0), // to be initialised later
-                blobByteOffset: params.blobParams.byteOffset,
-                blobByteSize: params.blobParams.byteSize,
+                signalSlots: params.signalSlots,
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                coinbase: params.coinbase,
-                gasLimit: config.blockMaxGasLimit,
-                proposedIn: uint64(block.number),
-                lastBlockTimestamp: lastBlockTimestamp,
                 parentMetaHash: lastBatch.metaHash,
+                anchorBlockHash: blockhash(anchorBlockId),
+                anchorInput: params.anchorInput,
+                coinbase: params.coinbase,
+                proposedIn: uint64(block.number),
                 livenessBond: config.livenessBondBase
                     + config.livenessBondPerBlock * uint96(params.blocks.length),
+                lastBlockTimestamp: lastBlockTimestamp,
                 anchorBlockId: anchorBlockId,
-                anchorBlockHash: blockhash(anchorBlockId),
-                signalSlots: params.signalSlots,
+                blobByteOffset: params.blobParams.byteOffset,
+                blobByteSize: params.blobParams.byteSize,
+                gasLimit: config.blockMaxGasLimit,
                 blocks: params.blocks,
-                anchorInput: params.anchorInput,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -141,10 +141,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
 
             meta_ = BatchMetadata({
-                batchId: stats2.numBatches,
+                infoHash: keccak256(abi.encode(info_)),
                 proposer: params.proposer,
-                proposedAt: uint64(block.timestamp),
-                infoHash: keccak256(abi.encode(info_))
+                batchId: stats2.numBatches,
+                proposedAt: uint64(block.timestamp)
             });
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
