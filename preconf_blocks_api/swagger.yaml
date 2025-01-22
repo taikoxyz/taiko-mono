@@ -8,9 +8,7 @@ definitions:
       blobGasUsed:
         type: integer
       blockHash:
-        items:
-          type: integer
-        type: array
+        type: string
       blockNumber:
         type: integer
       depositRequests:
@@ -26,9 +24,7 @@ definitions:
           type: integer
         type: array
       feeRecipient:
-        items:
-          type: integer
-        type: array
+        type: string
       gasLimit:
         type: integer
       gasUsed:
@@ -38,21 +34,13 @@ definitions:
           type: integer
         type: array
       parentHash:
-        items:
-          type: integer
-        type: array
+        type: string
       prevRandao:
-        items:
-          type: integer
-        type: array
+        type: string
       receiptsRoot:
-        items:
-          type: integer
-        type: array
+        type: string
       stateRoot:
-        items:
-          type: integer
-        type: array
+        type: string
       taikoBlock:
         description: 'CHANGE(taiko): whether this is a Taiko L2 block, only used by
           ExecutableDataToBlock'
@@ -68,9 +56,7 @@ definitions:
       txHash:
         description: 'CHANGE(taiko): allow passing txHash directly instead of transactions
           list'
-        items:
-          type: integer
-        type: array
+        type: string
       withdrawals:
         items:
           $ref: '#/definitions/types.Withdrawal'
@@ -78,9 +64,7 @@ definitions:
       withdrawalsHash:
         description: 'CHANGE(taiko): allow passing WithdrawalsHash directly instead
           of withdrawals'
-        items:
-          type: integer
-        type: array
+        type: string
     type: object
   pacaya.LibSharedDataBaseFeeConfig:
     properties:
@@ -108,9 +92,7 @@ definitions:
       anchorStateRoot:
         description: '@param anchorStateRoot string `_anchorStateRoot` parameter of
           the `anchorV3` transaction in the preconf block'
-        items:
-          type: integer
-        type: array
+        type: string
       baseFeeConfig:
         $ref: '#/definitions/pacaya.LibSharedDataBaseFeeConfig'
       executableData:
@@ -155,9 +137,7 @@ definitions:
         type: array
       withdrawalCredentials:
         description: beneficiary of the validator funds
-        items:
-          type: integer
-        type: array
+        type: string
     type: object
   types.ExecutionWitness:
     properties:
@@ -196,13 +176,9 @@ definitions:
           type: integer
         type: array
       miner:
-        items:
-          type: integer
-        type: array
+        type: string
       mixHash:
-        items:
-          type: integer
-        type: array
+        type: string
       nonce:
         items:
           type: integer
@@ -212,50 +188,32 @@ definitions:
       parentBeaconBlockRoot:
         description: ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
           headers.
-        items:
-          type: integer
-        type: array
+        type: string
       parentHash:
-        items:
-          type: integer
-        type: array
+        type: string
       receiptsRoot:
-        items:
-          type: integer
-        type: array
+        type: string
       requestsRoot:
         description: RequestsHash was added by EIP-7685 and is ignored in legacy headers.
-        items:
-          type: integer
-        type: array
+        type: string
       sha3Uncles:
-        items:
-          type: integer
-        type: array
+        type: string
       stateRoot:
-        items:
-          type: integer
-        type: array
+        type: string
       timestamp:
         type: integer
       transactionsRoot:
-        items:
-          type: integer
-        type: array
+        type: string
       withdrawalsRoot:
         description: WithdrawalsHash was added by EIP-4895 and is ignored in legacy
           headers.
-        items:
-          type: integer
-        type: array
+        type: string
     type: object
   types.Withdrawal:
     properties:
       address:
         description: target address for withdrawn ether
-        items:
-          type: integer
-        type: array
+        type: string
       amount:
         description: value of withdrawal in Gwei
         type: integer

@@ -89,10 +89,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "blockHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "blockNumber": {
                     "type": "integer"
@@ -116,10 +113,7 @@ const docTemplate = `{
                     }
                 },
                 "feeRecipient": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "gasLimit": {
                     "type": "integer"
@@ -134,28 +128,16 @@ const docTemplate = `{
                     }
                 },
                 "parentHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "prevRandao": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "receiptsRoot": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "stateRoot": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "taikoBlock": {
                     "description": "CHANGE(taiko): whether this is a Taiko L2 block, only used by ExecutableDataToBlock",
@@ -175,10 +157,7 @@ const docTemplate = `{
                 },
                 "txHash": {
                     "description": "CHANGE(taiko): allow passing txHash directly instead of transactions list",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "withdrawals": {
                     "type": "array",
@@ -188,10 +167,7 @@ const docTemplate = `{
                 },
                 "withdrawalsHash": {
                     "description": "CHANGE(taiko): allow passing WithdrawalsHash directly instead of withdrawals",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 }
             }
         },
@@ -230,10 +206,7 @@ const docTemplate = `{
                 },
                 "anchorStateRoot": {
                     "description": "@param anchorStateRoot string ` + "`" + `_anchorStateRoot` + "`" + ` parameter of the ` + "`" + `anchorV3` + "`" + ` transaction in the preconf block",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "baseFeeConfig": {
                     "$ref": "#/definitions/pacaya.LibSharedDataBaseFeeConfig"
@@ -301,10 +274,7 @@ const docTemplate = `{
                 },
                 "withdrawalCredentials": {
                     "description": "beneficiary of the validator funds",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 }
             }
         },
@@ -363,16 +333,10 @@ const docTemplate = `{
                     }
                 },
                 "miner": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "mixHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "nonce": {
                     "type": "array",
@@ -385,57 +349,33 @@ const docTemplate = `{
                 },
                 "parentBeaconBlockRoot": {
                     "description": "ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "parentHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "receiptsRoot": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "requestsRoot": {
                     "description": "RequestsHash was added by EIP-7685 and is ignored in legacy headers.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "sha3Uncles": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "stateRoot": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "timestamp": {
                     "type": "integer"
                 },
                 "transactionsRoot": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "withdrawalsRoot": {
                     "description": "WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 }
             }
         },
@@ -444,10 +384,7 @@ const docTemplate = `{
             "properties": {
                 "address": {
                     "description": "target address for withdrawn ether",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "amount": {
                     "description": "value of withdrawal in Gwei",
