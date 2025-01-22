@@ -19,7 +19,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     // Maps operator index to their corresponding operator addresses
     mapping(uint256 operatorIndex => address operator) public operatorIndexToOperator;
 
-    uint256[50] private __gap;
+    uint256[47] private __gap;
 
     constructor(address _resolver) EssentialContract(_resolver) { }
 
