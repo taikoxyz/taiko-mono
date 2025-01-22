@@ -26,6 +26,7 @@ contract InboxTest_BondToken is InboxTestBase {
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
+            minForcedTxsPerBlock: 256,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }

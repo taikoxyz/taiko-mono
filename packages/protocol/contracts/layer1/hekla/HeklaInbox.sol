@@ -32,6 +32,7 @@ contract HeklaInbox is TaikoInbox {
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
+            minForcedTxsPerBlock: 256,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 840_512,
                 pacaya: 840_512 * 10 // TODO

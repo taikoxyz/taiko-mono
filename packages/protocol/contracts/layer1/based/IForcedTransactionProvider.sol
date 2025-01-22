@@ -6,5 +6,5 @@ pragma solidity ^0.8.24;
 interface IForcedTransactionProvider {
     function consumeForcedTransactions()
         external
-        returns (bytes memory forcedTxs_, uint96 priorityFee_);
+        returns (bytes memory forcedTxs_);
 }

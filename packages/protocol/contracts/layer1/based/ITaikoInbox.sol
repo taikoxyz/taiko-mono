@@ -157,6 +157,8 @@ interface ITaikoInbox {
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
         uint16 maxBlocksPerBatch;
+        /// @notice The minimum number of transactions to include in a "forced txs" block.
+        uint16 minForcedTxsPerBlock;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
@@ -243,8 +245,9 @@ interface ITaikoInbox {
     error BatchNotFound();
     error BatchVerified();
     error BlobNotFound();
-    error BlockNotFound();
     error BlobNotSpecified();
+    error BlockNotFound();
+    error BlockTooSmallForForcedTxs();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
