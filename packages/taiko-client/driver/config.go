@@ -17,12 +17,16 @@ import (
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
-	P2PSync            bool
-	P2PSyncTimeout     time.Duration
-	RetryInterval      time.Duration
-	MaxExponent        uint64
-	BlobServerEndpoint *url.URL
-	SocialScanEndpoint *url.URL
+	P2PSync                       bool
+	P2PSyncTimeout                time.Duration
+	RetryInterval                 time.Duration
+	MaxExponent                   uint64
+	BlobServerEndpoint            *url.URL
+	SocialScanEndpoint            *url.URL
+	PreconfBlockServerPort        uint64
+	PreconfBlockServerJWTSecret   []byte
+	PreconfBlockServerCORSOrigins string
+	PreconfBlockServerCheckSig    bool
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -69,7 +73,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
 	}
 
-	var timeout = c.Duration(flags.RPCTimeout.Name)
+	var preconfBlockServerJWTSecret []byte
+	if c.String(flags.PreconfBlockServerJWTSecret.Name) != "" {
+		if preconfBlockServerJWTSecret, err = jwt.ParseSecretFromFile(
+			c.String(flags.PreconfBlockServerJWTSecret.Name),
+		); err != nil {
+			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
+		}
+	}
+
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:       c.String(flags.L1WSEndpoint.Name),
@@ -80,13 +92,17 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			TaikoL2Address:   common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
 			L2EngineEndpoint: c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:        string(jwtSecret),
-			Timeout:          timeout,
+			Timeout:          c.Duration(flags.RPCTimeout.Name),
 		},
-		RetryInterval:      c.Duration(flags.BackOffRetryInterval.Name),
-		P2PSync:            p2pSync,
-		P2PSyncTimeout:     c.Duration(flags.P2PSyncTimeout.Name),
-		MaxExponent:        c.Uint64(flags.MaxExponent.Name),
-		BlobServerEndpoint: blobServerEndpoint,
-		SocialScanEndpoint: socialScanEndpoint,
+		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
+		P2PSync:                       p2pSync,
+		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
+		MaxExponent:                   c.Uint64(flags.MaxExponent.Name),
+		BlobServerEndpoint:            blobServerEndpoint,
+		SocialScanEndpoint:            socialScanEndpoint,
+		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
+		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
+		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
+		PreconfBlockServerCheckSig:    c.Bool(flags.PreconfBlockServerCheckSig.Name),
 	}, nil
 }

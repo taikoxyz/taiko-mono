@@ -185,7 +185,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 				return err
 			}
 
-			if progress.isSyncing() {
+			if progress.IsSyncing() {
 				log.Info(
 					"L2 execution engine is syncing",
 					"currentBlockID", progress.CurrentBlockID,
@@ -474,8 +474,8 @@ type L2SyncProgress struct {
 	HighestBlockID *big.Int
 }
 
-// isSyncing returns true if the L2 execution engine is syncing with L1.
-func (p *L2SyncProgress) isSyncing() bool {
+// IsSyncing returns true if the L2 execution engine is syncing with L1.
+func (p *L2SyncProgress) IsSyncing() bool {
 	if p.SyncProgress == nil {
 		return false
 	}

@@ -52,6 +52,33 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SOCIAL_SCAN_ENDPOINT"},
 	}
+	// preconf block server
+	PreconfBlockServerPort = &cli.Uint64Flag{
+		Name:     "preconfBlock.port",
+		Usage:    "HTTP port of the preconf block server, 0 means disabled",
+		Category: driverCategory,
+		EnvVars:  []string{"PRECONF_BLOCK_SERVER_PORT"},
+	}
+	PreconfBlockServerJWTSecret = &cli.StringFlag{
+		Name:     "preconfBlock.jwtSecret",
+		Usage:    "Path to a JWT secret to use for the preconf block server",
+		Category: driverCategory,
+		EnvVars:  []string{"PRECONF_BLOCK_SERVER_JWT_SECRET"},
+	}
+	PreconfBlockServerCORSOrigins = &cli.StringFlag{
+		Name:     "preconfBlock.corsOrigins",
+		Usage:    "CORS Origins settings for the preconf block server",
+		Category: driverCategory,
+		Value:    "*",
+		EnvVars:  []string{"PRECONF_BLOCK_SERVER_CORS_ORIGINS"},
+	}
+	PreconfBlockServerCheckSig = &cli.BoolFlag{
+		Name:     "preconfBlock.signatureCheck",
+		Usage:    "If the preconf block server will check the signature of the incoming preconf blocks",
+		Category: driverCategory,
+		Value:    false,
+		EnvVars:  []string{"PRECONF_BLOCK_SERVER_SIGNATURE_CHECK"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -66,4 +93,8 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxExponent,
 	BlobServerEndpoint,
 	SocialScanEndpoint,
+	PreconfBlockServerPort,
+	PreconfBlockServerJWTSecret,
+	PreconfBlockServerCORSOrigins,
+	PreconfBlockServerCheckSig,
 })
