@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,6 +31,7 @@ type BlocksInserterPacaya struct {
 	blobDatasource     *rpc.BlobDataSource
 	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
 	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	mutex              sync.Mutex
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -49,7 +51,7 @@ func NewBlocksInserterPacaya(
 	}
 }
 
-// InsertBlocks inserts a new Ontake block to the L2 execution engine.
+// InsertBlocks inserts new Pacaya blocks to the L2 execution engine.
 func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
@@ -59,8 +61,10 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	if !metadata.IsPacaya() {
 		return fmt.Errorf("metadata is not for Pacaya fork")
 	}
-	meta := metadata.TaikoBatchMetaDataPacaya()
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
 
+	meta := metadata.TaikoBatchMetaDataPacaya()
 	batch, err := i.rpc.GetBatchByID(ctx, meta.GetBatchID())
 	if err != nil {
 		return fmt.Errorf("failed to fetch batch: %w", err)
@@ -242,6 +246,9 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 	signalSlots [][32]byte,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) (*types.Header, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
 	parentHeader, err := i.rpc.L2.HeaderByHash(ctx, executableData.ParentHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
@@ -344,4 +351,26 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 	)
 
 	return i.rpc.L2.HeaderByHash(ctx, payloadData.BlockHash)
+}
+
+// RemovePreconfBlocks removes preconf blocks from the L2 execution engine.
+func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
+	newHead, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(newLastBlockID))
+	if err != nil {
+		return err
+	}
+
+	fc := &engine.ForkchoiceStateV1{HeadBlockHash: newHead.Hash()}
+	fcRes, err := i.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
+	if err != nil {
+		return err
+	}
+	if fcRes.PayloadStatus.Status != engine.VALID {
+		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
+	}
+
+	return nil
 }

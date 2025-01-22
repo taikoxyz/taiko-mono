@@ -58,12 +58,15 @@ type BuildPreconfBlockResponseBody struct {
 // if the preconfirmation block creation body in request are valid, it will insert the correspoinding the
 // preconfirmation block to the backend L2 execution engine and return a success response.
 //
-//	@Description	Insert a preconfirmation block to the L2 execution engine.
-//	@Param  	body body BuildPreconfBlockRequestBody true "preconf block creation request body"
-//	@Accept	  json
-//	@Produce	json
-//	@Success	200		{object} BuildPreconfBlockResponseBody
-//	@Router		/preconfBlocks [post]
+//		@Summary 	    Insert a preconfirmation block to the L2 execution engine.
+//		@Description	Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
+//		@Description	body in request are valid, it will insert the correspoinding the
+//	 	@Description	preconfirmation block to the backend L2 execution engine and return a success response.
+//		@Param  	body body BuildPreconfBlockRequestBody true "preconf block creation request body"
+//		@Accept	  json
+//		@Produce	json
+//		@Success	200		{object} BuildPreconfBlockResponseBody
+//		@Router		/preconfBlocks [post]
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
@@ -143,6 +146,86 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, BuildPreconfBlockResponseBody{BlockHeader: header})
+}
+
+// RemovePreconfBlocksRequestBody represents a request body when resetting the backend
+// L2 execution engine preconf head.
+type RemovePreconfBlocksRequestBody struct {
+	// @param newLastBlockID uint64 New last block ID of the blockchain, it should
+	// @param not smaller than the canonical chain's highest block ID.
+	NewLastBlockID uint64 `json:"newLastBlockId"`
+}
+
+// RemovePreconfBlocksResponseBody represents a response body when resetting the backend
+// L2 execution engine preconf head.
+type RemovePreconfBlocksResponseBody struct {
+	// @param lastBlockID uint64 Current highest block ID of the blockchain (including preconf blocks)
+	LastBlockID uint64 `json:"lastBlockId"`
+	// @param lastProposedBlockID uint64 Highest block ID of the cnonical chain
+	LastProposedBlockID uint64 `json:"lastProposedBlockID"`
+	// @param headsRemoved uint64 Number of preconf heads removed
+	HeadsRemoved uint64 `json:"headsRemoved"`
+}
+
+// RemoveSoftBlocks removes the backend L2 execution engine preconf head.
+//
+//		@Description	Remove all preconf blocks from the blockchain beyond the specified block height,
+//	  @Description	ensuring the latest block ID does not exceed the given height. This method will fail if
+//	  @Description	the block with an ID one greater than the specified height is not a preconf block. If the
+//	  @Description	specified block height is greater than the latest preconf block ID, the method will succeed
+//	  @Description	without modifying the blockchain.
+//		@Param      body body RemovePreconfBlocksRequestBody true "preconf blocks removing request body"
+//		@Accept			json
+//		@Produce		json
+//		@Success		200	{object} RemovePreconfBlocksResponseBody
+//		@Router			/preconfBlocks [delete]
+func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
+	// Parse the request body.
+	reqBody := new(RemovePreconfBlocksRequestBody)
+	if err := c.Bind(reqBody); err != nil {
+		return s.returnError(c, http.StatusUnprocessableEntity, err)
+	}
+
+	// Request body validation.
+	canonicalHeadL1Origin, err := s.rpc.L2.HeadL1Origin(c.Request().Context())
+	if err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	currentHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
+	if err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	log.Info(
+		"New preconfirmation block removing request",
+		"newLastBlockId", reqBody.NewLastBlockID,
+		"canonicalHead", canonicalHeadL1Origin.BlockID.Uint64(),
+		"currentHead", currentHead.Number.Uint64(),
+	)
+
+	if reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
+		return s.returnError(
+			c,
+			http.StatusBadRequest,
+			errors.New("newLastBlockId must not be smaller than the canonical chain's highest block ID"),
+		)
+	}
+
+	if err := s.chainSyncer.RemovePreconfBlocks(c.Request().Context(), reqBody.NewLastBlockID); err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
+
+	newHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
+	if err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
+		LastBlockID:         newHead.Number.Uint64(),
+		LastProposedBlockID: canonicalHeadL1Origin.BlockID.Uint64(),
+		HeadsRemoved:        currentHead.Number.Uint64() - newHead.Number.Uint64(),
+	})
 }
 
 // HealthCheck is the endpoints for probes.
