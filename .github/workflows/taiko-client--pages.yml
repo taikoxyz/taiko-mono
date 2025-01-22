@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - pacaya_fork_client
-    paths:
-      - "packages/taiko-client/driver/preconf_blocks/**"
 
 jobs:
   generate-and-deploy:
