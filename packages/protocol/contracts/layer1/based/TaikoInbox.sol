@@ -147,12 +147,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 infoHash: keccak256(abi.encode(info_))
             });
 
-            bytes32 metaHash = keccak256(abi.encode(meta_));
-
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
 
             // SSTORE #1
-            batch.metaHash = metaHash;
+            batch.metaHash = keccak256(abi.encode(meta_));
 
             // SSTORE #2 {{
             batch.batchId = stats2.numBatches;

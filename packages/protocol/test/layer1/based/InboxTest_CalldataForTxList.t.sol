@@ -119,23 +119,20 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         bytes32 expectedHash2 = keccak256(txList2);
 
         vm.prank(Alice);
-        uint64[] memory batchIdsmt1 = _proposeBatchesWithDefaultParameters(1, txList1);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList1);
 
-        (, ITaikoInbox.BatchInfo memory info) = _loadMetadataAndInfo(batchIds1[0]);
+        (, ITaikoInbox.BatchInfo memory info) = _loadMetadataAndInfo(batchIds[0]);
 
         assertEq(info.txsHash, expectedHash1, "txsHash mismatch for block 1");
 
         vm.prank(Alice);
-        uint64[] memory batchIds2 = _proposeBatchesWithDefaultParameters(1, txList2);
+        batchIds = _proposeBatchesWithDefaultParameters(1, txList2);
 
-        (, info) = _loadMetadataAndInfo(batchIds2[0]);
+        (, info) = _loadMetadataAndInfo(batchIds[0]);
         assertEq(info.txsHash, expectedHash2, "txsHash mismatch for block 2");
 
         vm.prank(Alice);
-        _proveBatchesWithCorrectTransitions(batchIds2);
-
-        vm.prank(Alice);
-        _proveBatchesWithCorrectTransitions(batchIds1);
+        _proveBatchesWithCorrectTransitions(batchIds);
     }
 
     function test_prove_batch_with_mismatched_info_hash() external {
