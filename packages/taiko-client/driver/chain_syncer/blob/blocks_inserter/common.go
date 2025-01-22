@@ -42,7 +42,6 @@ func createPayloadAndSetHead(
 	}
 
 	var (
-		lastVerifiedBlockID   uint64
 		lastVerifiedBlockHash common.Hash
 	)
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
@@ -52,7 +51,7 @@ func createPayloadAndSetHead(
 			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
 		}
 
-		if payload.Number > lastVerifiedBlockID {
+		if payload.Number > lastVerifiedBlockInfo.BlockId {
 			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
 		}
 	} else {
