@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "test/shared/DeployCapability.sol";
+import "src/shared/bridge/Bridge.sol";
+import "src/shared/common/DefaultResolver.sol";
+import "src/shared/signal/SignalService.sol";
+import "src/shared/tokenvault/BridgedERC1155.sol";
+import "src/shared/tokenvault/BridgedERC20.sol";
+import "src/shared/tokenvault/BridgedERC721.sol";
+import "src/shared/tokenvault/ERC1155Vault.sol";
+import "src/shared/tokenvault/ERC20Vault.sol";
+import "src/shared/tokenvault/ERC721Vault.sol";
+import "src/layer1/provers/ProverSet.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/devnet/verifiers/OpVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
+import "src/layer1/based/ForkRouter.sol";
+import "src/layer1/verifiers/compose/ComposeVerifier.sol";
+import "src/layer1/devnet/DevnetInbox.sol";
+
+contract UpgradeDevnetPacayaL1 is DeployCapability {
+    uint256 public privateKey = vm.envUint("PRIVATE_KEY");
+    address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
+    address public oldFork = vm.envAddress("OLD_FORK");
+    address public forkRouter = vm.envAddress("FORK_ROUTER");
+    address public proverSet = vm.envAddress("PROVER_SET");
+    address public sgxVerifier = vm.envAddress("SGX_VERIFIER");
+    address public risc0Verifier = vm.envAddress("RISC0_VERIFIER");
+    address public sp1Verifier = vm.envAddress("SP1_VERIFIER");
+    address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
+    address public bridgeL1 = vm.envAddress("BRIDGE_L1");
+    address public signalService = vm.envAddress("SIGNAL_SERVICE");
+    address public erc20Vault = vm.envAddress("ERC20_VAULT");
+    address public erc721Vault = vm.envAddress("ERC721_VAULT");
+    address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
+
+    modifier broadcast() {
+        require(privateKey != 0, "invalid private key");
+        require(rollupResolver != address(0), "invalid rollup resolver");
+        require(oldFork != address(0), "invalid old fork");
+        require(forkRouter != address(0), "invalid fork router");
+        require(proverSet != address(0), "invalid prover set");
+        require(sgxVerifier != address(0), "invalid sgx verifier");
+        require(risc0Verifier != address(0), "invalid risc0 verifier");
+        require(sp1Verifier != address(0), "invalid sp1 verifier");
+        require(sharedResolver != address(0), "invalid shared resolver");
+        require(bridgeL1 != address(0), "invalid bridge");
+        require(signalService != address(0), "invalid signal service");
+        require(erc20Vault != address(0), "invalid erc20 vault");
+        require(erc721Vault != address(0), "invalid erc721 vault");
+        require(erc1155Vault != address(0), "invalid erc1155 vault");
+        vm.startBroadcast(privateKey);
+        _;
+        vm.stopBroadcast();
+    }
+
+    function run() external broadcast {
+        // Rollup resolver
+        UUPSUpgradeable(rollupResolver).upgradeTo(address(new DefaultResolver()));
+        // TaikoInbox
+        address newFork = address(new DevnetInbox(rollupResolver));
+        UUPSUpgradeable(forkRouter).upgradeTo(address(new ForkRouter(oldFork, newFork)));
+
+        // Prover set
+        UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));
+
+        // Verifier
+        TaikoInbox taikoInbox = TaikoInbox(newFork);
+        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+        address opVerifier = deployProxy({
+            name: "op_verifier",
+            impl: address(new OpVerifier(rollupResolver, l2ChainId)),
+            data: abi.encodeCall(OpVerifier.init, (address(0))),
+            registerTo: rollupResolver
+        });
+        UUPSUpgradeable(sgxVerifier).upgradeTo(address(new SgxVerifier(rollupResolver, l2ChainId)));
+        register(rollupResolver, "sgx_verifier", sgxVerifier);
+        UUPSUpgradeable(risc0Verifier).upgradeTo(
+            address(new Risc0Verifier(rollupResolver, l2ChainId))
+        );
+        register(rollupResolver, "risc0_verifier", risc0Verifier);
+        UUPSUpgradeable(sp1Verifier).upgradeTo(address(new SP1Verifier(rollupResolver, l2ChainId)));
+        register(rollupResolver, "sp1_verifier", sp1Verifier);
+        deployProxy({
+            name: "proof_verifier",
+            impl: address(
+                new DevnetVerifier(
+                    address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                )
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
+            registerTo: rollupResolver
+        });
+
+        // Shared resolver
+        UUPSUpgradeable(sharedResolver).upgradeTo(address(new DefaultResolver()));
+        // Bridge
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver)));
+        // SignalService
+        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
+        // Vault
+        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
+        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
+        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
+        // Bridged Token
+        register(
+            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
+        );
+    }
+}
