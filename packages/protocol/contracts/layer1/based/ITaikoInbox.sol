@@ -75,7 +75,7 @@ interface ITaikoInbox {
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
-    /// @dev This struct holds batch metadata essential proving the batch.
+    /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
         bytes32 infoHash;
         address proposer;
