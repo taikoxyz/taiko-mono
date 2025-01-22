@@ -106,9 +106,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
 
             bytes memory forcedTxs = "";
             {
-                address provider = resolve(LibStrings.B_FORCED_TX_PROVIDER, true);
-                if (provider != address(0)) {
-                    forcedTxs = IForcedTransactionStore(provider).consumeForcedTransactions();
+                address store = resolve(LibStrings.B_FORCED_TX_STORE, true);
+                if (store != address(0)) {
+                    forcedTxs = IForcedTransactionStore(store).consumeForcedTransactions();
                 }
             }
 
