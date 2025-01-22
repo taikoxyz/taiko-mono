@@ -12,6 +12,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./IFork.sol";
 import "./ITaikoInbox.sol";
+import "./IForcedTransactionProvider.sol";
 
 // import "forge-std/src/console2.sol";
 
@@ -103,6 +104,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 lastBatch
             );
 
+            bytes memory forcedTxs = "";
+            {
+                uint96 priorityFee;
+                address provider = resolve(LibStrings.B_FORCED_TX_PROVIDER, true);
+                if (provider != address(0)) {
+                    (forcedTxs, priorityFee) =
+                        IForcedTransactionProvider(provider).consumeForcedTransactions();
+                }
+            }
+
             // This section constructs the metadata for the proposed batch, which is crucial for
             // nodes/clients to process the batch. The metadata itself is not stored on-chain;
             // instead, only its hash is kept.
@@ -115,7 +126,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
 
             meta_ = BatchMetadata({
-                txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(params.blobParams),
+                txListHash: _calcTxListHash(keccak256(forcedTxs), keccak256(_txList), params.blobParams),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
                 batchId: stats2.numBatches,
@@ -168,7 +179,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             stats2.lastProposedIn = uint56(block.number);
 
             _debitBond(params.proposer, meta_.livenessBond);
-            emit BatchProposed(meta_, calldataUsed, _txList);
+            emit BatchProposed(meta_, forcedTxs, _txList);
         } // end-of-unchecked
 
         _verifyBatches(config, stats2, 1);
@@ -515,18 +526,27 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         state.stats2.paused = true;
     }
 
-    function _calcTxListHash(BlobParams memory _blobParams)
+    function _calcTxListHash(
+        bytes32 _forcedTxsHash,
+        bytes32 _txListHash,
+        BlobParams memory _blobParams
+    )
         internal
         view
         virtual
         returns (bytes32)
     {
-        bytes32[] memory blobHashes = new bytes32[](_blobParams.numBlobs);
-        for (uint256 i; i < _blobParams.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobParams.firstBlobIndex + i);
-            require(blobHashes[i] != 0, BlobNotFound());
+        unchecked {
+            bytes32[] memory blobHashes = new bytes32[](_blobParams.numBlobs + 2);
+            blobHashes[0] = _forcedTxsHash;
+            blobHashes[1] = _txListHash;
+            for (uint256 i; i < _blobParams.numBlobs; ++i) {
+                uint j = i + 2;
+                blobHashes[j] = blobhash(_blobParams.firstBlobIndex + i);
+                require(blobHashes[j] != 0, BlobNotFound());
+            }
+            return keccak256(abi.encode(blobHashes));
         }
-        return keccak256(abi.encode(blobHashes));
     }
 
     // Private functions -----------------------------------------------------------------------

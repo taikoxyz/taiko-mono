@@ -209,9 +209,9 @@ interface ITaikoInbox {
 
     /// @notice Emitted when a batch is proposed.
     /// @param meta The metadata of the proposed batch.
-    /// @param calldataUsed Whether calldata is used for txList DA.
+    /// @param forcedTxs Transactions forced to be included in the batch.
     /// @param txListInCalldata The tx list in calldata.
-    event BatchProposed(BatchMetadata meta, bool calldataUsed, bytes txListInCalldata);
+    event BatchProposed(BatchMetadata meta, bytes forcedTxs, bytes txListInCalldata);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
