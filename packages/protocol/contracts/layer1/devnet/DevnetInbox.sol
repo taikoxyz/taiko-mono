@@ -31,7 +31,7 @@ contract DevnetInbox is TaikoInbox {
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10 })
         });
     }
 }
