@@ -31,13 +31,9 @@ contract MockTaikoInbox is EssentialContract {
             extraData: bytes32(0),
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             gasLimit: 0, // Mock value
-            lastBlockTimestamp: params.lastBlockTimestamp,
-            parentMetaHash: params.parentMetaHash,
-            livenessBond: 0, // Mock value
             proposedIn: uint64(block.number),
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
-            signalSlots: params.signalSlots,
             blocks: params.blocks,
             anchorInput: params.anchorInput,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

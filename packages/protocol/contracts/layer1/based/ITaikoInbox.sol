@@ -58,15 +58,11 @@ interface ITaikoInbox {
     struct BatchInfo {
         bytes32 txsHash;
         bytes32[] blobHashes;
-        bytes32[] signalSlots;
         bytes32 extraData;
-        bytes32 parentMetaHash;
         bytes32 anchorBlockHash;
         bytes32 anchorInput;
         address coinbase;
         uint64 proposedIn; // Used by node/client
-        uint96 livenessBond;
-        uint64 lastBlockTimestamp;
         uint64 anchorBlockId;
         uint32 blobByteOffset;
         uint32 blobByteSize;
