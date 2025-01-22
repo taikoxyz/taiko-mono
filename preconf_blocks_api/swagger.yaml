@@ -117,6 +117,28 @@ definitions:
         - $ref: '#/definitions/types.Header'
         description: '@param blockHeader types.Header of the soft block'
     type: object
+  preconfblocks.RemovePreconfBlocksRequestBody:
+    properties:
+      newLastBlockId:
+        description: |-
+          @param newLastBlockID uint64 New last block ID of the blockchain, it should
+          @param not smaller than the canonical chain's highest block ID.
+        type: integer
+    type: object
+  preconfblocks.RemovePreconfBlocksResponseBody:
+    properties:
+      headsRemoved:
+        description: '@param headsRemoved uint64 Number of preconf heads removed'
+        type: integer
+      lastBlockId:
+        description: '@param lastBlockID uint64 Current highest block ID of the blockchain
+          (including preconf blocks)'
+        type: integer
+      lastProposedBlockID:
+        description: '@param lastProposedBlockID uint64 Highest block ID of the cnonical
+          chain'
+        type: integer
+    type: object
   types.Deposit:
     properties:
       amount:
@@ -318,10 +340,36 @@ paths:
             type: string
       summary: Get current server health status
   /preconfBlocks:
+    delete:
+      consumes:
+      - application/json
+      description: |-
+        Remove all preconf blocks from the blockchain beyond the specified block height,
+        ensuring the latest block ID does not exceed the given height. This method will fail if
+        the block with an ID one greater than the specified height is not a preconf block. If the
+        specified block height is greater than the latest preconf block ID, the method will succeed
+        without modifying the blockchain.
+      parameters:
+      - description: preconf blocks removing request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/preconfblocks.RemovePreconfBlocksRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/preconfblocks.RemovePreconfBlocksResponseBody'
     post:
       consumes:
       - application/json
-      description: Insert a preconfirmation block to the L2 execution engine.
+      description: |-
+        Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
+        body in request are valid, it will insert the correspoinding the
+        preconfirmation block to the backend L2 execution engine and return a success response.
       parameters:
       - description: preconf block creation request body
         in: body
@@ -336,4 +384,5 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/preconfblocks.BuildPreconfBlockResponseBody'
+      summary: Insert a preconfirmation block to the L2 execution engine.
 swagger: "2.0"

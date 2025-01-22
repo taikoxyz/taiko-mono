@@ -46,13 +46,14 @@ const docTemplate = `{
         },
         "/preconfBlocks": {
             "post": {
-                "description": "Insert a preconfirmation block to the L2 execution engine.",
+                "description": "Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation\nbody in request are valid, it will insert the correspoinding the\npreconfirmation block to the backend L2 execution engine and return a success response.",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+                "summary": "Insert a preconfirmation block to the L2 execution engine.",
                 "parameters": [
                     {
                         "description": "preconf block creation request body",
@@ -69,6 +70,34 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/preconfblocks.BuildPreconfBlockResponseBody"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove all preconf blocks from the blockchain beyond the specified block height,\nensuring the latest block ID does not exceed the given height. This method will fail if\nthe block with an ID one greater than the specified height is not a preconf block. If the\nspecified block height is greater than the latest preconf block ID, the method will succeed\nwithout modifying the blockchain.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "description": "preconf blocks removing request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/preconfblocks.RemovePreconfBlocksRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/preconfblocks.RemovePreconfBlocksResponseBody"
                         }
                     }
                 }
@@ -244,6 +273,32 @@ const docTemplate = `{
                             "$ref": "#/definitions/types.Header"
                         }
                     ]
+                }
+            }
+        },
+        "preconfblocks.RemovePreconfBlocksRequestBody": {
+            "type": "object",
+            "properties": {
+                "newLastBlockId": {
+                    "description": "@param newLastBlockID uint64 New last block ID of the blockchain, it should\n@param not smaller than the canonical chain's highest block ID.",
+                    "type": "integer"
+                }
+            }
+        },
+        "preconfblocks.RemovePreconfBlocksResponseBody": {
+            "type": "object",
+            "properties": {
+                "headsRemoved": {
+                    "description": "@param headsRemoved uint64 Number of preconf heads removed",
+                    "type": "integer"
+                },
+                "lastBlockId": {
+                    "description": "@param lastBlockID uint64 Current highest block ID of the blockchain (including preconf blocks)",
+                    "type": "integer"
+                },
+                "lastProposedBlockID": {
+                    "description": "@param lastProposedBlockID uint64 Highest block ID of the cnonical chain",
+                    "type": "integer"
                 }
             }
         },
