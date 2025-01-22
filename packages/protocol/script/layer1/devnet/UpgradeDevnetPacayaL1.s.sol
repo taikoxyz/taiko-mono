@@ -24,9 +24,35 @@ import "src/layer1/devnet/DevnetInbox.sol";
 
 contract UpgradeDevnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
+    address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
+    address public oldFork = vm.envAddress("OLD_FORK");
+    address public forkRouter = vm.envAddress("FORK_ROUTER");
+    address public proverSet = vm.envAddress("PROVER_SET");
+    address public sgxVerifier = vm.envAddress("SGX_VERIFIER");
+    address public risc0Verifier = vm.envAddress("RISC0_VERIFIER");
+    address public sp1Verifier = vm.envAddress("SP1_VERIFIER");
+    address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
+    address public bridgeL1 = vm.envAddress("BRIDGE_L1");
+    address public signalService = vm.envAddress("SIGNAL_SERVICE");
+    address public erc20Vault = vm.envAddress("ERC20_VAULT");
+    address public erc721Vault = vm.envAddress("ERC721_VAULT");
+    address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
+        require(rollupResolver != address(0), "invalid rollup resolver");
+        require(oldFork != address(0), "invalid old fork");
+        require(forkRouter != address(0), "invalid fork router");
+        require(proverSet != address(0), "invalid prover set");
+        require(sgxVerifier != address(0), "invalid sgx verifier");
+        require(risc0Verifier != address(0), "invalid risc0 verifier");
+        require(sp1Verifier != address(0), "invalid sp1 verifier");
+        require(sharedResolver != address(0), "invalid shared resolver");
+        require(bridgeL1 != address(0), "invalid bridge");
+        require(signalService != address(0), "invalid signal service");
+        require(erc20Vault != address(0), "invalid erc20 vault");
+        require(erc721Vault != address(0), "invalid erc721 vault");
+        require(erc1155Vault != address(0), "invalid erc1155 vault");
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
@@ -34,22 +60,16 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
     function run() external broadcast {
         // Rollup resolver
-        address rollupResolver = 0x1F027871F286Cf4B7F898B21298E7B3e090a8403;
         UUPSUpgradeable(rollupResolver).upgradeTo(address(new DefaultResolver()));
         // TaikoInbox
-        address oldFork = 0xefd45598d2166f9E958bb55b8E78bDEc82684d90;
         address newFork = address(new DevnetInbox(rollupResolver));
-        UUPSUpgradeable(0xA4702E22F8807Df82Fe5B6dDdd99eB3Fcb0237B0).upgradeTo(
-            address(new ForkRouter(oldFork, newFork))
-        );
+        UUPSUpgradeable(forkRouter).upgradeTo(address(new ForkRouter(oldFork, newFork)));
 
         // Prover set
-        UUPSUpgradeable(0xACFFB14Ca4b783fe7314855fBC38c50d7b7A8240).upgradeTo(
-            address(new ProverSet(rollupResolver))
-        );
+        UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));
 
         // Verifier
-        TaikoInbox taikoInbox = TaikoInbox(payable(newFork));
+        TaikoInbox taikoInbox = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInbox.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
         address opVerifier = deployProxy({
@@ -58,27 +78,19 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(OpVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
-        UUPSUpgradeable(0xebB0DA61818F639f460F67940EB269b36d1F104E).upgradeTo(
-            address(new SgxVerifier(rollupResolver, l2ChainId))
-        );
-        register(rollupResolver, "sgx_verifier", 0xebB0DA61818F639f460F67940EB269b36d1F104E);
-        UUPSUpgradeable(0xDf8038e9f4535040D7421A89ead398b3A38366EC).upgradeTo(
+        UUPSUpgradeable(sgxVerifier).upgradeTo(address(new SgxVerifier(rollupResolver, l2ChainId)));
+        register(rollupResolver, "sgx_verifier", sgxVerifier);
+        UUPSUpgradeable(risc0Verifier).upgradeTo(
             address(new Risc0Verifier(rollupResolver, l2ChainId))
         );
-        register(rollupResolver, "risc0_verifier", 0xDf8038e9f4535040D7421A89ead398b3A38366EC);
-        UUPSUpgradeable(0x748d4a7e3a49adEbA2157B2d581434A6Cc226D1F).upgradeTo(
-            address(new SP1Verifier(rollupResolver, l2ChainId))
-        );
-        register(rollupResolver, "sp1_verifier", 0x748d4a7e3a49adEbA2157B2d581434A6Cc226D1F);
+        register(rollupResolver, "risc0_verifier", risc0Verifier);
+        UUPSUpgradeable(sp1Verifier).upgradeTo(address(new SP1Verifier(rollupResolver, l2ChainId)));
+        register(rollupResolver, "sp1_verifier", sp1Verifier);
         deployProxy({
             name: "proof_verifier",
             impl: address(
                 new DevnetVerifier(
-                    address(rollupResolver),
-                    opVerifier,
-                    0xebB0DA61818F639f460F67940EB269b36d1F104E,
-                    0xDf8038e9f4535040D7421A89ead398b3A38366EC,
-                    0x748d4a7e3a49adEbA2157B2d581434A6Cc226D1F
+                    address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
@@ -86,26 +98,15 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         });
 
         // Shared resolver
-        address sharedResolver = 0x9bcED1c37F03c0527e0A4070424992F517c3B122;
         UUPSUpgradeable(sharedResolver).upgradeTo(address(new DefaultResolver()));
         // Bridge
-        UUPSUpgradeable(0x1c406D71342D2C368e3B35F5c3F573E51Aa2E88f).upgradeTo(
-            address(new Bridge(sharedResolver))
-        );
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver)));
         // SignalService
-        UUPSUpgradeable(0x3DA89a777B11aABa02B5C92Fab96545D05fd4cc6).upgradeTo(
-            address(new SignalService(sharedResolver))
-        );
+        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
         // Vault
-        UUPSUpgradeable(0x604C61d6618AaCdF7a7A2Fe4c42E35Ecba32AE75).upgradeTo(
-            address(new ERC20Vault(sharedResolver))
-        );
-        UUPSUpgradeable(0xf7f1b1Cf92f24aa4BFf028eAAEF15a6159045fC7).upgradeTo(
-            address(new ERC721Vault(sharedResolver))
-        );
-        UUPSUpgradeable(0x63df6E0d2291455ABbc3e406972b8a0fE807a235).upgradeTo(
-            address(new ERC1155Vault(sharedResolver))
-        );
+        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
+        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
+        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
         // Bridged Token
         register(
             sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
