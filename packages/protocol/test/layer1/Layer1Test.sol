@@ -32,7 +32,7 @@ contract ConfigurableInbox is TaikoInbox {
         return __config;
     }
 
-    function _calcTxListHash(
+    function _calculateTxsHash(
         bytes32,
         BlobParams memory _blobParams
     )
