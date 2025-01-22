@@ -198,6 +198,7 @@ func (s *Syncer) onBlockProposed(
 	}
 	// Ignore those already inserted blocks.
 	if s.lastInsertedBlockID != nil && meta.GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
+		log.Debug("Skip already inserted block", "blockID", meta.GetBlockID(), "lastInsertedBlockID", s.lastInsertedBlockID)
 		return nil
 	}
 
@@ -224,6 +225,7 @@ func (s *Syncer) onBlockProposed(
 	if s.progressTracker.Triggered() {
 		// Already synced through beacon sync, just skip this event.
 		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+			log.Debug("Skip already beacon synced block", "blockID", meta.GetBlockID())
 			return nil
 		}
 
@@ -237,7 +239,7 @@ func (s *Syncer) onBlockProposed(
 
 	log.Debug(
 		"Parent block",
-		"height", parent.Number,
+		"blockID", parent.Number,
 		"hash", parent.Hash(),
 		"beaconSyncTriggered", s.progressTracker.Triggered(),
 	)
@@ -286,7 +288,6 @@ func (s *Syncer) onBlockProposed(
 	log.Info(
 		"🔗 New L2 block inserted",
 		"blockID", meta.GetBlockID(),
-		"height", payloadData.Number,
 		"hash", payloadData.BlockHash,
 		"transactions", len(payloadData.Transactions),
 		"baseFee", utils.WeiToGWei(payloadData.BaseFeePerGas),
@@ -406,23 +407,12 @@ func (s *Syncer) insertNewHead(
 	}
 
 	var lastVerifiedBlockHash common.Hash
-	if lastVerifiedBlockHash, err = s.rpc.GetLastVerifiedBlockHash(ctx); err != nil {
-		log.Debug("Failed to fetch last verified block hash", "error", err)
-
-		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch protocol state variables: %w", err)
-		}
-
-		lastVerifiedBlockHeader, err := s.rpc.L2.HeaderByNumber(
-			ctx,
-			new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-		}
-
-		lastVerifiedBlockHash = lastVerifiedBlockHeader.Hash()
+	lastVerifiedBlockInfo, err := s.rpc.GetLastVerifiedBlock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+	}
+	if payload.Number > lastVerifiedBlockInfo.BlockId {
+		lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
 	}
 
 	fc := &engine.ForkchoiceStateV1{

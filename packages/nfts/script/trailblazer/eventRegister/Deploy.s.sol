@@ -15,6 +15,11 @@ contract DeployEventRegisterScript is Script {
 
         console.log("Deployed EventRegister to:", address(eventRegister), "from", deployerAddress);
 
+        // Initialize the contract
+        eventRegister.initialize();
+
+        console.log("Initialized EventRegister contract.");
+
         vm.stopBroadcast();
     }
 }

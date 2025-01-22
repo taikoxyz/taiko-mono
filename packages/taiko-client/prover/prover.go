@@ -135,8 +135,8 @@ func InitFromConfig(
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
 	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
-	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
-	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
+	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
+	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
 	p.aggregationNotify = make(chan uint16, 1)
 
@@ -279,15 +279,7 @@ func (p *Prover) eventLoop() {
 		default:
 		}
 	}
-	// reqAggregation requests performing a aggregate operation, won't block
-	// if we are already aggregating.
-	reqAggregation := func() {
-		select {
-		// 0 means aggregating all tier proofs
-		case p.aggregationNotify <- 0:
-		default:
-		}
-	}
+
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
@@ -297,33 +289,18 @@ func (p *Prover) eventLoop() {
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
-	forceAggregatingTicker := time.NewTicker(p.cfg.ForceProveInterval)
-	defer forceAggregatingTicker.Stop()
-
 	// Channels
 	chBufferSize := p.protocolConfigs.BlockMaxProposals
-	blockProposedCh := make(chan *bindings.TaikoL1ClientBlockProposed, chBufferSize)
-	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
-	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
-	transitionContestedCh := make(chan *bindings.TaikoL1ClientTransitionContested, chBufferSize)
 	blockProposedV2Ch := make(chan *bindings.TaikoL1ClientBlockProposedV2, chBufferSize)
 	blockVerifiedV2Ch := make(chan *bindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
 	transitionProvedV2Ch := make(chan *bindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
 	transitionContestedV2Ch := make(chan *bindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
-	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.TaikoL1, blockProposedCh)
-	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.TaikoL1, blockVerifiedCh)
-	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.TaikoL1, transitionProvedCh)
-	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.TaikoL1, transitionContestedCh)
 	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.TaikoL1, blockProposedV2Ch)
 	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.TaikoL1, blockVerifiedV2Ch)
 	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.TaikoL1, transitionProvedV2Ch)
 	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.TaikoL1, transitionContestedV2Ch)
 	defer func() {
-		blockProposedSub.Unsubscribe()
-		blockVerifiedSub.Unsubscribe()
-		transitionProvedSub.Unsubscribe()
-		transitionContestedSub.Unsubscribe()
 		blockProposedV2Sub.Unsubscribe()
 		blockVerifiedV2Sub.Unsubscribe()
 		transitionProvedV2Sub.Unsubscribe()
@@ -347,30 +324,7 @@ func (p *Prover) eventLoop() {
 				log.Error("Prove new blocks error", "error", err)
 			}
 		case tier := <-p.aggregationNotify:
-			p.withRetry(func() error {
-				return p.aggregateOp(tier)
-			})
-		case e := <-blockVerifiedCh:
-			p.blockVerifiedHandler.Handle(encoding.BlockVerifiedEventToV2(e))
-		case e := <-transitionProvedCh:
-			p.withRetry(func() error {
-				blockInfo, err := p.rpc.GetL2BlockInfo(p.ctx, e.BlockId)
-				if err != nil {
-					return err
-				}
-				return p.transitionProvedHandler.Handle(p.ctx, encoding.TransitionProvedEventToV2(e, blockInfo.ProposedIn))
-			})
-		case e := <-transitionContestedCh:
-			p.withRetry(func() error {
-				blockInfo, err := p.rpc.GetL2BlockInfo(p.ctx, e.BlockId)
-				if err != nil {
-					return err
-				}
-				return p.transitionContestedHandler.Handle(
-					p.ctx,
-					encoding.TransitionContestedEventToV2(e, blockInfo.ProposedIn),
-				)
-			})
+			p.withRetry(func() error { return p.aggregateOp(tier) })
 		case e := <-blockVerifiedV2Ch:
 			p.blockVerifiedHandler.Handle(e)
 		case e := <-transitionProvedV2Ch:
@@ -383,14 +337,10 @@ func (p *Prover) eventLoop() {
 			})
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, m) })
-		case <-blockProposedCh:
-			reqProving()
 		case <-blockProposedV2Ch:
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
-		case <-forceAggregatingTicker.C:
-			reqAggregation()
 		}
 	}
 }
@@ -422,10 +372,10 @@ func (p *Prover) aggregateOp(tier uint16) error {
 	g, gCtx := errgroup.WithContext(p.ctx)
 	for _, submitter := range p.proofSubmitters {
 		g.Go(func() error {
-			if submitter.BufferSize() > 1 &&
-				(tier == 0 || submitter.Tier() == tier) {
+			if submitter.AggregationEnabled() && submitter.Tier() == tier {
 				if err := submitter.AggregateProofs(gCtx); err != nil {
-					log.Error("Failed to aggregate proofs",
+					log.Error(
+						"Failed to aggregate proofs",
 						"error", err,
 						"tier", submitter.Tier(),
 					)

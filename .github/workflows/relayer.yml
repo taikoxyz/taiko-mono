@@ -5,14 +5,10 @@ on:
     branches: [main]
     paths:
       - "packages/relayer/**"
-      - "go.mod"
-      - "go.sum"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/relayer/**"
-      - "go.mod"
-      - "go.sum"
     branches-ignore:
       - release-please--branches--**
 
@@ -59,14 +55,14 @@ jobs:
         run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
 
       - name: relayer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer
 
   push-relayer-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') && github.event.pull_request.head.repo.fork == false }}
     name: Build and push docker image
     runs-on: [arc-runner-set]
 
@@ -105,7 +101,7 @@ jobs:
             type=sha
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           push: true
           context: .

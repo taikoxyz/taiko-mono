@@ -16,10 +16,12 @@ import { TrailblazersBadgesV4 } from
     "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
 import { BadgeRecruitment } from "../../contracts/trailblazers-season-2/BadgeRecruitment.sol";
 import { BadgeRecruitmentV2 } from "../../contracts/trailblazers-season-2/BadgeRecruitmentV2.sol";
+import "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV5.sol";
 
 contract BadgeRecruitmentV2Test is Test {
     UtilsScript public utils;
 
+    TrailblazersBadgesV5 public s1BadgesV5;
     TrailblazersBadgesV4 public s1BadgesV4;
     TrailblazersBadgesS2 public s2Badges;
 
@@ -49,7 +51,7 @@ contract BadgeRecruitmentV2Test is Test {
         utils.setUp();
         blacklist = new MockBlacklist();
         // create whitelist merkle tree
-        vm.startBroadcast(owner);
+        vm.startPrank(owner);
 
         (mintSigner, mintSignerPk) = makeAddrAndKey("mintSigner");
 
@@ -82,8 +84,15 @@ contract BadgeRecruitmentV2Test is Test {
 
         s1BadgesV4 = TrailblazersBadgesV4(address(s1BadgesV2));
 
+        // upgrade to v5
+        s1BadgesV4.upgradeToAndCall(
+            address(new TrailblazersBadgesV5()), abi.encodeCall(TrailblazersBadgesV5.version, ())
+        );
+
+        s1BadgesV5 = TrailblazersBadgesV5(address(s1BadgesV4));
+
         // set cooldown recruitment
-        s1BadgesV4.setRecruitmentLockDuration(365 days);
+        s1BadgesV5.setRecruitmentLockDuration(365 days);
 
         // deploy the s2 erc1155 token contract
 
@@ -97,7 +106,6 @@ contract BadgeRecruitmentV2Test is Test {
         s2Badges = TrailblazersBadgesS2(proxy);
 
         // deploy the recruitment contract
-
         BadgeRecruitment.Config memory config = BadgeRecruitment.Config(
             COOLDOWN_RECRUITMENT,
             COOLDOWN_INFLUENCE,
@@ -119,203 +127,91 @@ contract BadgeRecruitmentV2Test is Test {
         );
         recruitmentV1 = BadgeRecruitment(proxy);
 
-        // upgrade to V2
-        recruitmentV1.upgradeToAndCall(
-            address(new BadgeRecruitmentV2()), abi.encodeCall(BadgeRecruitmentV2.version, ())
-        );
-
-        recruitment = BadgeRecruitmentV2(address(recruitmentV1));
-
-        s1BadgesV4.setRecruitmentContract(address(recruitment));
-        s2Badges.setMinter(address(recruitment));
+        s1BadgesV5.setRecruitmentContract(address(recruitmentV1));
+        s2Badges.setMinter(address(recruitmentV1));
         // enable recruitment for BADGE_ID
         uint256[] memory enabledBadgeIds = new uint256[](1);
         enabledBadgeIds[0] = BADGE_ID;
-        recruitment.enableRecruitments(enabledBadgeIds);
+        recruitmentV1.enableRecruitments(enabledBadgeIds);
 
-        vm.stopBroadcast();
-    }
-
-    function mint_s1(address minter, uint256 badgeId) public {
-        bytes32 _hash = s1BadgesV4.getHash(minter, badgeId);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
-
-        bool canMint = s1BadgesV4.canMint(abi.encodePacked(r, s, v), minter, badgeId);
-        assertTrue(canMint);
-
-        vm.startPrank(minter);
-        s1BadgesV4.mint(abi.encodePacked(r, s, v), badgeId);
         vm.stopPrank();
-    }
-
-    function test_mint_s1() public {
-        mint_s1(minters[0], s1BadgesV4.BADGE_RAVERS());
-        mint_s1(minters[0], s1BadgesV4.BADGE_ROBOTS());
-        assertEq(s1BadgesV4.balanceOf(minters[0]), 2);
-
-        mint_s1(minters[1], s1BadgesV4.BADGE_BOUNCERS());
-        mint_s1(minters[1], s1BadgesV4.BADGE_MASTERS());
-        assertEq(s1BadgesV4.balanceOf(minters[1]), 2);
-
-        mint_s1(minters[2], s1BadgesV4.BADGE_MONKS());
-        mint_s1(minters[2], s1BadgesV4.BADGE_DRUMMERS());
-        assertEq(s1BadgesV4.balanceOf(minters[2]), 2);
-    }
-
-    function test_startRecruitment() public {
-        mint_s1(minters[0], BADGE_ID);
-
-        vm.prank(minters[0]);
-        wait(100);
-        s1BadgesV4.startRecruitment(BADGE_ID);
-
-        uint256 tokenId = s1BadgesV4.getTokenId(minters[0], BADGE_ID);
-        assertEq(s1BadgesV4.balanceOf(minters[0]), 1);
-        assertEq(recruitment.isRecruitmentActive(minters[0]), true);
-        assertEq(s1BadgesV4.unlockTimestamps(tokenId), block.timestamp + 365 days);
     }
 
     function wait(uint256 time) public {
         vm.warp(block.timestamp + time);
     }
 
-    // happy-path, make 3 pink influences, and 2 purple ones
-    function test_influenceRecruitment() public {
-        test_startRecruitment();
-
-        vm.startPrank(minters[0]);
-
-        uint256 points = 0;
-        bytes32 _hash =
-            recruitment.generateClaimHash(BadgeRecruitment.HashType.Influence, minters[0], points);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
-
-        wait(COOLDOWN_INFLUENCE);
-
-        recruitment.influenceRecruitment(
-            _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Minnow
-        );
-        wait(COOLDOWN_INFLUENCE);
-
-        recruitment.influenceRecruitment(
-            _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Minnow
+    function test_upgradeV2() public {
+        vm.startPrank(owner);
+        recruitmentV1.upgradeToAndCall(
+            address(new BadgeRecruitmentV2()), abi.encodeCall(BadgeRecruitmentV2.version, ())
         );
 
-        for (uint256 i = 0; i < MAX_INFLUENCES; i++) {
-            wait(COOLDOWN_INFLUENCE);
-            recruitment.influenceRecruitment(
-                _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Whale
-            );
-        }
+        recruitment = BadgeRecruitmentV2(address(recruitmentV1));
 
-        vm.stopPrank();
+        assertEq(recruitment.version(), "V2");
 
-        assertEq(recruitment.isInfluenceActive(minters[0]), true);
-        assertEq(recruitment.isRecruitmentActive(minters[0]), true);
-
-        (uint256 whaleInfluences, uint256 minnowInfluences) =
-            recruitment.getRecruitmentInfluences(minters[0]);
-
-        assertEq(whaleInfluences, MAX_INFLUENCES);
-        assertEq(minnowInfluences, 0);
-    }
-
-    function test_revert_tooManyInfluences() public {
-        uint256 points = 0;
-        bytes32 _hash =
-            recruitment.generateClaimHash(BadgeRecruitment.HashType.Influence, minters[0], points);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
-
-        test_influenceRecruitment();
-        vm.startPrank(minters[0]);
-        vm.expectRevert();
-        recruitment.influenceRecruitment(
-            _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Whale
-        );
-
+        s1BadgesV5.setRecruitmentContractV2(address(recruitment));
         vm.stopPrank();
     }
 
-    function test_endRecruitment() public {
-        test_influenceRecruitment();
+    function test_legacy_startRecruitment_throws() public {
+        test_upgradeV2();
+        vm.expectRevert(TrailblazersBadgesV5.NOT_IMPLEMENTED.selector);
+        s1BadgesV5.startRecruitment(BADGE_ID);
+    }
 
+    function test_full_recruitment() public {
+        test_upgradeV2();
+
+        address minter = minters[0];
+        vm.startPrank(minter);
+
+        // mint the badge
+        bytes32 _hash = s1BadgesV5.getHash(minter, BADGE_ID);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+        bool canMint = s1BadgesV5.canMint(abi.encodePacked(r, s, v), minter, BADGE_ID);
+        assertTrue(canMint);
+
+        s1BadgesV5.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        uint256 tokenId = s1BadgesV5.tokenOfOwnerByIndex(minter, 0);
+
+        vm.stopPrank();
+
+        // mint and transfer to minter a secondary badge with id 0
+
+        vm.startPrank(minters[1]);
+        _hash = s1BadgesV5.getHash(minters[1], BADGE_ID);
+        (v, r, s) = vm.sign(mintSignerPk, _hash);
+        canMint = s1BadgesV5.canMint(abi.encodePacked(r, s, v), minters[1], BADGE_ID);
+        assertTrue(canMint);
+
+        s1BadgesV5.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        uint256 secondTokenId = s1BadgesV5.tokenOfOwnerByIndex(minters[1], 0);
+
+        s1BadgesV5.transferFrom(minters[1], minter, secondTokenId);
+
+        // ensure balances
+        assertEq(s1BadgesV5.balanceOf(minter), 2);
+        assertEq(s1BadgesV5.balanceOf(minters[1]), 0);
+        vm.stopPrank();
+
+        // start migration with first badge, using v1 methods
+        vm.startPrank(minter);
+        wait(100);
+        s1BadgesV5.startRecruitment(BADGE_ID, tokenId);
+        assertEq(recruitment.isRecruitmentActive(minter), true);
+        assertEq(s1BadgesV5.balanceOf(minter), 2);
+        assertEq(s1BadgesV5.unlockTimestamps(tokenId), block.timestamp + 365 days);
+
+        // and end it
         wait(COOLDOWN_INFLUENCE);
         wait(COOLDOWN_RECRUITMENT);
 
         // generate the claim hash for the current recruitment
         bytes32 claimHash = recruitment.generateClaimHash(
             BadgeRecruitment.HashType.End,
-            minters[0],
-            0 // experience points
-        );
-
-        // simulate the backend signing the hash
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, claimHash);
-
-        // exercise the randomFromSignature function
-
-        vm.prank(minters[0]);
-        recruitment.endRecruitment(claimHash, v, r, s, 0);
-
-        // check for s2 state reset
-        assertEq(recruitment.isRecruitmentActive(minters[0]), false);
-        assertEq(recruitment.isInfluenceActive(minters[0]), false);
-
-        // check for s2 mint
-        assertEq(s2Badges.balanceOf(minters[0], 1), 1);
-    }
-
-    function test_startRecruitment_expBased() public {
-        uint256 points = 100;
-        bytes32 _hash =
-            recruitment.generateClaimHash(BadgeRecruitment.HashType.Start, minters[0], points);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
-
-        vm.prank(minters[0]);
-        recruitment.startRecruitment(_hash, v, r, s, points);
-
-        assertEq(recruitment.isRecruitmentActive(minters[0]), true);
-    }
-
-    function test_startRecruitment_expBased_revert_hashMismatch() public {
-        mint_s1(minters[0], BADGE_ID);
-
-        uint256 points = 100;
-        bytes32 _hash =
-            recruitment.generateClaimHash(BadgeRecruitment.HashType.Start, minters[0], points);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
-
-        vm.prank(minters[0]);
-        vm.expectRevert(BadgeRecruitment.HASH_MISMATCH.selector);
-        recruitment.startRecruitment(_hash, v, s, r, points + 1);
-    }
-
-    function test_startRecruitment_expBased_revert_hashAlreadyClaimed() public {
-        vm.startPrank(minters[0]);
-
-        uint256 points = 100;
-        bytes32 _hash =
-            recruitment.generateClaimHash(BadgeRecruitment.HashType.Start, minters[0], points);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
-
-        recruitment.startRecruitment(_hash, v, r, s, points);
-
-        assertEq(recruitment.isRecruitmentActive(minters[0]), true);
-
-        // complete the migration
-        wait(COOLDOWN_INFLUENCE);
-        wait(COOLDOWN_RECRUITMENT);
-
-        // generate the claim hash for the current recruitment
-        bytes32 claimHash = recruitment.generateClaimHash(
-            BadgeRecruitment.HashType.End,
-            minters[0],
+            minter,
             0 // experience points
         );
 
@@ -323,22 +219,131 @@ contract BadgeRecruitmentV2Test is Test {
         (v, r, s) = vm.sign(mintSignerPk, claimHash);
 
         // exercise the randomFromSignature function
-
         recruitment.endRecruitment(claimHash, v, r, s, 0);
 
         // check for s2 state reset
-        assertEq(recruitment.isRecruitmentActive(minters[0]), false);
-        assertEq(recruitment.isInfluenceActive(minters[0]), false);
+        assertEq(recruitment.isRecruitmentActive(minter), false);
+        assertEq(recruitment.isInfluenceActive(minter), false);
 
         // check for s2 mint
-        assertEq(s2Badges.balanceOf(minters[0], 1), 1);
+        assertEq(s2Badges.balanceOf(minter, 1), 1);
 
-        // fail to re-use the same claim hash
-        bytes32 _hash2 =
-            recruitment.generateClaimHash(BadgeRecruitment.HashType.Start, minters[0], points);
+        // open a second migration cycle
+        vm.stopPrank();
+        vm.startPrank(owner);
 
-        assertEq(_hash, _hash2);
-        vm.expectRevert(BadgeRecruitmentV2.HASH_ALREADY_CLAIMED.selector);
-        recruitment.startRecruitment(_hash, v, r, s, points);
+        // enable recruitment for BADGE_ID
+        uint256[] memory enabledBadgeIds = new uint256[](1);
+        enabledBadgeIds[0] = BADGE_ID;
+        recruitment.forceDisableAllRecruitments();
+        recruitment.enableRecruitments(enabledBadgeIds);
+        vm.stopPrank();
+
+        // expect legacy method to fail
+        vm.startPrank(minter);
+        wait(100);
+        vm.expectRevert(TrailblazersBadgesV4.BADGE_LOCKED.selector);
+        s1BadgesV5.startRecruitment(BADGE_ID, tokenId);
+        // time to start the second migration
+        wait(100);
+
+        s1BadgesV5.startRecruitment(BADGE_ID, secondTokenId);
+        assertEq(recruitment.isRecruitmentActive(minter), true);
+        assertEq(s1BadgesV5.balanceOf(minter), 2);
+        assertEq(s1BadgesV5.unlockTimestamps(secondTokenId), block.timestamp + 365 days);
+
+        vm.stopPrank();
+    }
+
+    function test_resetRecruitment() public {
+        test_full_recruitment();
+        uint256 initialCycleId = recruitment.recruitmentCycleId();
+
+        assertEq(initialCycleId, 2);
+        // roll forward the cycle
+        vm.startPrank(owner);
+
+        uint256[] memory enabledBadgeIds = new uint256[](1);
+        enabledBadgeIds[0] = BADGE_ID;
+        recruitment.forceDisableAllRecruitments();
+        recruitment.enableRecruitments(enabledBadgeIds);
+        vm.stopPrank();
+
+        uint256 cycleId = recruitment.recruitmentCycleId();
+        assertEq(cycleId, 3);
+
+        address minter = minters[0];
+        uint256 ongoingTokenId = s1BadgesV5.tokenOfOwnerByIndex(minter, 1);
+        uint256 completedTokenId = s1BadgesV5.tokenOfOwnerByIndex(minter, 0);
+
+        assertEq(s2Badges.balanceOf(minter, 1), 1);
+
+        vm.startPrank(minter);
+
+        // expect revert from the completed migration
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(completedTokenId, BADGE_ID, initialCycleId);
+        // on both cycles
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(completedTokenId, BADGE_ID, cycleId);
+        // as well as for the ongoing migration on the current cycle
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(ongoingTokenId, BADGE_ID, cycleId);
+
+        // reset the ongoing recruitment
+        s1BadgesV5.resetMigration(ongoingTokenId, BADGE_ID, initialCycleId);
+
+        // start over the ongoing migration
+        wait(100);
+        s1BadgesV5.startRecruitment(BADGE_ID, ongoingTokenId);
+        assertEq(recruitment.isRecruitmentActive(minter), true);
+        assertEq(s1BadgesV5.balanceOf(minter), 2);
+        assertEq(s1BadgesV5.unlockTimestamps(ongoingTokenId), block.timestamp + 365 days);
+
+        // and end it
+        wait(COOLDOWN_INFLUENCE);
+        wait(COOLDOWN_RECRUITMENT);
+
+        bytes32 claimHash = recruitment.generateClaimHash(
+            BadgeRecruitment.HashType.End,
+            minter,
+            0 // experience points
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, claimHash);
+        recruitment.endRecruitment(claimHash, v, r, s, 0);
+
+        // check for s2 state reset
+        assertEq(recruitment.isRecruitmentActive(minter), false);
+        assertEq(recruitment.isInfluenceActive(minter), false);
+
+        // check for s2 mint
+        assertEq(s2Badges.balanceOf(minter, 2), 1);
+
+        // fail to reset the ongoing migration
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(ongoingTokenId, BADGE_ID, cycleId);
+    }
+
+    function test_revertStartTooCloseToCycleEnd() public {
+        test_upgradeV2();
+        address minter = minters[0];
+        vm.startPrank(minter);
+
+        // mint the badge
+        bytes32 _hash = s1BadgesV5.getHash(minter, BADGE_ID);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+        bool canMint = s1BadgesV5.canMint(abi.encodePacked(r, s, v), minter, BADGE_ID);
+        assertTrue(canMint);
+
+        s1BadgesV5.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        uint256 tokenId = s1BadgesV5.tokenOfOwnerByIndex(minter, 0);
+
+        // wait until almost the end
+        wait(DEFAULT_CYCLE_DURATION - COOLDOWN_RECRUITMENT + 1);
+        vm.expectRevert(BadgeRecruitmentV2.NOT_ENOUGH_TIME_LEFT.selector);
+        s1BadgesV5.startRecruitment(BADGE_ID, tokenId);
+        assertEq(recruitment.isRecruitmentActive(minter), false);
+        vm.stopPrank();
     }
 }

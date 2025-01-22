@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v3.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SuccinctVerifier } from
+    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import "test/shared/DeployCapability.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 

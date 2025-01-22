@@ -23,12 +23,14 @@ description: Network reference page describing various important addresses on Ta
 | ------------------------------- | -------------------------------------------- | -------------------------- |
 | TaikoL1                         | `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a` | based.taiko.eth            |
 | RollupAddressManager            | `0x579f40D0BE111b823962043702cabe6Aaa290780` | ram.based.taiko.eth        |
-| TierRouter                      | `0x394E30d83d020469a1F8b16E89D7fD5FdB1935b0` | N/A                        |
+| TierRouter                      | `0x8a4c692F12d3a9750E744A4CE24a1d351bE52E66` | N/A                        |
 | GuardianProver                  | `0xE3D777143Ea25A6E031d1e921F396750885f43aC` | guardians.based.taiko.eth  |
 | GuardianProverMinority          | `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` | guardians1.based.taiko.eth |
 | AssignmentHook                  | `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6` | N/A                        |
 | TierProvider                    | `0x4cffe56C947E26D07C14020499776DB3e9AE3a23` | N/A                        |
 | SgxVerifier                     | `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81` | N/A                        |
+| Risc0Verifier                   | `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc` | N/A                        |
+| SP1Verifier                     | `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452` | N/A                        |
 | AutomataDcapAttestation         | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | N/A                        |
 | PemCertChainLib                 | `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169` | N/A                        |
 | P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` | N/A                        |

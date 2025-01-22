@@ -1,5 +1,94 @@
 # Changelog
 
+## [1.21.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.3...docs-site-v1.21.4) (2025-01-21)
+
+
+### Bug Fixes
+
+* **docs-site:** omitted L1 HTTP endpoint from taiko client flags ([#18798](https://github.com/taikoxyz/taiko-mono/issues/18798)) ([a3e08ff](https://github.com/taikoxyz/taiko-mono/commit/a3e08fffbb7c200a3671bff7b1b793ee31226595))
+
+
+### Chores
+
+* **docs-site:** update documentation for upcoming hekla upgrade ([#18810](https://github.com/taikoxyz/taiko-mono/issues/18810)) ([cc2010c](https://github.com/taikoxyz/taiko-mono/commit/cc2010cf356dce1b5b012cd3e7cc15e58c5ad126))
+* **docs-site:** update network config and add batch proof guide ([#18776](https://github.com/taikoxyz/taiko-mono/issues/18776)) ([8710cd8](https://github.com/taikoxyz/taiko-mono/commit/8710cd866d407bca4eb977142d5e38786de94672))
+
+## [1.21.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.2...docs-site-v1.21.3) (2025-01-13)
+
+
+### Chores
+
+* **docs-site:** update mainnet config graphic ([#18758](https://github.com/taikoxyz/taiko-mono/issues/18758)) ([b36576a](https://github.com/taikoxyz/taiko-mono/commit/b36576a367fbf3084aed3a9334821f7893d9c270))
+* **docs-site:** update mainnet verifier addresses ([#18756](https://github.com/taikoxyz/taiko-mono/issues/18756)) ([eaa47bd](https://github.com/taikoxyz/taiko-mono/commit/eaa47bd2c82a4678e0e1b65c076693b4b3015c26))
+* **docs-site:** update verifier addresses ([#18749](https://github.com/taikoxyz/taiko-mono/issues/18749)) ([bd0cb95](https://github.com/taikoxyz/taiko-mono/commit/bd0cb95c054075b32bf571d7c89a4768d370cb59))
+
+## [1.21.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.1...docs-site-v1.21.2) (2025-01-07)
+
+
+### Chores
+
+* **docs-site:** update codebase analysis to reflect protocol changes ([#18714](https://github.com/taikoxyz/taiko-mono/issues/18714)) ([6157af5](https://github.com/taikoxyz/taiko-mono/commit/6157af5c63608876c5f090017c315ca59c6bd4ef))
+
+## [1.21.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.0...docs-site-v1.21.1) (2025-01-03)
+
+
+### Chores
+
+* **docs-site:** revert zk coverage docs ([#18682](https://github.com/taikoxyz/taiko-mono/issues/18682)) ([26c5fb3](https://github.com/taikoxyz/taiko-mono/commit/26c5fb3ad09a061997ffba28e91938b172d28798))
+* **repo:** fix broken links ([#18635](https://github.com/taikoxyz/taiko-mono/issues/18635)) ([8e53a6e](https://github.com/taikoxyz/taiko-mono/commit/8e53a6e6a2654b8a599fe1df187e2fd88c22d96e))
+
+## [1.21.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.3...docs-site-v1.21.0) (2024-12-23)
+
+
+### Features
+
+* **docs-site:** add doc for SGX Verifier. ([#18579](https://github.com/taikoxyz/taiko-mono/issues/18579)) ([08b2c49](https://github.com/taikoxyz/taiko-mono/commit/08b2c49f19b25643b4570642d1612b15d5d71290))
+
+
+### Chores
+
+* **docs-site:** fix broken link  ([#18585](https://github.com/taikoxyz/taiko-mono/issues/18585)) ([38bbb55](https://github.com/taikoxyz/taiko-mono/commit/38bbb55dc076a03751871dde5d61729282a68d9a))
+* **docs-site:** fix typos in node operator guides ([#18586](https://github.com/taikoxyz/taiko-mono/issues/18586)) ([b4bd23c](https://github.com/taikoxyz/taiko-mono/commit/b4bd23ca0798ab239730765a4ca1d8e49ef6e52e))
+* **docs-site:** update proof tier graphic ([#18617](https://github.com/taikoxyz/taiko-mono/issues/18617)) ([becffb7](https://github.com/taikoxyz/taiko-mono/commit/becffb7cc81c6f17436985a81750a5eef7f980e1))
+
+
+### Build
+
+* **deps:** bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#18539](https://github.com/taikoxyz/taiko-mono/issues/18539)) ([79f3fab](https://github.com/taikoxyz/taiko-mono/commit/79f3fab5f1d1ec1bb4ee18afb9268b622e894780))
+* **deps:** bump golang.org/x/sync from 0.9.0 to 0.10.0 ([#18560](https://github.com/taikoxyz/taiko-mono/issues/18560)) ([3d51970](https://github.com/taikoxyz/taiko-mono/commit/3d51970aa0953bbfecaeebf76ea7e664c875c0e4))
+
+## [1.20.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.2...docs-site-v1.20.3) (2024-12-09)
+
+
+### Bug Fixes
+
+* **docs-site:** update hekla graphic ([#18572](https://github.com/taikoxyz/taiko-mono/issues/18572)) ([ee50fdc](https://github.com/taikoxyz/taiko-mono/commit/ee50fdceec2d8f3a58a67f07b41e832898108e5d))
+
+
+### Chores
+
+* **main:** release docs-site 1.20.2 ([#18563](https://github.com/taikoxyz/taiko-mono/issues/18563)) ([ca837f1](https://github.com/taikoxyz/taiko-mono/commit/ca837f1ec3126871d6e8da3323fd8dc8becf7107))
+
+## [1.20.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.1...docs-site-v1.20.2) (2024-12-08)
+
+
+### Bug Fixes
+
+* **docs-site:** link of goldsky in dev tools ([#18562](https://github.com/taikoxyz/taiko-mono/issues/18562)) ([802569a](https://github.com/taikoxyz/taiko-mono/commit/802569ab2b7ebde69eae45e63228bb280b30fc12))
+
+## [1.20.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.0...docs-site-v1.20.1) (2024-12-07)
+
+
+### Bug Fixes
+
+* **docs-site:** correct graphic ([#18561](https://github.com/taikoxyz/taiko-mono/issues/18561)) ([b574358](https://github.com/taikoxyz/taiko-mono/commit/b5743588e6492a67e1e5d3cc88906f92fec673bb))
+
+
+### Chores
+
+* **docs-site:** add goldsky to dev tools ([#18552](https://github.com/taikoxyz/taiko-mono/issues/18552)) ([4b83b5f](https://github.com/taikoxyz/taiko-mono/commit/4b83b5f76157d73f2c798195730b67adaf9ef09d))
+* **docs-site:** update hekla proof tier config graphic and address ([#18554](https://github.com/taikoxyz/taiko-mono/issues/18554)) ([0854e12](https://github.com/taikoxyz/taiko-mono/commit/0854e12beb8ad4036eecaa3d72589bdb5ab82927))
+
 ## [1.20.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.19.0...docs-site-v1.20.0) (2024-12-06)
 
 

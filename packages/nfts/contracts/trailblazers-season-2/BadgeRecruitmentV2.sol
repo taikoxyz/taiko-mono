@@ -1,122 +1,141 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../trailblazers-badges/TrailblazersBadgesV3.sol";
 import "./BadgeRecruitment.sol";
 
 contract BadgeRecruitmentV2 is BadgeRecruitment {
-    /// @notice Error
-    error HASH_ALREADY_CLAIMED();
-    /// @notice Registry for used hashes
+    /// @notice Events
+    event RecruitmentReset(
+        uint256 indexed cycleId, address indexed user, uint256 indexed s1TokenId, uint256 s1BadgeId
+    );
 
-    mapping(bytes32 _hash => bool _isUsed) public usedClaimHashes;
-    /// @notice Version of the contract
-    /// @return The version of the contract
+    /// @notice Errors
+    error RECRUITMENT_ALREADY_COMPLETED();
+    error RECRUITMENT_NOT_FOUND();
+    error NOT_ENOUGH_TIME_LEFT();
 
-    function version() external view virtual returns (string memory) {
-        return "v2";
-    }
-    /// @notice Start a recruitment for a badge using the user's experience points
-    /// @param _hash The hash to sign of the signature
-    /// @param _v The signature V field
-    /// @param _r The signature R field
-    /// @param _s The signature S field
-    /// @param _exp The user's experience points
+    modifier recruitmentHasTimeLeft(address _user) {
+        uint256 endCycleTime = recruitmentCycles[recruitmentCycleId].endTime;
+        uint256 potentialRecruitmentEndTime = block.timestamp + this.getConfig().cooldownRecruitment;
 
-    function startRecruitment(
-        bytes32 _hash,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s,
-        uint256 _exp
-    )
-        external
-        virtual
-        override
-        isNotMigrating(_msgSender())
-    {
-        bytes32 calculatedHash_ = generateClaimHash(HashType.Start, _msgSender(), _exp);
-
-        if (calculatedHash_ != _hash) {
-            revert HASH_MISMATCH();
+        if (potentialRecruitmentEndTime > endCycleTime) {
+            revert NOT_ENOUGH_TIME_LEFT();
         }
-
-        if (usedClaimHashes[_hash]) {
-            revert HASH_ALREADY_CLAIMED();
-        }
-
-        (address recovered_,,) = ECDSA.tryRecover(_hash, _v, _r, _s);
-        if (recovered_ != randomSigner) {
-            revert NOT_RANDOM_SIGNER();
-        }
-
-        if (_exp < userExperience[_msgSender()]) {
-            revert EXP_TOO_LOW();
-        }
-
-        userExperience[_msgSender()] = _exp;
-
-        RecruitmentCycle memory cycle_ = recruitmentCycles[recruitmentCycleId];
-        if (cycle_.startTime > block.timestamp || cycle_.endTime < block.timestamp) {
-            revert RECRUITMENT_NOT_ENABLED();
-        }
-        uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
-        uint256 s1BadgeId_ = cycle_.s1BadgeIds[randomSeed_ % cycle_.s1BadgeIds.length];
-
-        if (
-            recruitmentCycleUniqueMints[recruitmentCycleId][_msgSender()][s1BadgeId_][RecruitmentType
-                .Claim]
-        ) {
-            revert ALREADY_MIGRATED_IN_CYCLE();
-        }
-
-        _startRecruitment(_msgSender(), s1BadgeId_, 0, RecruitmentType.Claim);
-        usedClaimHashes[_hash] = true;
+        _;
     }
 
-    /// @notice Start a recruitment for a badge using the user's experience points
-    /// @param _hash The hash to sign of the signature
-    /// @param _v The signature V field
-    /// @param _r The signature R field
-    /// @param _s The signature S field
-    /// @param _exp The user's experience points
+    /// @notice Updated version function
+    function version() external pure virtual returns (string memory) {
+        return "V2";
+    }
+
+    /// @notice Start a recruitment for a badge
     /// @param _s1BadgeId The badge ID (s1)
+    /// @dev Not all badges are eligible for recruitment at the same time
+    /// @dev Defines a cooldown for the recruitment to be complete
+    /// @dev the cooldown is lesser the higher the Pass Tier
+    /// @dev Must be called from the s1 badges contract
     function startRecruitment(
-        bytes32 _hash,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s,
-        uint256 _exp,
-        uint256 _s1BadgeId
+        address _user,
+        uint256 _s1BadgeId,
+        uint256 _s1TokenId
     )
         external
         virtual
-        override
-        isNotMigrating(_msgSender())
+        onlyRole(S1_BADGES_ROLE)
         recruitmentOpen(_s1BadgeId)
-        hasntMigratedInCycle(_s1BadgeId, _msgSender(), RecruitmentType.Claim)
+        isNotMigrating(_user)
+        hasntMigratedInCycle(_s1BadgeId, _user, RecruitmentType.Migration)
+        recruitmentHasTimeLeft(_user)
     {
-        bytes32 calculatedHash_ = generateClaimHash(HashType.Start, _msgSender(), _s1BadgeId);
+        if (s1Badges.ownerOf(_s1TokenId) != _user) {
+            revert TOKEN_NOT_OWNED();
+        }
+        _startRecruitment(_user, _s1BadgeId, _s1TokenId, RecruitmentType.Migration);
+    }
 
-        if (calculatedHash_ != _hash) {
-            revert HASH_MISMATCH();
+    /// @notice Disable all current recruitments
+    /// @dev Bypasses the default date checks
+    function forceDisableAllRecruitments() external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+        forceDisableRecruitments();
+
+        emit RecruitmentCycleToggled(
+            recruitmentCycleId,
+            recruitmentCycles[recruitmentCycleId].startTime,
+            recruitmentCycles[recruitmentCycleId].endTime,
+            recruitmentCycles[recruitmentCycleId].s1BadgeIds,
+            false
+        );
+    }
+
+    /// @notice Get the active recruitment for a user
+    /// @param _user The user address
+    /// @return The active recruitment
+    function getActiveRecruitmentsFor(address _user) public view returns (Recruitment[] memory) {
+        if (recruitments[_user].length == 0) {
+            revert RECRUITMENT_NOT_STARTED();
+        }
+        return recruitments[_user];
+    }
+
+    /// @notice Reset a recruitment that hasn't been completed
+    /// @param _user The user address
+    /// @param _s1TokenId The s1 token ID
+    /// @param _s1BadgeId The s1 badge ID
+    /// @param _recruitmentCycle The recruitment index
+    /// @dev Must be called from the s1 badges contract
+    function resetRecruitment(
+        address _user,
+        uint256 _s1TokenId,
+        uint256 _s1BadgeId,
+        uint256 _recruitmentCycle
+    )
+        public
+        virtual
+        onlyRole(S1_BADGES_ROLE)
+    {
+        if (
+            !recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType
+                .Migration]
+                && !recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Claim]
+                && !recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType
+                    .Undefined]
+        ) {
+            revert RECRUITMENT_NOT_FOUND();
         }
 
-        if (usedClaimHashes[_hash]) {
-            revert HASH_ALREADY_CLAIMED();
+        bool found = false;
+
+        for (uint256 i = 0; i < recruitments[_user].length; i++) {
+            if (
+                recruitments[_user][i].recruitmentCycle == _recruitmentCycle
+                    && recruitments[_user][i].s1TokenId == _s1TokenId
+                    && recruitments[_user][i].s2TokenId == 0
+            ) {
+                delete recruitments[_user][i];
+                found = true;
+                break;
+            }
         }
 
-        (address recovered_,,) = ECDSA.tryRecover(_hash, _v, _r, _s);
-        if (recovered_ != randomSigner) {
-            revert NOT_RANDOM_SIGNER();
+        if (!found) {
+            revert RECRUITMENT_NOT_FOUND();
         }
 
-        if (_exp < userExperience[_msgSender()]) {
-            revert EXP_TOO_LOW();
-        }
+        recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Undefined]
+        = false;
+        recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Claim] =
+            false;
+        recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Migration]
+        = false;
 
-        userExperience[_msgSender()] = _exp;
-        _startRecruitment(_msgSender(), _s1BadgeId, 0, RecruitmentType.Claim);
-        usedClaimHashes[calculatedHash_] = true;
+        emit RecruitmentReset(_recruitmentCycle, _user, _s1TokenId, _s1BadgeId);
+    }
+
+    /// @notice Set the s2 badges contract
+    /// @param _s2Badges The s2 badges contract address
+    /// @dev Must be called from the admin account
+    function setS2BadgesContract(address _s2Badges) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+        s2Badges = TrailblazersBadgesS2(_s2Badges);
     }
 }

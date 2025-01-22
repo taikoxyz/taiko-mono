@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     tags:
-      - "taiko-client-v*"
+      - "taiko-alethia-client-v*"
     paths:
       - "packages/taiko-client/**"
 
@@ -60,7 +60,7 @@ jobs:
 
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: packages/taiko-client/Dockerfile
