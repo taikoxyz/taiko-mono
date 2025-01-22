@@ -1,0 +1,366 @@
+definitions:
+  big.Int:
+    type: object
+  engine.ExecutableData:
+    properties:
+      baseFeePerGas:
+        $ref: '#/definitions/big.Int'
+      blobGasUsed:
+        type: integer
+      blockHash:
+        items:
+          type: integer
+        type: array
+      blockNumber:
+        type: integer
+      depositRequests:
+        items:
+          $ref: '#/definitions/types.Deposit'
+        type: array
+      excessBlobGas:
+        type: integer
+      executionWitness:
+        $ref: '#/definitions/types.ExecutionWitness'
+      extraData:
+        items:
+          type: integer
+        type: array
+      feeRecipient:
+        items:
+          type: integer
+        type: array
+      gasLimit:
+        type: integer
+      gasUsed:
+        type: integer
+      logsBloom:
+        items:
+          type: integer
+        type: array
+      parentHash:
+        items:
+          type: integer
+        type: array
+      prevRandao:
+        items:
+          type: integer
+        type: array
+      receiptsRoot:
+        items:
+          type: integer
+        type: array
+      stateRoot:
+        items:
+          type: integer
+        type: array
+      taikoBlock:
+        description: 'CHANGE(taiko): whether this is a Taiko L2 block, only used by
+          ExecutableDataToBlock'
+        type: boolean
+      timestamp:
+        type: integer
+      transactions:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+      txHash:
+        description: 'CHANGE(taiko): allow passing txHash directly instead of transactions
+          list'
+        items:
+          type: integer
+        type: array
+      withdrawals:
+        items:
+          $ref: '#/definitions/types.Withdrawal'
+        type: array
+      withdrawalsHash:
+        description: 'CHANGE(taiko): allow passing WithdrawalsHash directly instead
+          of withdrawals'
+        items:
+          type: integer
+        type: array
+    type: object
+  preconfblocks.BuildPreconfBlockRequestBody:
+    properties:
+      anchorBlockID:
+        description: '@param anchorBlockID uint64 `_anchorBlockId` parameter of the
+          `anchorV3` transaction in the preconf block'
+        type: integer
+      anchorInput:
+        items:
+          type: integer
+        type: array
+      anchorStateRoot:
+        description: '@param anchorStateRoot string `_anchorStateRoot` parameter of
+          the `anchorV3` transaction in the preconf block'
+        items:
+          type: integer
+        type: array
+      executableData:
+        allOf:
+        - $ref: '#/definitions/engine.ExecutableData'
+        description: '@param ExecutableData engine.ExecutableData the data necessary
+          to execute an EL payload.'
+      signalSlots:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+      signature:
+        description: '@param signature string Signature of this executable data payload.'
+        type: string
+    type: object
+  preconfblocks.BuildPreconfBlockResponseBody:
+    properties:
+      blockHeader:
+        allOf:
+        - $ref: '#/definitions/types.Header'
+        description: '@param blockHeader types.Header of the soft block'
+    type: object
+  types.Deposit:
+    properties:
+      amount:
+        description: deposit size in Gwei
+        type: integer
+      index:
+        description: deposit count value
+        type: integer
+      pubkey:
+        description: public key of validator
+        items:
+          type: integer
+        type: array
+      signature:
+        description: signature over deposit msg
+        items:
+          type: integer
+        type: array
+      withdrawalCredentials:
+        description: beneficiary of the validator funds
+        items:
+          type: integer
+        type: array
+    type: object
+  types.ExecutionWitness:
+    properties:
+      stateDiff:
+        items:
+          $ref: '#/definitions/verkle.StemStateDiff'
+        type: array
+      verkleProof:
+        $ref: '#/definitions/verkle.VerkleProof'
+    type: object
+  types.Header:
+    properties:
+      baseFeePerGas:
+        allOf:
+        - $ref: '#/definitions/big.Int'
+        description: BaseFee was added by EIP-1559 and is ignored in legacy headers.
+      blobGasUsed:
+        description: BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.
+        type: integer
+      difficulty:
+        $ref: '#/definitions/big.Int'
+      excessBlobGas:
+        description: ExcessBlobGas was added by EIP-4844 and is ignored in legacy
+          headers.
+        type: integer
+      extraData:
+        items:
+          type: integer
+        type: array
+      gasLimit:
+        type: integer
+      gasUsed:
+        type: integer
+      logsBloom:
+        items:
+          type: integer
+        type: array
+      miner:
+        items:
+          type: integer
+        type: array
+      mixHash:
+        items:
+          type: integer
+        type: array
+      nonce:
+        items:
+          type: integer
+        type: array
+      number:
+        $ref: '#/definitions/big.Int'
+      parentBeaconBlockRoot:
+        description: ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
+          headers.
+        items:
+          type: integer
+        type: array
+      parentHash:
+        items:
+          type: integer
+        type: array
+      receiptsRoot:
+        items:
+          type: integer
+        type: array
+      requestsRoot:
+        description: RequestsHash was added by EIP-7685 and is ignored in legacy headers.
+        items:
+          type: integer
+        type: array
+      sha3Uncles:
+        items:
+          type: integer
+        type: array
+      stateRoot:
+        items:
+          type: integer
+        type: array
+      timestamp:
+        type: integer
+      transactionsRoot:
+        items:
+          type: integer
+        type: array
+      withdrawalsRoot:
+        description: WithdrawalsHash was added by EIP-4895 and is ignored in legacy
+          headers.
+        items:
+          type: integer
+        type: array
+    type: object
+  types.Withdrawal:
+    properties:
+      address:
+        description: target address for withdrawn ether
+        items:
+          type: integer
+        type: array
+      amount:
+        description: value of withdrawal in Gwei
+        type: integer
+      index:
+        description: monotonically increasing identifier issued by consensus layer
+        type: integer
+      validatorIndex:
+        description: index of validator associated with withdrawal
+        type: integer
+    type: object
+  verkle.IPAProof:
+    properties:
+      cl:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+      cr:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+      finalEvaluation:
+        items:
+          type: integer
+        type: array
+    type: object
+  verkle.StemStateDiff:
+    properties:
+      stem:
+        items:
+          type: integer
+        type: array
+      suffixDiffs:
+        items:
+          $ref: '#/definitions/verkle.SuffixStateDiff'
+        type: array
+    type: object
+  verkle.SuffixStateDiff:
+    properties:
+      currentValue:
+        items:
+          type: integer
+        type: array
+      newValue:
+        items:
+          type: integer
+        type: array
+      suffix:
+        type: integer
+    type: object
+  verkle.VerkleProof:
+    properties:
+      commitmentsByPath:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+      d:
+        items:
+          type: integer
+        type: array
+      depthExtensionPresent:
+        items:
+          type: integer
+        type: array
+      ipa_proof:
+        $ref: '#/definitions/verkle.IPAProof'
+      otherStems:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+    type: object
+info:
+  contact:
+    email: info@taiko.xyz
+    name: API Support
+    url: https://community.taiko.xyz/
+  license:
+    name: MIT
+    url: https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
+  termsOfService: http://swagger.io/terms/
+  title: Taiko Preconfirmation Block Server API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      consumes:
+      - application/json
+      operationId: health-check
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Get current server health status
+  /preconfBlocks:
+    post:
+      consumes:
+      - application/json
+      description: Insert a preconfirmation block to the L2 execution engine.
+      parameters:
+      - description: preconf block creation request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/preconfblocks.BuildPreconfBlockRequestBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/preconfblocks.BuildPreconfBlockResponseBody'
+swagger: "2.0"

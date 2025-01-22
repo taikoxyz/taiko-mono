@@ -1,0 +1,539 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Taiko Preconfirmation Block Server API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "https://community.taiko.xyz/",
+            "email": "info@taiko.xyz"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
+        },
+        "version": "1.0"
+    },
+    "paths": {
+        "/healthz": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get current server health status",
+                "operationId": "health-check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/preconfBlocks": {
+            "post": {
+                "description": "Insert a preconfirmation block to the L2 execution engine.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "description": "preconf block creation request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/preconfblocks.BuildPreconfBlockRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/preconfblocks.BuildPreconfBlockResponseBody"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "big.Int": {
+            "type": "object"
+        },
+        "engine.ExecutableData": {
+            "type": "object",
+            "properties": {
+                "baseFeePerGas": {
+                    "$ref": "#/definitions/big.Int"
+                },
+                "blobGasUsed": {
+                    "type": "integer"
+                },
+                "blockHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "blockNumber": {
+                    "type": "integer"
+                },
+                "depositRequests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Deposit"
+                    }
+                },
+                "excessBlobGas": {
+                    "type": "integer"
+                },
+                "executionWitness": {
+                    "$ref": "#/definitions/types.ExecutionWitness"
+                },
+                "extraData": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "feeRecipient": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "gasLimit": {
+                    "type": "integer"
+                },
+                "gasUsed": {
+                    "type": "integer"
+                },
+                "logsBloom": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "parentHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "prevRandao": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "receiptsRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "stateRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "taikoBlock": {
+                    "description": "CHANGE(taiko): whether this is a Taiko L2 block, only used by ExecutableDataToBlock",
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "txHash": {
+                    "description": "CHANGE(taiko): allow passing txHash directly instead of transactions list",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "withdrawals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Withdrawal"
+                    }
+                },
+                "withdrawalsHash": {
+                    "description": "CHANGE(taiko): allow passing WithdrawalsHash directly instead of withdrawals",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "preconfblocks.BuildPreconfBlockRequestBody": {
+            "type": "object",
+            "properties": {
+                "anchorBlockID": {
+                    "description": "@param anchorBlockID uint64 `_anchorBlockId` parameter of the `anchorV3` transaction in the preconf block",
+                    "type": "integer"
+                },
+                "anchorInput": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "anchorStateRoot": {
+                    "description": "@param anchorStateRoot string `_anchorStateRoot` parameter of the `anchorV3` transaction in the preconf block",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "executableData": {
+                    "description": "@param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/engine.ExecutableData"
+                        }
+                    ]
+                },
+                "signalSlots": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "signature": {
+                    "description": "@param signature string Signature of this executable data payload.",
+                    "type": "string"
+                }
+            }
+        },
+        "preconfblocks.BuildPreconfBlockResponseBody": {
+            "type": "object",
+            "properties": {
+                "blockHeader": {
+                    "description": "@param blockHeader types.Header of the soft block",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.Header"
+                        }
+                    ]
+                }
+            }
+        },
+        "types.Deposit": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "deposit size in Gwei",
+                    "type": "integer"
+                },
+                "index": {
+                    "description": "deposit count value",
+                    "type": "integer"
+                },
+                "pubkey": {
+                    "description": "public key of validator",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "signature": {
+                    "description": "signature over deposit msg",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "withdrawalCredentials": {
+                    "description": "beneficiary of the validator funds",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "types.ExecutionWitness": {
+            "type": "object",
+            "properties": {
+                "stateDiff": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/verkle.StemStateDiff"
+                    }
+                },
+                "verkleProof": {
+                    "$ref": "#/definitions/verkle.VerkleProof"
+                }
+            }
+        },
+        "types.Header": {
+            "type": "object",
+            "properties": {
+                "baseFeePerGas": {
+                    "description": "BaseFee was added by EIP-1559 and is ignored in legacy headers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/big.Int"
+                        }
+                    ]
+                },
+                "blobGasUsed": {
+                    "description": "BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.",
+                    "type": "integer"
+                },
+                "difficulty": {
+                    "$ref": "#/definitions/big.Int"
+                },
+                "excessBlobGas": {
+                    "description": "ExcessBlobGas was added by EIP-4844 and is ignored in legacy headers.",
+                    "type": "integer"
+                },
+                "extraData": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "gasLimit": {
+                    "type": "integer"
+                },
+                "gasUsed": {
+                    "type": "integer"
+                },
+                "logsBloom": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "miner": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "mixHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "nonce": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "number": {
+                    "$ref": "#/definitions/big.Int"
+                },
+                "parentBeaconBlockRoot": {
+                    "description": "ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "parentHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "receiptsRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "requestsRoot": {
+                    "description": "RequestsHash was added by EIP-7685 and is ignored in legacy headers.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "sha3Uncles": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "stateRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "transactionsRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "withdrawalsRoot": {
+                    "description": "WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "types.Withdrawal": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "target address for withdrawn ether",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "amount": {
+                    "description": "value of withdrawal in Gwei",
+                    "type": "integer"
+                },
+                "index": {
+                    "description": "monotonically increasing identifier issued by consensus layer",
+                    "type": "integer"
+                },
+                "validatorIndex": {
+                    "description": "index of validator associated with withdrawal",
+                    "type": "integer"
+                }
+            }
+        },
+        "verkle.IPAProof": {
+            "type": "object",
+            "properties": {
+                "cl": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "cr": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "finalEvaluation": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "verkle.StemStateDiff": {
+            "type": "object",
+            "properties": {
+                "stem": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "suffixDiffs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/verkle.SuffixStateDiff"
+                    }
+                }
+            }
+        },
+        "verkle.SuffixStateDiff": {
+            "type": "object",
+            "properties": {
+                "currentValue": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "newValue": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "suffix": {
+                    "type": "integer"
+                }
+            }
+        },
+        "verkle.VerkleProof": {
+            "type": "object",
+            "properties": {
+                "commitmentsByPath": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "d": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "depthExtensionPresent": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "ipa_proof": {
+                    "$ref": "#/definitions/verkle.IPAProof"
+                },
+                "otherStems": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
