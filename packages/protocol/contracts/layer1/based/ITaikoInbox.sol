@@ -159,6 +159,8 @@ interface ITaikoInbox {
         uint16 maxBlocksPerBatch;
         /// @notice The minimum number of transactions to include in a "forced txs" block.
         uint16 minForcedTxsPerBlock;
+        /// @notice The number of batches between two "forced txs" blocks.
+        uint64 forcedTxsBlockInternal;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
