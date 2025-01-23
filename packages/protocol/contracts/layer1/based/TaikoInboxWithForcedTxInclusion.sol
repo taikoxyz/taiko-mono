@@ -25,8 +25,6 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
     uint16 public constant MAX_FORCED_TXS_PER_FORCED_INCLUSION = 512;
     uint256[50] private __gap;
 
-    // External functions ------------------------------------------------------------------------
-
     constructor(address _resolver) EssentialContract(_resolver) { }
 
     function init(address _owner) external initializer {
