@@ -452,7 +452,7 @@ var (
 	ComposeVerifierABI  *abi.ABI
 	ForkRouterPacayaABI *abi.ABI
 	TaikoTokenPacayaABI *abi.ABI
-	ProverSetPavayaABI  *abi.ABI
+	ProverSetPacayaABI  *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -532,7 +532,7 @@ func init() {
 		log.Crit("Get TaikoToken ABI error", "error", err)
 	}
 
-	if ProverSetPavayaABI, err = pacayaBindings.ProverSetMetaData.GetAbi(); err != nil {
+	if ProverSetPacayaABI, err = pacayaBindings.ProverSetMetaData.GetAbi(); err != nil {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
@@ -554,7 +554,7 @@ func init() {
 		ComposeVerifierABI.Errors,
 		ForkRouterPacayaABI.Errors,
 		TaikoTokenPacayaABI.Errors,
-		ProverSetPavayaABI.Errors,
+		ProverSetPacayaABI.Errors,
 	}
 }
 
