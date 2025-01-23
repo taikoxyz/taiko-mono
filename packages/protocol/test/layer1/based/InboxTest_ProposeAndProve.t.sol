@@ -502,7 +502,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertTrue(EssentialContract(address(inbox)).paused());
     }
 
-    function test_proposeBatch_reverts_for_invalid_proposer_and_preconfRouter()
+    function test_proposeBatch_reverts_for_invalid_proposer_and_operator()
         external
         transactBy(Alice)
     {
@@ -513,17 +513,17 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "txList");
 
         vm.startPrank(deployer);
-        address preconfRouter = Bob;
-        resolver.registerAddress(block.chainid, "preconf_router", preconfRouter);
+        address operator = Bob;
+        resolver.registerAddress(block.chainid, "inbox_operator", operator);
         vm.stopPrank();
 
         vm.startPrank(Alice);
-        params.proposer = preconfRouter;
-        vm.expectRevert(ITaikoInbox.NotPreconfRouter.selector);
+        params.proposer = operator;
+        vm.expectRevert(ITaikoInbox.NotInboxOperator.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
         vm.stopPrank();
 
-        vm.startPrank(preconfRouter);
+        vm.startPrank(operator);
         params.proposer = address(0);
         vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
         inbox.proposeBatch(abi.encode(params), "txList");

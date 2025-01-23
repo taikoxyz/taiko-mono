@@ -70,31 +70,43 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
-                if (preconfRouter == address(0)) {
+                address operator = resolve(LibStrings.B_INBOX_OPERATOR, true);
+                if (operator == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
+
+                    // blob hashes are only accepted if the caller is trusted.
+                    require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                 } else {
-                    require(msg.sender == preconfRouter, NotPreconfRouter());
+                    require(msg.sender == operator, NotInboxOperator());
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
                 if (params.coinbase == address(0)) {
                     params.coinbase = params.proposer;
                 }
+
+                if (params.revertIfNotFirstProposal) {
+                    require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
+                }
             }
 
-            if (params.revertIfNotFirstProposal) {
-                require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
+            bool calldataUsed = _txList.length != 0;
+
+            if (!calldataUsed) {
+                if (params.blobParams.blobHashes.length == 0) {
+                    require(params.blobParams.numBlobs != 0, BlobNotSpecified());
+                } else {
+                    require(
+                        params.blobParams.numBlobs == 0 && params.blobParams.firstBlobIndex == 0,
+                        InvalidBlobParams()
+                    );
+                }
             }
 
             // Keep track of last batch's information.
             Batch storage lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
-
-            bool calldataUsed = _txList.length != 0;
-
-            require(calldataUsed || params.blobParams.numBlobs != 0, BlobNotSpecified());
 
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
                 params,
@@ -536,13 +548,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         returns (bytes32 hash_, bytes32[] memory blobHashes_)
     {
         unchecked {
-            blobHashes_ = new bytes32[](_blobParams.numBlobs);
-            for (uint256 i; i < _blobParams.numBlobs; ++i) {
-                blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
+            if (_blobParams.blobHashes.length != 0) {
+                blobHashes_ = _blobParams.blobHashes;
+            } else {
+                blobHashes_ = new bytes32[](_blobParams.numBlobs);
+                for (uint256 i; i < _blobParams.numBlobs; ++i) {
+                    blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
+                }
+            }
+
+            for (uint256 i; i < blobHashes_.length; ++i) {
                 require(blobHashes_[i] != 0, BlobNotFound());
             }
+            hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
         }
-        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
     }
 
     // Private functions -----------------------------------------------------------------------
