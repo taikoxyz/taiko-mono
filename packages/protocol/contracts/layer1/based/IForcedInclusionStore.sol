@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
     struct ForcedInclusion {
-        bytes32 blobhash;
+        bytes32 blobHash;
         uint64 id;
         uint32 blobByteOffset;
         uint32 blobByteSize;
