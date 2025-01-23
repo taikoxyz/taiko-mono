@@ -68,8 +68,9 @@ interface ITaikoInbox {
         uint32 gasLimit;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
-        bytes32 anchorBlockHash; // corresponds to the `_anchorStateRoot` parameter in the anchor
-            // transaction
+        // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
+        // The batch's validity proof shall verify the integrity of these two values.
+        bytes32 anchorBlockHash;
         bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
         bytes32[] signalSlots;
