@@ -18,7 +18,7 @@ import (
 
 const (
 	defaultTimeout         = 1 * time.Minute
-	pacayaForkHeightDevnet = 0
+	pacayaForkHeightDevnet = 10
 	pacayaForkHeightHekla  = 0
 	pacayaForkHeklaMainnet = 0
 )
@@ -146,22 +146,22 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 	// Initialize all smart contract clients.
 	if err := c.initOntakeClients(cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize Ontake clients: %w", err)
 	}
 	if err := c.initPacayaClients(cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
+	}
+
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+	// Initialize the fork height numbers.
+	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
+		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
 	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
 	if err := c.ensureGenesisMatched(ctxWithTimeout); err != nil {
-		return nil, err
-	}
-
-	// Initialize the fork height numbers.
-	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
 	}
 
 	return c, nil
@@ -290,14 +290,13 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 			"error", err,
 		)
 		switch c.L2.ChainID.Uint64() {
-		case params.TaikoInternalL2ANetworkID.Uint64():
-			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
 		case params.HeklaNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeightHekla
 		case params.TaikoMainnetNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeklaMainnet
 		default:
-			return fmt.Errorf("unknown L2 chain ID: %d", c.L2.ChainID.Uint64())
+			log.Debug("Using devnet Pacaya fork height", "height", pacayaForkHeightDevnet)
+			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
 		}
 
 		ontakeProtocolConfigs, err := c.OntakeClients.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
@@ -305,6 +304,7 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 			return fmt.Errorf("failed to get Ontake protocol configs: %w", err)
 		}
 		c.OntakeClients.ForkHeight = ontakeProtocolConfigs.OntakeForkHeight
+		return nil
 	}
 
 	// Otherwise, chain is after the Pacaya fork, just use the fork height numbers from the protocol configs.
