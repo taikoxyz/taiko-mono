@@ -176,7 +176,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			Timestamp:     uint64(msg.ExecutionPayload.Timestamp),
 			ExtraData:     msg.ExecutionPayload.ExtraData,
 			BaseFeePerGas: baseFee,
-			BlockHash:     common.Hash(msg.ExecutionPayload.BlockHash),
+			BlockHash:     msg.ExecutionPayload.BlockHash,
 			Transactions:  [][]byte{common.FromHex(msg.ExecutionPayload.Transactions[0].String())},
 			Withdrawals:   []*types.Withdrawal{},
 		},
