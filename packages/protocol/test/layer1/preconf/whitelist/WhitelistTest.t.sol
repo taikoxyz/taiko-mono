@@ -13,6 +13,7 @@ contract WhitelistTest is WhitelistTestBase {
 
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorIndexToOperator(0), operator);
+        assertEq(whitelist.isOperator(operator), true);
     }
 
     function test_addOperator_onlyOwner() external {
@@ -27,6 +28,22 @@ contract WhitelistTest is WhitelistTestBase {
         vm.prank(whitelistOwner);
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.addOperator(address(0));
+    }
+
+    function test_addOperator_alreadyAdded() external {
+        address operator = Bob;
+
+        vm.startPrank(whitelistOwner);
+        whitelist.addOperator(operator);
+
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorIndexToOperator(0), operator);
+        assertEq(whitelist.isOperator(operator), true);
+
+        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
+        whitelist.addOperator(operator);
+
+        vm.stopPrank();
     }
 
     function test_removeOperator() external {
@@ -44,6 +61,7 @@ contract WhitelistTest is WhitelistTestBase {
         assertEq(whitelist.operatorCount(), 2);
         assertEq(whitelist.operatorIndexToOperator(0), Bob);
         assertEq(whitelist.operatorIndexToOperator(1), David);
+        assertEq(whitelist.isOperator(Carol), false);
 
         vm.stopPrank();
     }
