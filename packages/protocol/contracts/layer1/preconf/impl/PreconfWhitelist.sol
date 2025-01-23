@@ -13,10 +13,13 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     // Tracks the total number of operators in the whitelist
     uint256 public operatorCount;
 
+    // Tracks whether an address is an operator
+    mapping(address operator => bool isOperator) public isOperator;
+
     // Maps operator index to their corresponding operator addresses
     mapping(uint256 operatorIndex => address operator) public operatorIndexToOperator;
 
-    uint256[50] private __gap;
+    uint256[47] private __gap;
 
     constructor(address _resolver) EssentialContract(_resolver) { }
 
@@ -30,10 +33,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         onlyFromOwnerOrNamed(LibStrings.B_PRECONF_WHITELIST_OWNER)
     {
         require(_operatorAddress != address(0), InvalidOperatorAddress());
+        require(!isOperator[_operatorAddress], OperatorAlreadyExists());
 
-        // For simplicity, we assume that the whitelist owner does not add the same operator more
-        // than once.
         operatorIndexToOperator[operatorCount++] = _operatorAddress;
+
+        isOperator[_operatorAddress] = true;
 
         emit OperatorAdded(_operatorAddress);
     }
@@ -55,6 +59,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
             --operatorCount;
         }
+
+        isOperator[removedOperator] = false;
 
         emit OperatorRemoved(removedOperator);
     }
