@@ -12,21 +12,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./IFork.sol";
 import "./ITaikoInbox.sol";
-
-interface IForcedInclusionStore {
-    struct ForcedInclusion {
-        uint64 id;
-        bytes32 blobhash;
-        uint32 blobByteOffset;
-        uint32 blobByteSize;
-        uint256 priorityFee;
-    }
-
-    /// @dev Consume a forced inclusion request.
-    /// The inclusion request must be marked as process and the priority fee must be paid to the
-    /// caller.
-    function consumeForcedInclusion() external returns (ForcedInclusion memory);
-}
+import "./IForcedInclusionStore.sol";
 
 /// @title TaikoInboxWithForcedTxInclusion
 /// @custom:security-contact security@taiko.xyz
