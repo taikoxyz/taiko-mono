@@ -39,6 +39,12 @@ interface ITaikoInbox {
         uint32 byteSize;
     }
 
+    struct BlobParams2 {
+        bytes32 blobhash;
+        uint32 byteOffset;
+        uint32 byteSize;
+    }
+
     struct BatchParams {
         address proposer;
         address coinbase;
