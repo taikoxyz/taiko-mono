@@ -3,6 +3,7 @@ package flags
 import (
 	"time"
 
+	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/urfave/cli/v2"
 )
 
@@ -79,18 +80,6 @@ var (
 		Value:    false,
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_SIGNATURE_CHECK"},
 	}
-	PreconfP2PNetworkPort = &cli.Uint64Flag{
-		Name:     "preconfirmation.p2pPort",
-		Usage:    "Port to run p2p network on for preconfirmation block propagation",
-		Category: driverCategory,
-		EnvVars:  []string{"PRECONFIRMATION_P2P_NETWORK_PORT"},
-	}
-	PreconfP2PNetworkBootstrapNodeURLs = &cli.StringSliceFlag{
-		Name:     "preconfirmation.p2pBootstrapNodeUrls",
-		Usage:    "Bootstrap node URLs for p2p network for preconfirmation block propagation",
-		Category: driverCategory,
-		EnvVars:  []string{"PRECONFIRMATION_P2P_NETWORK_BOOTSTRAP_NODE_URLS"},
-	}
 )
 
 // DriverFlags All driver flags.
@@ -109,6 +98,4 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
 	PreconfBlockServerCheckSig,
-	PreconfP2PNetworkPort,
-	PreconfP2PNetworkBootstrapNodeURLs,
-})
+}, p2pFlags.P2PFlags("PRECONFIRMATION"))

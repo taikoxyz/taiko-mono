@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/urfave/cli/v2"
 
+	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -17,18 +18,17 @@ import (
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
-	P2PSync                                 bool
-	P2PSyncTimeout                          time.Duration
-	RetryInterval                           time.Duration
-	MaxExponent                             uint64
-	BlobServerEndpoint                      *url.URL
-	SocialScanEndpoint                      *url.URL
-	PreconfBlockServerPort                  uint64
-	PreconfBlockServerJWTSecret             []byte
-	PreconfBlockServerCORSOrigins           string
-	PreconfBlockServerCheckSig              bool
-	PreconfBlockP2PNetworkPort              uint64
-	PreconfBlockP2PNetworkBootstrapNodeURLs []string
+	P2PSync                       bool
+	P2PSyncTimeout                time.Duration
+	RetryInterval                 time.Duration
+	MaxExponent                   uint64
+	BlobServerEndpoint            *url.URL
+	SocialScanEndpoint            *url.URL
+	PreconfBlockServerPort        uint64
+	PreconfBlockServerJWTSecret   []byte
+	PreconfBlockServerCORSOrigins string
+	PreconfBlockServerCheckSig    bool
+	DisableP2P                    bool
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -84,6 +84,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	disableP2P := false
+	if !c.IsSet(p2pFlags.DisableP2PName) || c.Bool(p2pFlags.DisableP2PName) {
+		disableP2P = true
+	}
+
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:       c.String(flags.L1WSEndpoint.Name),
@@ -106,9 +111,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
 		PreconfBlockServerCheckSig:    c.Bool(flags.PreconfBlockServerCheckSig.Name),
-		PreconfBlockP2PNetworkPort:    c.Uint64(flags.PreconfP2PNetworkPort.Name),
-		PreconfBlockP2PNetworkBootstrapNodeURLs: c.StringSlice(
-			flags.PreconfP2PNetworkBootstrapNodeURLs.Name,
-		),
+		DisableP2P:                    disableP2P,
 	}, nil
 }
