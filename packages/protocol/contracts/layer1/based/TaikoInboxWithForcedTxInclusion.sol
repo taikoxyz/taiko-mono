@@ -60,8 +60,13 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
 
             // Overwrite the batch params to have only 1 block and up to
             // MAX_FORCED_TXS_PER_FORCED_INCLUSION transactions
-            params.blocks = new ITaikoInbox.BlockParams[](1);
-            params.blocks[0].numTransactions = MAX_FORCED_TXS_PER_FORCED_INCLUSION;
+            if (params.blocks.length == 0) {
+                params.blocks = new ITaikoInbox.BlockParams[](1);
+            }
+
+            if (params.blocks[0].numTransactions < MAX_FORCED_TXS_PER_FORCED_INCLUSION) {
+                params.blocks[0].numTransactions = MAX_FORCED_TXS_PER_FORCED_INCLUSION;
+            }
 
             params.blobParams.blobHashes = new bytes32[](1);
             params.blobParams.blobHashes[0] = forcedInclusion.blobHash;
