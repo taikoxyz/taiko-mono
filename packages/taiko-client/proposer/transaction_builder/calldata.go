@@ -158,7 +158,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 
-		if data, err = encoding.ProverSetPavayaABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
+		if data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
 			return nil, err
 		}
 	} else {
