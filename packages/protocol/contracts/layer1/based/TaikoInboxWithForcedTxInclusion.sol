@@ -31,6 +31,7 @@ interface IForcedInclusionStore {
 /// @title TaikoInboxWithForcedTxInclusion
 /// @custom:security-contact security@taiko.xyz
 contract TaikoInboxWithForcedTxInclusion is EssentialContract {
+    using LibAddress for address;
     using LibMath for uint256;
 
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
@@ -47,6 +48,8 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
     }
 
     /// @notice Proposes a batch of blocks.
+    /// @param _forcedInclusionParams An optional ABI-encoded BlockParams for the forced inclusion
+    /// batch.
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
@@ -71,18 +74,19 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
                 params = abi.decode(_forcedInclusionParams, (ITaikoInbox.BatchParams));
             }
 
-            // Force the batch to have 1 block and up to MAX_FORCED_TXS_PER_FORCED_INCLUSION
-            // transactions
+            // Overwrite the batch params to have only 1 block and up to
+            // MAX_FORCED_TXS_PER_FORCED_INCLUSION transactions
             params.blocks = new ITaikoInbox.BlockParams[](1);
             params.blocks[0].numTransactions = MAX_FORCED_TXS_PER_FORCED_INCLUSION;
 
             // TODO: TaikoInbox should support  `BlobParams2` in  `BatchParams`
             ITaikoInbox.BlobParams2 memory blobParams2;
+            blobParams2.blobhash = forcedInclusion.blobhash;
             blobParams2.byteOffset = forcedInclusion.blobByteOffset;
             blobParams2.byteSize = forcedInclusion.blobByteSize;
 
             inbox.proposeBatch(abi.encode(params), "");
-            LibAddress.sendEtherAndVerify(msg.sender, forcedInclusion.priorityFee, gasleft());
+            msg.sender.sendEtherAndVerify(forcedInclusion.priorityFee, gasleft());
             emit ForcedInclusionProcessed(forcedInclusion);
         }
     }
