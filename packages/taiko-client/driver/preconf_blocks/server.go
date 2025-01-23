@@ -3,14 +3,19 @@ package preconfblocks
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
@@ -131,4 +136,73 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
+}
+
+// OnUnsafeL2Payload implements the p2p.GossipIn interface.
+func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
+	ctx context.Context,
+	from peer.ID,
+	msg *eth.ExecutionPayloadEnvelope,
+) error {
+	log.Info(
+		"📢 New preconfirmation block payload from P2P network",
+		"peer", from,
+		"blockID", msg.ExecutionPayload.BlockNumber,
+		"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		"txs", len(msg.ExecutionPayload.Transactions),
+	)
+
+	baseFee, ok := new(big.Int).SetString((msg.ExecutionPayload.BaseFeePerGas.String()), 10)
+	if !ok {
+		return fmt.Errorf("failed to convert baseFee %d to big.Int", msg.ExecutionPayload.BaseFeePerGas)
+	}
+
+	if len(msg.ExecutionPayload.Transactions) != 1 {
+		return fmt.Errorf("only one transaction list is allowed")
+	}
+
+	_, err := s.chainSyncer.InsertPreconfBlockFromTransactionsBatch(
+		ctx,
+		&engine.ExecutableData{
+			ParentHash:    msg.ExecutionPayload.ParentHash,
+			FeeRecipient:  msg.ExecutionPayload.FeeRecipient,
+			StateRoot:     common.Hash(msg.ExecutionPayload.StateRoot),
+			ReceiptsRoot:  common.Hash(msg.ExecutionPayload.ReceiptsRoot),
+			LogsBloom:     msg.ExecutionPayload.LogsBloom[:],
+			Random:        common.Hash(msg.ExecutionPayload.PrevRandao),
+			Number:        uint64(msg.ExecutionPayload.BlockNumber),
+			GasLimit:      uint64(msg.ExecutionPayload.GasLimit),
+			GasUsed:       uint64(msg.ExecutionPayload.GasUsed),
+			Timestamp:     uint64(msg.ExecutionPayload.Timestamp),
+			ExtraData:     msg.ExecutionPayload.ExtraData,
+			BaseFeePerGas: baseFee,
+			BlockHash:     common.Hash(msg.ExecutionPayload.BlockHash),
+			Transactions:  [][]byte{common.FromHex(msg.ExecutionPayload.Transactions[0].String())},
+			Withdrawals:   []*types.Withdrawal{},
+		},
+		// TODO: fix these values.
+		common.Big0.Uint64(),
+		common.Hash(msg.ExecutionPayload.StateRoot),
+		[32]byte{},
+		[][32]byte{},
+		&pacayaBindings.LibSharedDataBaseFeeConfig{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
+	}
+	return nil
+}
+
+// P2PSequencerAddress implements the p2p.GossipIn interface.
+func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
+	return (common.Address{})
+}
+
+// TODO: update this function to return the correct value.
+// P2PSequencerAddress implements the p2p.SoftblockGossipRuntimeConfig interface.
+func (s *PreconfBlockAPIServer) VerifySignature(
+	signatureBytes []byte,
+	payloadBytes []byte,
+) (pubsub.ValidationResult, error) {
+	return pubsub.ValidationAccept, nil
 }

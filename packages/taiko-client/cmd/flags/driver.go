@@ -54,30 +54,42 @@ var (
 	}
 	// preconf block server
 	PreconfBlockServerPort = &cli.Uint64Flag{
-		Name:     "preconfBlock.port",
-		Usage:    "HTTP port of the preconf block server, 0 means disabled",
+		Name:     "preconfirmation.serverPort",
+		Usage:    "HTTP port of the preconfirmation block server, 0 means disabled",
 		Category: driverCategory,
-		EnvVars:  []string{"PRECONF_BLOCK_SERVER_PORT"},
+		EnvVars:  []string{"PRECONFIRMATION_SERVER_PORT"},
 	}
 	PreconfBlockServerJWTSecret = &cli.StringFlag{
-		Name:     "preconfBlock.jwtSecret",
-		Usage:    "Path to a JWT secret to use for the preconf block server",
+		Name:     "preconfirmation.jwtSecret",
+		Usage:    "Path to a JWT secret to use for the preconfirmation block server",
 		Category: driverCategory,
-		EnvVars:  []string{"PRECONF_BLOCK_SERVER_JWT_SECRET"},
+		EnvVars:  []string{"PRECONFIRMATION_SERVER_JWT_SECRET"},
 	}
 	PreconfBlockServerCORSOrigins = &cli.StringFlag{
-		Name:     "preconfBlock.corsOrigins",
-		Usage:    "CORS Origins settings for the preconf block server",
+		Name:     "preconfirmation.corsOrigins",
+		Usage:    "CORS Origins settings for the preconfirmation block server",
 		Category: driverCategory,
 		Value:    "*",
-		EnvVars:  []string{"PRECONF_BLOCK_SERVER_CORS_ORIGINS"},
+		EnvVars:  []string{"PRECONFIRMATION_SERVER_CORS_ORIGINS"},
 	}
 	PreconfBlockServerCheckSig = &cli.BoolFlag{
-		Name:     "preconfBlock.signatureCheck",
-		Usage:    "If the preconf block server will check the signature of the incoming preconf blocks",
+		Name:     "preconfirmation.signatureCheck",
+		Usage:    "If the preconfirmation block server will check the signature of the incoming preconf blocks",
 		Category: driverCategory,
 		Value:    false,
-		EnvVars:  []string{"PRECONF_BLOCK_SERVER_SIGNATURE_CHECK"},
+		EnvVars:  []string{"PRECONFIRMATION_SERVER_SIGNATURE_CHECK"},
+	}
+	PreconfP2PNetworkPort = &cli.Uint64Flag{
+		Name:     "preconfirmation.p2pPort",
+		Usage:    "Port to run p2p network on for preconfirmation block propagation",
+		Category: driverCategory,
+		EnvVars:  []string{"PRECONFIRMATION_P2P_NETWORK_PORT"},
+	}
+	PreconfP2PNetworkBootstrapNodeURLs = &cli.StringSliceFlag{
+		Name:     "preconfirmation.p2pBootstrapNodeUrls",
+		Usage:    "Bootstrap node URLs for p2p network for preconfirmation block propagation",
+		Category: driverCategory,
+		EnvVars:  []string{"PRECONFIRMATION_P2P_NETWORK_BOOTSTRAP_NODE_URLS"},
 	}
 )
 
@@ -97,4 +109,6 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
 	PreconfBlockServerCheckSig,
+	PreconfP2PNetworkPort,
+	PreconfP2PNetworkBootstrapNodeURLs,
 })

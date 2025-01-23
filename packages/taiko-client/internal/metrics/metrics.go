@@ -97,6 +97,7 @@ var (
 
 	// TxManager
 	TxMgrMetrics = txmgrMetrics.MakeTxMetrics("client", factory)
+	// P2PNodeMetrics = p2pNodeMetrics.NewMetrics("client")
 )
 
 // Serve starts the metrics server on the given address, will be closed when the given

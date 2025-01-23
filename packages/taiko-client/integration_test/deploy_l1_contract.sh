@@ -24,6 +24,7 @@ export OLD_FORK=0x1291Be112d480055DaFd8a610b7d1e203891C274
 export TAIKO_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export ROLLUP_RESOLVER=$(echo "$DEPLOYMENT_JSON" | jq '.rollup_address_manager' | sed 's/\"//g')
 export PROVER_SET=$(echo "$DEPLOYMENT_JSON" | jq '.prover_set' | sed 's/\"//g')
+export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
 export SGX_VERIFIER=$(echo "$DEPLOYMENT_JSON" | jq '.tier_sgx' | sed 's/\"//g')
 export RISC0_VERIFIER=$(echo "$DEPLOYMENT_JSON" | jq '.tier_zkvm_risc0' | sed 's/\"//g')
 export SP1_VERIFIER=$(echo "$DEPLOYMENT_JSON" | jq '.tier_zkvm_sp1' | sed 's/\"//g')

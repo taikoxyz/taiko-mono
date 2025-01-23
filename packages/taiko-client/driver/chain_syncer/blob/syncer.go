@@ -270,9 +270,8 @@ func (s *Syncer) onBlockProposed(
 			"New BatchProposed event",
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
-			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			"lastBlockID", lastBlockID,
-			"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
+			"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
 		)
 		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx, endIter); err != nil {
 			return err

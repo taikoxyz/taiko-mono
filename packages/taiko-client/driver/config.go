@@ -17,16 +17,18 @@ import (
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
-	P2PSync                       bool
-	P2PSyncTimeout                time.Duration
-	RetryInterval                 time.Duration
-	MaxExponent                   uint64
-	BlobServerEndpoint            *url.URL
-	SocialScanEndpoint            *url.URL
-	PreconfBlockServerPort        uint64
-	PreconfBlockServerJWTSecret   []byte
-	PreconfBlockServerCORSOrigins string
-	PreconfBlockServerCheckSig    bool
+	P2PSync                                 bool
+	P2PSyncTimeout                          time.Duration
+	RetryInterval                           time.Duration
+	MaxExponent                             uint64
+	BlobServerEndpoint                      *url.URL
+	SocialScanEndpoint                      *url.URL
+	PreconfBlockServerPort                  uint64
+	PreconfBlockServerJWTSecret             []byte
+	PreconfBlockServerCORSOrigins           string
+	PreconfBlockServerCheckSig              bool
+	PreconfBlockP2PNetworkPort              uint64
+	PreconfBlockP2PNetworkBootstrapNodeURLs []string
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -104,5 +106,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
 		PreconfBlockServerCheckSig:    c.Bool(flags.PreconfBlockServerCheckSig.Name),
+		PreconfBlockP2PNetworkPort:    c.Uint64(flags.PreconfP2PNetworkPort.Name),
+		PreconfBlockP2PNetworkBootstrapNodeURLs: c.StringSlice(
+			flags.PreconfP2PNetworkBootstrapNodeURLs.Name,
+		),
 	}, nil
 }

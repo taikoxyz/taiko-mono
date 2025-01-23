@@ -42,6 +42,11 @@ type Driver struct {
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
 
+	// P2P network for soft block propagation
+	// p2pNode   *p2p.NodeP2P
+	// p2pSigner p2p.Signer
+	// p2pSetup  p2p.SetupP2P
+
 	ctx context.Context
 	wg  sync.WaitGroup
 }
@@ -115,6 +120,23 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		}
 	}
 
+	// if d.PreconfBlockP2PNetworkPort > 0 {
+	// 	d.p2pSetup = &p2p.Config{}
+	// 	if d.p2pNode, err = p2p.NewNodeP2P(
+	// 		d.ctx,
+	// 		&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+	// 		log.Root(),
+	// 		d.p2pSetup,
+	// 		d.preconfBlockServer,
+	// 		nil,
+	// 		d.preconfBlockServer,
+	// 		metrics.P2PNodeMetrics,
+	// 		false,
+	// 	); err != nil {
+	// 		return err
+	// 	}
+	// }
+
 	return nil
 }
 
@@ -132,6 +154,15 @@ func (d *Driver) Start() error {
 			}
 		}()
 	}
+
+	// if d.p2pNode.Dv5Udp() != nil {
+	// 	go d.p2pNode.DiscoveryProcess(
+	// 		d.ctx,
+	// 		log.Root(),
+	// 		&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+	// 		d.p2pSetup.TargetPeers(),
+	// 	)
+	// }
 
 	return nil
 }
