@@ -35,7 +35,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     }
 
     function getRequiredStakeAmount() public view returns (uint256) {
-        uint256 multiplier = pendingForcedTxHashes == 0 ? 1 : pendingForcedTxHashes;
+        return (2 ** pendingForcedTxHashes).max(4096) * baseStakeAmount;
         return baseStakeAmount * multiplier;
     }
 
