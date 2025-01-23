@@ -63,11 +63,13 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
             params.blocks = new ITaikoInbox.BlockParams[](1);
             params.blocks[0].numTransactions = MAX_FORCED_TXS_PER_FORCED_INCLUSION;
 
-            // TODO: TaikoInbox should support  `BlobParams2` in  `BatchParams`
             ITaikoInbox.BlobParams2 memory blobParams2;
             blobParams2.blobhash = forcedInclusion.blobhash;
             blobParams2.byteOffset = forcedInclusion.blobByteOffset;
             blobParams2.byteSize = forcedInclusion.blobByteSize;
+
+            // TODO: TaikoInbox should support  `BlobParams2` in  `BatchParams`
+            // params.blobParams2 = blobParams2;
 
             inbox.proposeBatch(abi.encode(params), "");
             msg.sender.sendEtherAndVerify(forcedInclusion.priorityFee, gasleft());
