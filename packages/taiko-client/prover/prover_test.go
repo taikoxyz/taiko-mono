@@ -224,12 +224,17 @@ func (s *ProverTestSuite) TestProveOp() {
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId))
 	s.Nil(err)
 
-	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
-	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
+	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
+	sink2 := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
+	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
+	s.Nil(err)
+	sub2, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
-		sub.Unsubscribe()
-		close(sink)
+		sub1.Unsubscribe()
+		sub2.Unsubscribe()
+		close(sink1)
+		close(sink2)
 	}()
 
 	s.Nil(s.p.proveOp())
@@ -237,97 +242,102 @@ func (s *ProverTestSuite) TestProveOp() {
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
-	event := <-sink
-	tran := event.Transitions[len(event.Transitions)-1]
-	s.Equal(header.Hash(), common.BytesToHash(tran.BlockHash[:]))
-	s.Equal(header.ParentHash, common.BytesToHash(tran.ParentHash[:]))
+	var (
+		blockHash  common.Hash
+		parentHash common.Hash
+	)
+	select {
+	case e := <-sink1:
+		tran := e.Transitions[len(e.Transitions)-1]
+		blockHash = common.BytesToHash(tran.BlockHash[:])
+		parentHash = common.BytesToHash(tran.ParentHash[:])
+	case e := <-sink2:
+		blockHash = common.BytesToHash(e.Tran.BlockHash[:])
+		parentHash = common.BytesToHash(e.Tran.ParentHash[:])
+	}
+	s.Equal(header.Hash(), blockHash)
+	s.Equal(header.ParentHash, parentHash)
 }
 
 func (s *ProverTestSuite) TestGetBlockProofStatus() {
+	parent, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
 	// No proof submitted
-	status, err := rpc.GetBatchProofStatus(
+	status, err := rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.TaikoBatchMetaDataPacaya().GetBatchID(),
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		s.p.ProverAddress(),
+		rpc.ZeroAddress,
 	)
 	s.Nil(err)
 	s.False(status.IsSubmitted)
 
 	// Valid proof submitted
-	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
-
-	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
-
 	s.Nil(s.p.proveOp())
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.selectSubmitter(
+		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
+	)
 
-	ts, err := s.RPCClient.GetLastVerifiedTransitionPacaya(context.Background())
+	status, err = rpc.GetBlockProofStatus(
+		context.Background(),
+		s.p.rpc,
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		s.p.ProverAddress(),
+		rpc.ZeroAddress,
+	)
 	s.Nil(err)
-	s.Equal(m.TaikoBatchMetaDataPacaya().GetBatchID().Uint64(), ts.BatchId)
 
-	// status, err = rpc.GetBatchProofStatus(
-	// 	context.Background(),
-	// 	s.p.rpc,
-	// 	m.TaikoBatchMetaDataPacaya().GetBatchID(),
-	// )
-	// s.Nil(err)
+	s.True(status.IsSubmitted)
+	s.False(status.Invalid)
+	s.Equal(parent.Hash(), status.ParentHeader.Hash())
 
-	// s.True(status.IsSubmitted)
-	// s.False(status.Invalid)
-	// s.Equal(parent.Hash(), status.ParentHeader.Hash())
+	// Invalid proof submitted
+	parent, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
 
-	// TODO: fix this
-	// // Invalid proof submitted
-	// parent, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	// s.Nil(err)
+	m = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
-	// m = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	status, err = rpc.GetBlockProofStatus(
+		context.Background(),
+		s.p.rpc,
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		s.p.ProverAddress(),
+		rpc.ZeroAddress,
+	)
+	s.Nil(err)
+	s.False(status.IsSubmitted)
 
-	// status, err = rpc.GetBlockProofStatus(
-	// 	context.Background(),
-	// 	s.p.rpc,
-	// 	m.TaikoBlockMetaDataOntake().GetBlockID(),
-	// 	s.p.ProverAddress(),
-	// 	rpc.ZeroAddress,
-	// )
-	// s.Nil(err)
-	// s.False(status.IsSubmitted)
+	s.Nil(s.p.proveOp())
+	req = <-s.p.proofSubmissionCh
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 
-	// s.Nil(s.p.proveOp())
-	// req = <-s.p.proofSubmissionCh
-	// s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+	proofWithHeader := <-s.p.proofGenerationCh
+	proofWithHeader.Opts.OntakeOptions().BlockHash = testutils.RandomHash()
+	s.Nil(s.p.selectSubmitter(
+		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
+	)
 
-	// proofResponse := <-s.p.proofGenerationCh
-	// proofResponse.Opts.BlockHash = testutils.RandomHash()
-	// s.Nil(s.p.selectSubmitter(
-	// 	m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), proofResponse),
-	// )
-
-	// status, err = rpc.GetBlockProofStatus(
-	// 	context.Background(),
-	// 	s.p.rpc,
-	// 	m.TaikoBlockMetaDataOntake().GetBlockID(),
-	// 	s.p.ProverAddress(),
-	// 	rpc.ZeroAddress,
-	// )
-	// s.Nil(err)
-	// s.True(status.IsSubmitted)
-	// s.True(status.Invalid)
-	// s.Equal(parent.Hash(), status.ParentHeader.Hash())
-	// s.Equal(proofResponse.Opts.BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
+	status, err = rpc.GetBlockProofStatus(
+		context.Background(),
+		s.p.rpc,
+		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		s.p.ProverAddress(),
+		rpc.ZeroAddress,
+	)
+	s.Nil(err)
+	s.True(status.IsSubmitted)
+	s.True(status.Invalid)
+	s.Equal(parent.Hash(), status.ParentHeader.Hash())
+	s.Equal(proofWithHeader.Opts.OntakeOptions().BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
 }
 
 func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
-	s.T().Skip("Aggreagtion not implemented yet")
 	batchSize := 2
 	// Init batch prover
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
@@ -358,12 +368,17 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	}
 
-	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
-	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
+	sink2 := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
+	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
+	s.Nil(err)
+	sub2, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
-		sub.Unsubscribe()
-		close(sink)
+		sub1.Unsubscribe()
+		sub2.Unsubscribe()
+		close(sink1)
+		close(sink2)
 	}()
 
 	s.Nil(s.p.proveOp())
@@ -382,13 +397,14 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		proofSubmitter.ErrInvalidProof,
 	)
 	for i := 0; i < batchSize; i++ {
-		<-sink
+		select {
+		case <-sink1:
+		case <-sink2:
+		}
 	}
 }
 
 func (s *ProverTestSuite) TestAggregateProofs() {
-	s.T().Skip("Aggreagtion not implemented yet")
-
 	batchSize := 2
 	// Init batch prover
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))

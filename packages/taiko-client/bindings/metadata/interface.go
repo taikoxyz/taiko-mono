@@ -19,6 +19,7 @@ type TaikoProposalMetaData interface {
 	GetTxIndex() uint
 	GetTxHash() common.Hash
 	GetProposer() common.Address
+	GetCoinbase() common.Address
 }
 
 type TaikoBlockMetaDataOntake interface {

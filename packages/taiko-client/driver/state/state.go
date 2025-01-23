@@ -58,16 +58,13 @@ func (s *State) Close() {
 
 // init fetches the latest status and initializes the state instance.
 func (s *State) init(ctx context.Context) error {
-	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
+	if err := s.initGenesisHeight(ctx); err != nil {
 		return err
 	}
-
-	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
 	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.OntakeClients.ForkHeight)
 	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeight)
 
-	log.Info("Genesis L1 height", "height", stateVars.Stats1.GenesisHeight)
+	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
 	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
 
@@ -228,4 +225,20 @@ func (s *State) IsPacaya(num *big.Int) bool {
 		return false
 	}
 	return s.PacayaForkHeight.Cmp(num) <= 0
+}
+
+// initGenesisHeight fetches the genesis height from the current protocol.
+func (s *State) initGenesisHeight(ctx context.Context) error {
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		slotA, _, err := s.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return err
+		}
+		s.GenesisL1Height = new(big.Int).SetUint64(slotA.GenesisHeight)
+		return nil
+	}
+
+	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+	return nil
 }

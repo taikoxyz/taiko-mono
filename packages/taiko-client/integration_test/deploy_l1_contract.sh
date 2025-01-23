@@ -20,7 +20,7 @@ cd ${OLD_FORK_TAIKO_MONO}/packages/protocol &&
 
 # Get deployed contract address.
 DEPLOYMENT_JSON=$(cat ${OLD_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
-export OLD_FORK=0x638A246F0Ec8883eF68280293FFE8Cfbabe61B44
+export OLD_FORK=0x1291Be112d480055DaFd8a610b7d1e203891C274
 export TAIKO_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export ROLLUP_RESOLVER=$(echo "$DEPLOYMENT_JSON" | jq '.rollup_address_manager' | sed 's/\"//g')
 export PROVER_SET=$(echo "$DEPLOYMENT_JSON" | jq '.prover_set' | sed 's/\"//g')

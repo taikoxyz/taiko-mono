@@ -49,7 +49,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 		if err != nil {
 			return nil, err
 		}
-		return config.NewOntakeProtocolConfigs(&configs, c.OntakeClients.ForkHeight), nil
+		return config.NewOntakeProtocolConfigs(&configs, c.PacayaClients.ForkHeight), nil
 	}
 
 	return config.NewPacayaProtocolConfigs(&configs), nil
