@@ -30,12 +30,17 @@ interface ITaikoInbox {
     }
 
     struct BlobParams {
+        // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
+        // `numBlobs` must be 0.
+        bytes32[] blobHashes;
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
         // decompressed via Zlib.
         uint8 numBlobs;
+        // The byte offset of the blob in the batch.
         uint32 byteOffset;
+        // The byte size of the blob.
         uint32 byteSize;
     }
 
@@ -74,8 +79,9 @@ interface ITaikoInbox {
         uint32 gasLimit;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
-        bytes32 anchorBlockHash; // corresponds to the `_anchorStateRoot` parameter in the anchor
-            // transaction
+        // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
+        // The batch's validity proof shall verify the integrity of these two values.
+        bytes32 anchorBlockHash;
         bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
         bytes32[] signalSlots;
@@ -265,6 +271,7 @@ interface ITaikoInbox {
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InsufficientBond();
+    error InvalidBlobParams();
     error InvalidGenesisBlockHash();
     error InvalidParams();
     error InvalidTransitionBlockHash();
@@ -274,7 +281,7 @@ interface ITaikoInbox {
     error MsgValueNotZero();
     error NoBlocksToProve();
     error NotFirstProposal();
-    error NotPreconfRouter();
+    error NotInboxOperator();
     error ParentMetaHashMismatch();
     error SameTransition();
     error SignalNotSent();
