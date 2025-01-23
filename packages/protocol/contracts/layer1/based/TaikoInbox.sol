@@ -52,7 +52,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         bytes calldata _params,
         bytes calldata _txList
     )
-        public 
+        public
         nonReentrant
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
