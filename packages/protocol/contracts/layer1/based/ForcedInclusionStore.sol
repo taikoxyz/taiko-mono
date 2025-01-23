@@ -67,11 +67,11 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         // we only need to check the first one, since it will be the oldest.
         ForcedInclusion storage inclusion = forcedInclusions[0];
         if (inclusion.timestamp + inclusionWindow <= block.timestamp) {
-            inclusion.processed = true;
-            payable(msg.sender).transfer(inclusion.priorityFee);
             ForcedInclusion memory consumedInclusion = inclusion;
-            forcedInclusions[0] = forcedInclusions[forcedInclusions.length - 1];
             forcedInclusions.pop();
+
+            emit ForcedInclusionConsumed(consumedInclusion);
+            
             return consumedInclusion;
         }
 
