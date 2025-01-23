@@ -24,50 +24,88 @@ import "src/layer1/devnet/DevnetInbox.sol";
 
 contract UpgradeDevnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
     address public oldFork = vm.envAddress("OLD_FORK");
     address public taikoInbox = vm.envAddress("TAIKO_INBOX");
     address public proverSet = vm.envAddress("PROVER_SET");
     address public sgxVerifier = vm.envAddress("SGX_VERIFIER");
     address public risc0Verifier = vm.envAddress("RISC0_VERIFIER");
     address public sp1Verifier = vm.envAddress("SP1_VERIFIER");
-    address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
     address public bridgeL1 = vm.envAddress("BRIDGE_L1");
     address public signalService = vm.envAddress("SIGNAL_SERVICE");
     address public erc20Vault = vm.envAddress("ERC20_VAULT");
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
+    address public taikoToken = vm.envAddress("TAIKO_TOKEN");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
-        require(rollupResolver != address(0), "invalid rollup resolver");
         require(oldFork != address(0), "invalid old fork");
         require(taikoInbox != address(0), "invalid taiko inbox");
         require(proverSet != address(0), "invalid prover set");
         require(sgxVerifier != address(0), "invalid sgx verifier");
         require(risc0Verifier != address(0), "invalid risc0 verifier");
         require(sp1Verifier != address(0), "invalid sp1 verifier");
-        require(sharedResolver != address(0), "invalid shared resolver");
         require(bridgeL1 != address(0), "invalid bridge");
         require(signalService != address(0), "invalid signal service");
         require(erc20Vault != address(0), "invalid erc20 vault");
         require(erc721Vault != address(0), "invalid erc721 vault");
         require(erc1155Vault != address(0), "invalid erc1155 vault");
+        require(taikoToken != address(0), "invalid taiko token");
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
     }
 
     function run() external broadcast {
+        // Shared resolver
+        address sharedResolver = deployProxy({
+            name: "shared_resolver",
+            impl: address(new DefaultResolver()),
+            data: abi.encodeCall(DefaultResolver.init, (address(0)))
+        });
+        // Bridge
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver)));
+        register(sharedResolver, "bridge", bridgeL1);
+        // SignalService
+        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
+        register(sharedResolver, "signal_service", signalService);
+        // Vault
+        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
+        register(sharedResolver, "erc20_vault", erc20Vault);
+        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
+        register(sharedResolver, "erc721_vault", erc721Vault);
+        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
+        register(sharedResolver, "erc1155_vault", erc1155Vault);
+        // Bridged Token
+        register(
+            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
+        );
+        // register unchanged contract
+        register(sharedResolver, "taiko_token", taikoToken);
+        register(sharedResolver, "bond_token", taikoToken);
         // Rollup resolver
-        UUPSUpgradeable(rollupResolver).upgradeTo(address(new DefaultResolver()));
+        address rollupResolver = deployProxy({
+            name: "rollup_address_resolver",
+            impl: address(new DefaultResolver()),
+            data: abi.encodeCall(DefaultResolver.init, (address(0)))
+        });
+        // register copy
+        copyRegister(rollupResolver, sharedResolver, "taiko_token");
+        copyRegister(rollupResolver, sharedResolver, "bond_token");
+        copyRegister(rollupResolver, sharedResolver, "signal_service");
+        copyRegister(rollupResolver, sharedResolver, "bridge");
         // TaikoInbox
         address newFork = address(new DevnetInbox(rollupResolver));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new ForkRouter(oldFork, newFork)));
-
+        register(sharedResolver, "taiko", taikoInbox);
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));
-
         // Verifier
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.getConfig().chainId;
@@ -96,26 +134,5 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
-
-        // Shared resolver
-        UUPSUpgradeable(sharedResolver).upgradeTo(address(new DefaultResolver()));
-        // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver)));
-        // SignalService
-        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
-        // Vault
-        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
-        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
-        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
-        // Bridged Token
-        register(
-            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
-        );
-        register(
-            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
-        );
-        register(
-            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
-        );
     }
 }
