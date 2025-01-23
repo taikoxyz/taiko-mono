@@ -19,9 +19,12 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint64 forcedInclusionId;
 
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 
     constructor(address _resolver, uint256 _inclusionWindow, uint256 _basePriorityFee) EssentialContract(_resolver) { 
+        require(_inclusionWindow > 0, "inclusionWindow must be greater than 0");
+        require(_basePriorityFee > 0, "basePriorityFee must be greater than 0");
+        
         inclusionWindow = _inclusionWindow;
         basePriorityFee = _basePriorityFee;
     }
@@ -35,10 +38,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     function getRequiredPriorityFee() public view returns (uint256) {
-        if (forcedInclusions.length == 0) {
-            return basePriorityFee;
-        }
-        return (2 ** forcedInclusions.length).max(4096) * basePriorityFee;
+      return basePriorityFee;
     }
     
     function storeForcedInclusion(bytes32 blobHash, uint32 blobByteOffset, uint32 blobByteSize) payable external {
@@ -59,25 +59,23 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         emit ForcedInclusionStored(forcedInclusion);
     }
 
-    /// @inheritdoc IForcedInclusionStore
-    function consumeForcedInclusion() external override returns (ForcedInclusion memory) {
-        address operator = resolve(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, false);
-        require(msg.sender == operator, NotTaikoForcedInclusionInbox());
-
-        // get the first forced inclusion that is due to be included
-        for (uint256 i = 0; i < forcedInclusions.length; i++) {
-            ForcedInclusion storage inclusion = forcedInclusions[i];
-            if (inclusion.timestamp + inclusionWindow <= block.timestamp) {
-                ForcedInclusion memory consumedInclusion = inclusion;
-                forcedInclusions[i] = forcedInclusions[forcedInclusions.length - 1];
-                forcedInclusions.pop();
-
-                emit ForcedInclusionConsumed(consumedInclusion);
-                
-                return consumedInclusion;
-            }
+     function consumeForcedInclusion() external override returns (ForcedInclusion memory) {
+        if (forcedInclusions.length == 0) {
+            revert ForcedInclusionHashNotFound();
         }
 
+        // we only need to check the first one, since it will be the oldest.
+        ForcedInclusion storage inclusion = forcedInclusions[0];
+        if (inclusion.timestamp + inclusionWindow <= block.timestamp) {
+            inclusion.processed = true;
+            payable(msg.sender).transfer(inclusion.priorityFee);
+            ForcedInclusion memory consumedInclusion = inclusion;
+            forcedInclusions[0] = forcedInclusions[forcedInclusions.length - 1];
+            forcedInclusions.pop();
+            return consumedInclusion;
+        }
+
+        
         // non found, return empty forcedInclusion struct
         ForcedInclusion memory forcedInclusion;
         return forcedInclusion;

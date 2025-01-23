@@ -7,9 +7,11 @@ import "src/layer1/based/IForcedInclusionStore.sol";
 contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
     function test_updateBasePriorityFee() public {
+        // get original fee
+        uint256 originalFee = store.basePriorityFee();
         vm.prank(storeOwner);
-        store.updateBasePriorityFee(200);
-        assertEq(store.basePriorityFee(), 200);
+        store.updateBasePriorityFee(originalFee + 1);
+        assertEq(store.basePriorityFee(), originalFee + 1);
     }
 
     function test_updateBasePriorityFee_onlyOwner() public {
@@ -43,9 +45,13 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         uint32 blobByteOffset = 0;
         uint32 blobByteSize = 1024;
 
+        // get required fee
+        uint256 requiredFee = store.getRequiredPriorityFee();
+        emit log_named_uint("Required Fee", requiredFee);
         vm.prank(Alice);
+        vm.deal(Alice, 1 ether);
         vm.expectRevert(IForcedInclusionStore.ForcedInclusionInsufficientPriorityFee.selector);
-        store.storeForcedInclusion{value: 0}(blobHash, blobByteOffset, blobByteSize);
+        store.storeForcedInclusion{value: requiredFee - 1}(blobHash, blobByteOffset, blobByteSize);
 
         IForcedInclusionStore.ForcedInclusion[] memory forcedInclusion = store.getForcedInclusions();
         assertEq(forcedInclusion.length, 0);
@@ -59,8 +65,10 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         uint256 requiredFee = store.getRequiredPriorityFee();
 
         vm.prank(Alice);
-        vm.deal(Alice, requiredFee * 2);
+        vm.deal(Alice, 1 ether);
         store.storeForcedInclusion{value: requiredFee}(blobHash1, blobByteOffset, blobByteSize);
+
+        requiredFee = store.getRequiredPriorityFee();
         store.storeForcedInclusion{value: requiredFee}(blobHash2, blobByteOffset, blobByteSize);
 
         IForcedInclusionStore.ForcedInclusion[] memory forcedInclusion = store.getForcedInclusions();

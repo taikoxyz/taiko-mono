@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "../Layer1Test.sol";
+import "../../shared/CommonTest.sol";
 import "src/layer1/based/ForcedInclusionStore.sol";
 
-abstract contract ForcedInclusionStoreTestBase is Layer1Test {
+abstract contract ForcedInclusionStoreTestBase is CommonTest {
     ForcedInclusionStore internal store;
     address internal storeOwner;
     address internal operator;
@@ -18,10 +18,11 @@ abstract contract ForcedInclusionStoreTestBase is Layer1Test {
         inclusionWindow = 10;
         basePriorityFee = 100;
 
-        vm.chainId(1);
+        vm.chainId(ethereumChainId);
 
 
-        resolver.registerAddress(block.chainid, "taiko_forced_inclusion_inbox", operator);
+        register("taiko_forced_inclusion_inbox", operator);
+
         store = ForcedInclusionStore(
             deploy({
                 name: "forced_inclusion_store",
