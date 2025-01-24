@@ -66,18 +66,12 @@ abstract contract Layer1Test is CommonTest {
         );
     }
 
-    function deployForcedInclusionInbox(
-    )
-        internal
-        returns (ForcedInclusionInbox)
-    {
+    function deployForcedInclusionInbox() internal returns (ForcedInclusionInbox) {
         return ForcedInclusionInbox(
             deploy({
                 name: "taiko_forced_inclusion_inbox",
                 impl: address(new ForcedInclusionInbox(address(resolver))),
-                data: abi.encodeCall(
-                    ForcedInclusionInbox.init, (address(0))
-                )
+                data: abi.encodeCall(ForcedInclusionInbox.init, (address(0)))
             })
         );
     }
@@ -94,9 +88,7 @@ abstract contract Layer1Test is CommonTest {
             deploy({
                 name: "forced_inclusion_store",
                 impl: address(new ForcedInclusionStore(address(resolver), inclusionDelay, fee)),
-                data: abi.encodeCall(
-                    ForcedInclusionStore.init, (owner)
-                )
+                data: abi.encodeCall(ForcedInclusionStore.init, (owner))
             })
         );
     }
