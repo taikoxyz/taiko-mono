@@ -3,9 +3,10 @@ pragma solidity ^0.8.24;
 
 import "./ForkRouter.sol";
 
-/// @title ITaikoL1
-/// @dev https://github.com/taikoxyz/taiko-mono/releases/tag/protocol-v1.11.0
-interface ITaikoL1 {
+/// @title IOntakeFork
+/// @dev Derived from TaikoL1.sol in the Taiko Ontake fork
+/// https://github.com/taikoxyz/taiko-mono/releases/tag/protocol-v1.11.0
+interface IOntakeFork {
     function proposeBlockV2(bytes calldata, bytes calldata) external;
     function proposeBlocksV2(bytes[] calldata, bytes[] calldata) external;
     function proveBlock(uint64, bytes calldata) external;
@@ -28,18 +29,18 @@ contract PacayaForkRouter is ForkRouter {
 
     function shouldRouteToOldFork(bytes4 _selector) public pure override returns (bool) {
         if (
-            _selector == ITaikoL1.proposeBlockV2.selector
-                || _selector == ITaikoL1.proposeBlocksV2.selector
-                || _selector == ITaikoL1.proveBlock.selector
-                || _selector == ITaikoL1.proveBlocks.selector
-                || _selector == ITaikoL1.verifyBlocks.selector
-                || _selector == ITaikoL1.getVerifiedBlockProver.selector
-                || _selector == ITaikoL1.getBlockV2.selector
+            _selector == IOntakeFork.proposeBlockV2.selector
+                || _selector == IOntakeFork.proposeBlocksV2.selector
+                || _selector == IOntakeFork.proveBlock.selector
+                || _selector == IOntakeFork.proveBlocks.selector
+                || _selector == IOntakeFork.verifyBlocks.selector
+                || _selector == IOntakeFork.getVerifiedBlockProver.selector
+                || _selector == IOntakeFork.getBlockV2.selector
                 || _selector == bytes4(keccak256("getTransition(uint64,uint32)"))
                 || _selector == bytes4(keccak256("getTransition(uint64,bytes32)"))
-                || _selector == ITaikoL1.getTransitions.selector
-                || _selector == ITaikoL1.lastProposedIn.selector
-                || _selector == ITaikoL1.getConfig.selector
+                || _selector == IOntakeFork.getTransitions.selector
+                || _selector == IOntakeFork.lastProposedIn.selector
+                || _selector == IOntakeFork.getConfig.selector
         ) return true;
 
         return false;
