@@ -341,7 +341,7 @@ contract SignalService is EssentialContract, ISignalService {
         address app = _app;
         bytes32 signal = _signal;
         bytes32 value = _signal;
-        address signalService = resolve(chainId, LibStrings.B_SIGNAL_SERVICE, false);
+        address signalService = resolveAddress(chainId, LibStrings.B_SIGNAL_SERVICE, false);
         if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
 
         HopProof memory hop;
@@ -367,7 +367,7 @@ contract SignalService is EssentialContract, ISignalService {
                 if (hop.chainId == 0 || hop.chainId == block.chainid) {
                     revert SS_INVALID_MID_HOP_CHAINID();
                 }
-                signalService = resolve(hop.chainId, LibStrings.B_SIGNAL_SERVICE, false);
+                signalService = resolveAddress(hop.chainId, LibStrings.B_SIGNAL_SERVICE, false);
                 if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
             }
 
