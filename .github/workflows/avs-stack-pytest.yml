@@ -3,7 +3,7 @@ name: "[Nethermind] Taiko Preconf AVS Stack - Pytest"
 on:
   workflow_dispatch:
   push:
-    branches: [e2e-devnet]
+    branches: [main]
 
 env:
   TARGET_MACHINE_IP: 178.79.141.170
@@ -28,12 +28,13 @@ jobs:
           ssh -o StrictHostKeyChecking=no root@${{ env.TARGET_MACHINE_IP }} << 'EOF'
             docker pull nethswitchboard/taiko-protocol-dev:latest
             docker pull nethswitchboard/taiko-client-dev:latest
+            docker pull nethswitchboard/taiko-preconf-avs-dev:latest
+            docker pull nethswitchboard/taiko-preconf-avs-protocol-dev:latest
+            docker pull nethswitchboard/taiko-preconf-avs-pytest-dev:latest
 
             cd ~/preconfirm-devnet-package
+            git pull
             kurtosis run --enclave taiko-preconf-devnet . --args-file network_params.yaml
-
-            cd ~/Taiko-Preconf-AVS
-            pytest
           EOF
 
       - name: Summary
