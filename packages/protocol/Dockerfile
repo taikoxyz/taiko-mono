@@ -14,6 +14,8 @@ RUN git init && \
     forge install && \
     pnpm install
 
+RUN chmod +x /app/script/layer1/preconf/deployment/*.sh
+
 ENV PATH="/root/.foundry/bin:$PATH"
 
 CMD ["sh", "-c", "echo Please verify the environment variables and command."]
