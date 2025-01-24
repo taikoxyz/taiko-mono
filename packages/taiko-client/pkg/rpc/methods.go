@@ -690,7 +690,6 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 	var (
 		result                 = new(ReorgCheckResult)
 		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, defaultTimeout)
-		err                    error
 	)
 	defer cancel()
 
@@ -698,19 +697,9 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			var genesisHeight *big.Int
-			if c.PacayaClients.ForkHeight == 0 {
-				state, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
-				if err != nil {
-					return result, err
-				}
-				genesisHeight = new(big.Int).SetUint64(state.Stats1.GenesisHeight)
-			} else {
-				slot1, _, err := c.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctxWithTimeout})
-				if err != nil {
-					return result, err
-				}
-				genesisHeight = new(big.Int).SetUint64(slot1.GenesisHeight)
+			genesisHeight, err := c.getGenesisHeight(ctxWithTimeout)
+			if err != nil {
+				return nil, err
 			}
 
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight); err != nil {
@@ -1110,4 +1099,18 @@ func (c *Client) calculateBaseFeePacaya(
 	}
 
 	return baseFeeInfo.Basefee, nil
+}
+
+// getGenesisHeight fetches the genesis height from the protocol.
+func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
+	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		slot1, _, err := c.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return nil, err
+		}
+		return new(big.Int).SetUint64(slot1.GenesisHeight), nil
+	}
+
+	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
 }
