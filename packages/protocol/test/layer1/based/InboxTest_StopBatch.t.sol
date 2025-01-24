@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_StopBatch is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function getPacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
@@ -42,6 +42,6 @@ contract InboxTest_StopBatch is InboxTestBase {
         WhenLogAllBatchesAndTransitions
     {
         ITaikoInbox.Stats2 memory _stats2 = inbox.getStats2();
-        assertEq(getConfig().maxBatchesToVerify * 9, _stats2.lastVerifiedBatchId);
+        assertEq(getPacayaConfig().maxBatchesToVerify * 9, _stats2.lastVerifiedBatchId);
     }
 }

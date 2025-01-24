@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_ProposeAndProve is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function getPacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
@@ -228,15 +228,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(ts.stateRoot, bytes32(uint256(0)));
 
         vm.expectRevert(ITaikoInbox.TransitionNotFound.selector);
-        ts = inbox.getTransition(9, uint24(0));
+        ts = inbox.getTransitionById(9, uint24(0));
 
-        ts = inbox.getTransition(9, uint24(1));
+        ts = inbox.getTransitionById(9, uint24(1));
         assertEq(ts.parentHash, correctBlockhash(8));
         assertEq(ts.blockHash, correctBlockhash(9));
         assertEq(ts.stateRoot, bytes32(uint256(0)));
 
         vm.expectRevert(ITaikoInbox.TransitionNotFound.selector);
-        ts = inbox.getTransition(9, ts.parentHash);
+        ts = inbox.getTransitionByParentHash(9, ts.parentHash);
 
         (batchId, blockId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 5);
@@ -265,7 +265,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % getPacayaConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId)
+            {
                 assertEq(batch.verifiedTransitionId, 1);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
@@ -330,7 +331,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.lastBlockId, i * 7);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % getPacayaConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId)
+            {
                 assertEq(batch.verifiedTransitionId, 1);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
@@ -379,7 +381,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 3);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % getPacayaConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId)
+            {
                 assertEq(batch.verifiedTransitionId, 2);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);

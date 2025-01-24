@@ -15,7 +15,7 @@ abstract contract InboxTestBase is Layer1Test {
     uint256 genesisBlockProposedIn;
     uint256 private __blocksPerBatch;
 
-    function getConfig() internal view virtual returns (ITaikoInbox.Config memory);
+    function getPacayaConfig() internal view virtual returns (ITaikoInbox.Config memory);
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
@@ -37,7 +37,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         __blocksPerBatch = 1;
 
-        inbox = deployInbox(correctBlockhash(0), getConfig());
+        inbox = deployInbox(correctBlockhash(0), getPacayaConfig());
 
         signalService = deploySignalService(address(new SignalService(address(resolver))));
         signalService.authorize(address(inbox), true);
@@ -180,8 +180,8 @@ abstract contract InboxTestBase is Layer1Test {
         // console2.log("stats2.numBatches:", stats2.numBatches);
         // console2.log("getConfig().maxUnverifiedBatches:", getConfig().maxUnverifiedBatches);
 
-        uint64 firstBatchId = stats2.numBatches > getConfig().maxUnverifiedBatches
-            ? stats2.numBatches - getConfig().maxUnverifiedBatches
+        uint64 firstBatchId = stats2.numBatches > getPacayaConfig().maxUnverifiedBatches
+            ? stats2.numBatches - getPacayaConfig().maxUnverifiedBatches
             : 0;
 
         for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {
@@ -200,7 +200,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
             for (uint24 j = 1; j < batch.nextTransitionId; ++j) {
-                ITaikoInbox.TransitionState memory ts = inbox.getTransition(batch.batchId, j);
+                ITaikoInbox.TransitionState memory ts = inbox.getTransitionById(batch.batchId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",

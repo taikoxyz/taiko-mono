@@ -266,6 +266,7 @@ interface ITaikoInbox {
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
+    error ForkNotActivated();
     error InsufficientBond();
     error InvalidBlobParams();
     error InvalidGenesisBlockHash();
@@ -346,7 +347,7 @@ interface ITaikoInbox {
     /// @param _batchId The batch ID.
     /// @param _tid The transition ID.
     /// @return The specified transition state.
-    function getTransition(
+    function getTransitionById(
         uint64 _batchId,
         uint24 _tid
     )
@@ -359,7 +360,7 @@ interface ITaikoInbox {
     /// @param _batchId The batch ID.
     /// @param _parentHash The parent hash.
     /// @return The specified transition state.
-    function getTransition(
+    function getTransitionByParentHash(
         uint64 _batchId,
         bytes32 _parentHash
     )
@@ -395,5 +396,5 @@ interface ITaikoInbox {
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
-    function getConfig() external view returns (Config memory);
+    function getPacayaConfig() external view returns (Config memory);
 }

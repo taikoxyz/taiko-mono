@@ -10,7 +10,7 @@ contract DevnetInbox is TaikoInbox {
     constructor(address _resolver) TaikoInbox(_resolver) { }
 
     /// @inheritdoc ITaikoInbox
-    function getConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function getPacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: 167_001,
             maxUnverifiedBatches: 324_000,

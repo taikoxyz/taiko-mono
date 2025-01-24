@@ -19,7 +19,7 @@ import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/based/ForkRouter.sol";
+import "src/layer1/fork-router/ForkRouter.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -81,7 +81,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        uint64 l2ChainId = taikoInbox.getPacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
@@ -276,7 +276,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
 
-        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        uint64 l2ChainId = taikoInbox.getPacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         address opVerifier = deployProxy({
