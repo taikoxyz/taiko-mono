@@ -65,7 +65,7 @@ func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 
 func TestGetProtocolStateVariables(t *testing.T) {
 	client := newTestClient(t)
-	_, err := client.GetProtocolStateVariablesPacaya(nil)
+	_, err := client.GetLastVerifiedBlockOntake(context.Background())
 	require.Nil(t, err)
 }
 
