@@ -18,7 +18,7 @@ import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
-import "src/layer1/fork-router/ForkRouter.sol";
+import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 
@@ -102,7 +102,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "bridge");
         // TaikoInbox
         address newFork = address(new DevnetInbox(rollupResolver));
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new ForkRouter(oldFork, newFork)));
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));

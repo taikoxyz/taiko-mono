@@ -321,13 +321,10 @@ func (p *Prover) initEventHandlers() error {
 
 // initProofTiers initializes the proof tiers for the current prover.
 func (p *Prover) initProofTiers(ctx context.Context) error {
-	// Check if the current protocol is in Pacaya fork.
-	if _, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx}); err == nil {
-		return nil
-	}
 	tiers, err := p.rpc.GetTiers(ctx)
 	if err != nil {
-		return err
+		log.Warn("Failed to get tiers", "error", err)
+		return nil
 	}
 	p.sharedState.SetTiers(tiers)
 	return nil
