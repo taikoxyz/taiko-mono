@@ -14,12 +14,16 @@ interface IOntakeFork {
     function proveBlocks(uint64[] calldata, bytes[] calldata, bytes calldata) external;
     function verifyBlocks(uint64) external;
     function getVerifiedBlockProver(uint64) external view;
+    function getLastVerifiedBlock() external view;
     function getBlockV2(uint64) external view;
     function getTransition(uint64, uint32) external view;
     function getTransition(uint64, bytes32) external;
     function getTransitions(uint64[] calldata, bytes32[] calldata) external;
     function lastProposedIn() external view;
+    function getStateVariables() external view;
     function getConfig() external pure;
+    function resolve(uint64, bytes32, bool) external view;
+    function resolve(bytes32, bool) external view;
 }
 
 /// @title PacayaForkRouter
@@ -36,12 +40,16 @@ contract PacayaForkRouter is ForkRouter {
                 || _selector == IOntakeFork.proveBlocks.selector
                 || _selector == IOntakeFork.verifyBlocks.selector
                 || _selector == IOntakeFork.getVerifiedBlockProver.selector
+                || _selector == IOntakeFork.getLastVerifiedBlock.selector
                 || _selector == IOntakeFork.getBlockV2.selector
                 || _selector == bytes4(keccak256("getTransition(uint64,uint32)"))
                 || _selector == bytes4(keccak256("getTransition(uint64,bytes32)"))
                 || _selector == IOntakeFork.getTransitions.selector
                 || _selector == IOntakeFork.lastProposedIn.selector
+                || _selector == IOntakeFork.getStateVariables.selector
                 || _selector == IOntakeFork.getConfig.selector
+                || _selector == bytes4(keccak256("resolve(uint64,bytes32,bool)"))
+                || _selector == bytes4(keccak256("resolve(bytes32,bool)"))
         ) return true;
 
         return false;
