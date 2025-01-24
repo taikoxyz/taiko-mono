@@ -18,7 +18,7 @@ jobs:
   build:
     name: Build and push docker image
     runs-on: ubuntu-latest
-    if: github.repository == 'NethermindEth/taiko-mono'
+    if: github.repository == 'NethermindEth/preconf-taiko-mono'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
