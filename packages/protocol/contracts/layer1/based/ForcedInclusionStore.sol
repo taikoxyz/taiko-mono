@@ -4,91 +4,92 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
 import "./IForcedInclusionStore.sol";
+import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibStrings.sol";
 
 /// @title ForcedInclusionStore
+/// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow
+/// users to pay a  fee
+///      to ensure their transactions are included in a block. The contract maintains a FIFO queue
+/// of inclusion requests.
 /// @custom:security-contact
 contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
+    using LibAddress for address;
     using LibMath for uint256;
 
-    uint256 public inclusionWindow;
+    uint256 constant SECONDS_PER_BLOCK = 12;
 
-    uint256 public basePriorityFee;
+    uint256 public immutable inclusionDelay;
+    uint256 public immutable fee;
 
-    uint64 public head;
+    mapping(uint256 id => ForcedInclusion inclusion) public queue; // slot 1
+    uint64 public head; // slot 2
     uint64 public tail;
+    uint128 private __reserved1;
 
-    mapping(uint256 id => ForcedInclusion inclusion) public forcedInclusionQueue;
+    uint256[48] private __gap;
 
-    uint256[44] private __gap;
+    constructor(
+        address _resolver,
+        uint256 _inclusionDelay,
+        uint256 _fee
+    )
+        EssentialContract(_resolver)
+    {
+        require(_inclusionDelay != 0 && _inclusionDelay % SECONDS_PER_BLOCK == 0, InvalidParams());
+        require(_fee != 0, InvalidParams());
 
-    constructor(address _resolver, uint256 _inclusionWindow, uint256 _basePriorityFee) EssentialContract(_resolver) { 
-        require(_inclusionWindow > 0, "inclusionWindow must be greater than 0");
-        require(_basePriorityFee > 0, "basePriorityFee must be greater than 0");
-        
-        inclusionWindow = _inclusionWindow;
-        basePriorityFee = _basePriorityFee;
+        inclusionDelay = _inclusionDelay;
+        fee = _fee;
     }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
 
-    function updateBasePriorityFee(uint256 _newBasePriorityFee) external onlyOwner {
-        basePriorityFee = _newBasePriorityFee;
-    }
+    function storeForcedInclusion(
+        uint8 blobId,
+        uint32 blobByteOffset,
+        uint32 blobByteSize
+    )
+        external
+        payable
+    {
+        bytes32 blobHash = _blobHash(blobId);
+        require(blobHash != bytes32(0), BlobNotFound());
+        require(msg.value == fee, IncorrectFee());
 
-    function getRequiredPriorityFee() public view returns (uint256) {
-        uint256 queueLength = tail - head;
-        if (queueLength == 0) {
-            return basePriorityFee;
-        }
-
-        return (2 ** queueLength).max(4096) * basePriorityFee;
-    }
-    function storeForcedInclusion(bytes32 blobHash, uint32 blobByteOffset, uint32 blobByteSize) payable external {
-        uint256 requiredPriorityFee = getRequiredPriorityFee();
-        require(msg.value == requiredPriorityFee, ForcedInclusionInsufficientPriorityFee());
-
-        uint64 id = tail + 1;
-        ForcedInclusion memory forcedInclusion = ForcedInclusion({
+        ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
+            fee: msg.value,
+            createdAt: uint64(block.timestamp),
             blobByteOffset: blobByteOffset,
-            blobByteSize: blobByteSize,
-            timestamp: block.timestamp,
-            priorityFee: msg.value,
-            id: id,
-            processed: false
+            blobByteSize: blobByteSize
         });
 
-        forcedInclusionQueue[tail] = forcedInclusion;
+        queue[tail++] = inclusion;
 
-        tail++;
-
-        emit ForcedInclusionStored(forcedInclusion);
+        emit ForcedInclusionStored(inclusion);
     }
 
-     function consumeForcedInclusion() external override returns (ForcedInclusion memory) {
-        address operator = resolve(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, false);
-        require(msg.sender == operator, NotTaikoForcedInclusionInbox());
-
-        ForcedInclusion memory forcedInclusion;
-        if (head == tail) {
-            return forcedInclusion;
-        }
-        
+    function consumeForcedInclusion(address _feeRecipient)
+        external
+        onlyFromNamed(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX)
+        returns (ForcedInclusion memory inclusion_)
+    {
         // we only need to check the first one, since it will be the oldest.
-        ForcedInclusion storage inclusion = forcedInclusionQueue[head];
-        if (inclusion.timestamp + inclusionWindow < block.timestamp) {
-            inclusion.processed = true;
-            ForcedInclusion memory consumedInclusion = forcedInclusionQueue[head];
+        ForcedInclusion storage inclusion = queue[head];
+
+        if (inclusion.createdAt != 0 && block.timestamp >= inclusionDelay + inclusion.createdAt) {
+            inclusion_ = inclusion;
+            _feeRecipient.sendEtherAndVerify(inclusion.fee);
             head++;
-
-            emit ForcedInclusionConsumed(consumedInclusion);
-            
-            return consumedInclusion;
+            emit ForcedInclusionConsumed(inclusion);
         }
+    }
 
-        return forcedInclusion;
-     }
+    // @dev Override this function for easier testing blobs
+    function _blobHash(uint8 blobId) internal view virtual returns (bytes32) {
+        return blobhash(blobId);
+    }
 }

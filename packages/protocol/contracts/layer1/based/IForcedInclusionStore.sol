@@ -4,31 +4,44 @@ pragma solidity ^0.8.24;
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
+    /// @dev Error thrown when a blob is not found.
+    error BlobNotFound();
+    /// @dev Error thrown when the parameters are invalid.
+    error InvalidParams();
+    /// @dev Error thrown when the fee is incorrect.
+    error IncorrectFee();
 
-    error ForcedInclusionInsufficientPriorityFee();
-    error NotTaikoForcedInclusionInbox();
-
-
+    /// @dev Event emitted when a forced inclusion is stored.
     event ForcedInclusionStored(ForcedInclusion forcedInclusion);
-
+    /// @dev Event emitted when a forced inclusion is consumed.
     event ForcedInclusionConsumed(ForcedInclusion forcedInclusion);
 
     struct ForcedInclusion {
         bytes32 blobHash;
-        uint64 id;
+        uint256 fee;
+        uint64 createdAt;
         uint32 blobByteOffset;
         uint32 blobByteSize;
-        uint256 priorityFee;
-        uint256 timestamp;
-        bool processed;
     }
 
     /// @dev Consume a forced inclusion request.
     /// The inclusion request must be marked as processed and the priority fee must be paid to the
     /// caller.
-    function consumeForcedInclusion() external returns (ForcedInclusion memory);
+    /// @return inclusion_ The forced inclusion request.
+    function consumeForcedInclusion(address _feeRecipient)
+        external
+        returns (ForcedInclusion memory);
 
     /// @dev Store a forced inclusion request.
     /// The priority fee must be paid to the contract.
-    function storeForcedInclusion(bytes32 blobHash, uint32 blobByteOffset, uint32 blobByteSize) payable external;
+    /// @param blobId The blob hash to be included
+    /// @param blobByteOffset The byte offset in the blob
+    /// @param blobByteSize The size of the blob in bytes
+    function storeForcedInclusion(
+        uint8 blobId,
+        uint32 blobByteOffset,
+        uint32 blobByteSize
+    )
+        external
+        payable;
 }

@@ -44,14 +44,19 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
     )
         external
         nonReentrant
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
-        ITaikoInbox inbox = ITaikoInbox(resolve("taiko", false));
-        inbox.proposeBatch(_params, _txList);
+        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
+        (info_, meta_) = inbox.proposeBatch(_params, _txList);
 
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-            IForcedInclusionStore(resolve("forced_inclusion_store", false)).consumeForcedInclusion();
+        // Process the next forced inclusion.
+        IForcedInclusionStore store =
+            IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
 
-        if (forcedInclusion.id != 0) {
+        IForcedInclusionStore.ForcedInclusion memory inclusion =
+            store.consumeForcedInclusion(msg.sender);
+
+        if (inclusion.createdAt != 0) {
             ITaikoInbox.BatchParams memory params;
 
             if (_forcedInclusionParams.length != 0) {
@@ -69,13 +74,13 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
             }
 
             params.blobParams.blobHashes = new bytes32[](1);
-            params.blobParams.blobHashes[0] = forcedInclusion.blobHash;
-            params.blobParams.byteOffset = forcedInclusion.blobByteOffset;
-            params.blobParams.byteSize = forcedInclusion.blobByteSize;
+            params.blobParams.blobHashes[0] = inclusion.blobHash;
+            params.blobParams.byteOffset = inclusion.blobByteOffset;
+            params.blobParams.byteSize = inclusion.blobByteSize;
 
             inbox.proposeBatch(abi.encode(params), "");
-            msg.sender.sendEtherAndVerify(forcedInclusion.priorityFee, gasleft());
-            emit ForcedInclusionProcessed(forcedInclusion);
+            msg.sender.sendEtherAndVerify(inclusion.fee, gasleft());
+            emit ForcedInclusionProcessed(inclusion);
         }
     }
 }
