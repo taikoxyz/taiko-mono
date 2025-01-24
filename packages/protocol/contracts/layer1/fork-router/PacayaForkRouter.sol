@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "./ForkRouter.sol";
 
 /// @title ITaikoL1
+/// @dev https://github.com/taikoxyz/taiko-mono/releases/tag/protocol-v1.11.0
 interface ITaikoL1 {
     function proposeBlockV2(bytes calldata, bytes calldata) external;
     function proposeBlocksV2(bytes[] calldata, bytes[] calldata) external;
