@@ -84,9 +84,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	disableP2P := false
-	if !c.IsSet(p2pFlags.DisableP2PName) || c.Bool(p2pFlags.DisableP2PName) {
-		disableP2P = true
+	disableP2P := true
+	if c.IsSet(p2pFlags.DisableP2PName) && !c.Bool(p2pFlags.DisableP2PName) {
+		disableP2P = false
 	}
 
 	return &Config{
