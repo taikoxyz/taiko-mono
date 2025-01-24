@@ -19,14 +19,14 @@ import (
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataOnly() {
 	builder := s.newTestBuilderWithFallback(false, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{[]byte{1}})
+	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}})
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataWithBlobAllowed() {
 	builder := s.newTestBuilderWithFallback(true, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{[]byte{1}})
+	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }
@@ -41,7 +41,7 @@ func (s *TransactionBuilderTestSuite) TestBlobAllowed() {
 func (s *TransactionBuilderTestSuite) TestFallback() {
 	// By default, blob fee should be cheaper.
 	builder := s.newTestBuilderWithFallback(true, true, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{[]byte{1}})
+	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 
@@ -56,7 +56,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 			nil
 	})
 
-	candidate, err = builder.BuildOntake(context.Background(), [][]byte{[]byte{1}})
+	candidate, err = builder.BuildOntake(context.Background(), [][]byte{{1}})
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 
@@ -71,7 +71,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 			nil
 	})
 
-	candidate, err = builder.BuildOntake(context.Background(), [][]byte{[]byte{1}})
+	candidate, err = builder.BuildOntake(context.Background(), [][]byte{{1}})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }
