@@ -99,98 +99,6 @@
         "big.Int": {
             "type": "object"
         },
-        "engine.ExecutableData": {
-            "type": "object",
-            "properties": {
-                "baseFeePerGas": {
-                    "$ref": "#/definitions/big.Int"
-                },
-                "blobGasUsed": {
-                    "type": "integer"
-                },
-                "blockHash": {
-                    "type": "string"
-                },
-                "blockNumber": {
-                    "type": "integer"
-                },
-                "depositRequests": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/types.Deposit"
-                    }
-                },
-                "excessBlobGas": {
-                    "type": "integer"
-                },
-                "executionWitness": {
-                    "$ref": "#/definitions/types.ExecutionWitness"
-                },
-                "extraData": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "feeRecipient": {
-                    "type": "string"
-                },
-                "gasLimit": {
-                    "type": "integer"
-                },
-                "gasUsed": {
-                    "type": "integer"
-                },
-                "logsBloom": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "parentHash": {
-                    "type": "string"
-                },
-                "prevRandao": {
-                    "type": "string"
-                },
-                "receiptsRoot": {
-                    "type": "string"
-                },
-                "stateRoot": {
-                    "type": "string"
-                },
-                "taikoBlock": {
-                    "description": "CHANGE(taiko): whether this is a Taiko L2 block, only used by ExecutableDataToBlock",
-                    "type": "boolean"
-                },
-                "timestamp": {
-                    "type": "integer"
-                },
-                "transactions": {
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
-                },
-                "txHash": {
-                    "description": "CHANGE(taiko): allow passing txHash directly instead of transactions list",
-                    "type": "string"
-                },
-                "withdrawals": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/types.Withdrawal"
-                    }
-                },
-                "withdrawalsHash": {
-                    "description": "CHANGE(taiko): allow passing WithdrawalsHash directly instead of withdrawals",
-                    "type": "string"
-                }
-            }
-        },
         "pacaya.LibSharedDataBaseFeeConfig": {
             "type": "object",
             "properties": {
@@ -235,7 +143,7 @@
                     "description": "@param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/engine.ExecutableData"
+                            "$ref": "#/definitions/preconfblocks.ExecutableData"
                         }
                     ]
                 },
@@ -267,6 +175,35 @@
                 }
             }
         },
+        "preconfblocks.ExecutableData": {
+            "type": "object",
+            "properties": {
+                "blockNumber": {
+                    "type": "integer"
+                },
+                "feeRecipient": {
+                    "type": "string"
+                },
+                "gasLimit": {
+                    "type": "integer"
+                },
+                "gasUsed": {
+                    "type": "integer"
+                },
+                "parentHash": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "preconfblocks.RemovePreconfBlocksRequestBody": {
             "type": "object",
             "properties": {
@@ -290,51 +227,6 @@
                 "lastProposedBlockID": {
                     "description": "@param lastProposedBlockID uint64 Highest block ID of the cnonical chain",
                     "type": "integer"
-                }
-            }
-        },
-        "types.Deposit": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "description": "deposit size in Gwei",
-                    "type": "integer"
-                },
-                "index": {
-                    "description": "deposit count value",
-                    "type": "integer"
-                },
-                "pubkey": {
-                    "description": "public key of validator",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "signature": {
-                    "description": "signature over deposit msg",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "withdrawalCredentials": {
-                    "description": "beneficiary of the validator funds",
-                    "type": "string"
-                }
-            }
-        },
-        "types.ExecutionWitness": {
-            "type": "object",
-            "properties": {
-                "stateDiff": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/verkle.StemStateDiff"
-                    }
-                },
-                "verkleProof": {
-                    "$ref": "#/definitions/verkle.VerkleProof"
                 }
             }
         },
@@ -422,131 +314,6 @@
                 "withdrawalsRoot": {
                     "description": "WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.",
                     "type": "string"
-                }
-            }
-        },
-        "types.Withdrawal": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "description": "target address for withdrawn ether",
-                    "type": "string"
-                },
-                "amount": {
-                    "description": "value of withdrawal in Gwei",
-                    "type": "integer"
-                },
-                "index": {
-                    "description": "monotonically increasing identifier issued by consensus layer",
-                    "type": "integer"
-                },
-                "validatorIndex": {
-                    "description": "index of validator associated with withdrawal",
-                    "type": "integer"
-                }
-            }
-        },
-        "verkle.IPAProof": {
-            "type": "object",
-            "properties": {
-                "cl": {
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
-                },
-                "cr": {
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
-                },
-                "finalEvaluation": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
-            }
-        },
-        "verkle.StemStateDiff": {
-            "type": "object",
-            "properties": {
-                "stem": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "suffixDiffs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/verkle.SuffixStateDiff"
-                    }
-                }
-            }
-        },
-        "verkle.SuffixStateDiff": {
-            "type": "object",
-            "properties": {
-                "currentValue": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "newValue": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "suffix": {
-                    "type": "integer"
-                }
-            }
-        },
-        "verkle.VerkleProof": {
-            "type": "object",
-            "properties": {
-                "commitmentsByPath": {
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
-                },
-                "d": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "depthExtensionPresent": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "ipa_proof": {
-                    "$ref": "#/definitions/verkle.IPAProof"
-                },
-                "otherStems": {
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
                 }
             }
         }

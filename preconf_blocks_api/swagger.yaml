@@ -1,71 +1,6 @@
 definitions:
   big.Int:
     type: object
-  engine.ExecutableData:
-    properties:
-      baseFeePerGas:
-        $ref: '#/definitions/big.Int'
-      blobGasUsed:
-        type: integer
-      blockHash:
-        type: string
-      blockNumber:
-        type: integer
-      depositRequests:
-        items:
-          $ref: '#/definitions/types.Deposit'
-        type: array
-      excessBlobGas:
-        type: integer
-      executionWitness:
-        $ref: '#/definitions/types.ExecutionWitness'
-      extraData:
-        items:
-          type: integer
-        type: array
-      feeRecipient:
-        type: string
-      gasLimit:
-        type: integer
-      gasUsed:
-        type: integer
-      logsBloom:
-        items:
-          type: integer
-        type: array
-      parentHash:
-        type: string
-      prevRandao:
-        type: string
-      receiptsRoot:
-        type: string
-      stateRoot:
-        type: string
-      taikoBlock:
-        description: 'CHANGE(taiko): whether this is a Taiko L2 block, only used by
-          ExecutableDataToBlock'
-        type: boolean
-      timestamp:
-        type: integer
-      transactions:
-        items:
-          items:
-            type: integer
-          type: array
-        type: array
-      txHash:
-        description: 'CHANGE(taiko): allow passing txHash directly instead of transactions
-          list'
-        type: string
-      withdrawals:
-        items:
-          $ref: '#/definitions/types.Withdrawal'
-        type: array
-      withdrawalsHash:
-        description: 'CHANGE(taiko): allow passing WithdrawalsHash directly instead
-          of withdrawals'
-        type: string
-    type: object
   pacaya.LibSharedDataBaseFeeConfig:
     properties:
       adjustmentQuotient:
@@ -97,7 +32,7 @@ definitions:
         $ref: '#/definitions/pacaya.LibSharedDataBaseFeeConfig'
       executableData:
         allOf:
-        - $ref: '#/definitions/engine.ExecutableData'
+        - $ref: '#/definitions/preconfblocks.ExecutableData'
         description: '@param ExecutableData engine.ExecutableData the data necessary
           to execute an EL payload.'
       signalSlots:
@@ -116,6 +51,25 @@ definitions:
         allOf:
         - $ref: '#/definitions/types.Header'
         description: '@param blockHeader types.Header of the soft block'
+    type: object
+  preconfblocks.ExecutableData:
+    properties:
+      blockNumber:
+        type: integer
+      feeRecipient:
+        type: string
+      gasLimit:
+        type: integer
+      gasUsed:
+        type: integer
+      parentHash:
+        type: string
+      timestamp:
+        type: integer
+      transactions:
+        items:
+          type: integer
+        type: array
     type: object
   preconfblocks.RemovePreconfBlocksRequestBody:
     properties:
@@ -138,37 +92,6 @@ definitions:
         description: '@param lastProposedBlockID uint64 Highest block ID of the cnonical
           chain'
         type: integer
-    type: object
-  types.Deposit:
-    properties:
-      amount:
-        description: deposit size in Gwei
-        type: integer
-      index:
-        description: deposit count value
-        type: integer
-      pubkey:
-        description: public key of validator
-        items:
-          type: integer
-        type: array
-      signature:
-        description: signature over deposit msg
-        items:
-          type: integer
-        type: array
-      withdrawalCredentials:
-        description: beneficiary of the validator funds
-        type: string
-    type: object
-  types.ExecutionWitness:
-    properties:
-      stateDiff:
-        items:
-          $ref: '#/definitions/verkle.StemStateDiff'
-        type: array
-      verkleProof:
-        $ref: '#/definitions/verkle.VerkleProof'
     type: object
   types.Header:
     properties:
@@ -230,89 +153,6 @@ definitions:
         description: WithdrawalsHash was added by EIP-4895 and is ignored in legacy
           headers.
         type: string
-    type: object
-  types.Withdrawal:
-    properties:
-      address:
-        description: target address for withdrawn ether
-        type: string
-      amount:
-        description: value of withdrawal in Gwei
-        type: integer
-      index:
-        description: monotonically increasing identifier issued by consensus layer
-        type: integer
-      validatorIndex:
-        description: index of validator associated with withdrawal
-        type: integer
-    type: object
-  verkle.IPAProof:
-    properties:
-      cl:
-        items:
-          items:
-            type: integer
-          type: array
-        type: array
-      cr:
-        items:
-          items:
-            type: integer
-          type: array
-        type: array
-      finalEvaluation:
-        items:
-          type: integer
-        type: array
-    type: object
-  verkle.StemStateDiff:
-    properties:
-      stem:
-        items:
-          type: integer
-        type: array
-      suffixDiffs:
-        items:
-          $ref: '#/definitions/verkle.SuffixStateDiff'
-        type: array
-    type: object
-  verkle.SuffixStateDiff:
-    properties:
-      currentValue:
-        items:
-          type: integer
-        type: array
-      newValue:
-        items:
-          type: integer
-        type: array
-      suffix:
-        type: integer
-    type: object
-  verkle.VerkleProof:
-    properties:
-      commitmentsByPath:
-        items:
-          items:
-            type: integer
-          type: array
-        type: array
-      d:
-        items:
-          type: integer
-        type: array
-      depthExtensionPresent:
-        items:
-          type: integer
-        type: array
-      ipa_proof:
-        $ref: '#/definitions/verkle.IPAProof'
-      otherStems:
-        items:
-          items:
-            type: integer
-          type: array
-        type: array
     type: object
 info:
   contact:
