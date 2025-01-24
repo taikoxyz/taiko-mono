@@ -20,14 +20,14 @@ contract ForcedInclusionStoreForTest is ForcedInclusionStore {
 
 abstract contract ForcedInclusionStoreTestBase is CommonTest {
     address internal storeOwner = Alice;
-    address internal operator = Alice;
+    address internal whitelistedProposer = Alice;
     uint64 internal constant inclusionDelay = 24 seconds;
     uint256 internal constant fee = 0.001 ether;
 
     ForcedInclusionStore internal store;
 
     function setUpOnEthereum() internal virtual override {
-        register(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, operator);
+        register(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, whitelistedProposer);
 
         store = ForcedInclusionStore(
             deploy({
@@ -103,7 +103,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         uint256 createdAt = block.timestamp;
         vm.warp(createdAt + inclusionDelay);
 
-        vm.prank(operator);
+        vm.prank(whitelistedProposer);
         IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeForcedInclusion(Bob);
 
         assertEq(consumed.blobHash, bytes32(uint256(1)));
@@ -136,7 +136,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
     }
 
     function test_storeConsumeForcedInclusion_noEligibleInclusion() public {
-        vm.prank(operator);
+        vm.prank(whitelistedProposer);
         IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
@@ -147,7 +147,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
     function test_storeConsumeForcedInclusion_beforeWindowExpires() public {
         vm.deal(Alice, 1 ether);
 
-        vm.prank(operator);
+        vm.prank(whitelistedProposer);
         store.storeForcedInclusion{ value: store.fee() }({
             blobIndex: 0,
             blobByteOffset: 0,
@@ -155,7 +155,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         });
 
         vm.warp(block.timestamp + inclusionDelay - 1);
-        vm.prank(operator);
+        vm.prank(whitelistedProposer);
         IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
