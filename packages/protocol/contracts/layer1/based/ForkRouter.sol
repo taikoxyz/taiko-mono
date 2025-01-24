@@ -18,6 +18,7 @@ contract ForkRouter is UUPSUpgradeable, Ownable2StepUpgradeable {
     address public immutable newFork;
 
     error InvalidParams();
+    error NewForkInvalid();
     error NewForkNotActive();
     error ZeroAddress();
 
@@ -39,8 +40,12 @@ contract ForkRouter is UUPSUpgradeable, Ownable2StepUpgradeable {
         _fallback();
     }
 
-    function currentFork() public view returns (address) {
-        return IFork(newFork).isForkActive() ? newFork : oldFork;
+    function currentFork() public returns (address) {
+        (bool success, bytes memory isActive) =
+            newFork.delegatecall(abi.encodeCall(IFork.isForkActive, ()));
+
+        require(success, NewForkInvalid());
+        return abi.decode(isActive, (bool)) ? newFork : oldFork;
     }
 
     function isForkRouter() public pure returns (bool) {

@@ -26,6 +26,61 @@ contract Fork is EssentialContract, IFork {
     }
 }
 
+contract ForkFooA is EssentialContract, IFork {
+    struct State {
+        uint64 a;
+    }
+
+    State private _state;
+
+    constructor() EssentialContract(address(0)) { }
+
+    function init() external initializer {
+        __Essential_init(address(0));
+        _state.a = 1;
+    }
+
+    function setCounter(uint64 _a) external returns (uint64) {
+        _state.a = _a;
+        return _state.a;
+    }
+
+    function counter() external view returns (uint64) {
+        return _state.a;
+    }
+
+    function isForkActive() external view override returns (bool) {
+        return _state.a < 10;
+    }
+}
+
+contract ForkFooB is EssentialContract, IFork {
+    struct State {
+        uint64 b;
+    }
+
+    State private _state;
+
+    constructor() EssentialContract(address(0)) { }
+
+    function init() external initializer {
+        __Essential_init(address(0));
+    }
+
+    function setCounter(uint64 _b) external returns (uint64) {
+        _state.b = _b;
+        return _state.b;
+    }
+
+    function counter() external view returns (uint64) {
+        return _state.b;
+    }
+
+    function isForkActive() external view override returns (bool) {
+        return _state.b >= 10;
+    }
+}
+
 contract TestForkRouter is Layer1Test {
     function test_ForkManager_default_routing() public transactBy(deployer) {
         address fork1 = address(new Fork("fork1", true));
@@ -68,5 +123,30 @@ contract TestForkRouter is Layer1Test {
         Fork(router).upgradeTo(address(new ForkRouter(fork1, fork2)));
         assertTrue(ForkRouter(payable(router)).isForkRouter());
         assertEq(Fork(router).name(), "fork2");
+    }
+
+    function test_ForkManager_readStorage() public transactBy(deployer) {
+        address fork1 = address(new ForkFooA());
+        address fork2 = address(new ForkFooB());
+
+        address router = deploy({
+            name: "fork_router",
+            impl: address(new ForkRouter(fork1, fork2)),
+            data: abi.encodeCall(Fork.init, ())
+        });
+
+        assertEq(ForkRouter(payable(router)).currentFork(), fork1);
+        assertEq(ForkFooA(router).counter(), 1);
+        assertEq(ForkFooA(router).setCounter(2), 2);
+        assertEq(ForkFooA(router).counter(), 2);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork1);
+
+        assertEq(ForkFooA(router).setCounter(10), 10);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork2);
+        assertEq(ForkFooA(router).setCounter(11), 11);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork2);
+
+        assertEq(ForkFooA(router).setCounter(9), 9);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork1);
     }
 }
