@@ -19,7 +19,7 @@ import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/based/ForkRouter.sol";
+import "src/layer1/fork-router/ForkRouter.sol";
 import "src/layer1/based/ForcedInclusionInbox.sol";
 import "src/layer1/based/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
@@ -69,12 +69,12 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
-        address signalServiceAddr = EssentialContract(sharedResolver).resolve(
+        address signalServiceAddr = EssentialContract(sharedResolver).resolveAddress(
             uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
         );
         SignalService signalService = SignalService(signalServiceAddr);
 
-        address taikoInboxAddr = EssentialContract(rollupResolver).resolve(
+        address taikoInboxAddr = EssentialContract(rollupResolver).resolveAddress(
             uint64(block.chainid), LibStrings.B_TAIKO, false
         );
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
@@ -83,7 +83,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
@@ -278,7 +278,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
 
-        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         address opVerifier = deployProxy({

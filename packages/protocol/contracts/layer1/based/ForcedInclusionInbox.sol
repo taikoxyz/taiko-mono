@@ -9,7 +9,6 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./IFork.sol";
 import "./ITaikoInbox.sol";
 import "./IForcedInclusionStore.sol";
 
@@ -68,12 +67,12 @@ contract ForcedInclusionInbox is EssentialContract {
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
-        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
+        ITaikoInbox inbox = ITaikoInbox(resolveAddress(LibStrings.B_TAIKO, false));
         (info_, meta_) = inbox.proposeBatch(_params, _txList);
 
         // Process the next forced inclusion.
         IForcedInclusionStore store =
-            IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
+            IForcedInclusionStore(resolveAddress(LibStrings.B_FORCED_INCLUSION_STORE, false));
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             store.consumeForcedInclusion(msg.sender);

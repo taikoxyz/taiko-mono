@@ -29,15 +29,16 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         returns (ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
-        address selectedOperator =
-            IPreconfWhitelist(resolve(LibStrings.B_PRECONF_WHITELIST, false)).getOperatorForEpoch();
+        address selectedOperator = IPreconfWhitelist(
+            resolveAddress(LibStrings.B_PRECONF_WHITELIST, false)
+        ).getOperatorForEpoch();
         require(msg.sender == selectedOperator, NotTheOperator());
 
         // check if we have a forced inclusion inbox
-        address forcedInclusionInbox = resolve(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, true);
+        address forcedInclusionInbox = resolveAddress(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, true);
         if (forcedInclusionInbox == address(0)) {
             // Call the proposeBatch function on the TaikoInbox
-            address taikoInbox = resolve(LibStrings.B_TAIKO, false);
+            address taikoInbox = resolveAddress(LibStrings.B_TAIKO, false);
             (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
         } else {
             // Call the proposeBatchWithForcedInclusion function on the ForcedInclusionInbox

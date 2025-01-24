@@ -161,7 +161,7 @@ contract Bridge is EssentialContract, IBridge {
         msgHash_ = hashMessage(message_);
 
         emit MessageSent(msgHash_, message_);
-        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(msgHash_);
+        ISignalService(resolveAddress(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(msgHash_);
     }
 
     /// @inheritdoc IBridge
@@ -178,7 +178,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.NEW);
 
-        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        address signalService = resolveAddress(LibStrings.B_SIGNAL_SERVICE, false);
 
         if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
             revert B_MESSAGE_NOT_SENT();
@@ -246,7 +246,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.NEW);
 
-        address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+        address signalService = resolveAddress(LibStrings.B_SIGNAL_SERVICE, false);
 
         stats.proofSize = uint32(_proof.length);
         stats.numCacheOps =
@@ -329,7 +329,9 @@ contract Bridge is EssentialContract, IBridge {
         if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         bool succeeded;
-        if (_unableToInvokeMessageCall(_message, resolve(LibStrings.B_SIGNAL_SERVICE, false))) {
+        if (
+            _unableToInvokeMessageCall(_message, resolveAddress(LibStrings.B_SIGNAL_SERVICE, false))
+        ) {
             succeeded = _message.destOwner.sendEther(_message.value, _SEND_ETHER_GAS_LIMIT, "");
         } else {
             if ((_message.gasLimit == 0 || _isLastAttempt) && msg.sender != _message.destOwner) {
@@ -345,7 +347,7 @@ contract Bridge is EssentialContract, IBridge {
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
 
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
+            ISignalService(resolveAddress(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
                 signalForFailedMessage(msgHash)
             );
         } else {
@@ -367,7 +369,7 @@ contract Bridge is EssentialContract, IBridge {
         _checkStatus(msgHash, Status.RETRIABLE);
 
         _updateMessageStatus(msgHash, Status.FAILED);
-        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
+        ISignalService(resolveAddress(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
             signalForFailedMessage(msgHash)
         );
     }
@@ -375,7 +377,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
-        return ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).isSignalSent({
+        return ISignalService(resolveAddress(LibStrings.B_SIGNAL_SERVICE, false)).isSignalSent({
             _app: address(this),
             _signal: hashMessage(_message)
         });
@@ -397,7 +399,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_message.srcChainId != block.chainid) return false;
 
         return _isSignalReceived(
-            resolve(LibStrings.B_SIGNAL_SERVICE, false),
+            resolveAddress(LibStrings.B_SIGNAL_SERVICE, false),
             signalForFailedMessage(hashMessage(_message)),
             _message.destChainId,
             _proof
@@ -419,7 +421,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _isSignalReceived(
-            resolve(LibStrings.B_SIGNAL_SERVICE, false),
+            resolveAddress(LibStrings.B_SIGNAL_SERVICE, false),
             hashMessage(_message),
             _message.srcChainId,
             _proof
@@ -435,7 +437,7 @@ contract Bridge is EssentialContract, IBridge {
         view
         returns (bool enabled_, address destBridge_)
     {
-        destBridge_ = resolve(_chainId, LibStrings.B_BRIDGE, true);
+        destBridge_ = resolveAddress(_chainId, LibStrings.B_BRIDGE, true);
         enabled_ = destBridge_ != address(0);
     }
 
@@ -472,10 +474,10 @@ contract Bridge is EssentialContract, IBridge {
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
         // Owner and chain watchdog can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
+        if (addr == owner() || addr == resolveAddress(LibStrings.B_CHAIN_WATCHDOG, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
-        if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
+        if (toPause && addr == resolveAddress(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
 
         revert ACCESS_DENIED();
     }
@@ -556,7 +558,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (uint32 numCacheOps_)
     {
         try ISignalService(_signalService).proveSignalReceived(
-            _chainId, resolve(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
+            _chainId, resolveAddress(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
         ) returns (uint256 numCacheOps) {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
@@ -569,7 +571,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @return true if quota manager has unlimited quota for Ether or the given amount of Ether is
     /// consumed already.
     function _consumeEtherQuota(uint256 _amount) private returns (bool) {
-        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
+        address quotaManager = resolveAddress(LibStrings.B_QUOTA_MANAGER, true);
         if (quotaManager == address(0)) return true;
 
         try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
@@ -603,7 +605,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool)
     {
         try ISignalService(_signalService).verifySignalReceived(
-            _chainId, resolve(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
+            _chainId, resolveAddress(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
         ) {
             return true;
         } catch {

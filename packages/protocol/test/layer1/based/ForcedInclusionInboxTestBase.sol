@@ -18,7 +18,7 @@ abstract contract ForcedInclusionInboxTestBase is InboxTestBase {
         genesisBlockProposedAt = block.timestamp;
         genesisBlockProposedIn = block.number;
 
-        inbox = deployInbox(correctBlockhash(0), getConfig());
+        inbox = deployInbox(correctBlockhash(0), pacayaConfig());
 
         forcedInclusionStore = deployForcedInclusionStore(100, 100, owner);
         forcedInclusionInbox = deployForcedInclusionInbox();

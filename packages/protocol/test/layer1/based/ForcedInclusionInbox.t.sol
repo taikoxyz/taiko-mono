@@ -5,7 +5,7 @@ import "contracts/layer1/based/IForcedInclusionInbox.sol";
 import "./ForcedInclusionInboxTestBase.sol";
 
 contract ForcedInclusionInboxTest is ForcedInclusionInboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+     function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
