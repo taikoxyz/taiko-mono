@@ -411,7 +411,11 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         store = deployProxy({
             name: "forced_inclusion_store",
-            impl: address(new ForcedInclusionStore(resolver, vm.envUint("INCLUSION_WINDOW"), vm.envUint("INCLUSION_FEE"))),
+            impl: address(
+                new ForcedInclusionStore(
+                    resolver, vm.envUint("INCLUSION_WINDOW"), vm.envUint("INCLUSION_FEE")
+                )
+            ),
             data: abi.encodeCall(ForcedInclusionStore.init, (owner)),
             registerTo: resolver
         });

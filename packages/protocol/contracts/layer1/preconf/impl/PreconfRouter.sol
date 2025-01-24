@@ -42,9 +42,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         } else {
             // Call the proposeBatchWithForcedInclusion function on the ForcedInclusionInbox
             (, meta_) = IForcedInclusionInbox(forcedInclusionInbox).proposeBatchWithForcedInclusion(
-                _forcedInclusionParams,
-                _batchParams,
-                _batchTxList
+                _forcedInclusionParams, _batchParams, _batchTxList
             );
         }
 
