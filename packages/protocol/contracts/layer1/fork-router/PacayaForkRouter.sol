@@ -20,7 +20,8 @@ interface IOntakeFork {
     function getTransitions(uint64[] calldata, bytes32[] calldata) external;
     function lastProposedIn() external view;
     function getConfig() external pure;
-    function resolveAddress(uint64, bytes32, bool) external view;
+    function resolve(bytes32, bool) external view;
+    function resolve(uint64, bytes32, bool) external view;
 }
 
 /// @title PacayaForkRouter
@@ -43,7 +44,8 @@ contract PacayaForkRouter is ForkRouter {
                 || _selector == IOntakeFork.getTransitions.selector
                 || _selector == IOntakeFork.lastProposedIn.selector
                 || _selector == IOntakeFork.getConfig.selector
-                || _selector == IOntakeFork.resolveAddress.selector
+                || _selector == bytes4(keccak256("resolve(bytes32,bool)"))
+                || _selector == bytes4(keccak256("resolve(uint64,bytes32,bool)"))
         ) return true;
 
         return false;
