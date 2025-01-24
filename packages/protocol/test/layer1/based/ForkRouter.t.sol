@@ -37,7 +37,7 @@ contract ForkFooA is EssentialContract, IFork {
 
     function init() external initializer {
         __Essential_init(address(0));
-        _state.a = 100;
+        _state.a = 1;
     }
 
     function setCounter(uint64 _a) external returns (uint64) {
@@ -77,7 +77,6 @@ contract ForkFooB is EssentialContract, IFork {
     }
 
     function isForkActive() external view override returns (bool) {
-        console.log("isForkActive in ForkFooB:", _state.b);
         return _state.b >= 10;
     }
 }
@@ -137,12 +136,17 @@ contract TestForkRouter is Layer1Test {
         });
 
         assertEq(ForkRouter(payable(router)).currentFork(), fork1);
-        // assertEq(ForkFooA(router).counter(), 1);
-        // assertEq(ForkFooA(router).setCounter(2), 2);
-        // assertEq(ForkFooA(router).counter(), 2);
-        // assertEq(ForkRouter(payable(router)).currentFork(), fork1);
+        assertEq(ForkFooA(router).counter(), 1);
+        assertEq(ForkFooA(router).setCounter(2), 2);
+        assertEq(ForkFooA(router).counter(), 2);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork1);
 
-        // assertEq(ForkFooA(router).setCounter(10), 10);
-        // assertEq(ForkRouter(payable(router)).currentFork(), fork2);
+        assertEq(ForkFooA(router).setCounter(10), 10);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork2);
+        assertEq(ForkFooA(router).setCounter(11), 11);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork2);
+
+        assertEq(ForkFooA(router).setCounter(9), 9);
+        assertEq(ForkRouter(payable(router)).currentFork(), fork1);
     }
 }
