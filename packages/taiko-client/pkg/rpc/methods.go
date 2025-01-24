@@ -567,10 +567,7 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	opts.Context = ctxWithTimeout
 
 	var (
-		states *struct {
-			Stats1 pacayaBindings.ITaikoInboxStats1
-			Stats2 pacayaBindings.ITaikoInboxStats2
-		} = new(struct {
+		states = new(struct {
 			Stats1 pacayaBindings.ITaikoInboxStats1
 			Stats2 pacayaBindings.ITaikoInboxStats2
 		})
