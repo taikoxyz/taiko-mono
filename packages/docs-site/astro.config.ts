@@ -19,7 +19,6 @@ export default defineConfig({
           exclude: [
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
-            "/api-reference/prover-server",
           ],
         }),
         starlightOpenAPI([
@@ -148,12 +147,12 @@ export default defineConfig({
                   link: "/guides/node-operators/build-a-taiko-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko mainnet node from source",
-                  link: "/guides/node-operators/run-a-mainnet-taiko-node-from-source/",
+                  label: "Run a Taiko Alethia node from source",
+                  link: "/guides/node-operators/run-a-taiko-alethia-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko testnet node from source",
-                  link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
+                  label: "Run a Taiko Hekla node from source",
+                  link: "/guides/node-operators/run-a-taiko-hekla-node-from-source/",
                 },
                 {
                   label: "Run a Taiko proposer",
@@ -179,12 +178,12 @@ export default defineConfig({
           label: "Network Reference",
           items: [
             {
-              label: "Mainnet addresses",
-              link: "/network-reference/mainnet-addresses",
+              label: "Alethia addresses",
+              link: "/network-reference/alethia-addresses",
             },
             {
-              label: "Testnet addresses",
-              link: "/network-reference/testnet-addresses",
+              label: "Hekla addresses",
+              link: "/network-reference/hekla-addresses",
             },
             {
               label: "Differences from Ethereum",

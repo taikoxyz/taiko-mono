@@ -46,10 +46,10 @@ Anyone can run these components, not just Taiko Labs. Yes you can sequence block
 
 - [Event indexer](/api-reference/event-indexer)
 - [Bridge relayer](/api-reference/bridge-relayer)
-- [Mainnet P2P bootstrapping nodes](/network-reference/mainnet-addresses#taiko-labs-bootnode-addresses)
-- [Mainnet Taiko Labs' proposers and provers](/network-reference/mainnet-addresses)
-- [Testnet P2P bootstrapping nodes](/network-reference/testnet-addresses#taiko-labs-bootnode-addresses)
-- [Testnet Taiko Labs' proposer and provers](/network-reference/testnet-addresses)
+- [Alethia P2P bootstrapping nodes](/network-reference/alethia-addresses#taiko-labs-bootnode-addresses)
+- [Alethia Taiko Labs' proposers and provers](/network-reference/alethia-addresses)
+- [Hekla P2P bootstrapping nodes](/network-reference/hekla-addresses#taiko-labs-bootnode-addresses)
+- [Hekla Taiko Labs' proposer and provers](/network-reference/hekla-addresses)
 
 ### Critical infrastructure
 
@@ -57,5 +57,5 @@ Anyone can run these components, not just Taiko Labs. Yes you can sequence block
 This is a vital concern for rollup users. The smart contracts are upgradeable via a multi-sig, which is a **trusted component** until handed over to the DAO. Please look at a third party source regarding any rollup's safety, such as [L2Beat](https://l2beat.com/scaling/projects/taiko).
 :::
 
-- [Mainnet contract owners (multi-sig)](/network-reference/mainnet-addresses#contract-owners)
-- [Testnet contract owners](/network-reference/testnet-addresses#contract-owners)
+- [Alethia contract owners (multi-sig)](/network-reference/alethia-addresses#contract-owners)
+- [Hekla contract owners](/network-reference/hekla-addresses#contract-owners)

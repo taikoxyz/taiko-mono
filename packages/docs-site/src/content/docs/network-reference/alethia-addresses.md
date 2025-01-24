@@ -1,6 +1,6 @@
 ---
-title: Mainnet addresses
-description: Network reference page describing various important addresses on Taiko.
+title: Alethia addresses
+description: Network reference page describing various important addresses on Taiko Alethia.
 ---
 
 ## Ethereum L1 contracts

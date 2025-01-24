@@ -1,6 +1,6 @@
 ---
-title: Testnet addresses
-description: Network reference page describing various important addresses on Taiko.
+title: Hekla addresses
+description: Network reference page describing various important addresses on Hekla.
 ---
 
 ## Ethereum L1 (Holesky) contracts

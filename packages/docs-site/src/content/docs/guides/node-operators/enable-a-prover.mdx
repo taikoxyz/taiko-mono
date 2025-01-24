@@ -45,7 +45,7 @@ By enabling proof aggregation, you will be opening yourself up to more risk as y
 
 The recommended value for SGX_BATCH_SIZE is 10+ as you will see the most gas saved at this value and above. We will NOT refund any lost bonds due to misconfiguration, please evaluate and use this function at your own risk.
 
-We highly recommend you test the function **on Hekla**, not on Mainnet.
+We highly recommend you test the function **on Hekla**, not on Alethia.
 
 Please note that you must use the [upgraded ProverSet contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/provers/ProverSet.sol) to use this functionality.
 </Aside>
@@ -68,7 +68,7 @@ This flag will force the prover to submit a batch of proofs every x minutes, reg
 The following steps can be done through the [ProverSet contract](/guides/node-operators/deploy-a-proverset/#deploying-a-proverset) if you have deployed one. We highly recommend this for a stable setup.
 </Aside>
 
-### Approve TaikoL1 as TAIKO spender (mainnet)
+### Approve TaikoL1 as TAIKO spender (Alethia)
 
 <Steps>
 
@@ -81,7 +81,7 @@ The following steps can be done through the [ProverSet contract](/guides/node-op
 3. Click the **approve** function and set the spender address to the TaikoL1 contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
 
    <Aside>
-      Please verify [contract addresses](/network-reference/mainnet-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
+      Please verify [contract addresses](/network-reference/alethia-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
    </Aside>
 
 4. Set the amount to at least the minimum bond amount of 150 TAIKO.
@@ -100,7 +100,7 @@ The following steps can be done through the [ProverSet contract](/guides/node-op
 
 </Steps>
 
-### Approve TaikoL1 as TTKOh spender (testnet)
+### Approve TaikoL1 as TTKOh spender (Hekla)
 
 You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the proofs you generate.
 
