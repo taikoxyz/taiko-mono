@@ -572,90 +572,96 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         private
     {
         uint64 batchId = _stats2.lastVerifiedBatchId;
+        
+        bool canVerifyBlocks;
         unchecked {
             uint64 pacayaForkHeight = getPacayaConfig().forkHeights.pacaya;
-            if (pacayaForkHeight != 0 && batchId < pacayaForkHeight - 1) return;
+            canVerifyBlocks = pacayaForkHeight == 0 || batchId >= pacayaForkHeight - 1;
         }
 
-        uint256 slot = batchId % _config.batchRingBufferSize;
-        Batch storage batch = state.batches[slot];
-        uint24 tid = batch.verifiedTransitionId;
-        bytes32 blockHash = state.transitions[slot][tid].blockHash;
+        if (canVerifyBlocks) {
+            uint256 slot = batchId % _config.batchRingBufferSize;
+            Batch storage batch = state.batches[slot];
+            uint24 tid = batch.verifiedTransitionId;
+            bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
-        SyncBlock memory synced;
+            SyncBlock memory synced;
 
-        uint256 stopBatchId;
-        unchecked {
-            stopBatchId = (_config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1)
-                .min(_stats2.numBatches);
-        }
-
-        for (++batchId; batchId < stopBatchId; ++batchId) {
-            slot = batchId % _config.batchRingBufferSize;
-            batch = state.batches[slot];
-            uint24 nextTransitionId = batch.nextTransitionId;
-
-            if (nextTransitionId <= 1) break;
-
-            TransitionState storage ts = state.transitions[slot][1];
-            if (ts.parentHash == blockHash) {
-                tid = 1;
-            } else if (nextTransitionId > 2) {
-                uint24 _tid = state.transitionIds[batchId][blockHash];
-                if (_tid == 0) break;
-                tid = _tid;
-                ts = state.transitions[slot][tid];
-            } else {
-                break;
+            uint256 stopBatchId;
+            unchecked {
+                stopBatchId = (
+                    _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
+                ).min(_stats2.numBatches);
             }
 
-            blockHash = ts.blockHash;
+            for (++batchId; batchId < stopBatchId; ++batchId) {
+                slot = batchId % _config.batchRingBufferSize;
+                batch = state.batches[slot];
+                uint24 nextTransitionId = batch.nextTransitionId;
 
-            uint96 bondToReturn = ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
-            _creditBond(ts.prover, bondToReturn);
+                if (nextTransitionId <= 1) break;
 
-            if (batchId % _config.stateRootSyncInternal == 0) {
-                synced.batchId = batchId;
-                synced.blockId = batch.lastBlockId;
-                synced.tid = tid;
-                synced.stateRoot = ts.stateRoot;
-            }
-
-            for (uint24 i = 2; i < nextTransitionId; ++i) {
-                ts = state.transitions[slot][i];
-                delete state.transitionIds[batchId][ts.parentHash];
-            }
-        }
-
-        unchecked {
-            --batchId;
-        }
-
-        if (_stats2.lastVerifiedBatchId != batchId) {
-            _stats2.lastVerifiedBatchId = batchId;
-
-            batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
-            batch.verifiedTransitionId = tid;
-            emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
-
-            if (synced.batchId != 0) {
-                if (synced.batchId != _stats2.lastVerifiedBatchId) {
-                    // We write the synced batch's verifiedTransitionId to storage
-                    batch = state.batches[synced.batchId % _config.batchRingBufferSize];
-                    batch.verifiedTransitionId = synced.tid;
+                TransitionState storage ts = state.transitions[slot][1];
+                if (ts.parentHash == blockHash) {
+                    tid = 1;
+                } else if (nextTransitionId > 2) {
+                    uint24 _tid = state.transitionIds[batchId][blockHash];
+                    if (_tid == 0) break;
+                    tid = _tid;
+                    ts = state.transitions[slot][tid];
+                } else {
+                    break;
                 }
 
-                Stats1 memory stats1 = state.stats1;
-                stats1.lastSyncedBatchId = batch.batchId;
-                stats1.lastSyncedAt = uint64(block.timestamp);
-                state.stats1 = stats1;
+                blockHash = ts.blockHash;
 
-                emit Stats1Updated(stats1);
+                uint96 bondToReturn =
+                    ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
+                _creditBond(ts.prover, bondToReturn);
 
-                // Ask signal service to write cross chain signal
-                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                    _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
-                );
+                if (batchId % _config.stateRootSyncInternal == 0) {
+                    synced.batchId = batchId;
+                    synced.blockId = batch.lastBlockId;
+                    synced.tid = tid;
+                    synced.stateRoot = ts.stateRoot;
+                }
+
+                for (uint24 i = 2; i < nextTransitionId; ++i) {
+                    ts = state.transitions[slot][i];
+                    delete state.transitionIds[batchId][ts.parentHash];
+                }
+            }
+
+            unchecked {
+                --batchId;
+            }
+
+            if (_stats2.lastVerifiedBatchId != batchId) {
+                _stats2.lastVerifiedBatchId = batchId;
+
+                batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
+                batch.verifiedTransitionId = tid;
+                emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
+
+                if (synced.batchId != 0) {
+                    if (synced.batchId != _stats2.lastVerifiedBatchId) {
+                        // We write the synced batch's verifiedTransitionId to storage
+                        batch = state.batches[synced.batchId % _config.batchRingBufferSize];
+                        batch.verifiedTransitionId = synced.tid;
+                    }
+
+                    Stats1 memory stats1 = state.stats1;
+                    stats1.lastSyncedBatchId = batch.batchId;
+                    stats1.lastSyncedAt = uint64(block.timestamp);
+                    state.stats1 = stats1;
+
+                    emit Stats1Updated(stats1);
+
+                    // Ask signal service to write cross chain signal
+                    ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                        _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
+                    );
+                }
             }
         }
 
