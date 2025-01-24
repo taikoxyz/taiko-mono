@@ -30,12 +30,17 @@ interface ITaikoInbox {
     }
 
     struct BlobParams {
+        // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
+        // `numBlobs` must be 0.
+        bytes32[] blobHashes;
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
         // decompressed via Zlib.
         uint8 numBlobs;
+        // The byte offset of the blob in the batch.
         uint32 byteOffset;
+        // The byte size of the blob.
         uint32 byteSize;
     }
 
@@ -53,25 +58,35 @@ interface ITaikoInbox {
         BlockParams[] blocks;
     }
 
-    struct BatchMetadata {
-        bytes32 txListHash;
+    /// @dev This struct holds batch information essential for constructing blocks offchain, but it
+    /// does not include data necessary for batch proving.
+    struct BatchInfo {
+        bytes32 txsHash;
+        // Data to build L2 blocks
+        BlockParams[] blocks;
+        bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
-        uint64 batchId;
-        uint32 gasLimit;
-        uint64 lastBlockTimestamp;
-        bytes32 parentMetaHash;
-        address proposer;
-        uint96 livenessBond;
-        uint64 proposedAt; // Used by node/client
         uint64 proposedIn; // Used by node/client
+        uint32 blobByteOffset;
+        uint32 blobByteSize;
+        uint32 gasLimit;
+        // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
+        // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
+        // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
-        bytes32[] signalSlots;
         bytes32 anchorInput;
-        BlockParams[] blocks;
-        BlobParams blobParams;
         LibSharedData.BaseFeeConfig baseFeeConfig;
+        bytes32[] signalSlots;
+    }
+
+    /// @dev This struct holds batch metadata essential for proving the batch.
+    struct BatchMetadata {
+        bytes32 infoHash;
+        address proposer;
+        uint64 batchId;
+        uint64 proposedAt; // Used by node/client
     }
 
     /// @notice Struct representing transition to be proven.
@@ -208,10 +223,10 @@ interface ITaikoInbox {
     event Stats2Updated(Stats2 stats2);
 
     /// @notice Emitted when a batch is proposed.
+    /// @param info The info of the proposed batch.
     /// @param meta The metadata of the proposed batch.
-    /// @param calldataUsed Whether calldata is used for txList DA.
-    /// @param txListInCalldata The tx list in calldata.
-    event BatchProposed(BatchMetadata meta, bool calldataUsed, bytes txListInCalldata);
+    /// @param txList The tx list in calldata.
+    event BatchProposed(BatchInfo info, BatchMetadata meta, bytes txList);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -250,6 +265,7 @@ interface ITaikoInbox {
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InsufficientBond();
+    error InvalidBlobParams();
     error InvalidGenesisBlockHash();
     error InvalidParams();
     error InvalidTransitionBlockHash();
@@ -259,7 +275,7 @@ interface ITaikoInbox {
     error MsgValueNotZero();
     error NoBlocksToProve();
     error NotFirstProposal();
-    error NotPreconfRouter();
+    error NotInboxOperator();
     error ParentMetaHashMismatch();
     error SameTransition();
     error SignalNotSent();
@@ -276,13 +292,14 @@ interface ITaikoInbox {
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
-    /// @return Batch metadata.
+    /// @return info_ The info of the proposed batch.
+    /// @return meta_ The metadata of the proposed batch.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        returns (BatchMetadata memory);
+        returns (BatchInfo memory info_, BatchMetadata memory meta_);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _params ABI-encoded parameter containing:

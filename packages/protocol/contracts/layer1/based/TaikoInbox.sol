@@ -46,14 +46,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
-    /// @return meta_ Batch metadata.
+    /// @return info_ The info of the proposed batch.
+    /// @return meta_ The metadata of the proposed batch.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
-        external
+        public
         nonReentrant
-        returns (BatchMetadata memory meta_)
+        returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
@@ -69,31 +70,43 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
-                if (preconfRouter == address(0)) {
+                address operator = resolve(LibStrings.B_INBOX_OPERATOR, true);
+                if (operator == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
+
+                    // blob hashes are only accepted if the caller is trusted.
+                    require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                 } else {
-                    require(msg.sender == preconfRouter, NotPreconfRouter());
+                    require(msg.sender == operator, NotInboxOperator());
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
                 if (params.coinbase == address(0)) {
                     params.coinbase = params.proposer;
                 }
+
+                if (params.revertIfNotFirstProposal) {
+                    require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
+                }
             }
 
-            if (params.revertIfNotFirstProposal) {
-                require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
+            bool calldataUsed = _txList.length != 0;
+
+            if (!calldataUsed) {
+                if (params.blobParams.blobHashes.length == 0) {
+                    require(params.blobParams.numBlobs != 0, BlobNotSpecified());
+                } else {
+                    require(
+                        params.blobParams.numBlobs == 0 && params.blobParams.firstBlobIndex == 0,
+                        InvalidBlobParams()
+                    );
+                }
             }
 
             // Keep track of last batch's information.
             Batch storage lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
-
-            bool calldataUsed = _txList.length != 0;
-
-            require(calldataUsed || params.blobParams.numBlobs != 0, BlobNotSpecified());
 
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
                 params,
@@ -113,37 +126,43 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             // use
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-
-            meta_ = BatchMetadata({
-                txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(params.blobParams),
+            info_ = BatchInfo({
+                txsHash: bytes32(0), // to be initialised later
+                //
+                // Data to build L2 blocks
+                blocks: params.blocks,
+                blobHashes: new bytes32[](0), // to be initialised later
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
-                batchId: stats2.numBatches,
-                gasLimit: config.blockMaxGasLimit,
-                lastBlockTimestamp: lastBlockTimestamp,
-                parentMetaHash: lastBatch.metaHash,
-                proposer: params.proposer,
-                livenessBond: config.livenessBondBase
-                    + config.livenessBondPerBlock * uint96(params.blocks.length),
-                proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
+                blobByteOffset: params.blobParams.byteOffset,
+                blobByteSize: params.blobParams.byteSize,
+                gasLimit: config.blockMaxGasLimit,
+                //
+                // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                signalSlots: params.signalSlots,
-                blocks: params.blocks,
                 anchorInput: params.anchorInput,
-                blobParams: params.blobParams,
-                baseFeeConfig: config.baseFeeConfig
+                baseFeeConfig: config.baseFeeConfig,
+                signalSlots: params.signalSlots
             });
 
-            require(meta_.anchorBlockHash != 0, ZeroAnchorBlockHash());
-            require(meta_.txListHash != 0, BlobNotFound());
-            bytes32 metaHash = keccak256(abi.encode(meta_));
+            require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
+
+            (info_.txsHash, info_.blobHashes) =
+                _calculateTxsHash(keccak256(_txList), params.blobParams);
+
+            meta_ = BatchMetadata({
+                infoHash: keccak256(abi.encode(info_)),
+                proposer: params.proposer,
+                batchId: stats2.numBatches,
+                proposedAt: uint64(block.timestamp)
+            });
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
 
             // SSTORE #1
-            batch.metaHash = metaHash;
+            batch.metaHash = keccak256(abi.encode(meta_));
 
             // SSTORE #2 {{
             batch.batchId = stats2.numBatches;
@@ -154,21 +173,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             batch.reserved4 = 0;
             // SSTORE }}
 
+            uint96 livenessBond =
+                config.livenessBondBase + config.livenessBondPerBlock * uint96(params.blocks.length);
+            _debitBond(params.proposer, livenessBond);
+
             // SSTORE #3 {{
             if (stats2.numBatches == config.forkHeights.pacaya) {
                 batch.lastBlockId = batch.batchId + uint64(params.blocks.length) - 1;
             } else {
                 batch.lastBlockId = lastBatch.lastBlockId + uint64(params.blocks.length);
             }
-            batch.livenessBond = meta_.livenessBond;
+
+            batch.livenessBond = livenessBond;
             batch._reserved3 = 0;
             // SSTORE }}
 
             stats2.numBatches += 1;
             stats2.lastProposedIn = uint56(block.number);
 
-            _debitBond(params.proposer, meta_.livenessBond);
-            emit BatchProposed(meta_, calldataUsed, _txList);
+            emit BatchProposed(info_, meta_, _txList);
         } // end-of-unchecked
 
         _verifyBatches(config, stats2, 1);
@@ -515,18 +538,30 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
         state.stats2.paused = true;
     }
 
-    function _calcTxListHash(BlobParams memory _blobParams)
+    function _calculateTxsHash(
+        bytes32 _txListHash,
+        BlobParams memory _blobParams
+    )
         internal
         view
         virtual
-        returns (bytes32)
+        returns (bytes32 hash_, bytes32[] memory blobHashes_)
     {
-        bytes32[] memory blobHashes = new bytes32[](_blobParams.numBlobs);
-        for (uint256 i; i < _blobParams.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobParams.firstBlobIndex + i);
-            require(blobHashes[i] != 0, BlobNotFound());
+        unchecked {
+            if (_blobParams.blobHashes.length != 0) {
+                blobHashes_ = _blobParams.blobHashes;
+            } else {
+                blobHashes_ = new bytes32[](_blobParams.numBlobs);
+                for (uint256 i; i < _blobParams.numBlobs; ++i) {
+                    blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
+                }
+            }
+
+            for (uint256 i; i < blobHashes_.length; ++i) {
+                require(blobHashes_[i] != 0, BlobNotFound());
+            }
+            hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
         }
-        return keccak256(abi.encode(blobHashes));
     }
 
     // Private functions -----------------------------------------------------------------------

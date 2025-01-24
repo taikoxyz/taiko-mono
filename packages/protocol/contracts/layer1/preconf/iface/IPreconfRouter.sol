@@ -15,7 +15,7 @@ interface IPreconfRouter {
     /// @param _params ABI-encoded parameters for the preconfing operation.
     /// @param _batchParams ABI-encoded parameters specific to the batch.
     /// @param _batchTxList The transaction list associated to the batch.
-    /// @return meta_ BatchMetadata containing metadata about the proposed batch.
+    /// @return meta_ The metadata of the proposed batch.
     function proposePreconfedBlocks(
         bytes calldata _params,
         bytes calldata _batchParams,
