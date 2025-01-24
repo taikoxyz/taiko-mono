@@ -122,10 +122,10 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
     }
 
     function inbox() internal view virtual returns (address) {
-        return resolve(LibStrings.B_TAIKO, false);
+        return resolveAddress(LibStrings.B_TAIKO, false);
     }
 
     function bondToken() internal view virtual returns (address) {
-        return resolve(LibStrings.B_BOND_TOKEN, true);
+        return resolveAddress(LibStrings.B_BOND_TOKEN, true);
     }
 }

@@ -50,7 +50,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
 
     /// @notice Returns the address of this contract.
     /// @return The address of this contract.
-    function resolver() public view override returns (address) {
+    function resolverAddress() public view override returns (address) {
         return address(this);
     }
 
