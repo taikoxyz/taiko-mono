@@ -1,8 +1,12 @@
 package driver
 
 import (
+	"bytes"
+	"compress/zlib"
 	"context"
+	"fmt"
 	"math/big"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -10,10 +14,16 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -291,6 +301,164 @@ func (s *DriverTestSuite) TestL1Current() {
 	s.Nil(s.d.state.ResetL1Current(s.d.ctx, common.Big1))
 }
 
+func (s *DriverTestSuite) TestInsertPreconfBlocks() {
+	var (
+		port = uint64(testutils.RandomPort())
+		err  error
+	)
+	s.d.preconfBlockServer, err = preconfblocks.New(
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
+	)
+	s.Nil(err)
+	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
+	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
+
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
+	s.Nil(err)
+
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+
+	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
+	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
+
+	res, err := resty.New().R().Get(url.String() + "/healthz")
+	s.Nil(err)
+	s.True(res.IsSuccess())
+
+	// Try to insert two preconfirmation blocks
+	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1, l2Head2.GasLimit).IsSuccess())
+	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(2, len(l2Head3.Transactions()))
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(l2Head3.Hash(), l1Origin.L2BlockHash)
+	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
+	s.True(l1Origin.IsPreconfBlock())
+
+	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+2, l2Head2.GasLimit).IsSuccess())
+	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(2, len(l2Head4.Transactions()))
+
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(common.Hash{}, l1Origin2.L1BlockHash)
+	s.True(l1Origin2.IsPreconfBlock())
+
+	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l2Head2.Number.Uint64(), canonicalL1Origin.BlockID.Uint64())
+	s.False(canonicalL1Origin.IsPreconfBlock())
+
+	// Propose 3 valid L2 blocks
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), l2Head3.Number())
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l2Head6.Number().Uint64())
+	s.Equal(1, len(l2Head6.Transactions()))
+
+	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head6.Number())
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l1Origin3.BlockID.Uint64())
+	s.Equal(l2Head6.Hash(), l1Origin3.L2BlockHash)
+	s.NotZero(l1Origin3.L1BlockHeight.Uint64())
+	s.NotEmpty(l1Origin3.L1BlockHash)
+	s.False(l1Origin3.IsPreconfBlock())
+}
+
+// insertPreconfBlock inserts a preconfirmation block with the given parameters.
+func (s *DriverTestSuite) insertPreconfBlock(
+	url *url.URL,
+	anchoredL1Block *types.Header,
+	l2BlockID uint64,
+	gasLimit uint64,
+) *resty.Response {
+	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
+	s.Nil(err)
+
+	preconferAddress := crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	tx := types.NewTransaction(
+		nonce,
+		common.BytesToAddress(testutils.RandomBytes(32)),
+		common.Big0,
+		100_000,
+		new(big.Int).SetUint64(uint64(10*params.GWei)),
+		[]byte{},
+	)
+	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
+	s.Nil(err)
+
+	// If the transaction is underpriced, we just ingore it.
+	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		s.Equal("replacement transaction underpriced", err.Error())
+	}
+
+	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
+	s.Nil(err)
+
+	b, err := encodeAndCompressTxList([]*types.Transaction{signedTx})
+	s.Nil(err)
+
+	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{
+		ExecutableData: &preconfblocks.ExecutableData{
+			ParentHash:   parent.Hash(),
+			FeeRecipient: preconferAddress,
+			Number:       l2BlockID,
+			GasLimit:     gasLimit,
+			Timestamp:    uint64(time.Now().Unix()),
+			Transactions: b,
+		},
+		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
+		AnchorStateRoot: anchoredL1Block.Root,
+		AnchorInput:     [32]byte{},
+		SignalSlots:     [][32]byte{},
+		BaseFeeConfig:   s.d.protocolConfig.BaseFeeConfig(),
+	}
+
+	payload, err := rlp.EncodeToBytes(reqBody)
+	s.Nil(err)
+	s.NotEmpty(payload)
+
+	sig, err := crypto.Sign(crypto.Keccak256(payload), preconferPrivKey)
+	s.Nil(err)
+	reqBody.Signature = common.Bytes2Hex(sig)
+
+	// Try to propose a preconfirmation block
+	res, err := resty.New().
+		R().
+		SetBody(reqBody).
+		Post(url.String() + "/preconfBlocks")
+	s.Nil(err)
+	log.Info("Preconfirmation block creation response", "body", res.String())
+	return res
+}
+
 func (s *DriverTestSuite) InitProposer() {
 	p := new(proposer.Proposer)
 
@@ -351,4 +519,31 @@ func (s *DriverTestSuite) InitProposer() {
 
 func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverTestSuite))
+}
+
+// compress compresses the given txList bytes using zlib.
+func compress(txListBytes []byte) ([]byte, error) {
+	var b bytes.Buffer
+	w := zlib.NewWriter(&b)
+	defer w.Close()
+
+	if _, err := w.Write(txListBytes); err != nil {
+		return nil, err
+	}
+
+	if err := w.Flush(); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+}
+
+// encodeAndCompressTxList encodes and compresses the given transactions list.
+func encodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(txs)
+	if err != nil {
+		return nil, err
+	}
+
+	return compress(b)
 }

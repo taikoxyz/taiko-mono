@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -30,11 +29,22 @@ func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
 	return crypto.PubkeyToAddress(*pubKey).Hex() == b.ExecutableData.FeeRecipient.Hex(), nil
 }
 
+// ExecutableData is the data necessary to execute an EL payload.
+type ExecutableData struct {
+	ParentHash   common.Hash    `json:"parentHash"`
+	FeeRecipient common.Address `json:"feeRecipient"`
+	Number       uint64         `json:"blockNumber"`
+	GasLimit     uint64         `json:"gasLimit"`
+	GasUsed      uint64         `json:"gasUsed"`
+	Timestamp    uint64         `json:"timestamp"`
+	Transactions []byte         `json:"transactions"`
+}
+
 // BuildPreconfBlockRequestBody represents a request body when handling
 // soft blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
-	ExecutableData *engine.ExecutableData `json:"executableData"`
+	ExecutableData *ExecutableData `json:"executableData"`
 	// @param signature string Signature of this executable data payload.
 	Signature string `json:"signature" rlp:"-"`
 
@@ -101,9 +111,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 	if reqBody.ExecutableData.FeeRecipient == (common.Address{}) {
 		return s.returnError(c, http.StatusBadRequest, errors.New("empty L2 fee recipient"))
-	}
-	if len(reqBody.ExecutableData.Transactions) != 1 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("only one transaction list is allowed"))
 	}
 
 	// If the `--preconfBlock.signatureCheck` flag is enabled, validate the signature.

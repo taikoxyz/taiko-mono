@@ -3,11 +3,9 @@ package preconfblocks
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"os"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -26,7 +24,7 @@ import (
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlockFromTransactionsBatch(
 		ctx context.Context,
-		executableData *engine.ExecutableData,
+		executableData *ExecutableData,
 		anchorBlockID uint64,
 		anchorStateRoot common.Hash,
 		anchorInput [32]byte,
@@ -152,33 +150,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"txs", len(msg.ExecutionPayload.Transactions),
 	)
 
-	baseFee, ok := new(big.Int).SetString((msg.ExecutionPayload.BaseFeePerGas.String()), 10)
-	if !ok {
-		return fmt.Errorf("failed to convert baseFee %d to big.Int", msg.ExecutionPayload.BaseFeePerGas)
-	}
-
 	if len(msg.ExecutionPayload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
 	}
 
 	_, err := s.chainSyncer.InsertPreconfBlockFromTransactionsBatch(
 		ctx,
-		&engine.ExecutableData{
-			ParentHash:    msg.ExecutionPayload.ParentHash,
-			FeeRecipient:  msg.ExecutionPayload.FeeRecipient,
-			StateRoot:     common.Hash(msg.ExecutionPayload.StateRoot),
-			ReceiptsRoot:  common.Hash(msg.ExecutionPayload.ReceiptsRoot),
-			LogsBloom:     msg.ExecutionPayload.LogsBloom[:],
-			Random:        common.Hash(msg.ExecutionPayload.PrevRandao),
-			Number:        uint64(msg.ExecutionPayload.BlockNumber),
-			GasLimit:      uint64(msg.ExecutionPayload.GasLimit),
-			GasUsed:       uint64(msg.ExecutionPayload.GasUsed),
-			Timestamp:     uint64(msg.ExecutionPayload.Timestamp),
-			ExtraData:     msg.ExecutionPayload.ExtraData,
-			BaseFeePerGas: baseFee,
-			BlockHash:     msg.ExecutionPayload.BlockHash,
-			Transactions:  [][]byte{common.FromHex(msg.ExecutionPayload.Transactions[0].String())},
-			Withdrawals:   []*types.Withdrawal{},
+		&ExecutableData{
+			ParentHash:   msg.ExecutionPayload.ParentHash,
+			FeeRecipient: msg.ExecutionPayload.FeeRecipient,
+			Number:       uint64(msg.ExecutionPayload.BlockNumber),
+			GasLimit:     uint64(msg.ExecutionPayload.GasLimit),
+			GasUsed:      uint64(msg.ExecutionPayload.GasUsed),
+			Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
+			Transactions: common.FromHex(msg.ExecutionPayload.Transactions[0].String()),
 		},
 		// TODO: fix these values.
 		common.Big0.Uint64(),
@@ -198,7 +183,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	return (common.Address{})
 }
 
-// TODO: update this function to return the correct value.
+// TODO(David): update this function to return the correct value.
 // P2PSequencerAddress implements the p2p.SoftblockGossipRuntimeConfig interface.
 func (s *PreconfBlockAPIServer) VerifySignature(
 	signatureBytes []byte,

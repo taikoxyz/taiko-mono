@@ -17,6 +17,7 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -235,7 +236,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 // InsertPreconfBlockFromTransactionsBatch inserts a preconf block from transactions batch.
 func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 	ctx context.Context,
-	executableData *engine.ExecutableData,
+	executableData *preconfblocks.ExecutableData,
 	anchorBlockID uint64,
 	anchorStateRoot common.Hash,
 	anchorInput [32]byte,
@@ -321,7 +322,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 				},
 				Txs: append(
 					types.Transactions{anchorTx},
-					i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, executableData.Transactions[0], true, true)...,
+					i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, executableData.Transactions, true, true)...,
 				),
 				Withdrawals: make([]*types.Withdrawal, 0),
 				BaseFee:     baseFee,
