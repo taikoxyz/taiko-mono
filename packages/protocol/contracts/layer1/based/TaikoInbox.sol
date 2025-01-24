@@ -572,7 +572,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         private
     {
         uint64 batchId = _stats2.lastVerifiedBatchId;
-        
+
         bool canVerifyBlocks;
         unchecked {
             uint64 pacayaForkHeight = getPacayaConfig().forkHeights.pacaya;
