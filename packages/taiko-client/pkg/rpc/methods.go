@@ -64,7 +64,7 @@ func (c *Client) ResolvePacaya(opts *bind.CallOpts, name string) (common.Address
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	return c.PacayaClients.TaikoInbox.Resolve0(opts, StringToBytes32(name), false)
+	return c.PacayaClients.TaikoInbox.ResolveAddress(opts, StringToBytes32(name), false)
 }
 
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,

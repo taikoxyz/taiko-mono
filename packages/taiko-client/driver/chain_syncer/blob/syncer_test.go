@@ -8,8 +8,13 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -50,99 +55,99 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 	s.initProposer()
 }
 
-// TODO: fix this test case
-// func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
-// 	ctx := context.Background()
+func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
+	ctx := context.Background()
 
-// 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
+	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
+	s.False(meta.IsPacaya())
 
-// 	block, err := s.RPCClient.L2.BlockByNumber(ctx, meta.GetBlockID())
-// 	s.Nil(err)
+	block, err := s.RPCClient.L2.BlockByNumber(ctx, meta.Ontake().GetBlockID())
+	s.Nil(err)
 
-// 	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedBlock(ctx)
-// 	s.Nil(err)
+	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedBlockOntake(ctx)
+	s.Nil(err)
 
-// 	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
-// 	s.Nil(err)
+	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
+	s.Nil(err)
 
-// 	parent, err := s.RPCClient.L2ParentByBlockID(context.Background(), meta.GetBlockID())
-// 	s.Nil(err)
+	parent, err := s.RPCClient.L2ParentByCurrentBlockID(context.Background(), meta.Ontake().GetBlockID())
+	s.Nil(err)
 
-// 	// Reset l2 chain.
-// 	s.Nil(rpc.SetHead(ctx, s.RPCClient.L2, common.Big0))
+	// Reset l2 chain.
+	s.Nil(rpc.SetHead(ctx, s.RPCClient.L2, common.Big0))
 
-// 	attributes := &engine.PayloadAttributes{
-// 		Timestamp:             meta.GetTimestamp(),
-// 		Random:                meta.GetDifficulty(),
-// 		SuggestedFeeRecipient: meta.GetCoinbase(),
-// 		Withdrawals:           make([]*types.Withdrawal, 0),
-// 		BlockMetadata: &engine.BlockMetadata{
-// 			Beneficiary: meta.GetCoinbase(),
-// 			GasLimit:    uint64(meta.GetGasLimit()) + taiko.AnchorGasLimit,
-// 			Timestamp:   meta.GetTimestamp(),
-// 			TxList:      txListBytes,
-// 			MixHash:     meta.GetDifficulty(),
-// 			ExtraData:   meta.GetExtraData(),
-// 		},
-// 		BaseFeePerGas: block.BaseFee(),
-// 		L1Origin: &rawdb.L1Origin{
-// 			BlockID:       meta.GetBlockID(),
-// 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-// 			L1BlockHeight: meta.GetRawBlockHeight(),
-// 			L1BlockHash:   meta.GetRawBlockHash(),
-// 		},
-// 	}
+	attributes := &engine.PayloadAttributes{
+		Timestamp:             meta.Ontake().GetTimestamp(),
+		Random:                meta.Ontake().GetDifficulty(),
+		SuggestedFeeRecipient: meta.GetCoinbase(),
+		Withdrawals:           make([]*types.Withdrawal, 0),
+		BlockMetadata: &engine.BlockMetadata{
+			Beneficiary: meta.GetCoinbase(),
+			GasLimit:    uint64(meta.Ontake().GetGasLimit()) + consensus.AnchorGasLimit,
+			Timestamp:   meta.Ontake().GetTimestamp(),
+			TxList:      txListBytes,
+			MixHash:     meta.Ontake().GetDifficulty(),
+			ExtraData:   meta.Ontake().GetExtraData(),
+		},
+		BaseFeePerGas: block.BaseFee(),
+		L1Origin: &rawdb.L1Origin{
+			BlockID:       meta.Ontake().GetBlockID(),
+			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+			L1BlockHeight: meta.GetRawBlockHeight(),
+			L1BlockHash:   meta.GetRawBlockHash(),
+		},
+	}
 
-// 	step0 := func() *engine.ForkChoiceResponse {
-// 		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
-// 			ctx,
-// 			&engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()},
-// 			attributes,
-// 		)
-// 		s.Nil(err)
-// 		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
-// 		s.True(true, fcRes.PayloadID != nil)
-// 		return fcRes
-// 	}
+	step0 := func() *engine.ForkChoiceResponse {
+		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
+			ctx,
+			&engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()},
+			attributes,
+		)
+		s.Nil(err)
+		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+		s.True(true, fcRes.PayloadID != nil)
+		return fcRes
+	}
 
-// 	step1 := func(fcRes *engine.ForkChoiceResponse) *engine.ExecutableData {
-// 		payload, err := s.RPCClient.L2Engine.GetPayload(ctx, fcRes.PayloadID)
-// 		s.Nil(err)
-// 		return payload
-// 	}
+	step1 := func(fcRes *engine.ForkChoiceResponse) *engine.ExecutableData {
+		payload, err := s.RPCClient.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+		s.Nil(err)
+		return payload
+	}
 
-// 	step2 := func(payload *engine.ExecutableData) *engine.ExecutableData {
-// 		execStatus, err := s.RPCClient.L2Engine.NewPayload(ctx, payload)
-// 		s.Nil(err)
-// 		s.Equal(engine.VALID, execStatus.Status)
-// 		return payload
-// 	}
+	step2 := func(payload *engine.ExecutableData) *engine.ExecutableData {
+		execStatus, err := s.RPCClient.L2Engine.NewPayload(ctx, payload)
+		s.Nil(err)
+		s.Equal(engine.VALID, execStatus.Status)
+		return payload
+	}
 
-// 	step3 := func(payload *engine.ExecutableData) {
-// 		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{
-// 			HeadBlockHash:      payload.BlockHash,
-// 			SafeBlockHash:      lastVerifiedBlockInfo.BlockHash,
-// 			FinalizedBlockHash: lastVerifiedBlockInfo.BlockHash,
-// 		}, nil)
-// 		s.Nil(err)
-// 		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
-// 	}
+	step3 := func(payload *engine.ExecutableData) {
+		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{
+			HeadBlockHash:      payload.BlockHash,
+			SafeBlockHash:      lastVerifiedBlockInfo.BlockHash,
+			FinalizedBlockHash: lastVerifiedBlockInfo.BlockHash,
+		}, nil)
+		s.Nil(err)
+		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+	}
 
-// 	loopSize := 10
-// 	for i := 0; i < loopSize; i++ {
-// 		step0()
-// 	}
+	loopSize := 10
+	for i := 0; i < loopSize; i++ {
+		step0()
+	}
 
-// 	for i := 0; i < loopSize; i++ {
-// 		step1(step0())
-// 	}
+	for i := 0; i < loopSize; i++ {
+		step1(step0())
+	}
 
-// 	for i := 0; i < loopSize; i++ {
-// 		step2(step1(step0()))
-// 	}
+	for i := 0; i < loopSize; i++ {
+		step2(step1(step0()))
+	}
 
-// 	step3(step2(step1(step0())))
-// }
+	step3(step2(step1(step0())))
+}
 
 func (s *BlobSyncerTestSuite) TestProcessL1Blocks() {
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
@@ -165,44 +170,6 @@ func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 		func() {},
 	))
 }
-
-// TODO: fix this test case
-// func (s *BlobSyncerTestSuite) TestInsertNewHead() {
-// 	parent, err := s.s.rpc.L2.HeaderByNumber(context.Background(), nil)
-// 	s.Nil(err)
-// 	l1Head, err := s.s.rpc.L1.BlockByNumber(context.Background(), nil)
-// 	s.Nil(err)
-// 	protocolConfigs, err := s.s.rpc.OntakeClients.TaikoL1.GetConfig(nil)
-// 	s.Nil(err)
-// 	_, err = s.s.insertNewHead(
-// 		context.Background(),
-// 		&metadata.TaikoDataBlockMetadataOntake{
-// 			TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{
-// 				Id:              1,
-// 				AnchorBlockId:   l1Head.NumberU64(),
-// 				AnchorBlockHash: l1Head.Hash(),
-// 				Coinbase:        common.BytesToAddress(testutils.RandomBytes(1024)),
-// 				BlobHash:        testutils.RandomHash(),
-// 				Difficulty:      testutils.RandomHash(),
-// 				GasLimit:        utils.RandUint32(nil),
-// 				Timestamp:       uint64(time.Now().Unix()),
-// 				BaseFeeConfig:   protocolConfigs.BaseFeeConfig,
-// 			},
-// 			Log: types.Log{
-// 				BlockNumber: l1Head.Number().Uint64(),
-// 				BlockHash:   l1Head.Hash(),
-// 			},
-// 		},
-// 		parent,
-// 		[]byte{},
-// 		&rawdb.L1Origin{
-// 			BlockID:       common.Big1,
-// 			L1BlockHeight: common.Big1,
-// 			L1BlockHash:   testutils.RandomHash(),
-// 		},
-// 	)
-// 	s.Nil(err)
-// }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 	// TODO: Temporarily skip this test case when using l2_reth node.
