@@ -125,7 +125,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         returns (uint256)
     {
-        address automataDcapAttestation = resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
+        address automataDcapAttestation =
+            resolveAddress(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
 
         require(automataDcapAttestation != address(0), SGX_RA_NOT_SUPPORTED());
 

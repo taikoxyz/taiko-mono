@@ -67,12 +67,12 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
-        address signalServiceAddr = EssentialContract(sharedResolver).resolve(
+        address signalServiceAddr = EssentialContract(sharedResolver).resolveAddress(
             uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
         );
         SignalService signalService = SignalService(signalServiceAddr);
 
-        address taikoInboxAddr = EssentialContract(rollupResolver).resolve(
+        address taikoInboxAddr = EssentialContract(rollupResolver).resolveAddress(
             uint64(block.chainid), LibStrings.B_TAIKO, false
         );
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));

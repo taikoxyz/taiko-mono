@@ -144,7 +144,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     function _isAdminOrRemoteOwner(address _sender) private view returns (bool) {
         if (_sender == admin) return true;
-        if (_sender != resolve(LibStrings.B_BRIDGE, false)) return false;
+        if (_sender != resolveAddress(LibStrings.B_BRIDGE, false)) return false;
 
         IBridge.Context memory ctx = IBridge(_sender).context();
         return ctx.srcChainId == remoteChainId && ctx.from == remoteOwner;

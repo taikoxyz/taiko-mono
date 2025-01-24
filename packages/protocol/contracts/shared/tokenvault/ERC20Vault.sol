@@ -289,7 +289,7 @@ contract ERC20Vault is BaseVault {
         if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
         if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
 
-        address bridge = resolve(LibStrings.B_BRIDGE, false);
+        address bridge = resolveAddress(LibStrings.B_BRIDGE, false);
 
         (
             bytes memory data,
@@ -305,7 +305,7 @@ contract ERC20Vault is BaseVault {
             destChainId: _op.destChainId,
             srcOwner: msg.sender,
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
-            to: resolve(_op.destChainId, name(), false),
+            to: resolveAddress(_op.destChainId, name(), false),
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
@@ -408,7 +408,7 @@ contract ERC20Vault is BaseVault {
     function solve(SolverOp memory _op) external nonReentrant whenNotPaused {
         if (_op.l2BatchMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
-            address taiko = resolve(LibStrings.B_TAIKO, false);
+            address taiko = resolveAddress(LibStrings.B_TAIKO, false);
             require(ITaiko(taiko).isOnL1(), VAULT_NOT_ON_L1());
 
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BatchId).metaHash;
@@ -589,7 +589,7 @@ contract ERC20Vault is BaseVault {
             (owner(), ctoken.addr, ctoken.chainId, ctoken.decimals, ctoken.symbol, ctoken.name)
         );
 
-        btoken = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC20, false), data));
+        btoken = address(new ERC1967Proxy(resolveAddress(LibStrings.B_BRIDGED_ERC20, false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 
@@ -604,7 +604,7 @@ contract ERC20Vault is BaseVault {
     }
 
     function _consumeTokenQuota(address _token, uint256 _amount) private {
-        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
+        address quotaManager = resolveAddress(LibStrings.B_QUOTA_MANAGER, true);
         if (quotaManager != address(0)) {
             IQuotaManager(quotaManager).consumeQuota(_token, _amount);
         }
