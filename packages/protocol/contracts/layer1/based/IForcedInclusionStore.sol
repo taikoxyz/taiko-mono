@@ -5,9 +5,6 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
 
-    error ForcedInclusionAlreadyIncluded();
-    error ForcedInclusionAlreadyStored();
-    error ForcedInclusionNotFound();
     error ForcedInclusionInsufficientPriorityFee();
     error NotTaikoForcedInclusionInbox();
 
