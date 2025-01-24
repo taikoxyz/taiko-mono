@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
-import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
@@ -41,7 +40,6 @@ import "./IForcedInclusionStore.sol";
 ///
 /// @custom:security-contact security@taiko.xyz
 contract TaikoInboxWithForcedTxInclusion is EssentialContract {
-    using LibAddress for address;
     using LibMath for uint256;
 
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
@@ -103,7 +101,6 @@ contract TaikoInboxWithForcedTxInclusion is EssentialContract {
             params.blobParams.byteSize = inclusion.blobByteSize;
 
             inbox.proposeBatch(abi.encode(params), "");
-            msg.sender.sendEtherAndVerify(inclusion.fee, gasleft());
             emit ForcedInclusionProcessed(inclusion);
         }
     }
