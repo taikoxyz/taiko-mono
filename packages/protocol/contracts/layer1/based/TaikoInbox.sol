@@ -70,15 +70,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                address operator = resolve(LibStrings.B_INBOX_OPERATOR, true);
-                if (operator == address(0)) {
+                address whitelistedProposer = resolve(LibStrings.B_WHITELISTED_PROPOSER, true);
+                if (whitelistedProposer == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                 } else {
-                    require(msg.sender == operator, NotInboxOperator());
+                    require(msg.sender == whitelistedProposer, NotWhitelistedProposer());
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 

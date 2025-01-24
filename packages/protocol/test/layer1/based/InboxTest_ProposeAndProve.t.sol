@@ -513,17 +513,17 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "txList");
 
         vm.startPrank(deployer);
-        address operator = Bob;
-        resolver.registerAddress(block.chainid, "inbox_operator", operator);
+        address whitelistedProposer = Bob;
+        resolver.registerAddress(block.chainid, "whitelisted_proposer", whitelistedProposer);
         vm.stopPrank();
 
         vm.startPrank(Alice);
-        params.proposer = operator;
-        vm.expectRevert(ITaikoInbox.NotInboxOperator.selector);
+        params.proposer = whitelistedProposer;
+        vm.expectRevert(ITaikoInbox.NotWhitelistedProposer.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
         vm.stopPrank();
 
-        vm.startPrank(operator);
+        vm.startPrank(whitelistedProposer);
         params.proposer = address(0);
         vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
         inbox.proposeBatch(abi.encode(params), "txList");

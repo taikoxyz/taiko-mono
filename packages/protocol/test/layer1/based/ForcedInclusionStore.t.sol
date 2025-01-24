@@ -1,170 +1,165 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "./ForcedInclusionStoreTestBase.sol";
-import "src/layer1/based/IForcedInclusionStore.sol";
+import "../../shared/CommonTest.sol";
+import "src/layer1/based/ForcedInclusionStore.sol";
+
+contract ForcedInclusionStoreForTest is ForcedInclusionStore {
+    constructor(
+        address _resolver,
+        uint256 _inclusionDelay,
+        uint256 _fee
+    )
+        ForcedInclusionStore(_resolver, _inclusionDelay, _fee)
+    { }
+
+    function _blobHash(uint8 blobIndex) internal view virtual override returns (bytes32) {
+        return bytes32(uint256(blobIndex + 1));
+    }
+}
+
+abstract contract ForcedInclusionStoreTestBase is CommonTest {
+    address internal storeOwner = Alice;
+    address internal whitelistedProposer = Alice;
+    uint64 internal constant inclusionDelay = 24 seconds;
+    uint256 internal constant fee = 0.001 ether;
+
+    ForcedInclusionStore internal store;
+
+    function setUpOnEthereum() internal virtual override {
+        register(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, whitelistedProposer);
+
+        store = ForcedInclusionStore(
+            deploy({
+                name: LibStrings.B_FORCED_INCLUSION_STORE,
+                impl: address(new ForcedInclusionStoreForTest(address(resolver), inclusionDelay, fee)),
+                data: abi.encodeCall(ForcedInclusionStore.init, (storeOwner))
+            })
+        );
+    }
+}
 
 contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
-
-    function test_updateBasePriorityFee() public {
-        // get original fee
-        uint256 originalFee = store.basePriorityFee();
-        vm.prank(storeOwner);
-        store.updateBasePriorityFee(originalFee + 1);
-        assertEq(store.basePriorityFee(), originalFee + 1);
-    }
-
-    function test_updateBasePriorityFee_onlyOwner() public {
-        vm.prank(Carol);
-        vm.expectRevert();
-        store.updateBasePriorityFee(200);
-    }
-
-    function test_storeForcedInclusion_success() public {
-        bytes32 blobHash = keccak256("test_blob");
-        uint32 blobByteOffset = 0;
-        uint32 blobByteSize = 1024;
-        uint256 requiredFee = store.getRequiredPriorityFee();
-
-        vm.prank(Alice);
-        vm.deal(Alice, requiredFee);
-        store.storeForcedInclusion{value: requiredFee}(blobHash, blobByteOffset, blobByteSize);
-
-        (
-            bytes32 storedBlobHash,
-            uint64 storedId,
-            uint32 storedBlobByteOffset,
-            uint32 storedBlobByteSize,
-            uint256 storedPriorityFee,
-            uint256 storedTimestamp,
-            bool storedProcessed
-        ) = store.forcedInclusionQueue(store.head());
-
-        assertEq(storedBlobHash, blobHash);
-        assertEq(storedBlobByteOffset, blobByteOffset);
-        assertEq(storedBlobByteSize, blobByteSize);
-        assertEq(storedPriorityFee, requiredFee);
-        assertEq(storedId, 1);
-        assertEq(storedProcessed, false);
-    }
-
-
-    function test_storeForcedInclusion_insufficientFee() public {
-        bytes32 blobHash = keccak256("test_blob");
-        uint32 blobByteOffset = 0;
-        uint32 blobByteSize = 1024;
-
-        // get required fee
-        uint256 requiredFee = store.getRequiredPriorityFee();
-        emit log_named_uint("Required Fee", requiredFee);
-        vm.prank(Alice);
+    function test_storeForcedInclusion_success() public transactBy(Alice) {
         vm.deal(Alice, 1 ether);
-        vm.expectRevert(IForcedInclusionStore.ForcedInclusionInsufficientPriorityFee.selector);
-        store.storeForcedInclusion{value: requiredFee - 1}(blobHash, blobByteOffset, blobByteSize);
+
+        uint256 _fee = store.fee();
+
+        for (uint8 i; i < 5; ++i) {
+            store.storeForcedInclusion{ value: _fee }({
+                blobIndex: i,
+                blobByteOffset: 0,
+                blobByteSize: 1024
+            });
+            (
+                bytes32 blobHash,
+                uint256 fee,
+                uint64 createdAt,
+                uint32 blobByteOffset,
+                uint32 blobByteSize
+            ) = store.queue(store.tail() - 1);
+
+            assertEq(blobHash, bytes32(uint256(i + 1))); //  = blobIndex + 1
+            assertEq(createdAt, uint64(block.timestamp));
+            assertEq(fee, _fee);
+            assertEq(blobByteOffset, 0);
+            assertEq(blobByteSize, 1024);
+        }
     }
 
-    function test_storeForcedInclusion_multipleEntries() public {
-        bytes32 blobHash1 = keccak256("test_blob_1");
-        bytes32 blobHash2 = keccak256("test_blob_2");
-        uint32 blobByteOffset = 0;
-        uint32 blobByteSize = 512;
-        uint256 requiredFee = store.getRequiredPriorityFee();
-
-        vm.prank(Alice);
+    function test_storeForcedInclusion_incorrectFee() public transactBy(Alice) {
         vm.deal(Alice, 1 ether);
-        store.storeForcedInclusion{value: requiredFee}(blobHash1, blobByteOffset, blobByteSize);
 
-        requiredFee = store.getRequiredPriorityFee();
-        store.storeForcedInclusion{value: requiredFee}(blobHash2, blobByteOffset, blobByteSize);
+        uint256 fee = store.fee();
+        vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
+        store.storeForcedInclusion{ value: fee - 1 }({
+            blobIndex: 0,
+            blobByteOffset: 0,
+            blobByteSize: 1024
+        });
 
-        (
-            bytes32 blobHashB,
-            uint64 idB,
-            uint32 offsetB,
-            uint32 sizeB,
-            uint256 feeB,
-            uint256 timestampB,
-            bool processedB
-        ) = store.forcedInclusionQueue(store.head() + 1);
-
-        assertEq(blobHashB, blobHash2);
-        assertEq(offsetB, blobByteOffset);
-        assertEq(sizeB, blobByteSize);
-        assertEq(feeB, requiredFee);
-        assertEq(idB, 2);
-        assertEq(processedB, false);
+        vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
+        store.storeForcedInclusion{ value: fee + 1 }({
+            blobIndex: 0,
+            blobByteOffset: 0,
+            blobByteSize: 1024
+        });
     }
 
-    function test_consumeForcedInclusion_success() public {
-        bytes32 blobHash = keccak256("test_blob");
-        uint32 blobByteOffset = 0;
-        uint32 blobByteSize = 1024;
-        uint256 requiredFee = store.getRequiredPriorityFee();
+    function test_storeConsumeForcedInclusion_success() public {
+        vm.deal(Alice, 1 ether);
+        uint256 _fee = store.fee();
 
         vm.prank(Alice);
-        vm.deal(Alice, requiredFee);
-        store.storeForcedInclusion{value: requiredFee}(blobHash, blobByteOffset, blobByteSize);
+        store.storeForcedInclusion{ value: _fee }({
+            blobIndex: 0,
+            blobByteOffset: 0,
+            blobByteSize: 1024
+        });
 
         assertEq(store.head(), 0);
         assertEq(store.tail(), 1);
 
-        vm.warp(block.timestamp + inclusionWindow + 1);
+        uint256 createdAt = block.timestamp;
+        vm.warp(createdAt + inclusionDelay);
 
-        vm.prank(operator);
-        IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeForcedInclusion();
+        vm.prank(whitelistedProposer);
+        IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeForcedInclusion(Bob);
 
-        assertEq(consumed.id, 1);
-        assertEq(consumed.blobHash, blobHash);
-        assertEq(consumed.blobByteOffset, blobByteOffset);
-        assertEq(consumed.blobByteSize, blobByteSize);
-        assertEq(consumed.priorityFee, requiredFee);
-        assertEq(consumed.processed, true);
+        assertEq(consumed.blobHash, bytes32(uint256(1)));
+        assertEq(consumed.blobByteOffset, 0);
+        assertEq(consumed.blobByteSize, 1024);
+        assertEq(consumed.fee, _fee);
+        assertEq(consumed.createdAt, createdAt);
+        assertEq(Bob.balance, _fee);
     }
 
-    function test_consumeForcedInclusion_notOperator() public {
-        bytes32 blobHash = keccak256("test_blob");
-        uint32 blobByteOffset = 0;
-        uint32 blobByteSize = 1024;
-        uint256 requiredFee = store.getRequiredPriorityFee();
+    function test_storeConsumeForcedInclusion_notOperator() public {
+        vm.deal(Alice, 1 ether);
+        uint256 _fee = store.fee();
 
-        vm.prank(operator);
-        vm.deal(operator, requiredFee);
-        store.storeForcedInclusion{value: requiredFee}(blobHash, blobByteOffset, blobByteSize);
+        vm.prank(Alice);
+        store.storeForcedInclusion{ value: _fee }({
+            blobIndex: 0,
+            blobByteOffset: 0,
+            blobByteSize: 1024
+        });
 
-        vm.warp(block.timestamp + inclusionWindow + 1);
+        assertEq(store.head(), 0);
+        assertEq(store.tail(), 1);
+
+        vm.warp(block.timestamp + inclusionDelay);
 
         vm.prank(Carol);
-        vm.expectRevert(IForcedInclusionStore.NotTaikoForcedInclusionInbox.selector);
-        store.consumeForcedInclusion();
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        store.consumeForcedInclusion(Bob);
     }
 
-    function test_consumeForcedInclusion_noEligibleInclusion() public {
-        vm.prank(operator);
-        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion();
+    function test_storeConsumeForcedInclusion_noEligibleInclusion() public {
+        vm.prank(whitelistedProposer);
+        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 0);
-        assertEq(inclusion.priorityFee, 0);
-        assertEq(inclusion.id, 0);
+        assertEq(inclusion.fee, 0);
     }
 
-    function test_consumeForcedInclusion_beforeWindowExpires() public {
-        bytes32 blobHash = keccak256("test_blob");
-        uint32 blobByteOffset = 0;
-        uint32 blobByteSize = 1024;
-        uint256 requiredFee = store.getRequiredPriorityFee();
+    function test_storeConsumeForcedInclusion_beforeWindowExpires() public {
+        vm.deal(Alice, 1 ether);
 
-        vm.prank(operator);
-        vm.deal(Alice, requiredFee);
-        store.storeForcedInclusion{value: requiredFee}(blobHash, blobByteOffset, blobByteSize);
+        vm.prank(whitelistedProposer);
+        store.storeForcedInclusion{ value: store.fee() }({
+            blobIndex: 0,
+            blobByteOffset: 0,
+            blobByteSize: 1024
+        });
 
-        vm.prank(operator);
-        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion();
+        vm.warp(block.timestamp + inclusionDelay - 1);
+        vm.prank(whitelistedProposer);
+        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 0);
-        assertEq(inclusion.priorityFee, 0);
-        assertEq(inclusion.id, 0);
+        assertEq(inclusion.fee, 0);
     }
-
 }
