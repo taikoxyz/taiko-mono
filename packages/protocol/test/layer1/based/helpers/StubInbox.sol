@@ -28,7 +28,7 @@ contract StubInbox is ITaikoInbox {
 
     function getBatch(uint64 _batchId) external view virtual returns (ITaikoInbox.Batch memory) { }
 
-    function getTransition(
+    function getTransitionById(
         uint64 _batchId,
         uint24 _tid
     )
@@ -38,7 +38,7 @@ contract StubInbox is ITaikoInbox {
         returns (ITaikoInbox.TransitionState memory)
     { }
 
-    function getTransition(
+    function getTransitionByParentHash(
         uint64 _batchId,
         bytes32 _parentHash
     )
@@ -69,5 +69,5 @@ contract StubInbox is ITaikoInbox {
 
     function getStats2() external view returns (Stats2 memory) { }
 
-    function getConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
+    function pacayaConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
 }
