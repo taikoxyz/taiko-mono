@@ -34,11 +34,11 @@ interface IForcedInclusionStore {
 
     /// @dev Store a forced inclusion request.
     /// The priority fee must be paid to the contract.
-    /// @param blobId The blob hash to be included
+    /// @param blobIndex The index of the blob that contains the transaction data.
     /// @param blobByteOffset The byte offset in the blob
     /// @param blobByteSize The size of the blob in bytes
     function storeForcedInclusion(
-        uint8 blobId,
+        uint8 blobIndex,
         uint32 blobByteOffset,
         uint32 blobByteSize
     )

@@ -13,8 +13,8 @@ contract ForcedInclusionStoreForTest is ForcedInclusionStore {
         ForcedInclusionStore(_resolver, _inclusionDelay, _fee)
     { }
 
-    function _blobHash(uint8 blobId) internal view virtual override returns (bytes32) {
-        return bytes32(uint256(blobId + 1));
+    function _blobHash(uint8 blobIndex) internal view virtual override returns (bytes32) {
+        return bytes32(uint256(blobIndex + 1));
     }
 }
 
@@ -47,7 +47,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         for (uint8 i; i < 5; ++i) {
             store.storeForcedInclusion{ value: _fee }({
-                blobId: i,
+                blobIndex: i,
                 blobByteOffset: 0,
                 blobByteSize: 1024
             });
@@ -59,7 +59,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
                 uint32 blobByteSize
             ) = store.queue(store.tail() - 1);
 
-            assertEq(blobHash, bytes32(uint256(i + 1))); //  = blobId + 1
+            assertEq(blobHash, bytes32(uint256(i + 1))); //  = blobIndex + 1
             assertEq(createdAt, uint64(block.timestamp));
             assertEq(fee, _fee);
             assertEq(blobByteOffset, 0);
@@ -73,14 +73,14 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         uint256 fee = store.fee();
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
         store.storeForcedInclusion{ value: fee - 1 }({
-            blobId: 0,
+            blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
         });
 
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
         store.storeForcedInclusion{ value: fee + 1 }({
-            blobId: 0,
+            blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
         });
@@ -92,7 +92,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(Alice);
         store.storeForcedInclusion{ value: _fee }({
-            blobId: 0,
+            blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
         });
@@ -120,7 +120,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(Alice);
         store.storeForcedInclusion{ value: _fee }({
-            blobId: 0,
+            blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
         });
@@ -149,7 +149,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(operator);
         store.storeForcedInclusion{ value: store.fee() }({
-            blobId: 0,
+            blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
         });

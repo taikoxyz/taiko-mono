@@ -48,14 +48,14 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     function storeForcedInclusion(
-        uint8 blobId,
+        uint8 blobIndex,
         uint32 blobByteOffset,
         uint32 blobByteSize
     )
         external
         payable
     {
-        bytes32 blobHash = _blobHash(blobId);
+        bytes32 blobHash = _blobHash(blobIndex);
         require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == fee, IncorrectFee());
 
@@ -89,7 +89,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     // @dev Override this function for easier testing blobs
-    function _blobHash(uint8 blobId) internal view virtual returns (bytes32) {
-        return blobhash(blobId);
+    function _blobHash(uint8 blobIndex) internal view virtual returns (bytes32) {
+        return blobhash(blobIndex);
     }
 }
