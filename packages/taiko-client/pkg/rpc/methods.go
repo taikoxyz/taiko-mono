@@ -43,7 +43,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	configs, err := c.PacayaClients.TaikoInbox.GetConfig(opts)
+	configs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
 	if err != nil {
 		configs, err := c.OntakeClients.TaikoL1.GetConfig(opts)
 		if err != nil {

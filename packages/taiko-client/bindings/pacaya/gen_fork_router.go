@@ -31,7 +31,7 @@ var (
 
 // ForkRouterMetaData contains all meta data concerning the ForkRouter contract.
 var ForkRouterMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_oldFork\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_newFork\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"currentFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isForkRouter\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"newFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"oldFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NewForkNotActive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZeroAddress\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_oldFork\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_newFork\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"newFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"oldFork\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"shouldRouteToOldFork\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZeroForkAddress\",\"inputs\":[]}]",
 }
 
 // ForkRouterABI is the input ABI used to generate the binding from.
@@ -178,68 +178,6 @@ func (_ForkRouter *ForkRouterTransactorRaw) Transfer(opts *bind.TransactOpts) (*
 // Transact invokes the (paid) contract method with params as input values.
 func (_ForkRouter *ForkRouterTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _ForkRouter.Contract.contract.Transact(opts, method, params...)
-}
-
-// CurrentFork is a free data retrieval call binding the contract method 0x183d2d1c.
-//
-// Solidity: function currentFork() view returns(address)
-func (_ForkRouter *ForkRouterCaller) CurrentFork(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _ForkRouter.contract.Call(opts, &out, "currentFork")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// CurrentFork is a free data retrieval call binding the contract method 0x183d2d1c.
-//
-// Solidity: function currentFork() view returns(address)
-func (_ForkRouter *ForkRouterSession) CurrentFork() (common.Address, error) {
-	return _ForkRouter.Contract.CurrentFork(&_ForkRouter.CallOpts)
-}
-
-// CurrentFork is a free data retrieval call binding the contract method 0x183d2d1c.
-//
-// Solidity: function currentFork() view returns(address)
-func (_ForkRouter *ForkRouterCallerSession) CurrentFork() (common.Address, error) {
-	return _ForkRouter.Contract.CurrentFork(&_ForkRouter.CallOpts)
-}
-
-// IsForkRouter is a free data retrieval call binding the contract method 0x2d5a06e9.
-//
-// Solidity: function isForkRouter() pure returns(bool)
-func (_ForkRouter *ForkRouterCaller) IsForkRouter(opts *bind.CallOpts) (bool, error) {
-	var out []interface{}
-	err := _ForkRouter.contract.Call(opts, &out, "isForkRouter")
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsForkRouter is a free data retrieval call binding the contract method 0x2d5a06e9.
-//
-// Solidity: function isForkRouter() pure returns(bool)
-func (_ForkRouter *ForkRouterSession) IsForkRouter() (bool, error) {
-	return _ForkRouter.Contract.IsForkRouter(&_ForkRouter.CallOpts)
-}
-
-// IsForkRouter is a free data retrieval call binding the contract method 0x2d5a06e9.
-//
-// Solidity: function isForkRouter() pure returns(bool)
-func (_ForkRouter *ForkRouterCallerSession) IsForkRouter() (bool, error) {
-	return _ForkRouter.Contract.IsForkRouter(&_ForkRouter.CallOpts)
 }
 
 // NewFork is a free data retrieval call binding the contract method 0x863acc33.
@@ -395,6 +333,37 @@ func (_ForkRouter *ForkRouterSession) ProxiableUUID() ([32]byte, error) {
 // Solidity: function proxiableUUID() view returns(bytes32)
 func (_ForkRouter *ForkRouterCallerSession) ProxiableUUID() ([32]byte, error) {
 	return _ForkRouter.Contract.ProxiableUUID(&_ForkRouter.CallOpts)
+}
+
+// ShouldRouteToOldFork is a free data retrieval call binding the contract method 0x003f3080.
+//
+// Solidity: function shouldRouteToOldFork(bytes4 ) pure returns(bool)
+func (_ForkRouter *ForkRouterCaller) ShouldRouteToOldFork(opts *bind.CallOpts, arg0 [4]byte) (bool, error) {
+	var out []interface{}
+	err := _ForkRouter.contract.Call(opts, &out, "shouldRouteToOldFork", arg0)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// ShouldRouteToOldFork is a free data retrieval call binding the contract method 0x003f3080.
+//
+// Solidity: function shouldRouteToOldFork(bytes4 ) pure returns(bool)
+func (_ForkRouter *ForkRouterSession) ShouldRouteToOldFork(arg0 [4]byte) (bool, error) {
+	return _ForkRouter.Contract.ShouldRouteToOldFork(&_ForkRouter.CallOpts, arg0)
+}
+
+// ShouldRouteToOldFork is a free data retrieval call binding the contract method 0x003f3080.
+//
+// Solidity: function shouldRouteToOldFork(bytes4 ) pure returns(bool)
+func (_ForkRouter *ForkRouterCallerSession) ShouldRouteToOldFork(arg0 [4]byte) (bool, error) {
+	return _ForkRouter.Contract.ShouldRouteToOldFork(&_ForkRouter.CallOpts, arg0)
 }
 
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.

@@ -281,7 +281,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
-	protocolConfigs, err := c.PacayaClients.TaikoInbox.GetConfig(&bind.CallOpts{Context: ctx})
+	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
 	// If failed to get protocol configs, we assuming the current chain is still before the Pacaya fork,
 	// use pre-defined Pacaya fork height.
 	if err != nil {

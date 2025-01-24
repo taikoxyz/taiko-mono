@@ -18,7 +18,7 @@ import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
-import "src/layer1/based/ForkRouter.sol";
+import "src/layer1/fork-router/ForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 
@@ -108,7 +108,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));
         // Verifier
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
-        uint64 l2ChainId = taikoInboxImpl.getConfig().chainId;
+        uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
         address opVerifier = deployProxy({
             name: "op_verifier",
