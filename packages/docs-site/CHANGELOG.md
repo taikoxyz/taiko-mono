@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.21.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.3...docs-site-v1.21.4) (2025-01-21)
+
+
+### Bug Fixes
+
+* **docs-site:** omitted L1 HTTP endpoint from taiko client flags ([#18798](https://github.com/taikoxyz/taiko-mono/issues/18798)) ([a3e08ff](https://github.com/taikoxyz/taiko-mono/commit/a3e08fffbb7c200a3671bff7b1b793ee31226595))
+
+
+### Chores
+
+* **docs-site:** update documentation for upcoming hekla upgrade ([#18810](https://github.com/taikoxyz/taiko-mono/issues/18810)) ([cc2010c](https://github.com/taikoxyz/taiko-mono/commit/cc2010cf356dce1b5b012cd3e7cc15e58c5ad126))
+* **docs-site:** update network config and add batch proof guide ([#18776](https://github.com/taikoxyz/taiko-mono/issues/18776)) ([8710cd8](https://github.com/taikoxyz/taiko-mono/commit/8710cd866d407bca4eb977142d5e38786de94672))
+
+## [1.21.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.2...docs-site-v1.21.3) (2025-01-13)
+
+
+### Chores
+
+* **docs-site:** update mainnet config graphic ([#18758](https://github.com/taikoxyz/taiko-mono/issues/18758)) ([b36576a](https://github.com/taikoxyz/taiko-mono/commit/b36576a367fbf3084aed3a9334821f7893d9c270))
+* **docs-site:** update mainnet verifier addresses ([#18756](https://github.com/taikoxyz/taiko-mono/issues/18756)) ([eaa47bd](https://github.com/taikoxyz/taiko-mono/commit/eaa47bd2c82a4678e0e1b65c076693b4b3015c26))
+* **docs-site:** update verifier addresses ([#18749](https://github.com/taikoxyz/taiko-mono/issues/18749)) ([bd0cb95](https://github.com/taikoxyz/taiko-mono/commit/bd0cb95c054075b32bf571d7c89a4768d370cb59))
+
 ## [1.21.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.1...docs-site-v1.21.2) (2025-01-07)
 
 

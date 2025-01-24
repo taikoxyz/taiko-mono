@@ -17,17 +17,13 @@ import (
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
-	P2PSync                    bool
-	P2PSyncTimeout             time.Duration
-	RetryInterval              time.Duration
-	MaxExponent                uint64
-	BlobServerEndpoint         *url.URL
-	SocialScanEndpoint         *url.URL
-	RPCWriteTimeout            time.Duration
-	SoftBlockServerPort        uint64
-	SoftBlockServerJWTSecret   []byte
-	SoftBlockServerCORSOrigins string
-	SoftBlockServerCheckSig    bool
+	P2PSync            bool
+	P2PSyncTimeout     time.Duration
+	RetryInterval      time.Duration
+	MaxExponent        uint64
+	BlobServerEndpoint *url.URL
+	SocialScanEndpoint *url.URL
+	RPCWriteTimeout    time.Duration
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -74,15 +70,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
 	}
 
-	var softBlockServerJWTSecret []byte
-	if c.String(flags.SoftBlockServerJWTSecret.Name) != "" {
-		if softBlockServerJWTSecret, err = jwt.ParseSecretFromFile(
-			c.String(flags.SoftBlockServerJWTSecret.Name),
-		); err != nil {
-			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
-		}
-	}
-
 	var timeout = c.Duration(flags.RPCTimeout.Name)
 	var rpcWriteTimeout = c.Duration(flags.RPCWriteTimeout.Name)
 	return &Config{
@@ -97,16 +84,12 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			JwtSecret:        string(jwtSecret),
 			Timeout:          timeout,
 		},
-		RetryInterval:              c.Duration(flags.BackOffRetryInterval.Name),
-		P2PSync:                    p2pSync,
-		P2PSyncTimeout:             c.Duration(flags.P2PSyncTimeout.Name),
-		MaxExponent:                c.Uint64(flags.MaxExponent.Name),
-		BlobServerEndpoint:         blobServerEndpoint,
-		SocialScanEndpoint:         socialScanEndpoint,
-		RPCWriteTimeout:            rpcWriteTimeout,
-		SoftBlockServerPort:        c.Uint64(flags.SoftBlockServerPort.Name),
-		SoftBlockServerJWTSecret:   softBlockServerJWTSecret,
-		SoftBlockServerCORSOrigins: c.String(flags.SoftBlockServerCORSOrigins.Name),
-		SoftBlockServerCheckSig:    c.Bool(flags.SoftBlockServerCheckSig.Name),
+		RetryInterval:      c.Duration(flags.BackOffRetryInterval.Name),
+		P2PSync:            p2pSync,
+		P2PSyncTimeout:     c.Duration(flags.P2PSyncTimeout.Name),
+		MaxExponent:        c.Uint64(flags.MaxExponent.Name),
+		BlobServerEndpoint: blobServerEndpoint,
+		SocialScanEndpoint: socialScanEndpoint,
+		RPCWriteTimeout:    rpcWriteTimeout,
 	}, nil
 }

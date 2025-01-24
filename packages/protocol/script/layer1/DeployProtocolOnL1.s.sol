@@ -279,7 +279,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "bond_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
-        // copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
+        copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
         deployProxy({
             name: "mainnet_taiko",

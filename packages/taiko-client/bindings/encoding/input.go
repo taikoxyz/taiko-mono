@@ -14,72 +14,6 @@ import (
 
 // ABI arguments marshaling components.
 var (
-	blockMetadataComponents = []abi.ArgumentMarshaling{
-		{
-			Name: "l1Hash",
-			Type: "bytes32",
-		},
-		{
-			Name: "difficulty",
-			Type: "bytes32",
-		},
-		{
-			Name: "blobHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "extraData",
-			Type: "bytes32",
-		},
-		{
-			Name: "depositsHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "coinbase",
-			Type: "address",
-		},
-		{
-			Name: "id",
-			Type: "uint64",
-		},
-		{
-			Name: "gasLimit",
-			Type: "uint32",
-		},
-		{
-			Name: "timestamp",
-			Type: "uint64",
-		},
-		{
-			Name: "l1Height",
-			Type: "uint64",
-		},
-		{
-			Name: "minTier",
-			Type: "uint16",
-		},
-		{
-			Name: "blobUsed",
-			Type: "bool",
-		},
-		{
-			Name: "parentMetaHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "sender",
-			Type: "address",
-		},
-		{
-			Name: "blobTxListOffset",
-			Type: "uint32",
-		},
-		{
-			Name: "blobTxListLength",
-			Type: "uint32",
-		},
-	}
 	blockMetadataV2Components = []abi.ArgumentMarshaling{
 		{
 			Name: "anchorBlockHash",
@@ -212,62 +146,6 @@ var (
 			Type: "bytes",
 		},
 	}
-	blockParamsComponents = []abi.ArgumentMarshaling{
-		{
-			Name: "assignedProver",
-			Type: "address",
-		},
-		{
-			Name: "coinbase",
-			Type: "address",
-		},
-		{
-			Name: "extraData",
-			Type: "bytes32",
-		},
-		{
-			Name: "parentMetaHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "hookCalls",
-			Type: "tuple[]",
-			Components: []abi.ArgumentMarshaling{
-				{
-					Name: "hook",
-					Type: "address",
-				},
-				{
-					Name: "data",
-					Type: "bytes",
-				},
-			},
-		},
-		{
-			Name: "signature",
-			Type: "bytes",
-		},
-		{
-			Name: "l1StateBlockNumber",
-			Type: "uint32",
-		},
-		{
-			Name: "timestamp",
-			Type: "uint64",
-		},
-		{
-			Name: "blobTxListOffset",
-			Type: "uint32",
-		},
-		{
-			Name: "blobTxListLength",
-			Type: "uint32",
-		},
-		{
-			Name: "blobIndex",
-			Type: "uint8",
-		},
-	}
 	blockParamsV2Components = []abi.ArgumentMarshaling{
 		{
 			Name: "proposer",
@@ -305,28 +183,17 @@ var (
 )
 
 var (
-	blockParamsComponentsType, _     = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
-	blockParamsComponentsArgs        = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
 	blockParamsV2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
 	blockParamsV2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
-	blockMetadataComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
 	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
 	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
 	tierProofComponentsType, _       = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
-	proveBlockInputArgs              = abi.Arguments{
-		{Name: "TaikoData.BlockMetadata", Type: blockMetadataComponentsType},
-		{Name: "TaikoData.Transition", Type: transitionComponentsType},
-		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
-	}
-	proveOntakeBlockInputArgs = abi.Arguments{
+	proveOntakeBlockInputArgs        = abi.Arguments{
 		{Name: "TaikoData.BlockMetadataV2", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
-	stringType, _                  = abi.NewType("string", "TAIKO_DIFFICULTY", nil)
-	uint64Type, _                  = abi.NewType("uint64", "local.b.numBlocks", nil)
-	difficultyCalculationInputArgs = abi.Arguments{{Type: stringType}, {Type: uint64Type}}
-	proveBlocksInputArgs           = abi.Arguments{
+	proveBlocksInputArgs = abi.Arguments{
 		{Name: "TaikoData.BlockMetadata", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 	}
@@ -413,15 +280,6 @@ func init() {
 	}
 }
 
-// EncodeBlockParams performs the solidity `abi.encode` for the given blockParams.
-func EncodeBlockParams(params *BlockParams) ([]byte, error) {
-	b, err := blockParamsComponentsArgs.Pack(params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode block params, %w", err)
-	}
-	return b, nil
-}
-
 // EncodeBlockParamsOntake performs the solidity `abi.encode` for the given ontake blockParams.
 func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 	b, err := blockParamsV2ComponentsArgs.Pack(params)
@@ -441,34 +299,14 @@ func EncodeProveBlockInput(
 		b   []byte
 		err error
 	)
-	if meta.IsOntakeBlock() {
-		if b, err = proveOntakeBlockInputArgs.Pack(
-			meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
-			transition,
-			tierProof,
-		); err != nil {
-			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input after ontake fork, %w", err)
-		}
-	} else {
-		if b, err = proveBlockInputArgs.Pack(
-			meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
-			transition,
-			tierProof,
-		); err != nil {
-			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
-		}
+	if b, err = proveOntakeBlockInputArgs.Pack(
+		meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+		transition,
+		tierProof,
+	); err != nil {
+		return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input after ontake fork, %w", err)
 	}
 
-	return b, nil
-}
-
-// EncodeDifficultCalcutionParams performs the solidity `abi.encode` for the
-// `block.difficulty` hash payload.
-func EncodeDifficultyCalcutionParams(numBlocks uint64) ([]byte, error) {
-	b, err := difficultyCalculationInputArgs.Pack("TAIKO_DIFFICULTY", numBlocks)
-	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode `block.difficulty` hash payload, %w", err)
-	}
 	return b, nil
 }
 

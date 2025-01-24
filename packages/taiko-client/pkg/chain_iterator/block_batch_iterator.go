@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"time"
 
@@ -20,9 +19,11 @@ const (
 	DefaultBlocksReadPerEpoch = 1000
 	DefaultRetryInterval      = 12 * time.Second
 	DefaultBlockConfirmations = 0
+	BackOffMaxRetries         = 5
 )
 
 var (
+	errEOF      = errors.New("end of blockBatchIterator batch")
 	errContinue = errors.New("continue")
 )
 
@@ -143,10 +144,17 @@ func (i *BlockBatchIterator) Iter() error {
 				break
 			}
 			if err := i.iter(); err != nil {
-				if errors.Is(err, io.EOF) {
+				if errors.Is(err, errEOF) {
+					log.Debug(
+						"Block batch iterator finished",
+						"start", i.startHeight,
+						"end", i.endHeight,
+						"current", i.current.Number,
+					)
 					break
 				}
 				if errors.Is(err, errContinue) {
+					log.Debug("Block batch iterator continues", "current", i.current.Number)
 					continue
 				}
 				log.Error("Block batch iterator callback error", "error", err)
@@ -156,7 +164,13 @@ func (i *BlockBatchIterator) Iter() error {
 		return nil
 	}
 
-	if err := backoff.Retry(iterOp, backoff.WithContext(backoff.NewConstantBackOff(i.retryInterval), i.ctx)); err != nil {
+	if err := backoff.Retry(
+		iterOp,
+		backoff.WithMaxRetries(
+			backoff.WithContext(backoff.NewConstantBackOff(i.retryInterval), i.ctx),
+			BackOffMaxRetries,
+		),
+	); err != nil {
 		return err
 	}
 
@@ -198,7 +212,7 @@ func (i *BlockBatchIterator) iter() (err error) {
 	}
 
 	if i.current.Number.Uint64() >= destHeight {
-		return io.EOF
+		return errEOF
 	}
 
 	endHeight = i.current.Number.Uint64() + i.blocksReadPerEpoch
@@ -212,12 +226,14 @@ func (i *BlockBatchIterator) iter() (err error) {
 		return err
 	}
 
+	log.Debug("Iterating blocks", "start", i.current.Number, "end", endHeader.Number)
+
 	if err := i.onBlocks(i.ctx, i.current, endHeader, i.updateCurrent, i.end); err != nil {
 		return err
 	}
 
 	if i.isEnd {
-		return io.EOF
+		return errEOF
 	}
 
 	i.current = endHeader
@@ -226,7 +242,7 @@ func (i *BlockBatchIterator) iter() (err error) {
 		return errContinue
 	}
 
-	return io.EOF
+	return errEOF
 }
 
 // updateCurrent updates the iterator's current cursor.
@@ -286,6 +302,8 @@ func (i *BlockBatchIterator) rewindOnReorgDetected() error {
 	if err != nil {
 		return err
 	}
+
+	log.Debug("Rewind on reorg detected", "oldCurrent", i.current.Number, "newCurrent", current.Number)
 
 	i.current = current
 	return nil
