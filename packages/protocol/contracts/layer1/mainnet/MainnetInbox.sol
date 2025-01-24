@@ -13,7 +13,7 @@ import "./libs/LibFasterReentryLock.sol";
 contract MainnetInbox is TaikoInbox {
     constructor(address _resolver) TaikoInbox(_resolver) { }
 
-    function getPacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000

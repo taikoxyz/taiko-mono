@@ -57,9 +57,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     {
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
-        require(stats2.numBatches >= getPacayaConfig().forkHeights.pacaya, ForkNotActivated());
+        require(stats2.numBatches >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
 
-        Config memory config = getPacayaConfig();
+        Config memory config = pacayaConfig();
 
         unchecked {
             require(
@@ -213,14 +213,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
-        Config memory config = getPacayaConfig();
+        Config memory config = pacayaConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
 
         bool hasConflictingProof;
         for (uint256 i; i < metas.length; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.batchId >= getPacayaConfig().forkHeights.pacaya, ForkNotActivated());
+            require(meta.batchId >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -314,13 +314,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             _verifyBatches(config, stats2, metas.length);
         }
     }
-    
+
     /// @notice Verify batches by providing the length of the batches to verify.
     /// @dev This function is necessary to upgrade from this fork to the next one.
     /// @param _length Specifis how many batches to verify. The max number of batches to verify is
-    /// `getPacayaConfig().maxBatchesToVerify * _length`.
+    /// `pacayaConfig().maxBatchesToVerify * _length`.
     function verifyBatches(uint64 _length) external nonZeroValue(_length) nonReentrant {
-        _verifyBatches(getPacayaConfig(), state.stats2, _length);
+        _verifyBatches(pacayaConfig(), state.stats2, _length);
     }
 
     /// @notice Manually write a transition for a batch.
@@ -340,7 +340,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         require(_blockHash != 0 && _parentHash != 0 && _stateRoot != 0, InvalidParams());
         require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
 
-        Config memory config = getPacayaConfig();
+        Config memory config = pacayaConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -411,7 +411,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (TransitionState memory)
     {
-        Config memory config = getPacayaConfig();
+        Config memory config = pacayaConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -428,7 +428,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (TransitionState memory)
     {
-        Config memory config = getPacayaConfig();
+        Config memory config = pacayaConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -486,7 +486,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
     /// @inheritdoc ITaikoInbox
     function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
-        Config memory config = getPacayaConfig();
+        Config memory config = pacayaConfig();
 
         batch_ = state.batches[_batchId % config.batchRingBufferSize];
         require(batch_.batchId == _batchId, BatchNotFound());
@@ -498,7 +498,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (TransitionState memory ts_)
     {
-        Config memory config = getPacayaConfig();
+        Config memory config = pacayaConfig();
 
         uint64 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
@@ -510,7 +510,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     }
 
     /// @inheritdoc ITaikoInbox
-    function getPacayaConfig() public view virtual returns (Config memory);
+    function pacayaConfig() public view virtual returns (Config memory);
 
     // Internal functions ----------------------------------------------------------------------
 
@@ -583,7 +583,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         bool canVerifyBlocks;
         unchecked {
-            uint64 pacayaForkHeight = getPacayaConfig().forkHeights.pacaya;
+            uint64 pacayaForkHeight = pacayaConfig().forkHeights.pacaya;
             canVerifyBlocks = pacayaForkHeight == 0 || batchId >= pacayaForkHeight - 1;
         }
 

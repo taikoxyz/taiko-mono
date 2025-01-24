@@ -69,5 +69,5 @@ contract StubInbox is ITaikoInbox {
 
     function getStats2() external view returns (Stats2 memory) { }
 
-    function getPacayaConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
+    function pacayaConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
 }

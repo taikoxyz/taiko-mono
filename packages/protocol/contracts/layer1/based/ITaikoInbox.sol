@@ -396,5 +396,5 @@ interface ITaikoInbox {
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
-    function getPacayaConfig() external view returns (Config memory);
+    function pacayaConfig() external view returns (Config memory);
 }

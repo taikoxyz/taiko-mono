@@ -9,7 +9,7 @@ import "../based/TaikoInbox.sol";
 contract HeklaInbox is TaikoInbox {
     constructor(address _resolver) TaikoInbox(_resolver) { }
 
-    function getPacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_Params is InboxTestBase {
-    function getPacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
@@ -49,7 +49,7 @@ contract InboxTest_Params is InboxTestBase {
         external
         transactBy(Alice)
     {
-        ITaikoInbox.Config memory config = inbox.getPacayaConfig();
+        ITaikoInbox.Config memory config = inbox.pacayaConfig();
 
         // Advance the block number to create the appropriate test scenario
         vm.roll(config.maxAnchorHeightOffset + 2);

@@ -81,7 +81,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.getPacayaConfig().chainId;
+        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
@@ -276,7 +276,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
 
-        uint64 l2ChainId = taikoInbox.getPacayaConfig().chainId;
+        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         address opVerifier = deployProxy({
