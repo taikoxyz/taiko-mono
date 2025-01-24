@@ -138,6 +138,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
                 blobByteOffset: params.blobParams.byteOffset,
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,
+                lastBlockId: 0, // to be initialised later
+                lastBlockTimestamp: lastBlockTimestamp,
                 //
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
@@ -148,6 +150,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
+
+            info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
+                ? stats2.numBatches + uint64(params.blocks.length) - 1
+                : lastBatch.lastBlockId + uint64(params.blocks.length);
 
             (info_.txsHash, info_.blobHashes) =
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
@@ -178,12 +184,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko, IFork {
             _debitBond(params.proposer, livenessBond);
 
             // SSTORE #3 {{
-            if (stats2.numBatches == config.forkHeights.pacaya) {
-                batch.lastBlockId = batch.batchId + uint64(params.blocks.length) - 1;
-            } else {
-                batch.lastBlockId = lastBatch.lastBlockId + uint64(params.blocks.length);
-            }
-
+            batch.lastBlockId = info_.lastBlockId;
             batch.livenessBond = livenessBond;
             batch._reserved3 = 0;
             // SSTORE }}
