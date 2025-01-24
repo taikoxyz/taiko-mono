@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import "./ITaikoInbox.sol";
 import "./IForcedInclusionStore.sol";
 
-/// @title ITaikoInboxWithForcedTxInclusion
+/// @title IForcedInclusionInbox
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoInboxWithForcedTxInclusion {
+interface IForcedInclusionInbox {
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
 
     /// @notice Proposes a batch of blocks with forced inclusion.

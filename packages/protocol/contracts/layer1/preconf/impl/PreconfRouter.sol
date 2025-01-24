@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
 import "src/layer1/based/ITaikoInbox.sol";
+import "src/layer1/based/IForcedInclusionInbox.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/common/EssentialContract.sol";
 
@@ -20,7 +21,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
     /// @inheritdoc IPreconfRouter
     function proposePreconfedBlocks(
-        bytes calldata,
+        bytes calldata _forcedInclusionParams,
         bytes calldata _batchParams,
         bytes calldata _batchTxList
     )
@@ -32,9 +33,20 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
             IPreconfWhitelist(resolve(LibStrings.B_PRECONF_WHITELIST, false)).getOperatorForEpoch();
         require(msg.sender == selectedOperator, NotTheOperator());
 
-        // Call the proposeBatch function on the TaikoInbox
-        address taikoInbox = resolve(LibStrings.B_TAIKO, false);
-        (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
+        // check if we have a forced inclusion inbox
+        address forcedInclusionInbox = resolve(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, true);
+        if (forcedInclusionInbox == address(0)) {
+            // Call the proposeBatch function on the TaikoInbox
+            address taikoInbox = resolve(LibStrings.B_TAIKO, false);
+            (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
+        } else {
+            // Call the proposeBatchWithForcedInclusion function on the ForcedInclusionInbox
+            (, meta_) = IForcedInclusionInbox(forcedInclusionInbox).proposeBatchWithForcedInclusion(
+                _forcedInclusionParams,
+                _batchParams,
+                _batchTxList
+            );
+        }
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());

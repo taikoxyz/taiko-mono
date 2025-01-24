@@ -13,7 +13,7 @@ import "./IFork.sol";
 import "./ITaikoInbox.sol";
 import "./IForcedInclusionStore.sol";
 
-/// @title TaikoInboxWithForcedTxInclusion
+/// @title ForcedInclusionInbox
 /// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
 /// transactions.
 /// The current design is a simplified and can be improved with the following ideas:
@@ -39,7 +39,7 @@ import "./IForcedInclusionStore.sol";
 /// consumption.
 ///
 /// @custom:security-contact security@taiko.xyz
-contract TaikoInboxWithForcedTxInclusion is EssentialContract {
+contract ForcedInclusionInbox is EssentialContract {
     using LibMath for uint256;
 
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
