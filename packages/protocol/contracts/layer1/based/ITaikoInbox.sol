@@ -71,6 +71,8 @@ interface ITaikoInbox {
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
+        uint64 lastBlockId;
+        uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
