@@ -20,6 +20,8 @@ import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/based/ForkRouter.sol";
+import "src/layer1/based/ForcedInclusionInbox.sol";
+import "src/layer1/based/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -113,7 +115,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
-            deployPreconfContracts(contractOwner, sharedResolver);
+            deployPreconfContracts(contractOwner, rollupResolver);
         }
 
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -391,7 +393,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address resolver
     )
         private
-        returns (address whitelist, address router)
+        returns (address whitelist, address router, address store, address forcedInclusionInbox)
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
@@ -407,7 +409,25 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
-        return (whitelist, router);
+        store = deployProxy({
+            name: "forced_inclusion_store",
+            impl: address(
+                new ForcedInclusionStore(
+                    resolver, vm.envUint("INCLUSION_WINDOW"), vm.envUint("INCLUSION_FEE")
+                )
+            ),
+            data: abi.encodeCall(ForcedInclusionStore.init, (owner)),
+            registerTo: resolver
+        });
+
+        forcedInclusionInbox = deployProxy({
+            name: "taiko_forced_inclusion_inbox",
+            impl: address(new ForcedInclusionInbox(resolver)),
+            data: abi.encodeCall(ForcedInclusionInbox.init, (owner)),
+            registerTo: resolver
+        });
+
+        return (whitelist, router, store, forcedInclusionInbox);
     }
 
     function addressNotNull(address addr, string memory err) private pure {
