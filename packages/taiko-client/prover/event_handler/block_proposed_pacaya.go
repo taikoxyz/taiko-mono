@@ -62,8 +62,8 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 		"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
 		"lastBlockID", batch.LastBlockId,
 		"assignedProver", meta.GetProposer(),
-		"numBlobs", meta.TaikoBatchMetaDataPacaya().GetNumBlobs(),
-		"blocks", meta.TaikoBatchMetaDataPacaya().GetNumBlobs(),
+		"numBlobs", len(meta.TaikoBatchMetaDataPacaya().GetBlobHashes()),
+		"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
 	)
 
 	metrics.ProverReceivedProposedBlockGauge.Set(float64(batch.LastBlockId))
@@ -89,7 +89,7 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 						"Failed to check proof status and submit proof",
 						"error", err,
 						"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-						"numBlobs", meta.TaikoBatchMetaDataPacaya().GetNumBlobs(),
+						"numBlobs", len(meta.TaikoBatchMetaDataPacaya().GetBlobHashes()),
 						"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
 						"maxRetrys", h.backOffMaxRetrys,
 					)

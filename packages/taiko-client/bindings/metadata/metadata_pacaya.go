@@ -14,6 +14,7 @@ var _ TaikoProposalMetaData = (*TaikoDataBlockMetadataPacaya)(nil)
 
 // TaikoDataBlockMetadataPacaya is the metadata of an ontake Taiko block.
 type TaikoDataBlockMetadataPacaya struct {
+	pacayaBindings.ITaikoInboxBatchInfo
 	pacayaBindings.ITaikoInboxBatchMetadata
 	types.Log
 }
@@ -22,6 +23,7 @@ type TaikoDataBlockMetadataPacaya struct {
 // from the TaikoL1.BlockProposedV2 event.
 func NewTaikoDataBlockMetadataPacaya(e *pacayaBindings.TaikoInboxClientBatchProposed) *TaikoDataBlockMetadataPacaya {
 	return &TaikoDataBlockMetadataPacaya{
+		ITaikoInboxBatchInfo:     e.Info,
 		ITaikoInboxBatchMetadata: e.Meta,
 		Log:                      e.Raw,
 	}
@@ -44,7 +46,7 @@ func (m *TaikoDataBlockMetadataPacaya) IsPacaya() bool {
 
 // GetTxListHash returns the hash of calldata txlist.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListHash() common.Hash {
-	return m.TxListHash
+	return m.TxsHash
 }
 
 // GetTxListHash returns block extradata.
@@ -72,19 +74,23 @@ func (m *TaikoDataBlockMetadataPacaya) GetLastBlockTimestamp() uint64 {
 	return m.LastBlockTimestamp
 }
 
-// GetLastBlockTimestamp returns last block's timestamp in this batch.
-func (m *TaikoDataBlockMetadataPacaya) GetParentMetaHash() common.Hash {
-	return m.ParentMetaHash
+// GetBlobHashes returns blob hashes in this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetBlobHashes() []common.Hash {
+	var blobHashes []common.Hash
+	for _, hash := range m.BlobHashes {
+		blobHashes = append(blobHashes, hash)
+	}
+	return blobHashes
+}
+
+// GetLastBlockID returns last block's ID in this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetLastBlockID() uint64 {
+	return m.LastBlockId
 }
 
 // GetProposer returns the proposer of this batch.
 func (m *TaikoDataBlockMetadataPacaya) GetProposer() common.Address {
 	return m.Proposer
-}
-
-// GetLivenessBond returns the livenessBond of this batch.
-func (m *TaikoDataBlockMetadataPacaya) GetLivenessBond() *big.Int {
-	return m.LivenessBond
 }
 
 // GetProposedAt returns the proposing timestamp of this batch.
@@ -99,22 +105,12 @@ func (m *TaikoDataBlockMetadataPacaya) GetProposedIn() uint64 {
 
 // GetTxListOffset returns calldata tx list offset.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListOffset() uint32 {
-	return m.TxListOffset
+	return m.BlobByteOffset
 }
 
 // GetTxListSize returns calldata tx list size.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListSize() uint32 {
-	return m.TxListSize
-}
-
-// GetFirstBlobIndex returns the index of the first blob of this batch.
-func (m *TaikoDataBlockMetadataPacaya) GetFirstBlobIndex() uint8 {
-	return m.FirstBlobIndex
-}
-
-// GetNumBlobs returns the number of the used blobs.
-func (m *TaikoDataBlockMetadataPacaya) GetNumBlobs() uint8 {
-	return m.NumBlobs
+	return m.BlobByteSize
 }
 
 // GetAnchorBlockID returns the anchor block ID.

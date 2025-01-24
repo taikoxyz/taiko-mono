@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"

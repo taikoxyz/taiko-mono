@@ -58,15 +58,13 @@ type TaikoBatchMetaDataPacaya interface {
 	GetBatchID() *big.Int
 	GetGasLimit() uint32
 	GetLastBlockTimestamp() uint64
-	GetParentMetaHash() common.Hash
 	GetProposer() common.Address
-	GetLivenessBond() *big.Int
 	GetProposedAt() uint64
 	GetProposedIn() uint64
 	GetTxListOffset() uint32
 	GetTxListSize() uint32
-	GetFirstBlobIndex() uint8
-	GetNumBlobs() uint8
+	GetLastBlockID() uint64
+	GetBlobHashes() []common.Hash
 	GetAnchorBlockID() uint64
 	GetAnchorBlockHash() common.Hash
 	GetSignalSlots() [][32]byte

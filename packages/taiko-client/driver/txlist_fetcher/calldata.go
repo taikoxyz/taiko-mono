@@ -61,7 +61,7 @@ func (d *CalldataFetcher) FetchPacaya(
 	tx *types.Transaction,
 	meta metadata.TaikoBatchMetaDataPacaya,
 ) ([]byte, error) {
-	if meta.GetNumBlobs() != 0 {
+	if len(meta.GetBlobHashes()) != 0 {
 		return nil, pkg.ErrBlobUsed
 	}
 
@@ -77,7 +77,7 @@ func (d *CalldataFetcher) FetchPacaya(
 		if iter.Event.Meta.BatchId != meta.GetBatchID().Uint64() {
 			continue
 		}
-		return sliceTxList(meta.GetBatchID(), iter.Event.TxListInCalldata, meta.GetTxListOffset(), meta.GetTxListSize())
+		return sliceTxList(meta.GetBatchID(), iter.Event.TxList, meta.GetTxListOffset(), meta.GetTxListSize())
 	}
 
 	if iter.Error() != nil {

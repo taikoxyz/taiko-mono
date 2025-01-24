@@ -91,7 +91,7 @@ func (d *BlobFetcher) FetchPacaya(
 	tx *types.Transaction,
 	meta metadata.TaikoBatchMetaDataPacaya,
 ) ([]byte, error) {
-	if meta.GetNumBlobs() == 0 {
+	if len(meta.GetBlobHashes()) == 0 {
 		return nil, pkg.ErrBlobUnused
 	}
 
@@ -100,7 +100,7 @@ func (d *BlobFetcher) FetchPacaya(
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
 		meta.GetProposedAt(),
-		tx.BlobHashes()[meta.GetFirstBlobIndex()],
+		meta.GetBlobHashes()[0],
 	)
 	if err != nil {
 		return nil, err
@@ -112,18 +112,18 @@ func (d *BlobFetcher) FetchPacaya(
 		"sidecars", len(sidecars),
 	)
 
-	for i := range meta.GetNumBlobs() {
+	for _, blobHash := range meta.GetBlobHashes() {
 		// Compare the blob hash with the sidecar's kzg commitment.
 		for j, sidecar := range sidecars {
 			log.Debug(
 				"Block sidecar",
 				"index", j,
 				"KzgCommitment", sidecar.KzgCommitment,
-				"blobHash", tx.BlobHashes()[i],
+				"blobHash", blobHash,
 			)
 
 			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == tx.BlobHashes()[i] {
+			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
 				blob := eth.Blob(common.FromHex(sidecar.Blob))
 				bytes, err := blob.ToData()
 				if err != nil {

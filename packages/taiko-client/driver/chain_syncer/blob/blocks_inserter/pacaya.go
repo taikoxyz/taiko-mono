@@ -72,7 +72,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
-	if meta.GetNumBlobs() != 0 {
+	if len(meta.GetBlobHashes()) != 0 {
 		txListFetcher = txlistFetcher.NewBlobTxListFetcher(i.rpc.L1Beacon, i.blobDatasource)
 	} else {
 		txListFetcher = txlistFetcher.NewCalldataFetch(i.rpc)
@@ -86,7 +86,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		allTxs = i.txListDecompressor.TryDecompress(
 			i.rpc.L2.ChainID,
 			txListBytes,
-			meta.GetNumBlobs() != 0,
+			len(meta.GetBlobHashes()) != 0,
 			true,
 		)
 		parent          *types.Header
