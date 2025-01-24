@@ -78,12 +78,14 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         returns (ForcedInclusion memory inclusion_)
     {
         // we only need to check the first one, since it will be the oldest.
-        ForcedInclusion storage inclusion = queue[head];
+        uint64 _head = head;
+        ForcedInclusion storage inclusion = queue[_head];
 
         if (inclusion.createdAt != 0 && block.timestamp >= inclusionDelay + inclusion.createdAt) {
             inclusion_ = inclusion;
             _feeRecipient.sendEtherAndVerify(inclusion.fee);
-            head++;
+            delete queue[_head];
+            head = _head + 1;
             emit ForcedInclusionConsumed(inclusion);
         }
     }
