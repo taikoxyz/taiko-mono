@@ -39,9 +39,13 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     function getRequiredPriorityFee() public view returns (uint256) {
-      return basePriorityFee;
+        uint256 queueLength = tail - head;
+        if (queueLength == 0) {
+            return basePriorityFee;
+        }
+
+        return (2 ** queueLength).max(4096) * basePriorityFee;
     }
-    
     function storeForcedInclusion(bytes32 blobHash, uint32 blobByteOffset, uint32 blobByteSize) payable external {
         uint256 requiredPriorityFee = getRequiredPriorityFee();
         require(msg.value == requiredPriorityFee, ForcedInclusionInsufficientPriorityFee());
