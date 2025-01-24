@@ -147,10 +147,12 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 
 	if encodedParams, err = encoding.EncodeBatchParams(&encoding.BatchParams{
 		Coinbase:                 b.l2SuggestedFeeRecipient,
-		TxListOffset:             0,
-		TxListSize:               uint32(len(txListsBytes)),
 		RevertIfNotFirstProposal: b.revertProtectionEnabled,
-		Blocks:                   blockParams,
+		BlobParams: encoding.BlobParams{
+			ByteOffset: 0,
+			ByteSize:   uint32(len(txListsBytes)),
+		},
+		Blocks: blockParams,
 	}); err != nil {
 		return nil, err
 	}

@@ -207,28 +207,38 @@ var (
 			Type: "uint64",
 		},
 		{
-			Name: "txListOffset",
-			Type: "uint32",
-		},
-		{
-			Name: "txListSize",
-			Type: "uint32",
-		},
-		{
-			Name: "firstBlobIndex",
-			Type: "uint8",
-		},
-		{
-			Name: "numBlobs",
-			Type: "uint8",
-		},
-		{
 			Name: "revertIfNotFirstProposal",
 			Type: "bool",
 		},
 		{
 			Name: "signalSlots",
 			Type: "bytes32[]",
+		},
+		{
+			Name: "blobParams",
+			Type: "tuple",
+			Components: []abi.ArgumentMarshaling{
+				{
+					Name: "blobHashes",
+					Type: "bytes32[]",
+				},
+				{
+					Name: "firstBlobIndex",
+					Type: "uint8",
+				},
+				{
+					Name: "numBlobs",
+					Type: "uint8",
+				},
+				{
+					Name: "byteOffset",
+					Type: "uint32",
+				},
+				{
+					Name: "byteSize",
+					Type: "uint32",
+				},
+			},
 		},
 		{
 			Name: "blocks",

@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // Tier IDs defined in protocol.
@@ -51,6 +51,15 @@ type BlockParamsV2 struct {
 	BlobIndex        uint8
 }
 
+// BlobParams should be same with ITaikoInbox.BlobParams.
+type BlobParams struct {
+	BlobHashes     [][32]byte
+	FirstBlobIndex uint8
+	NumBlobs       uint8
+	ByteOffset     uint32
+	ByteSize       uint32
+}
+
 // BatchParams should be same with ITaikoInbox.BatchParams.
 type BatchParams struct {
 	Proposer                 common.Address
@@ -59,13 +68,10 @@ type BatchParams struct {
 	AnchorBlockId            uint64
 	AnchorInput              [32]byte
 	LastBlockTimestamp       uint64
-	TxListOffset             uint32
-	TxListSize               uint32
-	FirstBlobIndex           uint8
-	NumBlobs                 uint8
 	RevertIfNotFirstProposal bool
 	SignalSlots              [][32]byte
-	Blocks                   []pacaya.ITaikoInboxBlockParams
+	BlobParams               BlobParams
+	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
 }
 
 // SubProof should be same with ComposeVerifier.SubProof.
