@@ -6,6 +6,7 @@ import "./ForkRouter.sol";
 /// @title IOntakeFork
 /// @dev Derived from TaikoL1.sol in the Taiko Ontake fork
 /// https://github.com/taikoxyz/taiko-mono/releases/tag/protocol-v1.11.0
+/// @custom:security-contact security@taiko.xyz
 interface IOntakeFork {
     function proposeBlockV2(bytes calldata, bytes calldata) external;
     function proposeBlocksV2(bytes[] calldata, bytes[] calldata) external;
@@ -22,8 +23,8 @@ interface IOntakeFork {
 }
 
 /// @title PacayaForkRouter
-/// @custom:security-contact security@taiko.xyz
 /// @notice This contract routes calls to the current fork.
+/// @custom:security-contact security@taiko.xyz
 contract PacayaForkRouter is ForkRouter {
     constructor(address _oldFork, address _newFork) ForkRouter(_oldFork, _newFork) { }
 
