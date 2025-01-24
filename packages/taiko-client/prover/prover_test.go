@@ -218,10 +218,7 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
-	batch, err := s.p.rpc.GetBatchByID(context.Background(), m.TaikoBatchMetaDataPacaya().GetBatchID())
-	s.Nil(err)
-
-	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId))
+	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(m.Pacaya().GetLastBlockID()))
 	s.Nil(err)
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
@@ -269,7 +266,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	status, err := rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		m.Ontake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)
@@ -281,13 +278,13 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(
-		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
+		m.Ontake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
 	)
 
 	status, err = rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		m.Ontake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)
@@ -306,7 +303,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	status, err = rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		m.Ontake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)
@@ -320,13 +317,13 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	proofWithHeader := <-s.p.proofGenerationCh
 	proofWithHeader.Opts.OntakeOptions().BlockHash = testutils.RandomHash()
 	s.Nil(s.p.selectSubmitter(
-		m.TaikoBlockMetaDataOntake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
+		m.Ontake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
 	)
 
 	status, err = rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
-		m.TaikoBlockMetaDataOntake().GetBlockID(),
+		m.Ontake().GetBlockID(),
 		s.p.ProverAddress(),
 		rpc.ZeroAddress,
 	)

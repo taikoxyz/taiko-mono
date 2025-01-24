@@ -45,7 +45,7 @@ func (o *OptimisticProofProducer) Aggregate(
 	}
 	blockIDs := make([]*big.Int, len(items))
 	for i, item := range items {
-		blockIDs[i] = item.Meta.TaikoBlockMetaDataOntake().GetBlockID()
+		blockIDs[i] = item.Meta.Ontake().GetBlockID()
 	}
 	batchProof, err := o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
 	if err != nil {

@@ -57,27 +57,27 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	if meta.IsPacaya() {
 		log.Info(
 			"Proof assignment window is expired",
-			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"batchID", meta.Pacaya().GetBatchID(),
 			"assignedProver", meta.GetProposer(),
 		)
 		if proofStatus, err = rpc.GetBatchProofStatus(
 			ctx,
 			h.rpc,
-			meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			meta.Pacaya().GetBatchID(),
 		); err != nil {
 			return err
 		}
 	} else {
 		log.Info(
 			"Proof assignment window is expired",
-			"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-			"assignedProver", meta.TaikoBlockMetaDataOntake().GetAssignedProver(),
-			"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
+			"blockID", meta.Ontake().GetBlockID(),
+			"assignedProver", meta.Ontake().GetAssignedProver(),
+			"minTier", meta.Ontake().GetMinTier(),
 		)
 		if proofStatus, err = rpc.GetBlockProofStatus(
 			ctx,
 			h.rpc,
-			meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			meta.Ontake().GetBlockID(),
 			h.proverAddress,
 			h.proverSetAddress,
 		); err != nil {
@@ -88,7 +88,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	if !proofStatus.IsSubmitted {
 		reqBody := &proofProducer.ProofRequestBody{Meta: meta}
 		if !meta.IsPacaya() {
-			reqBody.Tier = meta.TaikoBlockMetaDataOntake().GetMinTier()
+			reqBody.Tier = meta.Ontake().GetMinTier()
 		}
 		go func() { h.proofSubmissionCh <- reqBody }()
 		return nil
@@ -103,8 +103,8 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	go func() {
 		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress && !h.isGuardian {
 			h.proofContestCh <- &proofProducer.ContestRequestBody{
-				BlockID:    meta.TaikoBlockMetaDataOntake().GetBlockID(),
-				ProposedIn: meta.TaikoBlockMetaDataOntake().GetRawBlockHeight(),
+				BlockID:    meta.Ontake().GetBlockID(),
+				ProposedIn: meta.Ontake().GetRawBlockHeight(),
 				ParentHash: proofStatus.ParentHeader.Hash(),
 				Meta:       meta,
 				Tier:       proofStatus.CurrentTransitionState.Tier,

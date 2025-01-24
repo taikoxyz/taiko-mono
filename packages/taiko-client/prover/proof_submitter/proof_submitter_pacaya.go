@@ -75,24 +75,21 @@ func NewProofSubmitterPacaya(
 
 // RequestProof requests proof for the given Taiko batch after Pacaya fork.
 func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
-	var (
-		headers []*types.Header
-		err     error
-	)
-
-	batch, err := s.rpc.GetBatchByID(ctx, meta.TaikoBatchMetaDataPacaya().GetBatchID())
-	if err != nil {
-		return err
-	}
-	for i := 0; i < len(meta.TaikoBatchMetaDataPacaya().GetBlocks()); i++ {
+	var headers []*types.Header
+	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
 		header, err := s.rpc.WaitL2Header(
 			ctx,
-			new(big.Int).SetUint64(batch.LastBlockId-uint64(len(meta.TaikoBatchMetaDataPacaya().GetBlocks()))+uint64(i)+1),
+			new(big.Int).SetUint64(
+				meta.Pacaya().GetLastBlockID()-
+					uint64(len(meta.Pacaya().GetBlocks()))+
+					uint64(i)+
+					1,
+			),
 		)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to fetch l2 Header, blockID: %d, error: %w",
-				batch.LastBlockId,
+				meta.Pacaya().GetLastBlockID(),
 				err,
 			)
 		}
@@ -106,10 +103,9 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 
 	// Request proof.
 	opts := &proofProducer.ProofRequestOptionsPacaya{
-		BatchID:            meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+		BatchID:            meta.Pacaya().GetBatchID(),
 		ProverAddress:      s.proverAddress,
 		ProposeBlockTxHash: meta.GetTxHash(),
-		MetaHash:           batch.MetaHash,
 		EventL1Hash:        meta.GetRawBlockHash(),
 		Headers:            headers,
 	}
@@ -131,7 +127,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			proofStatus, err := rpc.GetBatchProofStatus(
 				ctx,
 				s.rpc,
-				new(big.Int).SetUint64(batch.BatchId),
+				meta.Pacaya().GetBatchID(),
 			)
 			if err != nil {
 				return err
@@ -143,20 +139,23 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			result, err := s.proofProducer.RequestProof(
 				ctx,
 				opts,
-				new(big.Int).SetUint64(batch.BatchId),
+				meta.Pacaya().GetBatchID(),
 				meta,
 				startTime,
 			)
 			if err != nil {
 				// If request proof has timed out in retry, let's cancel the proof generating and skip
 				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
-					log.Error("Request proof has timed out, start to cancel", "batchID", batch.BatchId)
+					log.Error(
+						"Request proof has timed out, start to cancel",
+						"batchID", meta.Pacaya().GetBatchID(),
+					)
 					if cancelErr := s.proofProducer.RequestCancel(ctx, opts); cancelErr != nil {
 						log.Error("Failed to request cancellation of proof", "err", cancelErr)
 					}
 					return nil
 				}
-				return fmt.Errorf("failed to request proof (id: %d): %w", batch.BatchId, err)
+				return fmt.Errorf("failed to request proof (id: %d): %w", meta.Pacaya().GetBatchID(), err)
 			}
 
 			s.resultCh <- result
@@ -165,7 +164,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		},
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
 	); err != nil {
-		log.Error("Request proof error", "batchID", batch.BatchId, "error", err)
+		log.Error("Request proof error", "batchID", meta.Pacaya().GetBatchID(), "error", err)
 		return err
 	}
 
@@ -179,15 +178,15 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 ) (err error) {
 	log.Info(
 		"Submit batch proof",
-		"batchID", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-		"coinbase", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetCoinbase(),
+		"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
+		"coinbase", proofResponse.Meta.Pacaya().GetCoinbase(),
 		"proof", common.Bytes2Hex(proofResponse.Proof),
 	)
 	// Check if we still need to generate a new proof for that block.
 	proofStatus, err := rpc.GetBatchProofStatus(
 		ctx,
 		s.rpc,
-		proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+		proofResponse.Meta.Pacaya().GetBatchID(),
 	)
 	if err != nil {
 		return err

@@ -97,16 +97,15 @@ func NewProofSubmitterOntake(
 // RequestProof implements the Submitter interface.
 func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
-		metaHash common.Hash
-		header   *types.Header
-		parent   *types.Header
-		err      error
+		header *types.Header
+		parent *types.Header
+		err    error
 	)
 
-	if header, err = s.rpc.WaitL2Header(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID()); err != nil {
+	if header, err = s.rpc.WaitL2Header(ctx, meta.Ontake().GetBlockID()); err != nil {
 		return fmt.Errorf(
 			"failed to fetch l2 Header, blockID: %d, error: %w",
-			meta.TaikoBlockMetaDataOntake().GetBlockID(),
+			meta.Ontake().GetBlockID(),
 			err,
 		)
 	}
@@ -119,18 +118,11 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
 	}
 
-	blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, meta.TaikoBlockMetaDataOntake().GetBlockID())
-	if err != nil {
-		return err
-	}
-	metaHash = blockInfo.MetaHash
-
 	// Request proof.
 	opts := &proofProducer.ProofRequestOptionsOntake{
 		BlockID:            header.Number,
 		ProverAddress:      s.proverAddress,
 		ProposeBlockTxHash: meta.GetTxHash(),
-		MetaHash:           metaHash,
 		BlockHash:          header.Hash(),
 		ParentHash:         header.ParentHash,
 		StateRoot:          header.Root,
@@ -158,8 +150,8 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 			if s.proofBuffer.Enabled() && uint64(s.proofBuffer.Len()) >= s.proofBuffer.MaxLength {
 				log.Warn(
 					"Proof buffer is full now",
-					"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-					"tier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
+					"blockID", meta.Ontake().GetBlockID(),
+					"tier", meta.Ontake().GetMinTier(),
 					"size", s.proofBuffer.Len(),
 				)
 				return errBufferOverflow
@@ -182,7 +174,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 			result, err := s.proofProducer.RequestProof(
 				ctx,
 				opts,
-				meta.TaikoBlockMetaDataOntake().GetBlockID(),
+				meta.Ontake().GetBlockID(),
 				meta,
 				startTime,
 			)
@@ -195,21 +187,21 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					}
 					return nil
 				}
-				return fmt.Errorf("failed to request proof (id: %d): %w", meta.TaikoBlockMetaDataOntake().GetBlockID(), err)
+				return fmt.Errorf("failed to request proof (id: %d): %w", meta.Ontake().GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
 					return fmt.Errorf(
 						"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
-						meta.TaikoBlockMetaDataOntake().GetBlockID(),
+						meta.Ontake().GetBlockID(),
 						bufferSize,
 						err,
 					)
 				}
 				log.Info(
 					"Proof generated",
-					"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+					"blockID", meta.Ontake().GetBlockID(),
 					"bufferSize", bufferSize,
 					"maxBufferSize", s.proofBuffer.MaxLength,
 					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
@@ -245,7 +237,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	log.Info(
 		"Submit block proof",
 		"blockID", proofResponse.BlockID,
-		"coinbase", proofResponse.Meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		"coinbase", proofResponse.Meta.Ontake().GetCoinbase(),
 		"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
 		"proof", common.Bytes2Hex(proofResponse.Proof),
 		"tier", proofResponse.Tier,
@@ -257,7 +249,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	if proofStatus, err = rpc.GetBlockProofStatus(
 		ctx,
 		s.rpc,
-		proofResponse.Meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		proofResponse.Meta.Ontake().GetBlockID(),
 		s.proverAddress,
 		s.proverSetAddress,
 	); err != nil {

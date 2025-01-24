@@ -228,7 +228,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				BlockHash:  proof.Opts.PacayaOptions().Headers[i].Hash(),
 				StateRoot:  proof.Opts.PacayaOptions().Headers[i].Root,
 			}
-			batchIDs[i] = proof.Meta.TaikoBatchMetaDataPacaya().GetBatchID().Uint64()
+			batchIDs[i] = proof.Meta.Pacaya().GetBatchID().Uint64()
 			subProofs[i] = encoding.SubProof{
 				Verifier: opVerifier,
 				Proof:    batchProof.BatchProof,

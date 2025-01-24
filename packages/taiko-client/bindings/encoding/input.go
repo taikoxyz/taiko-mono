@@ -617,7 +617,7 @@ func EncodeProveBlocksInput(
 	b := make([][]byte, 0, len(metas))
 	for i := range metas {
 		input, err := proveBlocksInputArgs.Pack(
-			metas[i].TaikoBlockMetaDataOntake().InnerMetadata(),
+			metas[i].Ontake().InnerMetadata(),
 			transitions[i],
 		)
 		if err != nil {
@@ -640,7 +640,7 @@ func EncodeProveBatchesInput(
 	}
 	pacayaMetas := make([]pacayaBindings.ITaikoInboxBatchMetadata, 0)
 	for i := range metas {
-		pacayaMetas = append(pacayaMetas, *metas[i].TaikoBatchMetaDataPacaya().InnerMetadata())
+		pacayaMetas = append(pacayaMetas, *metas[i].Pacaya().InnerMetadata())
 	}
 	input, err := proveBatchesInputArgs.Pack(
 		pacayaMetas,

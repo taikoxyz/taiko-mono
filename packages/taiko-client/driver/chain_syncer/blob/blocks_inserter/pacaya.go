@@ -64,11 +64,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	meta := metadata.TaikoBatchMetaDataPacaya()
-	batch, err := i.rpc.GetBatchByID(ctx, meta.GetBatchID())
-	if err != nil {
-		return fmt.Errorf("failed to fetch batch: %w", err)
-	}
+	meta := metadata.Pacaya()
 
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
@@ -99,7 +95,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
 		if i.progressTracker.Triggered() {
 			// Already synced through beacon sync, just skip this event.
-			if new(big.Int).SetUint64(batch.LastBlockId).Cmp(i.progressTracker.LastSyncedBlockID()) <= 0 {
+			if new(big.Int).SetUint64(meta.GetLastBlockID()).Cmp(i.progressTracker.LastSyncedBlockID()) <= 0 {
 				return nil
 			}
 
@@ -107,12 +103,12 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		} else {
 			var parentNumber *big.Int
 			if lastPayloadData == nil {
-				if batch.BatchId == i.rpc.PacayaClients.ForkHeight {
-					parentNumber = new(big.Int).SetUint64(batch.BatchId - 1)
+				if meta.GetBatchID().Uint64() == i.rpc.PacayaClients.ForkHeight {
+					parentNumber = new(big.Int).SetUint64(meta.GetBatchID().Uint64() - 1)
 				} else {
-					lastBatch, err := i.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batch.BatchId-1))
+					lastBatch, err := i.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(meta.GetBatchID().Uint64()-1))
 					if err != nil {
-						return fmt.Errorf("failed to fetch last batch (%d): %w", batch.BatchId-1, err)
+						return fmt.Errorf("failed to fetch last batch (%d): %w", meta.GetBatchID().Uint64()-1, err)
 					}
 					parentNumber = new(big.Int).SetUint64(lastBatch.LastBlockId)
 				}

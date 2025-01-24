@@ -11,8 +11,8 @@ import (
 
 // TaikoProposalMetaData defines all the metadata of a Taiko block.
 type TaikoProposalMetaData interface {
-	TaikoBlockMetaDataOntake() TaikoBlockMetaDataOntake
-	TaikoBatchMetaDataPacaya() TaikoBatchMetaDataPacaya
+	Ontake() TaikoBlockMetaDataOntake
+	Pacaya() TaikoBatchMetaDataPacaya
 	IsPacaya() bool
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash

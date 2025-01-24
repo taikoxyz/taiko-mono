@@ -427,7 +427,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 			log.Error(
 				"Proof contest submission reverted",
 				"blockID", req.BlockID,
-				"minTier", req.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
+				"minTier", req.Meta.Ontake().GetMinTier(),
 				"error", err,
 			)
 			return nil
@@ -435,7 +435,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 		log.Error(
 			"Request new proof contest error",
 			"blockID", req.BlockID,
-			"minTier", req.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
+			"minTier", req.Meta.Ontake().GetMinTier(),
 			"error", err,
 		)
 		return err
@@ -450,7 +450,7 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 		if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
 			log.Error(
 				"Request new batch proof error",
-				"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+				"batchID", meta.Pacaya().GetBatchID(),
 				"error", err,
 			)
 			return err
@@ -469,8 +469,8 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 		if err := submitter.RequestProof(p.ctx, meta); err != nil {
 			log.Error(
 				"Request new proof error",
-				"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-				"minTier", meta.TaikoBlockMetaDataOntake().GetMinTier(),
+				"blockID", meta.Ontake().GetBlockID(),
+				"minTier", meta.Ontake().GetMinTier(),
 				"error", err,
 			)
 			return err
@@ -481,7 +481,7 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 
 	log.Error(
 		"Failed to find proof submitter",
-		"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
+		"blockID", meta.Ontake().GetBlockID(),
 		"minTier", minTier,
 	)
 	return nil
@@ -499,7 +499,7 @@ func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error
 			log.Error(
 				"Proof submission reverted",
 				"blockID", proofResponse.BlockID,
-				"minTier", proofResponse.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
+				"minTier", proofResponse.Meta.Ontake().GetMinTier(),
 				"error", err,
 			)
 			return nil
@@ -507,7 +507,7 @@ func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error
 		log.Error(
 			"Submit proof error",
 			"blockID", proofResponse.BlockID,
-			"minTier", proofResponse.Meta.TaikoBlockMetaDataOntake().GetMinTier(),
+			"minTier", proofResponse.Meta.Ontake().GetMinTier(),
 			"error", err,
 		)
 		return err

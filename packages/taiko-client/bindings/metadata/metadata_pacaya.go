@@ -29,13 +29,13 @@ func NewTaikoDataBlockMetadataPacaya(e *pacayaBindings.TaikoInboxClientBatchProp
 	}
 }
 
-// TaikoBlockMetaDataOntake implemnts TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataPacaya) TaikoBlockMetaDataOntake() TaikoBlockMetaDataOntake {
+// Ontake implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) Ontake() TaikoBlockMetaDataOntake {
 	return nil
 }
 
-// TaikoBatchMetaDataPacaya implemnts TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataPacaya) TaikoBatchMetaDataPacaya() TaikoBatchMetaDataPacaya {
+// Pacaya implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) Pacaya() TaikoBatchMetaDataPacaya {
 	return m
 }
 

@@ -44,7 +44,7 @@ func (g *GuardianProofProducer) RequestProof(
 	log.Info(
 		"Request guardian proof",
 		"blockID", blockID,
-		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		"coinbase", meta.Ontake().GetCoinbase(),
 	)
 
 	if g.returnLivenessBond {

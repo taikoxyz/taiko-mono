@@ -60,7 +60,7 @@ func (i *BlocksInserterOntake) InsertBlocks(
 	// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 	// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
 	var (
-		meta   = metadata.TaikoBlockMetaDataOntake()
+		meta   = metadata.Ontake()
 		parent *types.Header
 		err    error
 	)

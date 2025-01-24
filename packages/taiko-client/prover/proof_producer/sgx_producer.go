@@ -101,7 +101,7 @@ func (s *SGXProofProducer) RequestProof(
 	log.Info(
 		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
-		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		"coinbase", meta.Ontake().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
 
@@ -144,7 +144,7 @@ func (s *SGXProofProducer) Aggregate(
 
 	blockIDs := make([]*big.Int, len(items))
 	for i, item := range items {
-		blockIDs[i] = item.Meta.TaikoBlockMetaDataOntake().GetBlockID()
+		blockIDs[i] = item.Meta.Ontake().GetBlockID()
 	}
 	batchProof, err := s.requestBatchProof(
 		ctx,

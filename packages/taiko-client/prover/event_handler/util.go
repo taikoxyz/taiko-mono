@@ -88,7 +88,7 @@ func getMetadataFromBlockIDOntake(
 		_ eventIterator.EndBlockProposedEventIterFunc,
 	) error {
 		// Only filter for exact blockID we want.
-		if meta.TaikoBlockMetaDataOntake().GetBlockID().Cmp(id) != 0 {
+		if meta.Ontake().GetBlockID().Cmp(id) != 0 {
 			return nil
 		}
 
@@ -142,15 +142,15 @@ func IsProvingWindowExpired(
 		if provingWindow, err = protocolConfigs.ProvingWindow(); err != nil {
 			return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya proving window: %w", err)
 		}
-		timestamp = metadata.TaikoBatchMetaDataPacaya().GetProposedAt()
+		timestamp = metadata.Pacaya().GetProposedAt()
 	} else {
 		if provingWindow, err = getProvingWindowOntake(
-			metadata.TaikoBlockMetaDataOntake().GetMinTier(),
+			metadata.Ontake().GetMinTier(),
 			tiers,
 		); err != nil {
 			return false, time.Time{}, 0, fmt.Errorf("failed to get Ontake proving window: %w", err)
 		}
-		timestamp = metadata.TaikoBlockMetaDataOntake().GetTimestamp()
+		timestamp = metadata.Ontake().GetTimestamp()
 	}
 
 	var (

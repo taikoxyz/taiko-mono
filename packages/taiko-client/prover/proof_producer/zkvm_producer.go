@@ -77,7 +77,7 @@ func (s *ZKvmProofProducer) RequestProof(
 	log.Info(
 		"Request zk proof from raiko-host service",
 		"blockID", blockID,
-		"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+		"coinbase", meta.Ontake().GetCoinbase(),
 		"zkType", s.ZKProofType,
 		"time", time.Since(requestAt),
 	)
@@ -134,7 +134,7 @@ func (s *ZKvmProofProducer) Aggregate(
 
 	blockIDs := make([]*big.Int, len(items))
 	for i, item := range items {
-		blockIDs[i] = item.Meta.TaikoBlockMetaDataOntake().GetBlockID()
+		blockIDs[i] = item.Meta.Ontake().GetBlockID()
 	}
 	batchProof, err := s.requestBatchProof(
 		ctx,

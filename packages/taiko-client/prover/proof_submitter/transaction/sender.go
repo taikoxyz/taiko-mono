@@ -56,7 +56,7 @@ func (s *Sender) Send(
 		if proofStatus, err = rpc.GetBatchProofStatus(
 			ctx,
 			s.rpc,
-			proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			proofResponse.Meta.Pacaya().GetBatchID(),
 		); err != nil {
 			return err
 		}
@@ -114,8 +114,8 @@ func (s *Sender) Send(
 	if proofResponse.Meta.IsPacaya() {
 		log.Info(
 			"💰 Your batch proof was accepted",
-			"batchID", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
-			"blocks", len(proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBlocks()),
+			"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
+			"blocks", len(proofResponse.Meta.Pacaya().GetBlocks()),
 		)
 	} else {
 		log.Info(
@@ -225,10 +225,10 @@ func (s *Sender) ValidateProof(
 	}
 
 	if proofResponse.Meta.IsPacaya() {
-		if verifiedID.Cmp(proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID()) >= 0 {
+		if verifiedID.Cmp(proofResponse.Meta.Pacaya().GetBatchID()) >= 0 {
 			log.Info(
 				"Batch is already verified, skip current proof submission",
-				"batchID", proofResponse.Meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+				"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
 				"latestVerifiedID", latestVerifiedID,
 			)
 			return false, nil

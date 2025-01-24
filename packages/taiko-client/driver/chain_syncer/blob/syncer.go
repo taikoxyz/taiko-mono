@@ -178,15 +178,11 @@ func (s *Syncer) onBlockProposed(
 		timestamp   uint64
 	)
 	if meta.IsPacaya() {
-		batch, err := s.rpc.GetBatchByID(ctx, meta.TaikoBatchMetaDataPacaya().GetBatchID())
-		if err != nil {
-			return fmt.Errorf("failed to fetch batch: %w", err)
-		}
-		lastBlockID = new(big.Int).SetUint64(batch.LastBlockId)
-		timestamp = batch.LastBlockTimestamp
+		lastBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
+		timestamp = meta.Pacaya().GetLastBlockTimestamp()
 	} else {
-		lastBlockID = meta.TaikoBlockMetaDataOntake().GetBlockID()
-		timestamp = meta.TaikoBlockMetaDataOntake().GetTimestamp()
+		lastBlockID = meta.Ontake().GetBlockID()
+		timestamp = meta.Ontake().GetTimestamp()
 	}
 
 	// We simply ignore the genesis block's `BlockProposedV2` / `BatchesProposed` event.
@@ -258,9 +254,9 @@ func (s *Syncer) onBlockProposed(
 			"New BatchProposed event",
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
-			"batchID", meta.TaikoBatchMetaDataPacaya().GetBatchID(),
+			"batchID", meta.Pacaya().GetBatchID(),
 			"lastBlockID", lastBlockID,
-			"blocks", len(meta.TaikoBatchMetaDataPacaya().GetBlocks()),
+			"blocks", len(meta.Pacaya().GetBlocks()),
 		)
 		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx, endIter); err != nil {
 			return err
@@ -270,8 +266,8 @@ func (s *Syncer) onBlockProposed(
 			"New BatchProposed event",
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
-			"blockID", meta.TaikoBlockMetaDataOntake().GetBlockID(),
-			"coinbase", meta.TaikoBlockMetaDataOntake().GetCoinbase(),
+			"blockID", meta.Ontake().GetBlockID(),
+			"coinbase", meta.Ontake().GetCoinbase(),
 		)
 		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx, endIter); err != nil {
 			return err
