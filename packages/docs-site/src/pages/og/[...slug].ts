@@ -13,7 +13,7 @@ export const { getStaticPaths, GET } = OGImageRoute({
       title: page.data.title,
       description: page.data.description ?? "",
       logo: {
-        path: "./src/assets/taiko-og-logo.svg",
+        path: "./src/assets/taiko-og-logo.png",
       },
       bgGradient: [
         [15, 2, 15],
