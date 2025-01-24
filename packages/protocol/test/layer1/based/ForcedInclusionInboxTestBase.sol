@@ -12,7 +12,6 @@ abstract contract ForcedInclusionInboxTestBase is InboxTestBase {
     IForcedInclusionStore internal forcedInclusionStore;
     address owner;
 
-
     function setUpOnEthereum() internal virtual override {
         owner = Alice;
 

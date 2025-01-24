@@ -5,7 +5,7 @@ import "contracts/layer1/based/IForcedInclusionInbox.sol";
 import "./ForcedInclusionInboxTestBase.sol";
 
 contract ForcedInclusionInboxTest is ForcedInclusionInboxTestBase {
-      function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
@@ -28,8 +28,8 @@ contract ForcedInclusionInboxTest is ForcedInclusionInboxTestBase {
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
-      }
-      
+    }
+
     function setUpOnEthereum() internal override {
         super.setUpOnEthereum();
         bondToken = deployBondToken();
