@@ -314,6 +314,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             _verifyBatches(config, stats2, metas.length);
         }
     }
+    
+    /// @notice Verify batches by providing the length of the batches to verify.
+    /// @dev This function is necessary to upgrade from this fork to the next one.
+    /// @param _length Specifis how many batches to verify. The max number of batches to verify is
+    /// `getPacayaConfig().maxBatchesToVerify * _length`.
+    function verifyBatches(uint64 _length) external nonZeroValue(_length) nonReentrant {
+        _verifyBatches(getPacayaConfig(), state.stats2, _length);
+    }
 
     /// @notice Manually write a transition for a batch.
     /// @dev This function is supposed to be used by the owner to force prove a transition for a
