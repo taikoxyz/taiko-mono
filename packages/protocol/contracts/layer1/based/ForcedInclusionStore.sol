@@ -17,7 +17,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;
     using LibMath for uint256;
 
-    uint256 constant SECONDS_PER_BLOCK = 12;
+    uint256 private constant SECONDS_PER_BLOCK = 12;
 
     uint256 public immutable inclusionDelay;
     uint256 public immutable fee;
