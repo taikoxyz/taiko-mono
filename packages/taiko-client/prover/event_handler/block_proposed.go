@@ -100,11 +100,11 @@ func (h *BlockProposedEventHandler) Handle(
 	// Wait for the corresponding L2 block being mined in node.
 	if _, err := h.rpc.WaitL2Header(
 		ctx,
-		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
+		meta.Ontake().GetBlockID(),
 	); err != nil {
 		return fmt.Errorf(
 			"failed to wait L2 header (eventID %d): %w",
-			meta.Pacaya().GetLastBlockID(),
+			meta.Ontake().GetBlockID().Uint64(),
 			err,
 		)
 	}
@@ -112,7 +112,7 @@ func (h *BlockProposedEventHandler) Handle(
 	// Check if the L1 chain has reorged at first.
 	if err := h.checkL1Reorg(
 		ctx,
-		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
+		meta.Ontake().GetBlockID(),
 		meta,
 	); err != nil {
 		if err.Error() == errL1Reorged.Error() {
@@ -124,7 +124,7 @@ func (h *BlockProposedEventHandler) Handle(
 	}
 
 	// If the current block is handled, just skip it.
-	if meta.Pacaya().GetLastBlockID() <= h.sharedState.GetLastHandledBlockID() {
+	if meta.Ontake().GetBlockID().Uint64() <= h.sharedState.GetLastHandledBlockID() {
 		return nil
 	}
 
@@ -140,7 +140,7 @@ func (h *BlockProposedEventHandler) Handle(
 		"blobUsed", meta.Ontake().GetBlobUsed(),
 	)
 
-	metrics.ProverReceivedProposedBlockGauge.Set(float64(meta.Pacaya().GetLastBlockID()))
+	metrics.ProverReceivedProposedBlockGauge.Set(float64(meta.Ontake().GetBlockID().Uint64()))
 
 	// Move l1Current cursor.
 	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.GetRawBlockHash())
@@ -148,7 +148,7 @@ func (h *BlockProposedEventHandler) Handle(
 		return err
 	}
 	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledBlockID(meta.Pacaya().GetLastBlockID())
+	h.sharedState.SetLastHandledBlockID(meta.Ontake().GetBlockID().Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
