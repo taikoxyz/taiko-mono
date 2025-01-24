@@ -15,9 +15,10 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint256 public basePriorityFee;
 
-    ForcedInclusion[] forcedInclusions;
+    uint64 public head;
+    uint64 public tail;
 
-    uint64 forcedInclusionId;
+    mapping(uint256 id => ForcedInclusion inclusion) public forcedInclusionQueue;
 
     uint256[44] private __gap;
 
@@ -45,43 +46,45 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         uint256 requiredPriorityFee = getRequiredPriorityFee();
         require(msg.value == requiredPriorityFee, ForcedInclusionInsufficientPriorityFee());
 
+        uint64 id = tail + 1;
         ForcedInclusion memory forcedInclusion = ForcedInclusion({
             blobHash: blobHash,
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize,
             timestamp: block.timestamp,
             priorityFee: msg.value,
-            id: ++forcedInclusionId
+            id: id,
+            processed: false
         });
 
-        forcedInclusions.push(forcedInclusion);
+        forcedInclusionQueue[tail] = forcedInclusion;
+
+        tail++;
 
         emit ForcedInclusionStored(forcedInclusion);
     }
 
      function consumeForcedInclusion() external override returns (ForcedInclusion memory) {
-        if (forcedInclusions.length == 0) {
-            revert ForcedInclusionHashNotFound();
-        }
+        address operator = resolve(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, false);
+        require(msg.sender == operator, NotTaikoForcedInclusionInbox());
 
+        ForcedInclusion memory forcedInclusion;
+        if (head == tail) {
+            return forcedInclusion;
+        }
+        
         // we only need to check the first one, since it will be the oldest.
-        ForcedInclusion storage inclusion = forcedInclusions[0];
-        if (inclusion.timestamp + inclusionWindow <= block.timestamp) {
-            ForcedInclusion memory consumedInclusion = inclusion;
-            forcedInclusions.pop();
+        ForcedInclusion storage inclusion = forcedInclusionQueue[head];
+        if (inclusion.timestamp + inclusionWindow < block.timestamp) {
+            inclusion.processed = true;
+            ForcedInclusion memory consumedInclusion = forcedInclusionQueue[head];
+            head++;
 
             emit ForcedInclusionConsumed(consumedInclusion);
             
             return consumedInclusion;
         }
 
-        
-        // non found, return empty forcedInclusion struct
-        ForcedInclusion memory forcedInclusion;
         return forcedInclusion;
-    }
-
-    function getForcedInclusions() external view returns (ForcedInclusion[] memory) {
-        return forcedInclusions;
-    }
+     }
 }

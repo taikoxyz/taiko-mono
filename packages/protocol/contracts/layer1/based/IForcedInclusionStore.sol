@@ -7,7 +7,7 @@ interface IForcedInclusionStore {
 
     error ForcedInclusionAlreadyIncluded();
     error ForcedInclusionAlreadyStored();
-    error ForcedInclusionHashNotFound();
+    error ForcedInclusionNotFound();
     error ForcedInclusionInsufficientPriorityFee();
     error NotTaikoForcedInclusionInbox();
 
@@ -23,6 +23,7 @@ interface IForcedInclusionStore {
         uint32 blobByteSize;
         uint256 priorityFee;
         uint256 timestamp;
+        bool processed;
     }
 
     /// @dev Consume a forced inclusion request.
@@ -33,7 +34,4 @@ interface IForcedInclusionStore {
     /// @dev Store a forced inclusion request.
     /// The priority fee must be paid to the contract.
     function storeForcedInclusion(bytes32 blobHash, uint32 blobByteOffset, uint32 blobByteSize) payable external;
-
-    /// @dev Get the pending forced inclusions.
-    function getForcedInclusions() external view returns (ForcedInclusion[] memory);
 }

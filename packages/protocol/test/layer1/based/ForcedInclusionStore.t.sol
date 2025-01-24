@@ -30,15 +30,24 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         vm.deal(Alice, requiredFee);
         store.storeForcedInclusion{value: requiredFee}(blobHash, blobByteOffset, blobByteSize);
 
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusion = store.getForcedInclusions();
+        (
+            bytes32 storedBlobHash,
+            uint64 storedId,
+            uint32 storedBlobByteOffset,
+            uint32 storedBlobByteSize,
+            uint256 storedPriorityFee,
+            uint256 storedTimestamp,
+            bool storedProcessed
+        ) = store.forcedInclusionQueue(store.head());
 
-        assertEq(forcedInclusion.length, 1);
-        assertEq(forcedInclusion[0].blobHash, blobHash);
-        assertEq(forcedInclusion[0].blobByteOffset, blobByteOffset);
-        assertEq(forcedInclusion[0].blobByteSize, blobByteSize);
-        assertEq(forcedInclusion[0].priorityFee, requiredFee);
-        assertEq(forcedInclusion[0].id, 1);
+        assertEq(storedBlobHash, blobHash);
+        assertEq(storedBlobByteOffset, blobByteOffset);
+        assertEq(storedBlobByteSize, blobByteSize);
+        assertEq(storedPriorityFee, requiredFee);
+        assertEq(storedId, 1);
+        assertEq(storedProcessed, false);
     }
+
 
     function test_storeForcedInclusion_insufficientFee() public {
         bytes32 blobHash = keccak256("test_blob");
@@ -52,9 +61,6 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         vm.deal(Alice, 1 ether);
         vm.expectRevert(IForcedInclusionStore.ForcedInclusionInsufficientPriorityFee.selector);
         store.storeForcedInclusion{value: requiredFee - 1}(blobHash, blobByteOffset, blobByteSize);
-
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusion = store.getForcedInclusions();
-        assertEq(forcedInclusion.length, 0);
     }
 
     function test_storeForcedInclusion_multipleEntries() public {
@@ -71,20 +77,22 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         requiredFee = store.getRequiredPriorityFee();
         store.storeForcedInclusion{value: requiredFee}(blobHash2, blobByteOffset, blobByteSize);
 
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusion = store.getForcedInclusions();
+        (
+            bytes32 blobHashB,
+            uint64 idB,
+            uint32 offsetB,
+            uint32 sizeB,
+            uint256 feeB,
+            uint256 timestampB,
+            bool processedB
+        ) = store.forcedInclusionQueue(store.head() + 1);
 
-        assertEq(forcedInclusion.length, 2);
-        assertEq(forcedInclusion[0].blobHash, blobHash1);
-        assertEq(forcedInclusion[0].blobByteOffset, blobByteOffset);
-        assertEq(forcedInclusion[0].blobByteSize, blobByteSize);
-        assertEq(forcedInclusion[0].priorityFee, requiredFee);
-        assertEq(forcedInclusion[0].id, 1);
-
-        assertEq(forcedInclusion[1].blobHash, blobHash2);
-        assertEq(forcedInclusion[1].blobByteOffset, blobByteOffset);
-        assertEq(forcedInclusion[1].blobByteSize, blobByteSize);
-        assertEq(forcedInclusion[1].priorityFee, requiredFee);
-        assertEq(forcedInclusion[1].id, 2);
+        assertEq(blobHashB, blobHash2);
+        assertEq(offsetB, blobByteOffset);
+        assertEq(sizeB, blobByteSize);
+        assertEq(feeB, requiredFee);
+        assertEq(idB, 2);
+        assertEq(processedB, false);
     }
 
     function test_consumeForcedInclusion_success() public {
@@ -97,19 +105,20 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         vm.deal(Alice, requiredFee);
         store.storeForcedInclusion{value: requiredFee}(blobHash, blobByteOffset, blobByteSize);
 
+        assertEq(store.head(), 0);
+        assertEq(store.tail(), 1);
+
         vm.warp(block.timestamp + inclusionWindow + 1);
 
         vm.prank(operator);
         IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeForcedInclusion();
 
+        assertEq(consumed.id, 1);
         assertEq(consumed.blobHash, blobHash);
         assertEq(consumed.blobByteOffset, blobByteOffset);
         assertEq(consumed.blobByteSize, blobByteSize);
         assertEq(consumed.priorityFee, requiredFee);
-
-        // Ensure the forcedInclusions array is empty after consumption
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusion = store.getForcedInclusions();
-        assertEq(forcedInclusion.length, 0);
+        assertEq(consumed.processed, true);
     }
 
     function test_consumeForcedInclusion_notOperator() public {
