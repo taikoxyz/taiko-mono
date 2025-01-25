@@ -172,10 +172,6 @@ func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
-	// TODO: Temporarily skip this test case when using l2_reth node.
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
@@ -198,10 +194,6 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
-	// TODO: Temporarily skip this test case when using l2_reth node.
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
