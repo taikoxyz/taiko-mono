@@ -365,6 +365,20 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Equal(common.Hash{}, l1Origin2.L1BlockHash)
 	s.True(l1Origin2.IsPreconfBlock())
 
+	// Remove one preconf block
+	res, err = resty.New().
+		R().
+		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{
+			NewLastBlockID: l2Head4.Number().Uint64() - 1,
+		}).
+		Delete(url.String() + "/preconfBlocks")
+	s.Nil(err)
+	s.True(res.IsSuccess())
+
+	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head3.Hash(), l2Head5.Hash())
+
 	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l2Head2.Number.Uint64(), canonicalL1Origin.BlockID.Uint64())
