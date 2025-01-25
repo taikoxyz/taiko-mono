@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +21,7 @@ import (
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -43,9 +46,9 @@ type Driver struct {
 	l1HeadSub event.Subscription
 
 	// P2P network for soft block propagation
-	// p2pNode   *p2p.NodeP2P
-	// p2pSigner p2p.Signer
-	// p2pSetup  p2p.SetupP2P
+	p2pNode   *p2p.NodeP2P
+	p2pSigner p2p.Signer
+	p2pSetup  p2p.SetupP2P
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -57,19 +60,7 @@ func (d *Driver) InitFromCli(ctx context.Context, c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// if !cfg.DisableP2P {
-	// 	rpc, err := rpc.NewClient(d.ctx, cfg.ClientConfig)
-	// 	if err != nil {
-	// 		return err
-	// 	}
 
-	// 	if d.p2pSetup, err = p2pCli.NewConfig(c, &rollup.Config{
-	// 		L1ChainID: rpc.L1.ChainID,
-	// 		L2ChainID: rpc.L2.ChainID,
-	// 	}); err != nil {
-	// 		return err
-	// 	}
-	// }
 	return d.InitFromConfig(ctx, cfg)
 }
 
@@ -132,21 +123,25 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		}
 	}
 
-	// if !cfg.DisableP2P {
-	// 	if d.p2pNode, err = p2p.NewNodeP2P(
-	// 		d.ctx,
-	// 		&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
-	// 		log.Root(),
-	// 		d.p2pSetup,
-	// 		d.preconfBlockServer,
-	// 		nil,
-	// 		d.preconfBlockServer,
-	// 		nil,
-	// 		false,
-	// 	); err != nil {
-	// 		return err
-	// 	}
-	// }
+	if cfg.P2PConfigs != nil {
+		if d.p2pNode, err = p2p.NewNodeP2P(
+			d.ctx,
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			log.Root(),
+			d.p2pSetup,
+			d.preconfBlockServer,
+			nil,
+			d.preconfBlockServer,
+			metrics.P2PNodeMetrics,
+			false,
+		); err != nil {
+			return err
+		}
+
+		if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -166,14 +161,14 @@ func (d *Driver) Start() error {
 		}()
 	}
 
-	// if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
-	// 	go d.p2pNode.DiscoveryProcess(
-	// 		d.ctx,
-	// 		log.Root(),
-	// 		&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
-	// 		d.p2pSetup.TargetPeers(),
-	// 	)
-	// }
+	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
+		go d.p2pNode.DiscoveryProcess(
+			d.ctx,
+			log.Root(),
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			d.p2pSetup.TargetPeers(),
+		)
+	}
 
 	return nil
 }
