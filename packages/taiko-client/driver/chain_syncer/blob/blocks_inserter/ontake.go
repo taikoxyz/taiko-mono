@@ -28,6 +28,8 @@ type BlocksInserterOntake struct {
 	blobDatasource     *rpc.BlobDataSource
 	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
 	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	calldataFetcher    txlistFetcher.TxListFetcher
+	blobFetcher        txlistFetcher.TxListFetcher
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -37,6 +39,8 @@ func NewBlocksInserterOntake(
 	blobDatasource *rpc.BlobDataSource,
 	txListDecompressor *txListDecompressor.TxListDecompressor,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	calldataFetcher txlistFetcher.TxListFetcher,
+	blobFetcher txlistFetcher.TxListFetcher,
 ) *BlocksInserterOntake {
 	return &BlocksInserterOntake{
 		rpc:                rpc,
@@ -44,6 +48,8 @@ func NewBlocksInserterOntake(
 		blobDatasource:     blobDatasource,
 		txListDecompressor: txListDecompressor,
 		anchorConstructor:  anchorConstructor,
+		calldataFetcher:    calldataFetcher,
+		blobFetcher:        blobFetcher,
 	}
 }
 
@@ -60,9 +66,10 @@ func (i *BlocksInserterOntake) InsertBlocks(
 	// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 	// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
 	var (
-		meta   = metadata.Ontake()
-		parent *types.Header
-		err    error
+		meta        = metadata.Ontake()
+		parent      *types.Header
+		txListBytes []byte
+		err         error
 	)
 	if i.progressTracker.Triggered() {
 		// Already synced through beacon sync, just skip this event.
@@ -86,16 +93,15 @@ func (i *BlocksInserterOntake) InsertBlocks(
 		"beaconSyncTriggered", i.progressTracker.Triggered(),
 	)
 
-	// Fetch and decode transactions list.
-	var txListFetcher txlistFetcher.TxListFetcher
+	// Fetch transactions list.
 	if meta.GetBlobUsed() {
-		txListFetcher = txlistFetcher.NewBlobTxListFetcher(i.rpc.L1Beacon, i.blobDatasource)
+		if txListBytes, err = i.blobFetcher.FetchOntake(ctx, proposingTx, meta); err != nil {
+			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
+		}
 	} else {
-		txListFetcher = txlistFetcher.NewCalldataFetch(i.rpc)
-	}
-	txListBytes, err := txListFetcher.FetchOntake(ctx, proposingTx, meta)
-	if err != nil {
-		return fmt.Errorf("failed to fetch tx list: %w", err)
+		if txListBytes, err = i.calldataFetcher.FetchOntake(ctx, proposingTx, meta); err != nil {
+			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
+		}
 	}
 
 	baseFee, err := i.rpc.CalculateBaseFee(

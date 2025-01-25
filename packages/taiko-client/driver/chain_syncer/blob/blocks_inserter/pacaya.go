@@ -32,6 +32,8 @@ type BlocksInserterPacaya struct {
 	blobDatasource     *rpc.BlobDataSource
 	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
 	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	calldataFetcher    txlistFetcher.TxListFetcher
+	blobFetcher        txlistFetcher.TxListFetcher
 	mutex              sync.Mutex
 }
 
@@ -42,6 +44,8 @@ func NewBlocksInserterPacaya(
 	blobDatasource *rpc.BlobDataSource,
 	txListDecompressor *txListDecompressor.TxListDecompressor,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	calldataFetcher txlistFetcher.TxListFetcher,
+	blobFetcher txlistFetcher.TxListFetcher,
 ) *BlocksInserterPacaya {
 	return &BlocksInserterPacaya{
 		rpc:                rpc,
@@ -49,6 +53,8 @@ func NewBlocksInserterPacaya(
 		blobDatasource:     blobDatasource,
 		txListDecompressor: txListDecompressor,
 		anchorConstructor:  anchorConstructor,
+		calldataFetcher:    calldataFetcher,
+		blobFetcher:        blobFetcher,
 	}
 }
 
@@ -58,25 +64,27 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	metadata metadata.TaikoProposalMetaData,
 	proposingTx *types.Transaction,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
-) error {
+) (err error) {
 	if !metadata.IsPacaya() {
 		return fmt.Errorf("metadata is not for Pacaya fork")
 	}
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	meta := metadata.Pacaya()
+	var (
+		meta        = metadata.Pacaya()
+		txListBytes []byte
+	)
 
-	// Decode transactions list.
-	var txListFetcher txlistFetcher.TxListFetcher
+	// Fetch transactions list.
 	if len(meta.GetBlobHashes()) != 0 {
-		txListFetcher = txlistFetcher.NewBlobTxListFetcher(i.rpc.L1Beacon, i.blobDatasource)
+		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, proposingTx, meta); err != nil {
+			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
+		}
 	} else {
-		txListFetcher = txlistFetcher.NewCalldataFetch(i.rpc)
-	}
-	txListBytes, err := txListFetcher.FetchPacaya(ctx, proposingTx, meta)
-	if err != nil {
-		return fmt.Errorf("failed to fetch tx list: %w", err)
+		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, proposingTx, meta); err != nil {
+			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
+		}
 	}
 
 	var (

@@ -65,6 +65,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if blobServerEndpoint, err = url.Parse(
 			c.String(flags.BlobServerEndpoint.Name),
 		); err != nil {
+			return nil, err
 		}
 	}
 

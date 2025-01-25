@@ -20,6 +20,7 @@ import (
 
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
+	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
@@ -72,6 +73,10 @@ func NewSyncer(
 		client.L2.ChainID,
 	)
 
+	var (
+		txListFetcherBlob     = txlistFetcher.NewBlobTxListFetcher(client.L1Beacon, blobDataSource)
+		txListFetcherCalldata = txlistFetcher.NewCalldataFetch(client)
+	)
 	return &Syncer{
 		ctx:                ctx,
 		rpc:                client,
@@ -84,6 +89,8 @@ func NewSyncer(
 			blobDataSource,
 			txListDecompressor,
 			constructor,
+			txListFetcherCalldata,
+			txListFetcherBlob,
 		),
 		blocksInserterPacaya: blocksInserter.NewBlocksInserterPacaya(
 			client,
@@ -91,6 +98,8 @@ func NewSyncer(
 			blobDataSource,
 			txListDecompressor,
 			constructor,
+			txListFetcherCalldata,
+			txListFetcherBlob,
 		),
 	}, nil
 }
