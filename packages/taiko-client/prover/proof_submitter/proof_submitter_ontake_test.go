@@ -30,8 +30,9 @@ import (
 
 type ProofSubmitterTestSuite struct {
 	testutils.ClientTestSuite
-	submitter              *ProofSubmitterOntake
-	contester              *ProofContesterOntake
+	submitterOntake        *ProofSubmitterOntake
+	submitterPacaya        *ProofSubmitterPacaya
+	contesterOntake        *ProofContesterOntake
 	blobSyncer             *blob.Syncer
 	proposer               *proposer.Proposer
 	proofCh                chan *producer.ProofResponse
@@ -80,7 +81,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.Nil(err)
 
 	// Protocol proof tiers
-	s.submitter, err = NewProofSubmitterOntake(
+	s.submitterOntake, err = NewProofSubmitterOntake(
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
@@ -100,7 +101,22 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		30*time.Minute,
 	)
 	s.Nil(err)
-	s.contester = NewProofContester(
+	s.submitterPacaya, err = NewProofSubmitterPacaya(
+		s.RPCClient,
+		&producer.OptimisticProofProducer{},
+		s.proofCh,
+		s.batchProofGenerationCh,
+		s.aggregationNotify,
+		rpc.ZeroAddress,
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		"test",
+		0,
+		txMgr,
+		nil,
+		builder,
+	)
+	s.Nil(err)
+	s.contesterOntake = NewProofContester(
 		s.RPCClient,
 		0,
 		txMgr,
@@ -192,8 +208,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		0,
 		txMgr,
 		nil,
-		s.submitter.txBuilder,
-		s.submitter.tiers,
+		s.submitterOntake.txBuilder,
+		s.submitterOntake.tiers,
 		false,
 		time.Duration(0),
 		0,
@@ -217,8 +233,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		0,
 		txMgr,
 		nil,
-		s.submitter.txBuilder,
-		s.submitter.tiers,
+		s.submitterOntake.txBuilder,
+		s.submitterOntake.tiers,
 		false,
 		1*time.Hour,
 		0,
@@ -240,7 +256,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofDeadlineExceeded
 	defer cancel()
 
 	s.ErrorContains(
-		s.submitter.RequestProof(
+		s.submitterOntake.RequestProof(
 			ctx,
 			&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 256}},
 		),
@@ -249,9 +265,8 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofDeadlineExceeded
 }
 
 func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound() {
-	s.T().Skip("skipping test")
 	s.Error(
-		s.submitter.SubmitProof(
+		s.submitterOntake.SubmitProof(
 			context.Background(), &producer.ProofResponse{
 				BlockID: common.Big256,
 				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
@@ -263,21 +278,28 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 }
 
 func (s *ProofSubmitterTestSuite) TestSubmitProofs() {
-	s.T().Skip("skipping test")
 	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
-		s.Nil(s.submitter.RequestProof(context.Background(), m))
+		if m.IsPacaya() {
+			s.Nil(s.submitterPacaya.RequestProof(context.Background(), m))
+			proofResponse := <-s.proofCh
+			s.Nil(s.submitterPacaya.SubmitProof(context.Background(), proofResponse))
+			continue
+		}
+		s.Nil(s.submitterOntake.RequestProof(context.Background(), m))
 		proofResponse := <-s.proofCh
-		s.Nil(s.submitter.SubmitProof(context.Background(), proofResponse))
+		s.Nil(s.submitterOntake.SubmitProof(context.Background(), proofResponse))
 	}
 }
 
 func (s *ProofSubmitterTestSuite) TestGuardianSubmitProofs() {
-	s.T().Skip("skipping test")
 	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
-		s.Nil(s.submitter.RequestProof(context.Background(), m))
+		if m.IsPacaya() {
+			continue
+		}
+		s.Nil(s.submitterOntake.RequestProof(context.Background(), m))
 		proofResponse := <-s.proofCh
 		proofResponse.Tier = encoding.TierGuardianMajorityID
-		s.Nil(s.submitter.SubmitProof(context.Background(), proofResponse))
+		s.Nil(s.submitterOntake.SubmitProof(context.Background(), proofResponse))
 	}
 }
 
@@ -286,7 +308,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofCancelled() {
 	go func() { time.AfterFunc(2*time.Second, func() { cancel() }) }()
 
 	s.ErrorContains(
-		s.submitter.RequestProof(
+		s.submitterOntake.RequestProof(
 			ctx,
 			&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 256}},
 		),

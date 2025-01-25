@@ -25,7 +25,6 @@ func (s *ProverEventHandlerTestSuite) TestGetProvingWindowNotFound() {
 }
 
 func (s *ProverEventHandlerTestSuite) TestIsBlockVerified() {
-	s.T().Skip("skipping test")
 	_, slotB, err := s.RPCClient.OntakeClients.TaikoL1.GetStateVariables(nil)
 	s.Nil(err)
 

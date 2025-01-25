@@ -257,31 +257,7 @@ var (
 	}
 	batchMetaDataComponents = []abi.ArgumentMarshaling{
 		{
-			Name: "txListHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "extraData",
-			Type: "bytes32",
-		},
-		{
-			Name: "coinbase",
-			Type: "address",
-		},
-		{
-			Name: "batchId",
-			Type: "uint64",
-		},
-		{
-			Name: "gasLimit",
-			Type: "uint32",
-		},
-		{
-			Name: "lastBlockTimestamp",
-			Type: "uint64",
-		},
-		{
-			Name: "parentMetaHash",
+			Name: "infoHash",
 			Type: "bytes32",
 		},
 		{
@@ -289,88 +265,12 @@ var (
 			Type: "address",
 		},
 		{
-			Name: "livenessBond",
-			Type: "uint96",
+			Name: "batchId",
+			Type: "uint64",
 		},
 		{
 			Name: "proposedAt",
 			Type: "uint64",
-		},
-		{
-			Name: "proposedIn",
-			Type: "uint64",
-		},
-		{
-			Name: "txListOffset",
-			Type: "uint32",
-		},
-		{
-			Name: "txListSize",
-			Type: "uint32",
-		},
-		{
-			Name: "firstBlobIndex",
-			Type: "uint8",
-		},
-		{
-			Name: "numBlobs",
-			Type: "uint8",
-		},
-		{
-			Name: "anchorBlockId",
-			Type: "uint64",
-		},
-		{
-			Name: "anchorBlockHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "signalSlots",
-			Type: "bytes32[]",
-		},
-		{
-			Name: "blocks",
-			Type: "tuple[]",
-			Components: []abi.ArgumentMarshaling{
-				{
-					Name: "numTransactions",
-					Type: "uint16",
-				},
-				{
-					Name: "timeShift",
-					Type: "uint8",
-				},
-			},
-		},
-		{
-			Name: "anchorInput",
-			Type: "bytes32",
-		},
-		{
-			Name: "baseFeeConfig",
-			Type: "tuple",
-			Components: []abi.ArgumentMarshaling{
-				{
-					Name: "adjustmentQuotient",
-					Type: "uint8",
-				},
-				{
-					Name: "sharingPctg",
-					Type: "uint8",
-				},
-				{
-					Name: "gasIssuancePerSecond",
-					Type: "uint32",
-				},
-				{
-					Name: "minGasExcess",
-					Type: "uint64",
-				},
-				{
-					Name: "maxGasIssuancePerBlock",
-					Type: "uint32",
-				},
-			},
 		},
 	}
 	batchTransitionComponents = []abi.ArgumentMarshaling{
@@ -650,14 +550,19 @@ func EncodeProveBatchesInput(
 	}
 	pacayaMetas := make([]pacayaBindings.ITaikoInboxBatchMetadata, 0)
 	for i := range metas {
-		pacayaMetas = append(pacayaMetas, *metas[i].Pacaya().InnerMetadata())
+		pacayaMetas = append(pacayaMetas, pacayaBindings.ITaikoInboxBatchMetadata{
+			InfoHash:   metas[i].Pacaya().InnerMetadata().InfoHash,
+			Proposer:   metas[i].Pacaya().GetProposer(),
+			BatchId:    metas[i].Pacaya().GetBatchID().Uint64(),
+			ProposedAt: metas[i].Pacaya().GetProposedAt(),
+		})
 	}
 	input, err := proveBatchesInputArgs.Pack(
 		pacayaMetas,
 		transitions,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after ontake fork, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after pacaya fork, %w", err)
 	}
 
 	return input, nil
