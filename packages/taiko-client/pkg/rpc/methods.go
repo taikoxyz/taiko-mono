@@ -1124,3 +1124,29 @@ func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
 
 	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
 }
+
+// GetPreconfWhiteListOperator resolves the current preconf whitelist operator address.
+func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	whiteListAddress, err := c.ResolvePacaya(opts, "preconf_whitelist")
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	if whiteListAddress == (common.Address{}) {
+		return common.Address{}, errors.New("empty preconf_whitelist address")
+	}
+
+	preconfWhiteList, err := pacayaBindings.NewPreconfWhitelist(whiteListAddress, c.L1)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	return preconfWhiteList.GetOperatorForEpoch(opts)
+}

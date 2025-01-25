@@ -13,7 +13,6 @@ import (
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -191,16 +190,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	return nil
 }
 
-// P2PSequencerAddress implements the p2p.GossipIn interface.
+// P2PSequencerAddress implements the p2p.GossipRuntimeConfig interface.
 func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
-	return (common.Address{})
-}
+	operatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
+	if err != nil || operatorAddress == (common.Address{}) {
+		log.Warn("Failed to get current preconf whitelist operator address, skip signature verification", "error", err)
+		return common.Address{}
+	}
 
-// TODO(David): update this function to return the correct value.
-// P2PSequencerAddress implements the p2p.SoftblockGossipRuntimeConfig interface.
-func (s *PreconfBlockAPIServer) VerifySignature(
-	signatureBytes []byte,
-	payloadBytes []byte,
-) (pubsub.ValidationResult, error) {
-	return pubsub.ValidationAccept, nil
+	return operatorAddress
 }

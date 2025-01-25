@@ -59,6 +59,10 @@ cat ../protocol/out/layer1/ComposeVerifier.sol/ComposeVerifier.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
 
+cat ../protocol/out/layer1/PreconfWhitelist.sol/PreconfWhitelist.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type PreconfWhitelist --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_preconf_whitelist.go
+
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"
