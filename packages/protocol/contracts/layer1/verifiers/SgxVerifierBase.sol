@@ -80,8 +80,7 @@ abstract contract SgxVerifierBase is EssentialContract {
         external
         returns (uint256)
     {
-        address automataDcapAttestation =
-            resolveAddress(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
+        address automataDcapAttestation = resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
 
         require(automataDcapAttestation != address(0), SGX_RA_NOT_SUPPORTED());
 

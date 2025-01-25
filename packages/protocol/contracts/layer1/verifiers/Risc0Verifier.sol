@@ -81,7 +81,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         bytes32 journalDigest = sha256(abi.encodePacked(publicInputs));
 
         // call risc0 verifier contract
-        (bool success,) = resolveAddress(RISCZERO_GROTH16_VERIFIER, false).staticcall(
+        (bool success,) = resolve(RISCZERO_GROTH16_VERIFIER, false).staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, aggregationImageId, journalDigest))
         );
         require(success, RISC_ZERO_INVALID_PROOF());
