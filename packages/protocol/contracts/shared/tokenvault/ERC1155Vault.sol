@@ -60,7 +60,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             destChainId: _op.destChainId,
             srcOwner: msg.sender,
             destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
-            to: resolveAddress(_op.destChainId, name(), false),
+            to: resolve(_op.destChainId, name(), false),
             value: msg.value - _op.fee,
             fee: _op.fee,
             gasLimit: _op.gasLimit,
@@ -69,9 +69,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         // Send the message and obtain the message hash
         bytes32 msgHash;
-        (msgHash, message_) = IBridge(resolveAddress(LibStrings.B_BRIDGE, false)).sendMessage{
-            value: msg.value
-        }(message);
+        (msgHash, message_) =
+            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         // Emit TokenSent event
         emit TokenSent({
@@ -292,8 +291,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
-        btoken_ =
-            address(new ERC1967Proxy(resolveAddress(LibStrings.B_BRIDGED_ERC1155, false), data));
+        btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC1155, false), data));
 
         bridgedToCanonical[btoken_] = _ctoken;
         canonicalToBridged[_ctoken.chainId][_ctoken.addr] = btoken_;
