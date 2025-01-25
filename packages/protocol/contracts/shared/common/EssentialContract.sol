@@ -146,6 +146,12 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return _loadReentryLock() == _TRUE;
     }
 
+    /// @notice Returns the address of this contract.
+    /// @return The address of this contract.
+    function resolver() public view virtual returns (address) {
+        return __resolver;
+    }
+
     /// @notice Resolves a name to an address on a specific chain
     /// @param _chainId The chain ID to resolve the name on
     /// @param _name The name to resolve
@@ -156,7 +162,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         bytes32 _name,
         bool _allowZeroAddress
     )
-        public
+        internal
         view
         returns (address)
     {
@@ -167,14 +173,15 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @param _name The name to resolve
     /// @param _allowZeroAddress Whether to allow resolving to the zero address
     /// @return The resolved address
-    function resolveAddress(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
+    function resolveAddress(
+        bytes32 _name,
+        bool _allowZeroAddress
+    )
+        internal
+        view
+        returns (address)
+    {
         return IResolver(resolver()).resolve(block.chainid, _name, _allowZeroAddress);
-    }
-
-    /// @notice Returns the address of this contract.
-    /// @return The address of this contract.
-    function resolver() public view virtual returns (address) {
-        return __resolver;
     }
 
     /// @notice Initializes the contract.
