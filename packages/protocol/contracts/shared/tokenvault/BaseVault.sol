@@ -57,7 +57,7 @@ abstract contract BaseVault is
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
-        address selfOnSourceChain = resolveAddress(ctx_.srcChainId, name(), false);
+        address selfOnSourceChain = resolve(ctx_.srcChainId, name(), false);
         if (ctx_.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
     }
 

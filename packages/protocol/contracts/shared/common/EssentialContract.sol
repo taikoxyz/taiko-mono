@@ -39,7 +39,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param _name The name to check against.
     modifier onlyFromOwnerOrNamed(bytes32 _name) {
-        require(msg.sender == owner() || msg.sender == resolveAddress(_name, true), ACCESS_DENIED());
+        require(msg.sender == owner() || msg.sender == resolve(_name, true), ACCESS_DENIED());
         _;
     }
 
@@ -84,7 +84,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// name.
     /// @param _name The name to check against.
     modifier onlyFromNamed(bytes32 _name) {
-        require(msg.sender == resolveAddress(_name, true), ACCESS_DENIED());
+        require(msg.sender == resolve(_name, true), ACCESS_DENIED());
         _;
     }
 
@@ -92,7 +92,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// name, if the name is set.
     /// @param _name The name to check against.
     modifier onlyFromOptionalNamed(bytes32 _name) {
-        address addr = resolveAddress(_name, true);
+        address addr = resolve(_name, true);
         require(addr == address(0) || msg.sender == addr, ACCESS_DENIED());
         _;
     }
@@ -103,7 +103,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @param _name2 The second name to check against.
     modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
         require(
-            msg.sender == resolveAddress(_name1, true) || msg.sender == resolveAddress(_name2, true),
+            msg.sender == resolve(_name1, true) || msg.sender == resolve(_name2, true),
             ACCESS_DENIED()
         );
         _;
@@ -146,17 +146,23 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return _loadReentryLock() == _TRUE;
     }
 
+    /// @notice Returns the address of this contract.
+    /// @return The address of this contract.
+    function resolver() public view virtual returns (address) {
+        return __resolver;
+    }
+
     /// @notice Resolves a name to an address on a specific chain
     /// @param _chainId The chain ID to resolve the name on
     /// @param _name The name to resolve
     /// @param _allowZeroAddress Whether to allow resolving to the zero address
     /// @return The resolved address
-    function resolveAddress(
+    function resolve(
         uint64 _chainId,
         bytes32 _name,
         bool _allowZeroAddress
     )
-        public
+        internal
         view
         returns (address)
     {
@@ -167,14 +173,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @param _name The name to resolve
     /// @param _allowZeroAddress Whether to allow resolving to the zero address
     /// @return The resolved address
-    function resolveAddress(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
+    function resolve(bytes32 _name, bool _allowZeroAddress) internal view returns (address) {
         return IResolver(resolver()).resolve(block.chainid, _name, _allowZeroAddress);
-    }
-
-    /// @notice Returns the address of this contract.
-    /// @return The address of this contract.
-    function resolver() public view virtual returns (address) {
-        return __resolver;
     }
 
     /// @notice Initializes the contract.
