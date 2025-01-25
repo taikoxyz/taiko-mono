@@ -84,6 +84,6 @@ contract SP1Verifier is EssentialContract, IVerifier {
     }
 
     function sp1RemoteVerifier() public view virtual returns (address) {
-        return resolveAddress(SP1_REMOTE_VERIFIER, false);
+        return resolve(SP1_REMOTE_VERIFIER, false);
     }
 }

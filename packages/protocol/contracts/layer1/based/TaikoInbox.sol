@@ -68,7 +68,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                address operator = resolveAddress(LibStrings.B_INBOX_OPERATOR, true);
+                address operator = resolve(LibStrings.B_INBOX_OPERATOR, true);
                 if (operator == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
@@ -292,7 +292,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             }
         }
 
-        address verifier = resolveAddress(LibStrings.B_PROOF_VERIFIER, false);
+        address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
 
         // Emit the event
@@ -479,7 +479,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
     /// @inheritdoc ITaikoInbox
     function bondToken() public view returns (address) {
-        return resolveAddress(LibStrings.B_BOND_TOKEN, true);
+        return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -664,7 +664,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     emit Stats1Updated(stats1);
 
                     // Ask signal service to write cross chain signal
-                    ISignalService(resolveAddress(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                    ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
                         _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
                     );
                 }
@@ -772,7 +772,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             require(_params.signalSlots.length <= _maxSignalsToReceive, TooManySignals());
 
             ISignalService signalService =
-                ISignalService(resolveAddress(LibStrings.B_SIGNAL_SERVICE, false));
+                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
             for (uint256 i; i < _params.signalSlots.length; ++i) {
                 require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
