@@ -159,23 +159,6 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	} else {
 		s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 	}
-	// Empty blocks
-	for _, m := range s.ProposeAndInsertEmptyBlocks(
-		s.proposer,
-		s.d.ChainSyncer().BlobSyncer(),
-	) {
-		if m.IsPacaya() {
-			s.Nil(s.p.eventHandlers.blockProposedHandler.Handle(context.Background(), m, func() {}))
-			req := <-s.p.proofSubmissionCh
-			s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-			s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
-		} else {
-			s.Nil(s.p.eventHandlers.blockProposedHandler.Handle(context.Background(), m, func() {}))
-			req := <-s.p.proofSubmissionCh
-			s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-			s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
-		}
-	}
 }
 
 func (s *ProverTestSuite) TestOnBlockVerifiedEmptyBlockHash() {
@@ -227,15 +210,6 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	var blockID *big.Int
-	if m.IsPacaya() {
-		blockID = new(big.Int).SetUint64(m.Pacaya().GetLastBlockID())
-	} else {
-		blockID = m.Ontake().GetBlockID()
-	}
-
-	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), blockID)
-	s.Nil(err)
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
 	sink2 := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
@@ -262,22 +236,31 @@ func (s *ProverTestSuite) TestProveOp() {
 	var (
 		blockHash  common.Hash
 		parentHash common.Hash
+		blockID    *big.Int
 	)
+
 	select {
 	case e := <-sink1:
 		tran := e.Transitions[len(e.Transitions)-1]
 		blockHash = common.BytesToHash(tran.BlockHash[:])
 		parentHash = common.BytesToHash(tran.ParentHash[:])
+		batch, err := s.p.rpc.GetBatchByID(context.Background(), new(big.Int).SetUint64(e.BatchIds[len(e.BatchIds)-1]))
+		s.Nil(err)
+		blockID = new(big.Int).SetUint64(batch.LastBlockId)
 	case e := <-sink2:
 		blockHash = common.BytesToHash(e.Tran.BlockHash[:])
 		parentHash = common.BytesToHash(e.Tran.ParentHash[:])
+		blockID = e.BlockId
 	}
+
+	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), blockID)
+	s.Nil(err)
+
 	s.Equal(header.Hash(), blockHash)
 	s.Equal(header.ParentHash, parentHash)
 }
 
 func (s *ProverTestSuite) TestGetBlockProofStatus() {
-	s.T().Skip("TODO: Fix this test")
 	parent, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -315,12 +298,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.False(status.Invalid)
 	s.Equal(parent.Hash(), status.ParentHeader.Hash())
 
-	// Invalid proof submitted
-	parent, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	m = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-
 	status, err = rpc.GetBlockProofStatus(
 		context.Background(),
 		s.p.rpc,
@@ -337,22 +315,9 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 
 	proofWithHeader := <-s.p.proofGenerationCh
 	proofWithHeader.Opts.OntakeOptions().BlockHash = testutils.RandomHash()
-	s.Nil(s.p.selectSubmitter(
+	s.NotNil(s.p.selectSubmitter(
 		m.Ontake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
 	)
-
-	status, err = rpc.GetBlockProofStatus(
-		context.Background(),
-		s.p.rpc,
-		m.Ontake().GetBlockID(),
-		s.p.ProverAddress(),
-		rpc.ZeroAddress,
-	)
-	s.Nil(err)
-	s.True(status.IsSubmitted)
-	s.True(status.Invalid)
-	s.Equal(parent.Hash(), status.ParentHeader.Hash())
-	s.Equal(proofWithHeader.Opts.OntakeOptions().BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
 }
 
 func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {

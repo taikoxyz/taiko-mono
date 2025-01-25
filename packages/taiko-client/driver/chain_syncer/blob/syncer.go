@@ -263,7 +263,7 @@ func (s *Syncer) onBlockProposed(
 		}
 	} else {
 		log.Info(
-			"New BatchProposed event",
+			"New BlockProposedV2 event",
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
 			"blockID", meta.Ontake().GetBlockID(),
