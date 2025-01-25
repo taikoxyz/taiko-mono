@@ -14,25 +14,34 @@ import "test/shared/CommonTest.sol";
 contract ConfigurableInbox is TaikoInbox {
     ITaikoInbox.Config private __config;
 
+    constructor(address _resolver) TaikoInbox(_resolver) { }
+
     function initWithConfig(
         address _owner,
-        address _rollupResolver,
         bytes32 _genesisBlockHash,
         ITaikoInbox.Config memory _config
     )
         external
         initializer
     {
-        __Taiko_init(_owner, _rollupResolver, _genesisBlockHash);
+        __Taiko_init(_owner, _genesisBlockHash);
         __config = _config;
     }
 
-    function getConfig() public view override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() public view override returns (ITaikoInbox.Config memory) {
         return __config;
     }
 
-    function _calcTxListHash(uint8, uint8) internal pure override returns (bytes32) {
-        return keccak256("BLOB");
+    function _calculateTxsHash(
+        bytes32 _txListHash,
+        BlobParams memory _blobParams
+    )
+        internal
+        pure
+        override
+        returns (bytes32, bytes32[] memory)
+    {
+        return (_txListHash, new bytes32[](_blobParams.numBlobs));
     }
 }
 
@@ -47,10 +56,9 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox()),
+                impl: address(new ConfigurableInbox(address(resolver))),
                 data: abi.encodeCall(
-                    ConfigurableInbox.initWithConfig,
-                    (address(0), address(resolver), _genesisBlockHash, _config)
+                    ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )
             })
         );
@@ -70,8 +78,8 @@ abstract contract Layer1Test is CommonTest {
         return SgxVerifier(
             deploy({
                 name: "tier_sgx",
-                impl: address(new SgxVerifier(taikoChainId)),
-                data: abi.encodeCall(SgxVerifier.init, (address(0), address(resolver)))
+                impl: address(new SgxVerifier(address(resolver), taikoChainId)),
+                data: abi.encodeCall(SgxVerifier.init, (address(0)))
             })
         );
     }

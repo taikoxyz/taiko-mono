@@ -78,10 +78,11 @@ abstract contract DeployCapability is Script {
         if (registerTo == address(0)) revert ADDRESS_NULL();
         if (readFrom == address(0)) revert ADDRESS_NULL();
 
+        IResolver resolver = IResolver(EssentialContract(readFrom).resolver());
         register({
             registerTo: registerTo,
             name: name,
-            addr: EssentialContract(readFrom).resolve(uint64(block.chainid), bytes32(bytes(name)), true),
+            addr: resolver.resolve(uint64(block.chainid), bytes32(bytes(name)), true),
             chainId: uint64(block.chainid)
         });
     }

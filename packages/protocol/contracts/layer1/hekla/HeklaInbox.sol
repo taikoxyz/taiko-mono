@@ -7,11 +7,13 @@ import "../based/TaikoInbox.sol";
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract HeklaInbox is TaikoInbox {
-    function getConfig() public pure override returns (ITaikoInbox.Config memory) {
+    constructor(address _resolver) TaikoInbox(_resolver) { }
+
+    function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
-            maxBatchProposals: 324_000,
+            maxUnverifiedBatches: 324_000,
             // Never change this value as ring buffer is being reused!!!
             batchRingBufferSize: 324_512,
             maxBatchesToVerify: 16,

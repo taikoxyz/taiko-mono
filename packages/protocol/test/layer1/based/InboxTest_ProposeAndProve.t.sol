@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_ProposeAndProve is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            maxBatchProposals: 10,
+            maxUnverifiedBatches: 10,
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
@@ -56,18 +56,18 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
             inbox.getLastVerifiedTransition();
         assertEq(batchId, 0);
         assertEq(blockId, 0);
-        assertEq(tran.blockHash, correctBlockhash(0));
-        assertEq(tran.stateRoot, bytes32(uint256(0)));
+        assertEq(ts.blockHash, correctBlockhash(0));
+        assertEq(ts.stateRoot, bytes32(uint256(0)));
 
-        (batchId, blockId, tran) = inbox.getLastSyncedTransition();
+        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 0);
         assertEq(blockId, 0);
-        assertEq(tran.blockHash, correctBlockhash(0));
-        assertEq(tran.stateRoot, bytes32(uint256(0)));
+        assertEq(ts.blockHash, correctBlockhash(0));
+        assertEq(ts.stateRoot, bytes32(uint256(0)));
     }
 
     function test_inbox_query_batches_not_exist_will_revert() external {
@@ -78,7 +78,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     function test_inbox_max_batch_proposal()
         external
         transactBy(Alice)
-        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(10)
         WhenLogAllBatchesAndTransitions
     {
         // - All stats are correct and expected
@@ -88,7 +88,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats1.lastSyncedAt, 0);
 
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
-        assertEq(stats2.numBatches, 10);
+        assertEq(stats2.numBatches, 11);
         assertEq(stats2.lastVerifiedBatchId, 0);
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
@@ -104,10 +104,14 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.verifiedTransitionId, 1);
 
         // Verify block data
-        for (uint64 i = 1; i < 10; ++i) {
+        for (uint64 i = 1; i <= 10; ++i) {
             batch = inbox.getBatch(i);
             assertEq(batch.batchId, i);
-            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+
+            (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
+                _loadMetadataAndInfo(i);
+            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
@@ -123,7 +127,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     function test_inbox_exceed_max_batch_proposal_will_revert()
         external
         transactBy(Alice)
-        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(10)
         WhenLogAllBatchesAndTransitions
     {
         // - Proposing one block block will revert
@@ -164,7 +168,10 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         for (uint64 i = 1; i < 7; ++i) {
             batch = inbox.getBatch(i);
             assertEq(batch.batchId, i);
-            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
+                _loadMetadataAndInfo(i);
+            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
@@ -213,29 +220,29 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
             inbox.getLastVerifiedTransition();
         assertEq(batchId, 9);
         assertEq(blockId, 9);
-        assertEq(tran.blockHash, correctBlockhash(9));
-        assertEq(tran.stateRoot, bytes32(uint256(0)));
+        assertEq(ts.blockHash, correctBlockhash(9));
+        assertEq(ts.stateRoot, bytes32(uint256(0)));
 
         vm.expectRevert(ITaikoInbox.TransitionNotFound.selector);
-        tran = inbox.getTransition(9, uint24(0));
+        ts = inbox.getTransitionById(9, uint24(0));
 
-        tran = inbox.getTransition(9, uint24(1));
-        assertEq(tran.parentHash, correctBlockhash(8));
-        assertEq(tran.blockHash, correctBlockhash(9));
-        assertEq(tran.stateRoot, bytes32(uint256(0)));
+        ts = inbox.getTransitionById(9, uint24(1));
+        assertEq(ts.parentHash, correctBlockhash(8));
+        assertEq(ts.blockHash, correctBlockhash(9));
+        assertEq(ts.stateRoot, bytes32(uint256(0)));
 
         vm.expectRevert(ITaikoInbox.TransitionNotFound.selector);
-        tran = inbox.getTransition(9, tran.parentHash);
+        ts = inbox.getTransitionByParentHash(9, ts.parentHash);
 
-        (batchId, blockId, tran) = inbox.getLastSyncedTransition();
+        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 5);
         assertEq(blockId, 5);
-        assertEq(tran.blockHash, correctBlockhash(5));
-        assertEq(tran.stateRoot, correctStateRoot(5));
+        assertEq(ts.blockHash, correctBlockhash(5));
+        assertEq(ts.stateRoot, correctStateRoot(5));
 
         // - Verify genesis block
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
@@ -250,12 +257,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         for (uint64 i = 1; i < 10; ++i) {
             batch = inbox.getBatch(i);
             assertEq(batch.batchId, i);
-            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
+                _loadMetadataAndInfo(i);
+            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % pacayaConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
@@ -285,18 +295,18 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
             inbox.getLastVerifiedTransition();
         assertEq(batchId, 9);
         assertEq(blockId, 9 * 7);
-        assertEq(tran.blockHash, correctBlockhash(9));
-        assertEq(tran.stateRoot, bytes32(uint256(0)));
+        assertEq(ts.blockHash, correctBlockhash(9));
+        assertEq(ts.stateRoot, bytes32(uint256(0)));
 
-        (batchId, blockId, tran) = inbox.getLastSyncedTransition();
+        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 5);
         assertEq(blockId, 5 * 7);
-        assertEq(tran.blockHash, correctBlockhash(5));
-        assertEq(tran.stateRoot, correctStateRoot(5));
+        assertEq(ts.blockHash, correctBlockhash(5));
+        assertEq(ts.stateRoot, correctStateRoot(5));
 
         // - Verify genesis block
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
@@ -311,13 +321,16 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         for (uint64 i = 1; i < 10; ++i) {
             batch = inbox.getBatch(i);
             assertEq(batch.batchId, i);
-            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
+                _loadMetadataAndInfo(i);
+            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.lastBlockId, i * 7);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % pacayaConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
@@ -359,12 +372,14 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         for (uint64 i = 1; i < 10; ++i) {
             batch = inbox.getBatch(i);
             assertEq(batch.batchId, i);
-            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
-
+            (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
+                _loadMetadataAndInfo(i);
+            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(meta.infoHash, keccak256(abi.encode(info)));
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 3);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % pacayaConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 2);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
@@ -397,24 +412,27 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.Transition memory tran) =
+        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
             inbox.getLastVerifiedTransition();
         assertEq(batchId, 10);
         assertEq(blockId, 10);
-        assertEq(tran.blockHash, correctBlockhash(10));
-        assertEq(tran.stateRoot, correctStateRoot(10));
+        assertEq(ts.blockHash, correctBlockhash(10));
+        assertEq(ts.stateRoot, correctStateRoot(10));
 
-        (batchId, blockId, tran) = inbox.getLastSyncedTransition();
+        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 10);
         assertEq(blockId, 10);
-        assertEq(tran.blockHash, correctBlockhash(10));
-        assertEq(tran.stateRoot, correctStateRoot(10));
+        assertEq(ts.blockHash, correctBlockhash(10));
+        assertEq(ts.stateRoot, correctStateRoot(10));
 
         // Verify block data
         for (uint64 i = 8; i < 15; ++i) {
             ITaikoInbox.Batch memory batch = inbox.getBatch(i);
             assertEq(batch.batchId, i);
-            assertEq(batch.metaHash, keccak256(abi.encode(_loadMetadata(i))));
+            (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
+                _loadMetadataAndInfo(i);
+            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
@@ -446,7 +464,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
 
-        metas[0] = _loadMetadata(1);
+        (metas[0],) = _loadMetadataAndInfo(1);
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x101));
@@ -469,7 +487,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
 
-        metas[0] = _loadMetadata(1);
+        (metas[0],) = _loadMetadataAndInfo(1);
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x101));
@@ -484,7 +502,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertTrue(EssentialContract(address(inbox)).paused());
     }
 
-    function test_proposeBatch_reverts_for_invalid_proposer_and_preconfRouter()
+    function test_proposeBatch_reverts_for_invalid_proposer_and_operator()
         external
         transactBy(Alice)
     {
@@ -495,17 +513,17 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "txList");
 
         vm.startPrank(deployer);
-        address preconfRouter = Bob;
-        resolver.registerAddress(block.chainid, "preconf_router", preconfRouter);
+        address operator = Bob;
+        resolver.registerAddress(block.chainid, "inbox_operator", operator);
         vm.stopPrank();
 
         vm.startPrank(Alice);
-        params.proposer = preconfRouter;
-        vm.expectRevert(ITaikoInbox.NotPreconfRouter.selector);
+        params.proposer = operator;
+        vm.expectRevert(ITaikoInbox.NotInboxOperator.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
         vm.stopPrank();
 
-        vm.startPrank(preconfRouter);
+        vm.startPrank(operator);
         params.proposer = address(0);
         vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
@@ -532,7 +550,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](count);
 
         for (uint256 i; i < batchIds.length; ++i) {
-            metas[i] = _loadMetadata(batchIds[i]);
+            (metas[i],) = _loadMetadataAndInfo(batchIds[i]);
 
             transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
             transitions[i].blockHash = correctBlockhash(batchIds[i]);

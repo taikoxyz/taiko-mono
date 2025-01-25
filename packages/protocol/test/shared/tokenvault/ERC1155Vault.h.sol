@@ -13,7 +13,9 @@ contract FreeMintERC1155Token is ERC1155 {
     }
 }
 
-contract BridgedERC1155_WithHelloWorld is BridgedERC1155, CanSayHelloWorld { }
+contract BridgedERC1155_WithHelloWorld is BridgedERC1155, CanSayHelloWorld {
+    constructor(address _resolver) BridgedERC1155(_resolver) { }
+}
 
 // PrankDestBridge lets us simulate a transaction to the ERC1155Vault
 // from a named Bridge, without having to test/run through the real Bridge code,

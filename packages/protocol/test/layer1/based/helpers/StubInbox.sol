@@ -11,7 +11,7 @@ contract StubInbox is ITaikoInbox {
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     { }
 
     function proveBatches(bytes calldata _params, bytes calldata _proof) external { }
@@ -28,46 +28,46 @@ contract StubInbox is ITaikoInbox {
 
     function getBatch(uint64 _batchId) external view virtual returns (ITaikoInbox.Batch memory) { }
 
-    function getTransition(
+    function getTransitionById(
         uint64 _batchId,
         uint24 _tid
     )
         external
         view
         virtual
-        returns (ITaikoInbox.Transition memory)
+        returns (ITaikoInbox.TransitionState memory)
     { }
 
-    function getTransition(
+    function getTransitionByParentHash(
         uint64 _batchId,
         bytes32 _parentHash
     )
         external
         view
-        returns (ITaikoInbox.Transition memory)
+        returns (ITaikoInbox.TransitionState memory)
     { }
 
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory)
     { }
 
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, Transition memory)
+        returns (uint64 batchId_, uint64 blockId_, TransitionState memory)
     { }
 
     function getBatchVerifyingTransition(uint64 _batchId)
         external
         view
-        returns (Transition memory)
+        returns (TransitionState memory)
     { }
 
     function getStats1() external view returns (Stats1 memory) { }
 
     function getStats2() external view returns (Stats2 memory) { }
 
-    function getConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
+    function pacayaConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
 }

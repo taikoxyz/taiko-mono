@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_Params is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            maxBatchProposals: 10,
+            maxUnverifiedBatches: 10,
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
@@ -38,18 +38,18 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
 
-        ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "txList");
+        (ITaikoInbox.BatchInfo memory info,) = inbox.proposeBatch(abi.encode(params), "txList");
 
         // Assert that the default anchorBlockId was set correctly
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
-        assertEq(meta.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
+        assertEq(info.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_too_small()
         external
         transactBy(Alice)
     {
-        ITaikoInbox.Config memory config = inbox.getConfig();
+        ITaikoInbox.Config memory config = inbox.pacayaConfig();
 
         // Advance the block number to create the appropriate test scenario
         vm.roll(config.maxAnchorHeightOffset + 2);
@@ -100,10 +100,10 @@ contract InboxTest_Params is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.anchorBlockId = uint64(block.number - 1);
 
-        ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "txList");
+        (ITaikoInbox.BatchInfo memory info,) = inbox.proposeBatch(abi.encode(params), "txList");
 
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
-        assertEq(meta.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
+        assertEq(info.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
     }
 
     function test_validateParams_reverts_when_timestamp_too_large() external transactBy(Alice) {

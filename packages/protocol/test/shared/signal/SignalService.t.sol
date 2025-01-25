@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "../CommonTest.sol";
 
 contract SignalServiceNoHopCheck is SignalService {
+    constructor(address _resolver) SignalService(_resolver) { }
+
     function _verifyHopProof(
         uint64, /*chainId*/
         address, /*app*/
@@ -28,10 +30,11 @@ contract TestSignalService is CommonTest {
     address private taiko = randAddress();
 
     function setUpOnEthereum() internal override {
-        mockSignalService = deploySignalService(address(new SignalServiceNoHopCheck()));
+        mockSignalService =
+            deploySignalService(address(new SignalServiceNoHopCheck(address(resolver))));
         mockSignalService.authorize(taiko, true);
 
-        signalService = deploySignalService(address(new SignalService()));
+        signalService = deploySignalService(address(new SignalService(address(resolver))));
         signalService.authorize(deployer, true);
 
         vm.deal(Bob, 1 ether);

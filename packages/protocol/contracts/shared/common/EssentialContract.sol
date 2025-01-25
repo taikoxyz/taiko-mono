@@ -11,8 +11,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
-    address private __resolver;
-    uint256[49] private __gapFromOldAddressResolver;
+    address private immutable __resolver;
+    uint256[50] private __gapFromOldAddressResolver;
 
     /// @dev Slot 1.
     uint8 internal __reentry;
@@ -27,8 +27,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @notice Emitted when the contract is unpaused.
     /// @param account The account that unpaused the contract.
     event Unpaused(address account);
-
-    event ResolverUpdated(address oldResolver, address newResolver);
 
     error INVALID_PAUSE_STATUS();
     error FUNC_NOT_IMPLEMENTED();
@@ -111,13 +109,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
-    constructor() {
-        _disableInitializers();
-    }
-
-    function setResolver(address _resolver) external onlyOwner {
-        emit ResolverUpdated(__resolver, _resolver);
+    constructor(address _resolver) {
         __resolver = _resolver;
+        _disableInitializers();
     }
 
     /// @notice Pauses the contract.
@@ -152,35 +146,39 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return _loadReentryLock() == _TRUE;
     }
 
+    /// @notice Returns the address of this contract.
+    /// @return The address of this contract.
+    function resolver() public view virtual returns (address) {
+        return __resolver;
+    }
+
+    /// @notice Resolves a name to an address on a specific chain
+    /// @param _chainId The chain ID to resolve the name on
+    /// @param _name The name to resolve
+    /// @param _allowZeroAddress Whether to allow resolving to the zero address
+    /// @return The resolved address
     function resolve(
         uint64 _chainId,
         bytes32 _name,
         bool _allowZeroAddress
     )
-        public
+        internal
         view
         returns (address)
     {
-        return resolver().resolve(_chainId, _name, _allowZeroAddress);
+        return IResolver(resolver()).resolve(_chainId, _name, _allowZeroAddress);
     }
 
-    function resolve(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
-        return resolver().resolve(block.chainid, _name, _allowZeroAddress);
-    }
-
-    function resolver() public view virtual returns (IResolver) {
-        require(__resolver != address(0), RESOLVER_NOT_FOUND());
-        return IResolver(__resolver);
+    /// @notice Resolves a name to an address on the current chain
+    /// @param _name The name to resolve
+    /// @param _allowZeroAddress Whether to allow resolving to the zero address
+    /// @return The resolved address
+    function resolve(bytes32 _name, bool _allowZeroAddress) internal view returns (address) {
+        return IResolver(resolver()).resolve(block.chainid, _name, _allowZeroAddress);
     }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _resolver The address of the {DefaultResolver} contract.
-    function __Essential_init(address _owner, address _resolver) internal nonZeroAddr(_resolver) {
-        __Essential_init(_owner);
-        __resolver = _resolver;
-    }
-
     function __Essential_init(address _owner) internal virtual onlyInitializing {
         __Context_init();
         _transferOwnership(_owner == address(0) ? msg.sender : _owner);

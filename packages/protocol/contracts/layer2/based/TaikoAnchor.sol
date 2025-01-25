@@ -94,25 +94,23 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _;
     }
 
-    constructor(uint64 _pacayaForkHeight) {
+    constructor(address _resolver, uint64 _pacayaForkHeight) EssentialContract(_resolver) {
         pacayaForkHeight = _pacayaForkHeight;
     }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupResolver The {IResolver} used by this rollup.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _initialGasExcess The initial parentGasExcess.
     function init(
         address _owner,
-        address _rollupResolver,
         uint64 _l1ChainId,
         uint64 _initialGasExcess
     )
         external
         initializer
     {
-        __Essential_init(_owner, _rollupResolver);
+        __Essential_init(_owner);
 
         require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
         require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());
@@ -172,6 +170,38 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _updateParentHashAndTimestamp(parentId);
 
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).receiveSignals(_signalSlots);
+    }
+
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message verification.
+    /// @dev This function can be called freely as the golden touch private key is publicly known,
+    /// but the Taiko node guarantees the first transaction of each block is always this anchor
+    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
+    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _parentGasUsed The gas used in the parent block.
+    /// @param _baseFeeConfig The base fee configuration.
+    function anchorV2(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        external
+        nonZeroBytes32(_anchorStateRoot)
+        nonZeroValue(_anchorBlockId)
+        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
+        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
+        onlyGoldenTouch
+        nonReentrant
+    {
+        require(block.number < pacayaForkHeight, L2_FORK_ERROR());
+
+        uint256 parentId = block.number - 1;
+        _verifyAndUpdatePublicInputHash(parentId);
+        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
+        _syncChainData(_anchorBlockId, _anchorStateRoot);
+        _updateParentHashAndTimestamp(parentId);
     }
 
     /// @notice Withdraw token or Ether from this address.

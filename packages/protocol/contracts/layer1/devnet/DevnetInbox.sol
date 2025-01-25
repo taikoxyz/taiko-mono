@@ -7,11 +7,13 @@ import "../based/TaikoInbox.sol";
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract DevnetInbox is TaikoInbox {
+    constructor(address _resolver) TaikoInbox(_resolver) { }
+
     /// @inheritdoc ITaikoInbox
-    function getConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: 167_001,
-            maxBatchProposals: 324_000,
+            maxUnverifiedBatches: 324_000,
             batchRingBufferSize: 360_000,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,

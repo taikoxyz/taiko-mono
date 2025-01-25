@@ -2,21 +2,37 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
+import { SP1Verifier as SuccinctVerifier } from
+    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
+import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/devnet/verifiers/OpVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
+import "src/layer1/fork-router/ForkRouter.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -51,21 +67,20 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
-        address signalServiceAddr = EssentialContract(sharedResolver).resolve(
+        address signalServiceAddr = IResolver(sharedResolver).resolve(
             uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
         );
         SignalService signalService = SignalService(signalServiceAddr);
 
-        address taikoInboxAddr = EssentialContract(rollupResolver).resolve(
-            uint64(block.chainid), LibStrings.B_TAIKO, false
-        );
+        address taikoInboxAddr =
+            IResolver(rollupResolver).resolve(uint64(block.chainid), LibStrings.B_TAIKO, false);
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
 
         if (vm.envAddress("SHARED_RESOLVER") == address(0)) {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
@@ -94,6 +109,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy other contracts
         if (block.chainid != 1) {
             deployAuxContracts();
+        }
+
+        if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
+            deployPreconfContracts(contractOwner, sharedResolver);
         }
 
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -135,15 +154,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy Bridging contracts
         deployProxy({
             name: "signal_service",
-            impl: address(new MainnetSignalService()),
-            data: abi.encodeCall(SignalService.init, (address(0), sharedResolver)),
+            impl: address(new MainnetSignalService(address(sharedResolver))),
+            data: abi.encodeCall(SignalService.init, (address(0))),
             registerTo: sharedResolver
         });
 
         address brdige = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge()),
-            data: abi.encodeCall(Bridge.init, (address(0), sharedResolver)),
+            impl: address(new MainnetBridge(address(sharedResolver))),
+            data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });
 
@@ -158,29 +177,29 @@ contract DeployProtocolOnL1 is DeployCapability {
             "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"bridge\", address(remoteBridge))"
+            "sharedResolver.registerAddress(remoteChainId, 'bridge', address(remoteBridge))"
         );
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Vaults
         deployProxy({
             name: "erc20_vault",
-            impl: address(new MainnetERC20Vault()),
-            data: abi.encodeCall(ERC20Vault.init, (owner, sharedResolver)),
+            impl: address(new MainnetERC20Vault(address(sharedResolver))),
+            data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });
 
         deployProxy({
             name: "erc721_vault",
-            impl: address(new MainnetERC721Vault()),
-            data: abi.encodeCall(ERC721Vault.init, (owner, sharedResolver)),
+            impl: address(new MainnetERC721Vault(address(sharedResolver))),
+            data: abi.encodeCall(ERC721Vault.init, (owner)),
             registerTo: sharedResolver
         });
 
         deployProxy({
             name: "erc1155_vault",
-            impl: address(new MainnetERC1155Vault()),
-            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedResolver)),
+            impl: address(new MainnetERC1155Vault(address(sharedResolver))),
+            data: abi.encodeCall(ERC1155Vault.init, (owner)),
             registerTo: sharedResolver
         });
 
@@ -189,20 +208,26 @@ contract DeployProtocolOnL1 is DeployCapability {
             "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
+            "sharedResolver.registerAddress(remoteChainId, 'erc20_vault', address(remoteERC20Vault))"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"erc721_vault\", address(remoteERC721Vault))"
+            "sharedResolver.registerAddress(remoteChainId, 'erc721_vault', address(remoteERC721Vault))"
         );
         console2.log(
-            "sharedResolver.registerAddress(remoteChainId, \"erc1155_vault\", address(remoteERC1155Vault))"
+            "sharedResolver.registerAddress(remoteChainId, 'erc1155_vault', address(remoteERC1155Vault))"
         );
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Bridged token implementations
-        register(sharedResolver, "bridged_erc20", address(new BridgedERC20()));
-        register(sharedResolver, "bridged_erc721", address(new BridgedERC721()));
-        register(sharedResolver, "bridged_erc1155", address(new BridgedERC1155()));
+        register(
+            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
+        );
     }
 
     function deployRollupContracts(
@@ -230,29 +255,124 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         deployProxy({
             name: "mainnet_taiko",
-            impl: address(new MainnetInbox()),
-            data: abi.encodeCall(
-                TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
-            )
+            impl: address(new MainnetInbox(address(rollupResolver))),
+            data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-        TaikoInbox taikoInbox = TaikoInbox(address(new DevnetInbox()));
+        address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
+        if (oldFork == address(0)) {
+            oldFork = address(new DevnetInbox(address(rollupResolver)));
+        }
+        address newFork = address(new DevnetInbox(address(rollupResolver)));
+
+        address taikoInboxAddr = deployProxy({
+            name: "taiko",
+            impl: address(new ForkRouter(oldFork, newFork)),
+            data: "",
+            registerTo: rollupResolver
+        });
+
+        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+        taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
+
+        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
+        address opVerifier = deployProxy({
+            name: "op_verifier",
+            impl: address(new OpVerifier(rollupResolver, l2ChainId)),
+            data: abi.encodeCall(OpVerifier.init, (owner)),
+            registerTo: rollupResolver
+        });
+
+        address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
+
+        (address risc0Verifier, address sp1Verifier) =
+            deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
         deployProxy({
-            name: "taiko",
-            impl: address(taikoInbox),
-            data: abi.encodeCall(
-                TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
+            name: "proof_verifier",
+            impl: address(
+                new DevnetVerifier(
+                    address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                )
             ),
+            data: abi.encodeCall(ComposeVerifier.init, (owner)),
             registerTo: rollupResolver
         });
 
         deployProxy({
             name: "prover_set",
-            impl: address(new ProverSet()),
+            impl: address(new ProverSet(address(rollupResolver))),
+            data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
+        });
+    }
+
+    function deploySgxVerifier(
+        address owner,
+        address rollupResolver,
+        uint64 l2ChainId
+    )
+        private
+        returns (address sgxVerifier)
+    {
+        sgxVerifier = deployProxy({
+            name: "sgx_verifier",
+            impl: address(new SgxVerifier(rollupResolver, l2ChainId)),
+            data: abi.encodeCall(SgxVerifier.init, owner),
+            registerTo: rollupResolver
+        });
+
+        // No need to proxy these, because they are 3rd party. If we want to modify, we simply
+        // change the registerAddress("automata_dcap_attestation", address(attestation));
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        address automataProxy = deployProxy({
+            name: "automata_dcap_attestation",
+            impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
-                ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
-            )
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
+        console2.log("AutomataDcapVaAttestation", automataProxy);
+    }
+
+    function deployZKVerifiers(
+        address owner,
+        address rollupResolver,
+        uint64 l2ChainId
+    )
+        private
+        returns (address risc0Verifier, address sp1Verifier)
+    {
+        // Deploy r0 groth16 verifier
+        RiscZeroGroth16Verifier verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        register(rollupResolver, "risc0_groth16_verifier", address(verifier));
+
+        risc0Verifier = deployProxy({
+            name: "risc0_verifier",
+            impl: address(new Risc0Verifier(rollupResolver, l2ChainId)),
+            data: abi.encodeCall(Risc0Verifier.init, (owner)),
+            registerTo: rollupResolver
+        });
+
+        // Deploy sp1 plonk verifier
+        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
+        register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
+
+        sp1Verifier = deployProxy({
+            name: "sp1_verifier",
+            impl: address(new SP1Verifier(rollupResolver, l2ChainId)),
+            data: abi.encodeCall(SP1Verifier.init, (owner)),
+            registerTo: rollupResolver
         });
     }
 
@@ -263,6 +383,30 @@ contract DeployProtocolOnL1 is DeployCapability {
         address bullToken =
             address(new FreeMintERC20Token_With50PctgMintAndTransferFailure("Bull Token", "BULL"));
         console2.log("BullToken", bullToken);
+    }
+
+    function deployPreconfContracts(
+        address owner,
+        address resolver
+    )
+        private
+        returns (address whitelist, address router)
+    {
+        whitelist = deployProxy({
+            name: "preconf_whitelist",
+            impl: address(new PreconfWhitelist(resolver)),
+            data: abi.encodeCall(PreconfWhitelist.init, (owner)),
+            registerTo: resolver
+        });
+
+        router = deployProxy({
+            name: "preconf_router",
+            impl: address(new PreconfRouter(resolver)),
+            data: abi.encodeCall(PreconfRouter.init, (owner)),
+            registerTo: resolver
+        });
+
+        return (whitelist, router);
     }
 
     function addressNotNull(address addr, string memory err) private pure {
