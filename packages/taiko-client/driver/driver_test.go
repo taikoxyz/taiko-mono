@@ -307,7 +307,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 		err  error
 	)
 	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true, nil, nil,
 	)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()

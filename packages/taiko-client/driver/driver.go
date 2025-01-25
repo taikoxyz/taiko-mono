@@ -118,6 +118,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
 			d.rpc,
 			d.Config.PreconfBlockServerCheckSig,
+			d.p2pNode,
+			d.p2pSigner,
 		); err != nil {
 			return err
 		}

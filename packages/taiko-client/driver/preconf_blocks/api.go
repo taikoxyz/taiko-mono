@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -150,6 +151,29 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	// Propagate the preconfirmation block to the P2P network, if the current server
+	// connects to the P2P network.
+	if s.p2pNode != nil {
+		if err := s.p2pNode.GossipOut().PublishL2Payload(
+			c.Request().Context(),
+			&eth.ExecutionPayloadEnvelope{
+				ExecutionPayload: &eth.ExecutionPayload{
+					ParentHash:   header.ParentHash,
+					FeeRecipient: header.Coinbase,
+					BlockNumber:  eth.Uint64Quantity(header.Number.Uint64()),
+					GasLimit:     eth.Uint64Quantity(header.GasLimit),
+					GasUsed:      eth.Uint64Quantity(header.GasUsed),
+					Timestamp:    eth.Uint64Quantity(header.Time),
+					BlockHash:    header.Hash(),
+					Transactions: []eth.Data{reqBody.ExecutableData.Transactions},
+				},
+			},
+			s.p2pSigner,
+		); err != nil {
+			log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
+		}
 	}
 
 	return c.JSON(http.StatusOK, BuildPreconfBlockResponseBody{BlockHeader: header})

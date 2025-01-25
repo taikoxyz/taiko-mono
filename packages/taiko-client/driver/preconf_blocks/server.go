@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -51,6 +52,9 @@ type PreconfBlockAPIServer struct {
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
 	checkSig           bool
+	// P2P network for soft block propagation
+	p2pNode   *p2p.NodeP2P
+	p2pSigner p2p.Signer
 }
 
 // New creates a new preconf blcok server instance, and starts the server.
@@ -60,6 +64,8 @@ func New(
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 	checkSig bool,
+	p2pNode *p2p.NodeP2P,
+	p2pSigner p2p.Signer,
 ) (*PreconfBlockAPIServer, error) {
 	protocolConfigs, err := cli.GetProtocolConfigs(nil)
 	if err != nil {
@@ -74,8 +80,10 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:      cli,
-		checkSig: checkSig,
+		rpc:       cli,
+		checkSig:  checkSig,
+		p2pNode:   p2pNode,
+		p2pSigner: p2pSigner,
 	}
 
 	server.echo.HideBanner = true
@@ -165,12 +173,17 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
 			Transactions: common.FromHex(msg.ExecutionPayload.Transactions[0].String()),
 		},
-		// TODO: fix these values.
-		common.Big0.Uint64(),
-		common.Hash(msg.ExecutionPayload.StateRoot),
-		[32]byte{},
-		[][32]byte{},
-		&pacayaBindings.LibSharedDataBaseFeeConfig{},
+		msg.AnchorBlockID,
+		msg.AnchorStateRoot,
+		msg.AnchorInput,
+		msg.SignalSlots,
+		&pacayaBindings.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     msg.AdjustmentQuotient,
+			SharingPctg:            msg.SharingPctg,
+			GasIssuancePerSecond:   msg.GasIssuancePerSecond,
+			MinGasExcess:           msg.MinGasExcess,
+			MaxGasIssuancePerBlock: msg.MaxGasIssuancePerBlock,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
