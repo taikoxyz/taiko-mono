@@ -303,6 +303,16 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 
 	// Check if the current L2 chain is after Pacaya fork, propose blocks batch.
 	if p.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head + 1)) {
+		preconfRouter, err := p.rpc.ResolvePacaya(nil, "preconf_router", true)
+		if err != nil {
+			return fmt.Errorf("failed to resolve preconfirmation router address: %w", err)
+		}
+
+		if preconfRouter != rpc.ZeroAddress {
+			log.Info("Preconfirmation router is set, skipping proposing blocks batch")
+			return nil
+		}
+
 		if err := p.ProposeTxListPacaya(ctx, txLists); err != nil {
 			return err
 		}

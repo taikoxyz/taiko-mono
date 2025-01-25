@@ -217,7 +217,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
 		// NOTE: op_verifier is the only verifier address for now.
-		opVerifier, err := a.rpc.ResolvePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier")
+		opVerifier, err := a.rpc.ResolvePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier", false)
 		if err != nil {
 			return nil, err
 		}

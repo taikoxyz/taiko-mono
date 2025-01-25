@@ -56,7 +56,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 }
 
 // ResolvePacaya resolves the address from TaikoInbox contract.
-func (c *Client) ResolvePacaya(opts *bind.CallOpts, name string) (common.Address, error) {
+func (c *Client) ResolvePacaya(opts *bind.CallOpts, name string, allowZero bool) (common.Address, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -74,7 +74,7 @@ func (c *Client) ResolvePacaya(opts *bind.CallOpts, name string) (common.Address
 		return common.Address{}, fmt.Errorf("failed to create resolver contract: %w", err)
 	}
 
-	return resolver.Resolve(opts, c.L1.ChainID, StringToBytes32(name), false)
+	return resolver.Resolve(opts, c.L1.ChainID, StringToBytes32(name), allowZero)
 }
 
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,
@@ -1134,7 +1134,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	whiteListAddress, err := c.ResolvePacaya(opts, "preconf_whitelist")
+	whiteListAddress, err := c.ResolvePacaya(opts, "preconf_whitelist", true)
 	if err != nil {
 		return common.Address{}, err
 	}
