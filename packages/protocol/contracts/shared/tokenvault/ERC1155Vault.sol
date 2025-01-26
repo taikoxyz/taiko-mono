@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
-import "../common/LibAddress.sol";
-import "../common/LibStrings.sol";
+import "../libs/LibAddress.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC1155.sol";
 import "./BaseNFTVault.sol";
 
 /// @title ERC1155Vault
-/// @dev Labeled in AddressResolver as "erc1155_vault"
+/// @dev Labeled in address resolver as "erc1155_vault"
 /// @notice This vault holds all ERC1155 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
@@ -18,11 +18,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     uint256[50] private __gap;
 
+    constructor(address _resolver) BaseNFTVault(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external initializer {
-        __Essential_init(_owner, _sharedAddressManager);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
         __ERC1155Receiver_init();
     }
     /// @notice Transfers ERC1155 tokens to this vault and sends a message to
@@ -287,7 +288,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
             IBridgedERC1155Initializable.init,
-            (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
+            (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC1155, false), data));

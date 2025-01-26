@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@solady/src/utils/FixedPointMathLib.sol";
-import "src/shared/common/LibMath.sol";
+import "src/shared/libs/LibMath.sol";
 
 /// @title LibEIP1559
 /// @notice Implements e^(x) based bonding curve for EIP-1559

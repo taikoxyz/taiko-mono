@@ -57,6 +57,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     event RevokedCertSerialNumAdded(uint256 indexed index, bytes serialNum);
     event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
 
+    constructor() EssentialContract(address(0)) { }
+
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.
     /// @param pemCertLibAddr Address of certificate library.
@@ -437,7 +439,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             for (uint256 i; i < 3; ++i) {
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
-                // todo! move decodeCert offchain
+                // TODO(Yue): move decodeCert offchain
                 (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
                     authDataV3.certification.decodedCertDataArray[i], isPckCert
                 );

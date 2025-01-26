@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoTest.sol";
-import "forge-std/src/console2.sol";
+import "../CommonTest.sol";
 
-contract MockSignalService is SignalService {
+contract SignalServiceNoHopCheck is SignalService {
+    constructor(address _resolver) SignalService(_resolver) { }
+
     function _verifyHopProof(
         uint64, /*chainId*/
         address, /*app*/
@@ -23,47 +24,20 @@ contract MockSignalService is SignalService {
     }
 }
 
-contract TestSignalService is TaikoTest {
-    AddressManager addressManager;
-    MockSignalService signalService;
-    SignalService realSignalService;
-    uint64 public destChainId = 7;
-    address taiko;
+contract TestSignalService is CommonTest {
+    SignalService private mockSignalService;
+    SignalService private signalService;
+    address private taiko = randAddress();
 
-    function setUp() public {
-        vm.startPrank(Alice);
-        vm.deal(Alice, 1 ether);
+    function setUpOnEthereum() internal override {
+        mockSignalService =
+            deploySignalService(address(new SignalServiceNoHopCheck(address(resolver))));
+        mockSignalService.authorize(taiko, true);
+
+        signalService = deploySignalService(address(new SignalService(address(resolver))));
+        signalService.authorize(deployer, true);
+
         vm.deal(Bob, 1 ether);
-
-        addressManager = AddressManager(
-            deployProxy({
-                name: "address_manager",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0))),
-                registerTo: address(addressManager)
-            })
-        );
-
-        signalService = MockSignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new MockSignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
-            })
-        );
-
-        realSignalService = SignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (Alice, address(addressManager)))
-            })
-        );
-
-        taiko = randAddress();
-        signalService.authorize(taiko, true);
-        realSignalService.authorize(Alice, true);
-        vm.stopPrank();
     }
 
     function test_real_signal() public {
@@ -76,38 +50,38 @@ contract TestSignalService is TaikoTest {
         address srcSignalService = 0x604C61d6618AaCdF7a7A2Fe4c42E35Ecba32AE75;
         address srcBridge = 0xde5B0e8a8034eF30a8b71d78e658C85dFE3FC657;
 
-        vm.prank(Alice);
-        addressManager.setAddress(32_382, "signal_service", srcSignalService);
+        vm.prank(deployer);
+        resolver.registerAddress(32_382, "signal_service", srcSignalService);
 
         bytes32 stateRoot = hex"7a889e6436fc1cde7827f75217adf5371afb14cc56860e6d9032ba5e28214819";
         uint64 blockId = 5570;
-        vm.prank(Alice);
-        realSignalService.syncChainData(32_382, LibStrings.H_STATE_ROOT, blockId, stateRoot);
+        vm.prank(deployer);
+        signalService.syncChainData(32_382, LibStrings.H_STATE_ROOT, blockId, stateRoot);
 
-        realSignalService.proveSignalReceived(32_382, srcBridge, msgHash, proof);
+        signalService.proveSignalReceived(32_382, srcBridge, msgHash, proof);
     }
 
     function test_SignalService_sendSignal_revert() public {
         vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        signalService.sendSignal(0);
+        mockSignalService.sendSignal(0);
     }
 
     function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        signalService.isSignalSent(address(0), signal);
+        mockSignalService.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
         vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        signalService.isSignalSent(Alice, signal);
+        mockSignalService.isSignalSent(deployer, signal);
     }
 
     function test_SignalService_sendSignal_isSignalSent() public {
-        vm.startPrank(Alice);
+        vm.startPrank(deployer);
         bytes32 signal = bytes32(uint256(1));
-        signalService.sendSignal(signal);
+        mockSignalService.sendSignal(signal);
 
-        assertTrue(signalService.isSignalSent(Alice, signal));
+        assertTrue(mockSignalService.isSignalSent(deployer, signal));
     }
 
     function test_SignalService_proveSignalReceived_revert_invalid_chainid_or_signal() public {
@@ -115,7 +89,7 @@ contract TestSignalService is TaikoTest {
 
         // app being address(0) will revert
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        signalService.proveSignalReceived({
+        mockSignalService.proveSignalReceived({
             _chainId: 1,
             _app: address(0),
             _signal: randBytes32(),
@@ -124,8 +98,8 @@ contract TestSignalService is TaikoTest {
 
         // signal being 0 will revert
         vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        signalService.proveSignalReceived({
-            _chainId: uint64(block.chainid),
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: 0,
             _proof: abi.encode(proofs)
@@ -135,7 +109,7 @@ contract TestSignalService is TaikoTest {
     function test_SignalService_proveSignalReceived_revert_malformat_proof() public {
         // "undecodable proof" is not decodeable into SignalService.HopProof[] memory
         vm.expectRevert();
-        signalService.proveSignalReceived({
+        mockSignalService.proveSignalReceived({
             _chainId: 0,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -146,23 +120,12 @@ contract TestSignalService is TaikoTest {
     function test_SignalService_proveSignalReceived_revert_src_signal_service_not_registered()
         public
     {
-        uint64 srcChainId = uint64(block.chainid - 1);
-
-        // Did not call the following, so revert with RESOLVER_ZERO_ADDR
-        //   vm.prank(Alice);
-        //   addressManager.setAddress(srcChainId, "signal_service", randAddress());
-
+        uint64 someChainId = 12_345;
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector,
-                srcChainId,
-                strToBytes32("signal_service")
-            )
-        );
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
+        mockSignalService.proveSignalReceived({
+            _chainId: someChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -170,17 +133,23 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_zero_size_proof() public {
-        uint64 srcChainId = uint64(block.chainid - 1);
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
+            _app: randAddress(),
+            _signal: randBytes32(),
+            _proof: hex""
+        });
 
         // proofs.length must > 0 in order not to revert
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](0);
 
         vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -188,20 +157,18 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_last_hop_incorrect_chainid() public {
-        uint64 srcChainId = uint64(block.chainid - 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        // proofs[0].chainId must be block.chainid in order not to revert
-        proofs[0].chainId = uint64(block.chainid + 1);
+        // proofs[0].chainId must be ethereumChainId in order not to revert
+        proofs[0].chainId = ethereumChainId + 1;
         proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -209,20 +176,18 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_incorrect_chainid() public {
-        uint64 srcChainId = uint64(block.chainid - 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
-        // proofs[0].chainId must NOT be block.chainid in order not to revert
-        proofs[0].chainId = uint64(block.chainid);
+        // proofs[0].chainId must NOT be ethereumChainId in order not to revert
+        proofs[0].chainId = ethereumChainId;
         proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_MID_HOP_CHAINID.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -230,27 +195,19 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_not_registered() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
-        // proofs[0].chainId must NOT be block.chainid in order not to revert
-        proofs[0].chainId = srcChainId + 1;
+        // proofs[0].chainId must NOT be ethereumChainId in order not to revert
+        proofs[0].chainId = ethereumChainId + 1;
         proofs[0].blockId = 1;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector,
-                proofs[0].chainId,
-                strToBytes32("signal_service")
-            )
-        );
+        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
 
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -258,14 +215,12 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_local_chaindata_not_found() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        proofs[0].chainId = uint64(block.chainid);
+        proofs[0].chainId = ethereumChainId;
         proofs[0].blockId = 1;
 
         // the proof is a storage proof
@@ -273,8 +228,8 @@ contract TestSignalService is TaikoTest {
         proofs[0].storageProof = new bytes[](10);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -284,8 +239,8 @@ contract TestSignalService is TaikoTest {
         proofs[0].accountProof = new bytes[](1);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -293,14 +248,12 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        proofs[0].chainId = uint64(block.chainid);
+        proofs[0].chainId = ethereumChainId;
         proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
 
@@ -309,8 +262,8 @@ contract TestSignalService is TaikoTest {
         proofs[0].storageProof = new bytes[](10);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -318,35 +271,33 @@ contract TestSignalService is TaikoTest {
 
         // relay the signal root
         vm.prank(taiko);
-        signalService.syncChainData(
-            srcChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+        mockSignalService.syncChainData(
+            ethereumChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
         });
 
-        vm.prank(Alice);
-        signalService.authorize(taiko, false);
+        vm.prank(deployer);
+        mockSignalService.authorize(taiko, false);
 
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);
-        signalService.syncChainData(
-            srcChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+        mockSignalService.syncChainData(
+            ethereumChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
     }
 
     function test_SignalService_proveSignalReceived_one_hop_state_root() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        proofs[0].chainId = uint64(block.chainid);
+        proofs[0].chainId = ethereumChainId;
         proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
 
@@ -355,8 +306,8 @@ contract TestSignalService is TaikoTest {
         proofs[0].storageProof = new bytes[](10);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -364,91 +315,83 @@ contract TestSignalService is TaikoTest {
 
         // relay the state root
         vm.prank(taiko);
-        signalService.syncChainData(
-            srcChainId, LibStrings.H_STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
+        mockSignalService.syncChainData(
+            ethereumChainId, LibStrings.H_STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
 
         // Should not revert
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
         });
 
         assertEq(
-            signalService.isChainDataSynced(
-                srcChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
+            mockSignalService.isChainDataSynced(
+                ethereumChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
             ),
             false
         );
     }
 
     function test_SignalService_proveSignalReceived_multiple_hops_no_caching() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
         // first hop with full merkle proof
-        proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].chainId = ethereumChainId + 2;
         proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
         proofs[0].accountProof = new bytes[](1);
         proofs[0].storageProof = new bytes[](10);
 
         // second hop with storage merkle proof
-        proofs[1].chainId = uint64(block.chainid + 3);
+        proofs[1].chainId = ethereumChainId + 3;
         proofs[1].blockId = 2;
         proofs[1].rootHash = randBytes32();
         proofs[1].accountProof = new bytes[](0);
         proofs[1].storageProof = new bytes[](10);
 
         // third/last hop with full merkle proof
-        proofs[2].chainId = uint64(block.chainid);
+        proofs[2].chainId = ethereumChainId;
         proofs[2].blockId = 3;
         proofs[2].rootHash = randBytes32();
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
 
-        // expect RESOLVER_ZERO_ADDR
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector,
-                proofs[0].chainId,
-                strToBytes32("signal_service")
-            )
-        );
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        // expect RESOLVED_TO_ZERO_ADDRESS
+        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
         });
 
         // Add two trusted hop relayers
-        vm.startPrank(Alice);
-        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        vm.startPrank(deployer);
+        resolver.registerAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        resolver.registerAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
         });
 
         vm.prank(taiko);
-        signalService.syncChainData(
+        mockSignalService.syncChainData(
             proofs[1].chainId, LibStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -456,15 +399,13 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_with_a_loop() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
-        vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.prank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
         // first hop with full merkle proof
-        proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].chainId = ethereumChainId + 2;
         proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
         proofs[0].accountProof = new bytes[](1);
@@ -478,26 +419,26 @@ contract TestSignalService is TaikoTest {
         proofs[1].storageProof = new bytes[](10);
 
         // third/last hop with full merkle proof
-        proofs[2].chainId = uint64(block.chainid);
+        proofs[2].chainId = ethereumChainId;
         proofs[2].blockId = 3;
         proofs[2].rootHash = randBytes32();
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
 
         // Add two trusted hop relayers
-        vm.startPrank(Alice);
-        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        vm.startPrank(deployer);
+        resolver.registerAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        resolver.registerAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
         vm.prank(taiko);
-        signalService.syncChainData(
+        mockSignalService.syncChainData(
             proofs[1].chainId, LibStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
         vm.expectRevert(SignalService.SS_INVALID_HOPS_WITH_LOOP.selector);
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
@@ -505,8 +446,8 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_multiple_hops_caching() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-        uint64 nextChainId = srcChainId + 100;
+        uint64 someChainId = ethereumChainId + 1;
+        uint64 nextChainId = someChainId + 100;
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](9);
 
@@ -575,7 +516,7 @@ contract TestSignalService is TaikoTest {
         proofs[7].cacheOption = ISignalService.CacheOption.CACHE_BOTH;
 
         // last hop, 9:  full merkle proof, CACHE_BOTH
-        proofs[8].chainId = uint64(block.chainid);
+        proofs[8].chainId = ethereumChainId;
         proofs[8].blockId = 9;
         proofs[8].rootHash = randBytes32();
         proofs[8].accountProof = new bytes[](1);
@@ -583,29 +524,27 @@ contract TestSignalService is TaikoTest {
         proofs[8].cacheOption = ISignalService.CacheOption.CACHE_BOTH;
 
         // Add two trusted hop relayers
-        vm.startPrank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        vm.startPrank(deployer);
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
         for (uint256 i; i < proofs.length; ++i) {
-            addressManager.setAddress(
-                proofs[i].chainId, "signal_service", randAddress() /*relay1*/
-            );
+            resolver.registerAddress(proofs[i].chainId, "signal_service", randAddress() /*relay1*/ );
         }
         vm.stopPrank();
 
         vm.prank(taiko);
-        signalService.syncChainData(
+        mockSignalService.syncChainData(
             proofs[7].chainId, LibStrings.H_STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
         );
 
-        signalService.proveSignalReceived({
-            _chainId: srcChainId,
+        mockSignalService.proveSignalReceived({
+            _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
             _proof: abi.encode(proofs)
         });
 
         // hop 1:  full merkle proof, CACHE_NOTHING
-        _verifyCache(srcChainId, proofs[0].blockId, proofs[0].rootHash, false, false);
+        _verifyCache(ethereumChainId, proofs[0].blockId, proofs[0].rootHash, false, false);
         // hop 2:  full merkle proof, CACHE_STATE_ROOT
         _verifyCache(proofs[0].chainId, proofs[1].blockId, proofs[1].rootHash, true, false);
         // hop 3:  full merkle proof, CACHE_SIGNAL_ROOT
@@ -633,17 +572,88 @@ contract TestSignalService is TaikoTest {
         bool signalRootCached
     )
         private
+        view
     {
         assertEq(
-            signalService.isChainDataSynced(chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot),
+            mockSignalService.isChainDataSynced(
+                chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot
+            ),
             stateRootCached
         );
 
         assertEq(
-            signalService.isChainDataSynced(
+            mockSignalService.isChainDataSynced(
                 chainId, LibStrings.H_SIGNAL_ROOT, blockId, bytes32(uint256(789))
             ),
             signalRootCached
         );
+    }
+
+    function test_SignalService_getSyncedChainData_isSignalSent() public {
+        vm.chainId(167_001);
+
+        bytes32 kind = LibStrings.H_STATE_ROOT;
+        uint64 chainId = 32_382;
+        bytes32 expectedChainData = randBytes32();
+
+        vm.prank(deployer);
+        resolver.registerAddress(chainId, "signal_service", randAddress());
+
+        uint64 blockId = 5570;
+        vm.prank(deployer);
+        signalService.syncChainData(chainId, kind, blockId, expectedChainData);
+
+        // Call `getSyncedChainData` and verify the returned values
+        (uint64 returnedBlockId, bytes32 returnedChainData) =
+            signalService.getSyncedChainData(chainId, kind, blockId);
+        assertEq(returnedBlockId, blockId);
+        assertEq(returnedChainData, expectedChainData);
+
+        bytes32 signal = signalService.signalForChainData(chainId, kind, blockId);
+        bool isSignalSent = signalService.isSignalSent(address(signalService), signal);
+        assertEq(isSignalSent, true);
+        isSignalSent = signalService.isSignalSent(signal);
+        assertEq(isSignalSent, false);
+
+        // Test for topBlockId is returned when blockId is 0
+        uint64 unsetBlockId = 0;
+        expectedChainData = randBytes32();
+        vm.prank(deployer);
+        signalService.syncChainData(chainId, kind, blockId + 1, expectedChainData); // Update the
+            // topBlockId
+
+        (uint64 topBlockId, bytes32 topChainData) =
+            signalService.getSyncedChainData(chainId, kind, unsetBlockId);
+        assertEq(topBlockId, blockId + 1);
+        assertEq(topChainData, expectedChainData);
+
+        // Test for an invalid blockId (should revert)
+        uint64 invalidBlockId = blockId + 100; // BlockId that was not synced
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
+        signalService.getSyncedChainData(chainId, kind, invalidBlockId);
+
+        signal = signalService.signalForChainData(chainId, kind, invalidBlockId);
+        isSignalSent = signalService.isSignalSent(address(signalService), signal);
+        assertEq(isSignalSent, false);
+    }
+
+    function test_SignalService_signalForChainData() public view {
+        uint64 chainId = 32_382;
+        bytes32 kind = LibStrings.H_STATE_ROOT;
+        uint64 blockId = 5570;
+
+        bytes32 expectedHash = keccak256(abi.encode(chainId, kind, blockId));
+        bytes32 returnedHash = signalService.signalForChainData(chainId, kind, blockId);
+        assertEq(returnedHash, expectedHash);
+    }
+
+    function test_SignalService_getSignalSlot() public {
+        uint64 chainId = 32_382;
+        address app = randAddress();
+        bytes32 signal = randBytes32();
+
+        bytes32 expectedSlot = keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
+        bytes32 returnedSlot = signalService.getSignalSlot(chainId, app, signal);
+        assertEq(returnedSlot, expectedSlot);
     }
 }

@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
-import "../common/LibTrieProof.sol";
+import "../libs/LibStrings.sol";
+import "../libs/LibTrieProof.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
-/// @dev Labeled in AddressResolver as "signal_service".
+/// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
     /// @notice Mapping to store the top blockId.
@@ -19,7 +19,9 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Slot 2.
     mapping(address addr => bool authorized) public isAuthorized;
 
-    uint256[48] private __gap;
+    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
+
+    uint256[47] private __gap;
 
     struct CacheAction {
         bytes32 rootHash;
@@ -37,23 +39,37 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_STATE();
     error SS_SIGNAL_NOT_FOUND();
+    error SS_SIGNAL_NOT_RECEIVED();
     error SS_UNAUTHORIZED();
+
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external initializer {
-        __Essential_init(_owner, _sharedAddressManager);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @dev Authorize or deauthorize an address for calling syncChainData.
-    /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
+    /// @dev Note that addr is supposed to be Taiko and Taiko contracts deployed locally.
     /// @param _addr The address to be authorized or deauthorized.
     /// @param _authorize True if authorize, false otherwise.
     function authorize(address _addr, bool _authorize) external onlyOwner {
         if (isAuthorized[_addr] == _authorize) revert SS_INVALID_STATE();
         isAuthorized[_addr] = _authorize;
         emit Authorized(_addr, _authorize);
+    }
+
+    /// @dev Allow TaikoL2 to receive signals directly in its Anchor transaction.
+    /// @param _signalSlots The signal slots to mark as received.
+    function receiveSignals(bytes32[] calldata _signalSlots)
+        external
+        onlyFromNamed(LibStrings.B_TAIKO)
+    {
+        for (uint256 i; i < _signalSlots.length; ++i) {
+            _receivedSignals[_signalSlots[i]] = true;
+        }
+        emit SignalsReceived(_signalSlots);
     }
 
     /// @inheritdoc ISignalService
@@ -130,6 +146,11 @@ contract SignalService is EssentialContract, ISignalService {
     /// @inheritdoc ISignalService
     function isSignalSent(address _app, bytes32 _signal) public view returns (bool) {
         return _loadSignalValue(_app, _signal) != 0;
+    }
+
+    /// @inheritdoc ISignalService
+    function isSignalSent(bytes32 _signalSlot) public view returns (bool) {
+        return _loadSignalValue(_signalSlot) != 0;
     }
 
     /// @inheritdoc ISignalService
@@ -277,11 +298,15 @@ contract SignalService is EssentialContract, ISignalService {
         view
         nonZeroAddr(_app)
         nonZeroBytes32(_signal)
-        returns (bytes32 value_)
+        returns (bytes32)
     {
         bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
+        return _loadSignalValue(slot);
+    }
+
+    function _loadSignalValue(bytes32 _signalSlot) private view returns (bytes32 value_) {
         assembly {
-            value_ := sload(slot)
+            value_ := sload(_signalSlot)
         }
     }
 
@@ -298,14 +323,19 @@ contract SignalService is EssentialContract, ISignalService {
         nonZeroBytes32(_signal)
         returns (CacheAction[] memory actions)
     {
+        if (_proof.length == 0) {
+            require(
+                _receivedSignals[getSignalSlot(_chainId, _app, _signal)], SS_SIGNAL_NOT_RECEIVED()
+            );
+            return new CacheAction[](0);
+        }
+
         HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
         if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
 
         uint64[] memory trace = new uint64[](hopProofs.length - 1);
 
-        if (_prepareCaching) {
-            actions = new CacheAction[](hopProofs.length);
-        }
+        actions = new CacheAction[](_prepareCaching ? hopProofs.length : 0);
 
         uint64 chainId = _chainId;
         address app = _app;

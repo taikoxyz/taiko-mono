@@ -3,17 +3,18 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
-import "../common/LibAddress.sol";
-import "../common/LibMath.sol";
-import "../common/LibNetwork.sol";
+import "../libs/LibStrings.sol";
+import "../libs/LibAddress.sol";
+import "../libs/LibMath.sol";
+import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IQuotaManager.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
-/// @dev Labeled in AddressResolver as "bridge". Additionally, the code hash for the same address on
+/// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
+/// on
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {
@@ -101,11 +102,12 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external initializer {
-        __Essential_init(_owner, _sharedAddressManager);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice This function shall be called by previously deployed contracts.
@@ -475,7 +477,7 @@ contract Bridge is EssentialContract, IBridge {
         // bridge_watchdog can pause the bridge, but cannot unpause it.
         if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
 
-        revert RESOLVER_DENIED();
+        revert ACCESS_DENIED();
     }
 
     /// @notice Invokes a call message on the Bridge.
