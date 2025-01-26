@@ -117,6 +117,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if p2pConfigs, err = p2pCli.NewConfig(c, &rollup.Config{
 			L1ChainID: rpc.L1.ChainID,
 			L2ChainID: rpc.L2.ChainID,
+			Taiko:     true,
 		}); err != nil {
 			return nil, err
 		}
