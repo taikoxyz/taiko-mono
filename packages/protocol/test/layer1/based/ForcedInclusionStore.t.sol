@@ -116,7 +116,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(Bob.balance, _feeInGwei * 1 gwei);
     }
 
-    function test_storeconsumeOldestForcedInclusion_notOperator() public {
+    function test_storeConsumeForcedInclusion_notOperator() public {
         vm.deal(Alice, 1 ether);
         uint64 _feeInGwei = store.feeInGwei();
 
@@ -137,7 +137,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         store.consumeForcedInclusion(Bob);
     }
 
-    function test_storeconsumeOldestForcedInclusion_noEligibleInclusion() public {
+    function test_storeConsumeForcedInclusion_noEligibleInclusion() public {
         vm.prank(whitelistedProposer);
         IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
         assertEq(inclusion.blobHash, bytes32(0));
@@ -146,7 +146,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(inclusion.feeInGwei, 0);
     }
 
-    function test_storeconsumeOldestForcedInclusion_beforeWindowExpires() public {
+    function test_storeConsumeForcedInclusion_beforeWindowExpires() public {
         vm.deal(Alice, 1 ether);
 
         vm.prank(whitelistedProposer);
