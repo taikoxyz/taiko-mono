@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
-import "./IForcedInclusionStore.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibStrings.sol";
+import "./IForcedInclusionStore.sol";
 
 /// @title ForcedInclusionStore
 /// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow

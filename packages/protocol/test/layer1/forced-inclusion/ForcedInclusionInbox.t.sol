@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "contracts/layer1/based/IForcedInclusionInbox.sol";
-import "./ForcedInclusionInboxTestBase.sol";
+import "../based/InboxTestBase.sol";
+import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
+import "src/layer1/forced-inclusion/ForcedInclusionInbox.sol";
+import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 
-contract ForcedInclusionInboxTest is ForcedInclusionInboxTestBase {
+contract ForcedInclusionInboxTest is InboxTestBase {
     function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -30,8 +32,28 @@ contract ForcedInclusionInboxTest is ForcedInclusionInboxTestBase {
         });
     }
 
-    function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
-        bondToken = deployBondToken();
+    ForcedInclusionInbox internal forcedInclusionInbox;
+    IForcedInclusionStore internal forcedInclusionStore;
+    address owner;
+
+    function setUpOnEthereum() internal virtual override {
+        owner = Alice;
+
+        genesisBlockProposedAt = block.timestamp;
+        genesisBlockProposedIn = block.number;
+
+        inbox = deployInbox(correctBlockhash(0), pacayaConfig());
+
+        forcedInclusionStore = deployForcedInclusionStore(100, 100, owner);
+        forcedInclusionInbox = deployForcedInclusionInbox();
+
+        signalService = deploySignalService(address(new SignalService(address(resolver))));
+        signalService.authorize(address(inbox), true);
+
+        resolver.registerAddress(
+            block.chainid, "proof_verifier", address(new Verifier_ToggleStub())
+        );
+
+        mineOneBlockAndWrap(12 seconds);
     }
 }

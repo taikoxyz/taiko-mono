@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ITaikoInbox.sol";
-import "./IForcedInclusionStore.sol";
+import "src/layer1/based/TaikoInbox.sol";
+import "./ForcedInclusionStore.sol";
 
 /// @title IForcedInclusionInbox
 /// @custom:security-contact security@taiko.xyz

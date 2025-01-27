@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../../shared/CommonTest.sol";
-import "src/layer1/based/ForcedInclusionStore.sol";
+import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 
 contract ForcedInclusionStoreForTest is ForcedInclusionStore {
     constructor(

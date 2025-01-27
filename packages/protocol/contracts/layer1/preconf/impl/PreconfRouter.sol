@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/libs/LibStrings.sol";
+import "src/layer1/based/TaikoInbox.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionInbox.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
-import "src/layer1/based/ITaikoInbox.sol";
-import "src/layer1/based/IForcedInclusionInbox.sol";
-import "src/shared/libs/LibStrings.sol";
-import "src/shared/common/EssentialContract.sol";
 
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
