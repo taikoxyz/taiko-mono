@@ -88,7 +88,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         });
     }
 
-    function test_storeconsumeOldestForcedInclusion_success() public {
+    function test_storeConsumeForcedInclusion_success() public {
         vm.deal(Alice, 1 ether);
         uint64 _feeInGwei = store.feeInGwei();
 
