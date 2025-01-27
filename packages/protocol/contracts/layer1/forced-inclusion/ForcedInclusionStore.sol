@@ -5,6 +5,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibStrings.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 import "./IForcedInclusionStore.sol";
 
 /// @title ForcedInclusionStore
@@ -19,19 +20,19 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint256 private constant SECONDS_PER_BLOCK = 12;
 
-    uint256 public immutable inclusionDelay;
+    uint8 public immutable inclusionDelay;
     uint64 public immutable feeInGwei;
 
     mapping(uint256 id => ForcedInclusion inclusion) public queue; // slot 1
     uint64 public head; // slot 2
     uint64 public tail;
-    uint128 private __reserved1;
+    uint64 public lastProcessedAtBatchId;
 
     uint256[48] private __gap;
 
     constructor(
         address _resolver,
-        uint256 _inclusionDelay,
+        uint8 _inclusionDelay,
         uint64 _feeInGwei
     )
         EssentialContract(_resolver)
@@ -60,10 +61,12 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
+        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
+
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
             feeInGwei: uint64(msg.value / 1 gwei),
-            createdAt: uint64(block.timestamp),
+            createdAtBatchId: inbox.getStats2().numBatches,
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize
         });
@@ -73,7 +76,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         emit ForcedInclusionStored(inclusion);
     }
 
-    function consumeForcedInclusion(address _feeRecipient)
+    function consumeOldestForcedInclusion(address _feeRecipient)
         external
         nonReentrant
         onlyFromNamed(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX)
@@ -82,14 +85,34 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         // we only need to check the first one, since it will be the oldest.
         uint64 _head = head;
         ForcedInclusion storage inclusion = queue[_head];
+        require(inclusion.createdAtBatchId != 0, NoForcedInclusionFound());
 
-        if (inclusion.createdAt != 0 && block.timestamp >= inclusionDelay + inclusion.createdAt) {
-            inclusion_ = inclusion;
-            _feeRecipient.sendEtherAndVerify(inclusion.feeInGwei * 1 gwei);
-            delete queue[_head];
+        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
+
+        inclusion_ = inclusion;
+        delete queue[_head];
+
+        unchecked {
+            lastProcessedAtBatchId = inbox.getStats2().numBatches;
             head = _head + 1;
-            emit ForcedInclusionConsumed(inclusion);
         }
+
+        emit ForcedInclusionConsumed(inclusion);
+        _feeRecipient.sendEtherAndVerify(inclusion.feeInGwei * 1 gwei);
+    }
+
+    function getOldestForcedInclusionDeadline() public view returns (uint256) {
+        unchecked {
+            ForcedInclusion storage inclusion = queue[head];
+            return inclusion.createdAtBatchId == 0
+                ? type(uint64).max
+                : uint256(lastProcessedAtBatchId).max(inclusion.createdAtBatchId) + inclusionDelay;
+        }
+    }
+
+    function isOldestForcedInclusionDue() external view returns (bool) {
+        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
+        return inbox.getStats2().numBatches >= getOldestForcedInclusionDeadline();
     }
 
     // @dev Override this function for easier testing blobs

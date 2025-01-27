@@ -11,6 +11,8 @@ interface IForcedInclusionStore {
     /// @dev Error thrown when the fee is incorrect.
     error IncorrectFee();
 
+    error NoForcedInclusionFound();
+
     /// @dev Event emitted when a forced inclusion is stored.
     event ForcedInclusionStored(ForcedInclusion forcedInclusion);
     /// @dev Event emitted when a forced inclusion is consumed.
@@ -19,16 +21,25 @@ interface IForcedInclusionStore {
     struct ForcedInclusion {
         bytes32 blobHash;
         uint64 feeInGwei;
-        uint64 createdAt;
+        uint64 createdAtBatchId;
         uint32 blobByteOffset;
         uint32 blobByteSize;
     }
 
+    /// @dev Get the deadline for the oldest forced inclusion.
+    /// @return The deadline for the oldest forced inclusion.
+    function getOldestForcedInclusionDeadline() external view returns (uint256);
+
+    /// @dev Check if the oldest forced inclusion is due.
+    /// @return True if the oldest forced inclusion is due, false otherwise.
+    function isOldestForcedInclusionDue() external view returns (bool);
+
     /// @dev Consume a forced inclusion request.
     /// The inclusion request must be marked as processed and the priority fee must be paid to the
     /// caller.
+    /// @param _feeRecipient The address to receive the priority fee.
     /// @return inclusion_ The forced inclusion request.
-    function consumeForcedInclusion(address _feeRecipient)
+    function consumeOldestForcedInclusion(address _feeRecipient)
         external
         returns (ForcedInclusion memory);
 

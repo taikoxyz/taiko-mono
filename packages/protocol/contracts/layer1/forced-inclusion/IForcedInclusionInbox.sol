@@ -7,7 +7,11 @@ import "./ForcedInclusionStore.sol";
 /// @title IForcedInclusionInbox
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionInbox {
+    /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
+    /// @dev Error thrown when the oldest forced inclusion is due.
+
+    error OldestForcedInclusionDue();
 
     /// @notice Proposes a batch of blocks with forced inclusion.
     /// @param _forcedInclusionParams An optional ABI-encoded BlockParams for the forced inclusion

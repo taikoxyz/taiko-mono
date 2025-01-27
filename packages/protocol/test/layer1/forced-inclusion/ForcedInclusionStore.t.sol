@@ -7,7 +7,7 @@ import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 contract ForcedInclusionStoreForTest is ForcedInclusionStore {
     constructor(
         address _resolver,
-        uint256 _inclusionDelay,
+        uint8 _inclusionDelay,
         uint64 _feeInGwei
     )
         ForcedInclusionStore(_resolver, _inclusionDelay, _feeInGwei)
@@ -21,7 +21,7 @@ contract ForcedInclusionStoreForTest is ForcedInclusionStore {
 abstract contract ForcedInclusionStoreTestBase is CommonTest {
     address internal storeOwner = Alice;
     address internal whitelistedProposer = Alice;
-    uint64 internal constant inclusionDelay = 24 seconds;
+    uint8 internal constant inclusionDelay = 12;
     uint64 internal constant feeInGwei = 0.001 ether / 1 gwei;
 
     ForcedInclusionStore internal store;
@@ -88,7 +88,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         });
     }
 
-    function test_storeConsumeForcedInclusion_success() public {
+    function test_storeconsumeOldestForcedInclusion_success() public {
         vm.deal(Alice, 1 ether);
         uint64 _feeInGwei = store.feeInGwei();
 
@@ -106,17 +106,18 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         vm.warp(createdAt + inclusionDelay);
 
         vm.prank(whitelistedProposer);
-        IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeForcedInclusion(Bob);
+        IForcedInclusionStore.ForcedInclusion memory consumed =
+            store.consumeOldestForcedInclusion(Bob);
 
         assertEq(consumed.blobHash, bytes32(uint256(1)));
         assertEq(consumed.blobByteOffset, 0);
         assertEq(consumed.blobByteSize, 1024);
         assertEq(consumed.feeInGwei, _feeInGwei);
-        assertEq(consumed.createdAt, createdAt);
+        assertEq(consumed.createdAtBatchId, 0);
         assertEq(Bob.balance, _feeInGwei * 1 gwei);
     }
 
-    function test_storeConsumeForcedInclusion_notOperator() public {
+    function test_storeconsumeOldestForcedInclusion_notOperator() public {
         vm.deal(Alice, 1 ether);
         uint64 _feeInGwei = store.feeInGwei();
 
@@ -134,19 +135,20 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(Carol);
         vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
-        store.consumeForcedInclusion(Bob);
+        store.consumeOldestForcedInclusion(Bob);
     }
 
-    function test_storeConsumeForcedInclusion_noEligibleInclusion() public {
+    function test_storeconsumeOldestForcedInclusion_noEligibleInclusion() public {
         vm.prank(whitelistedProposer);
-        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
+        IForcedInclusionStore.ForcedInclusion memory inclusion =
+            store.consumeOldestForcedInclusion(Bob);
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 0);
         assertEq(inclusion.feeInGwei, 0);
     }
 
-    function test_storeConsumeForcedInclusion_beforeWindowExpires() public {
+    function test_storeconsumeOldestForcedInclusion_beforeWindowExpires() public {
         vm.deal(Alice, 1 ether);
 
         vm.prank(whitelistedProposer);
@@ -158,7 +160,8 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.warp(block.timestamp + inclusionDelay - 1);
         vm.prank(whitelistedProposer);
-        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
+        IForcedInclusionStore.ForcedInclusion memory inclusion =
+            store.consumeOldestForcedInclusion(Bob);
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 0);

@@ -413,7 +413,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(
                 new ForcedInclusionStore(
                     resolver,
-                    vm.envUint("INCLUSION_WINDOW"),
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI"))
                 )
             ),

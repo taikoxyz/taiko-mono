@@ -11,7 +11,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "./ForcedInclusionStore.sol";
-
+import "./IForcedInclusionInbox.sol";
 /// @title ForcedInclusionInbox
 /// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
 /// transactions.
@@ -38,12 +38,12 @@ import "./ForcedInclusionStore.sol";
 /// consumption.
 ///
 /// @custom:security-contact security@taiko.xyz
-contract ForcedInclusionInbox is EssentialContract {
+
+contract ForcedInclusionInbox is EssentialContract, IForcedInclusionInbox {
     using LibMath for uint256;
 
-    event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
-
     uint16 public constant MAX_FORCED_TXS_PER_FORCED_INCLUSION = 512;
+
     uint256[50] private __gap;
 
     constructor(address _resolver) EssentialContract(_resolver) { }
@@ -68,21 +68,18 @@ contract ForcedInclusionInbox is EssentialContract {
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
-        (info_, meta_) = inbox.proposeBatch(_params, _txList);
 
-        // Process the next forced inclusion.
         IForcedInclusionStore store =
             IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
 
-        IForcedInclusionStore.ForcedInclusion memory inclusion =
-            store.consumeForcedInclusion(msg.sender);
+        if (_forcedInclusionParams.length == 0) {
+            require(!store.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
+        } else {
+            IForcedInclusionStore.ForcedInclusion memory inclusion =
+                store.consumeOldestForcedInclusion(msg.sender);
 
-        if (inclusion.createdAt != 0) {
-            ITaikoInbox.BatchParams memory params;
-
-            if (_forcedInclusionParams.length != 0) {
-                params = abi.decode(_forcedInclusionParams, (ITaikoInbox.BatchParams));
-            }
+            ITaikoInbox.BatchParams memory params =
+                abi.decode(_forcedInclusionParams, (ITaikoInbox.BatchParams));
 
             // Overwrite the batch params to have only 1 block and up to
             // MAX_FORCED_TXS_PER_FORCED_INCLUSION transactions
@@ -102,5 +99,7 @@ contract ForcedInclusionInbox is EssentialContract {
             inbox.proposeBatch(abi.encode(params), "");
             emit ForcedInclusionProcessed(inclusion);
         }
+
+        (info_, meta_) = inbox.proposeBatch(_params, _txList);
     }
 }

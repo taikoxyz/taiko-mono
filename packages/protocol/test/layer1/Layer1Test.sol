@@ -77,7 +77,7 @@ abstract contract Layer1Test is CommonTest {
     }
 
     function deployForcedInclusionStore(
-        uint256 inclusionDelay,
+        uint8 inclusionDelay,
         uint64 feeInGwei,
         address owner
     )
