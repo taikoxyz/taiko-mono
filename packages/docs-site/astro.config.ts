@@ -97,7 +97,7 @@ export default defineConfig({
             { label: "Block states", link: "/taiko-alethia-protocol/block-states" },
             { label: "Bridging", link: "/taiko-alethia-protocol/bridging" },
             { label: "Economics", link: "/taiko-alethia-protocol/economics" },
-            { label: "Taiko nodes", link: "/taiko-alethia-protocol/taiko-nodes" },
+            { label: "Taiko alethia nodes", link: "/taiko-alethia-protocol/taiko-alethia-nodes" },
           ]
         },
         {

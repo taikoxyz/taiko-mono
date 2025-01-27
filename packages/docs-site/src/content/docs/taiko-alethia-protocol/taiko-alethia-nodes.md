@@ -1,16 +1,16 @@
 ---
-title: Taiko nodes
-description: Core concept page for "Taiko nodes".
+title: Taiko alethia nodes
+description: Core concept page for Taiko Alethia nodes.
 ---
 
-Taiko nodes are minimally modified Ethereum [execution clients](https://ethereum.org/en/glossary/#execution-client) that consist of two parts:
+Taiko Alethia nodes are minimally modified Ethereum [execution clients](https://ethereum.org/en/glossary/#execution-client) that consist of two parts:
 
 - [taiko-geth](https://github.com/taikoxyz/taiko-geth)
 - [taiko-client](https://github.com/taikoxyz/taiko-client)
 
 You can think of it like an Ethereum mainnet node, except replacing the consensus client with `taiko-client`. `taiko-client` then drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine). This is a modular design that allows easily plugging in other execution clients.
 
-![Taiko nodes diagram](~/assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
+![Taiko Alethia nodes diagram](~/assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
 
 ## taiko-geth
 
