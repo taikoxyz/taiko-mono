@@ -37,6 +37,8 @@ contracts_layer1=(
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 "contracts/layer1/based/ForkRouter.sol:ForkRouter"
+"contracts/layer1/forced-inclusion/ForcedInclusionInbox"
+"contracts/layer1/forced-inclusion/ForcedInclusionStore"
 )
 
 # Layer 2 contracts
