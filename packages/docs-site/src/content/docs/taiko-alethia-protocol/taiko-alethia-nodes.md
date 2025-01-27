@@ -1,5 +1,5 @@
 ---
-title: Taiko alethia nodes
+title: Taiko Alethia nodes
 description: Core concept page for Taiko Alethia nodes.
 ---
 
@@ -43,7 +43,7 @@ block's timestamp, which differs from the original Ethereum protocol. So it's
 fine that there are two `TaikoL1.proposeBlock` transactions included in one L1
 block.
 
-Taiko client's driver informs the L2 execution engine about Taiko Alethia protocol contract's
+Taiko Alethia client's driver informs the L2 execution engine about Taiko Alethia protocol contract's
 latest verified L2 head and tries to let it catch up with the latest verified L2
 block through P2P at first.
 
@@ -87,9 +87,9 @@ If the proposed block has a **valid** or **invalid** `txList`, the `prover`:
 1. Generates a Merkle proof of the block's `TaikoL2.anchor` transaction to prove its existence in the `block.txRoot`'s [MPT](https://ethereum.org/en/developers/docs/data-structures-and-encoding/patricia-merkle-trie/) and this transaction receipt's [Merkle proof](https://rollup-glossary.vercel.app/other-terms#merkle-proofs) in the `block.receiptRoot`'s MPT from the L2 execution engine.
 2. Submits the `TaikoL2.anchor` transaction's RLP encoded bytes, its receipt's RLP encoded bytes, the generated Merkle proofs, and a validity proof to prove this block **valid** by sending a `TaikoL1.proveBlock` transaction (the block is valid even for an invalid `txList` because we prove the invalid `txList` maps to an empty block with only the anchor transaction).
 
-## Taiko Node API
+## Taiko Alethia Node API
 
-Using a Taiko node should feel the same as using any other L1 node, because we essentially re-use the L1 client and make a few backwards-compatible modifications.
+Using a Taiko Alethia node should feel the same as using any other L1 node, because we essentially re-use the L1 client and make a few backwards-compatible modifications.
 
 ### Differences from a Geth client
 
@@ -105,4 +105,4 @@ Check out the engine API spec [here](https://github.com/ethereum/execution-apis/
 
 ### Hive test harness
 
-If a Taiko node should feel the same as using any other L1 node, it should surely be able to pass the [hive e2e test harness](https://github.com/ethereum/hive). At the time of writing, the hive tests are actually one of the best references for what the API of an Ethereum node actually is.
+If a Taiko Alethia node should feel the same as using any other L1 node, it should surely be able to pass the [hive e2e test harness](https://github.com/ethereum/hive). At the time of writing, the hive tests are actually one of the best references for what the API of an Ethereum node actually is.
