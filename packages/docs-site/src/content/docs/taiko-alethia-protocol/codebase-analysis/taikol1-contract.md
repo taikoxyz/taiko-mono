@@ -1,9 +1,9 @@
 ---
 title: TaikoL1
-description: Taiko protocol page for "TaikoL1.sol".
+description: Taiko Alethia protocol page for "TaikoL1.sol".
 ---
 
-[TaikoL1](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/based/TaikoL1.sol) is a smart contract that serves as the **base layer** of the Taiko protocol. It provides functionalities for **proposing, proving, and verifying blocks**, enabling the rollup's consensus and state transitions. The contract also supports **bond deposits and withdrawals** and manages state synchronization between L1 and L2.
+[TaikoL1](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/based/TaikoL1.sol) is a smart contract that serves as the **base layer** of the Taiko Alethia protocol. It provides functionalities for **proposing, proving, and verifying blocks**, enabling the rollup's consensus and state transitions. The contract also supports **bond deposits and withdrawals** and manages state synchronization between L1 and L2.
 
 ---
 
@@ -19,7 +19,7 @@ description: Taiko protocol page for "TaikoL1.sol".
    Handles the deposit and withdrawal of bonds to incentivize proposers and ensure accountability.
 
 4. **Base Layer Scalability**
-   Enables the deployment on L2 to create L3 rollups, expanding Taiko's scalability.
+   Enables the deployment on L2 to create L3 rollups, expanding Taiko Alethia's scalability.
 
 ---
 

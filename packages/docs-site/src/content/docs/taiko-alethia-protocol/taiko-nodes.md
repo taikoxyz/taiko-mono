@@ -10,11 +10,11 @@ Taiko nodes are minimally modified Ethereum [execution clients](https://ethereum
 
 You can think of it like an Ethereum mainnet node, except replacing the consensus client with `taiko-client`. `taiko-client` then drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine). This is a modular design that allows easily plugging in other execution clients.
 
-![Taiko nodes diagram](~/assets/content/docs/taiko-protocol/taiko-nodes.png)
+![Taiko nodes diagram](~/assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
 
 ## taiko-geth
 
-The [taiko-geth](https://github.com/taikoxyz/taiko-geth) software is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with some changes made according to the Taiko protocol.
+The [taiko-geth](https://github.com/taikoxyz/taiko-geth) software is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with some changes made according to the Taiko Alethia protocol.
 
 Like Ethereum mainnet execution engines, `taiko-geth` listens to new L2 transactions broadcasted in the L2 network, executes them in the EVM, and holds the latest state and database of all current L2 data.
 
@@ -38,12 +38,12 @@ The `prover` requests validity proofs from the ZK-EVM and sends transactions to 
 
 ## Chain synchronization process
 
-The Taiko protocol allows a block's timestamp to be equal to its parent
+The Taiko Alethia protocol allows a block's timestamp to be equal to its parent
 block's timestamp, which differs from the original Ethereum protocol. So it's
 fine that there are two `TaikoL1.proposeBlock` transactions included in one L1
 block.
 
-Taiko client's driver informs the L2 execution engine about Taiko protocol contract's
+Taiko client's driver informs the L2 execution engine about Taiko Alethia protocol contract's
 latest verified L2 head and tries to let it catch up with the latest verified L2
 block through P2P at first.
 
@@ -54,7 +54,7 @@ After the L2 execution engine catches up with the latest verified L2 head, the d
 1. Gets the corresponding `TaikoL1.proposeBlock` L1 transaction.
 2. Decompresses the `txListBytes` from the transaction's calldata (and blobdata if enabled).
 3. Decodes the `txList` and block metadata from the decompressed bytes.
-4. Checks whether the `txList` is valid based on the rules defined in the Taiko protocol.
+4. Checks whether the `txList` is valid based on the rules defined in the Taiko Alethia protocol.
 
 If the `txList` is **valid**, the driver:
 
@@ -71,7 +71,7 @@ If the `txList` is **invalid**, the driver:
 To propose a block, the `proposer`:
 
 1. Fetches the pending transactions from the L2 execution engine through the `txpool_content` RPC method.
-2. If there are too many pending transactions in the L2 execution engine, splits them into several smaller `txLists`. This is because the Taiko protocol restricts the max size of each proposed `txList`.
+2. If there are too many pending transactions in the L2 execution engine, splits them into several smaller `txLists`. This is because the Taiko Alethia protocol restricts the max size of each proposed `txList`.
 3. Proposes all split `txLists` by sending `TaikoL1.proposeBlock` transactions.
 
 ## Process of proving a block

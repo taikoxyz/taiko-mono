@@ -40,7 +40,7 @@ description: Network reference page describing various important addresses on Ta
 | labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
 | labcontester                    | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | labcontester.taiko.eth     |
 
-## Taiko L2 contracts
+## Taiko Alethia L2 contracts
 
 | Contract Name         | Address                                      |
 | --------------------- | -------------------------------------------- |

@@ -5,9 +5,9 @@ description: Core concept page for "Contestable rollups".
 
 ## Based Contestable Rollup
 
-In based rollups, block building is permissionless. But permissionless block building comes at a cost, in the form of permissionless attacks to the chain if there is a vulnerability in the Taiko codebase. Centralized rollups can tolerate these risks due to their centralized nature, but Taiko cannot as fully decentralized design. Therefore, Taiko needs a robust multi-proof structure to prevent malicious behaviours.
+In based rollups, block building is permissionless. But permissionless block building comes at a cost, in the form of permissionless attacks to the chain if there is a vulnerability in the Taiko Alethia codebase. Centralized rollups can tolerate these risks due to their centralized nature, but Taiko Alethia cannot as a fully decentralized design. Therefore, Taiko Alethia needs a robust multi-proof structure to prevent malicious behaviours.
 
-Taiko is configured as a based contestable rollup (BCR). This means that there is a hierarchy of proofs in Taiko and it's permissionless to contest all tiers of proofs. Currently Taiko has SGX as a TEE proof, RiscO(RiscZero) and SP1(Succinct) as ZK proofs, Guardian (multi-sig) proof which is owned by Taiko Labs. Guardian proof is not contestable and we plan to phase out after the next protocol hard fork.
+Taiko Alethia is configured as a based contestable rollup (BCR). This means that there is a hierarchy of proofs in Taiko Alethia and it's permissionless to contest all tiers of proofs. Currently Taiko Alethia has SGX as a TEE proof, RiscO(RiscZero) and SP1(Succinct) as ZK proofs, Guardian (multi-sig) proof which is owned by Taiko Labs. Guardian proof is not contestable and we plan to phase out after the next protocol hard fork.
 
 ![Proof Tiers](~/assets/content/docs/core-concepts/proof-tiers.png)
 

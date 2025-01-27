@@ -7,13 +7,13 @@ Bridges are foundational for cross-chain users and applications. Users might com
 
 Let's explain bridging on Taiko. We will answer the following questions:
 
-- [How does the Taiko protocol enable secure cross-chain messaging?](#cross-chain-messaging)
+- [How does the Taiko Alethia protocol enable secure cross-chain messaging?](#cross-chain-messaging)
 - [What is the Taiko signal service?](#the-signal-service)
-- [How does Taiko's bridge implementation work?](#how-the-bridge-works)
+- [How does Taiko Alethia's bridge implementation work?](#how-the-bridge-works)
 
 ## Cross-chain messaging
 
-The Taiko protocol's design, specifically its Ethereum-equivalence enables secure cross-chain messaging. Let's see how it works by simply using merkle proofs.
+The Taiko Alethia protocol's design, specifically its Ethereum-equivalence enables secure cross-chain messaging. Let's see how it works by simply using merkle proofs.
 
 ### Taiko stores block hashes of each chain
 
@@ -43,11 +43,11 @@ A verifier will take the value (a leaf in the merkle tree) and the sibling hashe
 
 ## The signal service
 
-Taiko's signal service is a smart contract available on both L1 and L2, for any dapp developer to use. It uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
+Taiko Alethia's signal service is a smart contract available on both L1 and L2, for any dapp developer to use. It uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
 
 You can store signals and check if a signal was sent from an address. It also exposes an important function: `verifySignalReceived`.
 
-What does this function do? The first thing to understand is that the Taiko protocol maintains two important contracts:
+What does this function do? The first thing to understand is that the Taiko Alethia protocol maintains two important contracts:
 
 - `TaikoL1`
 - `TaikoL2`
@@ -76,16 +76,16 @@ And boom! We have sent a cross-chain message. If this is confusing, you can also
 
 ## How the bridge works
 
-The bridge is a set of smart contracts and a frontend web app that allow you to send testnet ETH and ERC-20, ERC-1155 and ERC-721 tokens between Ethereum and Taiko. This bridge is just one possible implementation built on top of Taiko's core protocol, specifically the signal service which anybody can use to build bridges.
+The bridge is a set of smart contracts and a frontend web app that allow you to send testnet ETH and ERC-20, ERC-1155 and ERC-721 tokens between Ethereum and Taiko. This bridge is just one possible implementation built on top of Taiko Alethia's core protocol, specifically the signal service which anybody can use to build bridges.
 
 First, here is a flowchart of how our bridge dapp implementation works, which uses the signal service:
 
-![bridging send message flowchart](~/assets/content/docs/taiko-protocol/bridging-source-chain.webp)
-![bridging process message flowchart](~/assets/content/docs/taiko-protocol/bridging-dest-chain.webp)
+![bridging send message flowchart](~/assets/content/docs/taiko-alethia-protocol/bridging-source-chain.webp)
+![bridging process message flowchart](~/assets/content/docs/taiko-alethia-protocol/bridging-dest-chain.webp)
 
 ### How does Ether bridging work?
 
-Taiko's bridge utilizes the Signal Service we described. Here is the general user flow for Taiko's bridge:
+Taiko Alethia's bridge utilizes the Signal Service we described. Here is the general user flow for Taiko Alethia's bridge:
 
 1. The user sends their funds to the Bridge contract
 2. The Bridge locks the Ether, and stores a message by calling `sendSignal(message)` on the SignalService contract

@@ -3,9 +3,9 @@ title: Multi-proofs
 description: Core concept page for "Multi-proofs".
 ---
 
-Taiko supports multi-proofs through a mixture of zkVMs, TEE, and guardian proofs. Check out our blog post on zkVMs [here](https://taiko.mirror.xyz/e_5GeGGFJIrOxqvXOfzY6HmWcRjCjRyG0NQF1zbNpNQ) and a Twitter thread on our Raiko architecture [here](https://x.com/taikoxyz/status/1791201812768600209).
+Taiko Alethia supports multi-proofs through a mixture of zkVMs, TEE, and guardian proofs. Check out our blog post on zkVMs [here](https://taiko.mirror.xyz/e_5GeGGFJIrOxqvXOfzY6HmWcRjCjRyG0NQF1zbNpNQ) and a Twitter thread on our Raiko architecture [here](https://x.com/taikoxyz/status/1791201812768600209).
 
-## Proving Taiko blocks
+## Proving Taiko Alethia blocks
 
 The purpose of proving blocks is to give certainty to bridges about the execution that happened in the rollup. To rely on some state that happened inside of the rollup, a bridge will want a proof that everything was done correctly. On Taiko you can run a node as a prover and prove blocks, permissionlessly. This means that you can examine the proposed blocks on the TaikoL1 contract, and generate proofs for them. Currently, any prover can create proofs for proposed blocks. This means that the number of "state transitions" has no upper bound, because we don't know what is the correct state transition yet. Only first prover with a valid proof of the correct state transition will receive the reward of `ETH` (and possibly any `ERC20` or even NFTs if the Prover pool implementation favors it).
 
@@ -29,15 +29,15 @@ For the visual learners here is a visualization of the three stages (proposed ->
 
 **Proposed:**
 
-![proposed](~/assets/content/docs/taiko-protocol/proposed.png)
+![proposed](~/assets/content/docs/taiko-alethia-protocol/proposed.png)
 
 **Proved:**
 
-![proved](~/assets/content/docs/taiko-protocol/proved.png)
+![proved](~/assets/content/docs/taiko-alethia-protocol/proved.png)
 
 **Verified:**
 
-![verified](~/assets/content/docs/taiko-protocol/verified.png)
+![verified](~/assets/content/docs/taiko-alethia-protocol/verified.png)
 
 ## Off chain prover market (PBS style)
 
@@ -72,13 +72,13 @@ To add a layer of security and commitment to the process, provers must provide a
 
 ## Multi-proofs
 
-A great resource to learn about Taiko's approach to security with multi-proofs is the Twitter thread [here](https://x.com/taikoxyz/status/1745546868028068273).
+A great resource to learn about Taiko Alethia's approach to security with multi-proofs is the Twitter thread [here](https://x.com/taikoxyz/status/1745546868028068273).
 
-Cryptographic implementations are complex and not yet mature. To minimize potential bugs and vulnerabilities, diversity in proof systems is needed. Taiko is one of the advocates who strongly defends the multi-proofs approach in rollups. Taiko's approach aims to increase security and diversity by using multiple proof systems and clients, thus reducing the risk associated with bugs or vulnerabilities in any single system. The approach also includes the integration of different types of proofs.
+Cryptographic implementations are complex and not yet mature. To minimize potential bugs and vulnerabilities, diversity in proof systems is needed. Taiko is one of the advocates who strongly defends the multi-proofs approach in rollups. Taiko Alethia's approach aims to increase security and diversity by using multiple proof systems and clients, thus reducing the risk associated with bugs or vulnerabilities in any single system. The approach also includes the integration of different types of proofs.
 
-Taiko proposes a robust multi-proof pipeline which translates assembly-level instructions coming from different execution clients into arithmetizations for algebraic or polynomial proof systems. Different backends to encode these arithmetizations, such as SuperNova, Halo2, and eSTARK can also be used, without being limited by using a single protocol.
+Taiko Alethia proposes a robust multi-proof pipeline which translates assembly-level instructions coming from different execution clients into arithmetizations for algebraic or polynomial proof systems. Different backends to encode these arithmetizations, such as SuperNova, Halo2, and eSTARK can also be used, without being limited by using a single protocol.
 
-In addition to ZK proofs, Taiko utilizes SGX (a Trusted Execution Environment developed by Intel) to generate a different type of proof. SGX runs the same code that would be executed on a zkVM, which functions somewhat like a light execution client. Therefore, all proof systems verify the same underlying light client's execution, potentially allowing for the reuse of necessary data. The necessary data is signed within SGX using a standard ECDSA signature, employing a private key exclusive to SGX. The signature is then verified within the smart contract.
+In addition to ZK proofs, Taiko Alethia utilizes SGX (a Trusted Execution Environment developed by Intel) to generate a different type of proof. SGX runs the same code that would be executed on a zkVM, which functions somewhat like a light execution client. Therefore, all proof systems verify the same underlying light client's execution, potentially allowing for the reuse of necessary data. The necessary data is signed within SGX using a standard ECDSA signature, employing a private key exclusive to SGX. The signature is then verified within the smart contract.
 
 ## Video
 

@@ -66,7 +66,7 @@ export default defineConfig({
         {
           label: "Core Concepts",
           items: [
-            { label: "What is Taiko?", link: "/core-concepts/what-is-taiko/" },
+            { label: "What is Taiko Alethia?", link: "/core-concepts/what-is-taiko-alethia/" },
             {
               label: "Contestable rollups (BCR)",
               link: "/core-concepts/contestable-rollup/",
@@ -83,21 +83,21 @@ export default defineConfig({
           ],
         },
         {
-          label: "Taiko Protocol",
+          label: "Taiko Alethia Protocol",
           items: [
             {
               label: "Codebase Analysis",
               collapsed: true,
               items: [
-                {label: "TaikoL1 Contract", link: "/taiko-protocol/codebase-analysis/taikol1-contract"},
-                {label: "TaikoL2 Contract", link: "/taiko-protocol/codebase-analysis/taikol2-contract"},
-                {label: "SGXVerifier Contract", link: "/taiko-protocol/codebase-analysis/sgxverifier-contract"},
+                {label: "TaikoL1 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol1-contract"},
+                {label: "TaikoL2 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol2-contract"},
+                {label: "SGXVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/sgxverifier-contract"},
               ],
             },
-            { label: "Block states", link: "/taiko-protocol/block-states" },
-            { label: "Bridging", link: "/taiko-protocol/bridging" },
-            { label: "Economics", link: "/taiko-protocol/economics" },
-            { label: "Taiko nodes", link: "/taiko-protocol/taiko-nodes" },
+            { label: "Block states", link: "/taiko-alethia-protocol/block-states" },
+            { label: "Bridging", link: "/taiko-alethia-protocol/bridging" },
+            { label: "Economics", link: "/taiko-alethia-protocol/economics" },
+            { label: "Taiko nodes", link: "/taiko-alethia-protocol/taiko-nodes" },
           ]
         },
         {
@@ -155,11 +155,11 @@ export default defineConfig({
                   link: "/guides/node-operators/run-a-taiko-hekla-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko proposer",
+                  label: "Enable a proposer",
                   link: "/guides/node-operators/enable-a-proposer/",
                 },
                 {
-                  label: "Run a Taiko prover",
+                  label: "Enable a prover",
                   link: "/guides/node-operators/enable-a-prover/",
                 },
                 {
