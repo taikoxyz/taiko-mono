@@ -8,9 +8,9 @@ contract ForcedInclusionStoreForTest is ForcedInclusionStore {
     constructor(
         address _resolver,
         uint256 _inclusionDelay,
-        uint256 _fee
+        uint64 _feeInGwei
     )
-        ForcedInclusionStore(_resolver, _inclusionDelay, _fee)
+        ForcedInclusionStore(_resolver, _inclusionDelay, _feeInGwei)
     { }
 
     function _blobHash(uint8 blobIndex) internal view virtual override returns (bytes32) {
@@ -22,7 +22,7 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
     address internal storeOwner = Alice;
     address internal whitelistedProposer = Alice;
     uint64 internal constant inclusionDelay = 24 seconds;
-    uint256 internal constant fee = 0.001 ether;
+    uint64 internal constant feeInGwei = 0.001 ether / 1 gwei;
 
     ForcedInclusionStore internal store;
 
@@ -32,7 +32,9 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
         store = ForcedInclusionStore(
             deploy({
                 name: LibStrings.B_FORCED_INCLUSION_STORE,
-                impl: address(new ForcedInclusionStoreForTest(address(resolver), inclusionDelay, fee)),
+                impl: address(
+                    new ForcedInclusionStoreForTest(address(resolver), inclusionDelay, feeInGwei)
+                ),
                 data: abi.encodeCall(ForcedInclusionStore.init, (storeOwner))
             })
         );
@@ -43,17 +45,17 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
     function test_storeForcedInclusion_success() public transactBy(Alice) {
         vm.deal(Alice, 1 ether);
 
-        uint256 _fee = store.fee();
+        uint64 _feeInGwei = store.feeInGwei();
 
         for (uint8 i; i < 5; ++i) {
-            store.storeForcedInclusion{ value: _fee }({
+            store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
                 blobIndex: i,
                 blobByteOffset: 0,
                 blobByteSize: 1024
             });
             (
                 bytes32 blobHash,
-                uint256 fee,
+                uint64 feeInGwei,
                 uint64 createdAt,
                 uint32 blobByteOffset,
                 uint32 blobByteSize
@@ -61,7 +63,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
             assertEq(blobHash, bytes32(uint256(i + 1))); //  = blobIndex + 1
             assertEq(createdAt, uint64(block.timestamp));
-            assertEq(fee, _fee);
+            assertEq(feeInGwei, _feeInGwei);
             assertEq(blobByteOffset, 0);
             assertEq(blobByteSize, 1024);
         }
@@ -70,16 +72,16 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
     function test_storeForcedInclusion_incorrectFee() public transactBy(Alice) {
         vm.deal(Alice, 1 ether);
 
-        uint256 fee = store.fee();
+        uint64 feeInGwei = store.feeInGwei();
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
-        store.storeForcedInclusion{ value: fee - 1 }({
+        store.storeForcedInclusion{ value: feeInGwei * 1 gwei - 1 }({
             blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
         });
 
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
-        store.storeForcedInclusion{ value: fee + 1 }({
+        store.storeForcedInclusion{ value: feeInGwei * 1 gwei + 1 }({
             blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
@@ -88,10 +90,10 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
     function test_storeConsumeForcedInclusion_success() public {
         vm.deal(Alice, 1 ether);
-        uint256 _fee = store.fee();
+        uint64 _feeInGwei = store.feeInGwei();
 
         vm.prank(Alice);
-        store.storeForcedInclusion{ value: _fee }({
+        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
             blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
@@ -109,17 +111,17 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(consumed.blobHash, bytes32(uint256(1)));
         assertEq(consumed.blobByteOffset, 0);
         assertEq(consumed.blobByteSize, 1024);
-        assertEq(consumed.fee, _fee);
+        assertEq(consumed.feeInGwei, _feeInGwei);
         assertEq(consumed.createdAt, createdAt);
-        assertEq(Bob.balance, _fee);
+        assertEq(Bob.balance, _feeInGwei * 1 gwei);
     }
 
     function test_storeConsumeForcedInclusion_notOperator() public {
         vm.deal(Alice, 1 ether);
-        uint256 _fee = store.fee();
+        uint64 _feeInGwei = store.feeInGwei();
 
         vm.prank(Alice);
-        store.storeForcedInclusion{ value: _fee }({
+        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
             blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
@@ -141,14 +143,14 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 0);
-        assertEq(inclusion.fee, 0);
+        assertEq(inclusion.feeInGwei, 0);
     }
 
     function test_storeConsumeForcedInclusion_beforeWindowExpires() public {
         vm.deal(Alice, 1 ether);
 
         vm.prank(whitelistedProposer);
-        store.storeForcedInclusion{ value: store.fee() }({
+        store.storeForcedInclusion{ value: store.feeInGwei() * 1 gwei }({
             blobIndex: 0,
             blobByteOffset: 0,
             blobByteSize: 1024
@@ -160,6 +162,6 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(inclusion.blobHash, bytes32(0));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 0);
-        assertEq(inclusion.fee, 0);
+        assertEq(inclusion.feeInGwei, 0);
     }
 }

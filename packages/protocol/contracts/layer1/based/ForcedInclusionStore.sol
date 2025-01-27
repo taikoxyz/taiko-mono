@@ -20,7 +20,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     uint256 private constant SECONDS_PER_BLOCK = 12;
 
     uint256 public immutable inclusionDelay;
-    uint256 public immutable fee;
+    uint64 public immutable feeInGwei;
 
     mapping(uint256 id => ForcedInclusion inclusion) public queue; // slot 1
     uint64 public head; // slot 2
@@ -32,15 +32,15 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     constructor(
         address _resolver,
         uint256 _inclusionDelay,
-        uint256 _fee
+        uint64 _feeInGwei
     )
         EssentialContract(_resolver)
     {
         require(_inclusionDelay != 0 && _inclusionDelay % SECONDS_PER_BLOCK == 0, InvalidParams());
-        require(_fee != 0, InvalidParams());
+        require(_feeInGwei != 0, InvalidParams());
 
         inclusionDelay = _inclusionDelay;
-        fee = _fee;
+        feeInGwei = _feeInGwei;
     }
 
     function init(address _owner) external initializer {
@@ -54,14 +54,15 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     )
         external
         payable
+        nonReentrant
     {
         bytes32 blobHash = _blobHash(blobIndex);
         require(blobHash != bytes32(0), BlobNotFound());
-        require(msg.value == fee, IncorrectFee());
+        require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
-            fee: msg.value,
+            feeInGwei: uint64(msg.value / 1 gwei),
             createdAt: uint64(block.timestamp),
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize
@@ -74,6 +75,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     function consumeForcedInclusion(address _feeRecipient)
         external
+        nonReentrant
         onlyFromNamed(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX)
         returns (ForcedInclusion memory inclusion_)
     {
@@ -83,7 +85,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         if (inclusion.createdAt != 0 && block.timestamp >= inclusionDelay + inclusion.createdAt) {
             inclusion_ = inclusion;
-            _feeRecipient.sendEtherAndVerify(inclusion.fee);
+            _feeRecipient.sendEtherAndVerify(inclusion.feeInGwei * 1 gwei);
             delete queue[_head];
             head = _head + 1;
             emit ForcedInclusionConsumed(inclusion);

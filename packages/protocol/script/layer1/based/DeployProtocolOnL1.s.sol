@@ -412,7 +412,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    resolver, vm.envUint("INCLUSION_WINDOW"), vm.envUint("INCLUSION_FEE")
+                    resolver,
+                    vm.envUint("INCLUSION_WINDOW"),
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI"))
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (owner)),
@@ -427,10 +429,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         // forcedInclusionInbox should be the whitelisted proposer, since
-        // we call PreconfRouter as the selected operator, which calls 
+        // we call PreconfRouter as the selected operator, which calls
         // forcedinclustioninbox.proposeBatchWithForcedInclusion,
         // which calls taikoInbox.proposeBatch.
-        DefaultResolver(resolver).registerAddress(uint64(block.chainid), LibStrings.B_WHITELISTED_PROPOSER, forcedInclusionInbox);
+        DefaultResolver(resolver).registerAddress(
+            uint64(block.chainid), LibStrings.B_WHITELISTED_PROPOSER, forcedInclusionInbox
+        );
 
         return (whitelist, router, store, forcedInclusionInbox);
     }

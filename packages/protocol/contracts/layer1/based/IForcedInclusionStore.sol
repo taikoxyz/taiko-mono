@@ -18,7 +18,7 @@ interface IForcedInclusionStore {
 
     struct ForcedInclusion {
         bytes32 blobHash;
-        uint256 fee;
+        uint64 feeInGwei;
         uint64 createdAt;
         uint32 blobByteOffset;
         uint32 blobByteSize;
