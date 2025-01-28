@@ -302,6 +302,8 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
 		}
 
+		log.Info("Pacaya fork client fork height", "chainID", c.L2.ChainID.Uint64(), "forkHeight", c.PacayaClients.ForkHeight)
+
 		ontakeProtocolConfigs, err := c.OntakeClients.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return fmt.Errorf("failed to get Ontake protocol configs: %w", err)
