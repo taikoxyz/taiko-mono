@@ -128,6 +128,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
 			return nil, err
 		}
+	} else {
+		log.Info("p2pFlags.DisableP2PName not enabled or set to true")
 	}
 
 	return &Config{
