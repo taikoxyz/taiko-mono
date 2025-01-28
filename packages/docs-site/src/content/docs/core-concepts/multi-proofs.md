@@ -27,7 +27,7 @@ Proving blocks ensures that the **state transitions within the rollup are valid*
 
 ---
 
-## Verified Blocks & Parallel Proving
+## Verified Blocks and Parallel Proving
 
 ### **Block States**
 
