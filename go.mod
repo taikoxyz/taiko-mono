@@ -25,7 +25,6 @@ require (
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/labstack/gommon v0.4.2
 	github.com/libp2p/go-libp2p v0.36.5
-	github.com/libp2p/go-libp2p-pubsub v0.12.0
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/morkid/paginate v1.1.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -172,6 +171,7 @@ require (
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
 	github.com/libp2p/go-libp2p-asn-util v0.4.1 // indirect
 	github.com/libp2p/go-libp2p-mplex v0.9.0 // indirect
+	github.com/libp2p/go-libp2p-pubsub v0.12.0 // indirect
 	github.com/libp2p/go-libp2p-testing v0.12.0 // indirect
 	github.com/libp2p/go-mplex v0.7.0 // indirect
 	github.com/libp2p/go-msgio v0.3.0 // indirect
@@ -318,7 +318,7 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.14.11 => github.com/taikoxyz/taiko-geth v1.11.2-0.20250124085430-b7a6516c15f8
+replace github.com/ethereum/go-ethereum v1.14.11 => github.com/taikoxyz/taiko-geth v1.11.2-0.20250128011716-f5cf09fb6372
 
 replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20250125080142-ced68ae03b40
 

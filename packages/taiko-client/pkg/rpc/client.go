@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	defaultTimeout         = 1 * time.Minute
-	pacayaForkHeightDevnet = 10
-	pacayaForkHeightHekla  = 0
-	pacayaForkHeklaMainnet = 0
+	defaultTimeout                = 1 * time.Minute
+	pacayaForkHeightDevnet        = 10
+	pacayaForkHeightHekla         = 0
+	pacayaForkHeklaMainnet        = 0
+	pacayaForkHeightPreconfDevnet = 0
 )
 
 // OntakeClients contains all smart contract clients for Ontake fork.
@@ -294,6 +295,8 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 			c.PacayaClients.ForkHeight = pacayaForkHeightHekla
 		case params.TaikoMainnetNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeklaMainnet
+		case params.PreconfDevnetNetworkID.Uint64():
+			c.PacayaClients.ForkHeight = pacayaForkHeightPreconfDevnet
 		default:
 			log.Debug("Using devnet Pacaya fork height", "height", pacayaForkHeightDevnet)
 			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
