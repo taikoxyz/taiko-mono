@@ -127,6 +127,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 	if cfg.P2PConfigs != nil {
 		log.Info("enabling p2p network")
+		d.p2pSetup = cfg.P2PConfigs
+
 		if d.p2pNode, err = p2p.NewNodeP2P(
 			d.ctx,
 			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
