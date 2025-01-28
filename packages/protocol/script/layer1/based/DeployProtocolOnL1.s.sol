@@ -18,6 +18,7 @@ import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
+import "src/layer1/preconf/PreconfInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/ForkRouter.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
@@ -255,7 +256,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         deployProxy({
             name: "mainnet_taiko",
-            impl: address(new MainnetInbox(address(rollupResolver))),
+            impl: address(new PreconfInbox(address(rollupResolver))),
             data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
