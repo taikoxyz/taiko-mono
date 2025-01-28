@@ -14,6 +14,8 @@ For a deeper dive, explore:
 
 ## Proving Taiko Alethia Blocks
 
+---
+
 ### **Why is proving required?**
 
 Proving blocks ensures that the **state transitions within the rollup are valid**, providing certainty to **bridges and other dependent systems** that L2 transactions were executed correctly.
@@ -28,6 +30,8 @@ Proving blocks ensures that the **state transitions within the rollup are valid*
 ---
 
 ## Verified Blocks and Parallel Proving
+
+---
 
 ### **Block States**
 
