@@ -109,7 +109,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	)
 
 	if c.IsSet(p2pFlags.DisableP2PName) && !c.Bool(p2pFlags.DisableP2PName) {
-		log.Info("p2pFlag enabled", "p2pFlag", c.Bool(p2pFlags.DisableP2PName))
 		// Create a new RPC client to get the chain IDs.
 		rpc, err := rpc.NewClient(context.Background(), clientConfig)
 		if err != nil {
@@ -128,8 +127,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
 			return nil, err
 		}
-	} else {
-		log.Info("p2pFlags.DisableP2PName not enabled or set to true")
 	}
 
 	return &Config{
