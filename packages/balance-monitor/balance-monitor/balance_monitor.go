@@ -176,18 +176,10 @@ func (b *BalanceMonitor) getEthBalance(ctx context.Context, client ethClient, ad
 	return balance, nil
 }
 
-// getTokenBalance is a generic function that can get both regular and bond balances
-func (b *BalanceMonitor) getTokenBalance(
-	ctx context.Context,
-	client ethClient,
-	tokenAddress common.Address,
-	holderAddress common.Address,
-	methodName string,
-	abiString string,
-) (*big.Int, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(abiString))
+func (b *BalanceMonitor) getTokenBalance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address, methodName string, abiDef string) (*big.Int, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(abiDef))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse ABI: %w", err)
+		return nil, err
 	}
 
 	tokenContract := bind.NewBoundContract(tokenAddress, parsedABI, client, client, client)
@@ -198,16 +190,16 @@ func (b *BalanceMonitor) getTokenBalance(
 	}, &result, methodName, holderAddress)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to call %s: %w", methodName, err)
+		return nil, err
 	}
 
 	if len(result) == 0 {
-		return nil, fmt.Errorf("no result from token contract call for %s", methodName)
+		return nil, fmt.Errorf("no result from token contract call")
 	}
 
 	balance, ok := result[0].(*big.Int)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for %s result", methodName)
+		return nil, fmt.Errorf("unexpected type for balance result")
 	}
 
 	return balance, nil
