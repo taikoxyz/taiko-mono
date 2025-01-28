@@ -126,6 +126,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	}
 
 	if cfg.P2PConfigs != nil {
+		log.Info("enabling p2p network")
 		if d.p2pNode, err = p2p.NewNodeP2P(
 			d.ctx,
 			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
@@ -139,6 +140,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
+
+		log.Info("p2pNode", "Addrs", d.p2pNode.Host().Addrs(), "peerID", d.p2pNode.Host().ID())
 
 		if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 			return err

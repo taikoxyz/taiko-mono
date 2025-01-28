@@ -107,7 +107,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup
 	)
+
 	if c.IsSet(p2pFlags.DisableP2PName) && !c.Bool(p2pFlags.DisableP2PName) {
+		log.Info("p2pFlag enabled", "p2pFlag", c.Bool(p2pFlags.DisableP2PName))
 		// Create a new RPC client to get the chain IDs.
 		rpc, err := rpc.NewClient(context.Background(), clientConfig)
 		if err != nil {
