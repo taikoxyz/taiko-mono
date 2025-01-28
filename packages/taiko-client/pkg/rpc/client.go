@@ -310,6 +310,10 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		return nil
 	}
 
+	log.Info("Got protocol configs",
+		"ontakeForkHeight", protocolConfigs.ForkHeights.Ontake,
+		"pacayaForkHeight", protocolConfigs.ForkHeights.Pacaya,
+	)
 	// Otherwise, chain is after the Pacaya fork, just use the fork height numbers from the protocol configs.
 	c.OntakeClients.ForkHeight = protocolConfigs.ForkHeights.Ontake
 	c.PacayaClients.ForkHeight = protocolConfigs.ForkHeights.Pacaya
