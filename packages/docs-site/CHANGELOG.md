@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.22.0...docs-site-v1.22.1) (2025-01-29)
+
+
+### Bug Fixes
+
+* **docs-site:** touch up some content for rebrand ([#18847](https://github.com/taikoxyz/taiko-mono/issues/18847)) ([720c69d](https://github.com/taikoxyz/taiko-mono/commit/720c69d934aaa277e0f8dd89d5d2a23243604ac2))
+
 ## [1.22.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.4...docs-site-v1.22.0) (2025-01-29)
 
 
