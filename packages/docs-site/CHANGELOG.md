@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.22.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.4...docs-site-v1.22.0) (2025-01-29)
+
+
+### Features
+
+* **docs-site:** docs rebrand ([#18833](https://github.com/taikoxyz/taiko-mono/issues/18833)) ([bbd2ae1](https://github.com/taikoxyz/taiko-mono/commit/bbd2ae1e77831dfebcda3eb83b0003855d71b2a6))
+
+
+### Bug Fixes
+
+* **docs-site:** fix prover set file path ([#18840](https://github.com/taikoxyz/taiko-mono/issues/18840)) ([6ab0ecd](https://github.com/taikoxyz/taiko-mono/commit/6ab0ecd4d40f736158a63e66616f697972916a8f))
+
 ## [1.21.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.3...docs-site-v1.21.4) (2025-01-21)
 
 
