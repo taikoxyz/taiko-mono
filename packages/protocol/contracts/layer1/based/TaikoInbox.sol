@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
@@ -27,6 +27,7 @@ import "./ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -384,7 +385,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         address bond = bondToken();
         if (bond != address(0)) {
-            IERC20(bond).transfer(msg.sender, _amount);
+            IERC20(bond).safeTransfer(msg.sender, _amount);
         } else {
             LibAddress.sendEtherAndVerify(msg.sender, _amount);
         }
@@ -702,7 +703,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         if (bond != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
-            IERC20(bond).transferFrom(_user, address(this), _amount);
+            IERC20(bond).safeTransferFrom(_user, address(this), _amount);
         } else {
             require(msg.value == _amount, EtherNotPaidAsBond());
         }
