@@ -52,4 +52,4 @@ jobs:
         run: vercel build ${{ inputs.flags }} --token=${{ secrets.vercel_token }}
 
       - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt ${{ inputs.flags }} --token=${{ secrets.vercel_token }}
+        run: vercel deploy --prebuilt ${{ inputs.flags }} --force --token=${{ secrets.vercel_token }}
