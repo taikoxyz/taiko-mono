@@ -5,7 +5,7 @@ description: Core concept page for "What is Taiko Alethia?".
 
 Ethereum is too expensive. We believe in Ethereum's core properties (e.g., censorship-resistant, permissionless, secure). We also believe that rollups should **extend** (not augment) these properties.
 
-Taiko Alethia is a [based rollup](/core-concepts/based-rollup) which makes Ethereum cheaper while maintaining its properties:
+Taiko Alethia is a [based rollup](/core-concepts/based-rollups) which makes Ethereum cheaper while maintaining its properties:
 
 - [Based contestable rollup](/core-concepts/contestable-rollup): A configurable rollup to reduce transaction fees on Ethereum.
 - [Based booster rollup](/core-concepts/booster-rollups): An innovative approach to **native L1 scaling**.

@@ -67,6 +67,7 @@ export default defineConfig({
           label: "Core Concepts",
           items: [
             { label: "What is Taiko Alethia?", link: "/core-concepts/what-is-taiko-alethia/" },
+            { label: "Based rollups", link: "/core-concepts/based-rollups/" },
             {
               label: "Contestable rollups (BCR)",
               link: "/core-concepts/contestable-rollup/",

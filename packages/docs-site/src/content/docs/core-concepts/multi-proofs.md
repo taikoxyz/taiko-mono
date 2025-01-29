@@ -35,7 +35,7 @@ Proving blocks ensures that the **state transitions within the rollup are valid*
 
 ### **Block States**
 
-A block in Taiko progresses through three key states:
+A block in Taiko Alethia progresses through three key states:
 
 1. **Proposed** (Initial state, pending proof submission)
 2. **Proved** (At least one valid proof exists)
@@ -45,7 +45,7 @@ A block in Taiko progresses through three key states:
 
 - Blocks are proved **independently** in parallel.
 - For a block to be **verified**, its **parent block must also be verified**.
-- Taiko verifies **blocks in batches** instead of sequentially.
+- Taiko Alethia verifies **blocks in batches** instead of sequentially.
 - **A verified block may have `verifiedTransitionId == 0` due to batch verification.**
 
 #### **Illustrative Stages**
