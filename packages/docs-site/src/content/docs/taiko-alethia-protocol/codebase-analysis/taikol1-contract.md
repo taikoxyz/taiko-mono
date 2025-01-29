@@ -10,7 +10,7 @@ description: Taiko Alethia protocol page for "TaikoL1.sol".
 ## Core Purpose
 
 1. **Block Lifecycle Management**
-   Manages the proposal, proof, and verification of Taiko blocks, ensuring consistent state transitions.
+   Manages the proposal, proof, and verification of Taiko Alethia blocks, ensuring consistent state transitions.
 
 2. **Cross-Layer Synchronization**
    Ensures the synchronization of states between Layer 1 (L1) and Layer 2 (L2).
