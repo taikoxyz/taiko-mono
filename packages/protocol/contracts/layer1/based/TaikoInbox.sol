@@ -370,8 +370,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
     /// @inheritdoc ITaikoInbox
     function depositBond(uint256 _amount) external payable whenNotPaused {
-        state.bondBalance[msg.sender] += _amount;
-        _handleDeposit(msg.sender, _amount);
+        state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -685,7 +684,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 state.bondBalance[_user] = balance - _amount;
             }
         } else {
-            _handleDeposit(_user, _amount);
+            uint256 amountDeposited = _handleDeposit(_user, _amount);
+            require(amountDeposited == _amount, InsufficientBond());
         }
         emit BondDebited(_user, _amount);
     }
@@ -698,16 +698,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         emit BondCredited(_user, _amount);
     }
 
-    function _handleDeposit(address _user, uint256 _amount) private {
+    function _handleDeposit(
+        address _user,
+        uint256 _amount
+    )
+        private
+        returns (uint256 amountDeposited_)
+    {
         address bond = bondToken();
 
         if (bond != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
+
+            uint256 balance = IERC20(bond).balanceOf(address(this));
             IERC20(bond).safeTransferFrom(_user, address(this), _amount);
+            amountDeposited_ = IERC20(bond).balanceOf(address(this)) - balance;
         } else {
             require(msg.value == _amount, EtherNotPaidAsBond());
+            amountDeposited_ = _amount;
         }
-        emit BondDeposited(_user, _amount);
+        emit BondDeposited(_user, amountDeposited_);
     }
 
     function _validateBatchParams(
