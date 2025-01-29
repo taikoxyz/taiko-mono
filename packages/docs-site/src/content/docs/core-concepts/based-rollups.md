@@ -53,6 +53,7 @@ A based rollup is an L2 that delegates block sequencing to L1 validators, meanin
 <br/>
 
 4. **Simplicity & Cost-Efficiency**
+
    - No need for extra sequencer infrastructure, complex fallback mechanisms, or governance layers.
    - **No additional gas overhead**—transactions are simply included in Ethereum blocks, making based rollups more efficient and cheaper for users.
 
