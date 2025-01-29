@@ -134,8 +134,8 @@ export default defineConfig({
               collapsed: true,
               items: [
                 {
-                  label: "Run a Taiko node with Docker",
-                  link: "/guides/node-operators/run-a-taiko-node-with-docker/",
+                  label: "Run a Taiko Alethia node with Docker",
+                  link: "/guides/node-operators/run-a-taiko-alethia-node-with-docker/",
                 },
 
                 {
@@ -143,16 +143,16 @@ export default defineConfig({
                   link: "/guides/node-operators/run-an-ethereum-testnet-node/",
                 },
                 {
-                  label: "Build a Taiko node from source",
-                  link: "/guides/node-operators/build-a-taiko-node-from-source/",
+                  label: "Build a Taiko Alethia node from source",
+                  link: "/guides/node-operators/build-a-taiko-alethia-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko Alethia node from source",
-                  link: "/guides/node-operators/run-a-taiko-alethia-node-from-source/",
+                  label: "Run a node for Taiko Alethia",
+                  link: "/guides/node-operators/run-a-node-for-taiko-alethia/",
                 },
                 {
-                  label: "Run a Taiko Hekla node from source",
-                  link: "/guides/node-operators/run-a-taiko-hekla-node-from-source/",
+                  label: "Run a node for Taiko Hekla",
+                  link: "/guides/node-operators/run-a-node-for-taiko-hekla/",
                 },
                 {
                   label: "Enable a proposer",
