@@ -26,6 +26,11 @@ interface IForcedInclusionStore {
         uint32 blobByteSize;
     }
 
+    /// @dev Retrieve a forced inclusion request by its index.
+    /// @param index The index of the forced inclusion request in the queue.
+    /// @return The forced inclusion request at the specified index.
+    function getForcedInclusion(uint256 index) external view returns (ForcedInclusion memory);
+
     /// @dev Get the deadline for the oldest forced inclusion.
     /// @return The deadline for the oldest forced inclusion.
     function getOldestForcedInclusionDeadline() external view returns (uint256);

@@ -27,6 +27,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     uint64 public head; // slot 2
     uint64 public tail;
     uint64 public lastProcessedAtBatchId;
+    uint64 private __reserved1;
 
     uint256[48] private __gap;
 
@@ -97,8 +98,12 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             head = _head + 1;
         }
 
-        emit ForcedInclusionConsumed(inclusion);
-        _feeRecipient.sendEtherAndVerify(inclusion.feeInGwei * 1 gwei);
+        emit ForcedInclusionConsumed(inclusion_);
+        _feeRecipient.sendEtherAndVerify(inclusion_.feeInGwei * 1 gwei);
+    }
+
+    function getForcedInclusion(uint256 index) external view returns (ForcedInclusion memory) {
+        return queue[index];
     }
 
     function getOldestForcedInclusionDeadline() public view returns (uint256) {
