@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
@@ -27,6 +27,7 @@ import "./ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -369,8 +370,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
     /// @inheritdoc ITaikoInbox
     function depositBond(uint256 _amount) external payable whenNotPaused {
-        state.bondBalance[msg.sender] += _amount;
-        _handleDeposit(msg.sender, _amount);
+        state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -384,7 +384,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         address bond = bondToken();
         if (bond != address(0)) {
-            IERC20(bond).transfer(msg.sender, _amount);
+            IERC20(bond).safeTransfer(msg.sender, _amount);
         } else {
             LibAddress.sendEtherAndVerify(msg.sender, _amount);
         }
@@ -684,7 +684,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 state.bondBalance[_user] = balance - _amount;
             }
         } else {
-            _handleDeposit(_user, _amount);
+            uint256 amountDeposited = _handleDeposit(_user, _amount);
+            require(amountDeposited == _amount, InsufficientBond());
         }
         emit BondDebited(_user, _amount);
     }
@@ -697,16 +698,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         emit BondCredited(_user, _amount);
     }
 
-    function _handleDeposit(address _user, uint256 _amount) private {
+    function _handleDeposit(
+        address _user,
+        uint256 _amount
+    )
+        private
+        returns (uint256 amountDeposited_)
+    {
         address bond = bondToken();
 
         if (bond != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
-            IERC20(bond).transferFrom(_user, address(this), _amount);
+
+            uint256 balance = IERC20(bond).balanceOf(address(this));
+            IERC20(bond).safeTransferFrom(_user, address(this), _amount);
+            amountDeposited_ = IERC20(bond).balanceOf(address(this)) - balance;
         } else {
             require(msg.value == _amount, EtherNotPaidAsBond());
+            amountDeposited_ = _amount;
         }
-        emit BondDeposited(_user, _amount);
+        emit BondDeposited(_user, amountDeposited_);
     }
 
     function _validateBatchParams(
