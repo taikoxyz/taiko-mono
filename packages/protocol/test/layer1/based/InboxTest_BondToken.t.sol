@@ -97,7 +97,7 @@ contract InboxTest_BondToken is InboxTestBase {
         inbox.depositBond(depositAmount);
     }
 
-    function test_inbox_exceeding_balance() external {
+    function test_inbox_exceeding_token_balance() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
