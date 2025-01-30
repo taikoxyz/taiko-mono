@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 /// @notice This contract acts as a bridge for name-to-address resolution.
 /// @custom:security-contact security@taiko.xyz
 interface IResolver {
-    error RESOLVED_TO_ZERO_ADDRESS(bytes32 _name);
+    error RESOLVED_TO_ZERO_ADDRESS();
 
     /// @notice Resolves a name to its address deployed on a specified chain.
     /// @param _chainId The chainId of interest.

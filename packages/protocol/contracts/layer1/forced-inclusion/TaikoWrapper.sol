@@ -58,7 +58,7 @@ contract TaikoWrapper is EssentialContract {
         __Essential_init(_owner);
     }
 
-/// @notice Proposes a batch of blocks with forced inclusion.
+    /// @notice Proposes a batch of blocks with forced inclusion.
     /// @param _forcedInclusionParams An optional ABI-encoded BlockParams for the forced inclusion
     /// batch.
     /// @param _params ABI-encoded BlockParams.
