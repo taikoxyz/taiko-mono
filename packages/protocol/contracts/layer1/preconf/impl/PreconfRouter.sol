@@ -27,6 +27,11 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         external
         returns (ITaikoInbox.BatchMetadata memory meta_)
     {
+        // Make sure the proposer must be the msg.sender itself.
+        ITaikoInbox.BatchParams memory batchParams =
+            abi.decode(_batchParams, (ITaikoInbox.BatchParams));
+        require(msg.sender == batchParams.proposer, InvalidParams());
+
         // Sender must be the selected operator for the epoch
         address selectedOperator =
             IPreconfWhitelist(resolve(LibStrings.B_PRECONF_WHITELIST, false)).getOperatorForEpoch();
