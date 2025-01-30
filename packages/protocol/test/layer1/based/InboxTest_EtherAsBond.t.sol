@@ -68,6 +68,7 @@ contract InboxTest_EtherAsBond is InboxTestBase {
         inbox.withdrawBond(withdrawAmount);
     }
 
+    // TODO: this test fail on Github but pass locally!
     // function test_inbox_exceeding_ether_balance() external {
     //     vm.warp(1_000_000);
     //     vm.deal(Alice, 0.5 ether);
