@@ -94,6 +94,55 @@ contract RouterTest is RouterTestBase {
         router.proposePreconfedBlocks("", abi.encode(batchParams), "");
     }
 
+    function test_proposePreconfedBlocks_proposerNotSender() external {
+        address[] memory operators = new address[](1);
+        operators[0] = Bob;
+        addOperators(operators);
+
+        // Setup mock beacon for operator selection
+        vm.chainId(1);
+        uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
+        // Current epoch
+        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
+
+        MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
+        bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
+
+        address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
+        vm.etch(beaconBlockRootContract, address(mockBeacon).code);
+        MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
+            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
+        );
+
+        // Setup block params
+        ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
+        blockParams[0] = ITaikoInbox.BlockParams({ numTransactions: 1, timeShift: 1 });
+
+        ITaikoInbox.BlobParams memory blobParams;
+
+        // Create batch params with DIFFERENT proposer than sender
+        ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
+            proposer: Carol, // Set different proposer than sender (Carol)
+            coinbase: address(0),
+            parentMetaHash: bytes32(0),
+            anchorBlockId: 0,
+            anchorInput: bytes32(0),
+            lastBlockTimestamp: uint64(block.timestamp),
+            revertIfNotFirstProposal: false,
+            signalSlots: new bytes32[](0),
+            blobParams: blobParams,
+            blocks: blockParams
+        });
+
+        // Warp to arbitrary slot in epoch 2
+        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+
+        // Prank as Carol (selected operator) and propose blocks
+        vm.prank(Carol);
+        vm.expectRevert(IPreconfRouter.NotTheOperator.selector);
+        router.proposePreconfedBlocks("", abi.encode(params), "");
+    }
+
     function test_proposePreconfedBlocks_InvalidProposerParam() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
@@ -142,55 +191,6 @@ contract RouterTest is RouterTestBase {
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
         vm.expectRevert(IPreconfRouter.InvalidParams.selector);
-        router.proposePreconfedBlocks("", abi.encode(params), "");
-    }
-
-    function test_proposePreconfedBlocks_proposerNotSender() external {
-        address[] memory operators = new address[](1);
-        operators[0] = Bob;
-        addOperators(operators);
-
-        // Setup mock beacon for operator selection
-        vm.chainId(1);
-        uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        // Current epoch
-        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
-
-        MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
-        bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
-
-        address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
-        vm.etch(beaconBlockRootContract, address(mockBeacon).code);
-        MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
-        );
-
-        // Setup block params
-        ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
-        blockParams[0] = ITaikoInbox.BlockParams({ numTransactions: 1, timeShift: 1 });
-
-        ITaikoInbox.BlobParams memory blobParams;
-
-        // Create batch params with DIFFERENT proposer than sender
-        ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
-            proposer: Carol, // Set different proposer than sender (Carol)
-            coinbase: address(0),
-            parentMetaHash: bytes32(0),
-            anchorBlockId: 0,
-            anchorInput: bytes32(0),
-            lastBlockTimestamp: uint64(block.timestamp),
-            revertIfNotFirstProposal: false,
-            signalSlots: new bytes32[](0),
-            blobParams: blobParams,
-            blocks: blockParams
-        });
-
-        // Warp to arbitrary slot in epoch 2
-        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
-
-        // Prank as Carol (selected operator) and propose blocks
-        vm.prank(Carol);
-        vm.expectRevert(IPreconfRouter.NotTheOperator.selector);
         router.proposePreconfedBlocks("", abi.encode(params), "");
     }
 }
