@@ -44,7 +44,7 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
     MockInbox internal mockInbox;
 
     function setUpOnEthereum() internal virtual override {
-        register(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, whitelistedProposer);
+        register(LibStrings.B_TAIKO_WRAPPER, whitelistedProposer);
 
         store = ForcedInclusionStore(
             deploy({

@@ -80,7 +80,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     function consumeOldestForcedInclusion(address _feeRecipient)
         external
         nonReentrant
-        onlyFromNamed(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX)
+        onlyFromNamed(LibStrings.B_TAIKO_WRAPPER)
         returns (ForcedInclusion memory inclusion_)
     {
         // we only need to check the first one, since it will be the oldest.

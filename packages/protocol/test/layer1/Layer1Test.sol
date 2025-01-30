@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/forced-inclusion/ForcedInclusionInbox.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
@@ -66,12 +66,12 @@ abstract contract Layer1Test is CommonTest {
         );
     }
 
-    function deployForcedInclusionInbox() internal returns (ForcedInclusionInbox) {
-        return ForcedInclusionInbox(
+    function deployForcedInclusionInbox() internal returns (TaikoWrapper) {
+        return TaikoWrapper(
             deploy({
-                name: "taiko_forced_inclusion_inbox",
-                impl: address(new ForcedInclusionInbox(address(resolver))),
-                data: abi.encodeCall(ForcedInclusionInbox.init, (address(0)))
+                name: "taiko_wrapper",
+                impl: address(new TaikoWrapper(address(resolver))),
+                data: abi.encodeCall(TaikoWrapper.init, (address(0)))
             })
         );
     }
