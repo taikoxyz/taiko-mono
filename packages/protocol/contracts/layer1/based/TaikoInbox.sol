@@ -285,7 +285,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
             ts.inProvingWindow = inProvingWindow;
             ts.prover = inProvingWindow ? meta.proposer : msg.sender;
-
+            ts.createdAt = uint48(block.timestamp);
+            
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
             } else {
@@ -628,7 +629,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 }
 
                 unchecked {
-                    if (uint256(ts.createdAt) + _config.cooldownWindow < block.timestamp) {
+                    if (ts.createdAt + _config.cooldownWindow < block.timestamp) {
                         break;
                     }
                 }
