@@ -39,12 +39,13 @@ type OntakeClients struct {
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
 type PacayaClients struct {
-	TaikoInbox  *pacayaBindings.TaikoInboxClient
-	TaikoAnchor *pacayaBindings.TaikoAnchorClient
-	TaikoToken  *pacayaBindings.TaikoToken
-	ProverSet   *pacayaBindings.ProverSet
-	ForkRouter  *pacayaBindings.ForkRouter
-	ForkHeight  uint64
+	TaikoInbox   *pacayaBindings.TaikoInboxClient
+	TaikoAnchor  *pacayaBindings.TaikoAnchorClient
+	TaikoToken   *pacayaBindings.TaikoToken
+	ProverSet    *pacayaBindings.ProverSet
+	ForkRouter   *pacayaBindings.ForkRouter
+	ResolverBase *pacayaBindings.ResolverBase
+	ForkHeight   uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -244,6 +245,16 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		return err
 	}
 
+	resolverAddress, err := c.PacayaClients.TaikoInbox.Resolver(nil)
+	if err != nil {
+		return fmt.Errorf("failed to fetch resolver address: %w", err)
+	}
+
+	resolverBase, err := pacayaBindings.NewResolverBase(resolverAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create resolver contract: %w", err)
+	}
+
 	forkManager, err := pacayaBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
 	if err != nil {
 		return err
@@ -270,11 +281,12 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	}
 
 	c.PacayaClients = &PacayaClients{
-		TaikoInbox:  taikoInbox,
-		TaikoAnchor: taikoAnchor,
-		TaikoToken:  taikoToken,
-		ProverSet:   proverSet,
-		ForkRouter:  forkManager,
+		TaikoInbox:   taikoInbox,
+		TaikoAnchor:  taikoAnchor,
+		TaikoToken:   taikoToken,
+		ProverSet:    proverSet,
+		ForkRouter:   forkManager,
+		ResolverBase: resolverBase,
 	}
 
 	return nil

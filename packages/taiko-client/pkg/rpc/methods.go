@@ -64,17 +64,7 @@ func (c *Client) ResolvePacaya(opts *bind.CallOpts, name string, allowZero bool)
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	resolverAddress, err := c.PacayaClients.TaikoInbox.Resolver(opts)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to fetch resolver address: %w", err)
-	}
-
-	resolver, err := pacayaBindings.NewResolverBase(resolverAddress, c.L1)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to create resolver contract: %w", err)
-	}
-
-	return resolver.Resolve(opts, c.L1.ChainID, StringToBytes32(name), allowZero)
+	return c.PacayaClients.ResolverBase.Resolve(opts, c.L1.ChainID, StringToBytes32(name), allowZero)
 }
 
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,

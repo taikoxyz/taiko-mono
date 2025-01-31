@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -65,26 +66,10 @@ func (d *CalldataFetcher) FetchPacaya(
 		return nil, pkg.ErrBlobUsed
 	}
 
-	// Fetch the txlist data from the `BatchProposed` event.
-	end := meta.GetRawBlockHeight().Uint64()
-	iter, err := d.rpc.PacayaClients.TaikoInbox.FilterBatchProposed(
-		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
-	)
+	txList, err := encoding.UnpackTxListBytes(tx.Data())
 	if err != nil {
-		return nil, err
-	}
-	for iter.Next() {
-		if iter.Event.Meta.BatchId != meta.GetBatchID().Uint64() {
-			continue
-		}
-		return sliceTxList(meta.GetBatchID(), iter.Event.TxList, meta.GetTxListOffset(), meta.GetTxListSize())
+		return nil, fmt.Errorf("failed to unpack txList bytes: %w", err)
 	}
 
-	if iter.Error() != nil {
-		return nil, fmt.Errorf(
-			"failed to fetch calldata for batch %d: %w", meta.GetBatchID(), iter.Error(),
-		)
-	}
-
-	return nil, fmt.Errorf("calldata for batch %d not found", meta.GetBatchID())
+	return sliceTxList(meta.GetBatchID(), txList, meta.GetTxListOffset(), meta.GetTxListSize())
 }
