@@ -591,16 +591,15 @@ func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
 	return packed, nil
 }
 
-// UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
-func UnpackTxListBytes(txData []byte) ([]byte, error) {
+// UnpackOntakeTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
+func UnpackOntakeTxListBytes(txData []byte) ([]byte, error) {
 	method, err := TaikoL1ABI.MethodById(txData)
 	if err != nil {
 		return nil, err
 	}
 
 	// Only check for safety.
-	if method.Name != "proposeBlock" && method.Name != "proposeBlockV2" ||
-		method.Name != "proposeBatch" {
+	if method.Name != "proposeBlock" && method.Name != "proposeBlockV2" {
 		return nil, fmt.Errorf("invalid method name: %s", method.Name)
 	}
 
@@ -608,6 +607,33 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 
 	if err := method.Inputs.UnpackIntoMap(args, txData[4:]); err != nil {
 		return nil, err
+	}
+
+	inputs, ok := args["_txList"].([]byte)
+
+	if !ok {
+		return nil, errors.New("failed to get txList bytes")
+	}
+
+	return inputs, nil
+}
+
+// UnpackPacayaTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
+func UnpackPacayaTxListBytes(txData []byte) ([]byte, error) {
+	method, err := TaikoInboxABI.MethodById(txData)
+	if err != nil {
+		return nil, err
+	}
+
+	args := map[string]interface{}{}
+
+	if err := method.Inputs.UnpackIntoMap(args, txData[4:]); err != nil {
+		if method, err = ProverSetPacayaABI.MethodById(txData); err != nil {
+			return nil, err
+		}
+		if err = method.Inputs.UnpackIntoMap(args, txData[4:]); err != nil {
+			return nil, err
+		}
 	}
 
 	inputs, ok := args["_txList"].([]byte)

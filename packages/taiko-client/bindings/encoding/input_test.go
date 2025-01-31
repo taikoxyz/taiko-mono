@@ -16,10 +16,10 @@ import (
 )
 
 func TestUnpackTxListBytes(t *testing.T) {
-	_, err := UnpackTxListBytes(randomBytes(1024))
+	_, err := UnpackOntakeTxListBytes(randomBytes(1024))
 	require.NotNil(t, err)
 
-	_, err = UnpackTxListBytes(
+	_, err = UnpackOntakeTxListBytes(
 		hexutil.MustDecode(
 			"0xa0ca2d080000000000000000000000000000000000000000000000000000000000000" +
 				"aa8e2b9725cce28787e99447c383d95a9ba83125fe31a9ffa9cbb2c504da86926ab",
@@ -57,7 +57,7 @@ func TestUnpackTxListBytes(t *testing.T) {
 	)
 	require.Nil(t, err)
 
-	b, err := UnpackTxListBytes(tx.Data())
+	b, err := UnpackOntakeTxListBytes(tx.Data())
 	require.Nil(t, err)
 	require.Equal(t, txListBytes, b)
 }
