@@ -20,7 +20,6 @@ import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/bridge/EtherBridgeWrapper.sol";
 import "src/shared/bridge/QuotaManager.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
@@ -205,16 +204,6 @@ abstract contract CommonTest is Test, Script {
                 name: "bridge",
                 impl: bridgeImpl,
                 data: abi.encodeCall(Bridge.init, (address(0)))
-            })
-        );
-    }
-
-    function deployEtherBridgeWrapper() internal returns (EtherBridgeWrapper) {
-        return EtherBridgeWrapper(
-            deploy({
-                name: "ether_bridge_wrapper",
-                impl: address(new EtherBridgeWrapper()),
-                data: abi.encodeCall(EtherBridgeWrapper.init, (address(0), address(resolver)))
             })
         );
     }
