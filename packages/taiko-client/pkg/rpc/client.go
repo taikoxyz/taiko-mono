@@ -245,7 +245,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		return err
 	}
 
-	resolverAddress, err := c.PacayaClients.TaikoInbox.Resolver(nil)
+	resolverAddress, err := taikoInbox.Resolver(nil)
 	if err != nil {
 		return fmt.Errorf("failed to fetch resolver address: %w", err)
 	}
