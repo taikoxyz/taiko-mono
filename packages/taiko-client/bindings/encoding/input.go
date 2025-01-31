@@ -592,7 +592,7 @@ func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
 }
 
 // UnpackOntakeTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
-func UnpackOntakeTxListBytes(txData []byte) ([]byte, error) {
+func UnpackTxListBytesOntake(txData []byte) ([]byte, error) {
 	method, err := TaikoL1ABI.MethodById(txData)
 	if err != nil {
 		return nil, err
