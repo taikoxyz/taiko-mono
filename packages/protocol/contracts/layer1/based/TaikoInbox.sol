@@ -12,6 +12,8 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
 
+// import "forge-std/src/console2.sol";
+
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR). The tier-based proof system and
@@ -286,7 +288,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             ts.inProvingWindow = inProvingWindow;
             ts.prover = inProvingWindow ? meta.proposer : msg.sender;
             ts.createdAt = uint48(block.timestamp);
-            
+
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
             } else {
@@ -356,7 +358,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         ts.prover = _prover;
         ts.inProvingWindow = _inProvingWindow;
         ts.createdAt = uint48(block.timestamp);
-        
+
         if (tid == 1) {
             ts.parentHash = _parentHash;
         } else {
@@ -629,7 +631,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 }
 
                 unchecked {
-                    if (ts.createdAt + _config.cooldownWindow < block.timestamp) {
+                    if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
                         break;
                     }
                 }
