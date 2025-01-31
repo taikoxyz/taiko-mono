@@ -35,7 +35,7 @@ contract InboxTest_Cooldownis is InboxTestBase {
         bondToken = deployBondToken();
     }
 
-    function test_inbox_cooldown_blocks_will_not_verify()
+    function test_inbox_batches_cannot_verify_inside_cooldown_window()
         external
         WhenEachBatchHasMultipleBlocks(7)
         transactBy(Alice)
