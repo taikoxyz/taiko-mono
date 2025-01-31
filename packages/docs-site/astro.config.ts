@@ -67,15 +67,7 @@ export default defineConfig({
           label: "Core Concepts",
           items: [
             { label: "What is Taiko Alethia?", link: "/core-concepts/what-is-taiko-alethia/" },
-            { label: "Why Taiko Alethia?", link: "/core-concepts/why-taiko-alethia/" },
-            {
-              label: "How it works?",
-              collapsed: true,
-              items: [
-                { label: "Based rollups", link: "/core-concepts/based-rollups/" },
-                { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
-              ],
-            },
+            { label: "Based rollups", link: "/core-concepts/based-rollups/" },
             {
               label: "Contestable rollups (BCR)",
               link: "/core-concepts/contestable-rollup/",
@@ -84,6 +76,7 @@ export default defineConfig({
               label: "Booster rollups (BBR)",
               link: "/core-concepts/booster-rollups/",
             },
+            { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
             {
               label: "Inception layers",
               link: "/core-concepts/inception-layers/",
