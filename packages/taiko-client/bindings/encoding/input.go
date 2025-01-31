@@ -618,7 +618,7 @@ func UnpackOntakeTxListBytes(txData []byte) ([]byte, error) {
 	return inputs, nil
 }
 
-// UnpackPacayaTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
+// UnpackPacayaTxListBytes unpacks the input data of a TaikoInbox.proposeBatch transaction, and returns the txList bytes.
 func UnpackPacayaTxListBytes(txData []byte) ([]byte, error) {
 	method, err := TaikoInboxABI.MethodById(txData)
 	if err != nil {
