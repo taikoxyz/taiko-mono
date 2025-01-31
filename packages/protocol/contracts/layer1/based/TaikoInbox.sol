@@ -355,6 +355,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         ts.prover = _prover;
         ts.inProvingWindow = _inProvingWindow;
         ts.createdAt = uint48(block.timestamp);
+        
         if (tid == 1) {
             ts.parentHash = _parentHash;
         } else {
