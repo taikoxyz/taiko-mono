@@ -21,6 +21,7 @@ type ProtocolConfigs interface {
 	LivenessBondPerBlock() *big.Int
 	MaxProposals() uint64
 	ProvingWindow() (time.Duration, error)
+	MaxBlocksPerBatch() (int, error)
 }
 
 // OntakeProtocolConfigs is the configuration for the Ontake fork protocol.
@@ -83,6 +84,11 @@ func (c *OntakeProtocolConfigs) ProvingWindow() (time.Duration, error) {
 	return 0, fmt.Errorf("proving window is not supported in Ontake protocol configs")
 }
 
+// MaxBlocksPerBatch implements the ProtocolConfigs interface.
+func (c *OntakeProtocolConfigs) MaxBlocksPerBatch() (int, error) {
+	return 0, fmt.Errorf("max blocks per batch is not supported in Ontake protocol configs")
+}
+
 // PacayaProtocolConfigs is the configuration for the Pacaya fork protocol.
 type PacayaProtocolConfigs struct {
 	configs *pacayaBindings.ITaikoInboxConfig
@@ -131,4 +137,9 @@ func (c *PacayaProtocolConfigs) MaxProposals() uint64 {
 // ProvingWindow implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) ProvingWindow() (time.Duration, error) {
 	return time.Duration(c.configs.ProvingWindow) * time.Second, nil
+}
+
+// MaxBlocksPerBatch implements the ProtocolConfigs interface.
+func (c *PacayaProtocolConfigs) MaxBlocksPerBatch() (int, error) {
+	return int(c.configs.MaxBlocksPerBatch), nil
 }

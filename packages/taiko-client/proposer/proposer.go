@@ -313,9 +313,15 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 			return nil
 		}
 
-		if err := p.ProposeTxListPacaya(ctx, txLists); err != nil {
-			return err
+		// Make sure the tx list is not bigger than the maxBlocksPerBatch.
+		maxBlocksPerBatch, _ := p.protocolConfigs.MaxBlocksPerBatch()
+		for ; len(txLists) > 0; txLists = txLists[min(maxBlocksPerBatch, len(txLists)):] {
+			// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
+			if err := p.ProposeTxListPacaya(ctx, txLists[:min(maxBlocksPerBatch, len(txLists))]); err != nil {
+				return err
+			}
 		}
+
 		p.lastProposedAt = time.Now()
 		return nil
 	}
