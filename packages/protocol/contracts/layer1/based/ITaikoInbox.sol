@@ -106,6 +106,7 @@ interface ITaikoInbox {
         bytes32 stateRoot;
         address prover;
         bool inProvingWindow;
+        uint48 createdAt;
     }
 
     /// @notice 3 slots used.

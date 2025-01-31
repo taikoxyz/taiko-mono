@@ -354,7 +354,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         ts.blockHash = _blockHash;
         ts.prover = _prover;
         ts.inProvingWindow = _inProvingWindow;
-
+        ts.createdAt = uint48(block.timestamp);
         if (tid == 1) {
             ts.parentHash = _parentHash;
         } else {
@@ -364,7 +364,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         emit TransitionWritten(
             _batchId,
             tid,
-            TransitionState(_parentHash, _blockHash, _stateRoot, _prover, _inProvingWindow)
+            TransitionState(
+                _parentHash,
+                _blockHash,
+                _stateRoot,
+                _prover,
+                _inProvingWindow,
+                uint48(block.timestamp)
+            )
         );
     }
 
@@ -617,6 +624,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     ts = state.transitions[slot][tid];
                 } else {
                     break;
+                }
+
+                unchecked {
+                    if (uint256(ts.createdAt) + _config.cooldownWindow < block.timestamp) {
+                        break;
+                    }
                 }
 
                 blockHash = ts.blockHash;
