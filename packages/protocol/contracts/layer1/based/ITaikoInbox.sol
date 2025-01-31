@@ -170,6 +170,8 @@ interface ITaikoInbox {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
+        /// @notice The time required for a transition to be used for verifying a batch.
+        uint16 cooldownWindow;
         /// @notice The maximum number of signals to be received by TaikoL2.
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
