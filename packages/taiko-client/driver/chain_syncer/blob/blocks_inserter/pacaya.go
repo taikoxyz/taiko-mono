@@ -208,7 +208,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 						L1BlockHeight: meta.GetRawBlockHeight(),
 						L1BlockHash:   meta.GetRawBlockHash(),
 					},
-					Txs:         allTxs[txListCursor:blockInfo.NumTransactions],
+					Txs:         allTxs[txListCursor : txListCursor+int(blockInfo.NumTransactions)],
 					Withdrawals: make([]*types.Withdrawal, 0),
 					BaseFee:     baseFee,
 				},
