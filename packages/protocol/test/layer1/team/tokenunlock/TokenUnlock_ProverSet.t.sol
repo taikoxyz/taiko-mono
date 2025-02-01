@@ -32,6 +32,7 @@ pragma solidity ^0.8.24;
 //                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
 //              }),
 //             provingWindow: 1 hours,
+//             cooldownWindow: 0 hours,
 //             maxSignalsToReceive: 16,
 //             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
 //         });
