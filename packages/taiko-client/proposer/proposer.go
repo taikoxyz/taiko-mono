@@ -406,6 +406,12 @@ func (p *Proposer) ProposeTxListPacaya(
 		proverAddress = p.proposerAddress
 		txs           uint64
 	)
+
+	// Make sure the tx list is not bigger than the maxBlocksPerBatch.
+	if len(txBatch) > p.protocolConfigs.MaxBlocksPerBatch() {
+		return fmt.Errorf("tx batch size is larger than the maxBlocksPerBatch")
+	}
+
 	for _, txList := range txBatch {
 		txs += uint64(len(txList))
 	}
