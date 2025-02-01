@@ -16,7 +16,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
-	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -58,7 +57,6 @@ func (i *BlocksInserterOntake) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
 	proposingTx *types.Transaction,
-	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	if metadata.IsPacaya() {
 		return fmt.Errorf("metadata is not for Ontake fork")

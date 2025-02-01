@@ -20,7 +20,6 @@ import (
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
-	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -63,7 +62,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
 	proposingTx *types.Transaction,
-	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
 		return fmt.Errorf("metadata is not for Pacaya fork")

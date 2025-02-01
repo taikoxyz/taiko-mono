@@ -267,7 +267,7 @@ func (s *Syncer) onBlockProposed(
 			"lastBlockID", lastBlockID,
 			"blocks", len(meta.Pacaya().GetBlocks()),
 		)
-		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx, endIter); err != nil {
+		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx); err != nil {
 			return err
 		}
 	} else {
@@ -278,7 +278,7 @@ func (s *Syncer) onBlockProposed(
 			"blockID", meta.Ontake().GetBlockID(),
 			"coinbase", meta.Ontake().GetCoinbase(),
 		)
-		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx, endIter); err != nil {
+		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx); err != nil {
 			return err
 		}
 	}

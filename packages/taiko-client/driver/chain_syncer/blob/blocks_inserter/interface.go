@@ -10,7 +10,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
 // Inserter is an interface that defines the method to insert blocks to the L2 execution engine.
@@ -19,7 +18,6 @@ type Inserter interface {
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
 		proposingTx *types.Transaction,
-		endIter eventIterator.EndBlockProposedEventIterFunc,
 	) error
 }
 
