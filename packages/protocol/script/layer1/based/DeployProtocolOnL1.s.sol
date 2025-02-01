@@ -20,7 +20,7 @@ import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/ForkRouter.sol";
-import "src/layer1/forced-inclusion/ForcedInclusionInbox.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
@@ -413,7 +413,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(
                 new ForcedInclusionStore(
                     resolver,
-                    vm.envUint("INCLUSION_WINDOW"),
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI"))
                 )
             ),
@@ -422,9 +422,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         forcedInclusionInbox = deployProxy({
-            name: "taiko_forced_inclusion_inbox",
-            impl: address(new ForcedInclusionInbox(resolver)),
-            data: abi.encodeCall(ForcedInclusionInbox.init, (owner)),
+            name: "taiko_wrapper",
+            impl: address(new TaikoWrapper(resolver)),
+            data: abi.encodeCall(TaikoWrapper.init, (owner)),
             registerTo: resolver
         });
 

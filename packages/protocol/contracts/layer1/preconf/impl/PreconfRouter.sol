@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/forced-inclusion/IForcedInclusionInbox.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
 
@@ -34,14 +34,14 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         require(msg.sender == selectedOperator, NotTheOperator());
 
         // check if we have a forced inclusion inbox
-        address forcedInclusionInbox = resolve(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, true);
-        if (forcedInclusionInbox == address(0)) {
+        address wrapper = resolve(LibStrings.B_TAIKO_WRAPPER, true);
+        if (wrapper == address(0)) {
             // Call the proposeBatch function on the TaikoInbox
             address taikoInbox = resolve(LibStrings.B_TAIKO, false);
             (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
         } else {
             // Call the proposeBatchWithForcedInclusion function on the ForcedInclusionInbox
-            (, meta_) = IForcedInclusionInbox(forcedInclusionInbox).proposeBatchWithForcedInclusion(
+            (, meta_) = TaikoWrapper(wrapper).proposeBatchWithForcedInclusion(
                 _forcedInclusionParams, _batchParams, _batchTxList
             );
         }

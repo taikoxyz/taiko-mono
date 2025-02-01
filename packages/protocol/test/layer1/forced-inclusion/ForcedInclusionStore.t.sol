@@ -7,7 +7,7 @@ import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 contract ForcedInclusionStoreForTest is ForcedInclusionStore {
     constructor(
         address _resolver,
-        uint256 _inclusionDelay,
+        uint8 _inclusionDelay,
         uint64 _feeInGwei
     )
         ForcedInclusionStore(_resolver, _inclusionDelay, _feeInGwei)
@@ -18,16 +18,33 @@ contract ForcedInclusionStoreForTest is ForcedInclusionStore {
     }
 }
 
+contract MockInbox {
+    uint64 public numBatches;
+
+    constructor() {
+        numBatches = 1;
+    }
+
+    function setNumBatches(uint64 _numBatches) external {
+        numBatches = _numBatches;
+    }
+
+    function getStats2() external view returns (ITaikoInbox.Stats2 memory stats2_) {
+        stats2_.numBatches = numBatches;
+    }
+}
+
 abstract contract ForcedInclusionStoreTestBase is CommonTest {
     address internal storeOwner = Alice;
     address internal whitelistedProposer = Alice;
-    uint64 internal constant inclusionDelay = 24 seconds;
+    uint8 internal constant inclusionDelay = 12;
     uint64 internal constant feeInGwei = 0.001 ether / 1 gwei;
 
     ForcedInclusionStore internal store;
+    MockInbox internal mockInbox;
 
     function setUpOnEthereum() internal virtual override {
-        register(LibStrings.B_TAIKO_FORCED_INCLUSION_INBOX, whitelistedProposer);
+        register(LibStrings.B_TAIKO_WRAPPER, whitelistedProposer);
 
         store = ForcedInclusionStore(
             deploy({
@@ -38,6 +55,9 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
                 data: abi.encodeCall(ForcedInclusionStore.init, (storeOwner))
             })
         );
+
+        mockInbox = new MockInbox();
+        register(LibStrings.B_TAIKO, address(mockInbox));
     }
 }
 
@@ -92,6 +112,8 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         vm.deal(Alice, 1 ether);
         uint64 _feeInGwei = store.feeInGwei();
 
+        mockInbox.setNumBatches(100);
+
         vm.prank(Alice);
         store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
             blobIndex: 0,
@@ -102,23 +124,24 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(store.head(), 0);
         assertEq(store.tail(), 1);
 
-        uint256 createdAt = block.timestamp;
-        vm.warp(createdAt + inclusionDelay);
+        IForcedInclusionStore.ForcedInclusion memory inclusion = store.getForcedInclusion(0);
 
         vm.prank(whitelistedProposer);
-        IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeForcedInclusion(Bob);
+        inclusion = store.consumeOldestForcedInclusion(Bob);
 
-        assertEq(consumed.blobHash, bytes32(uint256(1)));
-        assertEq(consumed.blobByteOffset, 0);
-        assertEq(consumed.blobByteSize, 1024);
-        assertEq(consumed.feeInGwei, _feeInGwei);
-        assertEq(consumed.createdAt, createdAt);
+        assertEq(inclusion.blobHash, bytes32(uint256(1)));
+        assertEq(inclusion.blobByteOffset, 0);
+        assertEq(inclusion.blobByteSize, 1024);
+        assertEq(inclusion.feeInGwei, _feeInGwei);
+        assertEq(inclusion.createdAtBatchId, 100);
         assertEq(Bob.balance, _feeInGwei * 1 gwei);
     }
 
     function test_storeConsumeForcedInclusion_notOperator() public {
         vm.deal(Alice, 1 ether);
         uint64 _feeInGwei = store.feeInGwei();
+
+        mockInbox.setNumBatches(100);
 
         vm.prank(Alice);
         store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
@@ -134,20 +157,19 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         vm.prank(Carol);
         vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
-        store.consumeForcedInclusion(Bob);
+        store.consumeOldestForcedInclusion(Bob);
     }
 
     function test_storeConsumeForcedInclusion_noEligibleInclusion() public {
         vm.prank(whitelistedProposer);
-        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
-        assertEq(inclusion.blobHash, bytes32(0));
-        assertEq(inclusion.blobByteOffset, 0);
-        assertEq(inclusion.blobByteSize, 0);
-        assertEq(inclusion.feeInGwei, 0);
+        vm.expectRevert(IForcedInclusionStore.NoForcedInclusionFound.selector);
+        store.consumeOldestForcedInclusion(Bob);
     }
 
     function test_storeConsumeForcedInclusion_beforeWindowExpires() public {
         vm.deal(Alice, 1 ether);
+
+        mockInbox.setNumBatches(100);
 
         vm.prank(whitelistedProposer);
         store.storeForcedInclusion{ value: store.feeInGwei() * 1 gwei }({
@@ -156,12 +178,32 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
             blobByteSize: 1024
         });
 
+        // Verify the stored reqeust is correct
+        IForcedInclusionStore.ForcedInclusion memory inclusion = store.getForcedInclusion(0);
+
+        assertEq(inclusion.blobHash, bytes32(uint256(1)));
+        assertEq(inclusion.blobByteOffset, 0);
+        assertEq(inclusion.blobByteSize, 1024);
+        assertEq(inclusion.createdAtBatchId, mockInbox.numBatches());
+        assertEq(inclusion.feeInGwei, store.feeInGwei());
+
         vm.warp(block.timestamp + inclusionDelay - 1);
         vm.prank(whitelistedProposer);
-        IForcedInclusionStore.ForcedInclusion memory inclusion = store.consumeForcedInclusion(Bob);
-        assertEq(inclusion.blobHash, bytes32(0));
+
+        // head request should be consumable
+        inclusion = store.consumeOldestForcedInclusion(Bob);
+        assertEq(inclusion.blobHash, bytes32(uint256(1)));
+        assertEq(inclusion.blobByteOffset, 0);
+        assertEq(inclusion.blobByteSize, 1024);
+        assertEq(inclusion.createdAtBatchId, mockInbox.numBatches());
+        assertEq(inclusion.feeInGwei, store.feeInGwei());
+
+        // the head request should have been deleted
+        inclusion = store.getForcedInclusion(0);
+        assertEq(inclusion.blobHash, 0);
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 0);
+        assertEq(inclusion.createdAtBatchId, 0);
         assertEq(inclusion.feeInGwei, 0);
     }
 }
