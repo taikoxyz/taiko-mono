@@ -113,7 +113,7 @@ interface ITaikoInbox {
     struct Batch {
         bytes32 metaHash; // slot 1
         uint64 lastBlockId; // slot 2
-        uint96 _reserved3;
+        uint96 reserved3;
         uint96 livenessBond;
         uint64 batchId; // slot 3
         uint64 lastBlockTimestamp;

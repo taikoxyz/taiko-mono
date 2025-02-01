@@ -183,8 +183,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
+            batch.reserved3 = 0;
             batch.livenessBond = livenessBond;
-            batch._reserved3 = 0;
             // SSTORE }}
 
             stats2.numBatches += 1;
