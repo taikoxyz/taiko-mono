@@ -198,6 +198,7 @@ library LibProving {
         Local memory local;
         local.b = _state.slotB;
         local.blockId = _blockId;
+        TaikoData.Transition memory pendingTs;
 
         if (_batchProof.tier == 0) {
             // No batch proof is available, each transition is proving using a separate proof.
@@ -210,7 +211,6 @@ library LibProving {
                 abi.decode(_input, (TaikoData.BlockMetadataV2, TaikoData.Transition));
             local.proof = _batchProof;
         }
-
         require(ctx_.tran.parentHash != 0, L1_INVALID_TRANSITION());
         require(ctx_.tran.blockHash != 0, L1_INVALID_TRANSITION());
         require(ctx_.tran.stateRoot != 0, L1_INVALID_TRANSITION());
@@ -219,6 +219,8 @@ library LibProving {
         require(_blockId == local.meta.id, L1_INVALID_BLOCK_ID());
         require(local.meta.id > local.b.lastVerifiedBlockId, L1_INVALID_BLOCK_ID());
         require(local.meta.id < local.b.numBlocks, L1_INVALID_BLOCK_ID());
+
+        pendingTs = ctx_.tran;
 
         local.slot = local.meta.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
@@ -308,18 +310,18 @@ library LibProving {
             local.sameTransition = ctx_.tran.blockHash == ts.blockHash;
 
             // For non sync-block, we set the stateRoot to 0 before emitting it in events
-            ctx_.tran.stateRoot = 0;
+            pendingTs.stateRoot = 0;
         }
 
         if (local.proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(_state, _resolver, blk, ts, ctx_.tran, local.proof, local);
+            _overrideWithHigherProof(_state, _resolver, blk, ts, pendingTs, local.proof, local);
 
             emit TransitionProvedV2({
                 blockId: local.blockId,
-                tran: ctx_.tran,
+                tran: pendingTs,
                 prover: msg.sender,
                 validityBond: local.tier.validityBond,
                 tier: local.proof.tier,
@@ -336,12 +338,12 @@ library LibProving {
                 assert(ts.validityBond == 0 && ts.contester == address(0));
 
                 ts.prover = msg.sender;
-                ts.blockHash = ctx_.tran.blockHash;
-                ts.stateRoot = ctx_.tran.stateRoot;
+                ts.blockHash = pendingTs.blockHash;
+                ts.stateRoot = pendingTs.stateRoot;
 
                 emit TransitionProvedV2({
                     blockId: local.blockId,
-                    tran: ctx_.tran,
+                    tran: pendingTs,
                     prover: msg.sender,
                     validityBond: 0,
                     tier: local.proof.tier,
@@ -373,7 +375,7 @@ library LibProving {
 
                 emit TransitionContestedV2({
                     blockId: local.blockId,
-                    tran: ctx_.tran,
+                    tran: pendingTs,
                     contester: msg.sender,
                     contestBond: local.tier.contestBond,
                     tier: local.proof.tier,
