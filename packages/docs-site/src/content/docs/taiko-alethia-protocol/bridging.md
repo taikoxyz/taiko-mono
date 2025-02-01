@@ -146,5 +146,3 @@ Token bridging requires a **BridgedERC contract** on the destination chain.
 | **Trust-Minimized** | No third-party reliance               |
 
 The Taiko Alethia bridge is a **fully decentralized**, **secure**, and **Ethereum-equivalent** solution for cross-chain asset transfers. Developers can use its **Signal Service** for their own bridging implementations.
-
-For more details, see the [Signal Service repo](https://github.com/taikoxyz/taiko-mono).

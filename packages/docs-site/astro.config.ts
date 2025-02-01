@@ -93,6 +93,8 @@ export default defineConfig({
                 {label: "TaikoL1 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol1-contract"},
                 {label: "TaikoL2 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol2-contract"},
                 {label: "SGXVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/sgxverifier-contract"},
+                {label: "SignalService Contract", link: "/taiko-alethia-protocol/codebase-analysis/signalservice-contract"},
+                {label: "Bridge Contract", link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract"},
               ],
             },
             { label: "Block states", link: "/taiko-alethia-protocol/block-states" },
