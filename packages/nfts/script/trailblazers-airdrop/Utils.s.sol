@@ -62,6 +62,12 @@ contract UtilsScript is Script {
             string.concat(root, "/deployments/trailblazers-airdrop/", lowercaseNetworkKey, ".json");
     }
 
+    function getS2ContractJsonLocation() public view returns (string memory) {
+        string memory root = vm.projectRoot();
+        return
+            string.concat(root, "/deployments/trailblazers-airdrop/s2/", lowercaseNetworkKey, ".json");
+    }
+
     function getBlacklist() public view returns (IMinimalBlacklist blacklistAddress) {
         if (block.chainid == 167_000) {
             // mainnet blacklist address
