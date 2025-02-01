@@ -202,7 +202,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     /// - metas: Array of metadata for each batch being proved.
     /// - transitions: Array of batch transitions to be proved.
     /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
+    function proveBatches(
+        bytes calldata _params,
+        bytes calldata _proof
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
 
@@ -318,7 +325,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     /// @dev This function is necessary to upgrade from this fork to the next one.
     /// @param _length Specifis how many batches to verify. The max number of batches to verify is
     /// `pacayaConfig().maxBatchesToVerify * _length`.
-    function verifyBatches(uint64 _length) external nonZeroValue(_length) nonReentrant {
+    function verifyBatches(uint64 _length)
+        external
+        nonZeroValue(_length)
+        nonReentrant
+        whenNotPaused
+    {
         _verifyBatches(pacayaConfig(), state.stats2, _length);
     }
 
@@ -605,6 +617,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 batch = state.batches[slot];
                 uint24 nextTransitionId = batch.nextTransitionId;
 
+                if (paused()) break;
                 if (nextTransitionId <= 1) break;
 
                 TransitionState storage ts = state.transitions[slot][1];
