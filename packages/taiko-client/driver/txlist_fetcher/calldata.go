@@ -66,7 +66,7 @@ func (d *CalldataFetcher) FetchPacaya(
 		return nil, pkg.ErrBlobUsed
 	}
 
-	txList, err := encoding.UnpackPacayaTxListBytes(tx.Data())
+	txList, err := encoding.UnpackTxListBytesPacaya(tx.Data())
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpack txList bytes: %w", err)
 	}
