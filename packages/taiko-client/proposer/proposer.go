@@ -313,15 +313,9 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 			return nil
 		}
 
-		// Make sure the tx list is not bigger than the maxBlocksPerBatch.
-		maxBlocksPerBatch, _ := p.protocolConfigs.MaxBlocksPerBatch()
-		for ; len(txLists) > 0; txLists = txLists[min(maxBlocksPerBatch, len(txLists)):] {
-			// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
-			if err := p.ProposeTxListPacaya(ctx, txLists[:min(maxBlocksPerBatch, len(txLists))]); err != nil {
-				return err
-			}
+		if err := p.ProposeTxListPacaya(ctx, txLists); err != nil {
+			return err
 		}
-
 		p.lastProposedAt = time.Now()
 		return nil
 	}
@@ -412,6 +406,12 @@ func (p *Proposer) ProposeTxListPacaya(
 		proverAddress = p.proposerAddress
 		txs           uint64
 	)
+
+	// Make sure the tx list is not bigger than the maxBlocksPerBatch.
+	if len(txBatch) > p.protocolConfigs.MaxBlocksPerBatch() {
+		return fmt.Errorf("tx batch size is larger than the maxBlocksPerBatch")
+	}
+
 	for _, txList := range txBatch {
 		txs += uint64(len(txList))
 	}
