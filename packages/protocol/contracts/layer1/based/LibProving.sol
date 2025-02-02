@@ -198,7 +198,6 @@ library LibProving {
         Local memory local;
         local.b = _state.slotB;
         local.blockId = _blockId;
-        TaikoData.Transition memory pendingTs;
 
         if (_batchProof.tier == 0) {
             // No batch proof is available, each transition is proving using a separate proof.
@@ -220,7 +219,12 @@ library LibProving {
         require(local.meta.id > local.b.lastVerifiedBlockId, L1_INVALID_BLOCK_ID());
         require(local.meta.id < local.b.numBlocks, L1_INVALID_BLOCK_ID());
 
-        pendingTs = ctx_.tran;
+        TaikoData.Transition memory pendingTs = TaikoData.Transition({
+            parentHash: ctx_.tran.parentHash,
+            blockHash: ctx_.tran.blockHash,
+            stateRoot: ctx_.tran.stateRoot,
+            graffiti: ctx_.tran.graffiti
+        });
 
         local.slot = local.meta.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
