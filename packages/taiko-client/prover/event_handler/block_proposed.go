@@ -401,9 +401,9 @@ func (h *BlockProposedGuaridanEventHandler) Handle(
 	end eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	// If we are operating as a guardian prover,
-	// we should sign all seen proposed blocks as soon as possible.
+	// we should sign all seen proposed ontake blocks as soon as possible.
 	go func() {
-		if h.GuardianProverHeartbeater == nil {
+		if h.GuardianProverHeartbeater == nil || meta.IsPacaya() {
 			return
 		}
 		if err := h.GuardianProverHeartbeater.SignAndSendBlock(
