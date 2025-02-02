@@ -220,6 +220,7 @@ abstract contract InboxTestBase is Layer1Test {
                     unicode"│    │    └── inProvingWindow:",
                     ts.inProvingWindow ? "Y" : "N"
                 );
+                console2.log(unicode"│    │    └── createdAt:", ts.createdAt);
             }
         }
         console2.log("");

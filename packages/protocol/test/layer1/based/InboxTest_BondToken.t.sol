@@ -24,6 +24,7 @@ contract InboxTest_BondToken is InboxTestBase {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 1 hours,
+            cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
@@ -97,7 +98,7 @@ contract InboxTest_BondToken is InboxTestBase {
         inbox.depositBond(depositAmount);
     }
 
-    function test_inbox_exceeding_balance() external {
+    function test_inbox_exceeding_token_balance() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
@@ -27,6 +27,7 @@ import "./ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     using LibMath for uint256;
+    using SafeERC20 for IERC20;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -54,7 +55,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
-        require(!stats2.paused, ContractPaused());
         require(stats2.numBatches >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
 
         Config memory config = pacayaConfig();
@@ -183,8 +183,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
+            batch.reserved3 = 0;
             batch.livenessBond = livenessBond;
-            batch._reserved3 = 0;
             // SSTORE }}
 
             stats2.numBatches += 1;
@@ -209,7 +209,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         require(metas.length == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
-        require(stats2.paused == false, ContractPaused());
+        require(!stats2.paused, ContractPaused());
 
         Config memory config = pacayaConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
@@ -284,6 +284,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
             ts.inProvingWindow = inProvingWindow;
             ts.prover = inProvingWindow ? meta.proposer : msg.sender;
+            ts.createdAt = uint48(block.timestamp);
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
@@ -317,7 +318,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     /// @dev This function is necessary to upgrade from this fork to the next one.
     /// @param _length Specifis how many batches to verify. The max number of batches to verify is
     /// `pacayaConfig().maxBatchesToVerify * _length`.
-    function verifyBatches(uint64 _length) external nonZeroValue(_length) nonReentrant {
+    function verifyBatches(uint64 _length)
+        external
+        nonZeroValue(_length)
+        nonReentrant
+        whenNotPaused
+    {
         _verifyBatches(pacayaConfig(), state.stats2, _length);
     }
 
@@ -353,6 +359,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         ts.blockHash = _blockHash;
         ts.prover = _prover;
         ts.inProvingWindow = _inProvingWindow;
+        ts.createdAt = uint48(block.timestamp);
 
         if (tid == 1) {
             ts.parentHash = _parentHash;
@@ -363,14 +370,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         emit TransitionWritten(
             _batchId,
             tid,
-            TransitionState(_parentHash, _blockHash, _stateRoot, _prover, _inProvingWindow)
+            TransitionState(
+                _parentHash,
+                _blockHash,
+                _stateRoot,
+                _prover,
+                _inProvingWindow,
+                uint48(block.timestamp)
+            )
         );
     }
 
     /// @inheritdoc ITaikoInbox
     function depositBond(uint256 _amount) external payable whenNotPaused {
-        state.bondBalance[msg.sender] += _amount;
-        _handleDeposit(msg.sender, _amount);
+        state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -384,7 +397,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         address bond = bondToken();
         if (bond != address(0)) {
-            IERC20(bond).transfer(msg.sender, _amount);
+            IERC20(bond).safeTransfer(msg.sender, _amount);
         } else {
             LibAddress.sendEtherAndVerify(msg.sender, _amount);
         }
@@ -605,6 +618,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 batch = state.batches[slot];
                 uint24 nextTransitionId = batch.nextTransitionId;
 
+                if (paused()) break;
                 if (nextTransitionId <= 1) break;
 
                 TransitionState storage ts = state.transitions[slot][1];
@@ -617,6 +631,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     ts = state.transitions[slot][tid];
                 } else {
                     break;
+                }
+
+                unchecked {
+                    if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
+                        break;
+                    }
                 }
 
                 blockHash = ts.blockHash;
@@ -684,7 +704,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 state.bondBalance[_user] = balance - _amount;
             }
         } else {
-            _handleDeposit(_user, _amount);
+            uint256 amountDeposited = _handleDeposit(_user, _amount);
+            require(amountDeposited == _amount, InsufficientBond());
         }
         emit BondDebited(_user, _amount);
     }
@@ -697,16 +718,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         emit BondCredited(_user, _amount);
     }
 
-    function _handleDeposit(address _user, uint256 _amount) private {
+    function _handleDeposit(
+        address _user,
+        uint256 _amount
+    )
+        private
+        returns (uint256 amountDeposited_)
+    {
         address bond = bondToken();
 
         if (bond != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
-            IERC20(bond).transferFrom(_user, address(this), _amount);
+
+            uint256 balance = IERC20(bond).balanceOf(address(this));
+            IERC20(bond).safeTransferFrom(_user, address(this), _amount);
+            amountDeposited_ = IERC20(bond).balanceOf(address(this)) - balance;
         } else {
             require(msg.value == _amount, EtherNotPaidAsBond());
+            amountDeposited_ = _amount;
         }
-        emit BondDeposited(_user, _amount);
+        emit BondDeposited(_user, amountDeposited_);
     }
 
     function _validateBatchParams(
