@@ -107,7 +107,6 @@ func (i *BlocksInserterOntake) InsertBlocks(
 	baseFee, err := i.rpc.CalculateBaseFee(
 		ctx,
 		parent,
-		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		false,
 		(*pacayaBindings.LibSharedDataBaseFeeConfig)(meta.GetBaseFeeConfig()),
 		meta.GetTimestamp(),

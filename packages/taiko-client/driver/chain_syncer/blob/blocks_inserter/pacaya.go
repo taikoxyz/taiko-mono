@@ -151,7 +151,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		baseFee, err := i.rpc.CalculateBaseFee(
 			ctx,
 			parent,
-			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			true,
 			meta.GetBaseFeeConfig(),
 			timestamp,
@@ -266,7 +265,6 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 	baseFee, err := i.rpc.CalculateBaseFee(
 		ctx,
 		parentHeader,
-		new(big.Int).SetUint64(anchorBlockID),
 		true,
 		baseFeeConfig,
 		executableData.Timestamp,

@@ -376,7 +376,6 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 func (c *Client) CalculateBaseFee(
 	ctx context.Context,
 	l2Head *types.Header,
-	anchorBlockID *big.Int,
 	postPacaya bool,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
@@ -400,7 +399,6 @@ func (c *Client) CalculateBaseFee(
 		"Base fee information",
 		"fee", utils.WeiToGWei(baseFee),
 		"l2Head", l2Head.Number,
-		"anchorBlockID", anchorBlockID,
 		"postPacaya", postPacaya,
 	)
 
@@ -423,11 +421,6 @@ func (c *Client) GetPoolContent(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -436,7 +429,6 @@ func (c *Client) GetPoolContent(
 	baseFee, err := c.CalculateBaseFee(
 		ctx,
 		l2Head,
-		l1Head.Number,
 		chainConfig.IsPacaya(new(big.Int).Add(l2Head.Number, common.Big1)),
 		baseFeeConfig,
 		uint64(time.Now().Unix()),
