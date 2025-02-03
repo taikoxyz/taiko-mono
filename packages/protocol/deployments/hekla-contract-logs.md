@@ -115,7 +115,7 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0xd8F93cff651ffc8E8be1dF2E3dD998eFbc56Ab88`
+- impl: `0x7CD0b27dad6718b54Cf6d12Bf912eD9BE69cd2af`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -134,6 +134,7 @@
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
   - upgraded on Nov 3, 2024 at commit `ea0158f`
   - upgraded on Feb 1, 2025 at commit `75359cc`
+  - upgraded on Feb 2, 2025 at commit `e294023`
 
 ### assignmentHook
 
