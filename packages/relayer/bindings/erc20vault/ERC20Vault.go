@@ -38,6 +38,7 @@ type ERC20VaultBridgeTransferOp struct {
 	Token       common.Address
 	GasLimit    uint32
 	Amount      *big.Int
+	SolverFee   *big.Int
 }
 
 // ERC20VaultCanonicalERC20 is an auto generated low-level Go binding around an user-defined struct.
@@ -47,6 +48,16 @@ type ERC20VaultCanonicalERC20 struct {
 	Decimals uint8
 	Symbol   string
 	Name     string
+}
+
+// ERC20VaultSolverOp is an auto generated low-level Go binding around an user-defined struct.
+type ERC20VaultSolverOp struct {
+	Nonce           *big.Int
+	Token           common.Address
+	To              common.Address
+	Amount          *big.Int
+	L2BatchId       uint64
+	L2BatchMetaHash [32]byte
 }
 
 // IBridgeMessage is an auto generated low-level Go binding around an user-defined struct.
@@ -66,7 +77,7 @@ type IBridgeMessage struct {
 
 // ERC20VaultMetaData contains all meta data concerning the ERC20Vault contract.
 var ERC20VaultMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"MIN_MIGRATION_DELAY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bridgedToCanonical\",\"inputs\":[{\"name\":\"btoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"decimals\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"btokenDenylist\",\"inputs\":[{\"name\":\"btoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"denied\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"canonicalToBridged\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"btoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"changeBridgedToken\",\"inputs\":[{\"name\":\"_ctoken\",\"type\":\"tuple\",\"internalType\":\"structERC20Vault.CanonicalERC20\",\"components\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"decimals\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"name\":\"_btokenNew\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"btokenOld_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"lastMigrationStart\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastUnpausedAt\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"name\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"onMessageInvocation\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"onMessageRecalled\",\"inputs\":[{\"name\":\"_message\",\"type\":\"tuple\",\"internalType\":\"structIBridge.Message\",\"components\":[{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"fee\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"srcChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"srcOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"destChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"destOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"_msgHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sendToken\",\"inputs\":[{\"name\":\"_op\",\"type\":\"tuple\",\"internalType\":\"structERC20Vault.BridgeTransferOp\",\"components\":[{\"name\":\"destChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"destOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"fee\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[{\"name\":\"message_\",\"type\":\"tuple\",\"internalType\":\"structIBridge.Message\",\"components\":[{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"fee\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"srcChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"srcOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"destChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"destOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"_interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BridgedTokenChanged\",\"inputs\":[{\"name\":\"srcChainId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"btokenOld\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"btokenNew\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"ctokenSymbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenName\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenDecimal\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BridgedTokenDeployed\",\"inputs\":[{\"name\":\"srcChainId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"btoken\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"ctokenSymbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenName\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenDecimal\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TokenReceived\",\"inputs\":[{\"name\":\"msgHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"srcChainId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TokenReleased\",\"inputs\":[{\"name\":\"msgHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TokenSent\",\"inputs\":[{\"name\":\"msgHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"canonicalChainId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"destChainId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"VAULT_BTOKEN_BLACKLISTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_CTOKEN_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INSUFFICIENT_FEE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_AMOUNT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_CTOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_NEW_BTOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_TOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_TO_ADDR\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_LAST_MIGRATION_TOO_CLOSE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_PERMISSION_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_resolver\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"MIN_MIGRATION_DELAY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bridgedToCanonical\",\"inputs\":[{\"name\":\"btoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"decimals\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"btokenDenylist\",\"inputs\":[{\"name\":\"btoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"denied\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"canonicalToBridged\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"btoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"changeBridgedToken\",\"inputs\":[{\"name\":\"_ctoken\",\"type\":\"tuple\",\"internalType\":\"structERC20Vault.CanonicalERC20\",\"components\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"decimals\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"}]},{\"name\":\"_btokenNew\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"btokenOld_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getSolverCondition\",\"inputs\":[{\"name\":\"_nonce\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"lastMigrationStart\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"name\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"onMessageInvocation\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"onMessageRecalled\",\"inputs\":[{\"name\":\"_message\",\"type\":\"tuple\",\"internalType\":\"structIBridge.Message\",\"components\":[{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"fee\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"srcChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"srcOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"destChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"destOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"_msgHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sendToken\",\"inputs\":[{\"name\":\"_op\",\"type\":\"tuple\",\"internalType\":\"structERC20Vault.BridgeTransferOp\",\"components\":[{\"name\":\"destChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"destOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"fee\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"solverFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[{\"name\":\"message_\",\"type\":\"tuple\",\"internalType\":\"structIBridge.Message\",\"components\":[{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"fee\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"srcChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"srcOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"destChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"destOwner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"solve\",\"inputs\":[{\"name\":\"_op\",\"type\":\"tuple\",\"internalType\":\"structERC20Vault.SolverOp\",\"components\":[{\"name\":\"nonce\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"l2BatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"l2BatchMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"solverConditionToSolver\",\"inputs\":[{\"name\":\"solverCondition\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"solver\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"_interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BridgedTokenChanged\",\"inputs\":[{\"name\":\"srcChainId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"btokenOld\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"btokenNew\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"ctokenSymbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenName\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenDecimal\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BridgedTokenDeployed\",\"inputs\":[{\"name\":\"srcChainId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"btoken\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"ctokenSymbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenName\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"ctokenDecimal\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ERC20Solved\",\"inputs\":[{\"name\":\"solverCondition\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"solver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TokenReceived\",\"inputs\":[{\"name\":\"msgHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"solver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"srcChainId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"solverFee\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TokenReleased\",\"inputs\":[{\"name\":\"msgHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TokenSent\",\"inputs\":[{\"name\":\"msgHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"canonicalChainId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"destChainId\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"ctoken\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"solverFee\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_ALREADY_SOLVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_BTOKEN_BLACKLISTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_CTOKEN_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INSUFFICIENT_FEE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_AMOUNT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_CTOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_NEW_BTOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_TOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_INVALID_TO_ADDR\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_LAST_MIGRATION_TOO_CLOSE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_METAHASH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_NOT_ON_L1\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_PERMISSION_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // ERC20VaultABI is the input ABI used to generate the binding from.
@@ -246,37 +257,6 @@ func (_ERC20Vault *ERC20VaultCallerSession) MINMIGRATIONDELAY() (*big.Int, error
 	return _ERC20Vault.Contract.MINMIGRATIONDELAY(&_ERC20Vault.CallOpts)
 }
 
-// AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
-//
-// Solidity: function addressManager() view returns(address)
-func (_ERC20Vault *ERC20VaultCaller) AddressManager(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _ERC20Vault.contract.Call(opts, &out, "addressManager")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
-//
-// Solidity: function addressManager() view returns(address)
-func (_ERC20Vault *ERC20VaultSession) AddressManager() (common.Address, error) {
-	return _ERC20Vault.Contract.AddressManager(&_ERC20Vault.CallOpts)
-}
-
-// AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
-//
-// Solidity: function addressManager() view returns(address)
-func (_ERC20Vault *ERC20VaultCallerSession) AddressManager() (common.Address, error) {
-	return _ERC20Vault.Contract.AddressManager(&_ERC20Vault.CallOpts)
-}
-
 // BridgedToCanonical is a free data retrieval call binding the contract method 0x9aa8605c.
 //
 // Solidity: function bridgedToCanonical(address btoken) view returns(uint64 chainId, address addr, uint8 decimals, string symbol, string name)
@@ -399,6 +379,37 @@ func (_ERC20Vault *ERC20VaultCallerSession) CanonicalToBridged(chainId *big.Int,
 	return _ERC20Vault.Contract.CanonicalToBridged(&_ERC20Vault.CallOpts, chainId, ctoken)
 }
 
+// GetSolverCondition is a free data retrieval call binding the contract method 0x6f390144.
+//
+// Solidity: function getSolverCondition(uint256 _nonce, address _token, address _to, uint256 _amount) pure returns(bytes32)
+func (_ERC20Vault *ERC20VaultCaller) GetSolverCondition(opts *bind.CallOpts, _nonce *big.Int, _token common.Address, _to common.Address, _amount *big.Int) ([32]byte, error) {
+	var out []interface{}
+	err := _ERC20Vault.contract.Call(opts, &out, "getSolverCondition", _nonce, _token, _to, _amount)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// GetSolverCondition is a free data retrieval call binding the contract method 0x6f390144.
+//
+// Solidity: function getSolverCondition(uint256 _nonce, address _token, address _to, uint256 _amount) pure returns(bytes32)
+func (_ERC20Vault *ERC20VaultSession) GetSolverCondition(_nonce *big.Int, _token common.Address, _to common.Address, _amount *big.Int) ([32]byte, error) {
+	return _ERC20Vault.Contract.GetSolverCondition(&_ERC20Vault.CallOpts, _nonce, _token, _to, _amount)
+}
+
+// GetSolverCondition is a free data retrieval call binding the contract method 0x6f390144.
+//
+// Solidity: function getSolverCondition(uint256 _nonce, address _token, address _to, uint256 _amount) pure returns(bytes32)
+func (_ERC20Vault *ERC20VaultCallerSession) GetSolverCondition(_nonce *big.Int, _token common.Address, _to common.Address, _amount *big.Int) ([32]byte, error) {
+	return _ERC20Vault.Contract.GetSolverCondition(&_ERC20Vault.CallOpts, _nonce, _token, _to, _amount)
+}
+
 // Impl is a free data retrieval call binding the contract method 0x8abf6077.
 //
 // Solidity: function impl() view returns(address)
@@ -490,37 +501,6 @@ func (_ERC20Vault *ERC20VaultSession) LastMigrationStart(chainId *big.Int, ctoke
 // Solidity: function lastMigrationStart(uint256 chainId, address ctoken) view returns(uint256 timestamp)
 func (_ERC20Vault *ERC20VaultCallerSession) LastMigrationStart(chainId *big.Int, ctoken common.Address) (*big.Int, error) {
 	return _ERC20Vault.Contract.LastMigrationStart(&_ERC20Vault.CallOpts, chainId, ctoken)
-}
-
-// LastUnpausedAt is a free data retrieval call binding the contract method 0xe07baba6.
-//
-// Solidity: function lastUnpausedAt() view returns(uint64)
-func (_ERC20Vault *ERC20VaultCaller) LastUnpausedAt(opts *bind.CallOpts) (uint64, error) {
-	var out []interface{}
-	err := _ERC20Vault.contract.Call(opts, &out, "lastUnpausedAt")
-
-	if err != nil {
-		return *new(uint64), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
-
-	return out0, err
-
-}
-
-// LastUnpausedAt is a free data retrieval call binding the contract method 0xe07baba6.
-//
-// Solidity: function lastUnpausedAt() view returns(uint64)
-func (_ERC20Vault *ERC20VaultSession) LastUnpausedAt() (uint64, error) {
-	return _ERC20Vault.Contract.LastUnpausedAt(&_ERC20Vault.CallOpts)
-}
-
-// LastUnpausedAt is a free data retrieval call binding the contract method 0xe07baba6.
-//
-// Solidity: function lastUnpausedAt() view returns(uint64)
-func (_ERC20Vault *ERC20VaultCallerSession) LastUnpausedAt() (uint64, error) {
-	return _ERC20Vault.Contract.LastUnpausedAt(&_ERC20Vault.CallOpts)
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
@@ -740,6 +720,68 @@ func (_ERC20Vault *ERC20VaultCallerSession) Resolve0(_name [32]byte, _allowZeroA
 	return _ERC20Vault.Contract.Resolve0(&_ERC20Vault.CallOpts, _name, _allowZeroAddress)
 }
 
+// Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
+//
+// Solidity: function resolver() view returns(address)
+func (_ERC20Vault *ERC20VaultCaller) Resolver(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ERC20Vault.contract.Call(opts, &out, "resolver")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
+//
+// Solidity: function resolver() view returns(address)
+func (_ERC20Vault *ERC20VaultSession) Resolver() (common.Address, error) {
+	return _ERC20Vault.Contract.Resolver(&_ERC20Vault.CallOpts)
+}
+
+// Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
+//
+// Solidity: function resolver() view returns(address)
+func (_ERC20Vault *ERC20VaultCallerSession) Resolver() (common.Address, error) {
+	return _ERC20Vault.Contract.Resolver(&_ERC20Vault.CallOpts)
+}
+
+// SolverConditionToSolver is a free data retrieval call binding the contract method 0x040944ab.
+//
+// Solidity: function solverConditionToSolver(bytes32 solverCondition) view returns(address solver)
+func (_ERC20Vault *ERC20VaultCaller) SolverConditionToSolver(opts *bind.CallOpts, solverCondition [32]byte) (common.Address, error) {
+	var out []interface{}
+	err := _ERC20Vault.contract.Call(opts, &out, "solverConditionToSolver", solverCondition)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SolverConditionToSolver is a free data retrieval call binding the contract method 0x040944ab.
+//
+// Solidity: function solverConditionToSolver(bytes32 solverCondition) view returns(address solver)
+func (_ERC20Vault *ERC20VaultSession) SolverConditionToSolver(solverCondition [32]byte) (common.Address, error) {
+	return _ERC20Vault.Contract.SolverConditionToSolver(&_ERC20Vault.CallOpts, solverCondition)
+}
+
+// SolverConditionToSolver is a free data retrieval call binding the contract method 0x040944ab.
+//
+// Solidity: function solverConditionToSolver(bytes32 solverCondition) view returns(address solver)
+func (_ERC20Vault *ERC20VaultCallerSession) SolverConditionToSolver(solverCondition [32]byte) (common.Address, error) {
+	return _ERC20Vault.Contract.SolverConditionToSolver(&_ERC20Vault.CallOpts, solverCondition)
+}
+
 // SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
 //
 // Solidity: function supportsInterface(bytes4 _interfaceId) view returns(bool)
@@ -813,25 +855,25 @@ func (_ERC20Vault *ERC20VaultTransactorSession) ChangeBridgedToken(_ctoken ERC20
 	return _ERC20Vault.Contract.ChangeBridgedToken(&_ERC20Vault.TransactOpts, _ctoken, _btokenNew)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address _addressManager) returns()
-func (_ERC20Vault *ERC20VaultTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _ERC20Vault.contract.Transact(opts, "init", _owner, _addressManager)
+// Solidity: function init(address _owner) returns()
+func (_ERC20Vault *ERC20VaultTransactor) Init(opts *bind.TransactOpts, _owner common.Address) (*types.Transaction, error) {
+	return _ERC20Vault.contract.Transact(opts, "init", _owner)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address _addressManager) returns()
-func (_ERC20Vault *ERC20VaultSession) Init(_owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _ERC20Vault.Contract.Init(&_ERC20Vault.TransactOpts, _owner, _addressManager)
+// Solidity: function init(address _owner) returns()
+func (_ERC20Vault *ERC20VaultSession) Init(_owner common.Address) (*types.Transaction, error) {
+	return _ERC20Vault.Contract.Init(&_ERC20Vault.TransactOpts, _owner)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address _addressManager) returns()
-func (_ERC20Vault *ERC20VaultTransactorSession) Init(_owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _ERC20Vault.Contract.Init(&_ERC20Vault.TransactOpts, _owner, _addressManager)
+// Solidity: function init(address _owner) returns()
+func (_ERC20Vault *ERC20VaultTransactorSession) Init(_owner common.Address) (*types.Transaction, error) {
+	return _ERC20Vault.Contract.Init(&_ERC20Vault.TransactOpts, _owner)
 }
 
 // OnMessageInvocation is a paid mutator transaction binding the contract method 0x7f07c947.
@@ -918,25 +960,46 @@ func (_ERC20Vault *ERC20VaultTransactorSession) RenounceOwnership() (*types.Tran
 	return _ERC20Vault.Contract.RenounceOwnership(&_ERC20Vault.TransactOpts)
 }
 
-// SendToken is a paid mutator transaction binding the contract method 0xb84d9ffe.
+// SendToken is a paid mutator transaction binding the contract method 0xa90018a1.
 //
-// Solidity: function sendToken((uint64,address,address,uint64,address,uint32,uint256) _op) payable returns((uint64,uint64,uint32,address,uint64,address,uint64,address,address,uint256,bytes) message_)
+// Solidity: function sendToken((uint64,address,address,uint64,address,uint32,uint256,uint256) _op) payable returns((uint64,uint64,uint32,address,uint64,address,uint64,address,address,uint256,bytes) message_)
 func (_ERC20Vault *ERC20VaultTransactor) SendToken(opts *bind.TransactOpts, _op ERC20VaultBridgeTransferOp) (*types.Transaction, error) {
 	return _ERC20Vault.contract.Transact(opts, "sendToken", _op)
 }
 
-// SendToken is a paid mutator transaction binding the contract method 0xb84d9ffe.
+// SendToken is a paid mutator transaction binding the contract method 0xa90018a1.
 //
-// Solidity: function sendToken((uint64,address,address,uint64,address,uint32,uint256) _op) payable returns((uint64,uint64,uint32,address,uint64,address,uint64,address,address,uint256,bytes) message_)
+// Solidity: function sendToken((uint64,address,address,uint64,address,uint32,uint256,uint256) _op) payable returns((uint64,uint64,uint32,address,uint64,address,uint64,address,address,uint256,bytes) message_)
 func (_ERC20Vault *ERC20VaultSession) SendToken(_op ERC20VaultBridgeTransferOp) (*types.Transaction, error) {
 	return _ERC20Vault.Contract.SendToken(&_ERC20Vault.TransactOpts, _op)
 }
 
-// SendToken is a paid mutator transaction binding the contract method 0xb84d9ffe.
+// SendToken is a paid mutator transaction binding the contract method 0xa90018a1.
 //
-// Solidity: function sendToken((uint64,address,address,uint64,address,uint32,uint256) _op) payable returns((uint64,uint64,uint32,address,uint64,address,uint64,address,address,uint256,bytes) message_)
+// Solidity: function sendToken((uint64,address,address,uint64,address,uint32,uint256,uint256) _op) payable returns((uint64,uint64,uint32,address,uint64,address,uint64,address,address,uint256,bytes) message_)
 func (_ERC20Vault *ERC20VaultTransactorSession) SendToken(_op ERC20VaultBridgeTransferOp) (*types.Transaction, error) {
 	return _ERC20Vault.Contract.SendToken(&_ERC20Vault.TransactOpts, _op)
+}
+
+// Solve is a paid mutator transaction binding the contract method 0x0ed43420.
+//
+// Solidity: function solve((uint256,address,address,uint256,uint64,bytes32) _op) returns()
+func (_ERC20Vault *ERC20VaultTransactor) Solve(opts *bind.TransactOpts, _op ERC20VaultSolverOp) (*types.Transaction, error) {
+	return _ERC20Vault.contract.Transact(opts, "solve", _op)
+}
+
+// Solve is a paid mutator transaction binding the contract method 0x0ed43420.
+//
+// Solidity: function solve((uint256,address,address,uint256,uint64,bytes32) _op) returns()
+func (_ERC20Vault *ERC20VaultSession) Solve(_op ERC20VaultSolverOp) (*types.Transaction, error) {
+	return _ERC20Vault.Contract.Solve(&_ERC20Vault.TransactOpts, _op)
+}
+
+// Solve is a paid mutator transaction binding the contract method 0x0ed43420.
+//
+// Solidity: function solve((uint256,address,address,uint256,uint64,bytes32) _op) returns()
+func (_ERC20Vault *ERC20VaultTransactorSession) Solve(_op ERC20VaultSolverOp) (*types.Transaction, error) {
+	return _ERC20Vault.Contract.Solve(&_ERC20Vault.TransactOpts, _op)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -1625,6 +1688,151 @@ func (_ERC20Vault *ERC20VaultFilterer) ParseBridgedTokenDeployed(log types.Log) 
 	return event, nil
 }
 
+// ERC20VaultERC20SolvedIterator is returned from FilterERC20Solved and is used to iterate over the raw logs and unpacked data for ERC20Solved events raised by the ERC20Vault contract.
+type ERC20VaultERC20SolvedIterator struct {
+	Event *ERC20VaultERC20Solved // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ERC20VaultERC20SolvedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ERC20VaultERC20Solved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ERC20VaultERC20Solved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ERC20VaultERC20SolvedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ERC20VaultERC20SolvedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ERC20VaultERC20Solved represents a ERC20Solved event raised by the ERC20Vault contract.
+type ERC20VaultERC20Solved struct {
+	SolverCondition [32]byte
+	Solver          common.Address
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterERC20Solved is a free log retrieval operation binding the contract event 0x4e13900a0e52240bc42a70a941392f3766f6789416493003d0e9e400b0ef32ae.
+//
+// Solidity: event ERC20Solved(bytes32 indexed solverCondition, address solver)
+func (_ERC20Vault *ERC20VaultFilterer) FilterERC20Solved(opts *bind.FilterOpts, solverCondition [][32]byte) (*ERC20VaultERC20SolvedIterator, error) {
+
+	var solverConditionRule []interface{}
+	for _, solverConditionItem := range solverCondition {
+		solverConditionRule = append(solverConditionRule, solverConditionItem)
+	}
+
+	logs, sub, err := _ERC20Vault.contract.FilterLogs(opts, "ERC20Solved", solverConditionRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ERC20VaultERC20SolvedIterator{contract: _ERC20Vault.contract, event: "ERC20Solved", logs: logs, sub: sub}, nil
+}
+
+// WatchERC20Solved is a free log subscription operation binding the contract event 0x4e13900a0e52240bc42a70a941392f3766f6789416493003d0e9e400b0ef32ae.
+//
+// Solidity: event ERC20Solved(bytes32 indexed solverCondition, address solver)
+func (_ERC20Vault *ERC20VaultFilterer) WatchERC20Solved(opts *bind.WatchOpts, sink chan<- *ERC20VaultERC20Solved, solverCondition [][32]byte) (event.Subscription, error) {
+
+	var solverConditionRule []interface{}
+	for _, solverConditionItem := range solverCondition {
+		solverConditionRule = append(solverConditionRule, solverConditionItem)
+	}
+
+	logs, sub, err := _ERC20Vault.contract.WatchLogs(opts, "ERC20Solved", solverConditionRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ERC20VaultERC20Solved)
+				if err := _ERC20Vault.contract.UnpackLog(event, "ERC20Solved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseERC20Solved is a log parse operation binding the contract event 0x4e13900a0e52240bc42a70a941392f3766f6789416493003d0e9e400b0ef32ae.
+//
+// Solidity: event ERC20Solved(bytes32 indexed solverCondition, address solver)
+func (_ERC20Vault *ERC20VaultFilterer) ParseERC20Solved(log types.Log) (*ERC20VaultERC20Solved, error) {
+	event := new(ERC20VaultERC20Solved)
+	if err := _ERC20Vault.contract.UnpackLog(event, "ERC20Solved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // ERC20VaultInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the ERC20Vault contract.
 type ERC20VaultInitializedIterator struct {
 	Event *ERC20VaultInitialized // Event containing the contract specifics and raw log
@@ -2271,16 +2479,18 @@ type ERC20VaultTokenReceived struct {
 	MsgHash    [32]byte
 	From       common.Address
 	To         common.Address
+	Solver     common.Address
 	SrcChainId uint64
 	Ctoken     common.Address
 	Token      common.Address
 	Amount     *big.Int
+	SolverFee  *big.Int
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterTokenReceived is a free log retrieval operation binding the contract event 0x75a051823424fc80e92556c41cb0ad977ae1dcb09c68a9c38acab86b11a69f89.
+// FilterTokenReceived is a free log retrieval operation binding the contract event 0x153364fe598dfe35e31cd640831e4a90a9effca5f12d8e8ccf2fcb2e14d35bb8.
 //
-// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 srcChainId, address ctoken, address token, uint256 amount)
+// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, address solver, uint64 srcChainId, address ctoken, address token, uint256 amount, uint256 solverFee)
 func (_ERC20Vault *ERC20VaultFilterer) FilterTokenReceived(opts *bind.FilterOpts, msgHash [][32]byte, from []common.Address, to []common.Address) (*ERC20VaultTokenReceivedIterator, error) {
 
 	var msgHashRule []interface{}
@@ -2303,9 +2513,9 @@ func (_ERC20Vault *ERC20VaultFilterer) FilterTokenReceived(opts *bind.FilterOpts
 	return &ERC20VaultTokenReceivedIterator{contract: _ERC20Vault.contract, event: "TokenReceived", logs: logs, sub: sub}, nil
 }
 
-// WatchTokenReceived is a free log subscription operation binding the contract event 0x75a051823424fc80e92556c41cb0ad977ae1dcb09c68a9c38acab86b11a69f89.
+// WatchTokenReceived is a free log subscription operation binding the contract event 0x153364fe598dfe35e31cd640831e4a90a9effca5f12d8e8ccf2fcb2e14d35bb8.
 //
-// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 srcChainId, address ctoken, address token, uint256 amount)
+// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, address solver, uint64 srcChainId, address ctoken, address token, uint256 amount, uint256 solverFee)
 func (_ERC20Vault *ERC20VaultFilterer) WatchTokenReceived(opts *bind.WatchOpts, sink chan<- *ERC20VaultTokenReceived, msgHash [][32]byte, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var msgHashRule []interface{}
@@ -2353,9 +2563,9 @@ func (_ERC20Vault *ERC20VaultFilterer) WatchTokenReceived(opts *bind.WatchOpts, 
 	}), nil
 }
 
-// ParseTokenReceived is a log parse operation binding the contract event 0x75a051823424fc80e92556c41cb0ad977ae1dcb09c68a9c38acab86b11a69f89.
+// ParseTokenReceived is a log parse operation binding the contract event 0x153364fe598dfe35e31cd640831e4a90a9effca5f12d8e8ccf2fcb2e14d35bb8.
 //
-// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 srcChainId, address ctoken, address token, uint256 amount)
+// Solidity: event TokenReceived(bytes32 indexed msgHash, address indexed from, address indexed to, address solver, uint64 srcChainId, address ctoken, address token, uint256 amount, uint256 solverFee)
 func (_ERC20Vault *ERC20VaultFilterer) ParseTokenReceived(log types.Log) (*ERC20VaultTokenReceived, error) {
 	event := new(ERC20VaultTokenReceived)
 	if err := _ERC20Vault.contract.UnpackLog(event, "TokenReceived", log); err != nil {
@@ -2598,12 +2808,13 @@ type ERC20VaultTokenSent struct {
 	Ctoken           common.Address
 	Token            common.Address
 	Amount           *big.Int
+	SolverFee        *big.Int
 	Raw              types.Log // Blockchain specific contextual infos
 }
 
-// FilterTokenSent is a free log retrieval operation binding the contract event 0x256f5c87f6ab8d238ac244067613227eb6e2cd65299121135d4f778e8581e03d.
+// FilterTokenSent is a free log retrieval operation binding the contract event 0x5f338013bf4edc4a223ee7b435dd1e5ba722013c222cfbbf3c66372fbf07f295.
 //
-// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 canonicalChainId, uint64 destChainId, address ctoken, address token, uint256 amount)
+// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 canonicalChainId, uint64 destChainId, address ctoken, address token, uint256 amount, uint256 solverFee)
 func (_ERC20Vault *ERC20VaultFilterer) FilterTokenSent(opts *bind.FilterOpts, msgHash [][32]byte, from []common.Address, to []common.Address) (*ERC20VaultTokenSentIterator, error) {
 
 	var msgHashRule []interface{}
@@ -2626,9 +2837,9 @@ func (_ERC20Vault *ERC20VaultFilterer) FilterTokenSent(opts *bind.FilterOpts, ms
 	return &ERC20VaultTokenSentIterator{contract: _ERC20Vault.contract, event: "TokenSent", logs: logs, sub: sub}, nil
 }
 
-// WatchTokenSent is a free log subscription operation binding the contract event 0x256f5c87f6ab8d238ac244067613227eb6e2cd65299121135d4f778e8581e03d.
+// WatchTokenSent is a free log subscription operation binding the contract event 0x5f338013bf4edc4a223ee7b435dd1e5ba722013c222cfbbf3c66372fbf07f295.
 //
-// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 canonicalChainId, uint64 destChainId, address ctoken, address token, uint256 amount)
+// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 canonicalChainId, uint64 destChainId, address ctoken, address token, uint256 amount, uint256 solverFee)
 func (_ERC20Vault *ERC20VaultFilterer) WatchTokenSent(opts *bind.WatchOpts, sink chan<- *ERC20VaultTokenSent, msgHash [][32]byte, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var msgHashRule []interface{}
@@ -2676,9 +2887,9 @@ func (_ERC20Vault *ERC20VaultFilterer) WatchTokenSent(opts *bind.WatchOpts, sink
 	}), nil
 }
 
-// ParseTokenSent is a log parse operation binding the contract event 0x256f5c87f6ab8d238ac244067613227eb6e2cd65299121135d4f778e8581e03d.
+// ParseTokenSent is a log parse operation binding the contract event 0x5f338013bf4edc4a223ee7b435dd1e5ba722013c222cfbbf3c66372fbf07f295.
 //
-// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 canonicalChainId, uint64 destChainId, address ctoken, address token, uint256 amount)
+// Solidity: event TokenSent(bytes32 indexed msgHash, address indexed from, address indexed to, uint64 canonicalChainId, uint64 destChainId, address ctoken, address token, uint256 amount, uint256 solverFee)
 func (_ERC20Vault *ERC20VaultFilterer) ParseTokenSent(log types.Log) (*ERC20VaultTokenSent, error) {
 	event := new(ERC20VaultTokenSent)
 	if err := _ERC20Vault.contract.UnpackLog(event, "TokenSent", log); err != nil {

@@ -31,7 +31,7 @@ var (
 
 // SignalServiceMetaData contains all meta data concerning the SignalService contract.
 var SignalServiceMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"authorize\",\"inputs\":[{\"name\":\"_addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_authorize\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getSignalSlot\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getSyncedChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"blockId_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"chainData_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isAuthorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"authorized\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isChainDataSynced\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSignalSent\",\"inputs\":[{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastUnpausedAt\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proveSignalReceived\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"numCacheOps_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sendSignal\",\"inputs\":[{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"signalForChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"syncChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"topBlockId\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifySignalReceived\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Authorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"authorized\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ChainDataSynced\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"data\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignalSent\",\"inputs\":[{\"name\":\"app\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"slot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_ACCOUNT_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_INCLUSION_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"SS_EMPTY_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_HOPS_WITH_LOOP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_LAST_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_MID_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_STATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_SIGNAL_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_UNAUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_resolver\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"authorize\",\"inputs\":[{\"name\":\"_addr\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_authorize\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getSignalSlot\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getSyncedChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"blockId_\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"chainData_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isAuthorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"authorized\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isChainDataSynced\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSignalSent\",\"inputs\":[{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSignalSent\",\"inputs\":[{\"name\":\"_signalSlot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proveSignalReceived\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"numCacheOps_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"receiveSignals\",\"inputs\":[{\"name\":\"_signalSlots\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sendSignal\",\"inputs\":[{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"signalForChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"syncChainData\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_chainData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"topBlockId\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifySignalReceived\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_app\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Authorized\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"authorized\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ChainDataSynced\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"kind\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"data\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignalSent\",\"inputs\":[{\"name\":\"app\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"slot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignalsReceived\",\"inputs\":[{\"name\":\"signalSlots\",\"type\":\"bytes32[]\",\"indexed\":false,\"internalType\":\"bytes32[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ContentLengthMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyItem\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidDataRemainder\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidHeader\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_ACCOUNT_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LTP_INVALID_INCLUSION_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_EMPTY_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_HOPS_WITH_LOOP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_LAST_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_MID_HOP_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_INVALID_STATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_SIGNAL_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_SIGNAL_NOT_RECEIVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SS_UNAUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UnexpectedList\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UnexpectedString\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // SignalServiceABI is the input ABI used to generate the binding from.
@@ -178,37 +178,6 @@ func (_SignalService *SignalServiceTransactorRaw) Transfer(opts *bind.TransactOp
 // Transact invokes the (paid) contract method with params as input values.
 func (_SignalService *SignalServiceTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _SignalService.Contract.contract.Transact(opts, method, params...)
-}
-
-// AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
-//
-// Solidity: function addressManager() view returns(address)
-func (_SignalService *SignalServiceCaller) AddressManager(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "addressManager")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
-//
-// Solidity: function addressManager() view returns(address)
-func (_SignalService *SignalServiceSession) AddressManager() (common.Address, error) {
-	return _SignalService.Contract.AddressManager(&_SignalService.CallOpts)
-}
-
-// AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
-//
-// Solidity: function addressManager() view returns(address)
-func (_SignalService *SignalServiceCallerSession) AddressManager() (common.Address, error) {
-	return _SignalService.Contract.AddressManager(&_SignalService.CallOpts)
 }
 
 // GetSignalSlot is a free data retrieval call binding the contract method 0x91f3f74b.
@@ -442,35 +411,35 @@ func (_SignalService *SignalServiceCallerSession) IsSignalSent(_app common.Addre
 	return _SignalService.Contract.IsSignalSent(&_SignalService.CallOpts, _app, _signal)
 }
 
-// LastUnpausedAt is a free data retrieval call binding the contract method 0xe07baba6.
+// IsSignalSent0 is a free data retrieval call binding the contract method 0x8e899f80.
 //
-// Solidity: function lastUnpausedAt() view returns(uint64)
-func (_SignalService *SignalServiceCaller) LastUnpausedAt(opts *bind.CallOpts) (uint64, error) {
+// Solidity: function isSignalSent(bytes32 _signalSlot) view returns(bool)
+func (_SignalService *SignalServiceCaller) IsSignalSent0(opts *bind.CallOpts, _signalSlot [32]byte) (bool, error) {
 	var out []interface{}
-	err := _SignalService.contract.Call(opts, &out, "lastUnpausedAt")
+	err := _SignalService.contract.Call(opts, &out, "isSignalSent0", _signalSlot)
 
 	if err != nil {
-		return *new(uint64), err
+		return *new(bool), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
 
 }
 
-// LastUnpausedAt is a free data retrieval call binding the contract method 0xe07baba6.
+// IsSignalSent0 is a free data retrieval call binding the contract method 0x8e899f80.
 //
-// Solidity: function lastUnpausedAt() view returns(uint64)
-func (_SignalService *SignalServiceSession) LastUnpausedAt() (uint64, error) {
-	return _SignalService.Contract.LastUnpausedAt(&_SignalService.CallOpts)
+// Solidity: function isSignalSent(bytes32 _signalSlot) view returns(bool)
+func (_SignalService *SignalServiceSession) IsSignalSent0(_signalSlot [32]byte) (bool, error) {
+	return _SignalService.Contract.IsSignalSent0(&_SignalService.CallOpts, _signalSlot)
 }
 
-// LastUnpausedAt is a free data retrieval call binding the contract method 0xe07baba6.
+// IsSignalSent0 is a free data retrieval call binding the contract method 0x8e899f80.
 //
-// Solidity: function lastUnpausedAt() view returns(uint64)
-func (_SignalService *SignalServiceCallerSession) LastUnpausedAt() (uint64, error) {
-	return _SignalService.Contract.LastUnpausedAt(&_SignalService.CallOpts)
+// Solidity: function isSignalSent(bytes32 _signalSlot) view returns(bool)
+func (_SignalService *SignalServiceCallerSession) IsSignalSent0(_signalSlot [32]byte) (bool, error) {
+	return _SignalService.Contract.IsSignalSent0(&_SignalService.CallOpts, _signalSlot)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -659,6 +628,37 @@ func (_SignalService *SignalServiceCallerSession) Resolve0(_name [32]byte, _allo
 	return _SignalService.Contract.Resolve0(&_SignalService.CallOpts, _name, _allowZeroAddress)
 }
 
+// Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
+//
+// Solidity: function resolver() view returns(address)
+func (_SignalService *SignalServiceCaller) Resolver(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _SignalService.contract.Call(opts, &out, "resolver")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
+//
+// Solidity: function resolver() view returns(address)
+func (_SignalService *SignalServiceSession) Resolver() (common.Address, error) {
+	return _SignalService.Contract.Resolver(&_SignalService.CallOpts)
+}
+
+// Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
+//
+// Solidity: function resolver() view returns(address)
+func (_SignalService *SignalServiceCallerSession) Resolver() (common.Address, error) {
+	return _SignalService.Contract.Resolver(&_SignalService.CallOpts)
+}
+
 // SignalForChainData is a free data retrieval call binding the contract method 0x9b527cfa.
 //
 // Solidity: function signalForChainData(uint64 _chainId, bytes32 _kind, uint64 _blockId) pure returns(bytes32)
@@ -792,25 +792,25 @@ func (_SignalService *SignalServiceTransactorSession) Authorize(_addr common.Add
 	return _SignalService.Contract.Authorize(&_SignalService.TransactOpts, _addr, _authorize)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address _addressManager) returns()
-func (_SignalService *SignalServiceTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _SignalService.contract.Transact(opts, "init", _owner, _addressManager)
+// Solidity: function init(address _owner) returns()
+func (_SignalService *SignalServiceTransactor) Init(opts *bind.TransactOpts, _owner common.Address) (*types.Transaction, error) {
+	return _SignalService.contract.Transact(opts, "init", _owner)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address _addressManager) returns()
-func (_SignalService *SignalServiceSession) Init(_owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _SignalService.Contract.Init(&_SignalService.TransactOpts, _owner, _addressManager)
+// Solidity: function init(address _owner) returns()
+func (_SignalService *SignalServiceSession) Init(_owner common.Address) (*types.Transaction, error) {
+	return _SignalService.Contract.Init(&_SignalService.TransactOpts, _owner)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address _addressManager) returns()
-func (_SignalService *SignalServiceTransactorSession) Init(_owner common.Address, _addressManager common.Address) (*types.Transaction, error) {
-	return _SignalService.Contract.Init(&_SignalService.TransactOpts, _owner, _addressManager)
+// Solidity: function init(address _owner) returns()
+func (_SignalService *SignalServiceTransactorSession) Init(_owner common.Address) (*types.Transaction, error) {
+	return _SignalService.Contract.Init(&_SignalService.TransactOpts, _owner)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -853,6 +853,27 @@ func (_SignalService *SignalServiceSession) ProveSignalReceived(_chainId uint64,
 // Solidity: function proveSignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes _proof) returns(uint256 numCacheOps_)
 func (_SignalService *SignalServiceTransactorSession) ProveSignalReceived(_chainId uint64, _app common.Address, _signal [32]byte, _proof []byte) (*types.Transaction, error) {
 	return _SignalService.Contract.ProveSignalReceived(&_SignalService.TransactOpts, _chainId, _app, _signal, _proof)
+}
+
+// ReceiveSignals is a paid mutator transaction binding the contract method 0x3b78c865.
+//
+// Solidity: function receiveSignals(bytes32[] _signalSlots) returns()
+func (_SignalService *SignalServiceTransactor) ReceiveSignals(opts *bind.TransactOpts, _signalSlots [][32]byte) (*types.Transaction, error) {
+	return _SignalService.contract.Transact(opts, "receiveSignals", _signalSlots)
+}
+
+// ReceiveSignals is a paid mutator transaction binding the contract method 0x3b78c865.
+//
+// Solidity: function receiveSignals(bytes32[] _signalSlots) returns()
+func (_SignalService *SignalServiceSession) ReceiveSignals(_signalSlots [][32]byte) (*types.Transaction, error) {
+	return _SignalService.Contract.ReceiveSignals(&_SignalService.TransactOpts, _signalSlots)
+}
+
+// ReceiveSignals is a paid mutator transaction binding the contract method 0x3b78c865.
+//
+// Solidity: function receiveSignals(bytes32[] _signalSlots) returns()
+func (_SignalService *SignalServiceTransactorSession) ReceiveSignals(_signalSlots [][32]byte) (*types.Transaction, error) {
+	return _SignalService.Contract.ReceiveSignals(&_SignalService.TransactOpts, _signalSlots)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -2295,6 +2316,140 @@ func (_SignalService *SignalServiceFilterer) WatchSignalSent(opts *bind.WatchOpt
 func (_SignalService *SignalServiceFilterer) ParseSignalSent(log types.Log) (*SignalServiceSignalSent, error) {
 	event := new(SignalServiceSignalSent)
 	if err := _SignalService.contract.UnpackLog(event, "SignalSent", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SignalServiceSignalsReceivedIterator is returned from FilterSignalsReceived and is used to iterate over the raw logs and unpacked data for SignalsReceived events raised by the SignalService contract.
+type SignalServiceSignalsReceivedIterator struct {
+	Event *SignalServiceSignalsReceived // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SignalServiceSignalsReceivedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SignalServiceSignalsReceived)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SignalServiceSignalsReceived)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SignalServiceSignalsReceivedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SignalServiceSignalsReceivedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SignalServiceSignalsReceived represents a SignalsReceived event raised by the SignalService contract.
+type SignalServiceSignalsReceived struct {
+	SignalSlots [][32]byte
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterSignalsReceived is a free log retrieval operation binding the contract event 0x8e7daa0b2b1abdb036d272b0c35976e908cfd7ae752bc13c70dfa049830b8d9b.
+//
+// Solidity: event SignalsReceived(bytes32[] signalSlots)
+func (_SignalService *SignalServiceFilterer) FilterSignalsReceived(opts *bind.FilterOpts) (*SignalServiceSignalsReceivedIterator, error) {
+
+	logs, sub, err := _SignalService.contract.FilterLogs(opts, "SignalsReceived")
+	if err != nil {
+		return nil, err
+	}
+	return &SignalServiceSignalsReceivedIterator{contract: _SignalService.contract, event: "SignalsReceived", logs: logs, sub: sub}, nil
+}
+
+// WatchSignalsReceived is a free log subscription operation binding the contract event 0x8e7daa0b2b1abdb036d272b0c35976e908cfd7ae752bc13c70dfa049830b8d9b.
+//
+// Solidity: event SignalsReceived(bytes32[] signalSlots)
+func (_SignalService *SignalServiceFilterer) WatchSignalsReceived(opts *bind.WatchOpts, sink chan<- *SignalServiceSignalsReceived) (event.Subscription, error) {
+
+	logs, sub, err := _SignalService.contract.WatchLogs(opts, "SignalsReceived")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SignalServiceSignalsReceived)
+				if err := _SignalService.contract.UnpackLog(event, "SignalsReceived", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseSignalsReceived is a log parse operation binding the contract event 0x8e7daa0b2b1abdb036d272b0c35976e908cfd7ae752bc13c70dfa049830b8d9b.
+//
+// Solidity: event SignalsReceived(bytes32[] signalSlots)
+func (_SignalService *SignalServiceFilterer) ParseSignalsReceived(log types.Log) (*SignalServiceSignalsReceived, error) {
+	event := new(SignalServiceSignalsReceived)
+	if err := _SignalService.contract.UnpackLog(event, "SignalsReceived", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
