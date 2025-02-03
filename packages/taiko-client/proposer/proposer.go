@@ -385,7 +385,7 @@ func (p *Proposer) ProposeTxListOntake(
 		return err
 	}
 
-	if err := p.sendTx(ctx, txCandidate); err != nil {
+	if err := p.SendTx(ctx, txCandidate); err != nil {
 		return err
 	}
 
@@ -450,7 +450,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		return err
 	}
 
-	if err := p.sendTx(ctx, txCandidate); err != nil {
+	if err := p.SendTx(ctx, txCandidate); err != nil {
 		return err
 	}
 
@@ -480,8 +480,8 @@ func (p *Proposer) updateProposingTicker() {
 	p.proposingTimer = time.NewTimer(duration)
 }
 
-// sendTx is the internal function to send a transaction with a selected tx manager.
-func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) error {
+// SendTx is the function to send a transaction with a selected tx manager.
+func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) error {
 	txMgr, isPrivate := p.txmgrSelector.Select()
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
