@@ -59,6 +59,7 @@ export default defineConfig({
           label: "Start Here",
           items: [
             { label: "Getting started", link: "/start-here/getting-started/" },
+            { label: "Set up your wallet", link: "/start-here/set-up-your-wallet/", },
             { label: "Contributing", link: "/start-here/contributing/" },
             { label: "Getting support", link: "/start-here/getting-support" },
           ],
@@ -110,10 +111,6 @@ export default defineConfig({
               label: "App Developers",
               collapsed: true,
               items: [
-                {
-                  label: "Set up your wallet",
-                  link: "/guides/app-developers/set-up-your-wallet/",
-                },
                 {
                   label: "Receive tokens",
                   link: "/guides/app-developers/receive-tokens/",
