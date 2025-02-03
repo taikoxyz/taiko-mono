@@ -55,7 +55,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
-        require(!stats2.paused, ContractPaused());
         require(stats2.numBatches >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
 
         Config memory config = pacayaConfig();
@@ -184,8 +183,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
+            batch.reserved3 = 0;
             batch.livenessBond = livenessBond;
-            batch._reserved3 = 0;
             // SSTORE }}
 
             stats2.numBatches += 1;
@@ -202,14 +201,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     /// - metas: Array of metadata for each batch being proved.
     /// - transitions: Array of batch transitions to be proved.
     /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(
-        bytes calldata _params,
-        bytes calldata _proof
-    )
-        external
-        nonReentrant
-        whenNotPaused
-    {
+    function proveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
 
@@ -217,7 +209,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         require(metas.length == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
-        require(stats2.paused == false, ContractPaused());
+        require(!stats2.paused, ContractPaused());
 
         Config memory config = pacayaConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
