@@ -178,7 +178,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
             blobByteSize: 1024
         });
 
-        // Verify the stored reqeust is correct
+        // Verify the stored request is correct
         IForcedInclusionStore.ForcedInclusion memory inclusion = store.getForcedInclusion(0);
 
         assertEq(inclusion.blobHash, bytes32(uint256(1)));
