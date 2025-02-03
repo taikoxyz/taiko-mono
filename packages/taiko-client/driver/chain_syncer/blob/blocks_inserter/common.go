@@ -11,8 +11,10 @@ import (
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -32,6 +34,27 @@ func createPayloadAndSetHead(
 		"l1Origin", meta.L1Origin,
 	)
 
+	// If the Pacaya block is preconfirmed, we don't need to insert it again.
+	if meta.BlockID.Cmp(new(big.Int).SetUint64(rpc.PacayaClients.ForkHeight)) >= 0 {
+		header, err := isBlockPreconfirmed(ctx, rpc, meta, anchorTx)
+		if err != nil {
+			log.Debug("Failed to check if the block is preconfirmed", "error", err)
+		} else {
+			if header != nil {
+				log.Info(
+					"🧬 The block is preconfirmed",
+					"blockID", meta.BlockID,
+					"hash", header.Hash(),
+					"coinbase", header.Coinbase,
+					"anchorBlockID", meta.AnchorBlockID,
+					"anchorBlockHash", meta.AnchorBlockHash,
+					"baseFee", utils.WeiToEther(header.BaseFee),
+				)
+
+				return encoding.ToExecutableData(header), nil
+			}
+		}
+	}
 	var lastVerifiedBlockHash common.Hash
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
@@ -58,19 +81,6 @@ func createPayloadAndSetHead(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
-	}
-
-	// If the Pacaya block is preconfirmed, we don't need to insert it again.
-	if meta.BlockID.Cmp(new(big.Int).SetUint64(rpc.PacayaClients.ForkHeight)) >= 0 {
-		preconfirmed, err := isBlockPreconfirmed(ctx, rpc, payload)
-		if err != nil {
-			log.Debug("Failed to check if the block is preconfirmed", "error", err)
-		} else {
-			if preconfirmed {
-				log.Info("The block is preconfirmed", "blockID", meta.BlockID, "hash", payload.BlockHash)
-				return payload, nil
-			}
-		}
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -188,15 +198,44 @@ func createExecutionPayloads(
 }
 
 // isBlockPreconfirmed checks if the block is preconfirmed.
-func isBlockPreconfirmed(ctx context.Context, rpc *rpc.Client, payload *engine.ExecutableData) (bool, error) {
-	header, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(payload.Number))
+func isBlockPreconfirmed(
+	ctx context.Context,
+	rpc *rpc.Client,
+	meta *createPayloadAndSetHeadMetaData,
+	anchorTx *types.Transaction,
+) (*types.Header, error) {
+	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
+	header, err := rpc.L2.HeaderByNumber(ctx, blockID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get header by number %d: %w", payload.Number, err)
+		log.Error("Failed to get header by number", "error", err, "number", blockID)
+		return nil, fmt.Errorf("failed to get header by number %d: %w", blockID, err)
 	}
 
 	if header == nil {
-		return false, fmt.Errorf("header not found for block number %d", payload.Number)
+		log.Error("Header not found", "blockID", blockID)
+		return nil, fmt.Errorf("header not found for block number %d", blockID)
 	}
 
-	return header.Hash() == payload.BlockHash, nil
+	var (
+		args = &miner.BuildPayloadArgs{
+			Parent:       meta.Parent.Hash(),
+			Timestamp:    header.Time,
+			FeeRecipient: header.Coinbase,
+			Random:       header.MixDigest,
+			Withdrawals:  []*types.Withdrawal{},
+			Version:      engine.PayloadV2,
+		}
+		id = args.Id()
+	)
+	executableData, err := rpc.L2Engine.GetPayload(ctx, &id)
+	if err != nil {
+		log.Error("Failed to get payload", "error", err)
+		return nil, fmt.Errorf("failed to get payload: %w", err)
+	}
+
+	if executableData.BlockHash == header.Hash() {
+		return header, nil
+	}
+
+	return nil, nil
 }

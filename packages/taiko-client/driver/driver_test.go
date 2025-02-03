@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,10 +24,12 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 )
 
@@ -471,6 +474,118 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	s.Nil(err)
 	log.Info("Preconfirmation block creation response", "body", res.String())
 	return res
+}
+
+func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
+	var (
+		port = uint64(testutils.RandomPort())
+		err  error
+	)
+	s.d.preconfBlockServer, err = preconfblocks.New(
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true, nil, nil,
+	)
+	s.Nil(err)
+	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
+	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
+
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
+	s.Nil(err)
+
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+
+	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
+	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
+
+	res, err := resty.New().R().Get(url.String() + "/healthz")
+	s.Nil(err)
+	s.True(res.IsSuccess())
+
+	// Try to insert one preconfirmation block
+	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1, l2Head2.GasLimit).IsSuccess())
+	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(2, len(l2Head3.Transactions()))
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(l2Head3.Hash(), l1Origin.L2BlockHash)
+	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
+	s.True(l1Origin.IsPreconfBlock())
+
+	s.proposePreconfBatch([]*types.Block{l2Head3}, []*types.Header{l1Head1})
+
+	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
+	s.Equal(2, len(l2Head4.Transactions()))
+
+	log.Info("l2Head3", "hash", l2Head3.Hash(), "number", l2Head3.Number, "header", l2Head3.Header())
+	log.Info("l2Head4", "hash", l2Head4.Hash(), "number", l2Head4.Number, "header", l2Head4.Header())
+}
+
+func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
+	var (
+		to          = &s.p.TaikoL1Address
+		data        []byte
+		blockParams []pacayaBindings.ITaikoInboxBlockParams
+		allTxs      types.Transactions
+	)
+
+	s.NotZero(len(blocks))
+	s.Equal(len(blocks), len(anchoredL1Blocks))
+
+	for _, b := range blocks {
+		allTxs = append(allTxs, b.Transactions()...)
+		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
+			NumTransactions: uint16(b.Transactions().Len()),
+			TimeShift:       0,
+		})
+	}
+
+	rlpEncoded, err := rlp.EncodeToBytes(allTxs)
+	s.Nil(err)
+	txListsBytes, err := utils.Compress(rlpEncoded)
+	s.Nil(err)
+
+	encodedParams, err := encoding.EncodeBatchParams(&encoding.BatchParams{
+		Coinbase: blocks[0].Coinbase(),
+		BlobParams: encoding.BlobParams{
+			ByteOffset: 0,
+			ByteSize:   uint32(len(txListsBytes)),
+		},
+		Blocks:             blockParams,
+		AnchorBlockId:      anchoredL1Blocks[0].Number.Uint64(),
+		LastBlockTimestamp: blocks[len(blocks)-1].Time(),
+	})
+	s.Nil(err)
+
+	if s.p.ProverSetAddress != rpc.ZeroAddress {
+		to = &s.p.ProverSetAddress
+		data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
+	} else {
+		data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes)
+	}
+	s.Nil(err)
+	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{TxData: data, Blobs: nil, To: to}))
+	s.Nil(
+		backoff.Retry(func() error {
+			return s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background())
+		}, backoff.NewExponentialBackOff()))
 }
 
 func (s *DriverTestSuite) InitProposer() {
