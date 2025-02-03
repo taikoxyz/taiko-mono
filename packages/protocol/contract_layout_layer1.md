@@ -56,7 +56,7 @@
 
 ## ForkRouter
 
-## contracts/layer1/forced-inclusion/TaikoWrapper
+## TaikoWrapper
 
-## contracts/layer1/forced-inclusion/ForcedInclusionStore
+## ForcedInclusionStore
 
