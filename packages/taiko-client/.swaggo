@@ -1,2 +1,2 @@
 replace common.Address string
-replace encoding.TierFee uint64
+replace common.Hash string

@@ -17,7 +17,7 @@ type ProverEventHandlerTestSuite struct {
 }
 
 func (s *ProverEventHandlerTestSuite) TestGetProvingWindowNotFound() {
-	_, err := getProvingWindow(
+	_, err := getProvingWindowOntake(
 		encoding.TierGuardianMajorityID+1,
 		[]*rpc.TierProviderTierWithID{},
 	)
@@ -25,7 +25,7 @@ func (s *ProverEventHandlerTestSuite) TestGetProvingWindowNotFound() {
 }
 
 func (s *ProverEventHandlerTestSuite) TestIsBlockVerified() {
-	_, slotB, err := s.RPCClient.TaikoL1.GetStateVariables(nil)
+	_, slotB, err := s.RPCClient.OntakeClients.TaikoL1.GetStateVariables(nil)
 	s.Nil(err)
 
 	verified, err := isBlockVerified(

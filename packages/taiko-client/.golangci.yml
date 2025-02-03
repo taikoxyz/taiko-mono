@@ -14,7 +14,7 @@ linters:
     - bidichk
     - bodyclose
     - durationcheck
-    - exportloopref
+    - copyloopvar
     - errcheck
     - errchkjson
     - errname

@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"maps"
-	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -19,8 +18,9 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -70,8 +70,8 @@ func (s *ProposerTestSuite) SetupTest() {
 			L2Endpoint:        os.Getenv("L2_HTTP"),
 			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 			JwtSecret:         string(jwtSecret),
-			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
-			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
+			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
@@ -127,12 +127,13 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		poolContent, err := s.RPCClient.GetPoolContent(
 			context.Background(),
 			s.p.proposerAddress,
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.LocalAddresses,
 			10,
 			0,
 			s.p.chainConfig,
+			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -180,19 +181,19 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		txLengthList         []int
 	}{
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxProposedTxListsPerEpoch,
 			[]int{1500},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit,
+			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxProposedTxListsPerEpoch * 5,
 			[]int{1500},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit / 50,
+			s.p.protocolConfigs.BlockMaxGasLimit() / 50,
 			rpc.BlockMaxTxListBytes,
 			200,
 			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
@@ -207,6 +208,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			testCase.maxTransactionsLists,
 			0,
 			s.p.chainConfig,
+			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -239,10 +241,6 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 }
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
-	// TODO: Temporarily skip this test case when using l2_reth node.
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	p := s.p
@@ -261,12 +259,13 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
 			p.proposerAddress,
-			p.protocolConfigs.BlockMaxGasLimit,
+			p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			p.LocalAddresses,
 			p.MaxProposedTxListsPerEpoch,
 			0,
 			p.chainConfig,
+			p.protocolConfigs.BaseFeeConfig(),
 		)
 		time.Sleep(time.Second)
 	}
@@ -305,12 +304,18 @@ func (s *ProposerTestSuite) TestName() {
 
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
+	sink2 := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
+	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
+	sub2, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
+	s.Nil(err)
+
 	defer func() {
-		sub.Unsubscribe()
-		close(sink)
+		sub1.Unsubscribe()
+		sub2.Unsubscribe()
+		close(sink1)
+		close(sink2)
 	}()
 
 	to := common.BytesToAddress(testutils.RandomBytes(32))
@@ -319,10 +324,13 @@ func (s *ProposerTestSuite) TestProposeOp() {
 
 	s.Nil(s.p.ProposeOp(context.Background()))
 
-	var (
-		event = <-sink
-		meta  = metadata.NewTaikoDataBlockMetadataOntake(event)
-	)
+	var meta metadata.TaikoProposalMetaData
+	select {
+	case event := <-sink1:
+		meta = metadata.NewTaikoDataBlockMetadataPacaya(event)
+	case event := <-sink2:
+		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
+	}
 	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
@@ -339,42 +347,6 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
 }
-
-func (s *ProposerTestSuite) TestProposeTxListOntake() {
-	for i := 0; i < int(s.p.protocolConfigs.OntakeForkHeight); i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.s)
-	}
-
-	l2Head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.OntakeForkHeight)
-
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
-	s.Nil(s.p.ProposeTxListOntake(context.Background(), []types.Transactions{{}, {}}))
-	s.Nil(s.s.ProcessL1Blocks(context.Background()))
-
-	var l1Height *big.Int
-	for i := 0; i < 2; i++ {
-		event := <-sink
-		if l1Height == nil {
-			l1Height = new(big.Int).SetUint64(event.Raw.BlockNumber)
-			continue
-		}
-		s.Equal(l1Height.Uint64(), event.Raw.BlockNumber)
-	}
-
-	newL2head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.Equal(l2Head.Number.Uint64()+2, newL2head.Number.Uint64())
-}
-
 func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 	s.p.ProposeInterval = 1 * time.Hour
 	s.NotPanics(s.p.updateProposingTicker)

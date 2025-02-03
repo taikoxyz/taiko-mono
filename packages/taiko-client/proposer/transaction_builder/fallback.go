@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
@@ -125,6 +126,77 @@ func (b *TxBuilderWithFallback) BuildOntake(
 		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
 		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
+	}
+
+	var (
+		costCalldataFloat64 float64
+		costBlobFloat64     float64
+	)
+	costCalldataFloat64, _ = utils.WeiToEther(costCalldata).Float64()
+	costBlobFloat64, _ = utils.WeiToEther(costBlob).Float64()
+
+	metrics.ProposerEstimatedCostCalldata.Set(costCalldataFloat64)
+	metrics.ProposerEstimatedCostBlob.Set(costBlobFloat64)
+
+	if costCalldata.Cmp(costBlob) < 0 {
+		log.Info("Building a type-2 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
+		metrics.ProposerProposeByCalldata.Inc()
+		return txWithCalldata, nil
+	}
+
+	log.Info("Building a type-3 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
+	metrics.ProposerProposeByBlob.Inc()
+	return txWithBlob, nil
+}
+
+// BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
+func (b *TxBuilderWithFallback) BuildPacaya(
+	ctx context.Context,
+	txBatch []types.Transactions,
+) (*txmgr.TxCandidate, error) {
+	// If calldata is the only option, just use it.
+	if b.blobTransactionBuilder == nil {
+		return b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch)
+	}
+	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
+	if !b.fallback {
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch)
+	}
+
+	// Otherwise, compare the cost, and choose the cheaper option.
+	var (
+		g              = new(errgroup.Group)
+		txWithCalldata *txmgr.TxCandidate
+		txWithBlob     *txmgr.TxCandidate
+		costCalldata   *big.Int
+		costBlob       *big.Int
+		err            error
+	)
+
+	g.Go(func() error {
+		if txWithCalldata, err = b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch); err != nil {
+			return fmt.Errorf("failed to build type-2 transaction: %w", err)
+		}
+		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
+			return fmt.Errorf("failed to estimate type-2 transaction cost: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if txWithBlob, err = b.blobTransactionBuilder.BuildPacaya(ctx, txBatch); err != nil {
+			return fmt.Errorf("failed to build type-3 transaction: %w", err)
+		}
+		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
+			return fmt.Errorf("failed to estimate type-3 transaction cost: %w", err)
+		}
+		return nil
+	})
+
+	if err = g.Wait(); err != nil {
+		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
+		metrics.ProposerCostEstimationError.Inc()
+		// If there is an error, just build a blob transaction.
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch)
 	}
 
 	var (

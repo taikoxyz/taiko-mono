@@ -17,7 +17,7 @@ type SharedState struct {
 
 // New creates a new prover shared state instance.
 func New() *SharedState {
-	return &SharedState{}
+	return &SharedState{tiers: make([]*rpc.TierProviderTierWithID, 0)}
 }
 
 // GetLastHandledBlockID returns the last handled block ID.

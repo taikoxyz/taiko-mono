@@ -6,18 +6,19 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 type TransactionBuilderTestSuite struct {
 	testutils.ClientTestSuite
 	calldataTxBuilder *CalldataTransactionBuilder
 	blobTxBuiler      *BlobTransactionBuilder
+	txsToPropose      []types.Transactions
 }
 
 func (s *TransactionBuilderTestSuite) SetupTest() {
@@ -26,16 +27,17 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
-	s.Nil(err)
-
-	chainConfig := config.NewChainConfig(&protocolConfigs)
+	chainConfig := config.NewChainConfig(
+		s.RPCClient.L2.ChainID,
+		s.RPCClient.OntakeClients.ForkHeight,
+		s.RPCClient.PacayaClients.ForkHeight,
+	)
 
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_L2")),
-		common.HexToAddress(os.Getenv("TAIKO_L1")),
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},
 		0,
 		chainConfig,
@@ -44,13 +46,24 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.blobTxBuiler = NewBlobTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_L1")),
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},
-		common.HexToAddress(os.Getenv("TAIKO_L2")),
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		10_000_000,
 		chainConfig,
 		false,
 	)
+
+	for i := 0; i < 100; i++ {
+		s.txsToPropose = append(s.txsToPropose, []*types.Transaction{types.NewTransaction(
+			uint64(i),
+			common.Address{},
+			common.Big0,
+			0,
+			common.Big0,
+			nil,
+		)})
+	}
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldata() {

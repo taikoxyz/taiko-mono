@@ -10,9 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -54,9 +55,9 @@ func NewProveBlockTxBuilder(
 // Build creates a new TaikoL1.ProveBlock transaction with the given nonce.
 func (a *ProveBlockTxBuilder) Build(
 	blockID *big.Int,
-	meta metadata.TaikoBlockMetaData,
-	transition *bindings.TaikoDataTransition,
-	tierProof *bindings.TaikoDataTierProof,
+	meta metadata.TaikoProposalMetaData,
+	transition *ontakeBindings.TaikoDataTransition,
+	tierProof *ontakeBindings.TaikoDataTierProof,
 	tier uint16,
 ) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
@@ -140,16 +141,16 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 			data        []byte
 			to          common.Address
 			err         error
-			metas       = make([]metadata.TaikoBlockMetaData, len(batchProof.Proofs))
-			transitions = make([]bindings.TaikoDataTransition, len(batchProof.Proofs))
-			blockIDs    = make([]uint64, len(batchProof.Proofs))
+			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.ProofResponses))
+			transitions = make([]ontakeBindings.TaikoDataTransition, len(batchProof.ProofResponses))
+			blockIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
-		for i, proof := range batchProof.Proofs {
+		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta
-			transitions[i] = bindings.TaikoDataTransition{
-				ParentHash: proof.Header.ParentHash,
-				BlockHash:  proof.Opts.BlockHash,
-				StateRoot:  proof.Opts.StateRoot,
+			transitions[i] = ontakeBindings.TaikoDataTransition{
+				ParentHash: proof.Opts.OntakeOptions().ParentHash,
+				BlockHash:  proof.Opts.OntakeOptions().BlockHash,
+				StateRoot:  proof.Opts.OntakeOptions().StateRoot,
 				Graffiti:   graffiti,
 			}
 			blockIDs[i] = proof.BlockID.Uint64()
@@ -163,7 +164,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 		if err != nil {
 			return nil, err
 		}
-		tierProof, err := encoding.EncodeProveBlocksBatchProof(&bindings.TaikoDataTierProof{
+		tierProof, err := encoding.EncodeProveBlocksBatchProof(&ontakeBindings.TaikoDataTierProof{
 			Tier: batchProof.Tier,
 			Data: batchProof.BatchProof,
 		})
@@ -189,6 +190,72 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 				tierProof,
 			); err != nil {
 				return nil, err
+			}
+			to = a.taikoL1Address
+		}
+
+		return &txmgr.TxCandidate{
+			TxData:   data,
+			To:       &to,
+			Blobs:    nil,
+			GasLimit: txOpts.GasLimit,
+			Value:    txOpts.Value,
+		}, nil
+	}
+}
+
+// BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
+func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.BatchProofs) TxBuilder {
+	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
+		var (
+			data        []byte
+			to          common.Address
+			err         error
+			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.ProofResponses))
+			transitions = make([]pacayaBindings.ITaikoInboxTransition, len(batchProof.ProofResponses))
+			subProofs   = make([]encoding.SubProof, len(batchProof.ProofResponses))
+			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
+		)
+		// NOTE: op_verifier is the only verifier address for now.
+		opVerifier, err := a.rpc.ResolvePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier", false)
+		if err != nil {
+			return nil, err
+		}
+		for i, proof := range batchProof.ProofResponses {
+			metas[i] = proof.Meta
+			transitions[i] = pacayaBindings.ITaikoInboxTransition{
+				ParentHash: proof.Opts.PacayaOptions().Headers[i].ParentHash,
+				BlockHash:  proof.Opts.PacayaOptions().Headers[i].Hash(),
+				StateRoot:  proof.Opts.PacayaOptions().Headers[i].Root,
+			}
+			batchIDs[i] = proof.Meta.Pacaya().GetBatchID().Uint64()
+			subProofs[i] = encoding.SubProof{
+				Verifier: opVerifier,
+				Proof:    batchProof.BatchProof,
+			}
+		}
+		log.Info(
+			"Build batch proof submission transaction",
+			"batchIDs", batchIDs,
+			"gasLimit", txOpts.GasLimit,
+		)
+		input, err := encoding.EncodeProveBatchesInput(metas, transitions)
+		if err != nil {
+			return nil, err
+		}
+		encodedSubProofs, err := encoding.EncodeBatchesSubProofs(subProofs)
+		if err != nil {
+			return nil, err
+		}
+
+		if a.proverSetAddress != ZeroAddress {
+			if data, err = encoding.ProverSetABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
+				return nil, encoding.TryParsingCustomError(err)
+			}
+			to = a.proverSetAddress
+		} else {
+			if data, err = encoding.TaikoInboxABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
+				return nil, encoding.TryParsingCustomError(err)
 			}
 			to = a.taikoL1Address
 		}

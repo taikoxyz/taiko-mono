@@ -32,7 +32,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	}
 
 	// Check the existing allowance for the contract.
-	allowance, err := p.rpc.TaikoToken.Allowance(
+	allowance, err := p.rpc.PacayaClients.TaikoToken.Allowance(
 		&bind.CallOpts{Context: ctx},
 		p.ProverAddress(),
 		contract,
@@ -78,7 +78,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	)
 
 	// Check the new allowance for the contract.
-	if allowance, err = p.rpc.TaikoToken.Allowance(
+	if allowance, err = p.rpc.PacayaClients.TaikoToken.Allowance(
 		&bind.CallOpts{Context: ctx},
 		p.ProverAddress(),
 		contract,
@@ -95,7 +95,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 func (p *Prover) initProofSubmitters(
 	txBuilder *transaction.ProveBlockTxBuilder,
 	tiers []*rpc.TierProviderTierWithID,
-) error {
+) (err error) {
 	for _, tier := range p.sharedState.GetTiers() {
 		var (
 			bufferSize = p.cfg.SGXProofBufferSize
@@ -142,7 +142,7 @@ func (p *Prover) initProofSubmitters(
 			return fmt.Errorf("unsupported tier: %d", tier.ID)
 		}
 
-		if submitter, err = proofSubmitter.NewProofSubmitter(
+		if submitter, err = proofSubmitter.NewProofSubmitterOntake(
 			p.rpc,
 			producer,
 			p.proofGenerationCh,
@@ -164,7 +164,24 @@ func (p *Prover) initProofSubmitters(
 			return err
 		}
 
-		p.proofSubmitters = append(p.proofSubmitters, submitter)
+		p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
+	}
+
+	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
+		p.rpc,
+		&proofProducer.OptimisticProofProducer{},
+		p.proofGenerationCh,
+		p.batchProofGenerationCh,
+		p.aggregationNotify,
+		p.cfg.ProverSetAddress,
+		p.cfg.TaikoL2Address,
+		p.cfg.Graffiti,
+		p.cfg.ProveBlockGasLimit,
+		p.txmgr,
+		p.privateTxmgr,
+		txBuilder,
+	); err != nil {
+		return err
 	}
 
 	return nil
@@ -176,14 +193,27 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 		return err
 	}
 
-	stateVars, err := p.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: p.ctx})
-	if err != nil {
-		return err
-	}
-
 	if startingBlockID == nil {
-		if stateVars.B.LastVerifiedBlockId == 0 {
-			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(stateVars.A.GenesisHeight))
+		var (
+			lastVerifiedBlockID *big.Int
+			genesisHeight       *big.Int
+		)
+		stateVars, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: p.ctx})
+		if err != nil {
+			slot1, _, err := p.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: p.ctx})
+			if err != nil {
+				return err
+			}
+
+			lastVerifiedBlockID = new(big.Int).SetUint64(slot1.LastSyncedBlockId)
+			genesisHeight = new(big.Int).SetUint64(slot1.GenesisHeight)
+		} else {
+			lastVerifiedBlockID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
+			genesisHeight = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+		}
+
+		if lastVerifiedBlockID.Cmp(common.Big0) == 0 {
+			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, genesisHeight)
 			if err != nil {
 				return err
 			}
@@ -192,7 +222,7 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 			return nil
 		}
 
-		startingBlockID = new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId)
+		startingBlockID = lastVerifiedBlockID
 	}
 
 	log.Info("Init L1Current cursor", "startingBlockID", startingBlockID)
@@ -226,6 +256,7 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 
 // initEventHandlers initialize all event handlers which will be used by the current prover.
 func (p *Prover) initEventHandlers() error {
+	p.eventHandlers = &eventHandlers{}
 	// ------- BlockProposed -------
 	opts := &handler.NewBlockProposedEventHandlerOps{
 		SharedState:           p.sharedState,
@@ -242,17 +273,17 @@ func (p *Prover) initEventHandlers() error {
 		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
 	}
 	if p.IsGuardianProver() {
-		p.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
+		p.eventHandlers.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
 			&handler.NewBlockProposedGuardianEventHandlerOps{
 				NewBlockProposedEventHandlerOps: opts,
 				GuardianProverHeartbeater:       p.guardianProverHeartbeater,
 			},
 		)
 	} else {
-		p.blockProposedHandler = handler.NewBlockProposedEventHandler(opts)
+		p.eventHandlers.blockProposedHandler = handler.NewBlockProposedEventHandler(opts)
 	}
 	// ------- TransitionProved -------
-	p.transitionProvedHandler = handler.NewTransitionProvedEventHandler(
+	p.eventHandlers.transitionProvedHandler = handler.NewTransitionProvedEventHandler(
 		p.rpc,
 		p.proofContestCh,
 		p.proofSubmissionCh,
@@ -260,13 +291,13 @@ func (p *Prover) initEventHandlers() error {
 		p.IsGuardianProver(),
 	)
 	// ------- TransitionContested -------
-	p.transitionContestedHandler = handler.NewTransitionContestedEventHandler(
+	p.eventHandlers.transitionContestedHandler = handler.NewTransitionContestedEventHandler(
 		p.rpc,
 		p.proofSubmissionCh,
 		p.cfg.ContesterMode,
 	)
 	// ------- AssignmentExpired -------
-	p.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
+	p.eventHandlers.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
 		p.rpc,
 		p.ProverAddress(),
 		p.cfg.ProverSetAddress,
@@ -279,9 +310,22 @@ func (p *Prover) initEventHandlers() error {
 	// ------- BlockVerified -------
 	guardianProverAddress, err := p.rpc.GetGuardianProverAddress(p.ctx)
 	if err != nil {
-		return err
+		log.Debug("Failed to get guardian prover address", "error", encoding.TryParsingCustomError(err))
+		p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(common.Address{})
+		return nil
 	}
-	p.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(guardianProverAddress)
+	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(guardianProverAddress)
 
+	return nil
+}
+
+// initProofTiers initializes the proof tiers for the current prover.
+func (p *Prover) initProofTiers(ctx context.Context) error {
+	tiers, err := p.rpc.GetTiers(ctx)
+	if err != nil {
+		log.Warn("Failed to get tiers", "error", err)
+		return nil
+	}
+	p.sharedState.SetTiers(tiers)
 	return nil
 }

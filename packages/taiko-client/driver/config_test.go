@@ -16,8 +16,8 @@ var (
 	l2Endpoint       = os.Getenv("L2_WS")
 	l2CheckPoint     = os.Getenv("L2_HTTP")
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
-	taikoL1          = os.Getenv("TAIKO_L1")
-	taikoL2          = os.Getenv("TAIKO_L2")
+	taikoL1          = os.Getenv("TAIKO_INBOX")
+	taikoL2          = os.Getenv("TAIKO_ANCHOR")
 )
 
 func (s *DriverTestSuite) TestNewConfigFromCliContext() {

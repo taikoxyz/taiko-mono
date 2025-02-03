@@ -16,7 +16,7 @@ var (
 // ProofBuffer caches all single proof with a fixed size.
 type ProofBuffer struct {
 	MaxLength     uint64
-	buffer        []*producer.ProofWithHeader
+	buffer        []*producer.ProofResponse
 	lastUpdatedAt time.Time
 	isAggregating bool
 	mutex         sync.RWMutex
@@ -25,14 +25,14 @@ type ProofBuffer struct {
 // NewProofBuffer creates a new ProofBuffer instance.
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
-		buffer:        make([]*producer.ProofWithHeader, 0, maxLength),
+		buffer:        make([]*producer.ProofResponse, 0, maxLength),
 		lastUpdatedAt: time.Now(),
 		MaxLength:     maxLength,
 	}
 }
 
 // Write adds new item to the buffer.
-func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
+func (pb *ProofBuffer) Write(item *producer.ProofResponse) (int, error) {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
 
@@ -46,20 +46,20 @@ func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
 }
 
 // Read returns the content with given length in the buffer.
-func (pb *ProofBuffer) Read(length int) ([]*producer.ProofWithHeader, error) {
+func (pb *ProofBuffer) Read(length int) ([]*producer.ProofResponse, error) {
 	pb.mutex.RLock()
 	defer pb.mutex.RUnlock()
 	if length > len(pb.buffer) {
 		return nil, errNotEnoughProof
 	}
 
-	data := make([]*producer.ProofWithHeader, length)
+	data := make([]*producer.ProofResponse, length)
 	copy(data, pb.buffer[:length])
 	return data, nil
 }
 
 // ReadAll returns all the content in the buffer.
-func (pb *ProofBuffer) ReadAll() ([]*producer.ProofWithHeader, error) {
+func (pb *ProofBuffer) ReadAll() ([]*producer.ProofResponse, error) {
 	return pb.Read(pb.Len())
 }
 
@@ -90,11 +90,11 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 		clearMap[blockID] = true
 	}
 
-	newBuffer := make([]*producer.ProofWithHeader, 0, len(pb.buffer))
+	newBuffer := make([]*producer.ProofResponse, 0, len(pb.buffer))
 	clearedCount := 0
 
 	for _, b := range pb.buffer {
-		if !clearMap[b.Meta.GetBlockID().Uint64()] {
+		if !clearMap[b.Meta.Ontake().GetBlockID().Uint64()] {
 			newBuffer = append(newBuffer, b)
 		} else {
 			clearedCount++

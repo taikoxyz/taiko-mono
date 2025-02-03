@@ -47,11 +47,11 @@ func TestLatestL2KnownL1Header(t *testing.T) {
 func TestL2ParentByBlockId(t *testing.T) {
 	client := newTestClient(t)
 
-	header, err := client.L2ParentByBlockID(context.Background(), common.Big1)
+	header, err := client.L2ParentByCurrentBlockID(context.Background(), common.Big1)
 	require.Nil(t, err)
 	require.Zero(t, header.Number.Uint64())
 
-	_, err = client.L2ParentByBlockID(context.Background(), common.Big2)
+	_, err = client.L2ParentByCurrentBlockID(context.Background(), common.Big2)
 	require.NotNil(t, err)
 }
 
@@ -65,7 +65,7 @@ func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 
 func TestGetProtocolStateVariables(t *testing.T) {
 	client := newTestClient(t)
-	_, err := client.GetProtocolStateVariables(nil)
+	_, err := client.GetLastVerifiedBlockOntake(context.Background())
 	require.Nil(t, err)
 }
 
@@ -92,7 +92,7 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	opts.NoSend = true
 	opts.GasLimit = 1_000_000
 
-	tx, err := client.TaikoL2.Anchor(opts, l1BlockHash, l1StateRoot, l1Height, parentGasUsed)
+	tx, err := client.OntakeClients.TaikoL2.Anchor(opts, l1BlockHash, l1StateRoot, l1Height, parentGasUsed)
 	require.Nil(t, err)
 
 	syncedL1StateRoot,

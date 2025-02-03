@@ -12,7 +12,7 @@ import (
 
 func (s *ProofSubmitterTestSuite) TestSubmitContestNoTransition() {
 	s.NotNil(
-		s.contester.SubmitContest(
+		s.contesterOntake.SubmitContest(
 			context.Background(),
 			common.Big256,
 			common.Big1,
