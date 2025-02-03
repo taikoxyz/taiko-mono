@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -32,7 +31,19 @@ func createPayloadAndSetHead(
 		"l1Origin", meta.L1Origin,
 	)
 
-	var lastVerifiedBlockHash common.Hash
+	payload, err := createExecutionPayloads(
+		ctx,
+		rpc,
+		meta.createExecutionPayloadsMetaData,
+		anchorTx,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
+	}
+
+	var (
+		lastVerifiedBlockHash common.Hash
+	)
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
 		lastVerifiedBlockInfo, err := rpc.GetLastVerifiedBlockOntake(ctx)
@@ -40,36 +51,12 @@ func createPayloadAndSetHead(
 			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
 		}
 
-		if meta.BlockID.Uint64() > lastVerifiedBlockInfo.BlockId {
+		if payload.Number > lastVerifiedBlockInfo.BlockId {
 			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
 		}
 	} else {
-		if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
+		if payload.Number > lastVerifiedTS.BlockId {
 			lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
-		}
-	}
-
-	payload, err := createExecutionPayloads(
-		ctx,
-		rpc,
-		meta.createExecutionPayloadsMetaData,
-		anchorTx,
-		lastVerifiedBlockHash,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
-	}
-
-	// If the Pacaya block is preconfirmed, we don't need to insert it again.
-	if meta.BlockID.Cmp(new(big.Int).SetUint64(rpc.PacayaClients.ForkHeight)) >= 0 {
-		preconfirmed, err := isBlockPreconfirmed(ctx, rpc, payload)
-		if err != nil {
-			log.Debug("Failed to check if the block is preconfirmed", "error", err)
-		} else {
-			if preconfirmed {
-				log.Info("The block is preconfirmed", "blockID", meta.BlockID, "hash", payload.BlockHash)
-				return payload, nil
-			}
 		}
 	}
 
@@ -98,7 +85,6 @@ func createExecutionPayloads(
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	anchorTx *types.Transaction,
-	lastVerfiiedBlockHash common.Hash,
 ) (payloadData *engine.ExecutableData, err error) {
 	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
@@ -107,11 +93,7 @@ func createExecutionPayloads(
 		return nil, err
 	}
 
-	fc := &engine.ForkchoiceStateV1{
-		HeadBlockHash:      meta.ParentHash,
-		SafeBlockHash:      lastVerfiiedBlockHash,
-		FinalizedBlockHash: lastVerfiiedBlockHash,
-	}
+	fc := &engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash}
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.Difficulty,
@@ -185,18 +167,4 @@ func createExecutionPayloads(
 	}
 
 	return payload, nil
-}
-
-// isBlockPreconfirmed checks if the block is preconfirmed.
-func isBlockPreconfirmed(ctx context.Context, rpc *rpc.Client, payload *engine.ExecutableData) (bool, error) {
-	header, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(payload.Number))
-	if err != nil {
-		return false, fmt.Errorf("failed to get header by number %d: %w", payload.Number, err)
-	}
-
-	if header == nil {
-		return false, fmt.Errorf("header not found for block number %d", payload.Number)
-	}
-
-	return header.Hash() == payload.BlockHash, nil
 }
