@@ -489,7 +489,12 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 
 // submitProofOp performs a proof submission operation.
 func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error {
-	submitter := p.getSubmitterByTier(proofResponse.Tier)
+	var submitter proofSubmitter.Submitter
+	if proofResponse.Meta.IsPacaya() {
+		submitter = p.proofSubmitterPacaya
+	} else {
+		submitter = p.getSubmitterByTier(proofResponse.Meta.Ontake().GetMinTier())
+	}
 	if submitter == nil {
 		return nil
 	}
