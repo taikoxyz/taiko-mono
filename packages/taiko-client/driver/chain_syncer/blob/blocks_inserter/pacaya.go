@@ -191,8 +191,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
 		if lastPayloadData, err = createPayloadAndSetHead(
 			ctx,
-			i.rpc,
-			&createPayloadAndSetHeadMetaData{
+			i.rpc, &createPayloadAndSetHeadMetaData{
 				createExecutionPayloadsMetaData: &createExecutionPayloadsMetaData{
 					BlockID:               blockID,
 					ExtraData:             meta.GetExtraData(),
