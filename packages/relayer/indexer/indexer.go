@@ -187,7 +187,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 			return errors.Wrap(err, "taikol1.NewTaikoL1")
 		}
 
-		taikoL1V2, err = v2.NewTaikoL1(i.cfg.SrcTaikoAddress, srcEthClient)
+		taikoL1V2, err = v2.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "v2.NewTaikoL1")
 		}
