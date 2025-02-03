@@ -188,11 +188,12 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			return fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
 		}
 
-		var txs types.Transactions
-		if len(allTxs) > 0 {
-			txs = allTxs[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
+		endIndex := txListCursor + int(blockInfo.NumTransactions)
+		if endIndex > len(allTxs) {
+			endIndex = len(allTxs) // Cap to the max available length
 		}
 
+		txs := allTxs[txListCursor:endIndex]
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
 		if lastPayloadData, err = createPayloadAndSetHead(
 			ctx,
