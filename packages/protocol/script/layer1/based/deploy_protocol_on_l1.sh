@@ -19,7 +19,7 @@ PAUSE_BRIDGE=true \
 FOUNDRY_PROFILE="layer1" \
 DEPLOY_PRECONF_CONTRACTS=true \
 INCLUSION_WINDOW=24 \
-INCLUSION_FEE=100 \
+INCLUSION_FEE_IN_GWEI=100 \
 forge script ./script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
