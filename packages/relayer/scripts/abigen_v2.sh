@@ -16,7 +16,7 @@ do
     abigen --abi bindings/v2/$lower/${names[i]}.json \
     --pkg $lower \
     --type ${names[i]} \
-    --out bindings/$lower/${names[i]}.go
+    --out bindings/v2/$lower/${names[i]}.go
 done
 
 exit 0

@@ -5,7 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
 )
 
 // setInitialIndexingBlockByMode takes in a SyncMode and determines how we should
@@ -20,11 +19,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 		slotA, _, err := i.taikol1.GetStateVariables(nil)
 		if err != nil {
 			// use v2 bindings
-			taikoL1V2, err := v2.NewTaikoL1(i.cfg.SrcTaikoAddress, i.srcEthClient)
-			if err != nil {
-				return errors.Wrap(err, "v2.NewTaikoL1")
-			}
-			slotA, _, err := taikoL1V2.GetStateVariables(nil)
+			slotA, _, err := i.taikoL1V2.GetStateVariables(nil)
 			if err != nil {
 				return errors.Wrap(err, "v2.NewTaikoL1.GetStateVariables")
 			}
