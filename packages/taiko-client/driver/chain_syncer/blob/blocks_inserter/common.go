@@ -46,6 +46,7 @@ func createPayloadAndSetHead(
 					"blockID", meta.BlockID,
 					"hash", header.Hash(),
 					"coinbase", header.Coinbase,
+					"timestamp", header.Time,
 					"anchorBlockID", meta.AnchorBlockID,
 					"anchorBlockHash", meta.AnchorBlockHash,
 					"baseFee", utils.WeiToEther(header.BaseFee),

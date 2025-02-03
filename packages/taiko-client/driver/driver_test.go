@@ -390,14 +390,14 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	// Propose 3 valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
-	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), l2Head3.Number())
+	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l2Head6.Number().Uint64())
+	s.Equal(l2Head3.Number().Uint64()+2, l2Head6.Number().Uint64())
 	s.Equal(1, len(l2Head6.Transactions()))
 
 	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head6.Number())
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin3.BlockID.Uint64())
+	s.Equal(l2Head3.Number().Uint64()+2, l1Origin3.BlockID.Uint64())
 	s.Equal(l2Head6.Hash(), l1Origin3.L2BlockHash)
 	s.NotZero(l1Origin3.L1BlockHeight.Uint64())
 	s.NotEmpty(l1Origin3.L1BlockHash)
@@ -448,7 +448,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 			FeeRecipient: preconferAddress,
 			Number:       l2BlockID,
 			GasLimit:     gasLimit,
-			Timestamp:    uint64(time.Now().Unix()),
+			Timestamp:    anchoredL1Block.Time,
 			Transactions: b,
 		},
 		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
@@ -533,9 +533,6 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Nil(err)
 	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
 	s.Equal(2, len(l2Head4.Transactions()))
-
-	log.Info("l2Head3", "hash", l2Head3.Hash(), "number", l2Head3.Number, "header", l2Head3.Header())
-	log.Info("l2Head4", "hash", l2Head4.Hash(), "number", l2Head4.Number, "header", l2Head4.Header())
 }
 
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {

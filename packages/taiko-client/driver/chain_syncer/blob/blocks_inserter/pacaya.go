@@ -233,6 +233,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"blockID", blockID,
 			"hash", lastPayloadData.BlockHash,
 			"transactions", len(lastPayloadData.Transactions),
+			"timestamp", lastPayloadData.Timestamp,
 			"baseFee", utils.WeiToGWei(lastPayloadData.BaseFeePerGas),
 			"withdrawals", len(lastPayloadData.Withdrawals),
 			"batchID", meta.GetBatchID(),
