@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
-import "../common/LibMath.sol";
+import "../libs/LibStrings.sol";
+import "../libs/LibMath.sol";
 import "./IQuotaManager.sol";
 
 /// @title QuotaManager
@@ -29,19 +29,13 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
 
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
     /// @param _quotaPeriod The time required to restore all quota.
-    function init(
-        address _owner,
-        address _sharedAddressManager,
-        uint24 _quotaPeriod
-    )
-        external
-        initializer
-    {
-        __Essential_init(_owner, _sharedAddressManager);
+    function init(address _owner, uint24 _quotaPeriod) external initializer {
+        __Essential_init(_owner);
         _setQuotaPeriod(_quotaPeriod);
     }
 

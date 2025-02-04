@@ -6,7 +6,7 @@ import "forge-std/src/console2.sol";
 
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/common/AddressManager.sol";
+import "script/BaseScript.sol";
 
 interface USDCProxy {
     function configureMinter(address minter, uint256 minterAllowedAmount) external;
@@ -14,7 +14,7 @@ interface USDCProxy {
 
 // Run with:
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/PostGenesisConfig.s.sol
-contract PostGenesisConfig is Script {
+contract PostGenesisConfig is BaseScript {
     // All following addresses are L2 addresses
     address public bridgedTKO = 0xA9d23408b9bA935c230493c40C73824Df71A0975;
     address public bridgedUSDC = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b;
@@ -28,7 +28,7 @@ contract PostGenesisConfig is Script {
 
         {
             call = abi.encodeCall(
-                AddressManager.setAddress,
+                DefaultResolver.registerAddress,
                 (1, LibStrings.B_SIGNAL_SERVICE, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C)
             );
             console2.log("--- sam set signal service chain_id=1");
@@ -36,7 +36,7 @@ contract PostGenesisConfig is Script {
             console.logBytes(call);
 
             call = abi.encodeCall(
-                AddressManager.setAddress,
+                DefaultResolver.registerAddress,
                 (1, LibStrings.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)
             );
             console2.log("--- sam set bridge chain_id=1");
@@ -44,7 +44,7 @@ contract PostGenesisConfig is Script {
             console.logBytes(call);
 
             call = abi.encodeCall(
-                AddressManager.setAddress,
+                DefaultResolver.registerAddress,
                 (1, LibStrings.B_ERC20_VAULT, 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)
             );
             console2.log("--- sam set erc20 vault chain_id=1");
@@ -52,7 +52,7 @@ contract PostGenesisConfig is Script {
             console.logBytes(call);
 
             call = abi.encodeCall(
-                AddressManager.setAddress,
+                DefaultResolver.registerAddress,
                 (1, LibStrings.B_ERC721_VAULT, 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa)
             );
             console2.log("--- sam set erc721 vault chain_id=1");
@@ -60,7 +60,7 @@ contract PostGenesisConfig is Script {
             console.logBytes(call);
 
             call = abi.encodeCall(
-                AddressManager.setAddress,
+                DefaultResolver.registerAddress,
                 (1, LibStrings.B_ERC1155_VAULT, 0xaf145913EA4a56BE22E120ED9C24589659881702)
             );
             console2.log("--- sam set erc1155 vault chain_id=1");

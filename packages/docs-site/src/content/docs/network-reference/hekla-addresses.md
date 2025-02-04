@@ -57,10 +57,10 @@ description: Network reference page describing various important addresses on Ta
 The owner has the ability to upgrade the contracts.
 :::
 
-| Network               | Address                                      | ENS |
-| --------------------- | -------------------------------------------- | --- |
-| Ethereum L1 (Holesky) | `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805` | N/A |
-| Taiko L2 (Taiko Hekla)| `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190` | N/A |
+| Network                | Address                                      | ENS |
+| ---------------------- | -------------------------------------------- | --- |
+| Ethereum L1 (Holesky)  | `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805` | N/A |
+| Taiko L2 (Taiko Hekla) | `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190` | N/A |
 
 ## Taiko Labs' proposer and prover addresses
 
