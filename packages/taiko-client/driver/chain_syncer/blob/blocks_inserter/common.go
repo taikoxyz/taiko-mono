@@ -39,28 +39,26 @@ func createPayloadAndSetHead(
 		header, err := isBlockPreconfirmed(ctx, rpc, meta, anchorTx)
 		if err != nil {
 			log.Debug("Failed to check if the block is preconfirmed", "error", err)
-		} else {
-			if header != nil {
-				if _, err := rpc.L2.WriteL1Origin(ctx, meta.L1Origin); err != nil {
-					return nil, fmt.Errorf("failed to write L1 origin: %w", err)
-				}
-				if _, err := rpc.L2.WriteHeadL1Origin(ctx, meta.L1Origin.BlockID); err != nil {
-					return nil, fmt.Errorf("failed to write head L1 origin: %w", err)
-				}
-
-				log.Info(
-					"🧬 The block is preconfirmed",
-					"blockID", meta.BlockID,
-					"hash", header.Hash(),
-					"coinbase", header.Coinbase,
-					"timestamp", header.Time,
-					"anchorBlockID", meta.AnchorBlockID,
-					"anchorBlockHash", meta.AnchorBlockHash,
-					"baseFee", utils.WeiToEther(header.BaseFee),
-				)
-
-				return encoding.ToExecutableData(header), nil
+		} else if header != nil {
+			if _, err := rpc.L2.WriteL1Origin(ctx, meta.L1Origin); err != nil {
+				return nil, fmt.Errorf("failed to write L1 origin: %w", err)
 			}
+			if _, err := rpc.L2.WriteHeadL1Origin(ctx, meta.L1Origin.BlockID); err != nil {
+				return nil, fmt.Errorf("failed to write head L1 origin: %w", err)
+			}
+
+			log.Info(
+				"🧬 The block is preconfirmed",
+				"blockID", meta.BlockID,
+				"hash", header.Hash(),
+				"coinbase", header.Coinbase,
+				"timestamp", header.Time,
+				"anchorBlockID", meta.AnchorBlockID,
+				"anchorBlockHash", meta.AnchorBlockHash,
+				"baseFee", utils.WeiToEther(header.BaseFee),
+			)
+
+			return encoding.ToExecutableData(header), nil
 		}
 	}
 	var lastVerifiedBlockHash common.Hash
