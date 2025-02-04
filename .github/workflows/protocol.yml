@@ -44,6 +44,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.2.0
+        with:
+          version: stable
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
