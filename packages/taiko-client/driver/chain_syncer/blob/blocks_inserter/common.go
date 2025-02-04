@@ -61,6 +61,17 @@ func createPayloadAndSetHead(
 			return encoding.ToExecutableData(header), nil
 		}
 	}
+
+	payload, err := createExecutionPayloads(
+		ctx,
+		rpc,
+		meta.createExecutionPayloadsMetaData,
+		anchorTx,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
+	}
+
 	var lastVerifiedBlockHash common.Hash
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
@@ -76,17 +87,6 @@ func createPayloadAndSetHead(
 		if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
 			lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
 		}
-	}
-
-	payload, err := createExecutionPayloads(
-		ctx,
-		rpc,
-		meta.createExecutionPayloadsMetaData,
-		anchorTx,
-		lastVerifiedBlockHash,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -114,7 +114,6 @@ func createExecutionPayloads(
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	anchorTx *types.Transaction,
-	lastVerfiiedBlockHash common.Hash,
 ) (payloadData *engine.ExecutableData, err error) {
 	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
@@ -123,11 +122,6 @@ func createExecutionPayloads(
 		return nil, err
 	}
 
-	fc := &engine.ForkchoiceStateV1{
-		HeadBlockHash:      meta.ParentHash,
-		SafeBlockHash:      lastVerfiiedBlockHash,
-		FinalizedBlockHash: lastVerfiiedBlockHash,
-	}
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.Difficulty,
@@ -162,7 +156,11 @@ func createExecutionPayloads(
 	)
 
 	// Step 1, prepare a payload
-	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(ctx, fc, attributes)
+	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(
+		ctx,
+		&engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash},
+		attributes,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update fork choice: %w", err)
 	}
