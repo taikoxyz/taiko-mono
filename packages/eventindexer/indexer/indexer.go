@@ -165,6 +165,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	}
 
 	var taikoL1 *taikol1.TaikoL1
+
 	var taikol1V2 *v2.TaikoL1
 
 	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {

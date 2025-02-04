@@ -22,6 +22,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.GetStateVariables")
 			}
+
 			startingBlock = slotA.GenesisHeight
 		} else {
 			startingBlock = slotA.GenesisHeight
