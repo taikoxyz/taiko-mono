@@ -433,7 +433,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // forcedinclustioninbox.proposeBatchWithForcedInclusion,
         // which calls taikoInbox.proposeBatch.
         DefaultResolver(resolver).registerAddress(
-            uint64(block.chainid), LibStrings.B_WHITELISTED_PROPOSER, forcedInclusionInbox
+            uint64(block.chainid), LibStrings.B_INBOX_OPERATOR, forcedInclusionInbox
         );
 
         return (whitelist, router, store, forcedInclusionInbox);

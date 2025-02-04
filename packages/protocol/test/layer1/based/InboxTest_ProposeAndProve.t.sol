@@ -520,7 +520,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startPrank(Alice);
         params.proposer = whitelistedProposer;
-        vm.expectRevert(ITaikoInbox.NotWhitelistedProposer.selector);
+        vm.expectRevert(ITaikoInbox.NotInboxOperator.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
         vm.stopPrank();
 
