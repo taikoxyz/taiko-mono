@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -18,7 +17,7 @@ import (
 
 const (
 	defaultTimeout                = 1 * time.Minute
-	pacayaForkHeightDevnet        = 10
+	pacayaForkHeightDevnet        = 0
 	pacayaForkHeightHekla         = 0
 	pacayaForkHeklaMainnet        = 0
 	pacayaForkHeightPreconfDevnet = 0
