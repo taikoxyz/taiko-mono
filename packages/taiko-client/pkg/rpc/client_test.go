@@ -14,8 +14,8 @@ func newTestClient(t *testing.T) *Client {
 	client, err := NewClient(context.Background(), &ClientConfig{
 		L1Endpoint:        os.Getenv("L1_WS"),
 		L2Endpoint:        os.Getenv("L2_WS"),
-		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
-		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 		JwtSecret:         os.Getenv("JWT_SECRET"),
@@ -31,8 +31,8 @@ func newTestClientWithTimeout(t *testing.T) *Client {
 	client, err := NewClient(context.Background(), &ClientConfig{
 		L1Endpoint:        os.Getenv("L1_WS"),
 		L2Endpoint:        os.Getenv("L2_WS"),
-		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
-		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 		JwtSecret:         os.Getenv("JWT_SECRET"),

@@ -38,10 +38,6 @@ func (s *DriverStateTestSuite) TestGetL1Head() {
 	s.NotNil(l1Head)
 }
 
-func (s *DriverStateTestSuite) TestGetHeadBlockID() {
-	s.Equal(uint64(0), s.s.GetHeadBlockID().Uint64())
-}
-
 func (s *DriverStateTestSuite) TestClose() {
 	s.cancel()
 	s.NotPanics(s.s.Close)
