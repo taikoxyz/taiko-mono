@@ -57,6 +57,7 @@ jobs:
       - name: Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
+          skip_dirty_check: true
           commit_message: "forge fmt & update contract layout tables"
 
       - name: L2-Unit tests
