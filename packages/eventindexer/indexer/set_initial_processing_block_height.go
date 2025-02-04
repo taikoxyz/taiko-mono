@@ -17,10 +17,16 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	if i.taikol1 != nil {
 		slotA, _, err := i.taikol1.GetStateVariables(nil)
 		if err != nil {
-			return errors.Wrap(err, "i.taikoL1.GetStateVariables")
-		}
+			// check v2
+			slotA, _, err := i.taikol1V2.GetStateVariables(nil)
+			if err != nil {
+				return errors.Wrap(err, "i.taikol1.GetStateVariables")
+			}
 
-		startingBlock = slotA.GenesisHeight
+			startingBlock = slotA.GenesisHeight
+		} else {
+			startingBlock = slotA.GenesisHeight
+		}
 	}
 
 	switch mode {
