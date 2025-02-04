@@ -1,16 +1,16 @@
 ---
 title: TaikoL2
-description: Taiko protocol page for "TaikoL2.sol".
+description: Taiko Alethia protocol page for "TaikoL2.sol".
 ---
 
-[TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer2/based/TaikoL2.sol) is a smart contract that handles cross-layer message verification and manages EIP-1559 gas pricing for Taiko operations. It is used to anchor the latest L1 block details to L2 for cross-layer communication, manage EIP-1559 parameters for gas pricing, and store verified L1 block information.
+[TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer2/based/TaikoL2.sol) is a smart contract that handles cross-layer message verification and manages EIP-1559 gas pricing for Taiko Alethia operations. It is used to anchor the latest L1 block details to L2 for cross-layer communication, manage EIP-1559 parameters for gas pricing, and store verified L1 block information.
 
 ---
 
 ## Core Purpose
 
 1. **Anchor:**
-   Due to Taiko's **based rollup** nature, each L2 block requires anchoring to the latest L1 block details. The first transaction of every block must perform this anchor, or all calls will revert with `L2_PUBLIC_INPUT_HASH_MISMATCH`.
+   Due to Taiko Alethia's **based rollup** nature, each L2 block requires anchoring to the latest L1 block details. The first transaction of every block must perform this anchor, or all calls will revert with `L2_PUBLIC_INPUT_HASH_MISMATCH`.
 
 2. **Gas Pricing:**
    The contract calculates **EIP-1559 base fee** and updates gas parameters dynamically for optimal gas pricing using key inputs such as `_parentGasUsed` and `_baseFeeConfig`.
@@ -19,7 +19,7 @@ description: Taiko protocol page for "TaikoL2.sol".
    The contract ensures L2 remains in sync with L1 by storing verified block information and updating state data like block hashes and timestamps.
 
 4. **Bridging Support:**
-   It plays a crucial role in **L1-L2 bridging**, anchoring state roots to enable secure and efficient communication between layers. For more, visit the [Bridging page](/taiko-protocol/bridging).
+   It plays a crucial role in **L1-L2 bridging**, anchoring state roots to enable secure and efficient communication between layers. For more, visit the [Bridging page](/taiko-alethia-protocol/bridging).
 
 ---
 

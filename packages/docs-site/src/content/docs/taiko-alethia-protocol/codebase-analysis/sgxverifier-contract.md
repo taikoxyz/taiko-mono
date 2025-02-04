@@ -1,6 +1,6 @@
 ---
 title: SGXVerifier
-description: Taiko protocol page for "SGXVerifier.sol".
+description: Taiko Alethia protocol page for "SGXVerifier.sol".
 ---
 
 The `SGXVerifier` smart contract implements SGX (Software Guard Extensions) signature proof verification on-chain. This verification ensures integrity and security of rollup state transitions by validating SGX-generated signatures. It also enables management and tracking of SGX instances through registration and replacement.
