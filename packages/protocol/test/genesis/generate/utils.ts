@@ -43,7 +43,11 @@ export interface SolidityStorageLayout {
 export async function getStorageLayout(
     name: string,
 ): Promise<SolidityStorageLayout> {
-    const artifact = require(`../../../out/layer2/${name}.sol/${name}.json`);
+    const artifactPath =
+        name === "RegularERC20"
+            ? `../../../out/genesis/${name}.sol/${name}.json`
+            : `../../../out/layer2/${name}.sol/${name}.json`;
+    const artifact = require(artifactPath);
     if (!("storageLayout" in artifact)) {
         throw new Error(`Storage layout for ${name} not found.`);
     }

@@ -36,7 +36,9 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests
     runs-on: [ubuntu-latest]
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
 
     strategy:
       matrix:
@@ -62,11 +64,21 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      - uses: actions/checkout@v4
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.OLD_FORK_TAIKO_MONO_DIR }}
+          ref: protocol-v1.11.0
+
+      - name: Install pnpm dependencies for old fork taiko-mono
+        working-directory: ${{ env.OLD_FORK_TAIKO_MONO_DIR }}
+        run: cd ./packages/protocol && pnpm install
+
       - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
-        run: make test
+        run: OLD_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${OLD_FORK_TAIKO_MONO_DIR} make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v5

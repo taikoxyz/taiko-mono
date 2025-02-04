@@ -2,10 +2,13 @@ package driver
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,7 +19,10 @@ import (
 	"github.com/urfave/cli/v2"
 
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
+	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -29,12 +35,20 @@ const (
 // contract.
 type Driver struct {
 	*Config
-	rpc           *rpc.Client
-	l2ChainSyncer *chainSyncer.L2ChainSyncer
-	state         *state.State
+	rpc                *rpc.Client
+	l2ChainSyncer      *chainSyncer.L2ChainSyncer
+	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
+	state              *state.State
+	chainConfig        *config.ChainConfig
+	protocolConfig     config.ProtocolConfigs
 
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
+
+	// P2P network for soft block propagation
+	p2pNode   *p2p.NodeP2P
+	p2pSigner p2p.Signer
+	p2pSetup  p2p.SetupP2P
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -87,6 +101,54 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	}
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
+	d.chainConfig = config.NewChainConfig(
+		d.rpc.L2.ChainID,
+		d.rpc.OntakeClients.ForkHeight,
+		d.rpc.PacayaClients.ForkHeight,
+	)
+
+	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
+		return err
+	}
+
+	if d.PreconfBlockServerPort > 0 {
+		if d.preconfBlockServer, err = preconfBlocks.New(
+			d.PreconfBlockServerCORSOrigins,
+			d.PreconfBlockServerJWTSecret,
+			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
+			d.rpc,
+			d.Config.PreconfBlockServerCheckSig,
+			d.p2pNode,
+			d.p2pSigner,
+		); err != nil {
+			return err
+		}
+	}
+
+	if cfg.P2PConfigs != nil {
+		log.Info("enabling p2p network")
+		d.p2pSetup = cfg.P2PConfigs
+
+		if d.p2pNode, err = p2p.NewNodeP2P(
+			d.ctx,
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			log.Root(),
+			d.p2pSetup,
+			d.preconfBlockServer,
+			nil,
+			d.preconfBlockServer,
+			metrics.P2PNodeMetrics,
+			false,
+		); err != nil {
+			return err
+		}
+
+		log.Info("p2pNode", "Addrs", d.p2pNode.Host().Addrs(), "peerID", d.p2pNode.Host().ID())
+
+		if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -97,6 +159,24 @@ func (d *Driver) Start() error {
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
 
+	// Start the preconf block server if it is enabled.
+	if d.preconfBlockServer != nil {
+		go func() {
+			if err := d.preconfBlockServer.Start(d.PreconfBlockServerPort); err != nil {
+				log.Crit("Failed to start preconfirmation block server", "error", err)
+			}
+		}()
+	}
+
+	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
+		go d.p2pNode.DiscoveryProcess(
+			d.ctx,
+			log.Root(),
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			d.p2pSetup.TargetPeers(),
+		)
+	}
+
 	return nil
 }
 
@@ -104,6 +184,12 @@ func (d *Driver) Start() error {
 func (d *Driver) Close(_ context.Context) {
 	d.l1HeadSub.Unsubscribe()
 	d.state.Close()
+	// Close the preconf block server if it is enabled.
+	if d.preconfBlockServer != nil {
+		if err := d.preconfBlockServer.Shutdown(d.ctx); err != nil {
+			log.Error("Failed to shutdown preconfirmation block server", "error", err)
+		}
+	}
 	d.wg.Wait()
 }
 
@@ -173,15 +259,9 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
-	protocolConfigs, err := rpc.GetProtocolConfigs(d.rpc.TaikoL1, &bind.CallOpts{Context: d.ctx})
-	if err != nil {
-		log.Error("Failed to get protocol configs", "error", err)
-		return
-	}
-
 	var (
-		ticker       = time.NewTicker(protocolStatusReportInterval)
-		maxNumBlocks = protocolConfigs.BlockMaxProposals
+		ticker          = time.NewTicker(protocolStatusReportInterval)
+		maxNumProposals = d.protocolConfig.MaxProposals()
 	)
 	d.wg.Add(1)
 
@@ -195,20 +275,51 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			vars, err := d.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: d.ctx})
+			l2Head, err := d.rpc.L2.BlockNumber(d.ctx)
 			if err != nil {
-				log.Error("Failed to get protocol state variables", "error", err)
+				log.Error("Failed to fetch L2 head", "error", err)
 				continue
 			}
 
-			log.Info(
-				"📖 Protocol status",
-				"lastVerifiedBlockId", vars.B.LastVerifiedBlockId,
-				"pendingBlocks", vars.B.NumBlocks-vars.B.LastVerifiedBlockId-1,
-				"availableSlots", vars.B.LastVerifiedBlockId+maxNumBlocks-vars.B.NumBlocks,
-			)
+			if d.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head)) {
+				d.reportProtocolStatusPacaya(maxNumProposals)
+			} else {
+				d.reportProtocolStatusOntake(maxNumProposals)
+			}
 		}
 	}
+}
+
+// reportProtocolStatusPacaya reports some status for Pacaya protocol.
+func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
+	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Error("Failed to get protocol state variables", "error", err)
+		return
+	}
+
+	log.Info(
+		"📖 Protocol status",
+		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
+		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
+		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
+	)
+}
+
+// reportProtocolStatusOntake reports some status for Ontake protocol.
+func (d *Driver) reportProtocolStatusOntake(maxNumProposals uint64) {
+	_, slotB, err := d.rpc.OntakeClients.TaikoL1.GetStateVariables(&bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Error("Failed to get protocol state variables", "error", err)
+		return
+	}
+
+	log.Info(
+		"📖 Protocol status",
+		"lastVerifiedBlockId", slotB.LastVerifiedBlockId,
+		"pendingBlocks", slotB.NumBlocks-slotB.LastVerifiedBlockId-1,
+		"availableSlots", slotB.LastVerifiedBlockId+maxNumProposals-slotB.NumBlocks,
+	)
 }
 
 // exchangeTransitionConfigLoop keeps exchanging transition configs with the

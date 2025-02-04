@@ -5,8 +5,8 @@ import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeab
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
-import "../common/LibBytes.sol";
+import "../libs/LibStrings.sol";
+import "../libs/LibBytes.sol";
 
 /// @title INameSymbol
 /// @notice Interface for contracts that provide name() and symbol()
@@ -34,6 +34,8 @@ abstract contract BaseVault is
     error VAULT_INSUFFICIENT_FEE();
     error VAULT_INVALID_TO_ADDR();
     error VAULT_PERMISSION_DENIED();
+
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.

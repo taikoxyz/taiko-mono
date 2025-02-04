@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "forge-std/src/console2.sol";
 import "forge-std/src/Script.sol";
 
-import "src/shared/common/AddressManager.sol";
+import "src/shared/common/DefaultResolver.sol";
 
 /// @title DeployCapability
 abstract contract DeployCapability is Script {
@@ -26,7 +26,7 @@ abstract contract DeployCapability is Script {
         proxy = address(new ERC1967Proxy(impl, data));
 
         if (registerTo != address(0)) {
-            AddressManager(registerTo).setAddress(
+            DefaultResolver(registerTo).registerAddress(
                 uint64(block.chainid), bytes32(bytes(name)), proxy
             );
         }
@@ -69,7 +69,7 @@ abstract contract DeployCapability is Script {
     {
         if (registerTo == address(0)) revert ADDRESS_NULL();
         if (addr == address(0)) revert ADDRESS_NULL();
-        AddressManager(registerTo).setAddress(chainId, bytes32(bytes(name)), addr);
+        DefaultResolver(registerTo).registerAddress(chainId, bytes32(bytes(name)), addr);
         console2.log("> ", name, "@", registerTo);
         console2.log("\t addr : ", addr);
     }
@@ -78,10 +78,11 @@ abstract contract DeployCapability is Script {
         if (registerTo == address(0)) revert ADDRESS_NULL();
         if (readFrom == address(0)) revert ADDRESS_NULL();
 
+        IResolver resolver = IResolver(EssentialContract(readFrom).resolver());
         register({
             registerTo: registerTo,
             name: name,
-            addr: AddressManager(readFrom).getAddress(uint64(block.chainid), bytes32(bytes(name))),
+            addr: resolver.resolve(uint64(block.chainid), bytes32(bytes(name)), true),
             chainId: uint64(block.chainid)
         });
     }
