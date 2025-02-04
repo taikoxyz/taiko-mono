@@ -40,10 +40,10 @@ func createPayloadAndSetHead(
 		if err != nil {
 			log.Debug("Failed to check if the block is preconfirmed", "error", err)
 		} else if header != nil {
-			if _, err := rpc.L2.WriteL1Origin(ctx, meta.L1Origin); err != nil {
-				return nil, fmt.Errorf("failed to write L1 origin: %w", err)
+			if _, err := rpc.L2.UpdateL1Origin(ctx, meta.L1Origin); err != nil {
+				return nil, fmt.Errorf("failed to update L1 origin: %w", err)
 			}
-			if _, err := rpc.L2.WriteHeadL1Origin(ctx, meta.L1Origin.BlockID); err != nil {
+			if _, err := rpc.L2.SetHeadL1Origin(ctx, meta.L1Origin.BlockID); err != nil {
 				return nil, fmt.Errorf("failed to write head L1 origin: %w", err)
 			}
 
