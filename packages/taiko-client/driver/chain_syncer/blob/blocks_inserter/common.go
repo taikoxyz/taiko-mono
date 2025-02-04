@@ -223,7 +223,7 @@ func isBlockPreconfirmed(
 			Timestamp:    header.Time,
 			FeeRecipient: header.Coinbase,
 			Random:       header.MixDigest,
-			Withdrawals:  []*types.Withdrawal{},
+			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 		}
 		id = args.Id()
