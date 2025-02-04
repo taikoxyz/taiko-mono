@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -22,7 +23,7 @@ type AnchorTxValidator struct {
 
 // New creates a new AnchorTxValidator instance.
 func New(taikoL2Address common.Address, chainID *big.Int, rpc *rpc.Client) (*AnchorTxValidator, error) {
-	goldenTouchAddress, err := rpc.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := rpc.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +31,8 @@ func New(taikoL2Address common.Address, chainID *big.Int, rpc *rpc.Client) (*Anc
 	return &AnchorTxValidator{taikoL2Address, goldenTouchAddress, chainID, rpc}, nil
 }
 
-// ValidateAnchorTx checks whether the given transaction is a valid `TaikoL2.anchor` transaction.
+// ValidateAnchorTx checks whether the given transaction is a valid `TaikoL2.anchorV2` or
+// `TaikoAnchor.anchorV3` transaction.
 func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	if tx.To() == nil || *tx.To() != v.taikoL2Address {
 		return fmt.Errorf("invalid TaikoL2.anchor transaction to: %s, want: %s", tx.To(), v.taikoL2Address)
@@ -45,14 +47,16 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 		return fmt.Errorf("invalid TaikoL2.anchor transaction sender: %s", sender)
 	}
 
-	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
-	if err != nil {
-		return fmt.Errorf("failed to get TaikoL2.anchor transaction method: %w", err)
+	var method *abi.Method
+	if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
+		if method, err = encoding.TaikoL2ABI.MethodById(tx.Data()); err != nil {
+			return fmt.Errorf("failed to get TaikoL2.anchor transaction method: %w", err)
+		}
 	}
-	if method.Name != "anchor" && method.Name != "anchorV2" {
+	if method.Name != "anchor" && method.Name != "anchorV2" && method.Name != "anchorV3" {
 		return fmt.Errorf(
-			"invalid TaikoL2.anchor transaction selector, expect: %s, actual: %s",
-			"anchor / anchorV2",
+			"invalid TaikoL2.anchor / TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction selector, expect: %s, actual: %s",
+			"anchor / anchorV2 / anchorV3",
 			method.Name,
 		)
 	}

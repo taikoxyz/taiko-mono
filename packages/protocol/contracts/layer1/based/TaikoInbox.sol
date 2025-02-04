@@ -271,6 +271,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
+
             ts.blockHash = tran.blockHash;
             ts.stateRoot =
                 meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);

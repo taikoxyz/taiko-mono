@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
@@ -44,8 +44,8 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L1Endpoint:       os.Getenv("L1_WS"),
 			L2Endpoint:       os.Getenv("L2_WS"),
 			L2EngineEndpoint: os.Getenv("L2_AUTH"),
-			TaikoL1Address:   common.HexToAddress(os.Getenv("TAIKO_L1")),
-			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_L2")),
+			TaikoL1Address:   common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:        string(jwtSecret),
 		},
 	}))
@@ -80,8 +80,8 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L2Endpoint:        os.Getenv("L2_WS"),
 			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 			JwtSecret:         string(jwtSecret),
-			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
-			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
+			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
@@ -132,10 +132,10 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 		false,
 	)
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
-	err := handler.Handle(context.Background(), &bindings.TaikoL1ClientTransitionProvedV2{
-		BlockId:    m.GetBlockID(),
-		Tier:       m.GetMinTier(),
-		ProposedIn: m.GetRawBlockHeight().Uint64(),
+	err := handler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
+		BlockId:    m.Ontake().GetBlockID(),
+		Tier:       m.Ontake().GetMinTier(),
+		ProposedIn: m.Ontake().GetRawBlockHeight().Uint64(),
 	})
 	s.Nil(err)
 }

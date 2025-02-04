@@ -10,18 +10,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
-var _ Contester = (*ProofContester)(nil)
+var _ Contester = (*ProofContesterOntake)(nil)
 
-// ProofContester is responsible for contesting wrong L2 transitions.
-type ProofContester struct {
+// ProofContesterOntake is responsible for contesting wrong L2 transitions.
+type ProofContesterOntake struct {
 	rpc       *rpc.Client
 	txBuilder *transaction.ProveBlockTxBuilder
 	sender    *transaction.Sender
@@ -37,8 +37,8 @@ func NewProofContester(
 	proverSetAddress common.Address,
 	graffiti string,
 	builder *transaction.ProveBlockTxBuilder,
-) *ProofContester {
-	return &ProofContester{
+) *ProofContesterOntake {
+	return &ProofContesterOntake{
 		rpc:       rpcClient,
 		txBuilder: builder,
 		sender:    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
@@ -47,16 +47,16 @@ func NewProofContester(
 }
 
 // SubmitContest submits a TaikoL1.proveBlock transaction to contest a L2 block transition.
-func (c *ProofContester) SubmitContest(
+func (c *ProofContesterOntake) SubmitContest(
 	ctx context.Context,
 	blockID *big.Int,
 	proposedIn *big.Int,
 	parentHash common.Hash,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoProposalMetaData,
 	tier uint16,
 ) error {
 	// Ensure the transition has not been contested yet.
-	transition, err := c.rpc.TaikoL1.GetTransition0(
+	transition, err := c.rpc.OntakeClients.TaikoL1.GetTransition0(
 		&bind.CallOpts{Context: ctx},
 		blockID.Uint64(),
 		parentHash,
@@ -96,12 +96,11 @@ func (c *ProofContester) SubmitContest(
 	}
 	return c.sender.Send(
 		ctx,
-		&proofProducer.ProofWithHeader{
+		&proofProducer.ProofResponse{
 			BlockID: blockID,
 			Meta:    meta,
-			Header:  header,
 			Proof:   []byte{},
-			Opts: &proofProducer.ProofRequestOptions{
+			Opts: &proofProducer.ProofRequestOptionsOntake{
 				EventL1Hash: l1HeaderProposedIn.Hash(),
 				StateRoot:   header.Root,
 			},
@@ -110,13 +109,13 @@ func (c *ProofContester) SubmitContest(
 		c.txBuilder.Build(
 			blockID,
 			meta,
-			&bindings.TaikoDataTransition{
+			&ontakeBindings.TaikoDataTransition{
 				ParentHash: header.ParentHash,
 				BlockHash:  header.Hash(),
 				StateRoot:  header.Root,
 				Graffiti:   c.graffiti,
 			},
-			&bindings.TaikoDataTierProof{
+			&ontakeBindings.TaikoDataTierProof{
 				Tier: transition.Tier,
 				Data: []byte{},
 			},
