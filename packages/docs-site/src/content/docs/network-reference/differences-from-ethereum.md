@@ -1,9 +1,9 @@
 ---
 title: Differences from Ethereum
-description: Network reference page describing the differences between Taiko and Ethereum.
+description: Network reference page describing the differences between Taiko Alethia and Ethereum.
 ---
 
-| Parameter        | Ethereum       | Taiko                         | Reasoning                                                                                                                                                                                                        |
+| Parameter        | Ethereum       | Taiko Alethia                 | Reasoning                                                                                                                                                                                                        |
 | ---------------- | -------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Block gas limit  | 30,000,000 gas | 240,000,000 gas               | Currently in Raiko, memory use scales linearly with block size both in the host (witness generation) and in the guest (memory use inside the VM/program being proven) so we set the block gas limit to 240m gas. |
 | Block gas target | 15,000,000 gas | 60,000,000 gas (per L1 block) | Assuming an L2 block time of ~3 seconds will have a ~15,000,000 gas target.                                                                                                                                      |

@@ -114,7 +114,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
-            deployPreconfContracts(contractOwner, rollupResolver);
+            deployPreconfContracts(contractOwner, sharedResolver);
         }
 
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {

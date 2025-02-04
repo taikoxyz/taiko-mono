@@ -17,9 +17,11 @@ To report a security vulnerability please email security@taiko.xyz.
 
 If you run into any bugs or have any feature requests, you can open them in the appropriate repo on our [GitHub](https://github.com/taikoxyz).
 
-### Diving deeper into Taiko
+### Diving deeper into Taiko Alethia
 
-There are two main places to look for Taiko's documentation. The user docs which are here, and the developer docs / source code comments inside of our protocol monorepo, [taiko-mono](https://github.com/taikoxyz/taiko-mono).
+There are two main places to look for Taiko Alethia's documentation. The user docs which are here, and the developer docs / source code comments inside of our protocol monorepo, [taiko-mono](https://github.com/taikoxyz/taiko-mono).
+
+In the future, Taiko Gwyneth documentation will also be hosted here!
 
 ### Grant support
 
