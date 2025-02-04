@@ -16,9 +16,7 @@
 
 ## QuotaManager
 
-## AddressManager
-
-## AddressResolver
+## DefaultResolver
 
 ## EssentialContract
 
@@ -28,8 +26,5 @@
 
 ## DelegateOwner
 
-## TaikoL2
+## TaikoAnchor
 
-## HeklaTaikoL2
-
-## MainnetTaikoL2

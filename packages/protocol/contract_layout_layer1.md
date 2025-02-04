@@ -16,9 +16,7 @@
 
 ## QuotaManager
 
-## AddressManager
-
-## AddressResolver
+## DefaultResolver
 
 ## EssentialContract
 
@@ -26,13 +24,7 @@
 
 ## TaikoToken
 
-## ComposeVerifier
-
-## TeeAnyVerifier
-
-## ZkAndTeeVerifier
-
-## ZkAnyVerifier
+## SgxAndZkVerifier
 
 ## Risc0Verifier
 
@@ -42,11 +34,9 @@
 
 ## AutomataDcapV3Attestation
 
-## TaikoL1
+## TaikoInbox
 
-## HeklaTaikoL1
-
-## HeklaTierRouter
+## HeklaInbox
 
 ## MainnetBridge
 
@@ -58,40 +48,11 @@
 
 ## MainnetERC721Vault
 
-## MainnetSharedAddressManager
-
-## RollupAddressCache
-
-## SharedAddressCache
-
-## AddressCache
-
-## MainnetSgxVerifier
-
-## MainnetSP1Verifier
-
-## MainnetZkAnyVerifier
-
-## MainnetRisc0Verifier
-
-## MainnetZkAndTeeVerifier
-
-## MainnetTeeAnyVerifier
-
-## MainnetGuardianProver
-
-## MainnetTaikoL1
-
-## MainnetRollupAddressManager
-
-## MainnetTierRouter
-
-## MainnetProverSet
+## MainnetInbox
 
 ## TokenUnlock
 
 ## ProverSet
 
-## GuardianProver
+## ForkRouter
 
-## ForkManager
