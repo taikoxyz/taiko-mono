@@ -1,6 +1,6 @@
 ---
-title: Testnet addresses
-description: Network reference page describing various important addresses on Taiko.
+title: Hekla addresses
+description: Network reference page describing various important addresses on Taiko Hekla.
 ---
 
 ## Ethereum L1 (Holesky) contracts
@@ -37,7 +37,7 @@ description: Network reference page describing various important addresses on Ta
 | ProverSet                       | `0xD3f681bD6B49887A48cC9C9953720903967E9DC0` |
 | ProverSetContester              | `0x335103c4fa2F55451975082136F1478eCFeB84B9` |
 
-## Taiko L2 (Hekla) contracts
+## Taiko L2 (Taiko Hekla) contracts
 
 | Contract Name        | Address                                      |
 | -------------------- | -------------------------------------------- |
@@ -57,10 +57,10 @@ description: Network reference page describing various important addresses on Ta
 The owner has the ability to upgrade the contracts.
 :::
 
-| Network               | Address                                      | ENS |
-| --------------------- | -------------------------------------------- | --- |
-| Ethereum L1 (Holesky) | `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805` | N/A |
-| Taiko L2 (Hekla)      | `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190` | N/A |
+| Network                | Address                                      | ENS |
+| ---------------------- | -------------------------------------------- | --- |
+| Ethereum L1 (Holesky)  | `0x13cfc60c900a927C48f5c2a4923Ec9771a3A2805` | N/A |
+| Taiko L2 (Taiko Hekla) | `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190` | N/A |
 
 ## Taiko Labs' proposer and prover addresses
 
