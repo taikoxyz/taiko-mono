@@ -2,8 +2,9 @@ name: "Taiko Client Soft Blocks Documentation"
 
 on:
   push:
-    branches:
-      - pacaya_fork_client
+    branches: [main]
+    paths:
+      - "packages/taiko-client/**"
 
 jobs:
   generate-and-deploy:
