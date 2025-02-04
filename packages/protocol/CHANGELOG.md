@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.12.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v1.11.0...taiko-alethia-protocol-v1.12.0) (2025-02-04)
+
+
+### Features
+
+* **protocol:** adjust zk(risc0 & sp1) ratio ([#18684](https://github.com/taikoxyz/taiko-mono/issues/18684)) ([a0c21a3](https://github.com/taikoxyz/taiko-mono/commit/a0c21a382c779de54b119a6f9b2d5cd869f47f1d))
+* **protocol:** upgrade sp1 contract to v4.0.0-rc.3 ([#18740](https://github.com/taikoxyz/taiko-mono/issues/18740)) ([a58852f](https://github.com/taikoxyz/taiko-mono/commit/a58852fd84357487b82b965dd0ab61b56de49b53))
+* **taiko-client:** soft block driver APIs ([#18273](https://github.com/taikoxyz/taiko-mono/issues/18273)) ([9fff7ff](https://github.com/taikoxyz/taiko-mono/commit/9fff7ff3cce99e915e8142a090a7fad2f1af5bd4))
+
+
+### Bug Fixes
+
+* **protocol:** add timestamp as a new parameter to getBasefeeV2 ([#18686](https://github.com/taikoxyz/taiko-mono/issues/18686)) ([361c26a](https://github.com/taikoxyz/taiko-mono/commit/361c26adc62a6358c4d38c6a4d707274c84d7552))
+* **protocol:** avoid setting stateRoot = 0 in `ContextV2` ([#18858](https://github.com/taikoxyz/taiko-mono/issues/18858)) ([3055175](https://github.com/taikoxyz/taiko-mono/commit/3055175c00bba0374149577feed34ed66af835ac))
+* **protocol:** deep copy context transition ([#18859](https://github.com/taikoxyz/taiko-mono/issues/18859)) ([0f4db9b](https://github.com/taikoxyz/taiko-mono/commit/0f4db9bc2c30ea58644e382d38dc26b11050851f))
+
+
+### Chores
+
+* **main:** release taiko-alethia-protocol 1.11.0 ([#18695](https://github.com/taikoxyz/taiko-mono/issues/18695)) ([7802e7f](https://github.com/taikoxyz/taiko-mono/commit/7802e7f33c445417473dcba799dd1dfc68a9aa31))
+* **main:** release taiko-alethia-protocol 1.11.0 ([#18761](https://github.com/taikoxyz/taiko-mono/issues/18761)) ([70942ea](https://github.com/taikoxyz/taiko-mono/commit/70942ea0a3307e049d5c0efaf90837b84453aa66))
+* **protocol:** fix documentation ([#18694](https://github.com/taikoxyz/taiko-mono/issues/18694)) ([c7c01a1](https://github.com/taikoxyz/taiko-mono/commit/c7c01a156e05d9126ba6fab7bd910dfa3602169a))
+
+
+### Documentation
+
+* **protocol:** update Hekla deployment ([#18856](https://github.com/taikoxyz/taiko-mono/issues/18856)) ([f0d876c](https://github.com/taikoxyz/taiko-mono/commit/f0d876ce3076b84d9d5fae439a01e166acecaca5))
+* **protocol:** update Hekla deployment ([#18860](https://github.com/taikoxyz/taiko-mono/issues/18860)) ([ac3075c](https://github.com/taikoxyz/taiko-mono/commit/ac3075c4fa6718b4e5c4b0bd7a6f240111dfc914))
+* **protocol:** update mainnet deployment docs ([#18754](https://github.com/taikoxyz/taiko-mono/issues/18754)) ([45f5cdc](https://github.com/taikoxyz/taiko-mono/commit/45f5cdc514d47042b6aa810c188062a85b050adf))
+
+
+### Workflow
+
+* **protocol:** revert "chore(main): release taiko-alethia-protocol 1.11.0 ([#18663](https://github.com/taikoxyz/taiko-mono/issues/18663))" ([#18688](https://github.com/taikoxyz/taiko-mono/issues/18688)) ([7e6bce4](https://github.com/taikoxyz/taiko-mono/commit/7e6bce4a0dac9e4f2984ffe2d3da2fc1277fab27))
+* **protocol:** revert "chore(main): release taiko-alethia-protocol 1.11.0 ([#18695](https://github.com/taikoxyz/taiko-mono/issues/18695))" ([#18760](https://github.com/taikoxyz/taiko-mono/issues/18760)) ([e8ab39a](https://github.com/taikoxyz/taiko-mono/commit/e8ab39a9ffa0e3e3ec79efbd476864cef5e5eab4))
+
 ## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v1.10.0...taiko-alethia-protocol-v1.11.0) (2025-01-13)
 
 
