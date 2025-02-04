@@ -96,77 +96,78 @@ func (p *Prover) initProofSubmitters(
 	txBuilder *transaction.ProveBlockTxBuilder,
 	tiers []*rpc.TierProviderTierWithID,
 ) (err error) {
-	for _, tier := range p.sharedState.GetTiers() {
-		var (
-			bufferSize = p.cfg.SGXProofBufferSize
-			producer   proofProducer.ProofProducer
-			submitter  proofSubmitter.Submitter
-			err        error
-		)
-		switch tier.ID {
-		case encoding.TierOptimisticID:
-			producer = &proofProducer.OptimisticProofProducer{}
-		case encoding.TierSgxID:
-			producer = &proofProducer.SGXProofProducer{
-				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-				JWT:                 p.cfg.RaikoJWT,
-				ProofType:           proofProducer.ProofTypeSgx,
-				Dummy:               p.cfg.Dummy,
-				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+	if len(tiers) > 0 {
+		for _, tier := range p.sharedState.GetTiers() {
+			var (
+				bufferSize = p.cfg.SGXProofBufferSize
+				producer   proofProducer.ProofProducer
+				submitter  proofSubmitter.Submitter
+				err        error
+			)
+			switch tier.ID {
+			case encoding.TierOptimisticID:
+				producer = &proofProducer.OptimisticProofProducer{}
+			case encoding.TierSgxID:
+				producer = &proofProducer.SGXProofProducer{
+					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+					JWT:                 p.cfg.RaikoJWT,
+					ProofType:           proofProducer.ProofTypeSgx,
+					Dummy:               p.cfg.Dummy,
+					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+				}
+			case encoding.TierZkVMRisc0ID:
+				producer = &proofProducer.ZKvmProofProducer{
+					ZKProofType:         proofProducer.ZKProofTypeR0,
+					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+					JWT:                 p.cfg.RaikoJWT,
+					Dummy:               p.cfg.Dummy,
+					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+				}
+				bufferSize = p.cfg.ZKVMProofBufferSize
+			case encoding.TierZkVMSp1ID:
+				producer = &proofProducer.ZKvmProofProducer{
+					ZKProofType:         proofProducer.ZKProofTypeSP1,
+					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+					JWT:                 p.cfg.RaikoJWT,
+					Dummy:               p.cfg.Dummy,
+					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+				}
+				bufferSize = p.cfg.ZKVMProofBufferSize
+			case encoding.TierGuardianMinorityID:
+				producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
+				bufferSize = 0
+			case encoding.TierGuardianMajorityID:
+				producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
+				bufferSize = 0
+			default:
+				return fmt.Errorf("unsupported tier: %d", tier.ID)
 			}
-		case encoding.TierZkVMRisc0ID:
-			producer = &proofProducer.ZKvmProofProducer{
-				ZKProofType:         proofProducer.ZKProofTypeR0,
-				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-				JWT:                 p.cfg.RaikoJWT,
-				Dummy:               p.cfg.Dummy,
-				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			}
-			bufferSize = p.cfg.ZKVMProofBufferSize
-		case encoding.TierZkVMSp1ID:
-			producer = &proofProducer.ZKvmProofProducer{
-				ZKProofType:         proofProducer.ZKProofTypeSP1,
-				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-				JWT:                 p.cfg.RaikoJWT,
-				Dummy:               p.cfg.Dummy,
-				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			}
-			bufferSize = p.cfg.ZKVMProofBufferSize
-		case encoding.TierGuardianMinorityID:
-			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
-			bufferSize = 0
-		case encoding.TierGuardianMajorityID:
-			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
-			bufferSize = 0
-		default:
-			return fmt.Errorf("unsupported tier: %d", tier.ID)
-		}
 
-		if submitter, err = proofSubmitter.NewProofSubmitterOntake(
-			p.rpc,
-			producer,
-			p.proofGenerationCh,
-			p.batchProofGenerationCh,
-			p.aggregationNotify,
-			p.cfg.ProverSetAddress,
-			p.cfg.TaikoL2Address,
-			p.cfg.Graffiti,
-			p.cfg.ProveBlockGasLimit,
-			p.txmgr,
-			p.privateTxmgr,
-			txBuilder,
-			tiers,
-			p.IsGuardianProver(),
-			p.cfg.GuardianProofSubmissionDelay,
-			bufferSize,
-			p.cfg.ForceBatchProvingInterval,
-		); err != nil {
-			return err
-		}
+			if submitter, err = proofSubmitter.NewProofSubmitterOntake(
+				p.rpc,
+				producer,
+				p.proofGenerationCh,
+				p.batchProofGenerationCh,
+				p.aggregationNotify,
+				p.cfg.ProverSetAddress,
+				p.cfg.TaikoL2Address,
+				p.cfg.Graffiti,
+				p.cfg.ProveBlockGasLimit,
+				p.txmgr,
+				p.privateTxmgr,
+				txBuilder,
+				tiers,
+				p.IsGuardianProver(),
+				p.cfg.GuardianProofSubmissionDelay,
+				bufferSize,
+				p.cfg.ForceBatchProvingInterval,
+			); err != nil {
+				return err
+			}
 
-		p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
+			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
+		}
 	}
-
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
 		&proofProducer.OptimisticProofProducer{},

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -153,7 +153,7 @@ func InitFromConfig(
 
 	// Protocol proof tiers
 	if err := p.initProofTiers(ctx); err != nil {
-		return fmt.Errorf("initialize proof tiers error: %w", err)
+		log.Warn("Initialize proof tiers error", "error", err)
 	}
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
