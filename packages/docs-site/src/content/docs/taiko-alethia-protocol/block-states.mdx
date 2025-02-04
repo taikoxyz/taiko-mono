@@ -22,7 +22,7 @@ For more details, refer to the [Multi-Proofs](/core-concepts/multi-proofs#verifi
 ## Safe and Finalized Block States
 
 ### Safe Block
-The **Safe** block state on Taiko Alethia is equivalent to a Safe block on Ethereum.
+The **Safe** block state on Taiko Alethia is equivalent to a **Safe** block on Ethereum.
 
 Each L2 block originates from an L1 block that can be queried using the [`taiko-geth API`](https://github.com/taikoxyz/taiko-geth/blob/v1.8.0/eth/taiko_api_backend.go#L50). If the corresponding L1 block is considered Safe, the associated L2 block can also be considered Safe.
 
@@ -42,13 +42,12 @@ func (s *TaikoAPIBackend) L1OriginByID(blockID *math.HexOrDecimal256) (*rawdb.L1
 }
 ' lang="go" title="L1OriginByID API" />
 
-A Safe block is determined by checking the Ethereum L1 Safe block status of the corresponding L1 block.
 
 ---
 
 ### Finalized (Verified) Block
 
-The Finalized state in Taiko Alethia is referred to as Verified. A block is Verified when:
+The **Verified** block state in Taiko Alethia is analogous to the **Finalized** block state in Ethereum. A block is Verified when:
 
 - Every state transition from genesis to the current block has valid proofs.
 - Its parent block is also verified.
@@ -84,7 +83,7 @@ The following JSON-RPC request retrieves the L1 origin for a given L2 block:
 ### Interpreting the Response
 For block `0x19a3c`:
 - It is **Safe** if the **L1 block (`0x419f..`)** reaches a **Safe** state.
-- It is **Finalized (Verified)** if **all state transitions from genesis** have **valid proofs**.
+- It is **Finalized (Verified)** if **all state transitions from genesis to block `0x19a3c`** have **valid proofs**.
 
 ---
 

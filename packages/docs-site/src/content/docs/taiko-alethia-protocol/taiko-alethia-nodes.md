@@ -3,7 +3,7 @@ title: Taiko Alethia nodes
 description: Core concept page for Taiko Alethia nodes.
 ---
 
-Taiko Alethia nodes are modified Ethereum **execution clients** that adhere to Ethereum's **execution-consensus separation model**. The two primary components of a Taiko node are:
+Taiko Alethia nodes are minimally modified Ethereum **execution clients** that adhere to Ethereum's **execution-consensus separation model**. The two primary components of a Taiko node are:
 
 - **[taiko-geth](https://github.com/taikoxyz/taiko-geth)** (execution client)
 - **[taiko-client](https://github.com/taikoxyz/taiko-client)** (consensus client)
@@ -35,7 +35,7 @@ All modifications to `go-ethereum` can be reviewed in the [Geth fork diff](https
 
 - Serves as the L2 **consensus client**.
 - Monitors **L1 events from TaikoL1** to detect **proposed blocks**.
-- Directs the **execution engine** to insert or reorganize blocks.
+- Directs the **execution engine** to insert or reorganize blocks through the Engine API.
 
 <br/>
 
@@ -62,6 +62,7 @@ The **Taiko Alethia consensus model** differs from Ethereum’s due to its rollu
    - Fetches the latest **verified L2 head** from `TaikoL1`.
    - Tries to sync state **via P2P**.
    - If P2P sync fails, inserts **verified L2 blocks sequentially** using the Engine API.
+   - After catching up to the **latest verified L2 block**, proceeds to the following step.
 
 <br/>
 
@@ -114,7 +115,7 @@ Even if the txList is invalid, proving ensures that **invalid blocks are mapped 
 
 ## Taiko Alethia Node APIs
 
-A Taiko Alethia node exposes **Ethereum-equivalent JSON-RPC methods**, making it **compatible with standard Ethereum tooling**.
+A Taiko Alethia node exposes **Ethereum-equivalent JSON-RPC methods**, making it compatible with standard Ethereum tooling.
 
 ### Differences from Ethereum Geth
 

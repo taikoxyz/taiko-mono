@@ -3,9 +3,9 @@ title: SGXVerifier
 description: Taiko Alethia protocol page for "SGXVerifier.sol".
 ---
 
-The `SGXVerifier` smart contract implements **SGX (Software Guard Extensions) signature proof verification** on-chain. It ensures the integrity and security of rollup state transitions by validating SGX-generated signatures. The contract also manages SGX instance registration, tracking, and lifecycle operations.
+[SGXVerifier](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol)is a smart contract that implements **SGX (Software Guard Extensions) signature proof verification** on-chain. It ensures the integrity and security of rollup state transitions by **validating SGX-generated signatures**. The contract also manages SGX instance registration, tracking, and lifecycle operations.
 
-SGX instances are uniquely identified by Ethereum addresses, derived from **an ECDSA public-private key pair** generated within the SGX enclave. The **SGXVerifier contract** ensures only authorized instances participate in rollup verification.
+SGX instances are uniquely identified by Ethereum addresses, derived from **an ECDSA public-private key pair** generated within the SGX enclave. The SGXVerifier contract ensures **only authorized instances participate in rollup verification**.
 
 ---
 
@@ -134,32 +134,5 @@ Triggered when an **SGX instance is removed**.
 | ------------------------- | -------- | ------------------------------------------------------- |
 | `INSTANCE_EXPIRY`         | 365 days | Duration before an SGX instance expires.                |
 | `INSTANCE_VALIDITY_DELAY` | 1 hour   | Delay before a newly registered instance becomes valid. |
-
----
-
-## Example Use Case
-
-### Verifying a Block Transition
-
-1. A block transition proposal is submitted.
-
-2. The `SGXVerifier` contract:
-
-   - Checks the **SGX signature proof**.
-   - Confirms the **instance is valid**.
-   - Accepts the transition **if the proof is correct**.
-
-   </br>
-
-3. If an invalid proof is detected:
-
-   - The instance is **challenged and replaced**.
-   - A higher-tier **ZK proof may be used as fallback**.
-
----
-
-### Source Code
-
-The contract's source code is available on **[GitHub](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol)**.
 
 ---

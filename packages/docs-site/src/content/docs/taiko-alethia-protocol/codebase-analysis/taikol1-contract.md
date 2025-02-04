@@ -3,7 +3,7 @@ title: TaikoL1
 description: Taiko Alethia protocol page for "TaikoL1.sol".
 ---
 
-[TaikoL1](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/based/TaikoL1.sol) is the **core Layer 1 smart contract** in the Taiko Alethia protocol. It is responsible for **block lifecycle management**, **state synchronization**, and **bond management**. TaikoL1 ensures seamless interaction between L1 and L2, enabling a secure and scalable rollup architecture.
+## [TaikoL1](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/based/TaikoL1.sol) is the **core Layer 1 smart contract** in the Taiko Alethia protocol. It is responsible for **block lifecycle management**, **state synchronization**, and **bond management**. TaikoL1 ensures seamless interaction between L1 and L2, enabling a secure and scalable rollup architecture.
 
 ## Features
 

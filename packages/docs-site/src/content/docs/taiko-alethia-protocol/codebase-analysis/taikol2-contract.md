@@ -3,9 +3,9 @@ title: TaikoL2
 description: Taiko Alethia protocol page for "TaikoL2.sol".
 ---
 
-## Overview
-
 [TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer2/based/TaikoL2.sol) is a **core smart contract** for the Taiko Alethia rollup, responsible for **cross-layer state synchronization**, **gas pricing via EIP-1559**, and **bridging support**. It ensures L2 remains in sync with L1 and facilitates **secure message verification**.
+
+---
 
 ## Features
 
@@ -107,9 +107,7 @@ Emitted when **gas parameters** are updated.
 
 ---
 
-## Important Data Structures
-
-### State Variables
+## State Variables
 
 | Variable          | Type      | Description                                                |
 | ----------------- | --------- | ---------------------------------------------------------- |
