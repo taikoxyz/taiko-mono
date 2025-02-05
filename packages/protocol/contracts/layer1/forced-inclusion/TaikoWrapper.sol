@@ -45,6 +45,7 @@ contract TaikoWrapper is EssentialContract {
     /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
     /// @dev Error thrown when the oldest forced inclusion is due.
+
     error OldestForcedInclusionDue();
 
     uint16 public constant MAX_FORCED_TXS_PER_FORCED_INCLUSION = 512;
