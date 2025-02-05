@@ -80,6 +80,7 @@ contract TestGenerateGenesis is Test {
         checkSavedAddress(resolverProxy, "ERC721Vault", "erc721_vault");
         checkSavedAddress(resolverProxy, "ERC1155Vault", "erc1155_vault");
         checkSavedAddress(resolverProxy, "SignalService", "signal_service");
+        checkSavedAddress(resolverProxy, "TaikoAnchor", "taiko");
 
         vm.startPrank(resolverProxy.owner());
 
