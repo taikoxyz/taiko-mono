@@ -196,9 +196,6 @@ const docTemplate = `{
                 "gasLimit": {
                     "type": "integer"
                 },
-                "gasUsed": {
-                    "type": "integer"
-                },
                 "parentHash": {
                     "type": "string"
                 },

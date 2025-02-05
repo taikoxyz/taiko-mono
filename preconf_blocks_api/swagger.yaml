@@ -60,8 +60,6 @@ definitions:
         type: string
       gasLimit:
         type: integer
-      gasUsed:
-        type: integer
       parentHash:
         type: string
       timestamp:
