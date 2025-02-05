@@ -3,106 +3,140 @@ title: Taiko Alethia nodes
 description: Core concept page for Taiko Alethia nodes.
 ---
 
-Taiko Alethia nodes are minimally modified Ethereum [execution clients](https://ethereum.org/en/glossary/#execution-client) that consist of two parts:
+Taiko Alethia nodes are minimally modified Ethereum **execution clients** that adhere to Ethereum's **execution-consensus separation model**. The two primary components of a Taiko node are:
 
-- [taiko-geth](https://github.com/taikoxyz/taiko-geth)
-- [taiko-client](https://github.com/taikoxyz/taiko-client)
+- **[taiko-geth](https://github.com/taikoxyz/taiko-geth)** (execution client)
+- **[taiko-client](https://github.com/taikoxyz/taiko-client)** (consensus client)
 
-You can think of it like an Ethereum mainnet node, except replacing the consensus client with `taiko-client`. `taiko-client` then drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine). This is a modular design that allows easily plugging in other execution clients.
+This architecture mirrors Ethereum’s execution/consensus split but **replaces the consensus layer** with Taiko’s own `taiko-client`. The `taiko-client` drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine), allowing **modular execution client compatibility**.
 
 ![Taiko Alethia nodes diagram](~/assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
 
-## taiko-geth
+## Execution Layer: taiko-geth
 
-The [taiko-geth](https://github.com/taikoxyz/taiko-geth) software is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with some changes made according to the Taiko Alethia protocol.
+[taiko-geth](https://github.com/taikoxyz/taiko-geth) is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with **minimal** changes to support Taiko Alethia.
 
-Like Ethereum mainnet execution engines, `taiko-geth` listens to new L2 transactions broadcasted in the L2 network, executes them in the EVM, and holds the latest state and database of all current L2 data.
+### Functionality:
 
-You can see all the changes made in the `taiko-geth` fork at [geth.taiko.xyz](https://geth.taiko.xyz)!
+- Processes and executes **L2 transactions** from the Taiko mempool.
+- Maintains **state storage, transaction history, and receipts**.
+- Implements **Ethereum-equivalence**, ensuring all EVM opcodes behave identically.
+- Supports **modular execution** by allowing future execution clients.
 
-## taiko-client
+All modifications to `go-ethereum` can be reviewed in the [Geth fork diff](https://geth.taiko.xyz).
 
-The [taiko-client](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) software replaces the consensus client piece of an Ethereum mainnet node. It connects to `taiko-geth`, and the compiled binary includes three sub-commands:
+## Consensus Layer: taiko-client
 
-### `driver`
+[taiko-client](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) acts as the consensus component, replacing Ethereum’s traditional **beacon chain**. It interfaces with `taiko-geth` using the **Engine API**.
 
-The `driver` serves as an L2 consensus client. It listens for new L2 blocks from the `TaikoL1` protocol contract, then directs the connected L2 execution engine to insert them or reorganize its local chain through the Engine API.
+### Components:
 
-### `proposer`
+#### `driver`
 
-The `proposer` fetches pending transactions from the L2 execution engine's mempool, then tries to propose them to the `TaikoL1` protocol contract.
+- Serves as the L2 **consensus client**.
+- Monitors **L1 events from TaikoL1** to detect **proposed blocks**.
+- Directs the **execution engine** to insert or reorganize blocks through the Engine API.
 
-### `prover`
+<br/>
 
-The `prover` requests validity proofs from the ZK-EVM and sends transactions to prove the proposed blocks are valid or invalid.
+#### `proposer`
 
-## Chain synchronization process
+- Collects pending transactions from `taiko-geth`’s **txpool**.
+- Constructs **batch-compliant txLists** and submits them to **TaikoL1**.
 
-The Taiko Alethia protocol allows a block's timestamp to be equal to its parent
-block's timestamp, which differs from the original Ethereum protocol. So it's
-fine that there are two `TaikoL1.proposeBlock` transactions included in one L1
-block.
+<br/>
 
-Taiko Alethia client's driver informs the L2 execution engine about Taiko Alethia protocol contract's
-latest verified L2 head and tries to let it catch up with the latest verified L2
-block through P2P at first.
+#### `prover`
 
-The driver monitors the execution engine's sync progress: If it's unable to make any new sync progress in a period of time, the driver switches to inserting the verified blocks into its local chain through the Engine API one by one.
+- Fetches proposed blocks from `TaikoL1` and verifies them.
+- Generates **ZK/Secure Enclave proofs** to validate state transitions.
 
-After the L2 execution engine catches up with the latest verified L2 head, the driver subscribes to `TaikoL1.BlockProposed` events. When a new pending block is proposed, the driver:
+<br/>
 
-1. Gets the corresponding `TaikoL1.proposeBlock` L1 transaction.
-2. Decompresses the `txListBytes` from the transaction's calldata (and blobdata if enabled).
-3. Decodes the `txList` and block metadata from the decompressed bytes.
-4. Checks whether the `txList` is valid based on the rules defined in the Taiko Alethia protocol.
+## Chain Synchronization Process
 
-If the `txList` is **valid**, the driver:
+The **Taiko Alethia consensus model** differs from Ethereum’s due to its rollup-based structure.
 
-1. Assembles a deterministic `TaikoL2.anchor` transaction based on the rules defined in the protocol and puts it as the first transaction in the proposed `txList`.
-2. Uses this `txList` and the decoded block metadata to assemble a deterministic L2 block.
-3. Directs the L2 execution engine to insert this assembled block and sets it as the current canonical chain's head via the Engine API.
+1. **Driver Initialization**
 
-If the `txList` is **invalid**, the driver:
+   - Fetches the latest **verified L2 head** from `TaikoL1`.
+   - Tries to sync state **via P2P**.
+   - If P2P sync fails, inserts **verified L2 blocks sequentially** using the Engine API.
+   - After catching up to the **latest verified L2 block**, proceeds to the following step.
 
-1. Assembles an empty L2 block with only the anchor transaction.
+<br/>
 
-## Process of proposing a block
+2. **Block Proposal Ingestion**
 
-To propose a block, the `proposer`:
+   - Listens for `TaikoL1.BlockProposed` events.
+   - Retrieves the **transaction calldata** from `TaikoL1.proposeBlock`.
+   - Decompresses `txListBytes` and reconstructs **block metadata**.
 
-1. Fetches the pending transactions from the L2 execution engine through the `txpool_content` RPC method.
-2. If there are too many pending transactions in the L2 execution engine, splits them into several smaller `txLists`. This is because the Taiko Alethia protocol restricts the max size of each proposed `txList`.
-3. Proposes all split `txLists` by sending `TaikoL1.proposeBlock` transactions.
+<br/>
 
-## Process of proving a block
+3. **Validation and Execution**
 
-When a new block is proposed, the `prover`:
+   - If `txList` is **valid**, constructs an **L2 anchor transaction** and inserts the block.
+   - If `txList` is **invalid**, constructs an **empty L2 block**.
 
-1. Gets the `TaikoL1.proposeBlock` L1 transaction calldata, decodes it, and validates the `txList`, just like what the `driver` software does.
-2. Waits until the corresponding block is inserted by the L2 execution engine's `driver` software.
-3. Generates a validity proof for that block asynchronously.
+## Block Proposal Process
 
-If the proposed block has a **valid** or **invalid** `txList`, the `prover`:
+1. The **proposer** fetches **pending transactions** from `taiko-geth`.
 
-1. Generates a Merkle proof of the block's `TaikoL2.anchor` transaction to prove its existence in the `block.txRoot`'s [MPT](https://ethereum.org/en/developers/docs/data-structures-and-encoding/patricia-merkle-trie/) and this transaction receipt's [Merkle proof](https://rollup-glossary.vercel.app/other-terms#merkle-proofs) in the `block.receiptRoot`'s MPT from the L2 execution engine.
-2. Submits the `TaikoL2.anchor` transaction's RLP encoded bytes, its receipt's RLP encoded bytes, the generated Merkle proofs, and a validity proof to prove this block **valid** by sending a `TaikoL1.proveBlock` transaction (the block is valid even for an invalid `txList` because we prove the invalid `txList` maps to an empty block with only the anchor transaction).
+2. If transaction volume exceeds the **max txList size**, transactions are **split into batches**.
 
-## Taiko Alethia Node API
+3. The proposer submits **`TaikoL1.proposeBlock` transactions**, encoding the `txList`.
 
-Using a Taiko Alethia node should feel the same as using any other L1 node, because we essentially re-use the L1 client and make a few backwards-compatible modifications.
+## Block Proving Process
 
-### Differences from a Geth client
+Once a block is proposed:
 
-View the fork diff page to see the minimal set of changes made to Geth [here](https://geth.taiko.xyz).
+1. The **prover** retrieves the corresponding **TaikoL1.proposeBlock** transaction calldata.
 
-### Execution JSON-RPC API
+2. It waits until the **L2 execution engine** has inserted the block.
 
-Check out the execution client spec [here](https://ethereum.github.io/execution-apis/api-documentation/).
+3. The prover generates a **validity proof**.
+
+For a **valid or invalid txList**, the prover:
+
+1. Constructs a **Merkle proof** verifying the block’s **txRoot**.
+
+2. Verifies the **TaikoL2.anchor** transaction in the **Merkle Patricia Trie (MPT)**.
+
+3. Submits:
+
+   - `TaikoL2.anchor` transaction’s **RLP-encoded bytes**.
+   - **Merkle proofs**.
+   - **Proof-of-validity** to `TaikoL1.proveBlock`.
+
+<br/>
+
+Even if the txList is invalid, proving ensures that **invalid blocks are mapped to an empty anchor-only block**.
+
+## Taiko Alethia Node APIs
+
+A Taiko Alethia node exposes **Ethereum-equivalent JSON-RPC methods**, making it compatible with standard Ethereum tooling.
+
+### Differences from Ethereum Geth
+
+- **Modified Consensus Rules**: Taiko uses `taiko-client` instead of a traditional beacon chain.
+
+- **Blob Data Handling**: If **EIP-4844 blobs** are enabled, calldata is stored separately.
+
+- **Taiko-Specific Events**: Includes `TaikoL1.BlockProposed`, `TaikoL1.BlockVerified`, etc.
+
+For a complete diff, check the [Geth fork comparison](https://geth.taiko.xyz).
+
+### JSON-RPC API
+
+Supports all **standard Ethereum execution APIs**. See [Ethereum Execution API Docs](https://ethereum.github.io/execution-apis/api-documentation/).
 
 ### Engine API
 
-Check out the engine API spec [here](https://github.com/ethereum/execution-apis/blob/main/src/engine/common.md).
+Manages consensus-execution communication. See [Engine API Spec](https://github.com/ethereum/execution-apis/blob/main/src/engine/common.md).
 
-### Hive test harness
+### Hive Test Compliance
 
-If a Taiko Alethia node should feel the same as using any other L1 node, it should surely be able to pass the [hive e2e test harness](https://github.com/ethereum/hive). At the time of writing, the hive tests are actually one of the best references for what the API of an Ethereum node actually is.
+Taiko Alethia aims to pass the **[Ethereum Hive e2e test suite](https://github.com/ethereum/hive)**, ensuring API and execution consistency.
+
+---
