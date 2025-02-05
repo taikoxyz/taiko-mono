@@ -212,12 +212,10 @@ func isBlockPreconfirmed(
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
 	header, err := rpc.L2.HeaderByNumber(ctx, blockID)
 	if err != nil {
-		log.Error("Failed to get header by number", "error", err, "number", blockID)
 		return nil, fmt.Errorf("failed to get header by number %d: %w", blockID, err)
 	}
 
 	if header == nil {
-		log.Error("Header not found", "blockID", blockID)
 		return nil, fmt.Errorf("header not found for block number %d", blockID)
 	}
 
@@ -234,7 +232,6 @@ func isBlockPreconfirmed(
 	)
 	executableData, err := rpc.L2Engine.GetPayload(ctx, &id)
 	if err != nil {
-		log.Error("Failed to get payload", "error", err)
 		return nil, fmt.Errorf("failed to get payload: %w", err)
 	}
 
