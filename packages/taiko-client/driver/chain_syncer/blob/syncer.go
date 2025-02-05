@@ -265,6 +265,7 @@ func (s *Syncer) onBlockProposed(
 			"l1Hash", meta.GetRawBlockHash(),
 			"batchID", meta.Pacaya().GetBatchID(),
 			"lastBlockID", lastBlockID,
+			"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
 			"blocks", len(meta.Pacaya().GetBlocks()),
 		)
 		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx, endIter); err != nil {
