@@ -57,6 +57,6 @@ library LibNetwork {
     /// @return true if the chain supports Dencun hardfork, false otherwise.
     function isDencunSupported(uint256 _chainId) internal pure returns (bool) {
         return _chainId == LibNetwork.ETHEREUM_MAINNET || _chainId == LibNetwork.ETHEREUM_HOLESKY
-            || _chainId == LibNetwork.ETHEREUM_SEPOLIA || || _chainId == Libnetwork.ETHEREUM_HELDER || isTaikoDevnet(_chainId);
+            || _chainId == LibNetwork.ETHEREUM_SEPOLIA || _chainId == Libnetwork.ETHEREUM_HELDER || isTaikoDevnet(_chainId);
     }
 }
