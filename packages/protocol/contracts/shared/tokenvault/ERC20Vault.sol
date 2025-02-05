@@ -284,12 +284,17 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
-        if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
-        if (msg.value < _op.fee + (_op.token == address(0) ? _op.amount + _op.solverFee : 0)) {
-            revert VAULT_INSUFFICIENT_ETHER();
-        }
-        if (_op.token != address(0) && btokenDenylist[_op.token]) {
-            revert VAULT_BTOKEN_BLACKLISTED();
+        {
+            if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
+
+            uint256 etherToBridge = (_op.token == address(0) ? _op.amount + _op.solverFee : 0);
+            if (msg.value < _op.fee + etherToBridge) {
+                revert VAULT_INSUFFICIENT_ETHER();
+            }
+
+            if (_op.token != address(0) && btokenDenylist[_op.token]) {
+                revert VAULT_BTOKEN_BLACKLISTED();
+            }
         }
 
         address bridge = resolve(LibStrings.B_BRIDGE, false);
@@ -361,7 +366,7 @@ contract ERC20Vault is BaseVault {
         address token;
         {
             uint256 amountToTransfer = amount + solverFee;
-            token = _transferTokens(ctoken, tokenRecipient, amountToTransfer);
+            token = _transferTokensOrEther(ctoken, tokenRecipient, amountToTransfer);
             to.sendEtherAndVerify(
                 ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value
             );
@@ -400,7 +405,7 @@ contract ERC20Vault is BaseVault {
 
         // Transfer the ETH and tokens back to the owner
         uint256 amountToReturn = amount + solverFee;
-        address token = _transferTokens(ctoken, _message.srcOwner, amountToReturn);
+        address token = _transferTokensOrEther(ctoken, _message.srcOwner, amountToReturn);
         _message.srcOwner.sendEtherAndVerify(
             ctoken.addr == address(0) ? _message.value - amountToReturn : _message.value
         );
@@ -469,7 +474,7 @@ contract ERC20Vault is BaseVault {
         return LibStrings.B_ERC20_VAULT;
     }
 
-    function _transferTokens(
+    function _transferTokensOrEther(
         CanonicalERC20 memory _ctoken,
         address _to,
         uint256 _amount
@@ -480,17 +485,12 @@ contract ERC20Vault is BaseVault {
         if (_ctoken.addr == address(0)) {
             // Handle Ether transfer
             _to.sendEtherAndVerify(_amount);
-            token_ = address(0);
         } else if (_ctoken.chainId == block.chainid) {
             token_ = _ctoken.addr;
             IERC20(token_).safeTransfer(_to, _amount);
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
             IBridgedERC20(token_).mint(_to, _amount);
-        }
-
-        if (token_ != address(0)) {
-            _consumeTokenQuota(token_, _amount);
         }
     }
 
