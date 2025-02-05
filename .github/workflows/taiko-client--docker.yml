@@ -2,7 +2,7 @@ name: "Build and Push Multi-Arch Docker Image"
 
 on:
   push:
-    branches: [main, pacaya_fork_client, pacaya-height-0]
+    branches: [main, pacaya-height-0-yg1]
     tags:
       - "taiko-alethia-client-v*"
     paths:

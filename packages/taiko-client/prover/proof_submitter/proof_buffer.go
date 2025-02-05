@@ -39,7 +39,6 @@ func (pb *ProofBuffer) Write(item *producer.ProofResponse) (int, error) {
 	if len(pb.buffer)+1 > int(pb.MaxLength) {
 		return len(pb.buffer), errBufferOverflow
 	}
-	
 	pb.buffer = append(pb.buffer, item)
 	pb.lastUpdatedAt = time.Now()
 	return len(pb.buffer), nil
