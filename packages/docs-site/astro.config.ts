@@ -59,6 +59,7 @@ export default defineConfig({
           label: "Start Here",
           items: [
             { label: "Getting started", link: "/start-here/getting-started/" },
+            { label: "Set up your wallet", link: "/start-here/set-up-your-wallet/", },
             { label: "Contributing", link: "/start-here/contributing/" },
             { label: "Getting support", link: "/start-here/getting-support" },
           ],
@@ -93,6 +94,8 @@ export default defineConfig({
                 {label: "TaikoL1 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol1-contract"},
                 {label: "TaikoL2 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol2-contract"},
                 {label: "SGXVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/sgxverifier-contract"},
+                {label: "SignalService Contract", link: "/taiko-alethia-protocol/codebase-analysis/signalservice-contract"},
+                {label: "Bridge Contract", link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract"},
               ],
             },
             { label: "Block states", link: "/taiko-alethia-protocol/block-states" },
@@ -108,10 +111,6 @@ export default defineConfig({
               label: "App Developers",
               collapsed: true,
               items: [
-                {
-                  label: "Set up your wallet",
-                  link: "/guides/app-developers/set-up-your-wallet/",
-                },
                 {
                   label: "Receive tokens",
                   link: "/guides/app-developers/receive-tokens/",

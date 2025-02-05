@@ -3,106 +3,125 @@ title: SGXVerifier
 description: Taiko Alethia protocol page for "SGXVerifier.sol".
 ---
 
-The `SGXVerifier` smart contract implements SGX (Software Guard Extensions) signature proof verification on-chain. This verification ensures integrity and security of rollup state transitions by validating SGX-generated signatures. It also enables management and tracking of SGX instances through registration and replacement.
+[SGXVerifier](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol)is a smart contract that implements **SGX (Software Guard Extensions) signature proof verification** on-chain. It ensures the integrity and security of rollup state transitions by **validating SGX-generated signatures**. The contract also manages SGX instance registration, tracking, and lifecycle operations.
+
+SGX instances are uniquely identified by Ethereum addresses, derived from **an ECDSA public-private key pair** generated within the SGX enclave. The SGXVerifier contract ensures **only authorized instances participate in rollup verification**.
 
 ---
 
-## Core Purpose
+## Features
 
-1. **Instance Registry**:
-
-- Each SGX instance is uniquely identified by its Ethereum address (derived from an ECDSA public-private key pair generated in the SGX enclave).
-- The registry ensures:
-  - Only valid instances are allowed.
-  - Instances are valid for a predefined duration (`INSTANCE_EXPIRY`).
-
-2.  **Instance Lifecycle**:
-
-- **Addition**: SGX instances can be added via the `addInstances` function or the `registerInstance` method (following attestation verification).
-- **Replacement**: Old SGX instances can be replaced with new ones to maintain security.
-- **Deletion**: Instances can be removed using the `deleteInstances` function.
+- **Instance Registry**: Tracks valid SGX instances and enforces expiration policies.
+- **Instance Lifecycle Management**: Registers new intsances, rotates old instances, and removes compromised or outdated instances.
+- **SGX Proof Verification**: Validates **block state transitions** using SGX-generated signatures and supports **batch proof verification** for efficiency.
 
 ---
 
-## Key Functions
+## Contract Methods
 
 ### `addInstances`
 
-- **Purpose**: Adds new SGX instances to the registry.
-- **Input**:
-  - `_instances`: Array of Ethereum addresses corresponding to the SGX instances.
-- **Output**: Returns an array of assigned instance IDs.
-- **Access Control**: Restricted to the owner.
+Registers new SGX instances.
+
+| Input Parameter | Type        | Description                                          |
+| --------------- | ----------- | ---------------------------------------------------- |
+| `_instances`    | `address[]` | List of SGX instance Ethereum addresses to register. |
+
+**Access Control**: Only callable by the contract owner.
 
 ---
 
 ### `deleteInstances`
 
-- **Purpose**: Removes SGX instances from the registry.
-- **Input**:
-  - `_ids`: Array of instance IDs to be removed.
-- **Access Control**: Restricted to the owner or the `SGX_WATCHDOG` role.
+Removes registered SGX instances.
+
+| Input Parameter | Type        | Description                          |
+| --------------- | ----------- | ------------------------------------ |
+| `_ids`          | `uint256[]` | Array of instance IDs to be removed. |
+
+**Access Control**: Restricted to the owner or `SGX_WATCHDOG` role.
 
 ---
 
 ### `registerInstance`
 
-- **Purpose**: Registers an SGX instance by verifying its attestation off-chain and adding it to the registry.
-- **Input**:
-  - `_attestation`: Parsed attestation quote containing SGX enclave report details.
-- **Output**: Returns the assigned instance ID.
-- **Access Control**: Open to external calls.
+Registers an SGX instance after verifying its attestation off-chain.
+
+| Input Parameter | Type    | Description                                              |
+| --------------- | ------- | -------------------------------------------------------- |
+| `_attestation`  | `bytes` | Attestation quote containing SGX enclave report details. |
+
+**Returns**: The assigned instance ID.
+
+**Access Control**: Open to external calls.
 
 ---
 
 ### `verifyProof`
 
-- **Purpose**: Validates the SGX signature proof for a single block state transition.
-- **Input**:
-  - `_ctx`: Context of the proof.
-  - `_tran`: Transition data.
-  - `_proof`: SGX signature proof.
-- **Mechanism**:
-  - Validates the instance ID and signature.
-  - Ensures the SGX instance is valid and replaces it if needed.
+Verifies an SGX proof for a **single block state transition**.
+
+| Input Parameter | Type      | Description            |
+| --------------- | --------- | ---------------------- |
+| `_ctx`          | `bytes32` | Context of the proof.  |
+| `_tran`         | `bytes32` | Block transition data. |
+| `_proof`        | `bytes`   | SGX signature proof.   |
+
+**Mechanism**:
+
+- Validates the **instance ID and signature**.
+- Ensures the SGX instance is **not expired**.
+- Replaces the SGX instance if invalid.
 
 ---
 
 ### `verifyBatchProof`
 
-- **Purpose**: Validates SGX signature proofs for multiple block state transitions in a batch.
-- **Input**:
-  - `_ctxs`: Array of contexts for the batch.
-  - `_proof`: SGX batch signature proof.
-- **Mechanism**:
-  - Verifies the signature against public inputs for all blocks.
-  - Replaces the SGX instance if necessary.
+Verifies multiple SGX proofs for **batch block state transitions**.
+
+| Input Parameter | Type        | Description                |
+| --------------- | ----------- | -------------------------- |
+| `_ctxs`         | `bytes32[]` | Array of proof contexts.   |
+| `_proof`        | `bytes`     | SGX batch signature proof. |
+
+**Mechanism**:
+
+- Verifies the signature against **public inputs for all blocks**.
+- Automatically rotates instances **if an invalid proof is detected**.
 
 ---
 
-## Key Events
+## Events
 
-1. **`InstanceAdded`**:
+### `InstanceAdded`
 
-- Emitted when a new SGX instance is added or an old instance is replaced.
-- Parameters:
-  - `id`: ID of the SGX instance.
-  - `instance`: Address of the new SGX instance.
-  - `replaced`: Address of the replaced instance (if any).
-  - `validSince`: Timestamp indicating when the instance became valid.
+Triggered when a **new SGX instance is added or replaced**.
 
-2. **`InstanceDeleted`**:
+| Event Parameter | Type      | Description                                |
+| --------------- | --------- | ------------------------------------------ |
+| `id`            | `uint256` | ID of the SGX instance.                    |
+| `instance`      | `address` | Address of the added SGX instance.         |
+| `replaced`      | `address` | Address of the replaced instance (if any). |
+| `validSince`    | `uint256` | Timestamp when the instance became valid.  |
 
-- Emitted when an SGX instance is removed from the registry.
-- Parameters:
-  - `id`: ID of the SGX instance.
-  - `instance`: Address of the removed instance.
+---
+
+### `InstanceDeleted`
+
+Triggered when an **SGX instance is removed**.
+
+| Event Parameter | Type      | Description                      |
+| --------------- | --------- | -------------------------------- |
+| `id`            | `uint256` | ID of the removed SGX instance.  |
+| `instance`      | `address` | Address of the removed instance. |
 
 ---
 
 ## Constants
 
-1. **`INSTANCE_EXPIRY`**: Duration (365 days) for which an SGX instance remains valid.
-2. **`INSTANCE_VALIDITY_DELAY`**: Delay before an SGX instance becomes valid after registration.
+| Constant Name             | Value    | Description                                             |
+| ------------------------- | -------- | ------------------------------------------------------- |
+| `INSTANCE_EXPIRY`         | 365 days | Duration before an SGX instance expires.                |
+| `INSTANCE_VALIDITY_DELAY` | 1 hour   | Delay before a newly registered instance becomes valid. |
 
 ---
