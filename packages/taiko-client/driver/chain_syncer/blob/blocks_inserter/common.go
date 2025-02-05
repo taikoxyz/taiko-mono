@@ -40,6 +40,8 @@ func createPayloadAndSetHead(
 		if err != nil {
 			log.Debug("Failed to check if the block is preconfirmed", "error", err)
 		} else if header != nil {
+			// Update the l1Origin and headL1Origin cursor for that preconfirmed block.
+			meta.L1Origin.L2BlockHash = header.Hash()
 			if _, err := rpc.L2.UpdateL1Origin(ctx, meta.L1Origin); err != nil {
 				return nil, fmt.Errorf("failed to update L1 origin: %w", err)
 			}
