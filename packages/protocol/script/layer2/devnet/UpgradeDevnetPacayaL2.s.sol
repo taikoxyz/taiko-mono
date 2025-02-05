@@ -60,6 +60,10 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
         register(
             sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
         );
+        // Register B_TAIKO
+        register(
+            sharedResolver, "taiko", taikoAnchor
+        );
         // Taiko Anchor
         UUPSUpgradeable(taikoAnchor).upgradeTo(
             address(new TaikoAnchor(sharedResolver, pacayaForkHeight))
