@@ -40,6 +40,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
+    // this function is just added for hive.
+    function initL2Genesis(
+        bytes32 _genesisBlockHash
+    )
+    external
+    {
+        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
+        state.transitions[0][1].blockHash = _genesisBlockHash;
+
+        emit BatchesVerified(0, _genesisBlockHash);
+    }
+
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
