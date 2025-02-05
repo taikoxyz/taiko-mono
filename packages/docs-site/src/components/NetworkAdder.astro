@@ -1,0 +1,160 @@
+---
+import { customIcons } from '../assets/custom-icons';
+
+interface Props {
+  network: 'mainnet' | 'testnet';
+}
+
+const { network } = Astro.props;
+const chainName = network === 'mainnet' ? 'Taiko Alethia' : 'Taiko Hekla';
+const metamaskIcon = customIcons.custom.icons['metamask-logo'].body;
+---
+
+<button
+  type="button"
+  class={`network-button ${network === 'mainnet' ? 'mainnet' : 'testnet'}`}
+  data-network={network}
+>
+  <span class="metamask-icon" set:html={metamaskIcon} />
+  <span class="button-text">Add {chainName}</span>
+</button>
+
+<style>
+  .network-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 3rem;
+    font-size: 1.125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 250px;
+    justify-content: center;
+    border: none;
+    margin: 0.5rem;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .mainnet {
+    background-color: #bc007a;
+    color: white;
+  }
+
+  .testnet {
+    background-color: transparent;
+    color: #bc007a;
+    border: 2px solid #bc007a;
+  }
+
+  .network-button:hover {
+    transform: translateY(-1px);
+  }
+
+  .mainnet:hover {
+    background-color: #d4008a;
+  }
+
+  .testnet:hover {
+    background-color: rgba(188, 0, 122, 0.1);
+  }
+
+  .metamask-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .metamask-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .metamask-icon :global(svg path.st2),
+  .metamask-icon :global(svg path.st5) {
+    fill: currentColor;
+  }
+
+  .button-text {
+    margin-left: 0.25rem;
+  }
+
+  /* Dark mode adjustments */
+  :global(.dark) .testnet {
+    color: #f3b3d0;
+    border-color: #f3b3d0;
+  }
+
+  :global(.dark) .testnet:hover {
+    background-color: rgba(243, 179, 208, 0.1);
+  }
+</style>
+
+<script>
+  declare global {
+    interface Window {
+      ethereum: any;
+    }
+  }
+
+  const config = {
+    mainnet: {
+      chainId: '0x28c58',
+      chainName: 'Taiko Alethia',
+      rpcUrls: ['https://rpc.taiko.xyz'],
+      blockExplorerUrls: ['https://taikoscan.io/'],
+    },
+    testnet: {
+      chainId: '0x28c61',
+      chainName: 'Taiko Hekla',
+      rpcUrls: ['https://rpc.hekla.taiko.xyz'],
+      blockExplorerUrls: ['https://hekla.taikoscan.io/'],
+    }
+  };
+
+  function initializeNetworkButtons() {
+    const buttons = document.querySelectorAll('.network-button');
+
+    buttons.forEach(button => {
+      button.addEventListener('click', async () => {
+        const network = button.getAttribute('data-network') as 'mainnet' | 'testnet';
+        const networkConfig = config[network];
+
+        if (typeof window.ethereum === 'undefined') {
+          alert('No Ethereum wallet detected. Please install MetaMask or another Ethereum wallet.');
+          return;
+        }
+
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: networkConfig.chainId,
+              chainName: networkConfig.chainName,
+              nativeCurrency: {
+                name: 'Ethereum',
+                symbol: 'ETH',
+                decimals: 18,
+              },
+              rpcUrls: networkConfig.rpcUrls,
+              blockExplorerUrls: networkConfig.blockExplorerUrls,
+            }],
+          });
+        } catch (error) {
+          console.error('Failed to add network:', error);
+          alert('Failed to add network. Please check your wallet and try again.');
+        }
+      });
+    });
+  }
+
+  // Initialize when the DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeNetworkButtons);
+  } else {
+    initializeNetworkButtons();
+  }
+</script>

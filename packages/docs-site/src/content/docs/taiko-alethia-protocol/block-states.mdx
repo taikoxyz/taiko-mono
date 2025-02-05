@@ -5,33 +5,85 @@ description: Core concept page for "Block states".
 
 import { Code } from '@astrojs/starlight/components';
 
-## How can you determine when a Taiko Alethia block is `Safe` or `Finalized`?
+## Block States in Taiko Alethia
 
-The `Safe` block state on Taiko Alethia is analogous to a `Safe` block state on Ethereum.
-Every Taiko Alethia L2 block has a corresponding Ethereum L1 block as it's origin that can be queried through a [`taiko-geth API`](https://github.com/taikoxyz/taiko-geth/blob/v1.8.0/eth/taiko_api_backend.go#L50).
-When that Ethereum L1 block can be considered `Safe`, the corresponding Taiko Alethia L2 block can be considered to have reached the same block state.
+A block in Taiko Alethia transitions through different states as it progresses through the protocol. The key states are:
 
-The `Finalized` block state is referred to as the [`Verified` block state](/core-concepts/multi-proofs#verified-blocks-and-parallel-proving) on the Taiko Alethia Protocol.
-A Taiko Alethia block is `Finalized`/`Verified` when every state transition from genesis to the current block has valid proofs.
+- **Proposed**: The block has been submitted to the TaikoL1 contract.
+- **Proved**: At least one validity proof has been submitted.
+- **Verified**: The block and all its ancestors up to genesis have valid proofs.
 
-## Example Query and Response:
+Taiko Alethia allows parallel proof generation, meaning multiple blocks can be proved concurrently. However, a block is considered verified only when its parent block is also verified. Blocks are verified in batches, not sequentially.
+
+For more details, refer to the [Multi-Proofs](/core-concepts/multi-proofs#verified-blocks-and-parallel-proving) page.
+
+---
+
+## Safe and Finalized Block States
+
+### Safe Block
+The **Safe** block state on Taiko Alethia is equivalent to a **Safe** block on Ethereum.
+
+Each L2 block originates from an L1 block that can be queried using the [`taiko-geth API`](https://github.com/taikoxyz/taiko-geth/blob/v1.8.0/eth/taiko_api_backend.go#L50). If the corresponding L1 block is considered Safe, the associated L2 block can also be considered Safe.
+
+#### Querying L1 Origin for an L2 Block
+The following **taiko-geth API method** retrieves the **L1 origin** of a given Taiko Alethia L2 block:
 
 <Code code='
-    {
+func (s *TaikoAPIBackend) L1OriginByID(blockID *math.HexOrDecimal256) (*rawdb.L1Origin, error) {
+    l1Origin, err := rawdb.ReadL1Origin(s.eth.ChainDb(), (*big.Int)(blockID))
+    if err != nil {
+        return nil, err
+    }
+    if l1Origin == nil {
+        return nil, ethereum.NotFound
+    }
+    return l1Origin, nil
+}
+' lang="go" title="L1OriginByID API" />
+
+
+---
+
+### Finalized (Verified) Block
+
+The **Verified** block state in Taiko Alethia is analogous to the **Finalized** block state in Ethereum. A block is Verified when:
+
+- Every state transition from genesis to the current block has valid proofs.
+- Its parent block is also verified.
+- The block is included in a batch verification process.
+
+A Verified block cannot be reverted, ensuring **strong finality guarantees**.
+
+---
+
+## Example API Query and Response
+
+The following JSON-RPC request retrieves the L1 origin for a given L2 block:
+
+<Code code='
+{
     "method": "taiko_l1OriginByID",
-    "id":1,
-    "jsonrpc":"2.0",
-    "params":[ "0x19a3c" ]
-    }' lang="json" title="query.json" />
+    "id": 1,
+    "jsonrpc": "2.0",
+    "params": ["0x19a3c"]
+}' lang="json" title="query.json" />
+
+### Response
 <Code code='
-    "result":
-        {
-        "blockID": "0x19a3c",
-        "l2BlockHash": "0x0905c85f9a288ebe94eb85743a65c8cf6266097b8b826cdca4f4018e6267c26a",
-        "l1BlockHeight": "0x16ef0f",
-        "l1BlockHash": "0x419f0c5b2cc90078c7040c3b90d174895ce83d76ebfdd75ad2dd5521036d0938"
-        }' lang="json" title="response.json" />
+"result": {
+    "blockID": "0x19a3c",
+    "l2BlockHash": "0x0905c85f9a288ebe94eb85743a65c8cf6266097b8b826cdca4f4018e6267c26a",
+    "l1BlockHeight": "0x16ef0f",
+    "l1BlockHash": "0x419f0c5b2cc90078c7040c3b90d174895ce83d76ebfdd75ad2dd5521036d0938"
+}' lang="json" title="response.json" />
 
-The above Taiko Alethia block with blockID `0x19a3c` would thus be considered `Safe` if the L1 block with the blockHash `0x419f..` reaches a `Safe` state.
+---
 
-The Taiko Alethia block with blockID `0x19a3c` would be `Finalized`/`Verified` if every state transition from genesis to the current block has a valid proof.
+### Interpreting the Response
+For block `0x19a3c`:
+- It is **Safe** if the **L1 block (`0x419f..`)** reaches a **Safe** state.
+- It is **Finalized (Verified)** if **all state transitions from genesis to block `0x19a3c`** have **valid proofs**.
+
+---
+

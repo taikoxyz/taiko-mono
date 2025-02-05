@@ -3,141 +3,182 @@ title: TaikoL1
 description: Taiko Alethia protocol page for "TaikoL1.sol".
 ---
 
-[TaikoL1](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/based/TaikoL1.sol) is a smart contract that serves as the **base layer** of the Taiko Alethia protocol. It provides functionalities for **proposing, proving, and verifying blocks**, enabling the rollup's consensus and state transitions. The contract also supports **bond deposits and withdrawals** and manages state synchronization between L1 and L2.
+[TaikoL1](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/based/TaikoL1.sol) is the **core Layer 1 smart contract** in the Taiko Alethia protocol. It is responsible for **block lifecycle management**, **state synchronization**, and **bond management**. TaikoL1 ensures seamless interaction between L1 and L2, enabling a secure and scalable rollup architecture.
+
+## Features
+
+- **Block Lifecycle Management**: Handles block **proposal, proving, and verification**.
+- **Cross-Layer Synchronization**: Ensures **state consistency** between L1 and L2.
+- **Bond Management**: Maintains economic security by **requiring bonds** for block proposers.
+- **Scalability**: Supports **Layer 3 (L3) deployments**, expanding Taiko’s rollup capabilities.
 
 ---
 
-## Core Purpose
-
-1. **Block Lifecycle Management**
-   Manages the proposal, proof, and verification of Taiko Alethia blocks, ensuring consistent state transitions.
-
-2. **Cross-Layer Synchronization**
-   Ensures the synchronization of states between Layer 1 (L1) and Layer 2 (L2).
-
-3. **Bond Management**
-   Handles the deposit and withdrawal of bonds to incentivize proposers and ensure accountability.
-
-4. **Base Layer Scalability**
-   Enables the deployment on L2 to create L3 rollups, expanding Taiko Alethia's scalability.
-
----
-
-## Key Functions
+## Contract Methods
 
 ### `proposeBlockV2`
 
-- **Purpose:**
-  Proposes a single block for inclusion in the rollup.
+Submits a **single block** proposal to the rollup.
 
-- **Parameters:**
+| Input Parameter | Type    | Description                                   |
+| --------------- | ------- | --------------------------------------------- |
+| `_params`       | `bytes` | Encoded block parameters.                     |
+| `_txList`       | `bytes` | List of transactions to include in the block. |
 
-  - `_params`: Encoded block parameters.
-  - `_txList`: Transactions to include in the block.
+**Returns**:
 
-- **Returns:**
-  `TaikoData.BlockMetadataV2` containing metadata of the proposed block.
+- `TaikoData.BlockMetadataV2`: Metadata of the proposed block.
 
 ---
 
 ### `proposeBlocksV2`
 
-- **Purpose:**
-  Proposes multiple blocks in batch.
+Submits **multiple block proposals** in a batch.
 
-- **Parameters:**
+| Input Parameter | Type      | Description                          |
+| --------------- | --------- | ------------------------------------ |
+| `_paramsArr`    | `bytes[]` | Array of encoded block parameters.   |
+| `_txListArr`    | `bytes[]` | List of transactions for each block. |
 
-  - `_paramsArr`: Array of encoded block parameters.
-  - `_txListArr`: Arrays of transactions for each block.
+**Returns**:
 
-- **Returns:**
-  Array of `TaikoData.BlockMetadataV2` for all proposed blocks.
+- `TaikoData.BlockMetadataV2[]`: Array of metadata for all proposed blocks.
 
 ---
 
 ### `proveBlock`
 
-- **Purpose:**
-  Proves the validity of a single block.
+Submits a **validity proof** for a specific block.
 
-- **Parameters:**
-  - `_blockId`: ID of the block to be proven.
-  - `_input`: Encoded proof data.
+| Input Parameter | Type      | Description               |
+| --------------- | --------- | ------------------------- |
+| `_blockId`      | `uint256` | ID of the block to prove. |
+| `_input`        | `bytes`   | Encoded proof data.       |
 
 ---
 
 ### `proveBlocks`
 
-- **Purpose:**
-  Proves multiple blocks in a single call.
+Submits **batch proofs** for multiple blocks.
 
-- **Parameters:**
-  - `_blockIds`: IDs of the blocks to be proven.
-  - `_inputs`: Proofs for each block.
-  - `_batchProof`: Batch proof covering all blocks.
+| Input Parameter | Type        | Description                      |
+| --------------- | ----------- | -------------------------------- |
+| `_blockIds`     | `uint256[]` | Array of block IDs to be proven. |
+| `_inputs`       | `bytes[]`   | Proofs for each block.           |
+| `_batchProof`   | `bytes`     | Batch proof covering all blocks. |
 
 ---
 
 ### `verifyBlocks`
 
-- **Purpose:**
-  Verifies a batch of blocks after proofs are submitted.
+Verifies a **batch of blocks** after proofs are submitted.
 
-- **Parameters:**
-  - `_maxBlocksToVerify`: Maximum number of blocks to verify.
+| Input Parameter      | Type      | Description                         |
+| -------------------- | --------- | ----------------------------------- |
+| `_maxBlocksToVerify` | `uint256` | Maximum number of blocks to verify. |
 
 ---
 
 ### `depositBond`
 
-- **Purpose:**
-  Deposits a bond required for proposing blocks.
+Locks a **bond deposit** required for proposing blocks.
 
-- **Parameters:**
-  - `_amount`: Amount of bond to deposit.
+| Input Parameter | Type      | Description                |
+| --------------- | --------- | -------------------------- |
+| `_amount`       | `uint256` | Amount of bond to deposit. |
 
 ---
 
 ### `withdrawBond`
 
-- **Purpose:**
-  Withdraws bond deposits after successful proposals.
+Withdraws a **bond deposit** after block proposals are finalized.
 
-- **Parameters:**
-  - `_amount`: Amount of bond to withdraw.
+| Input Parameter | Type      | Description                 |
+| --------------- | --------- | --------------------------- |
+| `_amount`       | `uint256` | Amount of bond to withdraw. |
 
 ---
 
 ### `getLastVerifiedBlock`
 
-- **Purpose:**
-  Retrieves the details of the most recently verified block.
+Retrieves the **most recent verified block**.
 
-- **Returns:**
-  - `blockId_`: ID of the last verified block.
-  - `blockHash_`: Block hash of the verified block.
-  - `stateRoot_`: State root of the verified block.
-  - `verifiedAt_`: Timestamp when the block was verified.
-
----
-
-## Key Events
-
-1. **`StateVariablesUpdated`**
-   Signals updates to the state variables.
+| Return Value  | Type      | Description                            |
+| ------------- | --------- | -------------------------------------- |
+| `blockId_`    | `uint256` | ID of the last verified block.         |
+| `blockHash_`  | `bytes32` | Block hash of the verified block.      |
+| `stateRoot_`  | `bytes32` | State root of the verified block.      |
+| `verifiedAt_` | `uint256` | Timestamp when the block was verified. |
 
 ---
 
-## Important Data Structures
+## Events
 
-1. **`state`**:
-   Tracks the rollup state, including blocks, bonds, and configurations.
+### `BlockProposed`
 
-2. **`__gap`**:
-   Reserved storage for future upgrades.
+Triggered when a **new block is proposed**.
+
+| Event Parameter | Type      | Description                                     |
+| --------------- | --------- | ----------------------------------------------- |
+| `blockId`       | `uint256` | ID of the proposed block.                       |
+| `proposer`      | `address` | Address of the proposer.                        |
+| `txRoot`        | `bytes32` | Root of the transactions included in the block. |
 
 ---
 
-## Design Highlights
+### `BlockProven`
+
+Triggered when a **validity proof is submitted** for a block.
+
+| Event Parameter | Type      | Description                  |
+| --------------- | --------- | ---------------------------- |
+| `blockId`       | `uint256` | ID of the proven block.      |
+| `prover`        | `address` | Address of the prover.       |
+| `proofHash`     | `bytes32` | Hash of the submitted proof. |
+
+---
+
+### `BlockVerified`
+
+Triggered when a **block is verified** and finalized.
+
+| Event Parameter | Type      | Description                       |
+| --------------- | --------- | --------------------------------- |
+| `blockId`       | `uint256` | ID of the verified block.         |
+| `verifier`      | `address` | Address of the verifier.          |
+| `stateRoot`     | `bytes32` | State root of the verified block. |
+
+---
+
+## Constants
+
+| Constant Name             | Value        | Description                                   |
+| ------------------------- | ------------ | --------------------------------------------- |
+| `BLOCK_BOND_AMOUNT`       | Configurable | Required bond for proposing a block.          |
+| `MAX_PROPOSAL_BATCH_SIZE` | 10           | Maximum number of blocks proposed in a batch. |
+| `MAX_VERIFICATION_BATCH`  | 5            | Maximum number of blocks verified at once.    |
+
+---
+
+## Design Considerations
+
+1. **Ethereum-Equivalent Execution**
+
+   - The contract follows Ethereum’s rollup-centric roadmap, allowing **Ethereum-equivalent execution**.
+   - No modifications to **EVM opcodes**, ensuring compatibility.
+
+    </br>
+
+2. **Based Rollup Architecture**
+
+   - Blocks are proposed permissionlessly, following **Ethereum’s L1 sequencing** rules.
+   - No centralized sequencer; TaikoL1 ensures **censorship resistance**.
+
+    </br>
+
+3. **Multi-Proof System**
+
+   - Supports multiple proving mechanisms: **SGX, ZK, hybrid proofs**.
+   - Ensures security **even if one proof system is compromised**.
 
 ---
