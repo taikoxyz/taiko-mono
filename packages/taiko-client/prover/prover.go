@@ -504,7 +504,6 @@ func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error
 			log.Error(
 				"Proof submission reverted",
 				"blockID", proofResponse.BlockID,
-				"minTier", proofResponse.Meta.Ontake().GetMinTier(),
 				"error", err,
 			)
 			return nil
@@ -512,7 +511,6 @@ func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error
 		log.Error(
 			"Submit proof error",
 			"blockID", proofResponse.BlockID,
-			"minTier", proofResponse.Meta.Ontake().GetMinTier(),
 			"error", err,
 		)
 		return err
