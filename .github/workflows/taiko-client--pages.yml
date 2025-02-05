@@ -2,7 +2,7 @@ name: "Taiko Client Soft Blocks Documentation"
 
 on:
   push:
-    branches: [main]
+    branches: [main, pacaya-height-0-yg1]
     paths:
       - "packages/taiko-client/**"
 
