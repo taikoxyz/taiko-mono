@@ -527,12 +527,21 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
+	// Propose a same L2 block batch
 	s.proposePreconfBatch([]*types.Block{l2Head3}, []*types.Header{l1Head1})
 
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
 	s.Equal(2, len(l2Head4.Transactions()))
+
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head4.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head4.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
+	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
+	s.False(l1Origin2.IsPreconfBlock())
 }
 
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
@@ -547,11 +556,21 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	s.Equal(len(blocks), len(anchoredL1Blocks))
 
 	for _, b := range blocks {
-		allTxs = append(allTxs, b.Transactions()...)
+		allTxs = append(allTxs, b.Transactions()[1:]...)
 		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
-			NumTransactions: uint16(b.Transactions().Len()),
+			NumTransactions: uint16(b.Transactions()[1:].Len()),
 			TimeShift:       0,
 		})
+
+		log.Warn(
+			"Propose preconfirmation batch",
+			"blockTxs", b.Transactions().Len(),
+			"txHash", b.Transactions()[1].Hash().Hex(),
+			"params", blockParams,
+			"currentOne", pacayaBindings.ITaikoInboxBlockParams{
+				NumTransactions: uint16(b.Transactions()[1:].Len()),
+				TimeShift:       0,
+			})
 	}
 
 	rlpEncoded, err := rlp.EncodeToBytes(allTxs)

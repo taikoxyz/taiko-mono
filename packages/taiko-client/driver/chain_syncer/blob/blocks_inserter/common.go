@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -33,10 +34,17 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
+	// Insert a TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction at transactions list head,
+	// then encode the transactions list.
+	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
+	if err != nil {
+		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
+		return nil, err
+	}
 
 	// If the Pacaya block is preconfirmed, we don't need to insert it again.
 	if meta.BlockID.Cmp(new(big.Int).SetUint64(rpc.PacayaClients.ForkHeight)) >= 0 {
-		header, err := isBlockPreconfirmed(ctx, rpc, meta)
+		header, err := isBlockPreconfirmed(ctx, rpc, meta, txListBytes, anchorTx)
 		if err != nil {
 			log.Debug("Failed to check if the block is preconfirmed", "error", err)
 		} else if header != nil {
@@ -68,6 +76,7 @@ func createPayloadAndSetHead(
 		ctx,
 		rpc,
 		meta.createExecutionPayloadsMetaData,
+		txListBytes,
 		anchorTx,
 	)
 	if err != nil {
@@ -115,15 +124,9 @@ func createExecutionPayloads(
 	ctx context.Context,
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
+	txListBytes []byte,
 	anchorTx *types.Transaction,
 ) (payloadData *engine.ExecutableData, err error) {
-	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
-	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
-	if err != nil {
-		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
-		return nil, err
-	}
-
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.Difficulty,
@@ -208,6 +211,8 @@ func isBlockPreconfirmed(
 	ctx context.Context,
 	rpc *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
+	txListBytes []byte,
+	anchorTx *types.Transaction,
 ) (*types.Header, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
 	header, err := rpc.L2.HeaderByNumber(ctx, blockID)
@@ -220,13 +225,15 @@ func isBlockPreconfirmed(
 	}
 
 	var (
-		args = &miner.BuildPayloadArgs{
+		txListHash = crypto.Keccak256Hash(txListBytes[:])
+		args       = &miner.BuildPayloadArgs{
 			Parent:       meta.Parent.Hash(),
 			Timestamp:    header.Time,
 			FeeRecipient: header.Coinbase,
 			Random:       header.MixDigest,
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
+			TxListHash:   &txListHash,
 		}
 		id = args.Id()
 	)

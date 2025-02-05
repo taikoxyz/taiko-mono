@@ -190,7 +190,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 		// Get transactions in the block.
 		txs := types.Transactions{}
-		if txListCursor+int(blockInfo.NumTransactions) > len(allTxs) {
+		if txListCursor+int(blockInfo.NumTransactions) <= len(allTxs) {
 			txs = allTxs[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
 		}
 
@@ -313,7 +313,10 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
-	extraData := encoding.EncodeBaseFeeConfig(baseFeeConfig)
+	var (
+		extraData = encoding.EncodeBaseFeeConfig(baseFeeConfig)
+		txs       = i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, executableData.Transactions, true, true)
+	)
 
 	payloadData, err := createPayloadAndSetHead(
 		ctx,
@@ -333,10 +336,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 					L1BlockHeight: nil,
 					L1BlockHash:   common.Hash{},
 				},
-				Txs: append(
-					types.Transactions{anchorTx},
-					i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, executableData.Transactions, true, true)...,
-				),
+				Txs:         txs,
 				Withdrawals: make([]*types.Withdrawal, 0),
 				BaseFee:     baseFee,
 			},
@@ -355,7 +355,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 		"⏰ New preconfirmation L2 block inserted",
 		"blockID", executableData.Number,
 		"hash", payloadData.BlockHash,
-		"transactions", len(payloadData.Transactions[0]),
+		"transactions", txs.Len(),
 		"baseFee", utils.WeiToGWei(payloadData.BaseFeePerGas),
 		"withdrawals", len(payloadData.Withdrawals),
 	)
