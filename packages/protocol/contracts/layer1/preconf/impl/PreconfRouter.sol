@@ -36,11 +36,10 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         // check if we have a forced inclusion inbox
         address wrapper = resolve(LibStrings.B_TAIKO_WRAPPER, true);
         if (wrapper == address(0)) {
-            // Call the proposeBatch function on the TaikoInbox
+             require(_forcedInclusionParams.length == 0, ForcedInclusionNotSupportted());
             address taikoInbox = resolve(LibStrings.B_TAIKO, false);
             (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
         } else {
-            // Call the proposeBatchWithForcedInclusion function on the ForcedInclusionInbox
             (, meta_) = TaikoWrapper(wrapper).proposeBatchWithForcedInclusion(
                 _forcedInclusionParams, _batchParams, _batchTxList
             );
