@@ -342,7 +342,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.True(res.IsSuccess())
 
 	// Try to insert two preconfirmation blocks
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1, l2Head2.GasLimit).IsSuccess())
+	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -355,7 +355,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+2, l2Head2.GasLimit).IsSuccess())
+	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -409,7 +409,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	url *url.URL,
 	anchoredL1Block *types.Header,
 	l2BlockID uint64,
-	gasLimit uint64,
 ) *resty.Response {
 	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
@@ -447,7 +446,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 			ParentHash:   parent.Hash(),
 			FeeRecipient: preconferAddress,
 			Number:       l2BlockID,
-			GasLimit:     gasLimit,
+			GasLimit:     uint64(s.d.protocolConfig.BlockMaxGasLimit()),
 			Timestamp:    anchoredL1Block.Time,
 			Transactions: b,
 		},
@@ -514,7 +513,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.True(res.IsSuccess())
 
 	// Try to insert one preconfirmation block
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1, l2Head2.GasLimit).IsSuccess())
+	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -561,16 +560,6 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 			NumTransactions: uint16(b.Transactions()[1:].Len()),
 			TimeShift:       0,
 		})
-
-		log.Warn(
-			"Propose preconfirmation batch",
-			"blockTxs", b.Transactions().Len(),
-			"txHash", b.Transactions()[1].Hash().Hex(),
-			"params", blockParams,
-			"currentOne", pacayaBindings.ITaikoInboxBlockParams{
-				NumTransactions: uint16(b.Transactions()[1:].Len()),
-				TimeShift:       0,
-			})
 	}
 
 	rlpEncoded, err := rlp.EncodeToBytes(allTxs)

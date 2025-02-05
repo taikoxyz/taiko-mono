@@ -1,6 +1,7 @@
 package blocksinserter
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -215,22 +216,22 @@ func isBlockPreconfirmed(
 	anchorTx *types.Transaction,
 ) (*types.Header, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
-	header, err := rpc.L2.HeaderByNumber(ctx, blockID)
+	block, err := rpc.L2.BlockByNumber(ctx, blockID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get header by number %d: %w", blockID, err)
+		return nil, fmt.Errorf("failed to get block by number %d: %w", blockID, err)
 	}
 
-	if header == nil {
-		return nil, fmt.Errorf("header not found for block number %d", blockID)
+	if block == nil {
+		return nil, fmt.Errorf("block not found by number %d", blockID)
 	}
 
 	var (
 		txListHash = crypto.Keccak256Hash(txListBytes[:])
 		args       = &miner.BuildPayloadArgs{
 			Parent:       meta.Parent.Hash(),
-			Timestamp:    header.Time,
-			FeeRecipient: header.Coinbase,
-			Random:       header.MixDigest,
+			Timestamp:    block.Time(),
+			FeeRecipient: block.Coinbase(),
+			Random:       block.MixDigest(),
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
@@ -242,9 +243,68 @@ func isBlockPreconfirmed(
 		return nil, fmt.Errorf("failed to get payload: %w", err)
 	}
 
-	if executableData.BlockHash == header.Hash() {
-		return header, nil
+	defer func() {
+		if err != nil {
+			log.Warn("Invalid preconfirmed block", "blockID", blockID, "coinbase", executableData.FeeRecipient, "reason", err)
+		}
+	}()
+
+	if executableData.BlockHash != block.Hash() {
+		err = fmt.Errorf("block hash mismatch: %s != %s", executableData.BlockHash, block.Hash())
+		return nil, err
+	}
+	if block.ParentHash() != meta.ParentHash {
+		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.ParentHash)
+		return nil, err
+	}
+	if block.Transactions().Len() == 0 {
+		err = errors.New("transactions list is empty")
+		return nil, err
+	}
+	if block.Transactions()[0].Hash() != anchorTx.Hash() {
+		err = fmt.Errorf("anchor transaction mismatch: %s != %s", block.Transactions()[0].Hash(), anchorTx.Hash())
+		return nil, err
+	}
+	if block.UncleHash() != types.EmptyUncleHash {
+		err = fmt.Errorf("uncle hash mismatch: %s != %s", block.UncleHash(), types.EmptyUncleHash)
+		return nil, err
+	}
+	if block.Coinbase() != meta.SuggestedFeeRecipient {
+		err = fmt.Errorf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient)
+		return nil, err
+	}
+	if block.Difficulty().Cmp(common.Big0) != 0 {
+		err = fmt.Errorf("difficulty mismatch: %s != 0", block.Difficulty())
+		return nil, err
+	}
+	if block.MixDigest() != meta.Difficulty {
+		err = fmt.Errorf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty)
+		return nil, err
+	}
+	if block.Number().Uint64() != meta.BlockID.Uint64() {
+		err = fmt.Errorf("block number mismatch: %d != %d", block.Number(), meta.BlockID)
+		return nil, err
+	}
+	if block.GasLimit() != meta.GasLimit+consensus.AnchorGasLimit {
+		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorGasLimit)
+		return nil, err
+	}
+	if block.Time() != meta.Timestamp {
+		err = fmt.Errorf("timestamp mismatch: %d != %d", block.Time(), meta.Timestamp)
+		return nil, err
+	}
+	if !bytes.Equal(block.Extra(), meta.ExtraData) {
+		err = fmt.Errorf("extra data mismatch: %s != %s", block.Extra(), meta.ExtraData)
+		return nil, err
+	}
+	if block.BaseFee().Cmp(meta.BaseFee) != 0 {
+		err = fmt.Errorf("base fee mismatch: %s != %s", block.BaseFee(), meta.BaseFee)
+		return nil, err
+	}
+	if block.Withdrawals().Len() != 0 {
+		err = fmt.Errorf("withdrawals mismatch: %d != 0", block.Withdrawals().Len())
+		return nil, err
 	}
 
-	return nil, nil
+	return block.Header(), nil
 }
