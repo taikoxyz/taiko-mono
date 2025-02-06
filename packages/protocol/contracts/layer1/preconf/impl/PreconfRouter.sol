@@ -40,7 +40,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
             address taikoInbox = resolve(LibStrings.B_TAIKO, false);
             (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
         } else {
-            (, meta_) = ITaikoWrapper(wrapper).proposeBatchWithForcedInclusion(
+            (, meta_) = ITaikoWrapper(wrapper).proposeBatch(
                 _forcedInclusionParams, _batchParams, _batchTxList
             );
         }

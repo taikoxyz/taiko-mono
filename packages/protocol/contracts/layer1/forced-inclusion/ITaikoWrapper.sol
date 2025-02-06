@@ -21,7 +21,7 @@ interface ITaikoWrapper {
     /// for data availability.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The metadata of the proposed batch.
-    function proposeBatchWithForcedInclusion(
+    function proposeBatch(
         bytes calldata _forcedInclusionParams,
         bytes calldata _params,
         bytes calldata _txList

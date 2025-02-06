@@ -46,7 +46,7 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
     }
 
     /// @inheritdoc ITaikoWrapper
-    function proposeBatchWithForcedInclusion(
+    function proposeBatch(
         bytes calldata _forcedInclusionParams,
         bytes calldata _params,
         bytes calldata _txList
