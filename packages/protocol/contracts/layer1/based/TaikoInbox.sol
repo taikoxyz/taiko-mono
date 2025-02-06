@@ -95,10 +95,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 if (params.blobParams.blobHashes.length == 0) {
                     require(params.blobParams.numBlobs != 0, BlobNotSpecified());
                 } else {
-                    require(
-                        params.blobParams.numBlobs == 0 && params.blobParams.firstBlobIndex == 0,
-                        InvalidBlobParams()
-                    );
+                    require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+                    require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
                 }
             }
 
@@ -342,7 +340,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         external
         onlyOwner
     {
-        require(_blockHash != 0 && _parentHash != 0 && _stateRoot != 0, InvalidParams());
+        require(_blockHash != 0, InvalidParams());
+        require(_parentHash != 0, InvalidParams());
+        require(_stateRoot != 0, InvalidParams());
         require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
 
         Config memory config = pacayaConfig();
@@ -427,7 +427,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
-        require(_tid != 0 && _tid < batch.nextTransitionId, TransitionNotFound());
+        require(_tid != 0, TransitionNotFound());
+        require(_tid < batch.nextTransitionId, TransitionNotFound());
         return state.transitions[slot][_tid];
     }
 
