@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
-import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/forced-inclusion/TaikoWrapper.sol";
+import "src/layer1/based/ITaikoInbox.sol";
+import "src/layer1/forced-inclusion/ITaikoWrapper.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
 
@@ -40,7 +40,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
             address taikoInbox = resolve(LibStrings.B_TAIKO, false);
             (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
         } else {
-            (, meta_) = TaikoWrapper(wrapper).proposeBatchWithForcedInclusion(
+            (, meta_) = ITaikoWrapper(wrapper).proposeBatchWithForcedInclusion(
                 _forcedInclusionParams, _batchParams, _batchTxList
             );
         }

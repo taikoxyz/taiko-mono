@@ -2,12 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/shared/based/ITaiko.sol";
-import "src/shared/libs/LibNetwork.sol";
-import "src/shared/signal/ISignalService.sol";
-import "src/layer1/verifiers/IVerifier.sol";
-import "src/layer1/based/TaikoInbox.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 import "./ForcedInclusionStore.sol";
+import "./ITaikoWrapper.sol";
 
 /// @title TaikoWrapper
 /// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
@@ -35,14 +32,8 @@ import "./ForcedInclusionStore.sol";
 /// consumption.
 ///
 /// @custom:security-contact security@taiko.xyz
-contract TaikoWrapper is EssentialContract {
+contract TaikoWrapper is EssentialContract, ITaikoWrapper {
     using LibMath for uint256;
-
-    /// @dev Event emitted when a forced inclusion is processed.
-    event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
-    /// @dev Error thrown when the oldest forced inclusion is due.
-
-    error OldestForcedInclusionDue();
 
     uint16 public constant MAX_FORCED_TXS_PER_FORCED_INCLUSION = 512;
 
@@ -54,14 +45,7 @@ contract TaikoWrapper is EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @notice Proposes a batch of blocks with forced inclusion.
-    /// @param _forcedInclusionParams An optional ABI-encoded BlockParams for the forced inclusion
-    /// batch.
-    /// @param _params ABI-encoded BlockParams.
-    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
-    /// for data availability.
-    /// @return info_ The info of the proposed batch.
-    /// @return meta_ The metadata of the proposed batch.
+    /// @inheritdoc ITaikoWrapper
     function proposeBatchWithForcedInclusion(
         bytes calldata _forcedInclusionParams,
         bytes calldata _params,
