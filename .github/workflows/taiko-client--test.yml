@@ -68,7 +68,7 @@ jobs:
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.OLD_FORK_TAIKO_MONO_DIR }}
-          ref: protocol-v1.11.0
+          ref: protocol-v1.12.0
 
       - name: Install pnpm dependencies for old fork taiko-mono
         working-directory: ${{ env.OLD_FORK_TAIKO_MONO_DIR }}
