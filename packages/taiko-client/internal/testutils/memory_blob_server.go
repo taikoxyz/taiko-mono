@@ -119,7 +119,6 @@ func NewMemoryBlobServer() *MemoryBlobServer {
 			}
 
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
 			if err := json.NewEncoder(w).Encode(&rpc.BlobServerResponse{
 				Commitment:    blobInfo.Commitment,
 				Data:          blobInfo.Data,
@@ -129,6 +128,7 @@ func NewMemoryBlobServer() *MemoryBlobServer {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+			w.WriteHeader(http.StatusOK)
 		})),
 	}
 }
