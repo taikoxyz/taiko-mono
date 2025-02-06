@@ -163,12 +163,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
         publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
         publicInputs[1] = bytes32(uint256(uint160(newInstance)));
         // All other inputs are the block program public inputs (a single 32 byte value)
-        uint256 size = _ctxs.length;
-        for (uint256 i; i < size; ++i) {
-            // TODO(Yue): For now this assumes the new instance public key to remain the same
-            publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
-            );
+        {
+            uint256 size = _ctxs.length;
+            for (uint256 i; i < size; ++i) {
+                // TODO(Yue): For now this assumes the new instance public key to remain the same
+                publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
+                    _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
+                );
+            }
         }
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
