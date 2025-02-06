@@ -275,6 +275,9 @@ async function generateContractConfigs(
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridged_erc1155"),
                         )]: addressMap.BridgedERC1155Impl,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("taiko"),
+                        )]: addressMap.TaikoAnchor,
                     },
                 },
             },

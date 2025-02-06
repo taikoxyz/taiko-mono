@@ -44,6 +44,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.2.0
+        with:
+          version: stable
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -60,7 +62,18 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm compile:l1 && pnpm test:l1 && pnpm layout:l1
 
+      - name: Check for changes
+        id: git_status
+        run: |
+          git add -N .  # Simulate staging to detect untracked files
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes=true" >> $GITHUB_ENV
+          else
+            echo "changes=false" >> $GITHUB_ENV
+          fi
+
       - name: Commit contract layout table
+        if: env.changes == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "forge fmt & update contract layout tables"
@@ -93,7 +106,7 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.2.0
+        uses: foundry-rs/foundry-toolchain@v1.3.1
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

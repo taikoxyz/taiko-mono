@@ -29,9 +29,10 @@ contract DevnetInbox is TaikoInbox {
                 maxGasIssuancePerBlock: 600_000_000
             }),
             provingWindow: 2 hours,
+            cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10 })
         });
     }
 }

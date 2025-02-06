@@ -5,21 +5,27 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
 type ChainConfig struct {
+	// Chain ID for the network
+	ChainID *big.Int
 	// Ontake switch block (nil = no fork, 0 = already on ontake)
-	ProtocolConfigs *bindings.TaikoDataConfig `json:"protocolConfigs"`
+	OntakeForkHeight *big.Int
+	// Pacaya switch block (nil = no fork, 0 = already on ontake)
+	PacayaForkHeight *big.Int
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(protocolConfigs *bindings.TaikoDataConfig) *ChainConfig {
-	cfg := &ChainConfig{protocolConfigs}
+func NewChainConfig(chainID *big.Int, ontakeForkHeight uint64, pacayaForkHeight uint64) *ChainConfig {
+	cfg := &ChainConfig{
+		ChainID:          chainID,
+		OntakeForkHeight: new(big.Int).SetUint64(ontakeForkHeight),
+		PacayaForkHeight: new(big.Int).SetUint64(pacayaForkHeight),
+	}
 
 	log.Info("")
 	log.Info(strings.Repeat("-", 153))
@@ -44,15 +50,16 @@ func (c *ChainConfig) Description() string {
 	var banner string
 
 	// Create some basic network config output
-	network := NetworkNames[c.ProtocolConfigs.ChainId]
+	network := NetworkNames[c.ChainID.Uint64()]
 	if network == "" {
 		network = "unknown"
 	}
-	banner += fmt.Sprintf("Chain ID:  %v (%s)\n", c.ProtocolConfigs.ChainId, network)
+	banner += fmt.Sprintf("Chain ID:  %v (%s)\n", c.ChainID.Uint64(), network)
 
 	// Create a list of forks with a short description of them.
 	banner += "Hard forks (block based):\n"
-	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.ProtocolConfigs.OntakeForkHeight)
+	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.OntakeForkHeight)
+	banner += fmt.Sprintf(" - Pacaya:                   #%-8v\n", c.PacayaForkHeight)
 	banner += "\n"
 
 	return banner
@@ -60,7 +67,12 @@ func (c *ChainConfig) Description() string {
 
 // IsOntake returns whether num is either equal to the ontake block or greater.
 func (c *ChainConfig) IsOntake(num *big.Int) bool {
-	return isBlockForked(new(big.Int).SetUint64(c.ProtocolConfigs.OntakeForkHeight), num)
+	return isBlockForked(c.OntakeForkHeight, num)
+}
+
+// IsPacaya returns whether num is either equal to the pacaya block or greater.
+func (c *ChainConfig) IsPacaya(num *big.Int) bool {
+	return isBlockForked(c.PacayaForkHeight, num)
 }
 
 // isBlockForked returns whether a fork scheduled at block s is active at the

@@ -23,9 +23,9 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 <Steps>
 
-1. **Clone the Taiko monorepo**
+1. **Clone the Taiko Alethia monorepo**
 
-    The [Taiko monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`. Checkout the latest stable release. (Use `taiko-alethia-protocol-v1.11.0` for Hekla!)
+    The [Taiko Alethia monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`. Checkout the latest stable release. (Use `taiko-alethia-protocol-v1.11.0` for Taiko Hekla!)
 
     <Tabs>
         <TabItem label="Mac/Linux">
@@ -53,7 +53,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
     Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/script/layer1/DeployProverSet.s.sol).
 
     ```bash
-    ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/DeployProverSet.s.sol:DeployProverSet
+    ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/layer1/DeployProverSet.s.sol:DeployProverSet
     ```
 
     The script should print your implementation and proxy address with the log:
@@ -117,7 +117,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     This will be necessary for the following step.
 
-2. **Navigate to the taiko monorepo and checkout the release version of ProverSet you want to deploy.**
+2. **Navigate to the Taiko Alethia monorepo and checkout the release version of ProverSet you want to deploy.**
 
     ```bash
     cd taiko-mono/packages/protocol

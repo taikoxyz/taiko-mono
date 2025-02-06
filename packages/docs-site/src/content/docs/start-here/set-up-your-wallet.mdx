@@ -1,0 +1,45 @@
+---
+title: Add Taiko to your wallet
+description: Step-by-step guide to connect your wallet to Taiko Alethia and Taiko Hekla networks.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import NetworkAdder from '../../../components/NetworkAdder.astro';
+
+
+<Aside>
+We **recommend you choose a Taiko Labs maintained RPC** which ends in `.taiko.xyz` (e.g., `https://rpc.mainnet.taiko.xyz`).
+</Aside>
+
+You can add Taiko networks to your wallet using the buttons below:
+
+<div style="display: flex; gap: 1rem; margin: 2rem 0;">
+  <NetworkAdder network="mainnet" />
+  <NetworkAdder network="testnet" />
+</div>
+
+If you are using a different in-browser wallet, the buttons above may also work for them.
+
+## Manually add Taiko
+
+To manually add Taiko as a custom network in your wallet, follow these steps:
+
+1. Find the "Add Network" option in your wallet (in MetaMask, you can find this in the networks dropdown)
+2. Click on "Add Network" and "Add network manually"
+3. Fill in the following details for the Taiko network environments:
+
+### Mainnet network details
+
+- Network Name: Taiko Alethia
+- RPC URL: https://rpc.taiko.xyz
+- Chain ID: 167000
+- Currency Symbol: ETH
+- Block Explorer URL: https://taikoscan.io/
+
+### Testnet network details
+
+- Network Name: Taiko Hekla
+- RPC URL: https://rpc.hekla.taiko.xyz
+- Chain ID: 167009
+- Currency Symbol: ETH
+- Block Explorer URL: https://hekla.taikoscan.io/

@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.23.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.22.1...docs-site-v1.23.0) (2025-02-05)
+
+
+### Features
+
+* **docs-site:** enhance some sections ([#18850](https://github.com/taikoxyz/taiko-mono/issues/18850)) ([61fff4e](https://github.com/taikoxyz/taiko-mono/commit/61fff4efe14611a81f3e42502f530dd5a3828174))
+* **protocol:** pacaya fork with simplified based rollup protocol ([#18535](https://github.com/taikoxyz/taiko-mono/issues/18535)) ([3d85f7c](https://github.com/taikoxyz/taiko-mono/commit/3d85f7ce0420392f4e28db4554ab540e1e5e079a))
+
+## [1.22.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.22.0...docs-site-v1.22.1) (2025-01-29)
+
+
+### Bug Fixes
+
+* **docs-site:** touch up some content for rebrand ([#18847](https://github.com/taikoxyz/taiko-mono/issues/18847)) ([720c69d](https://github.com/taikoxyz/taiko-mono/commit/720c69d934aaa277e0f8dd89d5d2a23243604ac2))
+
+## [1.22.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.4...docs-site-v1.22.0) (2025-01-29)
+
+
+### Features
+
+* **docs-site:** docs rebrand ([#18833](https://github.com/taikoxyz/taiko-mono/issues/18833)) ([bbd2ae1](https://github.com/taikoxyz/taiko-mono/commit/bbd2ae1e77831dfebcda3eb83b0003855d71b2a6))
+
+
+### Bug Fixes
+
+* **docs-site:** fix prover set file path ([#18840](https://github.com/taikoxyz/taiko-mono/issues/18840)) ([6ab0ecd](https://github.com/taikoxyz/taiko-mono/commit/6ab0ecd4d40f736158a63e66616f697972916a8f))
+
 ## [1.21.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.3...docs-site-v1.21.4) (2025-01-21)
 
 

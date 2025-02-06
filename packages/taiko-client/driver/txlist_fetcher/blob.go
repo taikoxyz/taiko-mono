@@ -1,10 +1,8 @@
-package txlistdecoder
+package txlistfetcher
 
 import (
 	"context"
 	"crypto/sha256"
-	"fmt"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,23 +26,31 @@ func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *B
 	return &BlobFetcher{l1Beacon, ds}
 }
 
-// Fetch implements the TxListFetcher interface.
-func (d *BlobFetcher) Fetch(
+// FetchOntake implements the TxListFetcher interface.
+func (d *BlobFetcher) FetchOntake(
 	ctx context.Context,
 	_ *types.Transaction,
-	meta metadata.TaikoBlockMetaData,
+	meta metadata.TaikoBlockMetaDataOntake,
 ) ([]byte, error) {
 	if !meta.GetBlobUsed() {
-		return nil, pkg.ErrBlobUsed
+		return nil, pkg.ErrBlobUnused
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetProposedAt(), meta.GetBlobHash())
+	sidecars, err := d.dataSource.GetBlobs(
+		ctx,
+		meta.GetProposedAt(),
+		meta.GetBlobHash(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("Fetch sidecars", "blockNumber", meta.GetRawBlockHeight(), "sidecars", len(sidecars))
+	log.Info(
+		"Fetch sidecars",
+		"blockNumber", meta.GetRawBlockHeight(),
+		"sidecars", len(sidecars),
+	)
 
 	// Compare the blob hash with the sidecar's kzg commitment.
 	for i, sidecar := range sidecars {
@@ -79,12 +85,58 @@ func (d *BlobFetcher) Fetch(
 	return nil, pkg.ErrSidecarNotFound
 }
 
-// sliceTxList returns the sliced txList bytes from the given offset and length.
-func sliceTxList(id *big.Int, b []byte, offset, length uint32) ([]byte, error) {
-	if offset+length > uint32(len(b)) {
-		return nil, fmt.Errorf(
-			"invalid txlist offset and size in metadata (%d): offset=%d, size=%d, blobSize=%d", id, offset, length, len(b),
-		)
+// FetchPacaya implements the TxListFetcher interface.
+func (d *BlobFetcher) FetchPacaya(
+	ctx context.Context,
+	tx *types.Transaction,
+	meta metadata.TaikoBatchMetaDataPacaya,
+) ([]byte, error) {
+	if len(meta.GetBlobHashes()) == 0 {
+		return nil, pkg.ErrBlobUnused
 	}
-	return b[offset : offset+length], nil
+
+	var b []byte
+	// Fetch the L1 block sidecars.
+	sidecars, err := d.dataSource.GetBlobs(
+		ctx,
+		meta.GetProposedAt(),
+		meta.GetBlobHashes()[0],
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"Fetch sidecars",
+		"blockNumber", meta.GetRawBlockHeight(),
+		"sidecars", len(sidecars),
+	)
+
+	for _, blobHash := range meta.GetBlobHashes() {
+		// Compare the blob hash with the sidecar's kzg commitment.
+		for j, sidecar := range sidecars {
+			log.Debug(
+				"Block sidecar",
+				"index", j,
+				"KzgCommitment", sidecar.KzgCommitment,
+				"blobHash", blobHash,
+			)
+
+			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
+				blob := eth.Blob(common.FromHex(sidecar.Blob))
+				bytes, err := blob.ToData()
+				if err != nil {
+					return nil, err
+				}
+
+				b = append(b, bytes...)
+			}
+		}
+	}
+	if len(b) == 0 {
+		return nil, pkg.ErrSidecarNotFound
+	}
+
+	return sliceTxList(meta.GetBatchID(), b, meta.GetTxListOffset(), meta.GetTxListSize())
 }

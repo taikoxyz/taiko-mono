@@ -10,22 +10,21 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/taiko"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 )
 
@@ -60,38 +59,39 @@ func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
 	ctx := context.Background()
 
 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
+	s.False(meta.IsPacaya())
 
-	block, err := s.RPCClient.L2.BlockByNumber(ctx, meta.GetBlockID())
+	block, err := s.RPCClient.L2.BlockByNumber(ctx, meta.Ontake().GetBlockID())
 	s.Nil(err)
 
-	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedBlock(ctx)
+	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedBlockOntake(ctx)
 	s.Nil(err)
 
 	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
 	s.Nil(err)
 
-	parent, err := s.RPCClient.L2ParentByBlockID(context.Background(), meta.GetBlockID())
+	parent, err := s.RPCClient.L2ParentByCurrentBlockID(context.Background(), meta.Ontake().GetBlockID())
 	s.Nil(err)
 
 	// Reset l2 chain.
 	s.Nil(rpc.SetHead(ctx, s.RPCClient.L2, common.Big0))
 
 	attributes := &engine.PayloadAttributes{
-		Timestamp:             meta.GetTimestamp(),
-		Random:                meta.GetDifficulty(),
+		Timestamp:             meta.Ontake().GetTimestamp(),
+		Random:                meta.Ontake().GetDifficulty(),
 		SuggestedFeeRecipient: meta.GetCoinbase(),
 		Withdrawals:           make([]*types.Withdrawal, 0),
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.GetCoinbase(),
-			GasLimit:    uint64(meta.GetGasLimit()) + taiko.AnchorGasLimit,
-			Timestamp:   meta.GetTimestamp(),
+			GasLimit:    uint64(meta.Ontake().GetGasLimit()) + consensus.AnchorGasLimit,
+			Timestamp:   meta.Ontake().GetTimestamp(),
 			TxList:      txListBytes,
-			MixHash:     meta.GetDifficulty(),
-			ExtraData:   meta.GetExtraData(),
+			MixHash:     meta.Ontake().GetDifficulty(),
+			ExtraData:   meta.Ontake().GetExtraData(),
 		},
 		BaseFeePerGas: block.BaseFee(),
 		L1Origin: &rawdb.L1Origin{
-			BlockID:       meta.GetBlockID(),
+			BlockID:       meta.Ontake().GetBlockID(),
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
 			L1BlockHeight: meta.GetRawBlockHeight(),
 			L1BlockHash:   meta.GetRawBlockHash(),
@@ -161,58 +161,17 @@ func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
-		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 0}},
+		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 0}},
 		func() {},
 	))
 	s.NotNil(s.s.onBlockProposed(
 		context.Background(),
-		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 1}},
+		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 1}},
 		func() {},
 	))
 }
 
-func (s *BlobSyncerTestSuite) TestInsertNewHead() {
-	parent, err := s.s.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	l1Head, err := s.s.rpc.L1.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	protocolConfigs, err := s.s.rpc.TaikoL1.GetConfig(nil)
-	s.Nil(err)
-	_, err = s.s.insertNewHead(
-		context.Background(),
-		&metadata.TaikoDataBlockMetadataOntake{
-			TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{
-				Id:              1,
-				AnchorBlockId:   l1Head.NumberU64(),
-				AnchorBlockHash: l1Head.Hash(),
-				Coinbase:        common.BytesToAddress(testutils.RandomBytes(1024)),
-				BlobHash:        testutils.RandomHash(),
-				Difficulty:      testutils.RandomHash(),
-				GasLimit:        utils.RandUint32(nil),
-				Timestamp:       uint64(time.Now().Unix()),
-				BaseFeeConfig:   protocolConfigs.BaseFeeConfig,
-			},
-			Log: types.Log{
-				BlockNumber: l1Head.Number().Uint64(),
-				BlockHash:   l1Head.Hash(),
-			},
-		},
-		parent,
-		[]byte{},
-		&rawdb.L1Origin{
-			BlockID:       common.Big1,
-			L1BlockHeight: common.Big1,
-			L1BlockHash:   testutils.RandomHash(),
-		},
-	)
-	s.Nil(err)
-}
-
 func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
-	// TODO: Temporarily skip this test case when using l2_reth node.
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
@@ -235,10 +194,6 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
-	// TODO: Temporarily skip this test case when using l2_reth node.
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
@@ -260,11 +215,16 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.Greater(headAfter, headBefore)
 	s.True(balanceAfter.Cmp(balance) > 0)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	var hasNoneAnchorTxs bool
+	chainConfig := config.NewChainConfig(
+		s.RPCClient.L2.ChainID,
+		s.RPCClient.OntakeClients.ForkHeight,
+		s.RPCClient.PacayaClients.ForkHeight,
+	)
+
+	cfg, err := s.RPCClient.GetProtocolConfigs(nil)
 	s.Nil(err)
 
-	var hasNoneAnchorTxs bool
-	chainConfig := config.NewChainConfig(&protocolConfigs)
 	for i := headBefore + 1; i <= headAfter; i++ {
 		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
 		s.Nil(err)
@@ -283,7 +243,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
 			if chainConfig.IsOntake(block.Number()) {
 				feeCoinbase := new(big.Int).Div(
-					new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(chainConfig.ProtocolConfigs.BaseFeeConfig.SharingPctg))),
+					new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(cfg.BaseFeeConfig().SharingPctg))),
 					new(big.Int).SetUint64(100),
 				)
 				feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
@@ -313,8 +273,8 @@ func (s *BlobSyncerTestSuite) initProposer() {
 			L2Endpoint:        os.Getenv("L2_WS"),
 			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 			JwtSecret:         string(jwtSecret),
-			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
-			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
+			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,

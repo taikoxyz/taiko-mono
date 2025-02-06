@@ -176,9 +176,8 @@ func (b *BalanceMonitor) getEthBalance(ctx context.Context, client ethClient, ad
 	return balance, nil
 }
 
-// TODO (ruby): merge getErc20Balance and getErc20BondBalance
-func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(erc20BalanceOfABI))
+func (b *BalanceMonitor) getTokenBalance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address, methodName string, abiDef string) (*big.Int, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(abiDef))
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +187,7 @@ func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, 
 	var result []interface{}
 	err = tokenContract.Call(&bind.CallOpts{
 		Context: ctx,
-	}, &result, "balanceOf", holderAddress)
+	}, &result, methodName, holderAddress)
 
 	if err != nil {
 		return nil, err
@@ -200,39 +199,18 @@ func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, 
 
 	balance, ok := result[0].(*big.Int)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for balanceOf result")
+		return nil, fmt.Errorf("unexpected type for balance result")
 	}
 
 	return balance, nil
 }
 
+func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
+	return b.getTokenBalance(ctx, client, tokenAddress, holderAddress, "balanceOf", erc20BalanceOfABI)
+}
+
 func (b *BalanceMonitor) getErc20BondBalance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(erc20BondBalanceOfABI))
-	if err != nil {
-		return nil, err
-	}
-
-	tokenContract := bind.NewBoundContract(tokenAddress, parsedABI, client, client, client)
-
-	var result []interface{}
-	err = tokenContract.Call(&bind.CallOpts{
-		Context: ctx,
-	}, &result, "bondBalanceOf", holderAddress)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(result) == 0 {
-		return nil, fmt.Errorf("no result from token contract call")
-	}
-
-	balance, ok := result[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type for bondBalanceOf result")
-	}
-
-	return balance, nil
+	return b.getTokenBalance(ctx, client, tokenAddress, holderAddress, "bondBalanceOf", erc20BondBalanceOfABI)
 }
 
 func (b *BalanceMonitor) getErc20Decimals(ctx context.Context, client ethClient, tokenAddress common.Address) (uint8, error) {
