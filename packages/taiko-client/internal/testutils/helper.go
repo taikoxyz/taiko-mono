@@ -271,6 +271,7 @@ func SignatureFromRSV(r, s string, v byte) []byte {
 	return append(append(hexutil.MustDecode(r), hexutil.MustDecode(s)...), v)
 }
 
+// AssembleTestTx assembles a test transaction.
 func AssembleTestTx(
 	client *rpc.EthClient,
 	priv *ecdsa.PrivateKey,
