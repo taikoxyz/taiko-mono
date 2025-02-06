@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	gethRPC "github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -119,11 +120,15 @@ func NewMemoryBlobServer() *MemoryBlobServer {
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(&rpc.BlobServerResponse{
+			if err := json.NewEncoder(w).Encode(&rpc.BlobServerResponse{
 				Commitment:    blobInfo.Commitment,
 				Data:          blobInfo.Data,
 				VersionedHash: blobHash,
-			})
+			}); err != nil {
+				log.Error("Failed to encode blob server response", "err", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		})),
 	}
 }
