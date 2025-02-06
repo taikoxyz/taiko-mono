@@ -4,7 +4,7 @@ services:
     image: ghcr.io/foundry-rs/foundry:nightly
     restart: unless-stopped
     platform: linux/amd64
-    pull_policy: always
+    pull_policy: missing
     ports:
       - "8545"
     entrypoint:
@@ -18,7 +18,7 @@ services:
     container_name: l2_geth
     image: us-docker.pkg.dev/evmchain/images/taiko-geth:devnet-genesis-pacaya
     restart: unless-stopped
-    pull_policy: always
+    pull_policy: missing
     volumes:
       - .:/host
     ports:
