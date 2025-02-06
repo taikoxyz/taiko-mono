@@ -39,8 +39,9 @@ contract TaikoToken is TaikoTokenBase {
         external
         returns (bool)
     {
-        if (recipients.length != amounts.length) revert TT_INVALID_PARAM();
-        for (uint256 i; i < recipients.length; ++i) {
+        uint256 size = recipients.length;
+        if (size != amounts.length) revert TT_INVALID_PARAM();
+        for (uint256 i; i < size; ++i) {
             _transfer(msg.sender, recipients[i], amounts[i]);
         }
         return true;

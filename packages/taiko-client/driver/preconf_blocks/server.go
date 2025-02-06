@@ -168,7 +168,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			FeeRecipient: msg.ExecutionPayload.FeeRecipient,
 			Number:       uint64(msg.ExecutionPayload.BlockNumber),
 			GasLimit:     uint64(msg.ExecutionPayload.GasLimit),
-			GasUsed:      uint64(msg.ExecutionPayload.GasUsed),
 			Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
 			Transactions: common.FromHex(msg.ExecutionPayload.Transactions[0].String()),
 		},
