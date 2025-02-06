@@ -240,8 +240,9 @@ contract PEMCertChainLib is IPEMCertChainLib {
         string memory contentSlice = LibString.slice(pemData, contentStart, endPos);
         string[] memory split = LibString.split(contentSlice, string(delimiter));
         string memory contentStr;
+        uint256 size = split.length;
 
-        for (uint256 i; i < split.length; ++i) {
+        for (uint256 i; i < size; ++i) {
             contentStr = LibString.concat(contentStr, split[i]);
         }
 
