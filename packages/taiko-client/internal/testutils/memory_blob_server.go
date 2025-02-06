@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -133,8 +134,12 @@ func (s *MemoryBlobServer) Close() {
 }
 
 // URL returns the URL of the server.
-func (s *MemoryBlobServer) URL() string {
-	return s.server.URL
+func (s *MemoryBlobServer) URL() *url.URL {
+	url, err := url.Parse(s.server.URL)
+	if err != nil {
+		log.Crit("Failed to parse server URL", "err", err)
+	}
+	return url
 }
 
 // AddBlob adds a blob to the server.

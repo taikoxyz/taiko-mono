@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"maps"
-	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -28,7 +27,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 type ProposerTestSuite struct {
@@ -44,16 +42,13 @@ func (s *ProposerTestSuite) SetupTest() {
 	state2, err := state.New(context.Background(), s.RPCClient)
 	s.Nil(err)
 
-	blobServerUrl, err := url.Parse(s.BlobServer.URL())
-	s.Nil(err)
-
 	syncer, err := blob.NewSyncer(
 		context.Background(),
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
-		blobServerUrl,
+		s.BlobServer.URL(),
 		nil,
 	)
 	s.Nil(err)
@@ -120,11 +115,7 @@ func (s *ProposerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.p = p
-	s.p.txmgrSelector = utils.NewTxMgrSelector(
-		testutils.NewMemoryBlobTxMgr(s.p.rpc, s.p.txmgrSelector.TxMgr(), s.BlobServer),
-		testutils.NewMemoryBlobTxMgr(s.p.rpc, s.p.txmgrSelector.PrivateTxMgr(), s.BlobServer),
-		nil,
-	)
+	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 	s.cancel = cancel
 }
 

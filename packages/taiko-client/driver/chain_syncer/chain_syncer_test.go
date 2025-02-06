@@ -39,7 +39,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		false,
 		1*time.Hour,
 		0,
-		nil,
+		s.BlobServer.URL(),
 		nil,
 	)
 	s.Nil(err)
@@ -98,6 +98,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.p = prop
+	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
 func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {

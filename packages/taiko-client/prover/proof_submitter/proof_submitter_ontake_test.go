@@ -139,7 +139,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		testState,
 		tracker,
 		0,
-		nil,
+		s.BlobServer.URL(),
 		nil,
 	)
 	s.Nil(err)
@@ -169,6 +169,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	}, txMgr, txMgr))
 
 	s.proposer = prop
+	s.proposer.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
 func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
