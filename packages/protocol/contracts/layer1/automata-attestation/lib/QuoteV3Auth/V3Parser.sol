@@ -167,7 +167,8 @@ library V3Parser {
     }
 
     function littleEndianDecode(bytes memory encoded) private pure returns (uint256 decoded) {
-        for (uint256 i; i < encoded.length; ++i) {
+        uint256 size = encoded.length;
+        for (uint256 i; i < size; ++i) {
             uint256 digits = uint256(uint8(bytes1(encoded[i])));
             uint256 upperDigit = digits / 16;
             uint256 lowerDigit = digits % 16;

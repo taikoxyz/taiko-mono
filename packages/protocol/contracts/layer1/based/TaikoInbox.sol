@@ -205,17 +205,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
 
-        require(metas.length != 0, NoBlocksToProve());
-        require(metas.length == trans.length, ArraySizesMismatch());
+        uint256 metasLength = metas.length;
+        require(metasLength != 0, NoBlocksToProve());
+        require(metasLength == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
         Config memory config = pacayaConfig();
-        IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](metasLength);
 
         bool hasConflictingProof;
-        for (uint256 i; i < metas.length; ++i) {
+        for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
             require(meta.batchId >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
@@ -298,8 +299,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         // Emit the event
         {
-            uint64[] memory batchIds = new uint64[](metas.length);
-            for (uint256 i; i < metas.length; ++i) {
+            uint64[] memory batchIds = new uint64[](metasLength);
+            for (uint256 i; i < metasLength; ++i) {
                 batchIds[i] = metas[i].batchId;
             }
 
@@ -310,7 +311,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             _pause();
             emit Paused(verifier);
         } else {
-            _verifyBatches(config, stats2, metas.length);
+            _verifyBatches(config, stats2, metasLength);
         }
     }
 
@@ -568,13 +569,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             if (_blobParams.blobHashes.length != 0) {
                 blobHashes_ = _blobParams.blobHashes;
             } else {
-                blobHashes_ = new bytes32[](_blobParams.numBlobs);
-                for (uint256 i; i < _blobParams.numBlobs; ++i) {
+                uint256 numBlobs = _blobParams.numBlobs;
+                blobHashes_ = new bytes32[](numBlobs);
+                for (uint256 i; i < numBlobs; ++i) {
                     blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
                 }
             }
 
-            for (uint256 i; i < blobHashes_.length; ++i) {
+            uint256 bloblHashesLength = blobHashes_.length;
+            for (uint256 i; i < bloblHashesLength; ++i) {
                 require(blobHashes_[i] != 0, BlobNotFound());
             }
             hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
@@ -751,6 +754,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
+        uint256 blocksLength = _params.blocks.length;
         unchecked {
             if (_params.anchorBlockId == 0) {
                 anchorBlockId_ = uint64(block.number - 1);
@@ -774,7 +778,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
 
             uint64 totalShift;
-            for (uint256 i; i < _params.blocks.length; ++i) {
+            for (uint256 i; i < blocksLength; ++i) {
                 totalShift += _params.blocks[i].timeShift;
             }
 
@@ -799,19 +803,21 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             );
         }
 
-        if (_params.signalSlots.length != 0) {
-            require(_params.signalSlots.length <= _maxSignalsToReceive, TooManySignals());
+        uint256 signalSlotsLength = _params.signalSlots.length;
+
+        if (signalSlotsLength != 0) {
+            require(signalSlotsLength <= _maxSignalsToReceive, TooManySignals());
 
             ISignalService signalService =
                 ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
 
-            for (uint256 i; i < _params.signalSlots.length; ++i) {
+            for (uint256 i; i < signalSlotsLength; ++i) {
                 require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
             }
         }
 
-        require(_params.blocks.length != 0, BlockNotFound());
-        require(_params.blocks.length <= _maxBlocksPerBatch, TooManyBlocks());
+        require(blocksLength != 0, BlockNotFound());
+        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
     }
 
     // Memory-only structs ----------------------------------------------------------------------
