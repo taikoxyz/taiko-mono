@@ -358,6 +358,55 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 	s.NotPanics(s.p.updateProposingTicker)
 }
 
+func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
+	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
+	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.s)
+	}
+	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.NotZero(l2Head1.Number.Uint64())
+
+	// Propose a batch which contains two blobs.
+	var (
+		batchSize    = 2
+		txNumInBatch = 500
+		txsBatch     = make([]types.Transactions, 2)
+	)
+	testAddrNonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, l2Head1.Number)
+	s.Nil(err)
+
+	for i := 0; i < batchSize; i++ {
+		for j := 0; j < txNumInBatch; j++ {
+			to := common.BytesToAddress(testutils.RandomBytes(32))
+
+			tx, err := testutils.AssembleTestTx(
+				s.RPCClient.L2,
+				s.TestAddrPrivKey,
+				uint64(i*txNumInBatch+int(testAddrNonce)+j),
+				&to,
+				common.Big1,
+				[]byte{1},
+			)
+			s.Nil(err)
+			txsBatch[i] = append(txsBatch[i], tx)
+		}
+	}
+
+	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch))
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize), l2Head2.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head2.Transactions().Len())
+
+	l2Head3, err := s.RPCClient.L2.BlockByHash(context.Background(), l2Head2.ParentHash())
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize-1), l2Head3.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head3.Transactions().Len())
+}
+
 func (s *ProposerTestSuite) TestStartClose() {
 	s.Nil(s.p.Start())
 	s.cancel()
