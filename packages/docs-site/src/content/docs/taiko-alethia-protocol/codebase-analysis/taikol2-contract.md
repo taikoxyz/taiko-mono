@@ -3,114 +3,136 @@ title: TaikoL2
 description: Taiko Alethia protocol page for "TaikoL2.sol".
 ---
 
-[TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer2/based/TaikoL2.sol) is a smart contract that handles cross-layer message verification and manages EIP-1559 gas pricing for Taiko Alethia operations. It is used to anchor the latest L1 block details to L2 for cross-layer communication, manage EIP-1559 parameters for gas pricing, and store verified L1 block information.
+[TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer2/based/TaikoL2.sol) is a **core smart contract** for the Taiko Alethia rollup, responsible for **cross-layer state synchronization**, **gas pricing via EIP-1559**, and **bridging support**. It ensures L2 remains in sync with L1 and facilitates **secure message verification**.
 
 ---
 
-## Core Purpose
+## Features
 
-1. **Anchor:**
-   Due to Taiko Alethia's **based rollup** nature, each L2 block requires anchoring to the latest L1 block details. The first transaction of every block must perform this anchor, or all calls will revert with `L2_PUBLIC_INPUT_HASH_MISMATCH`.
-
-2. **Gas Pricing:**
-   The contract calculates **EIP-1559 base fee** and updates gas parameters dynamically for optimal gas pricing using key inputs such as `_parentGasUsed` and `_baseFeeConfig`.
-
-3. **State Synchronization:**
-   The contract ensures L2 remains in sync with L1 by storing verified block information and updating state data like block hashes and timestamps.
-
-4. **Bridging Support:**
-   It plays a crucial role in **L1-L2 bridging**, anchoring state roots to enable secure and efficient communication between layers. For more, visit the [Bridging page](/taiko-alethia-protocol/bridging).
+- **Anchor L1 State to L2**: Ensures **L2 block validity** by referencing L1 state.
+- **EIP-1559 Gas Pricing**: Dynamically adjusts **base fees** and **gas targets** based on L1 data.
+- **Cross-Layer Bridging**: Enables **state root anchoring** for message verification between L1 and L2.
+- **Optimized Block Processing**: Ensures **gas-efficient state transitions**.
 
 ---
 
-## Key Functions
+## Contract Methods
 
 ### `anchorV2`
 
-- **Purpose:**
-  Anchors the latest L1 block details to L2, enabling **cross-layer message verification**.
+Anchors **L1 block details** to L2, ensuring state synchronization.
 
-- **Parameters:**
+| Parameter          | Type      | Description                             |
+| ------------------ | --------- | --------------------------------------- |
+| `_anchorBlockId`   | `uint256` | L1 block ID to anchor.                  |
+| `_anchorStateRoot` | `bytes32` | State root of the specified L1 block.   |
+| `_parentGasUsed`   | `uint256` | Gas used in the parent block.           |
+| `_baseFeeConfig`   | `uint256` | Configuration for base fee calculation. |
 
-  - `_anchorBlockId`: The L1 block ID to anchor.
-  - `_anchorStateRoot`: State root of the specified L1 block.
-  - `_parentGasUsed`: Gas usage in the parent block.
-  - `_baseFeeConfig`: Configuration for base fee calculation.
+**Returns**:
 
-- **Mechanism:**
-  Verifies and updates the `publicInputHash`, calculates the base fee and gas excess using `getBasefeeV2`, and synchronizes chain data.
+- Updates `publicInputHash` and synchronizes chain data.
+- Computes gas parameters using `getBasefeeV2`.
 
 ---
 
 ### `getBasefeeV2`
 
-- **Purpose:**
-  Computes the **EIP-1559 base fee** and updates gas parameters like **gas excess** and **gas target**.
+Calculates **EIP-1559 base fee** and updates gas parameters.
 
-- **Parameters:**
+| Parameter        | Type      | Description                              |
+| ---------------- | --------- | ---------------------------------------- |
+| `_parentGasUsed` | `uint256` | Gas used in the parent block.            |
+| `_baseFeeConfig` | `uint256` | Configuration for EIP-1559 calculations. |
 
-  - `_parentGasUsed`: Gas used in the parent block.
-  - `_baseFeeConfig`: Configuration for EIP-1559 calculations.
+**Returns**:
 
-- **Returns:**
+| Return Value    | Type      | Description                |
+| --------------- | --------- | -------------------------- |
+| `basefee_`      | `uint256` | Computed base fee per gas. |
+| `newGasTarget_` | `uint256` | Updated gas target.        |
+| `newGasExcess_` | `uint256` | Updated gas excess.        |
 
-  - `basefee_`: Calculated base fee per gas.
-  - `newGasTarget_`: Updated gas target.
-  - `newGasExcess_`: Updated gas excess.
+**Technical Details**:
 
-- **Technical Details:**
-  Uses `LibEIP1559.calc1559BaseFee` and `LibEIP1559.adjustExcess` for precise gas pricing dynamics.
+- Uses `LibEIP1559.calc1559BaseFee` to compute the **new base fee**.
+- Adjusts gas targets dynamically using `LibEIP1559.adjustExcess`.
 
 ---
 
 ### `getBlockHash`
 
-- **Purpose:**
-  Fetches the block hash for a specified block ID.
+Retrieves the **block hash** for a given block ID.
 
-- **Technical Note:**
-  If the block ID is too old (not in the last 256 blocks), it uses an internal mapping (`_blockhashes`) to retrieve stored hashes.
+| Parameter  | Type      | Description                  |
+| ---------- | --------- | ---------------------------- |
+| `_blockId` | `uint256` | ID of the block to retrieve. |
 
----
+**Returns**:
 
-## Key Events
+| Return Value | Type      | Description                  |
+| ------------ | --------- | ---------------------------- |
+| `blockHash_` | `bytes32` | Hash of the requested block. |
 
-1. **`Anchored`**
-   Emitted when L1 block details are successfully anchored to L2.
+**Technical Note**:
 
-   **Parameters:**
-
-   - `parentHash`: Hash of the parent block.
-   - `parentGasExcess`: Gas excess for base fee calculation.
-     <br/><br/>
-
-2. **`EIP1559Update`**
-   Emitted when gas parameters (e.g., target, excess, base fee) are updated.
-
-   **Parameters:**
-
-   - `oldGasTarget`: Previous gas target.
-   - `newGasTarget`: Updated gas target.
-   - `oldGasExcess`: Previous gas excess.
-   - `newGasExcess`: Updated gas excess.
-   - `basefee`: Calculated base fee.
+- If the block is older than **256 blocks**, `_blockhashes` mapping is used instead of `blockhash()`.
 
 ---
 
-## Important Data Structures
+## Events
 
-### State Variables
+### `Anchored`
 
-1. **`publicInputHash`**:
-   Validates the integrity of public inputs for block verification.
+Emitted when **L1 block details** are successfully anchored to L2.
 
-2. **`parentGasExcess`**:
-   Tracks gas usage exceeding the target for dynamic base fee adjustment.
+| Parameter         | Type      | Description                                |
+| ----------------- | --------- | ------------------------------------------ |
+| `parentHash`      | `bytes32` | Hash of the parent block.                  |
+| `parentGasExcess` | `uint256` | Gas excess used for base fee calculations. |
 
-3. **`lastSyncedBlock`**:
-   Stores the ID of the most recent L1 block synced with L2.
+---
 
-4. **`l1ChainId`**:
-   Chain ID of the base layer (L1).
+### `EIP1559Update`
+
+Emitted when **gas parameters** are updated.
+
+| Parameter      | Type      | Description          |
+| -------------- | --------- | -------------------- |
+| `oldGasTarget` | `uint256` | Previous gas target. |
+| `newGasTarget` | `uint256` | Updated gas target.  |
+| `oldGasExcess` | `uint256` | Previous gas excess. |
+| `newGasExcess` | `uint256` | Updated gas excess.  |
+| `basefee`      | `uint256` | Computed base fee.   |
+
+---
+
+## State Variables
+
+| Variable          | Type      | Description                                                |
+| ----------------- | --------- | ---------------------------------------------------------- |
+| `publicInputHash` | `bytes32` | Ensures integrity of public inputs for block verification. |
+| `parentGasExcess` | `uint256` | Tracks gas usage exceeding the target for fee adjustments. |
+| `lastSyncedBlock` | `uint256` | Stores the **most recent** L1 block ID synced with L2.     |
+| `l1ChainId`       | `uint256` | Chain ID of **L1** (Ethereum).                             |
+
+---
+
+## Design Considerations
+
+1. **State Synchronization**
+
+   - Ensures **L1-L2 consistency** via **anchoring**.
+   - Uses **public input hash validation** to prevent state mismatches.
+
+2. **Gas Efficiency**
+
+   - Implements **EIP-1559 dynamic gas pricing**.
+   - Optimizes **L2 execution costs** based on **L1 gas usage**.
+
+3. **Bridging & Interoperability**
+
+   - Stores **verified state roots** to facilitate **cross-layer message verification**.
+   - Ensures compatibility with **bridging mechanisms**.
 
 ---

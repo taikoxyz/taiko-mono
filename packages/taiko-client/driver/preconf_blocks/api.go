@@ -36,7 +36,6 @@ type ExecutableData struct {
 	FeeRecipient common.Address `json:"feeRecipient"`
 	Number       uint64         `json:"blockNumber"`
 	GasLimit     uint64         `json:"gasLimit"`
-	GasUsed      uint64         `json:"gasUsed"`
 	Timestamp    uint64         `json:"timestamp"`
 	Transactions []byte         `json:"transactions"`
 }

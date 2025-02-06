@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { Result } from "./interface";
 const path = require("path");
-const ARTIFACTS_PATH = path.join(__dirname, "../../../out/genesis");
+const ARTIFACTS_PATH = path.join(__dirname, "../../../out/shared");
 const { computeStorageSlots, getStorageLayout } = require("./utils");
 
 export const TOKEN_NAME = "RegularERC20";
