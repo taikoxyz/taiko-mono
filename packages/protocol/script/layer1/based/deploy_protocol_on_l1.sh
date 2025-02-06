@@ -18,8 +18,6 @@ L2_GENESIS_HASH=0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f2
 PAUSE_BRIDGE=true \
 FOUNDRY_PROFILE="layer1" \
 DEPLOY_PRECONF_CONTRACTS=true \
-INCLUSION_WINDOW=24 \
-INCLUSION_FEE_IN_GWEI=100 \
 forge script ./script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \

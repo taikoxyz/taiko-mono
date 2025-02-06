@@ -20,8 +20,6 @@ import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/ForkRouter.sol";
-import "src/layer1/forced-inclusion/TaikoWrapper.sol";
-import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -392,7 +390,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address resolver
     )
         private
-        returns (address whitelist, address router, address store, address forcedInclusionInbox)
+        returns (address whitelist, address router)
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
@@ -408,35 +406,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
-        store = deployProxy({
-            name: "forced_inclusion_store",
-            impl: address(
-                new ForcedInclusionStore(
-                    resolver,
-                    uint8(vm.envUint("INCLUSION_WINDOW")),
-                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI"))
-                )
-            ),
-            data: abi.encodeCall(ForcedInclusionStore.init, (owner)),
-            registerTo: resolver
-        });
-
-        forcedInclusionInbox = deployProxy({
-            name: "taiko_wrapper",
-            impl: address(new TaikoWrapper(resolver)),
-            data: abi.encodeCall(TaikoWrapper.init, (owner)),
-            registerTo: resolver
-        });
-
-        // forcedInclusionInbox should be the whitelisted proposer, since
-        // we call PreconfRouter as the selected operator, which calls
-        // forcedinclustioninbox.proposeBatchWithForcedInclusion,
-        // which calls taikoInbox.proposeBatch.
-        DefaultResolver(resolver).registerAddress(
-            uint64(block.chainid), LibStrings.B_INBOX_OPERATOR, forcedInclusionInbox
-        );
-
-        return (whitelist, router, store, forcedInclusionInbox);
+        return (whitelist, router);
     }
 
     function addressNotNull(address addr, string memory err) private pure {
