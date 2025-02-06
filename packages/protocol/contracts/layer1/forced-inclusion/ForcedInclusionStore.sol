@@ -10,7 +10,8 @@ import "./IForcedInclusionStore.sol";
 
 /// @title ForcedInclusionStore
 /// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow
-/// users to pay a fee to ensure their transactions are included in a block. The contract maintains a FIFO queue of inclusion requests.
+/// users to pay a fee to ensure their transactions are included in a block. The contract maintains
+/// a FIFO queue of inclusion requests.
 /// @custom:security-contact
 contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;
