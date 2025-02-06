@@ -38,7 +38,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     )
         EssentialContract(_resolver)
     {
-        require(_inclusionDelay != 0 && _inclusionDelay % SECONDS_PER_BLOCK == 0, InvalidParams());
+        require(_inclusionDelay != 0, InvalidParams());
+        require(_inclusionDelay % SECONDS_PER_BLOCK == 0, InvalidParams());
         require(_feeInGwei != 0, InvalidParams());
 
         inclusionDelay = _inclusionDelay;

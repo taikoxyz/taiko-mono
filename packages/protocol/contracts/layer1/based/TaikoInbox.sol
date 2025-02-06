@@ -339,7 +339,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         external
         onlyOwner
     {
-        require(_blockHash != 0 && _parentHash != 0 && _stateRoot != 0, InvalidParams());
+        require(_blockHash != 0, InvalidParams());
+        require(_parentHash != 0, InvalidParams());
+        require(_stateRoot != 0, InvalidParams());
         require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
 
         Config memory config = pacayaConfig();
@@ -424,7 +426,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
-        require(_tid != 0 && _tid < batch.nextTransitionId, TransitionNotFound());
+        require(_tid != 0, TransitionNotFound());
+        require(_tid < batch.nextTransitionId, TransitionNotFound());
         return state.transitions[slot][_tid];
     }
 
