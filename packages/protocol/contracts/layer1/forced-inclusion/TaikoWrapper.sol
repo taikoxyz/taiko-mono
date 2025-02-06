@@ -2,11 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
-import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "src/layer1/based/TaikoInbox.sol";
