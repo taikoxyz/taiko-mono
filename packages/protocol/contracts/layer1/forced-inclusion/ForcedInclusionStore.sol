@@ -10,15 +10,11 @@ import "./IForcedInclusionStore.sol";
 
 /// @title ForcedInclusionStore
 /// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow
-/// users to pay a  fee
-///      to ensure their transactions are included in a block. The contract maintains a FIFO queue
-/// of inclusion requests.
+/// users to pay a fee to ensure their transactions are included in a block. The contract maintains a FIFO queue of inclusion requests.
 /// @custom:security-contact
 contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;
     using LibMath for uint256;
-
-    uint256 private constant SECONDS_PER_BLOCK = 12;
 
     uint8 public immutable inclusionDelay;
     uint64 public immutable feeInGwei;
@@ -39,7 +35,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         EssentialContract(_resolver)
     {
         require(_inclusionDelay != 0, InvalidParams());
-        require(_inclusionDelay % SECONDS_PER_BLOCK == 0, InvalidParams());
         require(_feeInGwei != 0, InvalidParams());
 
         inclusionDelay = _inclusionDelay;
