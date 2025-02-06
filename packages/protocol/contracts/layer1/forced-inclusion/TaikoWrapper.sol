@@ -35,7 +35,6 @@ import "./ForcedInclusionStore.sol";
 /// consumption.
 ///
 /// @custom:security-contact security@taiko.xyz
-
 contract TaikoWrapper is EssentialContract {
     using LibMath for uint256;
 
