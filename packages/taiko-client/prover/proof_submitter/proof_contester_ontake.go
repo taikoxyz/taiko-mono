@@ -32,8 +32,8 @@ type ProofContesterOntake struct {
 func NewProofContester(
 	rpcClient *rpc.Client,
 	gasLimit uint64,
-	txmgr *txmgr.SimpleTxManager,
-	privateTxmgr *txmgr.SimpleTxManager,
+	txmgr txmgr.TxManager,
+	privateTxmgr txmgr.TxManager,
 	proverSetAddress common.Address,
 	graffiti string,
 	builder *transaction.ProveBlockTxBuilder,
