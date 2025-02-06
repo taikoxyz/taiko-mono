@@ -6,6 +6,7 @@ import "src/layer1/based/ITaikoInbox.sol";
 /// @title IPreconfRouter
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfRouter {
+    error ForcedInclusionNotSupported();
     error NotTheOperator();
     error ProposerIsNotTheSender();
 
