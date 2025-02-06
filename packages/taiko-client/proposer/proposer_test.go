@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"maps"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 type ProposerTestSuite struct {
@@ -42,13 +44,16 @@ func (s *ProposerTestSuite) SetupTest() {
 	state2, err := state.New(context.Background(), s.RPCClient)
 	s.Nil(err)
 
+	blobServerUrl, err := url.Parse(s.BlobServer.URL())
+	s.Nil(err)
+
 	syncer, err := blob.NewSyncer(
 		context.Background(),
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
-		nil,
+		blobServerUrl,
 		nil,
 	)
 	s.Nil(err)
@@ -80,6 +85,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
 		ProposeBlockTxGasLimit:     10_000_000,
+		BlobAllowed:                true,
 		FallbackToCalldata:         true,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
@@ -114,6 +120,11 @@ func (s *ProposerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.p = p
+	s.p.txmgrSelector = utils.NewTxMgrSelector(
+		testutils.NewMemoryBlobTxMgr(s.p.rpc, s.p.txmgrSelector.TxMgr(), s.BlobServer),
+		testutils.NewMemoryBlobTxMgr(s.p.rpc, s.p.txmgrSelector.PrivateTxMgr(), s.BlobServer),
+		nil,
+	)
 	s.cancel = cancel
 }
 
@@ -347,6 +358,7 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
 }
+
 func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 	s.p.ProposeInterval = 1 * time.Hour
 	s.NotPanics(s.p.updateProposingTicker)

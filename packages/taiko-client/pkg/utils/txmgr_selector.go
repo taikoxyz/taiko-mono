@@ -60,3 +60,13 @@ func (s *TxMgrSelector) RecordPrivateTxMgrFailed() {
 	now := time.Now()
 	s.privateTxMgrFailedAt = &now
 }
+
+// TxMgrmethod returns the inner transaction manager.
+func (s *TxMgrSelector) TxMgr() txmgr.TxManager {
+	return s.txMgr
+}
+
+// PrivateTxMgr returns the private transaction manager.
+func (s *TxMgrSelector) PrivateTxMgr() txmgr.TxManager {
+	return s.privateTxMgr
+}
