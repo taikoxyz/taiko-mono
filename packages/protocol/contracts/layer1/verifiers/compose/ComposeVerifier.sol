@@ -38,11 +38,12 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         onlyFromNamed(LibStrings.B_TAIKO)
     {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
-        address[] memory verifiers = new address[](subProofs.length);
+        uint256 size = subProofs.length;
+        address[] memory verifiers = new address[](size);
 
         address verifier;
 
-        for (uint256 i; i < subProofs.length; ++i) {
+        for (uint256 i; i < size; ++i) {
             require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
             require(subProofs[i].verifier > verifier, CV_INVALID_SUB_VERIFIER_ORDER());
 

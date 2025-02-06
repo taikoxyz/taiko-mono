@@ -107,7 +107,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
     {
-        for (uint256 i; i < _ids.length; ++i) {
+        uint256 size = _ids.length;
+        for (uint256 i; i < size; ++i) {
             uint256 idx = _ids[i];
 
             require(instances[idx].addr != address(0), SGX_INVALID_INSTANCE());
@@ -162,7 +163,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
         publicInputs[1] = bytes32(uint256(uint160(newInstance)));
         // All other inputs are the block program public inputs (a single 32 byte value)
-        for (uint256 i; i < _ctxs.length; ++i) {
+        uint256 size = _ctxs.length;
+        for (uint256 i; i < size; ++i) {
             // TODO(Yue): For now this assumes the new instance public key to remain the same
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
                 _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
@@ -187,7 +189,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         private
         returns (uint256[] memory ids)
     {
-        ids = new uint256[](_instances.length);
+        uint256 size = _instances.length;
+        ids = new uint256[](size);
 
         uint64 validSince = uint64(block.timestamp);
 
@@ -195,7 +198,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             validSince += INSTANCE_VALIDITY_DELAY;
         }
 
-        for (uint256 i; i < _instances.length; ++i) {
+        for (uint256 i; i < size; ++i) {
             require(!addressRegistered[_instances[i]], SGX_ALREADY_ATTESTED());
 
             addressRegistered[_instances[i]] = true;

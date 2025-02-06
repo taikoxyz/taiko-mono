@@ -42,8 +42,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
 
-        for (uint256 i; i < _op.amounts.length; ++i) {
-            if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
+        {
+            uint256 size = _op.amounts.length;
+            for (uint256 i; i < size; ++i) {
+                if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
+            }
         }
         // Check token interface support
         if (!_op.token.supportsInterface(type(IERC1155).interfaceId)) {
@@ -244,7 +247,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 IERC1155(_op.token).safeBatchTransferFrom(
                     msg.sender, address(this), _op.tokenIds, _op.amounts, ""
                 );
-                for (uint256 i; i < _op.tokenIds.length; ++i) {
+                uint256 size = _op.tokenIds.length;
+                for (uint256 i; i < size; ++i) {
                     IBridgedERC1155(_op.token).burn(_op.tokenIds[i], _op.amounts[i]);
                 }
             } else {

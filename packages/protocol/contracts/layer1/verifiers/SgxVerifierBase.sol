@@ -111,7 +111,8 @@ abstract contract SgxVerifierBase is EssentialContract {
         external
         onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
     {
-        for (uint256 i; i < _ids.length; ++i) {
+        uint256 size = _ids.length;
+        for (uint256 i; i < size; ++i) {
             uint256 idx = _ids[i];
 
             require(instances[idx].addr != address(0), SGX_INVALID_INSTANCE());
@@ -129,7 +130,8 @@ abstract contract SgxVerifierBase is EssentialContract {
         internal
         returns (uint256[] memory ids)
     {
-        ids = new uint256[](_instances.length);
+        uint256 size = _instances.length;
+        ids = new uint256[](size);
 
         uint64 validSince = uint64(block.timestamp);
 
@@ -137,7 +139,7 @@ abstract contract SgxVerifierBase is EssentialContract {
             validSince += INSTANCE_VALIDITY_DELAY;
         }
 
-        for (uint256 i; i < _instances.length; ++i) {
+        for (uint256 i; i < size; ++i) {
             require(!addressRegistered[_instances[i]], SGX_ALREADY_ATTESTED());
 
             addressRegistered[_instances[i]] = true;

@@ -41,8 +41,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     {
         if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
 
-        for (uint256 i; i < _op.tokenIds.length; ++i) {
-            if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
+        {
+            uint256 size = _op.tokenIds.length;
+            for (uint256 i; i < size; ++i) {
+                if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
+            }
         }
 
         if (!_op.token.supportsInterface(type(IERC721).interfaceId)) {
@@ -173,14 +176,15 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         private
         returns (address token_)
     {
+        uint256 size = _tokenIds.length;
         if (_ctoken.chainId == block.chainid) {
             token_ = _ctoken.addr;
-            for (uint256 i; i < _tokenIds.length; ++i) {
+            for (uint256 i; i < size; ++i) {
                 IERC721(token_).safeTransferFrom(address(this), _to, _tokenIds[i]);
             }
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
-            for (uint256 i; i < _tokenIds.length; ++i) {
+            for (uint256 i; i < size; ++i) {
                 IBridgedERC721(token_).mint(_to, _tokenIds[i]);
             }
         }
@@ -195,11 +199,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         private
         returns (bytes memory msgData_, CanonicalNFT memory ctoken_)
     {
+        uint256 size = _op.tokenIds.length;
         unchecked {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                for (uint256 i; i < _op.tokenIds.length; ++i) {
+
+                for (uint256 i; i < size; ++i) {
                     IERC721(_op.token).safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
                     IBridgedERC721(_op.token).burn(_op.tokenIds[i]);
                 }
@@ -211,7 +217,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                     name: safeName(_op.token)
                 });
 
-                for (uint256 i; i < _op.tokenIds.length; ++i) {
+                for (uint256 i; i < size; ++i) {
                     IERC721(_op.token).safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
                 }
             }
