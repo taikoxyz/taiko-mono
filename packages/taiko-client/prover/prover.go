@@ -80,8 +80,8 @@ type Prover struct {
 	batchProofGenerationCh chan *proofProducer.BatchProofs
 
 	// Transactions manager
-	txmgr        *txmgr.SimpleTxManager
-	privateTxmgr *txmgr.SimpleTxManager
+	txmgr        txmgr.TxManager
+	privateTxmgr txmgr.TxManager
 
 	ctx context.Context
 	wg  sync.WaitGroup

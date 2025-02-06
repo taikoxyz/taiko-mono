@@ -30,8 +30,8 @@ type Sender struct {
 // NewSender creates a new Sener instance.
 func NewSender(
 	cli *rpc.Client,
-	txmgr *txmgr.SimpleTxManager,
-	privateTxmgr *txmgr.SimpleTxManager,
+	txmgr txmgr.TxManager,
+	privateTxmgr txmgr.TxManager,
 	proverSetAddress common.Address,
 	gasLimit uint64,
 ) *Sender {
