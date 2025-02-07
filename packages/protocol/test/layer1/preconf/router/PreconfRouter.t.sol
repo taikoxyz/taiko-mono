@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "./RouterTestBase.sol";
+import "./PreconfRouterTestBase.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
-contract RouterTest is RouterTestBase {
-    function test_proposePreconfedBlocks() external {
+contract PreconfRouterTest is PreconfRouterTestBase {
+    function test_preconfRouter_proposePreconfedBlocks() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -60,7 +60,7 @@ contract RouterTest is RouterTestBase {
         assertEq(meta.proposer, Carol);
     }
 
-    function test_proposePreconfedBlocks_notOperator() external {
+    function test_preconfRouter_proposePreconfedBlocks_notOperator() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -91,7 +91,7 @@ contract RouterTest is RouterTestBase {
         router.proposeBatch(abi.encode("", ""), "");
     }
 
-    function test_proposePreconfedBlocks_proposerNotSender() external {
+    function test_preconfRouter_proposePreconfedBlocks_proposerNotSender() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
