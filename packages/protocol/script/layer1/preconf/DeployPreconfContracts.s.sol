@@ -20,6 +20,9 @@ contract DeployPreconfContracts is BaseScript {
         address taikoWrapper = vm.envAddress("TAIKO_WRAPPER");
         require(taikoWrapper != address(0), "invalid TAIKO_WRAPPER");
 
+        address preconfWhitelist = vm.envAddress("PRECONF_WHITELIST");
+        require(preconfWhitelist != address(0), "invalid PRECONF_WHITELIST");
+
         // Deploy PreconfWhitelist
         deploy(
             LibStrings.B_PRECONF_WHITELIST,
@@ -30,7 +33,7 @@ contract DeployPreconfContracts is BaseScript {
         // Deploy PreconfRouter
         deploy(
             LibStrings.B_PRECONF_ROUTER,
-            address(new PreconfRouter(sharedResolver, taikoWrapper)),
+            address(new PreconfRouter(sharedResolver, taikoWrapper, preconfWhitelist)),
             abi.encodeCall(PreconfRouter.init, (contractOwner))
         );
     }

@@ -410,7 +410,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         router = deployProxy({
             name: "preconf_router",
-            impl: address(new PreconfRouter(resolver, taikoWrapper)),
+            impl: address(new PreconfRouter(resolver, taikoWrapper, whitelist)),
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: resolver
         });
