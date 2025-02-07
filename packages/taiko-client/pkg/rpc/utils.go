@@ -212,6 +212,10 @@ func GetBlockProofStatus(
 }
 
 // GetBatchesProofStatus checks whether the L2 blocks batch still needs a new proof.
+// Here are the possible status:
+// 1. No proof on chain at all.
+// 2. An invalid proof has been submitted.
+// 3. A valid proof has been submitted.
 func GetBatchProofStatus(
 	ctx context.Context,
 	cli *Client,
@@ -241,11 +245,12 @@ func GetBatchProofStatus(
 	}
 
 	// Get the transition state from TaikoInbox contract.
-	if _, err = cli.PacayaClients.TaikoInbox.GetTransitionByParentHash(
+	transition, err := cli.PacayaClients.TaikoInbox.GetTransitionByParentHash(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		batchID.Uint64(),
 		parent.Hash(),
-	); err != nil {
+	)
+	if err != nil {
 		if !strings.Contains(encoding.TryParsingCustomError(err).Error(), "TransitionNotFound") {
 			return nil, encoding.TryParsingCustomError(err)
 		}
@@ -254,7 +259,26 @@ func GetBatchProofStatus(
 		return &BlockProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
 
-	// Status 2, a valid proof has been submitted.
+	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+	if err != nil {
+		return nil, err
+	}
+	if transition.BlockHash != lastHeaderInBatch.Hash() ||
+		(transition.StateRoot != (common.Hash{}) && transition.StateRoot != lastHeaderInBatch.Root) {
+		log.Warn(
+			"Different block hash or state root detected, try submitting another proof",
+			"batchID", batchID,
+			"parent", parent.Hash().Hex(),
+			"localBlockHash", lastHeaderInBatch.Hash(),
+			"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
+			"localStateRoot", lastHeaderInBatch.Root,
+			"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
+		)
+		// Status 2, an invalid proof has been submitted.
+		return &BlockProofStatus{IsSubmitted: true, Invalid: true, ParentHeader: parent}, nil
+	}
+
+	// Status 3, a valid proof has been submitted.
 	return &BlockProofStatus{IsSubmitted: true, ParentHeader: parent}, nil
 }
 

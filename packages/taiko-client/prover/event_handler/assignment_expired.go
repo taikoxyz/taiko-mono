@@ -101,6 +101,10 @@ func (h *AssignmentExpiredEventHandler) Handle(
 
 	// If there is no contester, we submit a contest to protocol.
 	go func() {
+		if meta.IsPacaya() {
+			go func() { h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta} }()
+			return
+		}
 		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress && !h.isGuardian {
 			h.proofContestCh <- &proofProducer.ContestRequestBody{
 				BlockID:    meta.Ontake().GetBlockID(),
