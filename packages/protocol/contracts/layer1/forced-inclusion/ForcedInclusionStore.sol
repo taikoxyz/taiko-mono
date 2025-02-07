@@ -17,7 +17,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;
     using LibMath for uint256;
 
-    uint8 public immutable inclusionDelay;
+    uint8 public immutable inclusionDelay; // measured in the number of batches
     uint64 public immutable feeInGwei;
 
     mapping(uint256 id => ForcedInclusion inclusion) public queue; // slot 1
@@ -59,12 +59,12 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
-        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
+        uint64 nextBatchId = ITaikoInbox(resolve(LibStrings.B_TAIKO, false)).getStats2().numBatches;
 
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
             feeInGwei: uint64(msg.value / 1 gwei),
-            createdAtBatchId: inbox.getStats2().numBatches,
+            createdAtBatchId: nextBatchId,
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize
         });
