@@ -47,7 +47,6 @@ func NewProofSubmitterPacaya(
 	aggregationNotify chan uint16,
 	proverSetAddress common.Address,
 	taikoAnchorAddress common.Address,
-	graffiti string,
 	gasLimit uint64,
 	txmgr txmgr.TxManager,
 	privateTxmgr txmgr.TxManager,
