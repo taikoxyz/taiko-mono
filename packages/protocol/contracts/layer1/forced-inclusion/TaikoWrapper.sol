@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer1/based/ITaikoProposerEntryPoint.sol";
+import "src/layer1/based/IProposeBatch.sol";
 import "./ForcedInclusionStore.sol";
 
 /// @title TaikoWrapper
@@ -31,7 +31,7 @@ import "./ForcedInclusionStore.sol";
 /// consumption.
 ///
 /// @custom:security-contact security@taiko.xyz
-contract TaikoWrapper is EssentialContract, ITaikoProposerEntryPoint {
+contract TaikoWrapper is EssentialContract, IProposeBatch {
     using LibMath for uint256;
 
     /// @dev Event emitted when a forced inclusion is processed.
@@ -52,7 +52,7 @@ contract TaikoWrapper is EssentialContract, ITaikoProposerEntryPoint {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc ITaikoProposerEntryPoint
+    /// @inheritdoc IProposeBatch
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList

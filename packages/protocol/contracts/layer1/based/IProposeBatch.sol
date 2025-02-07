@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "./ITaikoInbox.sol";
 
-/// @title ITaikoProposerEntryPoint
+/// @title IProposeBatch
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoProposerEntryPoint {
+interface IProposeBatch {
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "./ProverSetBase.sol";
-import "../based/ITaikoProposerEntryPoint.sol";
+import "../based/IProposeBatch.sol";
 
-contract ProverSet is ProverSetBase, ITaikoProposerEntryPoint {
+contract ProverSet is ProverSetBase, IProposeBatch {
     using Address for address;
 
     error ForcedInclusionParamsNotAllowed();
@@ -22,7 +22,8 @@ contract ProverSet is ProverSetBase, ITaikoProposerEntryPoint {
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        return ITaikoProposerEntryPoint(proposerEntryPoint()).proposeBatch(_params, _txList);
+        address entrypoint = resolve(LibStrings.B_PROPOSE_BLOCK_ENTRYPOINT, false);
+        return IProposeBatch(entrypoint).proposeBatch(_params, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.
