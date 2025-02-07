@@ -86,6 +86,7 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
             emit ForcedInclusionProcessed(inclusion);
         }
 
+        // Propose the normal batch after the potential forced inclusion batch.
         (info_, meta_) = inbox.proposeBatch(_params, _txList);
     }
 }
