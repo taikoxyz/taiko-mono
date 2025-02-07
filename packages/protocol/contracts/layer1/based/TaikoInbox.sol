@@ -11,6 +11,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
+import "./IProposeBatch.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -25,7 +26,8 @@ import "./ITaikoInbox.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
+
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -51,6 +53,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         bytes calldata _txList
     )
         public
+        override(ITaikoInbox, IProposeBatch)
         nonReentrant
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
