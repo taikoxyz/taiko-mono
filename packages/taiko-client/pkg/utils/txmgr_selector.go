@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/modern-go/reflect2"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -42,7 +43,7 @@ func NewTxMgrSelector(
 // Select selects a transaction manager based on the current state.
 func (s *TxMgrSelector) Select() (txmgr.TxManager, bool) {
 	// If there is no private transaction manager, return the normal transaction manager.
-	if s.privateTxMgr == nil {
+	if reflect2.IsNil(s.privateTxMgr) {
 		return s.txMgr, false
 	}
 
