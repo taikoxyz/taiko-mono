@@ -65,17 +65,15 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         IForcedInclusionStore store =
             IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
 
-        (bytes memory forcedInclusionParamsBytes, bytes memory paramsBytes) =
-            abi.decode(_params, (bytes, bytes));
+        (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
-        if (forcedInclusionParamsBytes.length == 0) {
+        if (bytesX.length == 0) {
             require(!store.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
             IForcedInclusionStore.ForcedInclusion memory inclusion =
                 store.consumeOldestForcedInclusion(msg.sender);
 
-            ITaikoInbox.BatchParams memory params =
-                abi.decode(forcedInclusionParamsBytes, (ITaikoInbox.BatchParams));
+            ITaikoInbox.BatchParams memory params = abi.decode(bytesX, (ITaikoInbox.BatchParams));
 
             uint256 numBlocks = params.blocks.length;
             require(numBlocks != 0, InvalidForcedInclusionParams());
@@ -96,6 +94,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        return inbox.proposeBatch(paramsBytes, _txList);
+        return inbox.proposeBatch(bytesY, _txList);
     }
 }
