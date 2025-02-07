@@ -360,9 +360,8 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 
 func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.s)
-	}
+	s.ForkIntoPacaya(s.p, s.s)
+
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.NotZero(l2Head1.Number.Uint64())

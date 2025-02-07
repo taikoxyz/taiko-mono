@@ -19,8 +19,18 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
+
+func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer *blob.Syncer) {
+	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
+		s.ProposeAndInsertValidBlock(proposer, syncer)
+	}
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.GreaterOrEqual(head.Number.Uint64(), s.RPCClient.PacayaClients.ForkHeight)
+}
 
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
 	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}))
