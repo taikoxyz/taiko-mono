@@ -30,6 +30,7 @@ type ClientTestSuite struct {
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
 	AddressManager      *ontakeBindings.AddressManager
+	BlobServer          *MemoryBlobServer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -102,6 +103,7 @@ func (s *ClientTestSuite) SetupTest() {
 	}
 
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
+	s.BlobServer = NewMemoryBlobServer()
 }
 
 func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
@@ -150,8 +152,8 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
-
 	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
+	s.BlobServer.Close()
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {

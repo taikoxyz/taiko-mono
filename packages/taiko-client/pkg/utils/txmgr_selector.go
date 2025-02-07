@@ -14,16 +14,16 @@ var (
 // it will choose the transaction manager for a private mempool if it is available and works well,
 // otherwise it will choose the normal transaction manager.
 type TxMgrSelector struct {
-	txMgr                     *txmgr.SimpleTxManager
-	privateTxMgr              *txmgr.SimpleTxManager
+	txMgr                     txmgr.TxManager
+	privateTxMgr              txmgr.TxManager
 	privateTxMgrFailedAt      *time.Time
 	privateTxMgrRetryInterval time.Duration
 }
 
 // NewTxMgrSelector creates a new TxMgrSelector instance.
 func NewTxMgrSelector(
-	txMgr *txmgr.SimpleTxManager,
-	privateTxMgr *txmgr.SimpleTxManager,
+	txMgr txmgr.TxManager,
+	privateTxMgr txmgr.TxManager,
 	privateTxMgrRetryInterval *time.Duration,
 ) *TxMgrSelector {
 	retryInterval := defaultPrivateTxMgrRetryInterval
@@ -40,7 +40,7 @@ func NewTxMgrSelector(
 }
 
 // Select selects a transaction manager based on the current state.
-func (s *TxMgrSelector) Select() (*txmgr.SimpleTxManager, bool) {
+func (s *TxMgrSelector) Select() (txmgr.TxManager, bool) {
 	// If there is no private transaction manager, return the normal transaction manager.
 	if s.privateTxMgr == nil {
 		return s.txMgr, false
@@ -59,4 +59,14 @@ func (s *TxMgrSelector) Select() (*txmgr.SimpleTxManager, bool) {
 func (s *TxMgrSelector) RecordPrivateTxMgrFailed() {
 	now := time.Now()
 	s.privateTxMgrFailedAt = &now
+}
+
+// TxMgrmethod returns the inner transaction manager.
+func (s *TxMgrSelector) TxMgr() txmgr.TxManager {
+	return s.txMgr
+}
+
+// PrivateTxMgr returns the private transaction manager.
+func (s *TxMgrSelector) PrivateTxMgr() txmgr.TxManager {
+	return s.privateTxMgr
 }
