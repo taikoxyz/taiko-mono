@@ -48,7 +48,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
-		nil,
+		s.BlobServer.URL(),
 		nil,
 	)
 	s.Nil(err)
@@ -80,6 +80,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
 		ProposeBlockTxGasLimit:     10_000_000,
+		BlobAllowed:                true,
 		FallbackToCalldata:         true,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
@@ -114,6 +115,7 @@ func (s *ProposerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.p = p
+	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 	s.cancel = cancel
 }
 
@@ -347,12 +349,62 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
 }
+
 func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 	s.p.ProposeInterval = 1 * time.Hour
 	s.NotPanics(s.p.updateProposingTicker)
 
 	s.p.ProposeInterval = 0
 	s.NotPanics(s.p.updateProposingTicker)
+}
+
+func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
+	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
+	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.s)
+	}
+	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.NotZero(l2Head1.Number.Uint64())
+
+	// Propose a batch which contains two blobs.
+	var (
+		batchSize    = 2
+		txNumInBatch = 500
+		txsBatch     = make([]types.Transactions, 2)
+	)
+	testAddrNonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, l2Head1.Number)
+	s.Nil(err)
+
+	for i := 0; i < batchSize; i++ {
+		for j := 0; j < txNumInBatch; j++ {
+			to := common.BytesToAddress(testutils.RandomBytes(32))
+
+			tx, err := testutils.AssembleTestTx(
+				s.RPCClient.L2,
+				s.TestAddrPrivKey,
+				uint64(i*txNumInBatch+int(testAddrNonce)+j),
+				&to,
+				common.Big1,
+				[]byte{1},
+			)
+			s.Nil(err)
+			txsBatch[i] = append(txsBatch[i], tx)
+		}
+	}
+
+	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch))
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize), l2Head2.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head2.Transactions().Len())
+
+	l2Head3, err := s.RPCClient.L2.BlockByHash(context.Background(), l2Head2.ParentHash())
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize-1), l2Head3.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head3.Transactions().Len())
 }
 
 func (s *ProposerTestSuite) TestStartClose() {
