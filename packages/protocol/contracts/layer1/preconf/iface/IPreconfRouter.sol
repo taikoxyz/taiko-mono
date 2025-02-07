@@ -13,12 +13,10 @@ interface IPreconfRouter {
     /// @notice Proposes a batch of blocks that have been preconfed.
     /// @dev This function only accepts batches from an operator selected to preconf in a particular
     ///      slot or epoch and routes that batch to the TaikoInbox.
-    /// @param _params ABI-encoded parameters for the preconfing operation.
     /// @param _batchParams ABI-encoded parameters specific to the batch.
     /// @param _batchTxList The transaction list associated to the batch.
     /// @return meta_ The metadata of the proposed batch.
     function proposePreconfedBlocks(
-        bytes calldata _params,
         bytes calldata _batchParams,
         bytes calldata _batchTxList
     )

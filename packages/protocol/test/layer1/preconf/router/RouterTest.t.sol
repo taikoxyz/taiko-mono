@@ -54,7 +54,7 @@ contract RouterTest is RouterTestBase {
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
         ITaikoInbox.BatchMetadata memory meta =
-            router.proposePreconfedBlocks("", abi.encode(params), "");
+            router.proposePreconfedBlocks(abi.encode("", abi.encode(params)), "");
 
         // Assert the proposer was set correctly in the metadata
         assertEq(meta.proposer, Carol);
@@ -88,7 +88,7 @@ contract RouterTest is RouterTestBase {
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
         vm.expectRevert(IPreconfRouter.NotTheOperator.selector);
-        router.proposePreconfedBlocks("", "", "");
+        router.proposePreconfedBlocks(abi.encode("", ""), "");
     }
 
     function test_proposePreconfedBlocks_proposerNotSender() external {
@@ -139,6 +139,6 @@ contract RouterTest is RouterTestBase {
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
         vm.expectRevert(IPreconfRouter.ProposerIsNotTheSender.selector);
-        router.proposePreconfedBlocks("", abi.encode(params), "");
+        router.proposePreconfedBlocks(abi.encode("", abi.encode(params)), "");
     }
 }

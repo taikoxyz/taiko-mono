@@ -6,13 +6,34 @@ import "./ProverSetBase.sol";
 contract ProverSet is ProverSetBase {
     using Address for address;
 
+    error ForcedInclusionParamsNotAllowed();
+
     constructor(address _resolver) ProverSetBase(_resolver) { }
 
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
-    function proposeBatch(bytes calldata _params, bytes calldata _txList) external onlyProver {
-        inbox().functionCall(abi.encodeWithSignature("proposeBatch(bytes,bytes)", _params, _txList));
+    function proposeBatch(
+        bytes calldata _forcedInclusionParams,
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        onlyProver
+    {
+        address wrapper = inboxWrapper();
+        if (wrapper == address(0)) {
+            require(_forcedInclusionParams.length == 0, ForcedInclusionParamsNotAllowed());
+            inbox().functionCall(
+                abi.encodeWithSignature("proposeBatch(bytes,bytes)", _params, _txList)
+            );
+        } else {
+            wrapper.functionCall(
+                abi.encodeWithSignature(
+                    "proposeBatch(bytes,bytes,bytes)", _forcedInclusionParams, _params, _txList
+                )
+            );
+        }
     }
 
     /// @notice Proves multiple Taiko batches.
