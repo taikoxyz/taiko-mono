@@ -249,7 +249,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 		}
 
 		if a.proverSetAddress != ZeroAddress {
-			if data, err = encoding.ProverSetABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
+			if data, err = encoding.ProverSetPacayaABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
 			to = a.proverSetAddress
