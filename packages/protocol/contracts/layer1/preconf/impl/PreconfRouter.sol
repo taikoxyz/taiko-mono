@@ -31,13 +31,10 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         require(msg.sender == selectedOperator, NotTheOperator());
 
         // check if we have a forced inclusion inbox
-        address entryPoint = resolve(LibStrings.B_TAIKO_WRAPPER, true);
-        if (entryPoint == address(0)) {
-            entryPoint = resolve(LibStrings.B_TAIKO, false);
-        }
+        address wrapper = resolve(LibStrings.B_TAIKO_WRAPPER, true);
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = ITaikoProposerEntryPoint(entryPoint).proposeBatch(_params, _txList);
+        (info_, meta_) = ITaikoProposerEntryPoint(wrapper).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
