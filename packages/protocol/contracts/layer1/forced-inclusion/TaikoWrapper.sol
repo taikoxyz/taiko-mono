@@ -35,7 +35,7 @@ import "./ITaikoWrapper.sol";
 contract TaikoWrapper is EssentialContract, ITaikoWrapper {
     using LibMath for uint256;
 
-    uint16 public constant MAX_FORCED_TXS_PER_FORCED_INCLUSION = 512;
+    uint16 public constant MIN_FORCED_TXS_PER_FORCED_INCLUSION = 512;
 
     uint256[50] private __gap;
 
@@ -72,7 +72,7 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
             require(numBlocks != 0, InvalidForcedInclusionParams());
             for (uint256 i; i < numBlocks; ++i) {
                 require(
-                    params.blocks[i].numTransactions >= MAX_FORCED_TXS_PER_FORCED_INCLUSION,
+                    params.blocks[i].numTransactions >= MIN_FORCED_TXS_PER_FORCED_INCLUSION,
                     InvalidForcedInclusionParams()
                 );
             }
