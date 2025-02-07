@@ -13,32 +13,13 @@ contract ProverSet is ProverSetBase {
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
-    function proposeBatch(
-        bytes calldata _forcedInclusionParams,
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        onlyProver
-    {
-        address wrapper = inboxWrapper();
-        if (wrapper == address(0)) {
-            require(_forcedInclusionParams.length == 0, ForcedInclusionParamsNotAllowed());
-            inbox().functionCall(
-                abi.encodeWithSignature("proposeBatch(bytes,bytes)", _params, _txList)
-            );
-        } else {
-            wrapper.functionCall(
-                abi.encodeWithSignature(
-                    "proposeBatch(bytes,bytes,bytes)", _forcedInclusionParams, _params, _txList
-                )
-            );
-        }
+    function proposeBatch(bytes calldata _params, bytes calldata _txList) external onlyProver {
+        ITaikoInbox(taiko()).proposeBatch(_params, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.
     function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
-        inbox().functionCall(abi.encodeWithSignature("proveBatches(bytes,bytes)", _params, _proof));
+        ITaikoInbox(inbox()).proveBatches(_params, _proof);
     }
 
     // ================ Ontake calls ================
