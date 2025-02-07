@@ -9,9 +9,12 @@ import "../iface/IPreconfWhitelist.sol";
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IPreconfRouter {
+    address public immutable proposerEntryPoint;
     uint256[50] private __gap;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _resolver, address _proposerEntryPoint) EssentialContract(_resolver) {
+        proposerEntryPoint = _proposerEntryPoint;
+    }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
@@ -30,11 +33,8 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
             IPreconfWhitelist(resolve(LibStrings.B_PRECONF_WHITELIST, false)).getOperatorForEpoch();
         require(msg.sender == selectedOperator, NotTheOperator());
 
-        // check if we have a forced inclusion inbox
-        address wrapper = resolve(LibStrings.B_TAIKO_WRAPPER, true);
-
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = ITaikoProposerEntryPoint(wrapper).proposeBatch(_params, _txList);
+        (info_, meta_) = ITaikoProposerEntryPoint(proposerEntryPoint).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());

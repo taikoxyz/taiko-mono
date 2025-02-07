@@ -17,6 +17,9 @@ contract DeployPreconfContracts is BaseScript {
         address sharedResolver = vm.envAddress("SHARED_RESOLVER");
         require(sharedResolver != address(0), "invalid SHARED_RESOLVER");
 
+        address taikoWrapper = vm.envAddress("TAIKO_WRAPPER");
+        require(taikoWrapper != address(0), "invalid TAIKO_WRAPPER");
+
         // Deploy PreconfWhitelist
         deploy(
             LibStrings.B_PRECONF_WHITELIST,
@@ -27,7 +30,7 @@ contract DeployPreconfContracts is BaseScript {
         // Deploy PreconfRouter
         deploy(
             LibStrings.B_PRECONF_ROUTER,
-            address(new PreconfRouter(sharedResolver)),
+            address(new PreconfRouter(sharedResolver, taikoWrapper)),
             abi.encodeCall(PreconfRouter.init, (contractOwner))
         );
     }

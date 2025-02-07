@@ -18,7 +18,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
 
         vm.chainId(1);
 
-        deploy({
+        address taikoWrapper = deploy({
             name: "taiko_wrapper",
             impl: address(new MockTaikoInbox(address(resolver))),
             data: abi.encodeCall(MockTaikoInbox.init, (address(0)))
@@ -37,7 +37,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         router = PreconfRouter(
             deploy({
                 name: "preconf_router",
-                impl: address(new PreconfRouter(address(resolver))),
+                impl: address(new PreconfRouter(address(resolver), taikoWrapper)),
                 data: abi.encodeCall(PreconfRouter.init, (routerOwner))
             })
         );
