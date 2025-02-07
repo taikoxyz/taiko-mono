@@ -58,7 +58,8 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
         IForcedInclusionStore store =
             IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
 
-        (bytes memory forcedInclusionParamsBytes, bytes memory paramsBytes) = abi.decode(_params, (bytes, bytes));
+        (bytes memory forcedInclusionParamsBytes, bytes memory paramsBytes) =
+            abi.decode(_params, (bytes, bytes));
 
         if (forcedInclusionParamsBytes.length == 0) {
             require(!store.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
