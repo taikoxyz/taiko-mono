@@ -56,7 +56,6 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
-
         IForcedInclusionStore store =
             IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
 
@@ -69,14 +68,13 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
             ITaikoInbox.BatchParams memory params =
                 abi.decode(_forcedInclusionParams, (ITaikoInbox.BatchParams));
 
-            // Overwrite the batch params to have only 1 block and up to
-            // MAX_FORCED_TXS_PER_FORCED_INCLUSION transactions
-            if (params.blocks.length == 0) {
-                params.blocks = new ITaikoInbox.BlockParams[](1);
-            }
-
-            if (params.blocks[0].numTransactions < MAX_FORCED_TXS_PER_FORCED_INCLUSION) {
-                params.blocks[0].numTransactions = MAX_FORCED_TXS_PER_FORCED_INCLUSION;
+            uint256 numBlocks = params.blocks.length;
+            require(numBlocks != 0, InvalidForcedInclusionParams());
+            for (uint256 i; i < numBlocks; ++i) {
+                require(
+                    params.blocks[i].numTransactions >= MAX_FORCED_TXS_PER_FORCED_INCLUSION,
+                    InvalidForcedInclusionParams()
+                );
             }
 
             params.blobParams.blobHashes = new bytes32[](1);
