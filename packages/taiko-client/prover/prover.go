@@ -248,7 +248,7 @@ func (p *Prover) Start() error {
 		}
 	}
 
-	// 3. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
+	// 2. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
 	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
 		// Send the startup message to the guardian prover health check server.
 		if err := p.guardianProverHeartbeater.SendStartupMessage(
@@ -265,7 +265,7 @@ func (p *Prover) Start() error {
 		go p.guardianProverHeartbeatLoop(p.ctx)
 	}
 
-	// 4. Start the main event loop of the prover.
+	// 3. Start the main event loop of the prover.
 	go p.eventLoop()
 
 	return nil
