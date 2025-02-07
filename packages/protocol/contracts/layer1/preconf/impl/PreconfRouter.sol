@@ -2,26 +2,27 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
 
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IPreconfRouter {
-    address public immutable inbox;
+    address public immutable proposeBlockEntrypoint;
     address public immutable preconfWhitelist;
 
     uint256[50] private __gap;
 
     constructor(
         address _resolver,
-        address _inbox,
+        address _proposeBlockEntrypoint,
         address _preconfWhitelist
     )
+        nonZeroAddr(_proposeBlockEntrypoint)
+        nonZeroAddr(_preconfWhitelist)
         EssentialContract(_resolver)
     {
-        inbox = _inbox;
+        proposeBlockEntrypoint = _proposeBlockEntrypoint;
         preconfWhitelist = _preconfWhitelist;
     }
 
@@ -42,7 +43,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         require(msg.sender == selectedOperator, NotTheOperator());
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = IProposeBatch(inbox).proposeBatch(_params, _txList);
+        (info_, meta_) = IProposeBatch(proposeBlockEntrypoint).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
