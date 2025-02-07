@@ -267,8 +267,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
 
-
-    address taikoInboxAddr = deployProxy({
+        address taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new PacayaForkRouter(oldFork, newFork)),
             data: "",
