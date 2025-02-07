@@ -21,6 +21,7 @@ library LibStrings {
     bytes32 internal constant B_PRECONF_WHITELIST = bytes32("preconf_whitelist");
     bytes32 internal constant B_PRECONF_WHITELIST_OWNER = bytes32("preconf_whitelist_owner");
     bytes32 internal constant B_PROOF_VERIFIER = bytes32("proof_verifier");
+    bytes32 internal constant B_PROPOSER_ENTRY_POINT = bytes32("proposer_entry_point");
     bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
     bytes32 internal constant B_SGX_WATCHDOG = bytes32("sgx_watchdog");
