@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
-import "src/layer1/based/ITaikoInbox.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
 
@@ -38,7 +37,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = ITaikoInbox(entryPoint).proposeBatch(_params, _txList);
+        (info_, meta_) = ITaikoProposerEntryPoint(entryPoint).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());

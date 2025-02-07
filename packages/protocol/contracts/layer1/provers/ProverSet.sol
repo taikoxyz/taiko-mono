@@ -22,7 +22,7 @@ contract ProverSet is ProverSetBase, ITaikoProposerEntryPoint {
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        return ITaikoInbox(proposerEntryPoint()).proposeBatch(_params, _txList);
+        return ITaikoProposerEntryPoint(proposerEntryPoint()).proposeBatch(_params, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.
