@@ -7,7 +7,7 @@ import "./ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoProposerEntryPoint {
     /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded parameters that are specific implications.
+    /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
     /// @return info_ The info of the proposed batch.
