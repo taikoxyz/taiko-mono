@@ -10,21 +10,21 @@ import "./ITaikoWrapper.sol";
 /// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
 /// transactions.
 /// The current design is a simplified and can be improved with the following ideas:
-/// 1. **Fee-Based Request Prioritization**:
+/// 1. Fee-Based Request Prioritization:
 ///    - Proposers can selectively fulfill pending requests based on transaction fees.
 ///    - Requests not yet due can be processed earlier if fees are attractive, incentivizing timely
 /// execution.
 ///
-/// 2. **Rate Limit Control**:
+/// 2. Rate Limit Control:
 ///    - A rate-limiting mechanism ensures a minimum interval of 12*N seconds between request
 /// fulfillments.
 ///    - Prevents proposers from being overwhelmed during high request volume, ensuring system
 /// stability.
 ///
-/// 3. **Calldata and Blob Support**:
+/// 3. Calldata and Blob Support:
 ///    - Supports both calldata and blobs in the transaction list.
 ///
-/// 4. **Gas-Efficient Request Storage**:
+/// 4. Gas-Efficient Request Storage:
 ///    - Avoids storing full request data in contract storage.
 ///    - Saves only the request hash and its timestamp.
 ///    - Leverages Ethereum events to store request details off-chain.
