@@ -43,6 +43,27 @@ func NewSender(
 	}
 }
 
+func getProofTypeString(tier uint16) string {
+	switch tier {
+	case encoding.TierOptimisticID:
+		return "Optimistic"
+	case encoding.TierSgxID:
+		return "SGX"
+	case encoding.TierZkVMRisc0ID:
+		return "ZK-RISC0"
+	case encoding.TierZkVMSp1ID:
+		return "ZK-SP1"
+	case encoding.TierSgxAndZkVMID:
+		return "SGX+ZK"
+	case encoding.TierGuardianMinorityID:
+		return "Guardian-Minority"
+	case encoding.TierGuardianMajorityID:
+		return "Guardian-Majority"
+	default:
+		return "Unknown"
+	}
+}
+
 // Send sends the given proof to the TaikoL1 smart contract with a backoff policy.
 func (s *Sender) Send(
 	ctx context.Context,
@@ -166,7 +187,7 @@ func (s *Sender) SendBatchProof(
 	}
 
 	log.Info(
-		"🚚 Your batch proofs were accepted",
+		fmt.Sprintf("🚚 Your %s batch proofs were accepted", getProofTypeString(batchProof.Tier)),
 		"txHash", receipt.TxHash,
 		"tier", batchProof.Tier,
 		"blockIDs", batchProof.BlockIDs,
