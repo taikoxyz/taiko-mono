@@ -19,7 +19,7 @@ import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/fork-router/ForkRouter.sol";
+import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -264,10 +264,13 @@ contract DeployProtocolOnL1 is DeployCapability {
             oldFork = address(new DevnetInbox(address(rollupResolver)));
         }
         address newFork = address(new DevnetInbox(address(rollupResolver)));
+        console2.log("  oldFork       :", oldFork);
+        console2.log("  newFork       :", newFork);
 
-        address taikoInboxAddr = deployProxy({
+
+    address taikoInboxAddr = deployProxy({
             name: "taiko",
-            impl: address(new ForkRouter(oldFork, newFork)),
+            impl: address(new PacayaForkRouter(oldFork, newFork)),
             data: "",
             registerTo: rollupResolver
         });
