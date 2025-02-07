@@ -88,6 +88,7 @@ func (s *ProverTestSuite) SetupTest() {
 			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:        string(jwtSecret),
 		},
+		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
 	s.d = d
 
@@ -114,6 +115,7 @@ func (s *ProverTestSuite) SetupTest() {
 	}, s.txmgr, s.txmgr))
 
 	s.proposer = prop
+	s.proposer.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
 func (s *ProverTestSuite) TestName() {

@@ -30,8 +30,8 @@ type Sender struct {
 // NewSender creates a new Sener instance.
 func NewSender(
 	cli *rpc.Client,
-	txmgr *txmgr.SimpleTxManager,
-	privateTxmgr *txmgr.SimpleTxManager,
+	txmgr txmgr.TxManager,
+	privateTxmgr txmgr.TxManager,
 	proverSetAddress common.Address,
 	gasLimit uint64,
 ) *Sender {
@@ -40,6 +40,27 @@ func NewSender(
 		txmgrSelector:    utils.NewTxMgrSelector(txmgr, privateTxmgr, nil),
 		proverSetAddress: proverSetAddress,
 		gasLimit:         gasLimit,
+	}
+}
+
+func getProofTypeString(tier uint16) string {
+	switch tier {
+	case encoding.TierOptimisticID:
+		return "Optimistic"
+	case encoding.TierSgxID:
+		return "SGX"
+	case encoding.TierZkVMRisc0ID:
+		return "ZK-RISC0"
+	case encoding.TierZkVMSp1ID:
+		return "ZK-SP1"
+	case encoding.TierSgxAndZkVMID:
+		return "SGX+ZK"
+	case encoding.TierGuardianMinorityID:
+		return "Guardian-Minority"
+	case encoding.TierGuardianMajorityID:
+		return "Guardian-Majority"
+	default:
+		return "Unknown"
 	}
 }
 
@@ -166,7 +187,7 @@ func (s *Sender) SendBatchProof(
 	}
 
 	log.Info(
-		"🚚 Your batch proofs were accepted",
+		fmt.Sprintf("🚚 Your %s batch proofs were accepted", getProofTypeString(batchProof.Tier)),
 		"txHash", receipt.TxHash,
 		"tier", batchProof.Tier,
 		"blockIDs", batchProof.BlockIDs,

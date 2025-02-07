@@ -49,8 +49,8 @@ func NewProofSubmitterPacaya(
 	taikoAnchorAddress common.Address,
 	graffiti string,
 	gasLimit uint64,
-	txmgr *txmgr.SimpleTxManager,
-	privateTxmgr *txmgr.SimpleTxManager,
+	txmgr txmgr.TxManager,
+	privateTxmgr txmgr.TxManager,
 	builder *transaction.ProveBlockTxBuilder,
 ) (*ProofSubmitterPacaya, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, rpcClient.L2.ChainID, rpcClient)
