@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "./RouterTestBase.sol";
+import "./PreconfRouterTestBase.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
-contract RouterTest is RouterTestBase {
-    function test_proposePreconfedBlocks() external {
+contract PreconfRouterTest is PreconfRouterTestBase {
+    function test_preconfRouter_proposeBatch() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -53,14 +53,13 @@ contract RouterTest is RouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        ITaikoInbox.BatchMetadata memory meta =
-            router.proposePreconfedBlocks("", abi.encode(params), "");
+        (, ITaikoInbox.BatchMetadata memory meta) = router.proposeBatch(abi.encode(params), "");
 
         // Assert the proposer was set correctly in the metadata
         assertEq(meta.proposer, Carol);
     }
 
-    function test_proposePreconfedBlocks_notOperator() external {
+    function test_preconfRouter_proposeBatch_notOperator() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -88,10 +87,10 @@ contract RouterTest is RouterTestBase {
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
         vm.expectRevert(IPreconfRouter.NotTheOperator.selector);
-        router.proposePreconfedBlocks("", "", "");
+        router.proposeBatch("", "");
     }
 
-    function test_proposePreconfedBlocks_proposerNotSender() external {
+    function test_preconfRouter_proposeBatch_proposerNotSender() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -139,6 +138,6 @@ contract RouterTest is RouterTestBase {
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
         vm.expectRevert(IPreconfRouter.ProposerIsNotTheSender.selector);
-        router.proposePreconfedBlocks("", abi.encode(params), "");
+        router.proposeBatch(abi.encode(params), "");
     }
 }

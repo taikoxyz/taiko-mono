@@ -2,9 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer1/based/ITaikoInbox.sol";
+import "src/layer1/based/ITaikoProposerEntryPoint.sol";
 import "./ForcedInclusionStore.sol";
-import "./ITaikoWrapper.sol";
 
 /// @title TaikoWrapper
 /// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
@@ -32,8 +31,16 @@ import "./ITaikoWrapper.sol";
 /// consumption.
 ///
 /// @custom:security-contact security@taiko.xyz
-contract TaikoWrapper is EssentialContract, ITaikoWrapper {
+contract TaikoWrapper is EssentialContract, ITaikoProposerEntryPoint {
     using LibMath for uint256;
+
+    /// @dev Event emitted when a forced inclusion is processed.
+    event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
+
+    /// @dev Error thrown when the forced inclusion params are invalid.
+    error InvalidForcedInclusionParams();
+    /// @dev Error thrown when the oldest forced inclusion is due.
+    error OldestForcedInclusionDue();
 
     uint16 public constant MIN_FORCED_TXS_PER_FORCED_INCLUSION = 512;
 
@@ -45,28 +52,30 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc ITaikoWrapper
+    /// @inheritdoc ITaikoProposerEntryPoint
     function proposeBatch(
-        bytes calldata _forcedInclusionParams,
         bytes calldata _params,
         bytes calldata _txList
     )
         external
         nonReentrant
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
         ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
         IForcedInclusionStore store =
             IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
 
-        if (_forcedInclusionParams.length == 0) {
+        (bytes memory forcedInclusionParamsBytes, bytes memory paramsBytes) =
+            abi.decode(_params, (bytes, bytes));
+
+        if (forcedInclusionParamsBytes.length == 0) {
             require(!store.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
             IForcedInclusionStore.ForcedInclusion memory inclusion =
                 store.consumeOldestForcedInclusion(msg.sender);
 
             ITaikoInbox.BatchParams memory params =
-                abi.decode(_forcedInclusionParams, (ITaikoInbox.BatchParams));
+                abi.decode(forcedInclusionParamsBytes, (ITaikoInbox.BatchParams));
 
             uint256 numBlocks = params.blocks.length;
             require(numBlocks != 0, InvalidForcedInclusionParams());
@@ -87,6 +96,6 @@ contract TaikoWrapper is EssentialContract, ITaikoWrapper {
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        (info_, meta_) = inbox.proposeBatch(_params, _txList);
+        return inbox.proposeBatch(paramsBytes, _txList);
     }
 }

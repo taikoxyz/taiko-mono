@@ -6,7 +6,7 @@ import "../mocks/MockTaikoInbox.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 
-abstract contract RouterTestBase is Layer1Test {
+abstract contract PreconfRouterTestBase is Layer1Test {
     PreconfRouter internal router;
     PreconfWhitelist internal whitelist;
     address internal routerOwner;
@@ -18,8 +18,8 @@ abstract contract RouterTestBase is Layer1Test {
 
         vm.chainId(1);
 
-        deploy({
-            name: "taiko",
+        address taikoWrapper = deploy({
+            name: "taiko_wrapper",
             impl: address(new MockTaikoInbox(address(resolver))),
             data: abi.encodeCall(MockTaikoInbox.init, (address(0)))
         });
@@ -37,7 +37,7 @@ abstract contract RouterTestBase is Layer1Test {
         router = PreconfRouter(
             deploy({
                 name: "preconf_router",
-                impl: address(new PreconfRouter(address(resolver))),
+                impl: address(new PreconfRouter(address(resolver), taikoWrapper, address(whitelist))),
                 data: abi.encodeCall(PreconfRouter.init, (routerOwner))
             })
         );

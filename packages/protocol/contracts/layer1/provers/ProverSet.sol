@@ -2,22 +2,32 @@
 pragma solidity ^0.8.24;
 
 import "./ProverSetBase.sol";
+import "../based/ITaikoProposerEntryPoint.sol";
 
-contract ProverSet is ProverSetBase {
+contract ProverSet is ProverSetBase, ITaikoProposerEntryPoint {
     using Address for address;
+
+    error ForcedInclusionParamsNotAllowed();
 
     constructor(address _resolver) ProverSetBase(_resolver) { }
 
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
-    function proposeBatch(bytes calldata _params, bytes calldata _txList) external onlyProver {
-        inbox().functionCall(abi.encodeWithSignature("proposeBatch(bytes,bytes)", _params, _txList));
+    function proposeBatch(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        onlyProver
+        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+    {
+        return ITaikoProposerEntryPoint(proposerEntryPoint()).proposeBatch(_params, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.
     function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
-        inbox().functionCall(abi.encodeWithSignature("proveBatches(bytes,bytes)", _params, _proof));
+        ITaikoInbox(inbox()).proveBatches(_params, _proof);
     }
 
     // ================ Ontake calls ================

@@ -3,47 +3,46 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
-import "src/layer1/based/ITaikoInbox.sol";
-import "src/layer1/forced-inclusion/ITaikoWrapper.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
 
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IPreconfRouter {
+    address public immutable proposerEntryPoint;
+    address public immutable preconfWhitelist;
+
     uint256[50] private __gap;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(
+        address _resolver,
+        address _proposerEntryPoint,
+        address _preconfWhitelist
+    )
+        EssentialContract(_resolver)
+    {
+        proposerEntryPoint = _proposerEntryPoint;
+        preconfWhitelist = _preconfWhitelist;
+    }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc IPreconfRouter
-    function proposePreconfedBlocks(
-        bytes calldata _forcedInclusionParams,
-        bytes calldata _batchParams,
-        bytes calldata _batchTxList
+    /// @inheritdoc ITaikoProposerEntryPoint
+    function proposeBatch(
+        bytes calldata _params,
+        bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
-        address selectedOperator =
-            IPreconfWhitelist(resolve(LibStrings.B_PRECONF_WHITELIST, false)).getOperatorForEpoch();
+        address selectedOperator = IPreconfWhitelist(preconfWhitelist).getOperatorForEpoch();
         require(msg.sender == selectedOperator, NotTheOperator());
 
-        // check if we have a forced inclusion inbox
-        address wrapper = resolve(LibStrings.B_TAIKO_WRAPPER, true);
-        if (wrapper == address(0)) {
-            require(_forcedInclusionParams.length == 0, ForcedInclusionNotSupported());
-            address taikoInbox = resolve(LibStrings.B_TAIKO, false);
-            (, meta_) = ITaikoInbox(taikoInbox).proposeBatch(_batchParams, _batchTxList);
-        } else {
-            (, meta_) = ITaikoWrapper(wrapper).proposeBatch(
-                _forcedInclusionParams, _batchParams, _batchTxList
-            );
-        }
+        // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
+        (info_, meta_) = ITaikoProposerEntryPoint(proposerEntryPoint).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());

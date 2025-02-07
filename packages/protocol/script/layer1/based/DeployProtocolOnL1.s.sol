@@ -392,7 +392,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address resolver
     )
         private
-        returns (address whitelist, address router, address store, address forcedInclusionInbox)
+        returns (address whitelist, address router, address store, address taikoWrapper)
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
@@ -401,9 +401,16 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
+        taikoWrapper = deployProxy({
+            name: "taiko_wrapper",
+            impl: address(new TaikoWrapper(resolver)),
+            data: abi.encodeCall(TaikoWrapper.init, (owner)),
+            registerTo: resolver
+        });
+
         router = deployProxy({
             name: "preconf_router",
-            impl: address(new PreconfRouter(resolver)),
+            impl: address(new PreconfRouter(resolver, taikoWrapper, whitelist)),
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: resolver
         });
@@ -421,22 +428,15 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
-        forcedInclusionInbox = deployProxy({
-            name: "taiko_wrapper",
-            impl: address(new TaikoWrapper(resolver)),
-            data: abi.encodeCall(TaikoWrapper.init, (owner)),
-            registerTo: resolver
-        });
-
-        // forcedInclusionInbox should be the whitelisted proposer, since
+        // taikoWrapper should be the whitelisted proposer, since
         // we call PreconfRouter as the selected operator, which calls
         // forcedinclustioninbox.proposeBatchWithForcedInclusion,
         // which calls taikoInbox.proposeBatch.
         DefaultResolver(resolver).registerAddress(
-            uint64(block.chainid), LibStrings.B_INBOX_OPERATOR, forcedInclusionInbox
+            uint64(block.chainid), LibStrings.B_INBOX_OPERATOR, taikoWrapper
         );
 
-        return (whitelist, router, store, forcedInclusionInbox);
+        return (whitelist, router, store, taikoWrapper);
     }
 
     function addressNotNull(address addr, string memory err) private pure {
