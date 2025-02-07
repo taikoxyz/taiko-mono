@@ -2,8 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "./ProverSetBase.sol";
+import "../based/ITaikoProposerEntryPoint.sol";
 
-contract ProverSet is ProverSetBase {
+contract ProverSet is ProverSetBase, ITaikoProposerEntryPoint {
     using Address for address;
 
     error ForcedInclusionParamsNotAllowed();
@@ -13,8 +14,15 @@ contract ProverSet is ProverSetBase {
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
-    function proposeBatch(bytes calldata _params, bytes calldata _txList) external onlyProver {
-        ITaikoInbox(taiko()).proposeBatch(_params, _txList);
+    function proposeBatch(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        onlyProver
+        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+    {
+        return ITaikoInbox(proposerEntryPoint()).proposeBatch(_params, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.

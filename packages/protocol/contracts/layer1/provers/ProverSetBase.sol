@@ -125,7 +125,7 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
         return resolve(LibStrings.B_TAIKO, false);
     }
 
-    function taiko() internal view virtual returns (address) {
+    function proposerEntryPoint() internal view virtual returns (address) {
         address addr = resolve(LibStrings.B_PRECONF_ROUTER, true);
         if (addr != address(0)) return addr;
 

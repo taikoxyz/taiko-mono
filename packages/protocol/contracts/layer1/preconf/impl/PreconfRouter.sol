@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/layer1/based/ITaikoInbox.sol";
-import "src/layer1/forced-inclusion/ITaikoWrapper.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
 
@@ -19,13 +18,13 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc IPreconfRouter
-    function proposePreconfedBlocks(
-        bytes calldata _batchParams,
-        bytes calldata _batchTxList
+    /// @inheritdoc ITaikoProposerEntryPoint
+    function proposeBatch(
+        bytes calldata _params,
+        bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
         address selectedOperator =
@@ -39,7 +38,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (, meta_) = ITaikoInbox(taiko).proposeBatch(_batchParams, _batchTxList);
+        (info_, meta_) = ITaikoInbox(taiko).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
