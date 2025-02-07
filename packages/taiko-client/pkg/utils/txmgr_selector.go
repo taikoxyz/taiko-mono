@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"github.com/modern-go/reflect2"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/modern-go/reflect2"
 )
 
 var (
