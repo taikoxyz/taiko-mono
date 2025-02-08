@@ -19,9 +19,9 @@ Taiko Alethia is an **Ethereum-equivalent, permissionless, based rollup** design
 
 ### Key Concepts in Taiko Alethia
 
-- [Based rollup](/core-concepts/based-rollups): A rollup where Ethereum L1 validators sequence blocks, removing the need for a centralized sequencer.
-- [Based contestable rollup](/core-concepts/contestable-rollup): A configurable, multi-proof rollup with hierarchical proving mechanisms to enhance security.
-- [Based booster rollup](/core-concepts/booster-rollups): Native L1 scaling via Ethereum-equivalent L2.
+- [Based rollup](/taiko-alethia-protocol/based-rollups): A rollup where Ethereum L1 validators sequence blocks, removing the need for a centralized sequencer.
+- [Based contestable rollup](/taiko-alethia-protocol/contestable-rollup): A configurable, multi-proof rollup with hierarchical proving mechanisms to enhance security.
+- [Based booster rollup](/taiko-gwyneth-protocol/booster-rollups): Native L1 scaling via Ethereum-equivalent L2.
 
 ## How Taiko Alethia Works
 

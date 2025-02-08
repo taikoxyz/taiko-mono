@@ -65,28 +65,29 @@ export default defineConfig({
           ],
         },
         {
-          label: "Core Concepts",
-          items: [
-            { label: "What is Taiko Alethia?", link: "/core-concepts/what-is-taiko-alethia/" },
-            { label: "Based rollups", link: "/core-concepts/based-rollups/" },
-            {
-              label: "Contestable rollups (BCR)",
-              link: "/core-concepts/contestable-rollup/",
-            },
-            {
-              label: "Booster rollups (BBR)",
-              link: "/core-concepts/booster-rollups/",
-            },
-            { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
-            {
-              label: "Inception layers",
-              link: "/core-concepts/inception-layers/",
-            },
-          ],
-        },
-        {
           label: "Taiko Alethia Protocol",
           items: [
+            { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
+            { label: "Based rollups", link: "/taiko-alethia-protocol/based-rollups/" },
+            {
+              label: "Contestable rollups (BCR)",
+              link: "/taiko-alethia-protocol/contestable-rollup/",
+            },
+            { label: "Multi-proofs", link: "/taiko-alethia-protocol/multi-proofs/" },
+            {
+              label: "Inception layers",
+              link: "/taiko-alethia-protocol/inception-layers/",
+            },
+            {
+              label: "Taiko Alethia Protocol Architecture",
+              collapsed: true,
+              items: [
+                { label: "Block states", link: "/taiko-alethia-protocol/block-states" },
+                { label: "Bridging", link: "/taiko-alethia-protocol/bridging" },
+                { label: "Economics", link: "/taiko-alethia-protocol/economics" },
+                { label: "Taiko nodes", link: "/taiko-alethia-protocol/taiko-alethia-nodes" },
+              ],
+            },
             {
               label: "Codebase Analysis",
               collapsed: true,
@@ -98,10 +99,12 @@ export default defineConfig({
                 {label: "Bridge Contract", link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract"},
               ],
             },
-            { label: "Block states", link: "/taiko-alethia-protocol/block-states" },
-            { label: "Bridging", link: "/taiko-alethia-protocol/bridging" },
-            { label: "Economics", link: "/taiko-alethia-protocol/economics" },
-            { label: "Taiko nodes", link: "/taiko-alethia-protocol/taiko-alethia-nodes" },
+          ]
+        },
+        {
+          label: "Taiko Gwyneth Protocol",
+          items: [
+            { label: "What is Taiko Gwyneth?", link: "/taiko-gwyneth-protocol/what-is-taiko-gwyneth/" },
           ]
         },
         {
