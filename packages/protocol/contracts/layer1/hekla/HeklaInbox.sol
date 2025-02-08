@@ -7,7 +7,7 @@ import "../based/TaikoInbox.sol";
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract HeklaInbox is TaikoInbox {
-    constructor(address _resolver) TaikoInbox(_resolver) { }
+    constructor(address _inboxOperator, address _proofVerifier, address _bondToken, address _signalService) TaikoInbox(_inboxOperator, _proofVerifier, _bondToken, _signalService) { }
 
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
