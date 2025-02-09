@@ -136,7 +136,7 @@ func InitFromConfig(
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
-	log.Info("Protocol configs", "configs", p.protocolConfigs)
+	config.ReportProtocolConfigs(p.protocolConfigs)
 
 	chBufferSize := p.protocolConfigs.MaxProposals()
 	p.proofGenerationCh = make(chan *proofProducer.ProofResponse, chBufferSize)
