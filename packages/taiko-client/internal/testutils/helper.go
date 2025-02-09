@@ -23,18 +23,10 @@ import (
 )
 
 func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer ChainSyncer) {
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	var n = 0
-	if head.Number.Uint64() < s.RPCClient.PacayaClients.ForkHeight {
-		n = int(s.RPCClient.PacayaClients.ForkHeight - head.Number.Uint64())
-	}
-
-	for i := 0; i < n; i++ {
+	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
 		s.ProposeAndInsertValidBlock(proposer, syncer)
 	}
-	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.GreaterOrEqual(head.Number.Uint64(), s.RPCClient.PacayaClients.ForkHeight)
 }
@@ -48,11 +40,9 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	chainSyncer ChainSyncer,
 ) []metadata.TaikoProposalMetaData {
 	// Sync all pending L2 blocks at first.
-	s.NotPanics(func() {
-		if err := chainSyncer.ProcessL1Blocks(context.Background()); err != nil {
-			log.Warn("Failed to process L1 blocks", "error", err)
-		}
-	})
+	s.Nil(backoff.Retry(func() error {
+		return chainSyncer.ProcessL1Blocks(context.Background())
+	}, backoff.NewExponentialBackOff()))
 
 	var metadataList []metadata.TaikoProposalMetaData
 
@@ -118,11 +108,9 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	chainSyncer ChainSyncer,
 ) metadata.TaikoProposalMetaData {
 	// Sync all pending L2 blocks at first.
-	s.NotPanics(func() {
-		if err := chainSyncer.ProcessL1Blocks(context.Background()); err != nil {
-			log.Warn("Failed to process L1 blocks", "error", err)
-		}
-	})
+	s.Nil(backoff.Retry(func() error {
+		return chainSyncer.ProcessL1Blocks(context.Background())
+	}, backoff.NewExponentialBackOff()))
 
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -142,7 +130,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		close(sink2)
 	}()
 
-	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
 	s.Nil(err)
 
 	tx := types.NewTransaction(
@@ -155,11 +143,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
 	s.Nil(err)
-	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		// If the transaction is underpriced, we just ingore it.
-		s.Equal("replacement transaction underpriced", err.Error())
-	}
+	s.Nil(s.RPCClient.L2.SendTransaction(context.Background(), signedTx))
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
