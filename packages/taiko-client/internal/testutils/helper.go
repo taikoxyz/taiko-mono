@@ -19,11 +19,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer *blob.Syncer) {
+func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer ChainSyncer) {
 	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
 		s.ProposeAndInsertValidBlock(proposer, syncer)
 	}
@@ -38,7 +37,7 @@ func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Prop
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	proposer Proposer,
-	blobSyncer BlobSyncer,
+	chainSyncer ChainSyncer,
 ) []metadata.TaikoProposalMetaData {
 	var metadataList []metadata.TaikoProposalMetaData
 
@@ -62,15 +61,15 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 
 	// RLP encoded empty list
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
-	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
 	s.ProposeValidBlock(proposer)
-	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Random bytes txList
 	s.proposeEmptyBlockOp(context.Background(), proposer)
-	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	var txHash common.Hash
 	for i := 0; i < 3; i++ {
@@ -101,7 +100,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 // into L2 execution engine's local chain.
 func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	proposer Proposer,
-	blobSyncer BlobSyncer,
+	chainSyncer ChainSyncer,
 ) metadata.TaikoProposalMetaData {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -165,7 +164,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	s.Nil(backoff.Retry(func() error { return blobSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
+	s.Nil(backoff.Retry(func() error { return chainSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
@@ -175,9 +174,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	return meta
 }
 
-func (s *ClientTestSuite) ProposeValidBlock(
-	proposer Proposer,
-) {
+func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
