@@ -80,7 +80,6 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		g       = new(errgroup.Group)
 	)
 	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
-		i := i // Copy the value here, to avoid closure issues.
 		g.Go(func() error {
 			header, err := s.rpc.WaitL2Header(
 				ctx,
