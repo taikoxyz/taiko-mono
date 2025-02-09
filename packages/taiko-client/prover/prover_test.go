@@ -345,6 +345,96 @@ func (s *ProverTestSuite) TestProveOp() {
 	s.Equal(header.ParentHash, parentHash)
 }
 
+func (s *ProverTestSuite) TestProveMultiBlobBatch() {
+	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.NotZero(l2Head1.Number.Uint64())
+
+	var (
+		batchSize    = 2
+		txNumInBatch = 500
+	)
+
+	proposeMultiBlockBatch := func() {
+		// Propose a batch which contains two blobs.
+		var txsBatch = make([]types.Transactions, batchSize)
+		testAddrNonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+		s.Nil(err)
+
+		for i := 0; i < batchSize; i++ {
+			for j := 0; j < txNumInBatch; j++ {
+				to := common.BytesToAddress(testutils.RandomBytes(32))
+
+				tx, err := testutils.AssembleTestTx(
+					s.RPCClient.L2,
+					s.TestAddrPrivKey,
+					uint64(i*txNumInBatch+int(testAddrNonce)+j),
+					&to,
+					common.Big1,
+					[]byte{1},
+				)
+				s.Nil(err)
+				txsBatch[i] = append(txsBatch[i], tx)
+			}
+		}
+
+		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch))
+		s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+	}
+
+	proposeMultiBlockBatch()
+	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize), l2Head2.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head2.Transactions().Len())
+
+	s.Nil(s.p.proveOp())
+
+	for req := range s.p.proofSubmissionCh {
+		if !req.Meta.IsPacaya() {
+			continue
+		}
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
+			break
+		}
+	}
+
+	for res := range s.p.proofGenerationCh {
+		if !res.Meta.IsPacaya() {
+			continue
+		}
+		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+		if res.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
+			break
+		}
+	}
+
+	proposeMultiBlockBatch()
+
+	l2Head3, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head2.Number().Uint64()+uint64(batchSize), l2Head3.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head3.Transactions().Len())
+
+	s.Nil(s.p.proveOp())
+
+	for req := range s.p.proofSubmissionCh {
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
+			break
+		}
+	}
+
+	for res := range s.p.proofGenerationCh {
+		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+		if res.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
+			break
+		}
+	}
+}
+
 func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	parent, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)

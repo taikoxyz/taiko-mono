@@ -23,7 +23,15 @@ import (
 )
 
 func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer ChainSyncer) {
-	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	var n = 0
+	if l2Head.Number.Uint64() < s.RPCClient.PacayaClients.ForkHeight {
+		n = int(s.RPCClient.PacayaClients.ForkHeight - l2Head.Number.Uint64())
+	}
+
+	for i := 0; i < n; i++ {
 		s.ProposeAndInsertValidBlock(proposer, syncer)
 	}
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
@@ -134,7 +142,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		close(sink2)
 	}()
 
-	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
 	tx := types.NewTransaction(
@@ -147,7 +155,11 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
 	s.Nil(err)
-	s.Nil(s.RPCClient.L2.SendTransaction(context.Background(), signedTx))
+	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		// If the transaction is underpriced, we just ingore it.
+		s.Equal("replacement transaction underpriced", err.Error())
+	}
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
