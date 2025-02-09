@@ -372,6 +372,7 @@ func (p *Prover) proveOp() error {
 		Client:               p.rpc.L1,
 		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeight,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.eventHandlers.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,

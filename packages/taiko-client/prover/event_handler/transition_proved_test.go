@@ -132,12 +132,13 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 		false,
 	)
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
-	err := handler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
-		BlockId:    m.Ontake().GetBlockID(),
-		Tier:       m.Ontake().GetMinTier(),
-		ProposedIn: m.Ontake().GetRawBlockHeight().Uint64(),
-	})
-	s.Nil(err)
+	if !m.IsPacaya() {
+		s.Nil(handler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
+			BlockId:    m.Ontake().GetBlockID(),
+			Tier:       m.Ontake().GetMinTier(),
+			ProposedIn: m.Ontake().GetRawBlockHeight().Uint64(),
+		}))
+	}
 }
 
 func TestTransitionProvedEventHandlerTestSuite(t *testing.T) {

@@ -39,6 +39,11 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	proposer Proposer,
 	chainSyncer ChainSyncer,
 ) []metadata.TaikoProposalMetaData {
+	// Sync all pending L2 blocks at first.
+	s.Nil(backoff.Retry(func() error {
+		return chainSyncer.ProcessL1Blocks(context.Background())
+	}, backoff.NewExponentialBackOff()))
+
 	var metadataList []metadata.TaikoProposalMetaData
 
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
@@ -102,6 +107,11 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	proposer Proposer,
 	chainSyncer ChainSyncer,
 ) metadata.TaikoProposalMetaData {
+	// Sync all pending L2 blocks at first.
+	s.Nil(backoff.Retry(func() error {
+		return chainSyncer.ProcessL1Blocks(context.Background())
+	}, backoff.NewExponentialBackOff()))
+
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 

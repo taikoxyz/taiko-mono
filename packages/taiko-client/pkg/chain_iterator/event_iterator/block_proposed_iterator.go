@@ -43,6 +43,7 @@ type BlockProposedIteratorConfig struct {
 	Client                *rpc.EthClient
 	TaikoL1               *ontakeBindings.TaikoL1Client
 	TaikoInbox            *pacayaBindings.TaikoInboxClient
+	PacayaForkHeight      uint64
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
@@ -73,6 +74,7 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 			cfg.Client,
 			cfg.TaikoL1,
 			cfg.TaikoInbox,
+			cfg.PacayaForkHeight,
 			cfg.OnBlockProposedEvent,
 			iterator,
 		),
@@ -103,6 +105,7 @@ func assembleBlockProposedIteratorCallback(
 	client *rpc.EthClient,
 	taikoL1 *ontakeBindings.TaikoL1Client,
 	taikoInbox *pacayaBindings.TaikoInboxClient,
+	pacayaForkHeight uint64,
 	callback OnBlockProposedEvent,
 	eventIter *BlockProposedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -133,6 +136,19 @@ func assembleBlockProposedIteratorCallback(
 		for iterOntake.Next() {
 			event := iterOntake.Event
 			log.Debug("Processing BlockProposedV2 event", "block", event.BlockId, "l1BlockHeight", event.Raw.BlockNumber)
+
+			// In case some proposers calling the old contract after Pacaya fork, we should skip the event
+			// when the block ID is greater than or equal to the Pacaya fork height.
+			if event.BlockId.Uint64() >= pacayaForkHeight {
+				log.Warn(
+					"BlockProposedV2 event after Pacaya fork, skip this event",
+					"block", event.BlockId,
+					"pacayaForkHeight", pacayaForkHeight,
+					"proposer", event.Meta.Proposer,
+					"l1BlockHeight", event.Raw.BlockNumber,
+				)
+				break
+			}
 
 			if lastBlockID != 0 && event.BlockId.Uint64() != lastBlockID+1 {
 				log.Warn(
