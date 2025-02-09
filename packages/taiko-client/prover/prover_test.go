@@ -211,6 +211,9 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 }
 
 func (s *ProverTestSuite) TestInvalidPacayaProof() {
+	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
 	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	s.True(m.IsPacaya())
@@ -235,14 +238,24 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.Nil(err)
 	s.False(paused)
 
-	originalRoot := res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root
 	// Submit an invalid proof
 	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()
 	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
 
 	// Then submit a valid proof, the TaikoInbox contract should be paused
-	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = originalRoot
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+	s.p.sharedState.SetL1Current(l1Current)
+	s.p.sharedState.SetLastHandledBlockID(0)
+
+	s.Nil(s.p.proveOp())
+	for r := range s.p.proofSubmissionCh {
+		if r.Meta.IsPacaya() && r.Meta.Pacaya().GetBatchID().Uint64() == m.Pacaya().GetBatchID().Uint64() {
+			req = r
+			break
+		}
+	}
+
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
 	paused, err = s.p.rpc.PacayaClients.TaikoInbox.Paused(nil)
 	s.Nil(err)
