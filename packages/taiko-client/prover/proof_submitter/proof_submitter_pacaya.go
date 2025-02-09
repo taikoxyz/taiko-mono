@@ -193,6 +193,7 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 		"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
 		"coinbase", proofResponse.Meta.Pacaya().GetCoinbase(),
 		"proof", common.Bytes2Hex(proofResponse.Proof),
+		"hash", proofResponse.Opts.PacayaOptions().Headers[len(proofResponse.Opts.PacayaOptions().Headers)-1].Hash(),
 	)
 	// Check if we still need to generate a new proof for that block.
 	proofStatus, err := rpc.GetBatchProofStatus(

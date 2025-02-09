@@ -225,17 +225,17 @@ func GetBatchProofStatus(
 	defer cancel()
 
 	var (
-		parentID *big.Int
-		batch    *pacayaBindings.ITaikoInboxBatch
-		err      error
+		parentID  *big.Int
+		lastBatch *pacayaBindings.ITaikoInboxBatch
+		err       error
 	)
-	if batch, err = cli.GetBatchByID(ctx, new(big.Int).Sub(batchID, common.Big1)); err != nil {
-		return nil, err
-	}
 	if batchID.Uint64() == cli.PacayaClients.ForkHeight {
 		parentID = new(big.Int).Sub(batchID, common.Big1)
 	} else {
-		parentID = new(big.Int).SetUint64(batch.LastBlockId)
+		if lastBatch, err = cli.GetBatchByID(ctx, new(big.Int).Sub(batchID, common.Big1)); err != nil {
+			return nil, err
+		}
+		parentID = new(big.Int).SetUint64(lastBatch.LastBlockId)
 	}
 
 	// Get the local L2 parent header.
@@ -259,7 +259,7 @@ func GetBatchProofStatus(
 		return &BlockProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
 
-	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(lastBatch.LastBlockId))
 	if err != nil {
 		return nil, err
 	}
