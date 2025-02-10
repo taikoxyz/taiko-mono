@@ -87,7 +87,7 @@ func (p *Proposer) InitFromConfig(
 	if p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
-	log.Info("Protocol configs", "configs", p.protocolConfigs)
+	config.ReportProtocolConfigs(p.protocolConfigs)
 
 	if txMgr == nil {
 		if txMgr, err = txmgr.NewSimpleTxManager(
