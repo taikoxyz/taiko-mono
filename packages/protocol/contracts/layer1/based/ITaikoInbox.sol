@@ -50,7 +50,6 @@ interface ITaikoInbox {
         address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
-        bytes32 anchorInput;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
         // Specifies the number of blocks to be generated from this batch.
@@ -78,7 +77,6 @@ interface ITaikoInbox {
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
-        bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 

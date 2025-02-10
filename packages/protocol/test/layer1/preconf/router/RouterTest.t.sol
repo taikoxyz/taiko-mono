@@ -44,7 +44,6 @@ contract RouterTest is RouterTestBase {
             coinbase: address(0),
             parentMetaHash: bytes32(0),
             anchorBlockId: 0,
-            anchorInput: bytes32(0),
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
             blobParams: blobParams,

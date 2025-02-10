@@ -142,7 +142,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                anchorInput: params.anchorInput,
                 baseFeeConfig: config.baseFeeConfig
             });
 
