@@ -12,7 +12,7 @@ import (
 )
 
 func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
-	opts := &NewBlockProposedEventHandlerOps{
+	handler := NewBlockProposedEventHandler(&NewBlockProposedEventHandlerOps{
 		SharedState:           &state.SharedState{},
 		ProverAddress:         common.Address{},
 		RPC:                   s.RPCClient,
@@ -24,7 +24,6 @@ func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
 		BackOffMaxRetrys:      5,
 		ContesterMode:         true,
 		ProveUnassignedBlocks: true,
-	}
-	handler := NewBlockProposedEventHandler(opts)
+	})
 	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer), func() {}))
 }

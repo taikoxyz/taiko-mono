@@ -101,6 +101,7 @@ func getMetadataFromBlockIDOntake(
 		Client:               rpc.L1,
 		TaikoL1:              rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     rpc.PacayaClients.ForkHeight,
 		StartHeight:          new(big.Int).Sub(proposedIn, common.Big1),
 		EndHeight:            proposedIn,
 		OnBlockProposedEvent: callback,

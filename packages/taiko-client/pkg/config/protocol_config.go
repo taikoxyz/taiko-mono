@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // Configs is an interface that provides Taiko protocol specific configurations.
@@ -22,6 +24,21 @@ type ProtocolConfigs interface {
 	MaxProposals() uint64
 	ProvingWindow() (time.Duration, error)
 	MaxBlocksPerBatch() int
+}
+
+// ReportProtocolConfigs logs the protocol configurations.
+func ReportProtocolConfigs(configs ProtocolConfigs) {
+	log.Info(
+		"Protocol configs",
+		"BaseFeeConfig", configs.BaseFeeConfig(),
+		"BlockMaxGasLimit", configs.BlockMaxGasLimit(),
+		"ForkHeightsOntake", configs.ForkHeightsOntake(),
+		"ForkHeightsPacaya", configs.ForkHeightsPacaya(),
+		"LivenessBond", utils.WeiToEther(configs.LivenessBond()),
+		"LivenessBondPerBlock", utils.WeiToEther(configs.LivenessBondPerBlock()),
+		"MaxProposals", configs.MaxProposals(),
+		"MaxBlocksPerBatch", configs.MaxBlocksPerBatch(),
+	)
 }
 
 // OntakeProtocolConfigs is the configuration for the Ontake fork protocol.
