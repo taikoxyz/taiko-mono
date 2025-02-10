@@ -66,10 +66,8 @@ type BatchParams struct {
 	Coinbase                 common.Address
 	ParentMetaHash           [32]byte
 	AnchorBlockId            uint64
-	AnchorInput              [32]byte
 	LastBlockTimestamp       uint64
 	RevertIfNotFirstProposal bool
-	SignalSlots              [][32]byte
 	BlobParams               BlobParams
 	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
 }

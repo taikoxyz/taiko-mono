@@ -114,7 +114,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	// Parameters of the TaikoAnchor.anchorV3 transaction.
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
-	anchorInput [32]byte,
 	parentGasUsed uint64,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	signalSlots [][32]byte,
@@ -132,7 +131,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		"l2Height", l2Height,
 		"anchorBlockId", anchorBlockID,
 		"anchorStateRoot", anchorStateRoot,
-		"anchorInput", common.Bytes2Hex(anchorInput[:]),
 		"parentGasUsed", parentGasUsed,
 		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
 		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
@@ -144,7 +142,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
-		anchorInput,
 		uint32(parentGasUsed),
 		*baseFeeConfig,
 		signalSlots,
