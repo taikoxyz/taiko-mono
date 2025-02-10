@@ -199,11 +199,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(inclusion.feeInGwei, store.feeInGwei());
 
         // the head request should have been deleted
+        vm.expectRevert(IForcedInclusionStore.InvalidIndex.selector);
         inclusion = store.getForcedInclusion(0);
-        assertEq(inclusion.blobHash, 0);
-        assertEq(inclusion.blobByteOffset, 0);
-        assertEq(inclusion.blobByteSize, 0);
-        assertEq(inclusion.createdAtBatchId, 0);
-        assertEq(inclusion.feeInGwei, 0);
     }
 }

@@ -59,12 +59,10 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
-        uint64 nextBatchId = ITaikoInbox(resolve(LibStrings.B_TAIKO, false)).getStats2().numBatches;
-
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
             feeInGwei: uint64(msg.value / 1 gwei),
-            createdAtBatchId: nextBatchId,
+            createdAtBatchId: _nextBatchId(),
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize
         });
@@ -76,49 +74,53 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     function consumeOldestForcedInclusion(address _feeRecipient)
         external
-        nonReentrant
         onlyFromNamed(LibStrings.B_TAIKO_WRAPPER)
+        nonReentrant
         returns (ForcedInclusion memory inclusion_)
     {
         // we only need to check the first one, since it will be the oldest.
-        uint64 _head = head;
-        ForcedInclusion storage inclusion = queue[_head];
+        ForcedInclusion storage inclusion = queue[head];
         require(inclusion.createdAtBatchId != 0, NoForcedInclusionFound());
 
-        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
-
         inclusion_ = inclusion;
-        delete queue[_head];
+
+        lastProcessedAtBatchId = _nextBatchId();
 
         unchecked {
-            lastProcessedAtBatchId = inbox.getStats2().numBatches;
-            head = _head + 1;
+            delete queue[head++];
+            _feeRecipient.sendEtherAndVerify(inclusion_.feeInGwei * 1 gwei);
         }
-
         emit ForcedInclusionConsumed(inclusion_);
-        _feeRecipient.sendEtherAndVerify(inclusion_.feeInGwei * 1 gwei);
     }
 
     function getForcedInclusion(uint256 index) external view returns (ForcedInclusion memory) {
+        require(index >= head, InvalidIndex());
+        require(index < tail, InvalidIndex());
         return queue[index];
     }
 
     function getOldestForcedInclusionDeadline() public view returns (uint256) {
+        if (head == tail) return type(uint256).max;
+
+        ForcedInclusion storage inclusion = queue[head];
+        if (inclusion.createdAtBatchId == 0) return type(uint256).max;
+
         unchecked {
-            ForcedInclusion storage inclusion = queue[head];
-            return inclusion.createdAtBatchId == 0
-                ? type(uint64).max
-                : uint256(lastProcessedAtBatchId).max(inclusion.createdAtBatchId) + inclusionDelay;
+            return uint256(lastProcessedAtBatchId).max(inclusion.createdAtBatchId) + inclusionDelay;
         }
     }
 
     function isOldestForcedInclusionDue() external view returns (bool) {
-        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
-        return inbox.getStats2().numBatches >= getOldestForcedInclusionDeadline();
+        uint256 deadline = getOldestForcedInclusionDeadline();
+        return deadline != type(uint256).max && _nextBatchId() >= deadline;
     }
 
     // @dev Override this function for easier testing blobs
     function _blobHash(uint8 blobIndex) internal view virtual returns (bytes32) {
         return blobhash(blobIndex);
+    }
+
+    function _nextBatchId() private view returns (uint64) {
+        return ITaikoInbox(resolve(LibStrings.B_TAIKO, false)).getStats2().numBatches;
     }
 }

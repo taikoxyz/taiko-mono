@@ -10,7 +10,9 @@ interface IForcedInclusionStore {
     error InvalidParams();
     /// @dev Error thrown when the fee is incorrect.
     error IncorrectFee();
-
+    /// @dev Error thrown when the index is invalid.
+    error InvalidIndex();
+    /// @dev Error thrown when a forced inclusion is not found.
     error NoForcedInclusionFound();
 
     /// @dev Event emitted when a forced inclusion is stored.
