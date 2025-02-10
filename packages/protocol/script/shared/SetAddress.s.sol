@@ -17,7 +17,7 @@ contract SetAddress is Script {
 
     address public addr = vm.envAddress("ADDRESS");
 
-    AddressManager proxy;
+    DefaultResolver proxy;
 
     function run() external {
         require(adminPrivateKey != 0, "PRIVATE_KEY not set");
@@ -30,7 +30,7 @@ contract SetAddress is Script {
 
         proxy = DefaultResolver(payable(proxyAddress));
 
-        proxy.setAddress(domain, name, addr);
+        proxy.registerAddress(domain, name, addr);
 
         vm.stopBroadcast();
     }
