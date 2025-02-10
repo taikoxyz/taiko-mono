@@ -61,6 +61,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         bytes calldata _txList
     )
         external
+        onlyFromNamed(LibStrings.B_PRECONF_ROUTER)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {

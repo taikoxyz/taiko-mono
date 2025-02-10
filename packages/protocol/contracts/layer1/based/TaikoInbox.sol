@@ -70,7 +70,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                address operator = resolve(LibStrings.B_INBOX_OPERATOR, true);
+                address operator = resolve(LibStrings.B_INBOX_WRAPPER, true);
                 if (operator == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
