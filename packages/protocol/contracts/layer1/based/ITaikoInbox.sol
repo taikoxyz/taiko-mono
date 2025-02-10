@@ -27,6 +27,7 @@ interface ITaikoInbox {
         // For all other blocks in the same batch, the block timestamp is its parent block's
         // timestamp plus this time shift value.
         uint8 timeShift;
+        // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
     }
 

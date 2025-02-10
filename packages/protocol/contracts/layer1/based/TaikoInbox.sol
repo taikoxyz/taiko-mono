@@ -794,16 +794,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             for (uint256 i; i < blocksLength; ++i) {
                 totalShift += _params.blocks[i].timeShift;
 
-                uint256 signalSlotsLength = _params.blocks[i].signalSlots.length;
+                uint256 numSignals = _params.blocks[i].signalSlots.length;
 
-                if (signalSlotsLength != 0) {
-                    require(signalSlotsLength <= _maxSignalsToReceive, TooManySignals());
+                if (numSignals != 0) {
+                    require(numSignals <= _maxSignalsToReceive, TooManySignals());
 
                     if (signalService == address(0)) {
                         signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
                     }
 
-                    for (uint256 j; j < signalSlotsLength; ++j) {
+                    for (uint256 j; j < numSignals; ++j) {
                         require(
                             ISignalService(signalService).isSignalSent(
                                 _params.blocks[i].signalSlots[j]
