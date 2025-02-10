@@ -473,6 +473,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
+        require(batchId_ >= pacayaConfig().forkHeights.pacaya, BatchNotFound());
         blockId_ = getBatch(batchId_).lastBlockId;
         ts_ = getBatchVerifyingTransition(batchId_);
     }
