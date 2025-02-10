@@ -8,7 +8,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/utils"
 )
 
-type BlobSyncer interface {
+type ChainSyncer interface {
 	ProcessL1Blocks(ctx context.Context) error
 }
 
@@ -16,4 +16,5 @@ type Proposer interface {
 	utils.SubcommandApplication
 	ProposeOp(ctx context.Context) error
 	ProposeTxLists(ctx context.Context, txLists []types.Transactions) error
+	RegisterTxMgrSelctorToBlobServer(blobServer *MemoryBlobServer)
 }

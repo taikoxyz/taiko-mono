@@ -56,10 +56,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
 
-    /// @notice The arbitrary bytes32 input chosen by the block proposer.
-    bytes32 public anchorInput;
-
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
@@ -84,7 +81,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
-    error L2_INVALID_PARAM();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
@@ -134,19 +130,18 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
+    /// @dev The gas limit for this transaction must be set to 1,000,000 gas.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
     /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
-    /// @param _anchorInput An arbitrary bytes32 input chosen by the block proposer.
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
     /// @param _signalSlots The signal slots to mark as received.
     function anchorV3(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
-        bytes32 _anchorInput,
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
@@ -161,8 +156,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     {
         require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
 
-        anchorInput = _anchorInput;
-
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
@@ -174,6 +167,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
+    /// @dev The gas limit for this transaction must be set to 250,000 gas.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
