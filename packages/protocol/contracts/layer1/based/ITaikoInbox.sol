@@ -27,6 +27,7 @@ interface ITaikoInbox {
         // For all other blocks in the same batch, the block timestamp is its parent block's
         // timestamp plus this time shift value.
         uint8 timeShift;
+        bytes32[] signalSlots;
     }
 
     struct BlobParams {
@@ -52,7 +53,6 @@ interface ITaikoInbox {
         bytes32 anchorInput;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
-        bytes32[] signalSlots;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
@@ -80,7 +80,6 @@ interface ITaikoInbox {
         bytes32 anchorBlockHash;
         bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
-        bytes32[] signalSlots;
     }
 
     /// @dev This struct holds batch metadata essential for proving the batch.
