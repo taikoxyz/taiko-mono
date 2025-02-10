@@ -83,4 +83,37 @@ contract PrankDestBridge {
         ctx.msgHash = bytes32(0);
         ctx.srcChainId = 0;
     }
+
+    function sendReceiveEtherToERC20Vault(
+        address from,
+        address to,
+        uint64 amount,
+        uint64 solverFee,
+        bytes32 solverCondition,
+        bytes32 msgHash,
+        address srcChainERC20Vault,
+        uint64 srcChainId,
+        uint256 mockLibInvokeMsgValue
+    )
+        public
+    {
+        ctx.sender = srcChainERC20Vault;
+        ctx.msgHash = msgHash;
+        ctx.srcChainId = srcChainId;
+
+        destERC20Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
+            abi.encode(
+                ERC20Vault.CanonicalERC20(0, address(0), 0, "", ""),
+                from,
+                to,
+                amount,
+                solverFee,
+                solverCondition
+            )
+        );
+
+        ctx.sender = address(0);
+        ctx.msgHash = bytes32(0);
+        ctx.srcChainId = 0;
+    }
 }
