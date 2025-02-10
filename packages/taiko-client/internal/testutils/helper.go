@@ -222,18 +222,6 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 		close(sink2)
 	}()
 
-	protocolConfigs, err := s.RPCClient.GetProtocolConfigs(nil)
-	s.Nil(err)
-
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(),
-		l2Head,
-		l2Head.Number.Uint64()+1 >= s.RPCClient.PacayaClients.ForkHeight,
-		protocolConfigs.BaseFeeConfig(),
-		l1Head.Time,
-	)
-	s.Nil(err)
-
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
 	s.Nil(err)
 
@@ -242,7 +230,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 		common.BytesToAddress(RandomBytes(32)),
 		common.Big0,
 		100_000,
-		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFee.Uint64()),
+		new(big.Int).SetUint64(uint64(10*params.GWei)+l2Head.BaseFee.Uint64()),
 		[]byte{},
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
