@@ -145,7 +145,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 anchorInput: params.anchorInput,
                 baseFeeConfig: config.baseFeeConfig,
                 //
-                // The signals shall be applied only to the first block of the batch.
+                // Signals are applied only to the first block of the batch.
+                // For the remaining blocks, an empty list shall be used by the anchorV3 function.
                 signalSlots: params.signalSlots
             });
 
