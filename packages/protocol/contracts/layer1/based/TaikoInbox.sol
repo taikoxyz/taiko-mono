@@ -790,6 +790,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
 
             uint64 totalShift;
+            address signalService;
+
             for (uint256 i; i < blocksLength; ++i) {
                 totalShift += _params.blocks[i].timeShift;
 
@@ -798,12 +800,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 if (signalSlotsLength != 0) {
                     require(signalSlotsLength <= _maxSignalsToReceive, TooManySignals());
 
-                    ISignalService signalService =
-                        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
+                    if (signalService == address(0)) {
+                        signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+                    }
 
                     for (uint256 j; j < signalSlotsLength; ++j) {
                         require(
-                            signalService.isSignalSent(_params.blocks[i].signalSlots[j]),
+                            ISignalService(signalService).isSignalSent(
+                                _params.blocks[i].signalSlots[j]
+                            ),
                             SignalNotSent()
                         );
                     }
