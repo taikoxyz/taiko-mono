@@ -198,20 +198,12 @@ var (
 			Type: "uint64",
 		},
 		{
-			Name: "anchorInput",
-			Type: "bytes32",
-		},
-		{
 			Name: "lastBlockTimestamp",
 			Type: "uint64",
 		},
 		{
 			Name: "revertIfNotFirstProposal",
 			Type: "bool",
-		},
-		{
-			Name: "signalSlots",
-			Type: "bytes32[]",
 		},
 		{
 			Name: "blobParams",
@@ -250,6 +242,10 @@ var (
 				{
 					Name: "timeShift",
 					Type: "uint8",
+				},
+				{
+					Name: "signalSlots",
+					Type: "bytes32[]",
 				},
 			},
 		},

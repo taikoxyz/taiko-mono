@@ -451,7 +451,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 		},
 		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
 		AnchorStateRoot: anchoredL1Block.Root,
-		AnchorInput:     [32]byte{},
 		SignalSlots:     [][32]byte{},
 		BaseFeeConfig:   s.d.protocolConfig.BaseFeeConfig(),
 	}

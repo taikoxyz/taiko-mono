@@ -52,7 +52,6 @@ type BuildPreconfBlockRequestBody struct {
 	AnchorBlockID uint64 `json:"anchorBlockID"`
 	// @param anchorStateRoot string `_anchorStateRoot` parameter of the `anchorV3` transaction in the preconf block
 	AnchorStateRoot common.Hash                                `json:"anchorStateRoot"`
-	AnchorInput     [32]byte                                   `json:"anchorInput"`
 	SignalSlots     [][32]byte                                 `json:"signalSlots"`
 	BaseFeeConfig   *pacayaBindings.LibSharedDataBaseFeeConfig `json:"baseFeeConfig"`
 }
@@ -95,7 +94,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"coinbase", reqBody.ExecutableData.FeeRecipient.Hex(),
 		"anchorBlockID", reqBody.AnchorBlockID,
 		"anchorStateRoot", reqBody.AnchorStateRoot,
-		"anchorInput", common.Bytes2Hex(reqBody.AnchorInput[:]),
 		"signalSlots", len(reqBody.SignalSlots),
 	)
 
@@ -144,7 +142,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		reqBody.ExecutableData,
 		reqBody.AnchorBlockID,
 		reqBody.AnchorStateRoot,
-		reqBody.AnchorInput,
 		reqBody.SignalSlots,
 		reqBody.BaseFeeConfig,
 	)

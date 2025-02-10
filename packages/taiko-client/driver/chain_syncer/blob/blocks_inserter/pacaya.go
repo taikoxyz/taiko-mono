@@ -173,14 +173,14 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		if err != nil {
 			return fmt.Errorf("failed to fetch anchor block: %w", err)
 		}
+
 		anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
 			ctx,
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			anchorBlockHeader.Root,
-			meta.GetAnchorInput(),
 			parent.GasUsed,
 			meta.GetBaseFeeConfig(),
-			meta.GetSignalSlots(),
+			meta.GetBlocks()[j].SignalSlots,
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFee,
 		)
@@ -253,7 +253,6 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 	executableData *preconfblocks.ExecutableData,
 	anchorBlockID uint64,
 	anchorStateRoot common.Hash,
-	anchorInput [32]byte,
 	signalSlots [][32]byte,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) (*types.Header, error) {
@@ -299,7 +298,6 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 		ctx,
 		new(big.Int).SetUint64(anchorBlockID),
 		anchorStateRoot,
-		anchorInput,
 		parentHeader.GasUsed,
 		baseFeeConfig,
 		signalSlots,
