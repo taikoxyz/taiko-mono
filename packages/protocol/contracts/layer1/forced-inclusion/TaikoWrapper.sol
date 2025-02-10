@@ -88,10 +88,10 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     )
         internal
     {
-        IForcedInclusionStore.ForcedInclusion memory inclusion =
-            _store.consumeOldestForcedInclusion(msg.sender);
-
         ITaikoInbox.BatchParams memory p = abi.decode(_bytesX, (ITaikoInbox.BatchParams));
+
+        IForcedInclusionStore.ForcedInclusion memory inclusion =
+            _store.consumeOldestForcedInclusion(p.proposer);
 
         uint256 numBlocks = p.blocks.length;
         require(numBlocks != 0, NoBlocks());
