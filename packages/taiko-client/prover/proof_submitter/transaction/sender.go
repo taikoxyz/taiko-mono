@@ -230,23 +230,20 @@ func (s *Sender) ValidateProof(
 	var verifiedID = latestVerifiedID
 	// 2. Check if latest verified head is ahead of this block proof.
 	if verifiedID == nil {
-		if proofResponse.Meta.IsPacaya() {
-			ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
-			if err != nil {
-				return false, err
-			}
-			verifiedID = new(big.Int).SetUint64(ts.BlockId)
-		} else {
+		ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
+		if err != nil {
 			blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
 			if err != nil {
 				return false, err
 			}
 			verifiedID = new(big.Int).SetUint64(blockInfo.BlockId)
+		} else {
+			verifiedID = new(big.Int).SetUint64(ts.BlockId)
 		}
 	}
 
 	if proofResponse.Meta.IsPacaya() {
-		if verifiedID.Cmp(proofResponse.Meta.Pacaya().GetBatchID()) >= 0 {
+		if verifiedID.Cmp(new(big.Int).SetUint64(proofResponse.Meta.Pacaya().GetLastBlockID())) >= 0 {
 			log.Info(
 				"Batch is already verified, skip current proof submission",
 				"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
