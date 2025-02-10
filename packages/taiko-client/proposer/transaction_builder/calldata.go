@@ -133,7 +133,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
 			NumTransactions: uint16(len(txs)),
 			TimeShift:       0,
-			SignalSlots:     make([][32]byte, len(txs)),
+			SignalSlots:     make([][32]byte, 0),
 		})
 	}
 
