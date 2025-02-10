@@ -97,6 +97,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(numBlocks != 0, NoBlocks());
 
         for (uint256 i; i < numBlocks; ++i) {
+            // Need to make sure enough transactions in the forced inclusion request are included.
             require(p.blocks[i].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
         }
 
