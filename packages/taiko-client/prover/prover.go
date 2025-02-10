@@ -211,7 +211,10 @@ func InitFromConfig(
 	)
 
 	// Guardian prover heartbeat sender
-	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
+	if p.IsGuardianProver() {
+		if p.cfg.GuardianProverHealthCheckServerEndpoint == nil {
+			return fmt.Errorf("guardian prover health check server endpoint is not set")
+		}
 		// Check guardian prover contract address is correct.
 		if _, err := p.rpc.OntakeClients.GuardianProverMajority.MinGuardians(&bind.CallOpts{Context: ctx}); err != nil {
 			return fmt.Errorf("failed to get MinGuardians from majority guardian prover contract: %w", err)
@@ -249,7 +252,7 @@ func (p *Prover) Start() error {
 	}
 
 	// 2. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
-	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
+	if p.IsGuardianProver() {
 		// Send the startup message to the guardian prover health check server.
 		if err := p.guardianProverHeartbeater.SendStartupMessage(
 			p.ctx,
