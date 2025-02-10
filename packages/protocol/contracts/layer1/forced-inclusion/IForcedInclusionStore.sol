@@ -4,22 +4,6 @@ pragma solidity ^0.8.24;
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
-    /// @dev Error thrown when a blob is not found.
-    error BlobNotFound();
-    /// @dev Error thrown when the parameters are invalid.
-    error InvalidParams();
-    /// @dev Error thrown when the fee is incorrect.
-    error IncorrectFee();
-    /// @dev Error thrown when the index is invalid.
-    error InvalidIndex();
-    /// @dev Error thrown when a forced inclusion is not found.
-    error NoForcedInclusionFound();
-
-    /// @dev Event emitted when a forced inclusion is stored.
-    event ForcedInclusionStored(ForcedInclusion forcedInclusion);
-    /// @dev Event emitted when a forced inclusion is consumed.
-    event ForcedInclusionConsumed(ForcedInclusion forcedInclusion);
-
     struct ForcedInclusion {
         bytes32 blobHash;
         uint64 feeInGwei;
@@ -27,6 +11,11 @@ interface IForcedInclusionStore {
         uint32 blobByteOffset;
         uint32 blobByteSize;
     }
+
+    /// @dev Event emitted when a forced inclusion is stored.
+    event ForcedInclusionStored(ForcedInclusion forcedInclusion);
+    /// @dev Event emitted when a forced inclusion is consumed.
+    event ForcedInclusionConsumed(ForcedInclusion forcedInclusion);
 
     /// @dev Retrieve a forced inclusion request by its index.
     /// @param index The index of the forced inclusion request in the queue.
