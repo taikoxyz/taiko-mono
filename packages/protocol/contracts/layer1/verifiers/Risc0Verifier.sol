@@ -70,7 +70,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         // First public input is the block proving program key
         publicInputs[0] = blockImageId;
         // All other inputs are the block program public inputs (a single 32 byte value)
-        for (uint256 i; i < _ctxs.length; ++i) {
+        uint256 size = _ctxs.length;
+        for (uint256 i; i < size; ++i) {
             publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
                 _ctxs[i].transition, address(this), address(0), _ctxs[i].metaHash, taikoChainId
             );

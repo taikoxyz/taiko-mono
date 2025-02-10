@@ -21,20 +21,16 @@ var (
 
 // isBlockVerified checks whether the given L2 block has been verified.
 func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
-	if id.Uint64() >= rpc.PacayaClients.ForkHeight {
-		lastVerifiedTransition, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
+	lastVerifiedTransition, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
+	if err != nil {
+		lastVerifiedBlock, err := rpc.GetLastVerifiedBlockOntake(ctx)
 		if err != nil {
 			return false, err
 		}
-
-		return id.Uint64() <= lastVerifiedTransition.BlockId, nil
+		return id.Uint64() <= lastVerifiedBlock.BlockId, nil
 	}
 
-	lastVerifiedBlock, err := rpc.GetLastVerifiedBlockOntake(ctx)
-	if err != nil {
-		return false, err
-	}
-	return id.Uint64() <= lastVerifiedBlock.BlockId, nil
+	return id.Uint64() <= lastVerifiedTransition.BlockId, nil
 }
 
 // isValidProof checks if the given proof is a valid one, comparing to current L2 node canonical chain.
@@ -101,6 +97,7 @@ func getMetadataFromBlockIDOntake(
 		Client:               rpc.L1,
 		TaikoL1:              rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     rpc.PacayaClients.ForkHeight,
 		StartHeight:          new(big.Int).Sub(proposedIn, common.Big1),
 		EndHeight:            proposedIn,
 		OnBlockProposedEvent: callback,

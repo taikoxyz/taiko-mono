@@ -27,7 +27,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
-	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 )
 
@@ -88,6 +88,7 @@ func (s *ProverTestSuite) SetupTest() {
 			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:        string(jwtSecret),
 		},
+		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
 	s.d = d
 
@@ -114,6 +115,7 @@ func (s *ProverTestSuite) SetupTest() {
 	}, s.txmgr, s.txmgr))
 
 	s.proposer = prop
+	s.proposer.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
 func (s *ProverTestSuite) TestName() {
@@ -173,23 +175,23 @@ func (s *ProverTestSuite) TestOnBlockVerifiedEmptyBlockHash() {
 func (s *ProverTestSuite) TestSubmitProofOp() {
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&producer.ProofResponse{
+			return s.p.submitProofOp(&proofProducer.ProofResponse{
 				BlockID: common.Big1,
 				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
 				Proof:   []byte{},
 				Tier:    encoding.TierOptimisticID,
-				Opts:    &producer.ProofRequestOptionsOntake{},
+				Opts:    &proofProducer.ProofRequestOptionsOntake{},
 			})
 		})
 	})
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&producer.ProofResponse{
+			return s.p.submitProofOp(&proofProducer.ProofResponse{
 				BlockID: common.Big1,
 				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
 				Proof:   []byte{},
 				Tier:    encoding.TierOptimisticID,
-				Opts:    &producer.ProofRequestOptionsOntake{},
+				Opts:    &proofProducer.ProofRequestOptionsOntake{},
 			})
 		})
 	})
@@ -208,6 +210,68 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 	})
 }
 
+func (s *ProverTestSuite) TestInvalidPacayaProof() {
+	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	s.True(m.IsPacaya())
+	s.Nil(s.p.proveOp())
+
+	var req *proofProducer.ProofRequestBody
+	for r := range s.p.proofSubmissionCh {
+		if r.Meta.IsPacaya() && r.Meta.Pacaya().GetBatchID().Uint64() == m.Pacaya().GetBatchID().Uint64() {
+			req = r
+			break
+		}
+	}
+	s.NotNil(req)
+	s.True(req.Meta.IsPacaya())
+	s.Equal(m.Pacaya().GetBatchID().Uint64(), req.Meta.Pacaya().GetBatchID().Uint64())
+
+	s.Nil(s.p.proofSubmitterPacaya.RequestProof(context.Background(), m))
+	res := <-s.p.proofGenerationCh
+	s.Equal(m.Pacaya().GetBatchID().Uint64(), res.Meta.Pacaya().GetBatchID().Uint64())
+	s.NotEmpty(res.Opts.PacayaOptions().Headers)
+	paused, err := s.p.rpc.PacayaClients.TaikoInbox.Paused(nil)
+	s.Nil(err)
+	s.False(paused)
+
+	// Submit an invalid proof
+	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()
+	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+
+	// Then submit a valid proof, the TaikoInbox contract should be paused
+	s.p.sharedState.SetL1Current(l1Current)
+	s.p.sharedState.SetLastHandledBlockID(0)
+
+	s.Nil(s.p.proveOp())
+	for r := range s.p.proofSubmissionCh {
+		if r.Meta.IsPacaya() && r.Meta.Pacaya().GetBatchID().Uint64() == m.Pacaya().GetBatchID().Uint64() {
+			req = r
+			break
+		}
+	}
+
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+
+	paused, err = s.p.rpc.PacayaClients.TaikoInbox.Paused(nil)
+	s.Nil(err)
+	s.True(paused)
+
+	// Unpause the TaikoInbox contract
+	data, err := encoding.TaikoInboxABI.Pack("unpause")
+	s.Nil(err)
+	receipt, err := s.p.txmgr.Send(context.Background(), txmgr.TxCandidate{
+		TxData: data,
+		To:     &s.p.cfg.TaikoL1Address,
+	})
+	s.Nil(err)
+	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
+}
+
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
@@ -223,14 +287,36 @@ func (s *ProverTestSuite) TestProveOp() {
 		close(sink1)
 		close(sink2)
 	}()
-
 	s.Nil(s.p.proveOp())
-	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	if m.IsPacaya() {
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
-	} else {
-		s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+
+	for req := range s.p.proofSubmissionCh {
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		if m.IsPacaya() {
+			if req.Meta.IsPacaya() && req.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
+				break
+			}
+		} else {
+			if !req.Meta.IsPacaya() && req.Meta.Ontake().GetBlockID().Cmp(m.Ontake().GetBlockID()) == 0 {
+				break
+			}
+		}
+	}
+
+	for res := range s.p.proofGenerationCh {
+		if res.Meta.IsPacaya() {
+			s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+		} else {
+			s.Nil(s.p.selectSubmitter(res.Tier).SubmitProof(context.Background(), res))
+		}
+		if m.IsPacaya() {
+			if res.Meta.IsPacaya() && res.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
+				break
+			}
+		} else {
+			if !res.Meta.IsPacaya() && res.Meta.Ontake().GetBlockID().Cmp(m.Ontake().GetBlockID()) == 0 {
+				break
+			}
+		}
 	}
 
 	var (
@@ -238,7 +324,6 @@ func (s *ProverTestSuite) TestProveOp() {
 		parentHash common.Hash
 		blockID    *big.Int
 	)
-
 	select {
 	case e := <-sink1:
 		tran := e.Transitions[len(e.Transitions)-1]
@@ -258,6 +343,96 @@ func (s *ProverTestSuite) TestProveOp() {
 
 	s.Equal(header.Hash(), blockHash)
 	s.Equal(header.ParentHash, parentHash)
+}
+
+func (s *ProverTestSuite) TestProveMultiBlobBatch() {
+	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.NotZero(l2Head1.Number.Uint64())
+
+	var (
+		batchSize    = 2
+		txNumInBatch = 500
+	)
+
+	proposeMultiBlockBatch := func() {
+		// Propose a batch which contains two blobs.
+		var txsBatch = make([]types.Transactions, batchSize)
+		testAddrNonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+		s.Nil(err)
+
+		for i := 0; i < batchSize; i++ {
+			for j := 0; j < txNumInBatch; j++ {
+				to := common.BytesToAddress(testutils.RandomBytes(32))
+
+				tx, err := testutils.AssembleTestTx(
+					s.RPCClient.L2,
+					s.TestAddrPrivKey,
+					uint64(i*txNumInBatch+int(testAddrNonce)+j),
+					&to,
+					common.Big1,
+					[]byte{1},
+				)
+				s.Nil(err)
+				txsBatch[i] = append(txsBatch[i], tx)
+			}
+		}
+
+		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch))
+		s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+	}
+
+	proposeMultiBlockBatch()
+	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+uint64(batchSize), l2Head2.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head2.Transactions().Len())
+
+	s.Nil(s.p.proveOp())
+
+	for req := range s.p.proofSubmissionCh {
+		if !req.Meta.IsPacaya() {
+			continue
+		}
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
+			break
+		}
+	}
+
+	for res := range s.p.proofGenerationCh {
+		if !res.Meta.IsPacaya() {
+			continue
+		}
+		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+		if res.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
+			break
+		}
+	}
+
+	proposeMultiBlockBatch()
+
+	l2Head3, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head2.Number().Uint64()+uint64(batchSize), l2Head3.Number().Uint64())
+	s.Equal(txNumInBatch+1, l2Head3.Transactions().Len())
+
+	s.Nil(s.p.proveOp())
+
+	for req := range s.p.proofSubmissionCh {
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
+			break
+		}
+	}
+
+	for res := range s.p.proofGenerationCh {
+		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+		if res.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
+			break
+		}
+	}
 }
 
 func (s *ProverTestSuite) TestGetBlockProofStatus() {
@@ -459,6 +634,7 @@ func (s *ProverTestSuite) TearDownTest() {
 	if s.p.ctx.Err() == nil {
 		s.cancel()
 	}
+	s.p.Close(context.Background())
 }
 
 func TestProverTestSuite(t *testing.T) {

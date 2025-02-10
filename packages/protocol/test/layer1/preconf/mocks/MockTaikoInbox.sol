@@ -26,7 +26,6 @@ contract MockTaikoInbox is EssentialContract {
         info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
             blobHashes: new bytes32[](0),
-            signalSlots: new bytes32[](0),
             blobByteOffset: 0,
             blobByteSize: 0,
             extraData: bytes32(0),
@@ -38,7 +37,6 @@ contract MockTaikoInbox is EssentialContract {
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             blocks: params.blocks,
-            anchorInput: params.anchorInput,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 sharingPctg: 0,

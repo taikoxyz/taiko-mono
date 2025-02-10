@@ -20,6 +20,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -86,7 +87,7 @@ func (p *Proposer) InitFromConfig(
 	if p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
-	log.Info("Protocol configs", "configs", p.protocolConfigs)
+	config.ReportProtocolConfigs(p.protocolConfigs)
 
 	if txMgr == nil {
 		if txMgr, err = txmgr.NewSimpleTxManager(
@@ -505,4 +506,14 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 // Name returns the application name.
 func (p *Proposer) Name() string {
 	return "proposer"
+}
+
+// RegisterTxMgrSelctorToBlobServer registers the tx manager selector to the given blob server,
+// should only be used for testing.
+func (p *Proposer) RegisterTxMgrSelctorToBlobServer(blobServer *testutils.MemoryBlobServer) {
+	p.txmgrSelector = utils.NewTxMgrSelector(
+		testutils.NewMemoryBlobTxMgr(p.rpc, p.txmgrSelector.TxMgr(), blobServer),
+		testutils.NewMemoryBlobTxMgr(p.rpc, p.txmgrSelector.PrivateTxMgr(), blobServer),
+		nil,
+	)
 }

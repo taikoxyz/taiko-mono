@@ -142,9 +142,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                anchorInput: params.anchorInput,
-                baseFeeConfig: config.baseFeeConfig,
-                signalSlots: params.signalSlots
+                baseFeeConfig: config.baseFeeConfig
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
@@ -205,17 +203,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
 
-        require(metas.length != 0, NoBlocksToProve());
-        require(metas.length == trans.length, ArraySizesMismatch());
+        uint256 metasLength = metas.length;
+        require(metasLength != 0, NoBlocksToProve());
+        require(metasLength == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
         Config memory config = pacayaConfig();
-        IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](metasLength);
 
         bool hasConflictingProof;
-        for (uint256 i; i < metas.length; ++i) {
+        for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
             require(meta.batchId >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
@@ -298,8 +297,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         // Emit the event
         {
-            uint64[] memory batchIds = new uint64[](metas.length);
-            for (uint256 i; i < metas.length; ++i) {
+            uint64[] memory batchIds = new uint64[](metasLength);
+            for (uint256 i; i < metasLength; ++i) {
                 batchIds[i] = metas[i].batchId;
             }
 
@@ -310,7 +309,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             _pause();
             emit Paused(verifier);
         } else {
-            _verifyBatches(config, stats2, metas.length);
+            _verifyBatches(config, stats2, metasLength);
         }
     }
 
@@ -444,7 +443,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
 
-        uint24 tid = state.transitionIds[_batchId][_parentHash];
+        uint24 tid;
+        if (batch.nextTransitionId > 1) {
+            // This batch has at least one transition.
+            if (state.transitions[slot][1].parentHash == _parentHash) {
+                // Overwrite the first transition.
+                tid = 1;
+            } else if (batch.nextTransitionId > 2) {
+                // Retrieve the transition ID using the parent hash from the mapping. If the ID
+                // is 0, it indicates a new transition; otherwise, it's an overwrite of an
+                // existing transition.
+                tid = state.transitionIds[_batchId][_parentHash];
+            }
+        }
+
         require(tid != 0 && tid < batch.nextTransitionId, TransitionNotFound());
         return state.transitions[slot][tid];
     }
@@ -456,6 +468,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
+        require(batchId_ >= pacayaConfig().forkHeights.pacaya, BatchNotFound());
         blockId_ = getBatch(batchId_).lastBlockId;
         ts_ = getBatchVerifyingTransition(batchId_);
     }
@@ -568,13 +581,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             if (_blobParams.blobHashes.length != 0) {
                 blobHashes_ = _blobParams.blobHashes;
             } else {
-                blobHashes_ = new bytes32[](_blobParams.numBlobs);
-                for (uint256 i; i < _blobParams.numBlobs; ++i) {
+                uint256 numBlobs = _blobParams.numBlobs;
+                blobHashes_ = new bytes32[](numBlobs);
+                for (uint256 i; i < numBlobs; ++i) {
                     blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
                 }
             }
 
-            for (uint256 i; i < blobHashes_.length; ++i) {
+            uint256 bloblHashesLength = blobHashes_.length;
+            for (uint256 i; i < bloblHashesLength; ++i) {
                 require(blobHashes_[i] != 0, BlobNotFound());
             }
             hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
@@ -751,6 +766,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         view
         returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
+        uint256 blocksLength = _params.blocks.length;
         unchecked {
             if (_params.anchorBlockId == 0) {
                 anchorBlockId_ = uint64(block.number - 1);
@@ -774,8 +790,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
 
             uint64 totalShift;
-            for (uint256 i; i < _params.blocks.length; ++i) {
+            address signalService;
+
+            for (uint256 i; i < blocksLength; ++i) {
                 totalShift += _params.blocks[i].timeShift;
+
+                uint256 numSignals = _params.blocks[i].signalSlots.length;
+                if (numSignals == 0) continue;
+
+                require(numSignals <= _maxSignalsToReceive, TooManySignals());
+
+                if (signalService == address(0)) {
+                    signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+                }
+
+                for (uint256 j; j < numSignals; ++j) {
+                    require(
+                        ISignalService(signalService).isSignalSent(_params.blocks[i].signalSlots[j]),
+                        SignalNotSent()
+                    );
+                }
             }
 
             require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());
@@ -799,19 +833,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             );
         }
 
-        if (_params.signalSlots.length != 0) {
-            require(_params.signalSlots.length <= _maxSignalsToReceive, TooManySignals());
-
-            ISignalService signalService =
-                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
-
-            for (uint256 i; i < _params.signalSlots.length; ++i) {
-                require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
-            }
-        }
-
-        require(_params.blocks.length != 0, BlockNotFound());
-        require(_params.blocks.length <= _maxBlocksPerBatch, TooManyBlocks());
+        require(blocksLength != 0, BlockNotFound());
+        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
     }
 
     // Memory-only structs ----------------------------------------------------------------------

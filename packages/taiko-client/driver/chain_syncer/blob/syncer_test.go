@@ -46,7 +46,7 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
-		nil,
+		s.BlobServer.URL(),
 		nil,
 	)
 	s.Nil(err)
@@ -314,6 +314,7 @@ func (s *BlobSyncerTestSuite) initProposer() {
 	}, nil, nil))
 
 	s.p = prop
+	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
 func TestBlobSyncerTestSuite(t *testing.T) {
