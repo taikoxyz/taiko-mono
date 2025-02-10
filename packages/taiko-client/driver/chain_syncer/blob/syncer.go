@@ -154,6 +154,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		Client:               s.rpc.L1,
 		TaikoL1:              s.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           s.rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     s.rpc.PacayaClients.ForkHeight,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		OnBlockProposedEvent: s.onBlockProposed,

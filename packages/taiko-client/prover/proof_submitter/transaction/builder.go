@@ -224,21 +224,24 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta
 			transitions[i] = pacayaBindings.ITaikoInboxTransition{
-				ParentHash: proof.Opts.PacayaOptions().Headers[i].ParentHash,
-				BlockHash:  proof.Opts.PacayaOptions().Headers[i].Hash(),
-				StateRoot:  proof.Opts.PacayaOptions().Headers[i].Root,
+				ParentHash: proof.Opts.PacayaOptions().Headers[0].ParentHash,
+				BlockHash:  proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Hash(),
+				StateRoot:  proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Root,
 			}
 			batchIDs[i] = proof.Meta.Pacaya().GetBatchID().Uint64()
-			subProofs[i] = encoding.SubProof{
-				Verifier: opVerifier,
-				Proof:    batchProof.BatchProof,
-			}
+			subProofs[i] = encoding.SubProof{Verifier: opVerifier, Proof: batchProof.BatchProof}
+			log.Info(
+				"Build batch proof submission transaction",
+				"batchID", batchIDs[i],
+				"parentHash", common.Bytes2Hex(transitions[i].ParentHash[:]),
+				"blockHash", common.Bytes2Hex(transitions[i].BlockHash[:]),
+				"stateRoot", common.Bytes2Hex(transitions[i].StateRoot[:]),
+				"startBlockID", proof.Opts.PacayaOptions().Headers[0].Number,
+				"endBlockID", proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Number,
+				"gasLimit", txOpts.GasLimit,
+			)
 		}
-		log.Info(
-			"Build batch proof submission transaction",
-			"batchIDs", batchIDs,
-			"gasLimit", txOpts.GasLimit,
-		)
+
 		input, err := encoding.EncodeProveBatchesInput(metas, transitions)
 		if err != nil {
 			return nil, err
@@ -249,7 +252,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 		}
 
 		if a.proverSetAddress != ZeroAddress {
-			if data, err = encoding.ProverSetABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
+			if data, err = encoding.ProverSetPacayaABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
 			to = a.proverSetAddress

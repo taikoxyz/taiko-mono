@@ -177,7 +177,7 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 ) error {
-	log.Info("Check L1 reorg", "blockID", blockID)
+	log.Debug("Check L1 reorg", "blockID", blockID)
 	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
 	reorgCheckResult, err := h.rpc.CheckL1Reorg(
 		ctx,

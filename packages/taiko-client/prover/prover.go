@@ -136,7 +136,7 @@ func InitFromConfig(
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
-	log.Info("Protocol configs", "configs", p.protocolConfigs)
+	config.ReportProtocolConfigs(p.protocolConfigs)
 
 	chBufferSize := p.protocolConfigs.MaxProposals()
 	p.proofGenerationCh = make(chan *proofProducer.ProofResponse, chBufferSize)
@@ -248,7 +248,7 @@ func (p *Prover) Start() error {
 		}
 	}
 
-	// 3. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
+	// 2. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
 	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
 		// Send the startup message to the guardian prover health check server.
 		if err := p.guardianProverHeartbeater.SendStartupMessage(
@@ -265,7 +265,7 @@ func (p *Prover) Start() error {
 		go p.guardianProverHeartbeatLoop(p.ctx)
 	}
 
-	// 4. Start the main event loop of the prover.
+	// 3. Start the main event loop of the prover.
 	go p.eventLoop()
 
 	return nil
@@ -372,6 +372,7 @@ func (p *Prover) proveOp() error {
 		Client:               p.rpc.L1,
 		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeight,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.eventHandlers.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,

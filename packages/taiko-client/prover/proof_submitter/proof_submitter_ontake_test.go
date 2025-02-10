@@ -109,7 +109,6 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.aggregationNotify,
 		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		"test",
 		0,
 		txMgr,
 		nil,
