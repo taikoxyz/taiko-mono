@@ -16,7 +16,7 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-// Handle implements the BlockProposedHandler interface.
+// HandlePacaya implements the BlockProposedHandler interface.
 func (h *BlockProposedEventHandler) HandlePacaya(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,

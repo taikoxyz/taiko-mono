@@ -195,7 +195,7 @@ func InitFromConfig(
 	}
 
 	// Proof submitters
-	if err := p.initProofSubmitters(txBuilder, p.sharedState.GetTiers()); err != nil {
+	if err := p.initProofSubmitters(txBuilder); err != nil {
 		return err
 	}
 
