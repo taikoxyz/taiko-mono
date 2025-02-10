@@ -41,7 +41,7 @@ type ExecutableData struct {
 }
 
 // BuildPreconfBlockRequestBody represents a request body when handling
-// soft blocks creation requests.
+// preconf blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
 	ExecutableData *ExecutableData `json:"executableData"`
@@ -59,11 +59,11 @@ type BuildPreconfBlockRequestBody struct {
 // BuildPreconfBlockResponseBody represents a response body when handling preconf
 // blocks creation requests.
 type BuildPreconfBlockResponseBody struct {
-	// @param blockHeader types.Header of the soft block
+	// @param blockHeader types.Header of the preconf block
 	BlockHeader *types.Header `json:"blockHeader"`
 }
 
-// BuildSoftBlock handles a preconfirmation block creation request,
+// BuildPreconfBlock handles a preconfirmation block creation request,
 // if the preconfirmation block creation body in request are valid, it will insert the correspoinding the
 // preconfirmation block to the backend L2 execution engine and return a success response.
 //
@@ -194,7 +194,7 @@ type RemovePreconfBlocksResponseBody struct {
 	HeadsRemoved uint64 `json:"headsRemoved"`
 }
 
-// RemoveSoftBlocks removes the backend L2 execution engine preconf head.
+// RemovePreconfBlocks removes the backend L2 execution engine preconf head.
 //
 //		@Description	Remove all preconf blocks from the blockchain beyond the specified block height,
 //	  @Description	ensuring the latest block ID does not exceed the given height. This method will fail if
