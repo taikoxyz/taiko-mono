@@ -143,7 +143,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
                 anchorInput: params.anchorInput,
-                baseFeeConfig: config.baseFeeConfig
+
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
