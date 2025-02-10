@@ -235,7 +235,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	proofResponse *proofProducer.ProofResponse,
 ) (err error) {
 	log.Info(
-		"Submit block proof",
+		"Submit ontake block proof",
 		"blockID", proofResponse.BlockID,
 		"coinbase", proofResponse.Meta.Ontake().GetCoinbase(),
 		"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
@@ -347,7 +347,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
 func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
-		"Batch submit block proofs",
+		"Batch submit ontake block proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
 		"size", len(batchProof.ProofResponses),
 		"firstID", batchProof.BlockIDs[0],

@@ -135,7 +135,7 @@ func (s *State) eventLoop(ctx context.Context) {
 			return
 		case e := <-transitionProvedV2Ch:
 			log.Info(
-				"✅ Transition proven",
+				"✅ Ontake Transition proven",
 				"blockID", e.BlockId,
 				"parentHash", common.Hash(e.Tran.ParentHash),
 				"hash", common.Hash(e.Tran.BlockHash),
@@ -144,20 +144,20 @@ func (s *State) eventLoop(ctx context.Context) {
 			)
 		case e := <-batchesProvedPacayaCh:
 			log.Info(
-				"✅ Batches proven",
+				"✅ Pacaya batches proven",
 				"batchIDs", e.BatchIds,
 				"verifier", e.Verifier,
 			)
 		case e := <-blockVerifiedV2Ch:
 			log.Info(
-				"📈 Block verified",
+				"📈 Ontake block verified",
 				"blockID", e.BlockId,
 				"hash", common.Hash(e.BlockHash),
 				"prover", e.Prover,
 			)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(
-				"📈 Batches verified",
+				"📈 Pacaya batches verified",
 				"lastVerifiedBatchId", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
