@@ -14,13 +14,12 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     uint256[50] private __gap;
 
     constructor(
-        address _resolver,
-        address _proposeBlockEntrypoint,
+        address _proposeBlockEntrypoint, // TaikoInbox or TaikoWrapper
         address _preconfWhitelist
     )
         nonZeroAddr(_proposeBlockEntrypoint)
         nonZeroAddr(_preconfWhitelist)
-        EssentialContract(_resolver)
+        EssentialContract(address(0))
     {
         proposeBlockEntrypoint = _proposeBlockEntrypoint;
         preconfWhitelist = _preconfWhitelist;
