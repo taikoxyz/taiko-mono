@@ -315,7 +315,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		lastVerifiedBlockID = blockInfo.BlockId
 		lastVerifiedBlockHash = blockInfo.BlockHash
 	} else {
-		lastVerifiedBlockID = ts.BlockId
+		lastVerifiedBlockID = ts.BatchId
 		lastVerifiedBlockHash = ts.Ts.BlockHash
 	}
 
