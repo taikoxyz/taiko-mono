@@ -449,7 +449,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
 
-        uint24 tid = state.transitionIds[_batchId][_parentHash];
+        uint24 tid;
+        if (batch.nextTransitionId > 1) {
+            // This batch has at least one transition.
+            if (state.transitions[slot][1].parentHash == _parentHash) {
+                // Overwrite the first transition.
+                tid = 1;
+            } else if (batch.nextTransitionId > 2) {
+                // Retrieve the transition ID using the parent hash from the mapping. If the ID
+                // is 0, it indicates a new transition; otherwise, it's an overwrite of an
+                // existing transition.
+                tid = state.transitionIds[_batchId][_parentHash];
+            }
+        }
+
         require(tid != 0 && tid < batch.nextTransitionId, TransitionNotFound());
         return state.transitions[slot][tid];
     }
