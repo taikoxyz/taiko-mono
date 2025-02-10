@@ -8,7 +8,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/utils"
 )
 
-type BlobSyncer interface {
+type ChainSyncer interface {
 	ProcessL1Blocks(ctx context.Context) error
 }
 

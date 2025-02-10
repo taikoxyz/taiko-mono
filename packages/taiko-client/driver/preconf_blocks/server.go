@@ -27,7 +27,6 @@ type preconfBlockChainSyncer interface {
 		executableData *ExecutableData,
 		anchorBlockID uint64,
 		anchorStateRoot common.Hash,
-		anchorInput [32]byte,
 		signalSlots [][32]byte,
 		baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	) (*types.Header, error)
@@ -173,7 +172,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		},
 		msg.AnchorBlockID,
 		msg.AnchorStateRoot,
-		msg.AnchorInput,
 		msg.SignalSlots,
 		&pacayaBindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     msg.AdjustmentQuotient,

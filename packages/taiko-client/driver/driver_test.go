@@ -326,9 +326,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 
 	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
-	}
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -453,7 +451,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 		},
 		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
 		AnchorStateRoot: anchoredL1Block.Root,
-		AnchorInput:     [32]byte{},
 		SignalSlots:     [][32]byte{},
 		BaseFeeConfig:   s.d.protocolConfig.BaseFeeConfig(),
 	}
@@ -497,9 +494,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 
 	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	for i := 0; i < int(s.RPCClient.PacayaClients.ForkHeight); i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
-	}
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)

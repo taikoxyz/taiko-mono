@@ -176,7 +176,6 @@ func (p *Prover) initProofSubmitters(
 		p.aggregationNotify,
 		p.cfg.ProverSetAddress,
 		p.cfg.TaikoL2Address,
-		p.cfg.Graffiti,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
 		p.privateTxmgr,

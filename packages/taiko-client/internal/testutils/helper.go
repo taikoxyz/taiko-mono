@@ -22,14 +22,38 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
+func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer ChainSyncer) {
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	var n = 0
+	if head.Number.Uint64() < s.RPCClient.PacayaClients.ForkHeight {
+		n = int(s.RPCClient.PacayaClients.ForkHeight - head.Number.Uint64())
+	}
+
+	for i := 0; i < n; i++ {
+		s.ProposeAndInsertValidBlock(proposer, syncer)
+	}
+	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.GreaterOrEqual(head.Number.Uint64(), s.RPCClient.PacayaClients.ForkHeight)
+}
+
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
 	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	proposer Proposer,
-	blobSyncer BlobSyncer,
+	chainSyncer ChainSyncer,
 ) []metadata.TaikoProposalMetaData {
+	// Sync all pending L2 blocks at first.
+	s.NotPanics(func() {
+		if err := chainSyncer.ProcessL1Blocks(context.Background()); err != nil {
+			log.Warn("Failed to process L1 blocks", "error", err)
+		}
+	})
+
 	var metadataList []metadata.TaikoProposalMetaData
 
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
@@ -52,15 +76,15 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 
 	// RLP encoded empty list
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
-	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
 	s.ProposeValidBlock(proposer)
-	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Random bytes txList
 	s.proposeEmptyBlockOp(context.Background(), proposer)
-	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	var txHash common.Hash
 	for i := 0; i < 3; i++ {
@@ -91,8 +115,15 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 // into L2 execution engine's local chain.
 func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	proposer Proposer,
-	blobSyncer BlobSyncer,
+	chainSyncer ChainSyncer,
 ) metadata.TaikoProposalMetaData {
+	// Sync all pending L2 blocks at first.
+	s.NotPanics(func() {
+		if err := chainSyncer.ProcessL1Blocks(context.Background()); err != nil {
+			log.Warn("Failed to process L1 blocks", "error", err)
+		}
+	})
+
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -111,7 +142,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		close(sink2)
 	}()
 
-	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
 	tx := types.NewTransaction(
@@ -124,7 +155,11 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
 	s.Nil(err)
-	s.Nil(s.RPCClient.L2.SendTransaction(context.Background(), signedTx))
+	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		// If the transaction is underpriced, we just ingore it.
+		s.Equal("replacement transaction underpriced", err.Error())
+	}
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
@@ -155,7 +190,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	s.Nil(backoff.Retry(func() error { return blobSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
+	s.Nil(backoff.Retry(func() error { return chainSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
@@ -165,9 +200,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	return meta
 }
 
-func (s *ClientTestSuite) ProposeValidBlock(
-	proposer Proposer,
-) {
+func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -189,18 +222,6 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		close(sink2)
 	}()
 
-	protocolConfigs, err := s.RPCClient.GetProtocolConfigs(nil)
-	s.Nil(err)
-
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(),
-		l2Head,
-		l2Head.Number.Uint64()+1 >= s.RPCClient.PacayaClients.ForkHeight,
-		protocolConfigs.BaseFeeConfig(),
-		l1Head.Time,
-	)
-	s.Nil(err)
-
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
 	s.Nil(err)
 
@@ -209,7 +230,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		common.BytesToAddress(RandomBytes(32)),
 		common.Big0,
 		100_000,
-		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFee.Uint64()),
+		new(big.Int).SetUint64(uint64(10*params.GWei)+l2Head.BaseFee.Uint64()),
 		[]byte{},
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
