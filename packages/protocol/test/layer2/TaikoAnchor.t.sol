@@ -137,7 +137,6 @@ contract TestTaikoAnchor is Layer2Test {
         anchor.anchorV3(
             ++anchorBlockId,
             anchorStateRoot,
-            bytes32(0),
             _parentGasUsed,
             baseFeeConfig,
             new bytes32[](0)
@@ -172,7 +171,6 @@ contract TestTaikoAnchor is Layer2Test {
         anchor.anchorV3(
             ++anchorBlockId,
             anchorStateRoot,
-            bytes32(0),
             parentGasUsed,
             baseFeeConfig,
             new bytes32[](0)
