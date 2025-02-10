@@ -173,9 +173,9 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		if err != nil {
 			return fmt.Errorf("failed to fetch anchor block: %w", err)
 		}
-		signalSlot := meta.GetSignalSlots()
-		if j != 0 {
-			signalSlot = make([][32]byte, 0)
+		signalSlot := make([][32]byte, 0)
+		if j == 0 {
+			signalSlot = meta.GetSignalSlots()
 		}
 		anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
 			ctx,
