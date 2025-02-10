@@ -31,6 +31,10 @@ echo ""
 echo "Start generating Go contract bindings..."
 echo ""
 
+cat ../protocol/out/layer1/TaikoWrapper.sol/TaikoWrapper.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type TaikoWrapperClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_wrapper.go
+
 cat ../protocol/out/layer1/TaikoInbox.sol/TaikoInbox.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type TaikoInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_inbox.go

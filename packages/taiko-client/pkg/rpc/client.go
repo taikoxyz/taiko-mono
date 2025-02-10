@@ -39,12 +39,13 @@ type OntakeClients struct {
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
 type PacayaClients struct {
-	TaikoInbox  *pacayaBindings.TaikoInboxClient
-	TaikoAnchor *pacayaBindings.TaikoAnchorClient
-	TaikoToken  *pacayaBindings.TaikoToken
-	ProverSet   *pacayaBindings.ProverSet
-	ForkRouter  *pacayaBindings.ForkRouter
-	ForkHeight  uint64
+	TaikoInbox   *pacayaBindings.TaikoInboxClient
+	TaikoWrapper *pacayaBindings.TaikoWrapperClient
+	TaikoAnchor  *pacayaBindings.TaikoAnchorClient
+	TaikoToken   *pacayaBindings.TaikoToken
+	ProverSet    *pacayaBindings.ProverSet
+	ForkRouter   *pacayaBindings.ForkRouter
+	ForkHeight   uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -71,6 +72,7 @@ type ClientConfig struct {
 	L1BeaconEndpoint              string
 	L2CheckPoint                  string
 	TaikoL1Address                common.Address
+	TaikoWrapperAddress           common.Address
 	TaikoL2Address                common.Address
 	TaikoTokenAddress             common.Address
 	GuardianProverMinorityAddress common.Address
@@ -255,8 +257,9 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	}
 
 	var (
-		taikoToken *pacayaBindings.TaikoToken
-		proverSet  *pacayaBindings.ProverSet
+		taikoToken   *pacayaBindings.TaikoToken
+		proverSet    *pacayaBindings.ProverSet
+		taikoWrapper *pacayaBindings.TaikoWrapperClient
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -269,12 +272,19 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		}
 	}
 
+	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
+		if taikoWrapper, err = pacayaBindings.NewTaikoWrapperClient(cfg.TaikoWrapperAddress, c.L1); err != nil {
+			return err
+		}
+	}
+
 	c.PacayaClients = &PacayaClients{
-		TaikoInbox:  taikoInbox,
-		TaikoAnchor: taikoAnchor,
-		TaikoToken:  taikoToken,
-		ProverSet:   proverSet,
-		ForkRouter:  forkManager,
+		TaikoInbox:   taikoInbox,
+		TaikoWrapper: taikoWrapper,
+		TaikoAnchor:  taikoAnchor,
+		TaikoToken:   taikoToken,
+		ProverSet:    proverSet,
+		ForkRouter:   forkManager,
 	}
 
 	return nil

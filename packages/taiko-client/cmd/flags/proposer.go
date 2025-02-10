@@ -6,6 +6,13 @@ import (
 
 // Required flags used by proposer.
 var (
+	TaikoWrapperAddress = &cli.StringFlag{
+		Name:     "taikoWrapper",
+		Usage:    "TaikoWrapper contract `address`",
+		Required: true,
+		Category: proposerCategory,
+		EnvVars:  []string{"TAIKO_WRAPPER"},
+	}
 	L1ProposerPrivKey = &cli.StringFlag{
 		Name:     "l1.proposerPrivKey",
 		Usage:    "Private key of the L1 proposer, who will send TaikoL1.proposeBlock transactions",
