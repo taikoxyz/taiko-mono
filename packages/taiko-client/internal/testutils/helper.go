@@ -23,18 +23,18 @@ import (
 )
 
 func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer ChainSyncer) {
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	var n = 0
-	if l2Head.Number.Uint64() < s.RPCClient.PacayaClients.ForkHeight {
-		n = int(s.RPCClient.PacayaClients.ForkHeight - l2Head.Number.Uint64())
+	if head.Number.Uint64() < s.RPCClient.PacayaClients.ForkHeight {
+		n = int(s.RPCClient.PacayaClients.ForkHeight - head.Number.Uint64())
 	}
 
 	for i := 0; i < n; i++ {
 		s.ProposeAndInsertValidBlock(proposer, syncer)
 	}
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.GreaterOrEqual(head.Number.Uint64(), s.RPCClient.PacayaClients.ForkHeight)
 }

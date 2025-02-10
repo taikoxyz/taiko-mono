@@ -35,7 +35,7 @@ var (
 )
 
 // GetProtocolConfigs gets the protocol configs from TaikoInbox or TaikoL2 contract.
-func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (cfg config.ProtocolConfigs, err error) {
+func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
