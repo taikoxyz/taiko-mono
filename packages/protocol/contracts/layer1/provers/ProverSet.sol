@@ -22,7 +22,7 @@ contract ProverSet is ProverSetBase, IProposeBatch {
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        address entrypoint = resolve(LibStrings.B_PROPOSE_BLOCK_ENTRYPOINT, false);
+        address entrypoint = resolve(LibStrings.B_PRECONF_ROUTER, false);
         return IProposeBatch(entrypoint).proposeBatch(_params, _txList);
     }
 
