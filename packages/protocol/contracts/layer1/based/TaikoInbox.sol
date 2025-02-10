@@ -142,9 +142,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                anchorInput: params.anchorInput,
-                baseFeeConfig: config.baseFeeConfig,
-                signalSlots: params.signalSlots
+                baseFeeConfig: config.baseFeeConfig
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
@@ -470,6 +468,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
+        require(batchId_ >= pacayaConfig().forkHeights.pacaya, BatchNotFound());
         blockId_ = getBatch(batchId_).lastBlockId;
         ts_ = getBatchVerifyingTransition(batchId_);
     }
@@ -791,8 +790,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
 
             uint64 totalShift;
+            address signalService;
+
             for (uint256 i; i < blocksLength; ++i) {
                 totalShift += _params.blocks[i].timeShift;
+
+                uint256 numSignals = _params.blocks[i].signalSlots.length;
+                if (numSignals == 0) continue;
+
+                require(numSignals <= _maxSignalsToReceive, TooManySignals());
+
+                if (signalService == address(0)) {
+                    signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
+                }
+
+                for (uint256 j; j < numSignals; ++j) {
+                    require(
+                        ISignalService(signalService).isSignalSent(_params.blocks[i].signalSlots[j]),
+                        SignalNotSent()
+                    );
+                }
             }
 
             require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());
@@ -814,19 +831,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 _params.parentMetaHash == 0 || _params.parentMetaHash == _lastBatch.metaHash,
                 ParentMetaHashMismatch()
             );
-        }
-
-        uint256 signalSlotsLength = _params.signalSlots.length;
-
-        if (signalSlotsLength != 0) {
-            require(signalSlotsLength <= _maxSignalsToReceive, TooManySignals());
-
-            ISignalService signalService =
-                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
-
-            for (uint256 i; i < signalSlotsLength; ++i) {
-                require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
-            }
         }
 
         require(blocksLength != 0, BlockNotFound());

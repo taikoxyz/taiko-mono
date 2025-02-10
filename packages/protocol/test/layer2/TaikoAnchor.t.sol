@@ -135,12 +135,7 @@ contract TestTaikoAnchor is Layer2Test {
         bytes32 anchorStateRoot = bytes32(uint256(1));
         vm.prank(anchor.GOLDEN_TOUCH_ADDRESS());
         anchor.anchorV3(
-            ++anchorBlockId,
-            anchorStateRoot,
-            bytes32(0),
-            _parentGasUsed,
-            baseFeeConfig,
-            new bytes32[](0)
+            ++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig, new bytes32[](0)
         );
 
         (uint256 basefee, uint64 newGasTarget,) =
@@ -170,12 +165,7 @@ contract TestTaikoAnchor is Layer2Test {
          });
 
         anchor.anchorV3(
-            ++anchorBlockId,
-            anchorStateRoot,
-            bytes32(0),
-            parentGasUsed,
-            baseFeeConfig,
-            new bytes32[](0)
+            ++anchorBlockId, anchorStateRoot, parentGasUsed, baseFeeConfig, new bytes32[](0)
         );
     }
 }
