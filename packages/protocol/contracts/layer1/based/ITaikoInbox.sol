@@ -279,7 +279,7 @@ interface ITaikoInbox {
     error MsgValueNotZero();
     error NoBlocksToProve();
     error NotFirstProposal();
-    error NotInboxOperator();
+    error NotInboxWrapper();
     error ParentMetaHashMismatch();
     error SameTransition();
     error SignalNotSent();
