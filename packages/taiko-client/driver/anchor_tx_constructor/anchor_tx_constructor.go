@@ -176,6 +176,11 @@ func (c *AnchorTxConstructor) transactOpts(
 		"parent", parentHeight,
 	)
 
+	gasLimit := consensus.AnchorGasLimit
+	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeight {
+		gasLimit = consensus.AnchorV3GasLimit
+	}
+
 	return &bind.TransactOpts{
 		From: consensus.GoldenTouchAccount,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -192,7 +197,7 @@ func (c *AnchorTxConstructor) transactOpts(
 		Context:   ctx,
 		GasFeeCap: baseFee,
 		GasTipCap: common.Big0,
-		GasLimit:  consensus.AnchorGasLimit,
+		GasLimit:  gasLimit,
 		NoSend:    true,
 	}, nil
 }

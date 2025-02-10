@@ -173,6 +173,10 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		if err != nil {
 			return fmt.Errorf("failed to fetch anchor block: %w", err)
 		}
+		signalSlot := meta.GetSignalSlots()
+		if j != 0 {
+			signalSlot = make([][32]byte, 0)
+		}
 		anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
 			ctx,
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
@@ -180,7 +184,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			meta.GetAnchorInput(),
 			parent.GasUsed,
 			meta.GetBaseFeeConfig(),
-			meta.GetSignalSlots(),
+			signalSlot,
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFee,
 		)
