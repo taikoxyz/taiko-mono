@@ -135,12 +135,6 @@ const docTemplate = `{
                     "description": "@param anchorBlockID uint64 ` + "`" + `_anchorBlockId` + "`" + ` parameter of the ` + "`" + `anchorV3` + "`" + ` transaction in the preconf block",
                     "type": "integer"
                 },
-                "anchorInput": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
                 "anchorStateRoot": {
                     "description": "@param anchorStateRoot string ` + "`" + `_anchorStateRoot` + "`" + ` parameter of the ` + "`" + `anchorV3` + "`" + ` transaction in the preconf block",
                     "type": "string"
