@@ -133,6 +133,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
+    /// @dev The gas limit for this transaction must be set to 1,000,000 gas.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
