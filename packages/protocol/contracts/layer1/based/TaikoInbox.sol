@@ -11,6 +11,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
+import "./IProposeBatch.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -25,7 +26,7 @@ import "./ITaikoInbox.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -51,6 +52,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         bytes calldata _txList
     )
         public
+        override(ITaikoInbox, IProposeBatch)
         nonReentrant
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
@@ -68,15 +70,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                address operator = resolve(LibStrings.B_INBOX_OPERATOR, true);
-                if (operator == address(0)) {
+                address wrapper = resolve(LibStrings.B_INBOX_WRAPPER, true);
+                if (wrapper == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                 } else {
-                    require(msg.sender == operator, NotInboxOperator());
+                    require(msg.sender == wrapper, NotInboxWrapper());
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
@@ -95,10 +97,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 if (params.blobParams.blobHashes.length == 0) {
                     require(params.blobParams.numBlobs != 0, BlobNotSpecified());
                 } else {
-                    require(
-                        params.blobParams.numBlobs == 0 && params.blobParams.firstBlobIndex == 0,
-                        InvalidBlobParams()
-                    );
+                    require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+                    require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
                 }
             }
 
@@ -340,7 +340,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         external
         onlyOwner
     {
-        require(_blockHash != 0 && _parentHash != 0 && _stateRoot != 0, InvalidParams());
+        require(_blockHash != 0, InvalidParams());
+        require(_parentHash != 0, InvalidParams());
+        require(_stateRoot != 0, InvalidParams());
         require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
 
         Config memory config = pacayaConfig();
@@ -425,7 +427,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
-        require(_tid != 0 && _tid < batch.nextTransitionId, TransitionNotFound());
+        require(_tid != 0, TransitionNotFound());
+        require(_tid < batch.nextTransitionId, TransitionNotFound());
         return state.transitions[slot][_tid];
     }
 
