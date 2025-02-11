@@ -121,7 +121,7 @@ func (p *Proposer) InitFromConfig(
 		p.rpc,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.TaikoL1Address,
+		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
 		cfg.ProposeBlockTxGasLimit,
 		p.chainConfig,
@@ -445,12 +445,12 @@ func (p *Proposer) ProposeTxListPacaya(
 		return fmt.Errorf("insufficient prover (%s) balance", proverAddress.Hex())
 	}
 
-	forcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
 	}
 
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion)
+	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
 		return err

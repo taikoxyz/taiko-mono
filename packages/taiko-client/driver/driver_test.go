@@ -563,16 +563,18 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	txListsBytes, err := utils.Compress(rlpEncoded)
 	s.Nil(err)
 
-	encodedParams, err := encoding.EncodeBatchParams(&encoding.BatchParams{
-		Coinbase: blocks[0].Coinbase(),
-		BlobParams: encoding.BlobParams{
-			ByteOffset: 0,
-			ByteSize:   uint32(len(txListsBytes)),
-		},
-		Blocks:             blockParams,
-		AnchorBlockId:      anchoredL1Blocks[0].Number.Uint64(),
-		LastBlockTimestamp: blocks[len(blocks)-1].Time(),
-	})
+	encodedParams, err := encoding.EncodeBatchParamsWithForcedInclusion(
+		nil,
+		&encoding.BatchParams{
+			Coinbase: blocks[0].Coinbase(),
+			BlobParams: encoding.BlobParams{
+				ByteOffset: 0,
+				ByteSize:   uint32(len(txListsBytes)),
+			},
+			Blocks:             blockParams,
+			AnchorBlockId:      anchoredL1Blocks[0].Number.Uint64(),
+			LastBlockTimestamp: blocks[len(blocks)-1].Time(),
+		})
 	s.Nil(err)
 
 	if s.p.ProverSetAddress != rpc.ZeroAddress {
@@ -601,13 +603,15 @@ func (s *DriverTestSuite) InitProposer() {
 
 	s.Nil(p.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:        os.Getenv("L1_WS"),
-			L2Endpoint:        os.Getenv("L2_WS"),
-			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
-			JwtSecret:         string(jwtSecret),
-			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+			L1Endpoint:                  os.Getenv("L1_WS"),
+			L2Endpoint:                  os.Getenv("L2_WS"),
+			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
+			JwtSecret:                   string(jwtSecret),
+			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
+			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),

@@ -328,9 +328,14 @@ var (
 	}
 	stringType, _             = abi.NewType("string", "", nil)
 	uint256Type, _            = abi.NewType("uint256", "", nil)
+	bytesType, _              = abi.NewType("bytes", "", nil)
 	PacayaDifficultyInputArgs = abi.Arguments{
 		{Name: "TAIKO_DIFFICULTY", Type: stringType},
 		{Name: "block.number", Type: uint256Type},
+	}
+	batchParamsWithForcedInclusionArgs = abi.Arguments{
+		{Name: "bytesX", Type: bytesType},
+		{Name: "bytesY", Type: bytesType},
 	}
 )
 
@@ -484,13 +489,22 @@ func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 	return b, nil
 }
 
-// EncodeBatchParams performs the solidity `abi.encode` for the given pacaya batchParams.
-func EncodeBatchParams(params *BatchParams) ([]byte, error) {
-	b, err := batchParamsComponentsArgs.Pack(params)
+// EncodeBatchParamsWithForcedInclusion performs the solidity `abi.encode` for the given two pacaya batchParams.
+func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchParams) ([]byte, error) {
+	var (
+		x   []byte
+		err error
+	)
+	if paramsForcedInclusion != nil {
+		if x, err = batchParamsComponentsArgs.Pack(paramsForcedInclusion); err != nil {
+			return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
+		}
+	}
+	y, err := batchParamsComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
 	}
-	return b, nil
+	return batchParamsWithForcedInclusionArgs.Pack(x, y)
 }
 
 // EncodeBatchesSubProofs performs the solidity `abi.encode` for the given pacaya batchParams.

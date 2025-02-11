@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -24,7 +25,7 @@ type CalldataTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
 	l2SuggestedFeeRecipient common.Address
-	taikoL1Address          common.Address
+	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	gasLimit                uint64
 	chainConfig             *config.ChainConfig
@@ -36,7 +37,7 @@ func NewCalldataTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
-	taikoL1Address common.Address,
+	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
 	chainConfig *config.ChainConfig,
@@ -46,7 +47,7 @@ func NewCalldataTransactionBuilder(
 		rpc,
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
-		taikoL1Address,
+		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,
 		chainConfig,
@@ -71,7 +72,7 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 
 	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
 	var (
-		to                 = &b.taikoL1Address
+		to                 = &b.taikoWrapperAddress
 		data               []byte
 		encodedParamsArray [][]byte
 	)
@@ -119,15 +120,28 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
 ) (*txmgr.TxCandidate, error) {
-	// ABI encode the TaikoInbox.proposeBatch / ProverSet.proposeBatch parameters.
+	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
-		to            = &b.taikoL1Address
-		data          []byte
-		encodedParams []byte
-		blockParams   []pacayaBindings.ITaikoInboxBlockParams
-		allTxs        types.Transactions
+		to                    = &b.taikoWrapperAddress
+		data                  []byte
+		encodedParams         []byte
+		blockParams           []pacayaBindings.ITaikoInboxBlockParams
+		forcedInclusionParams *encoding.BatchParams
+		allTxs                types.Transactions
 	)
+
+	if forcedInclusion != nil {
+		blobParams, blockParams := buildBlobAndBlockParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		forcedInclusionParams = &encoding.BatchParams{
+			Proposer:                 crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey),
+			Coinbase:                 b.l2SuggestedFeeRecipient,
+			RevertIfNotFirstProposal: b.revertProtectionEnabled,
+			BlobParams:               *blobParams,
+			Blocks:                   blockParams,
+		}
+	}
 
 	for _, txs := range txBatch {
 		allTxs = append(allTxs, txs...)
@@ -146,15 +160,17 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		return nil, fmt.Errorf("failed to compress transactions: %w", err)
 	}
 
-	if encodedParams, err = encoding.EncodeBatchParams(&encoding.BatchParams{
-		Coinbase:                 b.l2SuggestedFeeRecipient,
-		RevertIfNotFirstProposal: b.revertProtectionEnabled,
-		BlobParams: encoding.BlobParams{
-			ByteOffset: 0,
-			ByteSize:   uint32(len(txListsBytes)),
-		},
-		Blocks: blockParams,
-	}); err != nil {
+	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(
+		forcedInclusionParams,
+		&encoding.BatchParams{
+			Coinbase:                 b.l2SuggestedFeeRecipient,
+			RevertIfNotFirstProposal: b.revertProtectionEnabled,
+			BlobParams: encoding.BlobParams{
+				ByteOffset: 0,
+				ByteSize:   uint32(len(txListsBytes)),
+			},
+			Blocks: blockParams,
+		}); err != nil {
 		return nil, err
 	}
 

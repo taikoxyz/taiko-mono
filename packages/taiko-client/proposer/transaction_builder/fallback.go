@@ -155,14 +155,15 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	forcedInclusion *pacaya.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
 ) (*txmgr.TxCandidate, error) {
 	// If calldata is the only option, just use it.
 	if b.blobTransactionBuilder == nil {
-		return b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion)
+		return b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
 	if !b.fallback {
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion)
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	}
 
 	// Otherwise, compare the cost, and choose the cheaper option.
@@ -176,7 +177,12 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	)
 
 	g.Go(func() error {
-		if txWithCalldata, err = b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion); err != nil {
+		if txWithCalldata, err = b.calldataTransactionBuilder.BuildPacaya(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+		); err != nil {
 			return fmt.Errorf("failed to build type-2 transaction: %w", err)
 		}
 		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
@@ -185,7 +191,12 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 		return nil
 	})
 	g.Go(func() error {
-		if txWithBlob, err = b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion); err != nil {
+		if txWithBlob, err = b.blobTransactionBuilder.BuildPacaya(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+		); err != nil {
 			return fmt.Errorf("failed to build type-3 transaction: %w", err)
 		}
 		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
@@ -198,7 +209,7 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
 		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion)
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	}
 
 	var (

@@ -53,13 +53,15 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:        os.Getenv("L1_WS"),
-			L2Endpoint:        os.Getenv("L2_WS"),
-			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
-			JwtSecret:         string(jwtSecret),
-			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+			L1Endpoint:                  os.Getenv("L1_WS"),
+			L2Endpoint:                  os.Getenv("L2_WS"),
+			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
+			JwtSecret:                   string(jwtSecret),
+			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
+			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
