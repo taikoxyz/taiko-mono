@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -26,6 +27,7 @@ import (
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
+	taikoL1Address          common.Address
 	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
@@ -38,6 +40,7 @@ type BlobTransactionBuilder struct {
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
+	taikoL1Address common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
@@ -48,6 +51,7 @@ func NewBlobTransactionBuilder(
 	return &BlobTransactionBuilder{
 		rpc,
 		proposerPrivateKey,
+		taikoL1Address,
 		taikoWrapperAddress,
 		proverSetAddress,
 		l2SuggestedFeeRecipient,
@@ -74,7 +78,7 @@ func (b *BlobTransactionBuilder) BuildOntake(
 
 	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
 	var (
-		to                 = &b.taikoWrapperAddress
+		to                 = &b.taikoL1Address
 		data               []byte
 		blobs              []*eth.Blob
 		encodedParamsArray [][]byte
@@ -210,6 +214,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 			return nil, err
 		}
 	}
+	log.Info("BlobTransactionBuilder.BuildPacaya", "to", to)
 
 	return &txmgr.TxCandidate{
 		TxData:   data,

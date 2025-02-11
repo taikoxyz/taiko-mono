@@ -1152,9 +1152,28 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	head, err := c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, nil, err
+	var (
+		head uint64
+		tail uint64
+		err  error
+	)
+
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
+		return err
+	})
+	g.Go(func() error {
+		tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
+		return err
+	})
+	if err := g.Wait(); err != nil {
+		return nil, nil, encoding.TryParsingCustomError(err)
+	}
+
+	// Head is greater than or equal to tail, which means that no forced inclusion is available yet.
+	if head >= tail {
+		return nil, nil, nil
 	}
 
 	forcedInclusion, err := c.PacayaClients.ForcedInclusionStore.GetForcedInclusion(
@@ -1162,10 +1181,10 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		new(big.Int).SetUint64(head),
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, encoding.TryParsingCustomError(err)
 	}
 
-	// If no forced inclusion is available yet, we will return nil.
+	// If there is an empty forced inclusion, we will return nil.
 	if forcedInclusion.CreatedAtBatchId == 0 {
 		return nil, nil, nil
 	}
@@ -1174,7 +1193,7 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		&bind.CallOpts{Context: ctxWithTimeout},
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, encoding.TryParsingCustomError(err)
 	}
 
 	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil

@@ -121,6 +121,7 @@ func (p *Proposer) InitFromConfig(
 		p.rpc,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
+		cfg.TaikoL1Address,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
 		cfg.ProposeBlockTxGasLimit,
@@ -304,16 +305,6 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 
 	// Check if the current L2 chain is after Pacaya fork, propose blocks batch.
 	if p.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head + 1)) {
-		preconfRouter, err := p.rpc.ResolvePacaya(nil, "preconf_router", true)
-		if err != nil {
-			return fmt.Errorf("failed to resolve preconfirmation router address: %w", err)
-		}
-
-		if preconfRouter != rpc.ZeroAddress {
-			log.Info("Preconfirmation router is set, skipping proposing blocks batch")
-			return nil
-		}
-
 		if err := p.ProposeTxListPacaya(ctx, txLists); err != nil {
 			return err
 		}
@@ -449,6 +440,8 @@ func (p *Proposer) ProposeTxListPacaya(
 	if err != nil {
 		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
 	}
+
+	log.Info("Forced inclusion", "forcedInclusion", forcedInclusion)
 
 	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	if err != nil {

@@ -25,6 +25,7 @@ type CalldataTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
 	l2SuggestedFeeRecipient common.Address
+	taikoL1Address          common.Address
 	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	gasLimit                uint64
@@ -37,6 +38,7 @@ func NewCalldataTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
+	taikoL1Address common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
@@ -47,6 +49,7 @@ func NewCalldataTransactionBuilder(
 		rpc,
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
+		taikoL1Address,
 		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,
@@ -72,7 +75,7 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 
 	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
 	var (
-		to                 = &b.taikoWrapperAddress
+		to                 = &b.taikoL1Address
 		data               []byte
 		encodedParamsArray [][]byte
 	)

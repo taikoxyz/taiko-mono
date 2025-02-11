@@ -609,6 +609,7 @@ func (s *DriverTestSuite) InitProposer() {
 			JwtSecret:                   string(jwtSecret),
 			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),

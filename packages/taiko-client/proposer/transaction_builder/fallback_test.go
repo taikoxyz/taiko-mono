@@ -121,6 +121,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.Address{},
 		10_000_000,
 		chainConfig,

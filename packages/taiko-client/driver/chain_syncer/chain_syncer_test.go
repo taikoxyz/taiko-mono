@@ -58,6 +58,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
 			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),

@@ -53,21 +53,33 @@ func (s *ClientTestSuite) SetupTest() {
 	s.NotEmpty(jwtSecret)
 
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:        os.Getenv("L1_WS"),
-		L2Endpoint:        os.Getenv("L2_WS"),
-		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		L2EngineEndpoint:  os.Getenv("L2_AUTH"),
-		JwtSecret:         string(jwtSecret),
+		L1Endpoint:                  os.Getenv("L1_WS"),
+		L2Endpoint:                  os.Getenv("L2_WS"),
+		TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
+		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
+		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
+		JwtSecret:                   string(jwtSecret),
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
+	ownerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
+	s.Nil(err)
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
+	l1ProposerprivateKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
+	s.Nil(err)
+
+	for _, key := range []*ecdsa.PrivateKey{ownerPrivKey, l1ProposerprivateKey, l1ProverPrivKey} {
+		s.enableProver(key, crypto.PubkeyToAddress(key.PublicKey))
+	}
+	s.enableProver(ownerPrivKey, common.HexToAddress(os.Getenv("PROVER_SET")))
 
 	allowance, err := rpcCli.PacayaClients.TaikoToken.Allowance(
 		nil,
@@ -77,25 +89,23 @@ func (s *ClientTestSuite) SetupTest() {
 	s.Nil(err)
 
 	if allowance.Cmp(common.Big0) == 0 {
-		ownerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
-		s.Nil(err)
+		// Transfer some tokens to provers and prover set.
+		for _, address := range []common.Address{
+			crypto.PubkeyToAddress(ownerPrivKey.PublicKey),
+			common.HexToAddress(os.Getenv("PROVER_SET")),
+		} {
+			balance, err := rpcCli.PacayaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(ownerPrivKey.PublicKey))
+			s.Nil(err)
+			s.Greater(balance.Cmp(common.Big0), 0)
 
-		// Transfer some tokens to provers.
-		balance, err := rpcCli.PacayaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(ownerPrivKey.PublicKey))
-		s.Nil(err)
-		s.Greater(balance.Cmp(common.Big0), 0)
+			opts, err := bind.NewKeyedTransactorWithChainID(ownerPrivKey, rpcCli.L1.ChainID)
+			s.Nil(err)
+			proverBalance := new(big.Int).Div(balance, common.Big256)
+			s.Greater(proverBalance.Cmp(common.Big0), 0)
 
-		opts, err := bind.NewKeyedTransactorWithChainID(ownerPrivKey, rpcCli.L1.ChainID)
-		s.Nil(err)
-		proverBalance := new(big.Int).Div(balance, common.Big3)
-		s.Greater(proverBalance.Cmp(common.Big0), 0)
-
-		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(
-			opts,
-			crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey),
-			proverBalance,
-		)
-		s.Nil(err)
+			_, err = rpcCli.PacayaClients.TaikoToken.Transfer(opts, address, proverBalance)
+			s.Nil(err)
+		}
 
 		// Increase allowance for TaikoL1
 		s.setAllowance(l1ProverPrivKey)
@@ -106,27 +116,33 @@ func (s *ClientTestSuite) SetupTest() {
 	s.BlobServer = NewMemoryBlobServer()
 }
 
+func (s *ClientTestSuite) enableProver(key *ecdsa.PrivateKey, address common.Address) {
+	t, err := s.txMgr("enableProver", key)
+	s.Nil(err)
+
+	proverSetAddress := common.HexToAddress(os.Getenv("PROVER_SET"))
+
+	enabled, err := s.RPCClient.PacayaClients.ProverSet.IsProver(nil, address)
+	s.Nil(err)
+
+	if !enabled {
+		log.Info("Enable prover / proposer in ProverSet", "address", address.Hex())
+		data, err := encoding.ProverSetABI.Pack("enableProver", address, true)
+		s.Nil(err)
+		_, err = t.Send(context.Background(), txmgr.TxCandidate{
+			TxData: data,
+			To:     &proverSetAddress,
+		})
+		s.Nil(err)
+
+		enabled, err = s.RPCClient.PacayaClients.ProverSet.IsProver(nil, address)
+		s.Nil(err)
+		s.True(enabled)
+	}
+}
+
 func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
-	t, err := txmgr.NewSimpleTxManager(
-		"setAllowance",
-		log.Root(),
-		new(metrics.NoopTxMetrics),
-		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(key)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-	)
+	t, err := s.txMgr("setAllowance", key)
 	s.Nil(err)
 
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
@@ -148,6 +164,29 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 		To:     &taikoTokenAddress,
 	})
 	s.Nil(err)
+}
+
+func (s *ClientTestSuite) txMgr(name string, key *ecdsa.PrivateKey) (*txmgr.SimpleTxManager, error) {
+	return txmgr.NewSimpleTxManager(
+		name,
+		log.Root(),
+		new(metrics.NoopTxMetrics),
+		txmgr.CLIConfig{
+			L1RPCURL:                  os.Getenv("L1_WS"),
+			NumConfirmations:          0,
+			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(key)),
+			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+			ReceiptQueryInterval:      1 * time.Second,
+			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+		},
+	)
 }
 
 func (s *ClientTestSuite) TearDownTest() {

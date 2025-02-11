@@ -22,8 +22,6 @@ cd ${OLD_FORK_TAIKO_MONO}/packages/protocol &&
 DEPLOYMENT_JSON=$(cat ${OLD_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
 export OLD_FORK=0x1291Be112d480055DaFd8a610b7d1e203891C274
 export TAIKO_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
-export TAIKO_WRAPPER=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_wrapper' | sed 's/\"//g')
-export FORCED_INCLUSION_STORE=$(echo "$DEPLOYMENT_JSON" | jq '.forced_inclusion_store' | sed 's/\"//g')
 export ROLLUP_RESOLVER=$(echo "$DEPLOYMENT_JSON" | jq '.rollup_address_manager' | sed 's/\"//g')
 export PROVER_SET=$(echo "$DEPLOYMENT_JSON" | jq '.prover_set' | sed 's/\"//g')
 export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
