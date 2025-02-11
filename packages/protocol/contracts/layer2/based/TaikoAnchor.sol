@@ -30,7 +30,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
-    address public immutable signalService;
+    ISignalService public immutable signalService;
     uint64 public immutable pacayaForkHeight;
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
@@ -98,7 +98,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     )
         EssentialContract(_resolver)
     {
-        signalService = _signalService;
+        signalService = ISignalService(_signalService);
         pacayaForkHeight = _pacayaForkHeight;
     }
 
@@ -170,7 +170,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
-        ISignalService(signalService).receiveSignals(_signalSlots);
+        signalService.receiveSignals(_signalSlots);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -296,7 +296,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
         /// @dev Store the L1's state root as a signal to the local signal service to
         /// allow for multi-hop bridging.
-        ISignalService(signalService).syncChainData(
+        signalService.syncChainData(
             l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
         );
 
