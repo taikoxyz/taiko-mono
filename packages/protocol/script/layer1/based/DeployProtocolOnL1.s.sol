@@ -403,12 +403,14 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
-        taikoWrapper = deployProxy({
-            name: "taiko_wrapper",
-            impl: address(new TaikoWrapper(resolver)),
-            data: abi.encodeCall(TaikoWrapper.init, (owner)),
-            registerTo: resolver
-        });
+        if (!vm.envBool("DISABLE_TAIKO_WRAPPER")) {
+            taikoWrapper = deployProxy({
+                name: "taiko_wrapper",
+                impl: address(new TaikoWrapper(resolver)),
+                data: abi.encodeCall(TaikoWrapper.init, (owner)),
+                registerTo: resolver
+            });
+        }
 
         router = deployProxy({
             name: "preconf_router",
