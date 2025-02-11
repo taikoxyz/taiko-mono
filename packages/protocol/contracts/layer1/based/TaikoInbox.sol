@@ -32,6 +32,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
 
+    event DebugContexts(
+        IVerifier.Context[] ctxs
+    );
+
     // External functions ------------------------------------------------------------------------
 
     constructor(address _resolver) EssentialContract(_resolver) { }
@@ -293,6 +297,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         }
 
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
+        emit DebugContexts(ctxs);
         IVerifier(verifier).verifyProof(ctxs, _proof);
 
         // Emit the event
