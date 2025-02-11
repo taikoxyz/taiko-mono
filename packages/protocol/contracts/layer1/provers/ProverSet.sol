@@ -7,7 +7,7 @@ import "../based/IProposeBatch.sol";
 contract ProverSet is ProverSetBase, IProposeBatch {
     using Address for address;
 
-    address immutable entrypoint;
+    address public immutable entrypoint;
 
     error ForcedInclusionParamsNotAllowed();
 
