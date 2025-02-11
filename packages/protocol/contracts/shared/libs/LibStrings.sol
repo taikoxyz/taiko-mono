@@ -15,7 +15,8 @@ library LibStrings {
     bytes32 internal constant B_ERC1155_VAULT = bytes32("erc1155_vault");
     bytes32 internal constant B_ERC20_VAULT = bytes32("erc20_vault");
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
-    bytes32 internal constant B_INBOX_OPERATOR = bytes32("inbox_operator");
+    bytes32 internal constant B_FORCED_INCLUSION_STORE = bytes32("forced_inclusion_store");
+    bytes32 internal constant B_INBOX_WRAPPER = bytes32("inbox_operator");
     bytes32 internal constant B_PRECONF_ROUTER = bytes32("preconf_router");
     bytes32 internal constant B_PRECONF_WHITELIST = bytes32("preconf_whitelist");
     bytes32 internal constant B_PRECONF_WHITELIST_OWNER = bytes32("preconf_whitelist_owner");
@@ -26,6 +27,7 @@ library LibStrings {
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");
+    bytes32 internal constant B_TAIKO_WRAPPER = bytes32("taiko_wrapper");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");
