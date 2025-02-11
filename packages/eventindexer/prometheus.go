@@ -10,6 +10,10 @@ var (
 		Name: "block_proposed_events_processed_ops_total",
 		Help: "The total number of processed BlockProposed events",
 	})
+	BatchProposedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "batch_proposed_events_processed_ops_total",
+		Help: "The total number of processed BatchProposed events",
+	})
 	BlockAssignedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_assigned_events_processed_ops_total",
 		Help: "The total number of processed BlockAssigned events",
@@ -17,6 +21,10 @@ var (
 	BlockProposedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_proposed_events_processed_error_ops_total",
 		Help: "The total number of processed BlockProposed event errors encountered",
+	})
+	BatchProposedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "batch_proposed_events_processed_error_ops_total",
+		Help: "The total number of processed BatchProposed event errors encountered",
 	})
 	BlockAssignedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_assigned_events_processed_error_ops_total",
