@@ -140,6 +140,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return _addInstances(addresses, false)[0];
     }
 
+    event DebugPublicInput(
+        uint256 idx,
+        ITaikoInbox.Transition _transition,
+        address _verifierContract,
+        address _newInstance,
+        bytes32 _metaHash,
+        uint64 _chainId,
+        bytes32 _publicInput
+    );
+
     /// @inheritdoc IVerifier
     function verifyProof(
         Context[] calldata _ctxs,
@@ -167,6 +177,15 @@ contract SgxVerifier is EssentialContract, IVerifier {
             // TODO(Yue): For now this assumes the new instance public key to remain the same
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
                 _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
+            );
+            emit DebugPublicInput(
+                i,
+                _ctxs[i].transition,
+                address(this),
+                newInstance,
+                _ctxs[i].metaHash,
+                taikoChainId,
+                publicInputs[i + 2]
             );
         }
 
