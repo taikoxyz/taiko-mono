@@ -26,7 +26,7 @@ contract TestERC20Vault is CommonTest {
         eSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        eBridge = deployBridge(address(new Bridge(address(resolver))));
+        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
         eVault = deployERC20Vault();
 
         eERC20Token1 = new FreeMintERC20Token("ERC20", "ERC20");

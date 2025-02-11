@@ -64,7 +64,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver)));
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver, signalService)));
         register(sharedResolver, "bridge", bridgeL1);
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));

@@ -47,7 +47,7 @@ contract TestERC20Vault_solver is CommonTest {
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
         tVault = deployERC20Vault();
-        tBridge = deployBridge(address(new Bridge(address(resolver))));
+        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
 
         register("bridge", address(tBridge));
         register("bridged_erc20", address(new BridgedERC20(address(resolver))));

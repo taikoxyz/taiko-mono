@@ -43,7 +43,7 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
         // Shared resolver
         UUPSUpgradeable(sharedResolver).upgradeTo(address(new DefaultResolver()));
         // Bridge
-        UUPSUpgradeable(bridgeL2).upgradeTo(address(new Bridge(sharedResolver)));
+        UUPSUpgradeable(bridgeL2).upgradeTo(address(new Bridge(sharedResolver, signalService)));
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
         // Vault

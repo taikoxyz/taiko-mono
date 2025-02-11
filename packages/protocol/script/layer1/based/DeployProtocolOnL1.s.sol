@@ -154,7 +154,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(sharedResolver, "bond_token", taikoToken);
 
         // Deploy Bridging contracts
-        deployProxy({
+        address signalService = deployProxy({
             name: "signal_service",
             impl: address(new MainnetSignalService(address(sharedResolver))),
             data: abi.encodeCall(SignalService.init, (address(0))),
@@ -163,7 +163,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address brdige = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver))),
+            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });

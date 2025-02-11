@@ -41,10 +41,11 @@ contract TestBridge1 is CommonTest {
 
     function setUpOnEthereum() internal override {
         eMessageReceiver = new MessageReceiver_SendingHalfEtherBalance();
-        eBridge = deployBridge(address(new Bridge(address(resolver))));
+
         eSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
+        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
 
         vm.deal(Alice, 100 ether);
     }
@@ -53,7 +54,7 @@ contract TestBridge1 is CommonTest {
         tSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        tBridge = deployBridge(address(new Bridge(address(resolver))));
+        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
         vm.deal(address(tBridge), 100 ether);
     }
 

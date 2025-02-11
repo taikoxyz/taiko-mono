@@ -31,7 +31,7 @@ contract TestBridge2Base is CommonTest {
         eSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        eBridge = deployBridge(address(new Bridge(address(resolver))));
+        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
         vm.deal(address(eBridge), 10_000 ether);
     }
 

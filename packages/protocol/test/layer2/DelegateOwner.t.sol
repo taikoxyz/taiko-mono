@@ -25,7 +25,7 @@ contract TestDelegateOwner is Layer2Test {
         tSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        tBridge = deployBridge(address(new Bridge(address(resolver))));
+        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
     }
 
     function test_delegate_owner_single_non_delegatecall() public onTaiko {

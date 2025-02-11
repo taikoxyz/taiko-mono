@@ -9,13 +9,14 @@ import "script/BaseScript.sol";
 
 contract UpgradeHeklaOntakeL1 is BaseScript {
     function run() external broadcast {
+        address signalService = vm.envAddress("SIGNAL_SERVICE");
         // Taiko
         UUPSUpgradeable(0x79C9109b764609df928d16fC4a91e9081F7e87DB).upgradeTo(
             address(new HeklaInbox(address(resolver)))
         );
         // Bridge
         UUPSUpgradeable(0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807).upgradeTo(
-            address(new Bridge(address(resolver)))
+            address(new Bridge(address(resolver), signalService))
         );
         // Rollup address manager
         UUPSUpgradeable(0x1F027871F286Cf4B7F898B21298E7B3e090a8403).upgradeTo(
