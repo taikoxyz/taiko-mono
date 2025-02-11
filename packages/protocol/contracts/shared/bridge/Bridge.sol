@@ -161,6 +161,7 @@ contract Bridge is EssentialContract, IBridge {
         msgHash_ = hashMessage(message_);
 
         emit MessageSent(msgHash_, message_);
+        // TODO(daniel): replace with immutable
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(msgHash_);
     }
 
@@ -178,6 +179,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.NEW);
 
+        // TODO(daniel): replace with immutable
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
         if (!ISignalService(signalService).isSignalSent(address(this), msgHash)) {
@@ -244,8 +246,10 @@ contract Bridge is EssentialContract, IBridge {
         }
 
         bytes32 msgHash = hashMessage(_message);
+
         _checkStatus(msgHash, Status.NEW);
 
+        // TODO(daniel): replace with immutable
         address signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
 
         stats.proofSize = uint32(_proof.length);
@@ -367,6 +371,7 @@ contract Bridge is EssentialContract, IBridge {
         _checkStatus(msgHash, Status.RETRIABLE);
 
         _updateMessageStatus(msgHash, Status.FAILED);
+        // TODO(daniel): replace with immutable
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).sendSignal(
             signalForFailedMessage(msgHash)
         );
@@ -375,6 +380,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
+        // TODO(daniel): replace with immutable
         return ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).isSignalSent({
             _app: address(this),
             _signal: hashMessage(_message)

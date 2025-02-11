@@ -162,6 +162,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
+        // TODO(daniel): replace with immutable
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).receiveSignals(_signalSlots);
     }
 
@@ -288,9 +289,9 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
         /// @dev Store the L1's state root as a signal to the local signal service to
         /// allow for multi-hop bridging.
-        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-            l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
-        );
+        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false))
+            // TODO(daniel): replace with immutable
+            .syncChainData(l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot);
 
         /// @dev Update the last synced block to the current anchor block ID.
         lastSyncedBlock = _anchorBlockId;

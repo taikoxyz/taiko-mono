@@ -65,7 +65,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
+        // TODO(daniel): replace with immutable
         ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
+        // TODO(daniel): replace with immutable
         IForcedInclusionStore store =
             IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
 

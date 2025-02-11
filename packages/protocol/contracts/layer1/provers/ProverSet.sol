@@ -22,6 +22,7 @@ contract ProverSet is ProverSetBase, IProposeBatch {
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
+        // TODO(daniel): replace with immutable
         address entrypoint = resolve(LibStrings.B_PRECONF_ROUTER, false);
         return IProposeBatch(entrypoint).proposeBatch(_params, _txList);
     }

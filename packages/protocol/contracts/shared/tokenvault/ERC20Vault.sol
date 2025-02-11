@@ -297,6 +297,7 @@ contract ERC20Vault is BaseVault {
             }
         }
 
+        // TODO(daniel): replace with immutable
         address bridge = resolve(LibStrings.B_BRIDGE, false);
 
         (
@@ -608,6 +609,7 @@ contract ERC20Vault is BaseVault {
             (owner(), ctoken.addr, ctoken.chainId, ctoken.decimals, ctoken.symbol, ctoken.name)
         );
 
+        // TODO(daniel): replace with immutable
         btoken = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC20, false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
@@ -625,6 +627,7 @@ contract ERC20Vault is BaseVault {
     function _consumeTokenQuota(address _token, uint256 _amount) private {
         address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
         if (quotaManager != address(0)) {
+            // TODO(daniel): replace with immutable
             IQuotaManager(quotaManager).consumeQuota(_token, _amount);
         }
     }

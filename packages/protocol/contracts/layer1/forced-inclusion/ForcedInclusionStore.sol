@@ -121,6 +121,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     function _nextBatchId() private view returns (uint64) {
+        // TODO(daniel): replace with immutable
         return ITaikoInbox(resolve(LibStrings.B_TAIKO, false)).getStats2().numBatches;
     }
 }
