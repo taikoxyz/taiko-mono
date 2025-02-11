@@ -13,6 +13,12 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"TAIKO_WRAPPER"},
 	}
+	ForcedInclusionStoreAddress = &cli.StringFlag{
+		Name:     "forcedInclusionStore",
+		Usage:    "ForcedInclusionStore contract `address`",
+		Required: true,
+		EnvVars:  []string{"FORCED_INCLUSION_STORE"},
+	}
 	L1ProposerPrivKey = &cli.StringFlag{
 		Name:     "l1.proposerPrivKey",
 		Usage:    "Private key of the L1 proposer, who will send TaikoL1.proposeBlock transactions",
@@ -125,6 +131,8 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2AuthEndpoint,
 	JWTSecret,
 	TaikoTokenAddress,
+	TaikoWrapperAddress,
+	ForcedInclusionStoreAddress,
 	L1ProposerPrivKey,
 	L2SuggestedFeeRecipient,
 	ProposeInterval,

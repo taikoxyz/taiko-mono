@@ -351,14 +351,15 @@ var (
 	ForkRouterABI       *abi.ABI
 
 	// Pacaya fork
-	TaikoInboxABI       *abi.ABI
-	TaikoWrapperABI     *abi.ABI
-	TaikoAnchorABI      *abi.ABI
-	ResloverBaseABI     *abi.ABI
-	ComposeVerifierABI  *abi.ABI
-	ForkRouterPacayaABI *abi.ABI
-	TaikoTokenPacayaABI *abi.ABI
-	ProverSetPacayaABI  *abi.ABI
+	TaikoInboxABI           *abi.ABI
+	TaikoWrapperABI         *abi.ABI
+	ForcedInclusionStoreABI *abi.ABI
+	TaikoAnchorABI          *abi.ABI
+	ResloverBaseABI         *abi.ABI
+	ComposeVerifierABI      *abi.ABI
+	ForkRouterPacayaABI     *abi.ABI
+	TaikoTokenPacayaABI     *abi.ABI
+	ProverSetPacayaABI      *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -422,6 +423,10 @@ func init() {
 		log.Crit("Get TaikoWrapper ABI error", "error", err)
 	}
 
+	if ForcedInclusionStoreABI, err = pacayaBindings.ForcedInclusionStoreMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForcedInclusionStore ABI error", "error", err)
+	}
+
 	if TaikoAnchorABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoAnchor ABI error", "error", err)
 	}
@@ -460,6 +465,7 @@ func init() {
 		ForkRouterABI.Errors,
 		TaikoInboxABI.Errors,
 		TaikoWrapperABI.Errors,
+		ForcedInclusionStoreABI.Errors,
 		TaikoAnchorABI.Errors,
 		ResloverBaseABI.Errors,
 		ComposeVerifierABI.Errors,

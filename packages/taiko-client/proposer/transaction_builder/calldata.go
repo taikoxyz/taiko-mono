@@ -118,6 +118,7 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 func (b *CalldataTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoInbox.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
@@ -164,7 +165,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 			return nil, err
 		}
 	} else {
-		if data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
+		if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
 			return nil, err
 		}
 	}

@@ -445,7 +445,12 @@ func (p *Proposer) ProposeTxListPacaya(
 		return fmt.Errorf("insufficient prover (%s) balance", proverAddress.Hex())
 	}
 
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch)
+	forcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
+	}
+
+	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
 		return err

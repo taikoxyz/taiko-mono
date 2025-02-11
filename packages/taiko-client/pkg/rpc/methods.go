@@ -21,6 +21,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -1141,4 +1142,30 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	}
 
 	return preconfWhiteList.GetOperatorForEpoch(opts)
+}
+
+// GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
+func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (*pacaya.IForcedInclusionStoreForcedInclusion, error) {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	head, err := c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, err
+	}
+
+	forcedInclusion, err := c.PacayaClients.ForcedInclusionStore.GetForcedInclusion(
+		&bind.CallOpts{Context: ctxWithTimeout},
+		new(big.Int).SetUint64(head),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no forced inclusion is available yet, we will return nil.
+	if forcedInclusion.CreatedAtBatchId == 0 {
+		return nil, nil
+	}
+
+	return &forcedInclusion, nil
 }

@@ -39,13 +39,14 @@ type OntakeClients struct {
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
 type PacayaClients struct {
-	TaikoInbox   *pacayaBindings.TaikoInboxClient
-	TaikoWrapper *pacayaBindings.TaikoWrapperClient
-	TaikoAnchor  *pacayaBindings.TaikoAnchorClient
-	TaikoToken   *pacayaBindings.TaikoToken
-	ProverSet    *pacayaBindings.ProverSet
-	ForkRouter   *pacayaBindings.ForkRouter
-	ForkHeight   uint64
+	TaikoInbox           *pacayaBindings.TaikoInboxClient
+	TaikoWrapper         *pacayaBindings.TaikoWrapperClient
+	ForcedInclusionStore *pacayaBindings.ForcedInclusionStore
+	TaikoAnchor          *pacayaBindings.TaikoAnchorClient
+	TaikoToken           *pacayaBindings.TaikoToken
+	ProverSet            *pacayaBindings.ProverSet
+	ForkRouter           *pacayaBindings.ForkRouter
+	ForkHeight           uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -75,6 +76,7 @@ type ClientConfig struct {
 	TaikoWrapperAddress           common.Address
 	TaikoL2Address                common.Address
 	TaikoTokenAddress             common.Address
+	ForcedInclusionStoreAddress   common.Address
 	GuardianProverMinorityAddress common.Address
 	GuardianProverMajorityAddress common.Address
 	ProverSetAddress              common.Address
@@ -257,9 +259,10 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	}
 
 	var (
-		taikoToken   *pacayaBindings.TaikoToken
-		proverSet    *pacayaBindings.ProverSet
-		taikoWrapper *pacayaBindings.TaikoWrapperClient
+		taikoToken           *pacayaBindings.TaikoToken
+		proverSet            *pacayaBindings.ProverSet
+		taikoWrapper         *pacayaBindings.TaikoWrapperClient
+		forcedInclusionStore *pacayaBindings.ForcedInclusionStore
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -271,20 +274,28 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return err
 		}
 	}
-
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoWrapper, err = pacayaBindings.NewTaikoWrapperClient(cfg.TaikoWrapperAddress, c.L1); err != nil {
 			return err
 		}
 	}
+	if cfg.ForcedInclusionStoreAddress.Hex() != ZeroAddress.Hex() {
+		if forcedInclusionStore, err = pacayaBindings.NewForcedInclusionStore(
+			cfg.ForcedInclusionStoreAddress,
+			c.L1,
+		); err != nil {
+			return err
+		}
+	}
 
 	c.PacayaClients = &PacayaClients{
-		TaikoInbox:   taikoInbox,
-		TaikoWrapper: taikoWrapper,
-		TaikoAnchor:  taikoAnchor,
-		TaikoToken:   taikoToken,
-		ProverSet:    proverSet,
-		ForkRouter:   forkManager,
+		TaikoInbox:           taikoInbox,
+		TaikoWrapper:         taikoWrapper,
+		ForcedInclusionStore: forcedInclusionStore,
+		TaikoAnchor:          taikoAnchor,
+		TaikoToken:           taikoToken,
+		ProverSet:            proverSet,
+		ForkRouter:           forkManager,
 	}
 
 	return nil

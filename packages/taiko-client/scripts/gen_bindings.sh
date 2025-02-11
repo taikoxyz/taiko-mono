@@ -35,6 +35,10 @@ cat ../protocol/out/layer1/TaikoWrapper.sol/TaikoWrapper.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type TaikoWrapperClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_wrapper.go
 
+cat ../protocol/out/layer1/ForcedInclusionStore.sol/ForcedInclusionStore.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type ForcedInclusionStore --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_forced_inclusion_store.go
+
 cat ../protocol/out/layer1/TaikoInbox.sol/TaikoInbox.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type TaikoInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_inbox.go
