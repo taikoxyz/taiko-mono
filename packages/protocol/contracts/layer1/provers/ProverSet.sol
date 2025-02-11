@@ -7,9 +7,14 @@ import "../based/IProposeBatch.sol";
 contract ProverSet is ProverSetBase, IProposeBatch {
     using Address for address;
 
+    address immutable entrypoint;
+
     error ForcedInclusionParamsNotAllowed();
 
-    constructor(address _resolver) ProverSetBase(_resolver) { }
+    constructor(address _resolver, address _entrypoint) ProverSetBase(_resolver) {
+        require(_entrypoint != address(0), ZERO_ADDRESS());
+        entrypoint = _entrypoint;
+    }
 
     // ================ Pacaya calls ================
 
@@ -22,7 +27,6 @@ contract ProverSet is ProverSetBase, IProposeBatch {
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        address entrypoint = resolve(LibStrings.B_PRECONF_ROUTER, false);
         return IProposeBatch(entrypoint).proposeBatch(_params, _txList);
     }
 

@@ -70,7 +70,7 @@ abstract contract Layer1Test is CommonTest {
         return TaikoWrapper(
             deploy({
                 name: "taiko_wrapper",
-                impl: address(new TaikoWrapper(address(resolver))),
+                impl: address(new TaikoWrapper(address(resolver), address(0))),
                 data: abi.encodeCall(TaikoWrapper.init, (address(0)))
             })
         );

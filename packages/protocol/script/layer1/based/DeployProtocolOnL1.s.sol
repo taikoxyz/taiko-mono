@@ -307,7 +307,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         deployProxy({
             name: "prover_set",
-            impl: address(new ProverSet(address(rollupResolver))),
+            impl: address(new ProverSet(address(rollupResolver), address(taikoInbox))),
             data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
         });
     }
@@ -405,7 +405,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         taikoWrapper = deployProxy({
             name: "taiko_wrapper",
-            impl: address(new TaikoWrapper(resolver)),
+            impl: address(new TaikoWrapper(resolver, address(0))),
             data: abi.encodeCall(TaikoWrapper.init, (owner)),
             registerTo: resolver
         });
@@ -415,6 +415,12 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(new PreconfRouter(taikoWrapper, whitelist)),
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: resolver
+        });
+
+        deployProxy({
+            name: "preconf_prover_set",
+            impl: address(new ProverSet(resolver, taikoWrapper)),
+            data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
         });
 
         store = deployProxy({

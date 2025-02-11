@@ -34,6 +34,8 @@ import "./ForcedInclusionStore.sol";
 contract TaikoWrapper is EssentialContract, IProposeBatch {
     using LibMath for uint256;
 
+    address public immutable preconfRouter;
+
     /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
 
@@ -49,7 +51,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
     uint256[50] private __gap;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _resolver, address _preconfRouter) EssentialContract(_resolver) {
+        preconfRouter = _preconfRouter;
+    }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
@@ -61,10 +65,12 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         bytes calldata _txList
     )
         external
-        onlyFromNamed(LibStrings.B_PRECONF_ROUTER)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
+        if (preconfRouter != address(0)) {
+            require(msg.sender == preconfRouter, ACCESS_DENIED());
+        }
         ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
         IForcedInclusionStore store =
             IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));

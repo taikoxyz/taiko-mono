@@ -9,6 +9,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "../based/ITaikoInbox.sol";
+import "forge-std/src/console2.sol";
 
 interface IHasRecipient {
     function recipient() external view returns (address);
@@ -42,6 +43,8 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
     }
 
     modifier onlyProver() {
+        console2.log("msg.sender", msg.sender);
+        console2.log("isProver[msg.sender]", isProver[msg.sender]);
         require(isProver[msg.sender], PERMISSION_DENIED());
         _;
     }

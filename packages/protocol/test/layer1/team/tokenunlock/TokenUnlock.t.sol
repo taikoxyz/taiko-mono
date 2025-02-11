@@ -44,7 +44,7 @@ contract TestTokenUnlock is Layer1Test {
         register("bond_token", address(taikoToken));
         register("taiko_token", address(taikoToken));
         register("taiko", taikoL1);
-        register("prover_set", address(new ProverSet(address(resolver))));
+        register("prover_set", address(new ProverSet(address(resolver), taikoL1)));
 
         target = TokenUnlock(
             deploy({
