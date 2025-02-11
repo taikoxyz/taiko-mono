@@ -11,7 +11,15 @@ import "./libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is TaikoInbox {
-    constructor(address _resolver) TaikoInbox(_resolver) { }
+    constructor(
+        address _resolver,
+        address _inboxWrapper,
+        address _proofVerifier,
+        address _bondToken,
+        address _signalService
+    )
+        TaikoInbox(_resolver, _inboxWrapper, _proofVerifier, _bondToken, _signalService)
+    { }
 
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:

@@ -16,7 +16,15 @@ import "test/shared/CommonTest.sol";
 contract ConfigurableInbox is TaikoInbox {
     ITaikoInbox.Config private __config;
 
-    constructor(address _resolver) TaikoInbox(_resolver) { }
+    constructor(
+        address _resolveraddress,
+        address _inboxWrapper,
+        address _proofVerifier,
+        address _bondToken,
+        address _signalService
+    )
+        TaikoInbox(_resolveraddress, _inboxWrapper, _proofVerifier, _bondToken, _signalService)
+    { }
 
     function initWithConfig(
         address _owner,
@@ -58,7 +66,21 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox(address(resolver))),
+                impl: address(
+                    new ConfigurableInbox(
+                        address(resolver),
+                        address(0),
+                        IResolver(resolver).resolve(
+                            uint64(block.chainid), LibStrings.B_PROOF_VERIFIER, false
+                        ),
+                        IResolver(resolver).resolve(
+                            uint64(block.chainid), LibStrings.B_BOND_TOKEN, false
+                        ),
+                        IResolver(resolver).resolve(
+                            uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
+                        )
+                    )
+                ),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )

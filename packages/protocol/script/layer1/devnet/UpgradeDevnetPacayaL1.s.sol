@@ -36,6 +36,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
+    uint64 public l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -51,6 +52,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(erc721Vault != address(0), "invalid erc721 vault");
         require(erc1155Vault != address(0), "invalid erc1155 vault");
         require(taikoToken != address(0), "invalid taiko token");
+        require(l2ChainId != uint64(block.chainid), "same chainid");
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
@@ -100,22 +102,21 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "bond_token");
         copyRegister(rollupResolver, sharedResolver, "signal_service");
         copyRegister(rollupResolver, sharedResolver, "bridge");
-        // TaikoInbox
-        address newFork = address(new DevnetInbox(rollupResolver));
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        register(rollupResolver, "taiko", taikoInbox);
-        // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver, taikoInbox)));
         // Verifier
-        TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
-        uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
         address opVerifier = deployProxy({
             name: "op_verifier",
             impl: address(new OpVerifier(rollupResolver, l2ChainId)),
             data: abi.encodeCall(OpVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
+        // TaikoInbox
+        address newFork = address(
+            new DevnetInbox(rollupResolver, address(0), opVerifier, taikoToken, signalService)
+        );
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
+        register(rollupResolver, "taiko", taikoInbox);
+        // Prover set
+        UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver, taikoInbox)));
         UUPSUpgradeable(sgxVerifier).upgradeTo(address(new SgxVerifier(rollupResolver, l2ChainId)));
         register(rollupResolver, "sgx_verifier", sgxVerifier);
         UUPSUpgradeable(risc0Verifier).upgradeTo(

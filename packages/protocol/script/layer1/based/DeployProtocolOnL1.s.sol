@@ -82,7 +82,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
+        uint64 l2ChainId = uint64(taikoInbox.pacayaConfig().chainId);
+        require(l2ChainId == vm.envUint("L2_CHAIN_ID"), "invalid L2 chainid");
         require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
@@ -255,32 +256,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupResolver, _sharedResolver, "signal_service");
         copyRegister(rollupResolver, _sharedResolver, "bridge");
 
-        deployProxy({
-            name: "mainnet_taiko",
-            impl: address(new MainnetInbox(address(rollupResolver))),
-            data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
-        });
-
-        address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
-        if (oldFork == address(0)) {
-            oldFork = address(new DevnetInbox(address(rollupResolver)));
-        }
-        address newFork = address(new DevnetInbox(address(rollupResolver)));
-        console2.log("  oldFork       :", oldFork);
-        console2.log("  newFork       :", newFork);
-
-        address taikoInboxAddr = deployProxy({
-            name: "taiko",
-            impl: address(new PacayaForkRouter(oldFork, newFork)),
-            data: "",
-            registerTo: rollupResolver
-        });
-
-        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
-        taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
-
-        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
+        uint64 l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
+        require(l2ChainId != uint64(block.chainid), "same chainid");
 
         address opVerifier = deployProxy({
             name: "op_verifier",
@@ -294,7 +271,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         (address risc0Verifier, address sp1Verifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
-        deployProxy({
+        address proofVerifer = deployProxy({
             name: "proof_verifier",
             impl: address(
                 new DevnetVerifier(
@@ -305,10 +282,71 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
+        address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
+        if (oldFork == address(0)) {
+            oldFork = address(
+                new DevnetInbox(
+                    address(rollupResolver),
+                    address(0),
+                    proofVerifer,
+                    IResolver(rollupResolver).resolve(
+                        uint64(block.chainid), LibStrings.B_BOND_TOKEN, false
+                    ),
+                    IResolver(rollupResolver).resolve(
+                        uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
+                    )
+                )
+            );
+        }
+
+        address newFork = address(
+            new DevnetInbox(
+                address(rollupResolver),
+                address(0),
+                proofVerifer,
+                IResolver(rollupResolver).resolve(
+                    uint64(block.chainid), LibStrings.B_BOND_TOKEN, false
+                ),
+                IResolver(rollupResolver).resolve(
+                    uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
+                )
+            )
+        );
+        console2.log("  oldFork       :", oldFork);
+        console2.log("  newFork       :", newFork);
+
+        address taikoInboxAddr = deployProxy({
+            name: "taiko",
+            impl: address(new PacayaForkRouter(oldFork, newFork)),
+            data: "",
+            registerTo: rollupResolver
+        });
+
+        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+        taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
+
         deployProxy({
             name: "prover_set",
             impl: address(new ProverSet(address(rollupResolver), address(taikoInbox))),
             data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
+        });
+
+        deployProxy({
+            name: "mainnet_taiko",
+            impl: address(
+                new MainnetInbox(
+                    address(rollupResolver),
+                    address(0),
+                    address(0),
+                    IResolver(rollupResolver).resolve(
+                        uint64(block.chainid), LibStrings.B_BOND_TOKEN, false
+                    ),
+                    IResolver(rollupResolver).resolve(
+                        uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
+                    )
+                )
+            ),
+            data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
         });
     }
 
