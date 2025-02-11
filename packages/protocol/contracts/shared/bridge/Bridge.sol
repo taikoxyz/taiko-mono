@@ -59,6 +59,7 @@ contract Bridge is EssentialContract, IBridge {
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
     ISignalService public immutable signalService;
+    IQuotaManager public immutable quotaManager;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -104,8 +105,15 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
-    constructor(address _resolver, address _signalService) EssentialContract(_resolver) {
+    constructor(
+        address _resolver,
+        address _signalService,
+        address _quotaManager
+    )
+        EssentialContract(_resolver)
+    {
         signalService = ISignalService(_signalService);
+        quotaManager = IQuotaManager(_quotaManager);
     }
 
     /// @notice Initializes the contract.
@@ -563,10 +571,9 @@ contract Bridge is EssentialContract, IBridge {
     /// @return true if quota manager has unlimited quota for Ether or the given amount of Ether is
     /// consumed already.
     function _consumeEtherQuota(uint256 _amount) private returns (bool) {
-        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
-        if (quotaManager == address(0)) return true;
+        if (address(quotaManager) == address(0)) return true;
 
-        try IQuotaManager(quotaManager).consumeQuota(address(0), _amount) {
+        try quotaManager.consumeQuota(address(0), _amount) {
             return true;
         } catch {
             return false;

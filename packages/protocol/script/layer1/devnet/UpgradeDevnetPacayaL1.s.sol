@@ -36,6 +36,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
+    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -64,7 +65,9 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver, signalService)));
+        UUPSUpgradeable(bridgeL1).upgradeTo(
+            address(new Bridge(sharedResolver, signalService, quotaManager))
+        );
         register(sharedResolver, "bridge", bridgeL1);
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));

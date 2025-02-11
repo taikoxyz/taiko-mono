@@ -24,6 +24,7 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
     address public erc20Vault = vm.envAddress("ERC20_VAULT");
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
+    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -43,7 +44,9 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
         // Shared resolver
         UUPSUpgradeable(sharedResolver).upgradeTo(address(new DefaultResolver()));
         // Bridge
-        UUPSUpgradeable(bridgeL2).upgradeTo(address(new Bridge(sharedResolver, signalService)));
+        UUPSUpgradeable(bridgeL2).upgradeTo(
+            address(new Bridge(sharedResolver, signalService, quotaManager))
+        );
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
         // Vault
