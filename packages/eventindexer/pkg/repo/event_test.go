@@ -339,6 +339,10 @@ func TestIntegration_Event_GetBlockProposedBy(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	blockID := int64(0)
+
+	batchBlockId := int64(2)
+
+	numBlocks := int64(2)
 	// Save a single BlockProposed event
 	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
 		Name:         eventindexer.EventNameBlockProposed,
@@ -358,7 +362,7 @@ func TestIntegration_Event_GetBlockProposedBy(t *testing.T) {
 		Data:         "{\"data\":\"something\"}",
 		Event:        eventindexer.EventNameBlockProposed,
 		ChainID:      big.NewInt(1),
-		BlockID:      &blockID,
+		BlockID:      &batchBlockId,
 		TransactedAt: time.Now(),
 		NumBlocks:    &numBlocks,
 	})
