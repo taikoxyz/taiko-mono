@@ -43,6 +43,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
+    modifier onlyFromOwnerOr(address _addr) {
+        require(msg.sender == owner() || msg.sender == _addr, ACCESS_DENIED());
+        _;
+    }
+
     modifier notImplemented() {
         revert FUNC_NOT_IMPLEMENTED();
         _;
