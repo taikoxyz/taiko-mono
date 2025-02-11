@@ -66,26 +66,26 @@ export default defineConfig({
         },
         {
           label: "Taiko Alethia Protocol",
+          collapsed: true,
           items: [
-            { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
-            { label: "Based rollups", link: "/taiko-alethia-protocol/based-rollups/" },
             {
-              label: "Contestable rollups (BCR)",
-              link: "/taiko-alethia-protocol/contestable-rollup/",
-            },
-            { label: "Multi-proofs", link: "/taiko-alethia-protocol/multi-proofs/" },
-            {
-              label: "Inception layers",
-              link: "/taiko-alethia-protocol/inception-layers/",
-            },
-            {
-              label: "Taiko Alethia Protocol Architecture",
+              label: "Protocol Design",
               collapsed: true,
               items: [
-                { label: "Block states", link: "/taiko-alethia-protocol/block-states" },
-                { label: "Bridging", link: "/taiko-alethia-protocol/bridging" },
-                { label: "Economics", link: "/taiko-alethia-protocol/economics" },
-                { label: "Taiko nodes", link: "/taiko-alethia-protocol/taiko-alethia-nodes" },
+                { label: "Based rollups", link: "/taiko-alethia-protocol/protocol-design/based-rollups/" },
+                { label: "Contestable rollups (BCR)", link: "/taiko-alethia-protocol/protocol-design/contestable-rollup/" },
+                { label: "Multi-proofs", link: "/taiko-alethia-protocol/protocol-design/multi-proofs/" },
+                { label: "Inception layers", link: "/taiko-alethia-protocol/protocol-design/inception-layers/" },
+              ]
+            },
+            {
+              label: "Protocol Architecture",
+              collapsed: true,
+              items: [
+                { label: "Block states", link: "/taiko-alethia-protocol/protocol-architecture/block-states" },
+                { label: "Bridging", link: "/taiko-alethia-protocol/protocol-architecture/bridging" },
+                { label: "Economics", link: "/taiko-alethia-protocol/protocol-architecture/economics" },
+                { label: "Taiko nodes", link: "/taiko-alethia-protocol/protocol-architecture/taiko-alethia-nodes" },
               ],
             },
             {
@@ -99,12 +99,15 @@ export default defineConfig({
                 {label: "Bridge Contract", link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract"},
               ],
             },
+            { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
           ]
         },
         {
           label: "Taiko Gwyneth Protocol",
+          collapsed: true,
           items: [
             { label: "What is Taiko Gwyneth?", link: "/taiko-gwyneth-protocol/what-is-taiko-gwyneth/" },
+            { label: "Booster rollups", link: "/taiko-gwyneth-protocol/booster-rollups/" },
           ]
         },
         {
@@ -179,6 +182,7 @@ export default defineConfig({
         },
         {
           label: "Network Reference",
+          collapsed: true,
           items: [
             {
               label: "Alethia addresses",
