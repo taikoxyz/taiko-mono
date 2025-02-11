@@ -39,7 +39,7 @@ contract TestERC20Vault is CommonTest {
         eERC20Token2 = new FreeMintERC20Token("", "123456abcdefgh");
         eERC20Token2.mint(Alice);
 
-        register("bridged_erc20", address(new BridgedERC20(address(resolver))));
+        register("bridged_erc20", address(new BridgedERC20(address(eVault))));
 
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
@@ -54,12 +54,14 @@ contract TestERC20Vault is CommonTest {
         taikoInbox = new PrankTaikoInbox();
 
         register("bridge", address(tBridge));
-        register("bridged_erc20", address(new BridgedERC20(address(resolver))));
+        register("bridged_erc20", address(new BridgedERC20(address(tVault))));
         register("taiko", address(taikoInbox));
 
-        tUSDC = deployBridgedERC20(randAddress(), 100, 18, "USDC", "USDC coin");
-        tUSDT = deployBridgedERC20(randAddress(), 100, 18, "USDT", "USDT coin");
-        tStETH = deployBridgedERC20(randAddress(), 100, 18, "tStETH", "Lido Staked ETH");
+        // TODO(fix): shall we use "tValut" below?
+        tUSDC = deployBridgedERC20(address(eVault), randAddress(), 100, 18, "USDC", "USDC coin");
+        tUSDT = deployBridgedERC20(address(eVault), randAddress(), 100, 18, "USDT", "USDT coin");
+        tStETH =
+            deployBridgedERC20(address(eVault), randAddress(), 100, 18, "tStETH", "Lido Staked ETH");
 
         vm.deal(address(tBridge), 100 ether);
     }
@@ -520,7 +522,7 @@ contract TestERC20Vault is CommonTest {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         BridgedERC20V2_WithHelloWorld newBridgedContract =
-            new BridgedERC20V2_WithHelloWorld(address(resolver));
+            new BridgedERC20V2_WithHelloWorld(address(tVault));
         vm.stopPrank();
         vm.prank(deployer);
         BridgedERC20(payable(bridgedAddressAfter)).upgradeTo(address(newBridgedContract));

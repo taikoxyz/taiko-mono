@@ -54,11 +54,12 @@ contract TestERC20Vault_solver is CommonTest {
         );
 
         register("bridge", address(tBridge));
-        register("bridged_erc20", address(new BridgedERC20(address(resolver))));
+        register("bridged_erc20", address(new BridgedERC20(address(tVault))));
 
-        tUSDC = deployBridgedERC20(randAddress(), 100, 18, "USDC", "USDC coin");
-        tUSDT = deployBridgedERC20(randAddress(), 100, 18, "USDT", "USDT coin");
-        tStETH = deployBridgedERC20(randAddress(), 100, 18, "tStETH", "Lido Staked ETH");
+        tUSDC = deployBridgedERC20(address(tVault), randAddress(), 100, 18, "USDC", "USDC coin");
+        tUSDT = deployBridgedERC20(address(tVault), randAddress(), 100, 18, "USDT", "USDT coin");
+        tStETH =
+            deployBridgedERC20(address(tVault), randAddress(), 100, 18, "tStETH", "Lido Staked ETH");
 
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);

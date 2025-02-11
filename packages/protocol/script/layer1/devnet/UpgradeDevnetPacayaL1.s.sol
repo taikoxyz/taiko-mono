@@ -80,9 +80,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
         register(sharedResolver, "erc1155_vault", erc1155Vault);
         // Bridged Token
-        register(
-            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
-        );
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
         register(
             sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
         );

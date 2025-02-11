@@ -185,7 +185,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Vaults
-        deployProxy({
+        address erc20Vault = deployProxy({
             name: "erc20_vault",
             impl: address(new MainnetERC20Vault(address(sharedResolver))),
             data: abi.encodeCall(ERC20Vault.init, (owner)),
@@ -222,9 +222,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Bridged token implementations
-        register(
-            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
-        );
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(erc20Vault)));
         register(
             sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
         );
