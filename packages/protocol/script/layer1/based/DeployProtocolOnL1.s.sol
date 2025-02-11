@@ -288,7 +288,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
+        address automataDcapAttestation = address(0); // not used
+        address sgxVerifier =
+            deploySgxVerifier(owner, rollupResolver, l2ChainId, automataDcapAttestation);
 
         (address risc0Verifier, address sp1Verifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
@@ -314,18 +316,12 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deploySgxVerifier(
         address owner,
         address rollupResolver,
-        uint64 l2ChainId
+        uint64 l2ChainId,
+        address automataDcapAttestation
     )
         private
         returns (address sgxVerifier)
     {
-        sgxVerifier = deployProxy({
-            name: "sgx_verifier",
-            impl: address(new SgxVerifier(rollupResolver, l2ChainId)),
-            data: abi.encodeCall(SgxVerifier.init, owner),
-            registerTo: rollupResolver
-        });
-
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
         P256Verifier p256Verifier = new P256Verifier();
@@ -341,6 +337,14 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             registerTo: rollupResolver
         });
+
+        sgxVerifier = deployProxy({
+            name: "sgx_verifier",
+            impl: address(new SgxVerifier(rollupResolver, l2ChainId, automataProxy)),
+            data: abi.encodeCall(SgxVerifier.init, owner),
+            registerTo: rollupResolver
+        });
+
         // Log addresses for the user to register sgx instance
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));

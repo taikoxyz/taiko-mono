@@ -71,7 +71,6 @@ abstract contract SgxVerifierBase is EssentialContract {
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
-    error SGX_RA_NOT_SUPPORTED();
 
     /// @notice Register an SGX instance after the attestation is verified
     /// @param _attestation The parsed attestation quote.
@@ -80,13 +79,7 @@ abstract contract SgxVerifierBase is EssentialContract {
         external
         returns (uint256)
     {
-        // TODO(daniel): replace with immutable
-        address automataDcapAttestation = resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
-
-        require(automataDcapAttestation != address(0), SGX_RA_NOT_SUPPORTED());
-
-        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
-
+        (bool verified,) = _getAutomataDcapAttestation().verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
 
         address[] memory addresses = new address[](1);
@@ -169,4 +162,6 @@ abstract contract SgxVerifierBase is EssentialContract {
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
+
+    function _getAutomataDcapAttestation() internal view virtual returns (IAttestation);
 }

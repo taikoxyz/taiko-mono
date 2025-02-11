@@ -117,7 +117,12 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(OpVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
-        UUPSUpgradeable(sgxVerifier).upgradeTo(address(new SgxVerifier(rollupResolver, l2ChainId)));
+
+        address automataDcapAttestation = address(0); // not used!
+        UUPSUpgradeable(sgxVerifier).upgradeTo(
+            address(new SgxVerifier(rollupResolver, l2ChainId, automataDcapAttestation))
+        );
+
         register(rollupResolver, "sgx_verifier", sgxVerifier);
         UUPSUpgradeable(risc0Verifier).upgradeTo(
             address(new Risc0Verifier(rollupResolver, l2ChainId))

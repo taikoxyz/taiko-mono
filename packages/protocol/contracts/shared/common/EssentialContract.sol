@@ -114,6 +114,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
+    modifier onlyFromEither(address _addr1, address _addr2) {
+        require(msg.sender == _addr1 || msg.sender == _addr2, ACCESS_DENIED());
+        _;
+    }
+
     modifier onlyFrom(address _addr) {
         require(msg.sender == _addr, ACCESS_DENIED());
         _;

@@ -103,11 +103,13 @@ abstract contract Layer1Test is CommonTest {
         );
     }
 
-    function deploySgxVerifier() internal returns (SgxVerifier) {
+    function deploySgxVerifier(address _automataDcapAttestation) internal returns (SgxVerifier) {
         return SgxVerifier(
             deploy({
                 name: "tier_sgx",
-                impl: address(new SgxVerifier(address(resolver), taikoChainId)),
+                impl: address(
+                    new SgxVerifier(address(resolver), taikoChainId, _automataDcapAttestation)
+                ),
                 data: abi.encodeCall(SgxVerifier.init, (address(0)))
             })
         );
