@@ -119,8 +119,7 @@ func createPayloadAndSetHead(
 	return payload, nil
 }
 
-// createExecutionPayloads creates a new execution payloads through
-// Engine APIs.
+// createExecutionPayloads creates a new execution payloads through Engine APIs.
 func createExecutionPayloads(
 	ctx context.Context,
 	rpc *rpc.Client,
@@ -128,6 +127,13 @@ func createExecutionPayloads(
 	txListBytes []byte,
 	anchorTx *types.Transaction,
 ) (payloadData *engine.ExecutableData, err error) {
+	var gasLimit = meta.GasLimit
+	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
+		gasLimit += consensus.AnchorV3GasLimit
+	} else {
+		gasLimit += consensus.AnchorGasLimit
+	}
+
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.Difficulty,
@@ -135,7 +141,7 @@ func createExecutionPayloads(
 		Withdrawals:           meta.Withdrawals,
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.SuggestedFeeRecipient,
-			GasLimit:    meta.GasLimit + consensus.AnchorGasLimit,
+			GasLimit:    gasLimit,
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,
