@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -74,46 +75,57 @@ func NewProofSubmitterPacaya(
 
 // RequestProof requests proof for the given Taiko batch after Pacaya fork.
 func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
-	var headers []*types.Header
+	var (
+		headers = make([]*types.Header, len(meta.Pacaya().GetBlocks()))
+		g       = new(errgroup.Group)
+	)
 	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
-		header, err := s.rpc.WaitL2Header(
-			ctx,
-			new(big.Int).SetUint64(
-				meta.Pacaya().GetLastBlockID()-
-					uint64(len(meta.Pacaya().GetBlocks()))+
-					uint64(i)+
-					1,
-			),
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to fetch l2 Header, blockID: %d, error: %w",
-				meta.Pacaya().GetLastBlockID(),
-				err,
+		g.Go(func() error {
+			header, err := s.rpc.WaitL2Header(
+				ctx,
+				new(big.Int).SetUint64(
+					meta.Pacaya().GetLastBlockID()-
+						uint64(len(meta.Pacaya().GetBlocks()))+
+						uint64(i)+
+						1,
+				),
 			)
-		}
+			if err != nil {
+				return fmt.Errorf(
+					"failed to fetch l2 Header, blockID: %d, error: %w",
+					meta.Pacaya().GetLastBlockID(),
+					err,
+				)
+			}
 
-		if header.TxHash == types.EmptyTxsHash {
-			return errors.New("no transaction in block")
-		}
+			if header.TxHash == types.EmptyTxsHash {
+				return errors.New("no transaction in block")
+			}
 
-		headers = append(headers, header)
+			headers[i] = header
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("failed to fetch headers: %w", err)
 	}
 
 	// Request proof.
-	opts := &proofProducer.ProofRequestOptionsPacaya{
-		BatchID:            meta.Pacaya().GetBatchID(),
-		ProverAddress:      s.proverAddress,
-		ProposeBlockTxHash: meta.GetTxHash(),
-		EventL1Hash:        meta.GetRawBlockHash(),
-		Headers:            headers,
-	}
+	var (
+		opts = &proofProducer.ProofRequestOptionsPacaya{
+			BatchID:            meta.Pacaya().GetBatchID(),
+			ProverAddress:      s.proverAddress,
+			ProposeBlockTxHash: meta.GetTxHash(),
+			EventL1Hash:        meta.GetRawBlockHash(),
+			Headers:            headers,
+		}
+		startTime = time.Now()
+	)
 
 	// If the prover set address is provided, we use that address as the prover on chain.
 	if s.proverSetAddress != rpc.ZeroAddress {
 		opts.ProverAddress = s.proverSetAddress
 	}
-	startTime := time.Now()
 
 	// Send the generated proof.
 	if err := backoff.Retry(
@@ -180,6 +192,7 @@ func (s *ProofSubmitterPacaya) SubmitProof(
 		"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
 		"coinbase", proofResponse.Meta.Pacaya().GetCoinbase(),
 		"proof", common.Bytes2Hex(proofResponse.Proof),
+		"hash", proofResponse.Opts.PacayaOptions().Headers[len(proofResponse.Opts.PacayaOptions().Headers)-1].Hash(),
 	)
 	// Check if we still need to generate a new proof for that block.
 	proofStatus, err := rpc.GetBatchProofStatus(

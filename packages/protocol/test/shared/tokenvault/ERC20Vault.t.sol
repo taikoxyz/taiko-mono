@@ -62,7 +62,7 @@ contract TestERC20Vault is CommonTest {
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
         vm.startPrank(Alice);
-        vm.expectRevert(BaseVault.VAULT_INSUFFICIENT_FEE.selector);
+        vm.expectRevert(ERC20Vault.VAULT_INSUFFICIENT_ETHER.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 taikoChainId, address(0), Bob, 1, address(eERC20Token1), 1_000_000, 1 wei, 0
@@ -155,12 +155,12 @@ contract TestERC20Vault is CommonTest {
         );
     }
 
-    function test_20Vault_send_erc20_reverts_invalid_token_address() public {
+    function test_20Vault_send_erc20_reverts_insufficient_ether() public {
         vm.startPrank(Alice);
 
         uint64 amount = 1;
 
-        vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
+        vm.expectRevert(ERC20Vault.VAULT_INSUFFICIENT_ETHER.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 taikoChainId, address(0), Bob, 0, address(0), 1_000_000, amount, 0

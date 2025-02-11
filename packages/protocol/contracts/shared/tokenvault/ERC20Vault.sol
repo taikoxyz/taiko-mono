@@ -184,6 +184,7 @@ contract ERC20Vault is BaseVault {
     /// @param solver The address of the solver
     event ERC20Solved(bytes32 indexed solverCondition, address solver);
 
+    error VAULT_INSUFFICIENT_ETHER();
     error VAULT_ALREADY_SOLVED();
     error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
@@ -272,10 +273,9 @@ contract ERC20Vault is BaseVault {
         });
     }
 
-    /// @notice Transfers ERC20 tokens to this vault and sends a message to the
-    /// destination chain so the user can receive the same amount of tokens by
-    /// invoking the message call.
-    /// @param _op Option for sending ERC20 tokens.
+    /// @notice Transfers ERC20 tokens or Ether to this vault and sends a message to the
+    /// destination chain so the user can receive the same amount by invoking the message call.
+    /// @param _op Option for sending tokens/ether.
     /// @return message_ The constructed message.
     function sendToken(BridgeTransferOp calldata _op)
         external
@@ -284,10 +284,18 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
-        if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
-        if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
-        if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
-        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
+        {
+            if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
+
+            uint256 etherToBridge = (_op.token == address(0) ? _op.amount + _op.solverFee : 0);
+            if (msg.value < _op.fee + etherToBridge) {
+                revert VAULT_INSUFFICIENT_ETHER();
+            }
+
+            if (_op.token != address(0) && btokenDenylist[_op.token]) {
+                revert VAULT_BTOKEN_BLACKLISTED();
+            }
+        }
 
         address bridge = resolve(LibStrings.B_BRIDGE, false);
 
@@ -355,8 +363,14 @@ contract ERC20Vault is BaseVault {
             delete solverConditionToSolver[solverCondition];
         }
 
-        address token = _transferTokens(ctoken, tokenRecipient, amount + solverFee);
-        to.sendEtherAndVerify(msg.value);
+        address token;
+        {
+            uint256 amountToTransfer = amount + solverFee;
+            token = _transferTokensOrEther(ctoken, tokenRecipient, amountToTransfer);
+            to.sendEtherAndVerify(
+                ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value
+            );
+        }
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -390,8 +404,11 @@ contract ERC20Vault is BaseVault {
             abi.decode(data, (CanonicalERC20, address, address, uint256, uint256, bytes32));
 
         // Transfer the ETH and tokens back to the owner
-        address token = _transferTokens(ctoken, _message.srcOwner, amount + solverFee);
-        _message.srcOwner.sendEtherAndVerify(_message.value);
+        uint256 amountToReturn = amount + solverFee;
+        address token = _transferTokensOrEther(ctoken, _message.srcOwner, amountToReturn);
+        _message.srcOwner.sendEtherAndVerify(
+            ctoken.addr == address(0) ? _message.value - amountToReturn : _message.value
+        );
 
         emit TokenReleased({
             msgHash: _msgHash,
@@ -402,36 +419,42 @@ contract ERC20Vault is BaseVault {
         });
     }
 
-    /// @notice Lets a solver fulfil a bridging intent by transferring the bridged token amount
-    // to the recipient.
+    /// @notice Lets a solver fulfil a bridging intent by transferring tokens/ether to the
+    /// recipient.
     /// @param _op Parameters for the solve operation
-    function solve(SolverOp memory _op) external nonReentrant whenNotPaused {
+    function solve(SolverOp memory _op) external payable nonReentrant whenNotPaused {
         if (_op.l2BatchMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
             address taiko = resolve(LibStrings.B_TAIKO, false);
-            require(ITaiko(taiko).isOnL1(), VAULT_NOT_ON_L1());
+            if (!ITaiko(taiko).isOnL1()) revert VAULT_NOT_ON_L1();
 
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BatchId).metaHash;
-            require(l2BatchMetaHash == _op.l2BatchMetaHash, VAULT_METAHASH_MISMATCH());
+            if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
         }
 
         // Record the solver's address
         bytes32 solverCondition = getSolverCondition(_op.nonce, _op.token, _op.to, _op.amount);
-        require(solverConditionToSolver[solverCondition] == address(0), VAULT_ALREADY_SOLVED());
-
+        if (solverConditionToSolver[solverCondition] != address(0)) revert VAULT_ALREADY_SOLVED();
         solverConditionToSolver[solverCondition] = msg.sender;
 
-        // Transfer the amount to the recipient
-        IERC20(_op.token).transferFrom(msg.sender, _op.to, _op.amount);
+        // Handle transfer based on token type
+        if (_op.token == address(0)) {
+            // For Ether transfers
+            if (msg.value != _op.amount) revert VAULT_INVALID_AMOUNT();
+            _op.to.sendEtherAndVerify(_op.amount);
+        } else {
+            // For ERC20 tokens
+            IERC20(_op.token).safeTransferFrom(msg.sender, _op.to, _op.amount);
+        }
 
         emit ERC20Solved(solverCondition, msg.sender);
     }
 
     /// @notice Returns the solver condition for a bridging intent
     /// @param _nonce Unique numeric value to prevent nonce collision
-    /// @param _token Address of the ERC20 token on destination chain
-    /// @param _amount Amount of tokens expected by the recipient
+    /// @param _token Token address (address(0) for Ether)
     /// @param _to Recipient on destination chain
+    /// @param _amount Amount of tokens/ether expected by the recipient
     /// @return solver condition
     function getSolverCondition(
         uint256 _nonce,
@@ -451,7 +474,7 @@ contract ERC20Vault is BaseVault {
         return LibStrings.B_ERC20_VAULT;
     }
 
-    function _transferTokens(
+    function _transferTokensOrEther(
         CanonicalERC20 memory _ctoken,
         address _to,
         uint256 _amount
@@ -459,16 +482,16 @@ contract ERC20Vault is BaseVault {
         private
         returns (address token_)
     {
-        if (_ctoken.chainId == block.chainid) {
+        if (_ctoken.addr == address(0)) {
+            // Handle Ether transfer
+            _to.sendEtherAndVerify(_amount);
+        } else if (_ctoken.chainId == block.chainid) {
             token_ = _ctoken.addr;
             IERC20(token_).safeTransfer(_to, _amount);
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
-            //For native bridged tokens (like USDC), the mint() signature is the same, so no need to
-            // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
-        _consumeTokenQuota(token_, _amount);
     }
 
     /// @dev Handles the message on the source chain and returns the encoded
@@ -495,20 +518,20 @@ contract ERC20Vault is BaseVault {
             uint256 balanceChangeSolverFee_
         )
     {
-        // An identifier hash for the solver condition on destination chain
         bytes32 solverCondition;
 
-        // If it's a bridged token
-        CanonicalERC20 storage _ctoken = bridgedToCanonical[_op.token];
-        if (_ctoken.addr != address(0)) {
-            ctoken_ = _ctoken;
-            // Following the "transfer and burn" pattern, as used by USDC
+        if (_op.token == address(0)) {
+            balanceChangeAmount_ = _op.amount;
+            balanceChangeSolverFee_ = _op.solverFee;
+        } else if (bridgedToCanonical[_op.token].addr != address(0)) {
+            // Handle bridged token
+            ctoken_ = bridgedToCanonical[_op.token];
             IERC20(_op.token).safeTransferFrom(msg.sender, address(this), _op.amount);
             IBridgedERC20(_op.token).burn(_op.amount);
             balanceChangeAmount_ = _op.amount;
             balanceChangeSolverFee_ = _op.solverFee;
         } else {
-            // If it's a canonical token
+            // Handle canonical token
             ctoken_ = CanonicalERC20({
                 chainId: uint64(block.chainid),
                 addr: _op.token,
@@ -517,18 +540,14 @@ contract ERC20Vault is BaseVault {
                 name: safeName(_op.token)
             });
 
-            // Query the balance then query it again to get the actual amount of
-            // token transferred into this address, this is more accurate than
-            // simply using `amount` -- some contract may deduct a fee from the
-            // transferred amount.
             balanceChangeAmount_ = _transferTokenAndReturnBalanceDiff(_op.token, _op.amount);
             balanceChangeSolverFee_ = _transferTokenAndReturnBalanceDiff(_op.token, _op.solverFee);
         }
 
-        // Prepare solver condition for allowing fast withdrawal on L1
+        // Prepare solver condition
         if (_op.solverFee > 0) {
             uint256 _nonce = IBridge(_bridge).nextMessageId();
-            solverCondition = getSolverCondition(_nonce, _ctoken.addr, _op.to, balanceChangeAmount_);
+            solverCondition = getSolverCondition(_nonce, ctoken_.addr, _op.to, balanceChangeAmount_);
         }
 
         msgData_ = abi.encodeCall(

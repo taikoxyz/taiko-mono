@@ -123,19 +123,9 @@ func (m *TaikoDataBlockMetadataPacaya) GetAnchorBlockHash() common.Hash {
 	return m.AnchorBlockHash
 }
 
-// GetSignalSlots returns the signal slots.
-func (m *TaikoDataBlockMetadataPacaya) GetSignalSlots() [][32]byte {
-	return m.SignalSlots
-}
-
 // GetBlocks returns block params of this batch.
 func (m *TaikoDataBlockMetadataPacaya) GetBlocks() []pacayaBindings.ITaikoInboxBlockParams {
 	return m.Blocks
-}
-
-// GetAnchorInput returns the input of the anchor transaction.
-func (m *TaikoDataBlockMetadataPacaya) GetAnchorInput() [32]byte {
-	return m.AnchorInput
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.

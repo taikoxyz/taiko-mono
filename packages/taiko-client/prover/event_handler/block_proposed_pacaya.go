@@ -9,6 +9,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -126,7 +127,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		return fmt.Errorf(
 			"failed to check if the current L2 batch (%d) is verified: %w",
 			meta.Pacaya().GetBatchID(),
-			err,
+			encoding.TryParsingCustomError(err),
 		)
 	}
 	if isVerified {

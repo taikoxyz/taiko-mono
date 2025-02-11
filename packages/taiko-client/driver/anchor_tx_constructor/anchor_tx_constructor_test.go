@@ -63,7 +63,6 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
 		context.Background(),
 		s.l1Height,
 		s.l1Hash,
-		[32]byte{},
 		1024,
 		&pacayaBindings.LibSharedDataBaseFeeConfig{},
 		[][32]byte{},

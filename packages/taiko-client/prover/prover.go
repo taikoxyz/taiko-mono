@@ -136,7 +136,7 @@ func InitFromConfig(
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
-	log.Info("Protocol configs", "configs", p.protocolConfigs)
+	config.ReportProtocolConfigs(p.protocolConfigs)
 
 	chBufferSize := p.protocolConfigs.MaxProposals()
 	p.proofGenerationCh = make(chan *proofProducer.ProofResponse, chBufferSize)
@@ -372,6 +372,7 @@ func (p *Prover) proveOp() error {
 		Client:               p.rpc.L1,
 		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeight,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.eventHandlers.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
