@@ -173,7 +173,6 @@ contract Bridge is EssentialContract, IBridge {
         msgHash_ = hashMessage(message_);
 
         emit MessageSent(msgHash_, message_);
-        // TODO(daniel): replace with immutable
         signalService.sendSignal(msgHash_);
     }
 
@@ -190,8 +189,6 @@ contract Bridge is EssentialContract, IBridge {
     {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.NEW);
-
-        // TODO(daniel): replace with immutable
 
         if (!signalService.isSignalSent(address(this), msgHash)) {
             revert B_MESSAGE_NOT_SENT();
@@ -377,14 +374,12 @@ contract Bridge is EssentialContract, IBridge {
         _checkStatus(msgHash, Status.RETRIABLE);
 
         _updateMessageStatus(msgHash, Status.FAILED);
-        // TODO(daniel): replace with immutable
         signalService.sendSignal(signalForFailedMessage(msgHash));
     }
 
     /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
-        // TODO(daniel): replace with immutable
         return signalService.isSignalSent({ _app: address(this), _signal: hashMessage(_message) });
     }
 
