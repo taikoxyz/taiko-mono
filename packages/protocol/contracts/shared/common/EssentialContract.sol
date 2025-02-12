@@ -43,16 +43,20 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
+    /// @dev Modifier that ensures the caller is either the owner or a specified address.
+    /// @param _addr The address to check against.
     modifier onlyFromOwnerOr(address _addr) {
         require(msg.sender == owner() || msg.sender == _addr, ACCESS_DENIED());
         _;
     }
 
+    /// @dev Modifier that reverts the function call, indicating it is not implemented.
     modifier notImplemented() {
         revert FUNC_NOT_IMPLEMENTED();
         _;
     }
 
+    /// @dev Modifier that prevents reentrant calls to a function.
     modifier nonReentrant() {
         require(_loadReentryLock() != _TRUE, REENTRANT_CALL());
         _storeReentryLock(_TRUE);
@@ -60,26 +64,34 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _storeReentryLock(_FALSE);
     }
 
+    /// @dev Modifier that allows function execution only when the contract is paused.
     modifier whenPaused() {
         require(paused(), INVALID_PAUSE_STATUS());
         _;
     }
 
+    /// @dev Modifier that allows function execution only when the contract is not paused.
     modifier whenNotPaused() {
         require(!paused(), INVALID_PAUSE_STATUS());
         _;
     }
 
+    /// @dev Modifier that ensures the provided address is not the zero address.
+    /// @param _addr The address to check.
     modifier nonZeroAddr(address _addr) {
         require(_addr != address(0), ZERO_ADDRESS());
         _;
     }
 
+    /// @dev Modifier that ensures the provided value is not zero.
+    /// @param _value The value to check.
     modifier nonZeroValue(uint256 _value) {
         require(_value != 0, ZERO_VALUE());
         _;
     }
 
+    /// @dev Modifier that ensures the provided bytes32 value is not zero.
+    /// @param _value The bytes32 value to check.
     modifier nonZeroBytes32(bytes32 _value) {
         require(_value != 0, ZERO_VALUE());
         _;
@@ -114,11 +126,16 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
+    /// @dev Modifier that ensures the caller is either of the two specified addresses.
+    /// @param _addr1 The first address to check against.
+    /// @param _addr2 The second address to check against.
     modifier onlyFromEither(address _addr1, address _addr2) {
         require(msg.sender == _addr1 || msg.sender == _addr2, ACCESS_DENIED());
         _;
     }
 
+    /// @dev Modifier that ensures the caller is the specified address.
+    /// @param _addr The address to check against.
     modifier onlyFrom(address _addr) {
         require(msg.sender == _addr, ACCESS_DENIED());
         _;
