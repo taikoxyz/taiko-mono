@@ -15,9 +15,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
     bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
-    address public immutable riscoGroth16Verifier;
-
     uint64 public immutable taikoChainId;
+    address public immutable riscoGroth16Verifier;
 
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
@@ -28,9 +27,6 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     /// @param imageId The id of the image
     /// @param trusted True if trusted, false otherwise
     event ImageTrusted(bytes32 imageId, bool trusted);
-
-    /// @dev Emitted when a proof is verified
-    event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
 
     error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
     error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
@@ -57,12 +53,11 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     /// @param _trusted True if trusted, false otherwise.
     function setImageIdTrusted(bytes32 _imageId, bool _trusted) external onlyOwner {
         isImageTrusted[_imageId] = _trusted;
-
         emit ImageTrusted(_imageId, _trusted);
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external {
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view {
         // Decode will throw if not proper length/encoding
         (bytes memory seal, bytes32 blockImageId, bytes32 aggregationImageId) =
             abi.decode(_proof, (bytes, bytes32, bytes32));
@@ -82,7 +77,6 @@ contract Risc0Verifier is EssentialContract, IVerifier {
             publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
                 _ctxs[i].transition, address(this), address(0), _ctxs[i].metaHash, taikoChainId
             );
-            emit ProofVerified(_ctxs[i].metaHash, publicInputs[i + 1]);
         }
 
         // journalDigest is the sha256 hash of the hashed public input

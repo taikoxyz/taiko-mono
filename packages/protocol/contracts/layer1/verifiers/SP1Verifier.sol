@@ -47,7 +47,6 @@ contract SP1Verifier is EssentialContract, IVerifier {
     /// @param _trusted True if trusted, false otherwise.
     function setProgramTrusted(bytes32 _programVKey, bool _trusted) external onlyOwner {
         isProgramTrusted[_programVKey] = _trusted;
-
         emit ProgramTrusted(_programVKey, _trusted);
     }
 
