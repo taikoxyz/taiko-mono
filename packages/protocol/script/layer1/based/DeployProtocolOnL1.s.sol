@@ -467,14 +467,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
-        // taikoWrapper should be the whitelisted proposer, since
-        // we call PreconfRouter as the selected operator, which calls
-        // forcedinclustioninbox.proposeBatchWithForcedInclusion,
-        // which calls taikoInbox.proposeBatch.
-        DefaultResolver(resolver).registerAddress(
-            uint64(block.chainid), LibStrings.B_INBOX_WRAPPER, taikoWrapper
-        );
-
         return (whitelist, router, store, taikoWrapper);
     }
 

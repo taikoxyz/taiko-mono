@@ -32,7 +32,7 @@ contract DeployPreconfContracts is BaseScript {
 
         // Deploy PreconfRouter
         deploy(
-            LibStrings.B_PRECONF_ROUTER,
+            "preconf_router",
             address(new PreconfRouter(taikoWrapper, preconfWhitelist)),
             abi.encodeCall(PreconfRouter.init, (contractOwner))
         );
