@@ -94,6 +94,10 @@ func New(
 	return server, nil
 }
 
+func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
+	s.p2pNode = p2pNode
+}
+
 // LogSkipper implements the `middleware.Skipper` interface.
 func LogSkipper(c echo.Context) bool {
 	switch c.Request().URL.Path {

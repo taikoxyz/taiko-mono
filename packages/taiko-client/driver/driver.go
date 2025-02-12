@@ -149,6 +149,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 			return err
 		}
+
+		d.preconfBlockServer.SetP2PNode(d.p2pNode)
 	}
 
 	return nil
