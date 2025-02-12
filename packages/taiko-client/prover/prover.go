@@ -455,7 +455,9 @@ func (p *Prover) requestProofOp(meta metadata.TaikoBlockMetaData, minTier uint16
 		if submitter := p.selectSubmitter(encoding.TierZkVMSp1ID); submitter != nil {
 			if err := submitter.RequestProof(p.ctx, meta); err != nil {
 				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+					log.Info("Select zk any submitter error is", "error", err)
 					if sgxSubmitter := p.selectSubmitter(encoding.TierSgxID); sgxSubmitter != nil {
+						log.Info("Select zk any submitter tier is", "tier", sgxSubmitter.Tier())
 						if err := sgxSubmitter.RequestProof(p.ctx, meta); err != nil {
 							log.Error(
 								"Request new proof error",
