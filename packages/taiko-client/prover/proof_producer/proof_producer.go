@@ -51,12 +51,13 @@ type ProofRequestOptions struct {
 }
 
 type ProofWithHeader struct {
-	BlockID *big.Int
-	Meta    metadata.TaikoBlockMetaData
-	Header  *types.Header
-	Proof   []byte
-	Opts    *ProofRequestOptions
-	Tier    uint16
+	BlockID   *big.Int
+	Meta      metadata.TaikoBlockMetaData
+	Header    *types.Header
+	Proof     []byte
+	Opts      *ProofRequestOptions
+	Tier      uint16
+	ProofType string
 }
 
 type BatchProofs struct {
