@@ -115,7 +115,13 @@ contract TestGenerateGenesis is Test {
         vm.startPrank(taikoAnchorProxy.owner());
 
         taikoAnchorProxy.upgradeTo(
-            address(new TaikoAnchor(getPredeployedContractAddress("RollupResolver"), 0))
+            address(
+                new TaikoAnchor(
+                    getPredeployedContractAddress("RollupResolver"),
+                    getPredeployedContractAddress("SignalService"),
+                    uint64(pacayaForkHeight)
+                )
+            )
         );
 
         vm.stopPrank();
@@ -179,7 +185,15 @@ contract TestGenerateGenesis is Test {
         bridgeProxy.unpause();
         assertEq(bridgeProxy.paused(), false);
 
-        bridgeProxy.upgradeTo(address(new Bridge(getPredeployedContractAddress("SharedResolver"))));
+        bridgeProxy.upgradeTo(
+            address(
+                new Bridge(
+                    getPredeployedContractAddress("SharedResolver"),
+                    address(0),
+                    getPredeployedContractAddress("SignalService")
+                )
+            )
+        );
 
         vm.stopPrank();
     }
