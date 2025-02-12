@@ -126,7 +126,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		}
 	}
 
-	if cfg.P2PConfigs != nil {
+	if cfg.P2PConfigs != nil && d.preconfBlockServer != nil {
 		log.Info("enabling p2p network")
 		d.p2pSetup = cfg.P2PConfigs
 
