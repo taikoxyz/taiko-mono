@@ -28,7 +28,7 @@ contract TestERC1155Vault is CommonTest {
         );
         eVault = deployERC1155Vault();
 
-        register("bridged_erc1155", address(new BridgedERC1155(address(resolver))));
+        register("bridged_erc1155", address(new BridgedERC1155(address(eVault))));
 
         vm.deal(address(eBridge), 100 ether);
         vm.deal(Alice, 100 ether);
@@ -43,7 +43,7 @@ contract TestERC1155Vault is CommonTest {
         );
 
         register("bridge", address(tBridge));
-        register("bridged_erc1155", address(new BridgedERC1155(address(resolver))));
+        register("bridged_erc1155", address(new BridgedERC1155(address(tVault))));
 
         vm.deal(address(tBridge), 100 ether);
     }
