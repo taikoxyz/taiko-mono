@@ -114,7 +114,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
-            deployPreconfContracts(contractOwner, sharedResolver);
+            deployPreconfContracts(contractOwner, sharedResolver, address(taikoInbox));
         }
 
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -288,9 +288,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        address automataDcapAttestation = address(0); // not used
-        address sgxVerifier =
-            deploySgxVerifier(owner, rollupResolver, l2ChainId, automataDcapAttestation);
+        address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
 
         (address risc0Verifier, address sp1Verifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
@@ -316,8 +314,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deploySgxVerifier(
         address owner,
         address rollupResolver,
-        uint64 l2ChainId,
-        address automataDcapAttestation
+        uint64 l2ChainId
     )
         private
         returns (address sgxVerifier)
@@ -394,7 +391,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function deployPreconfContracts(
         address owner,
-        address resolver
+        address resolver,
+        address taikoInbox
     )
         private
         returns (address whitelist, address router, address store, address taikoWrapper)
@@ -424,9 +422,10 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    resolver,
                     uint8(vm.envUint("INCLUSION_WINDOW")),
-                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI"))
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    taikoInbox,
+                    taikoWrapper
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (owner)),

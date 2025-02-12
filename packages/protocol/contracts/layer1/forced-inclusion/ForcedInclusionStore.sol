@@ -19,6 +19,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint8 public immutable inclusionDelay; // measured in the number of batches
     uint64 public immutable feeInGwei;
+    ITaikoInbox public immutable taikoInbox;
+    address public immutable taikoInboxWrapper;
 
     mapping(uint256 id => ForcedInclusion inclusion) public queue; // slot 1
     uint64 public head; // slot 2
@@ -29,17 +31,20 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     uint256[48] private __gap;
 
     constructor(
-        address _resolver,
         uint8 _inclusionDelay,
-        uint64 _feeInGwei
+        uint64 _feeInGwei,
+        address _taikoInbox,
+        address _taikoInboxWrapper
     )
-        EssentialContract(_resolver)
+        EssentialContract(address(0))
     {
         require(_inclusionDelay != 0, InvalidParams());
         require(_feeInGwei != 0, InvalidParams());
 
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
+        taikoInbox = ITaikoInbox(_taikoInbox);
+        taikoInboxWrapper = _taikoInboxWrapper;
     }
 
     function init(address _owner) external initializer {
@@ -74,7 +79,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     function consumeOldestForcedInclusion(address _feeRecipient)
         external
-        onlyFromNamed(LibStrings.B_TAIKO_WRAPPER)
+        onlyFrom(taikoInboxWrapper)
         nonReentrant
         returns (ForcedInclusion memory inclusion_)
     {
@@ -121,7 +126,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     function _nextBatchId() private view returns (uint64) {
-        // TODO(daniel): replace with immutable
-        return ITaikoInbox(resolve(LibStrings.B_TAIKO, false)).getStats2().numBatches;
+        return taikoInbox.getStats2().numBatches;
     }
 }

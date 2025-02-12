@@ -79,7 +79,9 @@ abstract contract Layer1Test is CommonTest {
     function deployForcedInclusionStore(
         uint8 inclusionDelay,
         uint64 feeInGwei,
-        address owner
+        address owner,
+        address taikoInbox,
+        address taikoInboxWrapper
     )
         internal
         returns (ForcedInclusionStore)
@@ -87,7 +89,9 @@ abstract contract Layer1Test is CommonTest {
         return ForcedInclusionStore(
             deploy({
                 name: "forced_inclusion_store",
-                impl: address(new ForcedInclusionStore(address(resolver), inclusionDelay, feeInGwei)),
+                impl: address(
+                    new ForcedInclusionStore(inclusionDelay, feeInGwei, taikoInbox, taikoInboxWrapper)
+                ),
                 data: abi.encodeCall(ForcedInclusionStore.init, (owner))
             })
         );
