@@ -216,7 +216,7 @@ func (s *ZKvmProofProducer) requestProof(
 		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
 		Graffiti: opts.OntakeOptions().Graffiti,
 		ZkAny: &ZkAnyRequestProofBodyParam{
-			Aggregation: opts.OntakeOptions.Compressed,
+			Aggregation: opts.OntakeOptions().Compressed,
 		},
 	}
 
@@ -350,22 +350,12 @@ func (s *ZKvmProofProducer) requestBatchProof(
 	for i := range blockIDs {
 		blocks[i][0] = blockIDs[i]
 	}
-	var reqBody RaikoRequestProofBodyV3
-	switch zkType {
-	case ZKProofTypeSP1:
-		reqBody = RaikoRequestProofBodyV3{
-			Type:     zkType,
-			Blocks:   blocks,
-			Prover:   proverAddress.Hex()[2:],
-			Graffiti: graffiti,
-		}
-	default:
-		reqBody = RaikoRequestProofBodyV3{
-			Type:     zkType,
-			Blocks:   blocks,
-			Prover:   proverAddress.Hex()[2:],
-			Graffiti: graffiti,
-		}
+
+	reqBody := RaikoRequestProofBodyV3{
+		Type:     zkType,
+		Blocks:   blocks,
+		Prover:   proverAddress.Hex()[2:],
+		Graffiti: graffiti,
 	}
 
 	client := &http.Client{}
