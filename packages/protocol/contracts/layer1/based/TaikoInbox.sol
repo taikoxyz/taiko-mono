@@ -33,7 +33,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     address public immutable wrapper;
     address public immutable verifier;
     address public immutable bondToken;
-    address public immutable signalService;
+    ISignalService public immutable signalService;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -47,15 +47,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         address _bondToken,
         address _signalService
     )
+        nonZeroAddr(_verifier)
+        nonZeroAddr(_signalService)
         EssentialContract(_resolver)
     {
-        require(_verifier != address(0), ZERO_ADDRESS());
-        require(_signalService != address(0), ZERO_ADDRESS());
-
         wrapper = _wrapper;
         verifier = _verifier;
         bondToken = _bondToken;
-        signalService = _signalService;
+        signalService = ISignalService(_signalService);
     }
 
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
@@ -715,7 +714,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     emit Stats1Updated(stats1);
 
                     // Ask signal service to write cross chain signal
-                    ISignalService(signalService).syncChainData(
+                    signalService.syncChainData(
                         _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
                     );
                 }
@@ -815,7 +814,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 for (uint256 j; j < numSignals; ++j) {
                     require(
-                        ISignalService(signalService).isSignalSent(_params.blocks[i].signalSlots[j]),
+                        signalService.isSignalSent(_params.blocks[i].signalSlots[j]),
                         SignalNotSent()
                     );
                 }

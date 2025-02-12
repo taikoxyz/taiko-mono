@@ -46,20 +46,20 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error OldestForcedInclusionDue();
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
-    IProposeBatch public immutable taikoInbox;
+    IProposeBatch public immutable inbox;
     IForcedInclusionStore public immutable forcedInclusionStore;
     address public immutable preconfRouter;
 
     uint256[50] private __gap;
 
     constructor(
-        address _taikoInbox,
+        address _inbox,
         address _forcedInclusionStore,
         address _preconfRouter
     )
         EssentialContract(address(0))
     {
-        taikoInbox = IProposeBatch(_taikoInbox);
+        inbox = IProposeBatch(_inbox);
         forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
         preconfRouter = _preconfRouter;
     }
@@ -84,15 +84,15 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
             require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
             _validateForcedInclusionParams(forcedInclusionStore, bytesX);
-            taikoInbox.proposeBatch(bytesX, "");
+            inbox.proposeBatch(bytesX, "");
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        return taikoInbox.proposeBatch(bytesY, _txList);
+        return inbox.proposeBatch(bytesY, _txList);
     }
 
     function _validateForcedInclusionParams(
-        IForcedInclusionStore _store,
+        IForcedInclusionStore _forcedInclusionStore,
         bytes memory _bytesX
     )
         internal
@@ -100,7 +100,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         ITaikoInbox.BatchParams memory p = abi.decode(_bytesX, (ITaikoInbox.BatchParams));
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
-            _store.consumeOldestForcedInclusion(p.proposer);
+            _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
 
         uint256 numBlocks = p.blocks.length;
         require(numBlocks != 0, NoBlocks());
