@@ -17,13 +17,15 @@ contract TestSP1Verifier is Layer1Test {
     function setUpOnEthereum() internal override {
         inbox = address(new TaikoStub_ReturnMainnetChainId());
         register("taiko", inbox);
-        register("sp1_remote_verifier", address(new SP1RemoteVerifier()));
+
+        address sp1RemoteVerifier = address(new SP1RemoteVerifier());
+        register("sp1_remote_verifier", sp1RemoteVerifier);
 
         // Deploy Taiko's SP1 proof verifier
         sp1Verifier = SP1Verifier(
             deploy({
                 name: "tier_zkvm_sp1",
-                impl: address(new SP1Verifier(address(resolver), taikoChainId)),
+                impl: address(new SP1Verifier(taikoChainId, sp1RemoteVerifier)),
                 data: abi.encodeCall(SP1Verifier.init, (address(0)))
             })
         );

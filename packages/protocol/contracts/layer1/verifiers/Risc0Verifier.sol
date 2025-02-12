@@ -15,6 +15,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
     bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
+    address public immutable riscoGroth16Verifier;
 
     uint64 public immutable taikoChainId;
 
@@ -35,8 +36,14 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
 
-    constructor(address _resolver, uint64 _taikoChainId) EssentialContract(_resolver) {
+    constructor(
+        uint64 _taikoChainId,
+        address _riscoGroth16Verifier
+    )
+        EssentialContract(address(0))
+    {
         taikoChainId = _taikoChainId;
+        riscoGroth16Verifier = _riscoGroth16Verifier;
     }
 
     /// @notice Initializes the contract with the provided address manager.
@@ -82,7 +89,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         bytes32 journalDigest = sha256(abi.encodePacked(publicInputs));
 
         // call risc0 verifier contract
-        (bool success,) = resolve(RISCZERO_GROTH16_VERIFIER, false).staticcall(
+        (bool success,) = riscoGroth16Verifier.staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, aggregationImageId, journalDigest))
         );
         require(success, RISC_ZERO_INVALID_PROOF());

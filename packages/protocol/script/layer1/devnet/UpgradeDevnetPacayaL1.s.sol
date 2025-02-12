@@ -124,11 +124,15 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
 
         register(rollupResolver, "sgx_verifier", sgxVerifier);
+        address risc0Groth16Verifier = address(0); // TODO
         UUPSUpgradeable(risc0Verifier).upgradeTo(
-            address(new Risc0Verifier(rollupResolver, l2ChainId))
+            address(new Risc0Verifier(l2ChainId, risc0Groth16Verifier))
         );
         register(rollupResolver, "risc0_verifier", risc0Verifier);
-        UUPSUpgradeable(sp1Verifier).upgradeTo(address(new SP1Verifier(rollupResolver, l2ChainId)));
+        address sp1RemoteVerifier = address(0); // TODO
+        UUPSUpgradeable(sp1Verifier).upgradeTo(
+            address(new SP1Verifier(l2ChainId, sp1RemoteVerifier))
+        );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
         deployProxy({
             name: "proof_verifier",

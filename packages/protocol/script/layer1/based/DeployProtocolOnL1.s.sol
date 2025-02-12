@@ -363,7 +363,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         risc0Verifier = deployProxy({
             name: "risc0_verifier",
-            impl: address(new Risc0Verifier(rollupResolver, l2ChainId)),
+            impl: address(new Risc0Verifier(l2ChainId, address(verifier))),
             data: abi.encodeCall(Risc0Verifier.init, (owner)),
             registerTo: rollupResolver
         });
@@ -374,7 +374,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         sp1Verifier = deployProxy({
             name: "sp1_verifier",
-            impl: address(new SP1Verifier(rollupResolver, l2ChainId)),
+            impl: address(new SP1Verifier(l2ChainId, address(succinctVerifier))),
             data: abi.encodeCall(SP1Verifier.init, (owner)),
             registerTo: rollupResolver
         });
