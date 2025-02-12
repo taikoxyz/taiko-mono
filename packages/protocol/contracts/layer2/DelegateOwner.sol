@@ -13,6 +13,8 @@ import "../shared/bridge/IBridge.sol";
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
+    address public immutable bridge;
+
     /// @notice The owner chain ID.
     uint64 public remoteChainId; // slot 1
 
@@ -60,7 +62,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _bridge) EssentialContract(address(0)) {
+        bridge = _bridge;
+    }
 
     /// @notice Initializes the contract.
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
@@ -78,9 +82,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         // This contract's owner will be itself.
         __Essential_init(address(this));
 
-        if (_remoteOwner == address(0) || _remoteChainId == 0 || _remoteChainId == block.chainid) {
-            revert DO_INVALID_PARAM();
-        }
+        require(_remoteOwner != address(0), DO_INVALID_PARAM());
+        require(_remoteChainId != 0, DO_INVALID_PARAM());
+        require(_remoteChainId != block.chainid, DO_INVALID_PARAM());
 
         remoteChainId = _remoteChainId;
         remoteOwner = _remoteOwner;
@@ -104,7 +108,8 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @dev Updates the admin address.
     /// @param _admin The new admin address.
     function setAdmin(address _admin) external nonReentrant onlyOwner {
-        if (_admin == admin || _admin == address(this)) revert DO_INVALID_PARAM();
+        require(_admin != admin, DO_INVALID_PARAM());
+        require(_admin != address(this), DO_INVALID_PARAM());
 
         emit AdminUpdated(admin, _admin);
         admin = _admin;
@@ -132,20 +137,20 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         nextTxId += 1;
 
         // By design, the target must be a contract address if the txdata is not empty
-        if (call.txdata.length != 0 && !Address.isContract(call.target)) revert DO_INVALID_TARGET();
+        require(call.txdata.length == 0 || Address.isContract(call.target), DO_INVALID_TARGET());
 
         (bool success, bytes memory result) = call.isDelegateCall //
             ? call.target.delegatecall(call.txdata)
             : call.target.call{ value: msg.value }(call.txdata);
 
         if (!success) LibBytes.revertWithExtractedError(result);
+
         emit MessageInvoked(call.txId, call.target, call.isDelegateCall, call.txdata);
     }
 
     function _isAdminOrRemoteOwner(address _sender) private view returns (bool) {
         if (_sender == admin) return true;
-        // TODO(daniel): replace with immutable
-        if (_sender != resolve(LibStrings.B_BRIDGE, false)) return false;
+        if (_sender != bridge) return false;
 
         IBridge.Context memory ctx = IBridge(_sender).context();
         return ctx.srcChainId == remoteChainId && ctx.from == remoteOwner;
