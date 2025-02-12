@@ -215,6 +215,9 @@ func (s *ZKvmProofProducer) requestProof(
 		Block:    opts.OntakeOptions().BlockID,
 		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
 		Graffiti: opts.OntakeOptions().Graffiti,
+		ZkAny: &ZkAnyRequestProofBodyParam{
+			Aggregation: opts.OntakeOptions.Compressed,
+		},
 	}
 
 	client := &http.Client{}
