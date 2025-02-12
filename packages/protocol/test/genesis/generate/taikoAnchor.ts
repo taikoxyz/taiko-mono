@@ -824,6 +824,8 @@ function getImmutableReference(
         for (const immutableValueName of immutableValueNames) {
             for (const subNode of node.nodes) {
                 if (subNode.name !== immutableValueName) continue;
+                if (!references[`${contractName}`])
+                    references[`${contractName}`] = {};
                 references[`${contractName}`][immutableValueName] = {
                     name: immutableValueName,
                     id: subNode.id,

@@ -24,7 +24,7 @@ contract TestERC721Vault is CommonTest {
         eBridge = deployBridge(address(new Bridge(address(resolver), address(ss), quotaManager)));
         eVault = deployERC721Vault();
 
-        register("bridged_erc721", address(new BridgedERC721(address(resolver))));
+        register("bridged_erc721", address(new BridgedERC721(address(eVault))));
 
         vm.deal(Alice, 100 ether);
         vm.deal(Bob, 100 ether);
@@ -36,7 +36,7 @@ contract TestERC721Vault is CommonTest {
         tBridge = new PrankDestBridge(tVault);
 
         register("bridge", address(tBridge));
-        register("bridged_erc721", address(new BridgedERC721(address(resolver))));
+        register("bridged_erc721", address(new BridgedERC721(address(tVault))));
 
         vm.deal(address(tBridge), 100 ether);
     }

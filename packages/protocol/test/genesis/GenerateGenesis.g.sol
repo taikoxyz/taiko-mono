@@ -10,6 +10,9 @@ import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/shared/signal/SignalService.sol";
+import "src/shared/tokenvault/BridgedERC20.sol";
+import "src/shared/tokenvault/BridgedERC721.sol";
+import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/layer2/based/TaikoAnchor.sol";
 import "../shared/helpers/RegularERC20.sol";
 
@@ -111,6 +114,10 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
         assertEq(uint64(pacayaForkHeight), taikoAnchorProxy.pacayaForkHeight());
+        assertEq(
+            getPredeployedContractAddress("SignalService"),
+            address(taikoAnchorProxy.signalService())
+        );
 
         vm.startPrank(taikoAnchorProxy.owner());
 
@@ -197,6 +204,13 @@ contract TestGenerateGenesis is Test {
 
         vm.stopPrank();
     }
+
+    // function testBridgedERC20() public view {
+    //     address bridgedERC20 = getPredeployedContractAddress("BridgedERC20");
+    //     assertEq(
+    //         getPredeployedContractAddress("ERC20Vault"), BridgedERC20(bridgedERC20).erc20Vault()
+    //     );
+    // }
 
     function testSingletonERC20Vault() public {
         address erc20VaultAddress = getPredeployedContractAddress("ERC20Vault");
