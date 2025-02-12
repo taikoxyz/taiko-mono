@@ -2,3 +2,40 @@
 title: What is Taiko Gwyneth?
 description: Core concept page for "What is Taiko Gwyneth?".
 ---
+
+import { Code } from '@astrojs/starlight/components';
+
+Based rollups are arguably the **most effective, decentralized, and Ethereum-aligned** way of running a rollup. By delegating the sequencing job to L1, a based rollup **inherits** the L1 decentralization, simplicity, and liveness, among other benefits.
+
+**But what if you could amplify the benefits of a based rollup by adding out-of-the-box, native Ethereum L1 dapp scaling (sharding) to it?**
+
+## Introducing Taiko Gwyneth
+
+Taiko Gwyneth is a **horizontal Ethereum scaling solution** ([as opposed to vertical](/taiko-alethia-protocol/protocol-design/inception-layers)), combining
+based sequencing, real-time proving, and booster functionality. Gwyneth creates a **uniform environment** that can scale Ethereum in a convenient way while solving liquidity fragmentation.
+
+### Why Taiko Gwyneth?
+
+- **Simple**: For rollups that are Ethereum equivalent, the only additional functionality to be a booster rollup is to support the required precompiles.
+- **Scalabe**: Similar to adding extra servers to a server farm, the only thing required is adding an extra rollup and all applications can take advantage of the increased scalability, no extra steps required.
+- **Seamless**: L1 and all L2s look and feel exactly the same for users. A single address everywhere, automatically, no matter if it’s an EOA or smart wallet. Combine a booster rollup with a based rollup and a way to do atomic cross-rollup transactions between all L2s in this booster network, and we should get very close to the feeling of a single scalable chain for users.
+- **Sovereign**: No need for rollup specific wrapper contracts for things like tokens, each smart contract runs on L2 exactly the same way on L1 in all cases, the original developer remains fully in control.
+- **Secure**: No more rollup specific implementations to bridge functionality over from L1 also means no single point of failure anymore (like bridges with a shared codebase where a single hack can be catastrophic). The security is now per dapp.
+- **Easy (for devs)**: No need to deploy to all L2s that need support for the dapp. Just deploy your smart contracts to L1 and you’re done. Each dapp is multi-rollup out of the box. Rolling out updates can now also be done in a single place, with all L2s automatically following the the latest version on L1.
+
+### Key Concept in Taiko Gwyneth
+
+- [Based booster rollup](/taiko-gwyneth-protocol/booster-rollups): Native L1 scaling via Ethereum-equivalent L2.
+
+## How Taiko Gwyneth Works
+
+Taiko Gwyneth requires a single precompile **XCALLOPTIONS** to function. The precompile is structured as follows:
+
+<Code code='
+XCALLOPTIONS(version: uint16, chainID: uint, sandbox: bool, txOrigin: address,
+msgSender: address, blockHash: bytes32, proof: bytes)
+  ' lang="solidity" title="XCALLOPTIONS Context" />
+
+This call context modifies the behavior of the existing CALL/DELEGATECALL/STATICCALL opcodes.
+
+This precompile sets additional CALL parameters in the current frame of execution which stick around until the next CALL, basically extending the CALL opcode without changing the inputs. When that call has processed, the values are reset.
