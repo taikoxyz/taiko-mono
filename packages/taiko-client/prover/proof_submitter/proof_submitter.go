@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -314,6 +316,15 @@ func (s *ProofSubmitter) SubmitProof(
 	}
 
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
+	var tier uint16
+	switch proofWithHeader.ProofType {
+	case proofProducer.ZKProofTypeR0:
+		tier = encoding.TierZkVMRisc0ID
+	case proofProducer.ZKProofTypeSP1:
+		tier = encoding.TierZkVMSp1ID
+	default:
+		tier = proofWithHeader.Tier
+	}
 	if err = s.sender.Send(
 		ctx,
 		proofWithHeader,
@@ -327,7 +338,7 @@ func (s *ProofSubmitter) SubmitProof(
 				Graffiti:   s.graffiti,
 			},
 			&bindings.TaikoDataTierProof{
-				Tier: proofWithHeader.Tier,
+				Tier: tier,
 				Data: proofWithHeader.Proof,
 			},
 			proofWithHeader.Tier,
