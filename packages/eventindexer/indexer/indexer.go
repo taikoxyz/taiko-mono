@@ -15,6 +15,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/v2/taikol1"
+	v3 "github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/v3/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
@@ -55,6 +56,8 @@ type Indexer struct {
 
 	taikol1   *taikol1.TaikoL1
 	taikol1V2 *v2.TaikoL1
+	taikol1V3 *v3.TaikoL1
+
 	bridge    *bridge.Bridge
 
 	indexNfts   bool
@@ -168,17 +171,24 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	var taikol1V2 *v2.TaikoL1
 
+	var taikol1V3 *v3.TaikoL1
+
 	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
 		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
 
 		taikoL1, err = taikol1.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
 		if err != nil {
-			return errors.Wrap(err, "contracts.NewTaikoL1")
+			return errors.Wrap(err, "contracts.v1.NewTaikoL1")
 		}
 
 		taikol1V2, err = v2.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
 		if err != nil {
-			return errors.Wrap(err, "contracts.NewTaikoL1")
+			return errors.Wrap(err, "contracts.v2.NewTaikoL1")
+		}
+
+		taikol1V3, err = v3.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
+		if err != nil {
+			return errors.Wrap(err, "contracts.v3.NewTaikoL1")
 		}
 	}
 
@@ -206,6 +216,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
 	i.taikol1V2 = taikol1V2
+	i.taikol1V3 = taikol1V3
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second

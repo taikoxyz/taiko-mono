@@ -12,11 +12,11 @@ names=("TaikoL1")
 for (( i = 0; i < ${#paths[@]}; ++i ));
 do
     lower=$(echo "${names[i]}" | tr '[:upper:]' '[:lower:]')
-    jq .abi ../protocol/out/${paths[i]}/${names[i]}.json > contracts/v2/$lower/${names[i]}.json
-    abigen --abi contracts/v2/$lower/${names[i]}.json \
+    jq .abi ../protocol/out/${paths[i]}/${names[i]}.json > contracts/v3/$lower/${names[i]}.json
+    abigen --abi contracts/v3/$lower/${names[i]}.json \
     --pkg $lower \
     --type ${names[i]} \
-    --out contracts/v2/$lower/${names[i]}.go
+    --out contracts/v3/$lower/${names[i]}.go
 done
 
 exit 0
