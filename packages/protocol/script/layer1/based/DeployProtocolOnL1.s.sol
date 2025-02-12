@@ -254,17 +254,47 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupResolver, _sharedResolver, "signal_service");
         copyRegister(rollupResolver, _sharedResolver, "bridge");
 
+        // Initializable the proxy for proofVerifier to get the contract address at first.
+        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
+
+        // Inbox
         deployProxy({
             name: "mainnet_taiko",
-            impl: address(new MainnetInbox(address(rollupResolver))),
+            impl: address(
+                new MainnetInbox(
+                    address(rollupResolver),
+                    address(0),
+                    proofVerifier,
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                )
+            ),
             data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         if (oldFork == address(0)) {
-            oldFork = address(new DevnetInbox(address(rollupResolver)));
+            oldFork = address(
+                new DevnetInbox(
+                    address(rollupResolver),
+                    address(0),
+                    proofVerifier,
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(_sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
+                )
+            );
         }
-        address newFork = address(new DevnetInbox(address(rollupResolver)));
+        address newFork = address(
+            new DevnetInbox(
+                address(rollupResolver),
+                address(0),
+                proofVerifier,
+                IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+            )
+        );
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
 
@@ -278,6 +308,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
 
+        // Verifiers
         uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
@@ -287,8 +318,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(OpVerifier.init, (owner)),
             registerTo: rollupResolver
         });
-
-        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
         address sgxVerifier =
             deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
@@ -306,7 +335,11 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         deployProxy({
             name: "prover_set",
-            impl: address(new ProverSet(address(rollupResolver))),
+            impl: address(
+                new ProverSet(
+                    address(rollupResolver), taikoInboxAddr, taikoInbox.bondToken(), taikoInboxAddr
+                )
+            ),
             data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
         });
     }

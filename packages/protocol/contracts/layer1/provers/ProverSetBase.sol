@@ -21,6 +21,9 @@ interface IHasRecipient {
 abstract contract ProverSetBase is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
+    address public immutable inbox;
+    address public immutable bondToken;
+
     mapping(address prover => bool isProver) public isProver; // slot 1
     address public admin; // slot 2
 
@@ -46,23 +49,32 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(
+        address _resolver,
+        address _inbox,
+        address _bondToken
+    )
+        EssentialContract(_resolver)
+    {
+        require(_inbox != address(0), ZERO_ADDRESS());
+        require(_bondToken != address(0), ZERO_ADDRESS());
+        inbox = _inbox;
+        bondToken = _bondToken;
+    }
 
     /// @notice Initializes the contract.
     function init(address _owner, address _admin) external nonZeroAddr(_admin) initializer {
         __Essential_init(_owner);
         admin = _admin;
 
-        address _bondToken = bondToken();
-        if (_bondToken != address(0)) {
-            IERC20(_bondToken).approve(inbox(), type(uint256).max);
+        if (bondToken != address(0)) {
+            IERC20(bondToken).approve(inbox, type(uint256).max);
         }
     }
 
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
-        address _bondToken = bondToken();
-        require(_bondToken != address(0), INVALID_BOND_TOKEN());
-        IERC20(_bondToken).approve(_address, _allowance);
+        require(bondToken != address(0), INVALID_BOND_TOKEN());
+        IERC20(bondToken).approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
@@ -75,9 +87,8 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        address _bondToken = bondToken();
-        if (_bondToken != address(0)) {
-            IERC20(_bondToken).transfer(admin, _amount);
+        if (bondToken != address(0)) {
+            IERC20(bondToken).transfer(admin, _amount);
         } else {
             LibAddress.sendEtherAndVerify(admin, _amount);
         }
@@ -90,20 +101,19 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
 
     /// @notice Deposits Taiko token to Taiko contract.
     function depositBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox()).depositBond(_amount);
+        ITaikoInbox(inbox).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from Taiko contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox()).withdrawBond(_amount);
+        ITaikoInbox(inbox).withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyAuthorized {
-        address _bondToken = bondToken();
-        require(_bondToken != address(0), INVALID_BOND_TOKEN());
-        ERC20VotesUpgradeable(_bondToken).delegate(_delegatee);
+        require(bondToken != address(0), INVALID_BOND_TOKEN());
+        ERC20VotesUpgradeable(bondToken).delegate(_delegatee);
     }
 
     // This function is necessary for this contract to become an assigned prover.
@@ -119,15 +129,5 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
         if (error == ECDSA.RecoverError.NoError && isProver[recovered]) {
             magicValue_ = _EIP1271_MAGICVALUE;
         }
-    }
-
-    function inbox() internal view virtual returns (address) {
-        // TODO(david): replace with immutable
-        return resolve(LibStrings.B_TAIKO, false);
-    }
-
-    function bondToken() internal view virtual returns (address) {
-        // TODO(david): replace with immutable
-        return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 }

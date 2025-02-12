@@ -101,12 +101,20 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "bond_token");
         copyRegister(rollupResolver, sharedResolver, "signal_service");
         copyRegister(rollupResolver, sharedResolver, "bridge");
+
+        // Initializable the proxy for proofVerifier to get the contract address at first.
+        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
+
         // TaikoInbox
-        address newFork = address(new DevnetInbox(rollupResolver));
+        address newFork = address(
+            new DevnetInbox(rollupResolver, address(0), proofVerifier, taikoToken, signalService)
+        );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
         // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(rollupResolver, newFork, taikoToken, newFork))
+        );
         // Verifier
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
@@ -118,7 +126,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
         address automataDcapAttestation = address(0); // not used!
         UUPSUpgradeable(sgxVerifier).upgradeTo(
             address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataDcapAttestation))
