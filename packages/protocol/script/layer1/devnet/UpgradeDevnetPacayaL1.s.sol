@@ -118,9 +118,10 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
+        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
         address automataDcapAttestation = address(0); // not used!
         UUPSUpgradeable(sgxVerifier).upgradeTo(
-            address(new SgxVerifier(rollupResolver, l2ChainId, automataDcapAttestation))
+            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataDcapAttestation))
         );
 
         register(rollupResolver, "sgx_verifier", sgxVerifier);
@@ -134,15 +135,14 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new SP1Verifier(l2ChainId, sp1RemoteVerifier))
         );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
-        deployProxy({
-            name: "proof_verifier",
-            impl: address(
+
+        UUPSUpgradeable(proofVerifier).upgradeToAndCall({
+            newImplementation: address(
                 new DevnetVerifier(
                     address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             ),
-            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
-            registerTo: rollupResolver
+            data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
     }
 }

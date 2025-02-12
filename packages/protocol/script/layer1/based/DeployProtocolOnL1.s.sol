@@ -288,20 +288,20 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
+        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
+        address sgxVerifier =
+            deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
         (address risc0Verifier, address sp1Verifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
-        deployProxy({
-            name: "proof_verifier",
-            impl: address(
+        UUPSUpgradeable(proofVerifier).upgradeToAndCall({
+            newImplementation: address(
                 new DevnetVerifier(
                     address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             ),
-            data: abi.encodeCall(ComposeVerifier.init, (owner)),
-            registerTo: rollupResolver
+            data: abi.encodeCall(ComposeVerifier.init, (owner))
         });
 
         deployProxy({
@@ -314,7 +314,9 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deploySgxVerifier(
         address owner,
         address rollupResolver,
-        uint64 l2ChainId
+        uint64 l2ChainId,
+        address taikoInbox,
+        address taikoProofVerifier
     )
         private
         returns (address sgxVerifier)
@@ -337,7 +339,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         sgxVerifier = deployProxy({
             name: "sgx_verifier",
-            impl: address(new SgxVerifier(rollupResolver, l2ChainId, automataProxy)),
+            impl: address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy)),
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
