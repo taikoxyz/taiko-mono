@@ -130,7 +130,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 		if d.p2pNode, err = p2p.NewNodeP2P(
 			d.ctx,
-			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
 			log.Root(),
 			d.p2pSetup,
 			d.preconfBlockServer,
