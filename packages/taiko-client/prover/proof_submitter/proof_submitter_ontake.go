@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -312,6 +313,15 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	}
 
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
+	var tier uint16
+	switch proofResponse.ProofType {
+	case proofProducer.ZKProofTypeR0:
+		tier = encoding.TierZkVMRisc0ID
+	case proofProducer.ZKProofTypeSP1:
+		tier = encoding.TierZkVMSp1ID
+	default:
+		tier = proofResponse.Tier
+	}
 	if err = s.sender.Send(
 		ctx,
 		proofResponse,
@@ -325,7 +335,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 				Graffiti:   s.graffiti,
 			},
 			&ontakeBindings.TaikoDataTierProof{
-				Tier: proofResponse.Tier,
+				Tier: tier,
 				Data: proofResponse.Proof,
 			},
 			proofResponse.Tier,
