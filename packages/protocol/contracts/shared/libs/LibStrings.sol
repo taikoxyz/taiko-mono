@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 /// @title LibStrings
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
+    // TODO(david): remove unused strings
     bytes32 internal constant B_AUTOMATA_DCAP_ATTESTATION = bytes32("automata_dcap_attestation");
     bytes32 internal constant B_BOND_TOKEN = bytes32("bond_token");
     bytes32 internal constant B_BRIDGE = bytes32("bridge");
