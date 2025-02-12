@@ -16,6 +16,8 @@ contract BridgedERC1155 is
     IBridgedERC1155Initializable,
     ERC1155Upgradeable
 {
+    address public immutable erc1155Vault;
+
     /// @notice Address of the source token contract.
     address public srcToken;
 
@@ -32,7 +34,9 @@ contract BridgedERC1155 is
 
     error BTOKEN_INVALID_PARAMS();
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _erc1155Vault) EssentialContract(address(0)) {
+        erc1155Vault = _erc1155Vault;
+    }
 
     /// @inheritdoc IBridgedERC1155Initializable
     function init(
@@ -69,7 +73,7 @@ contract BridgedERC1155 is
     )
         external
         whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
+        onlyFromNamed(erc1155Vault)
         nonReentrant
     {
         _mintBatch(_to, _tokenIds, _amounts, "");
@@ -82,7 +86,7 @@ contract BridgedERC1155 is
     )
         external
         whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC1155_VAULT)
+        onlyFromNamed(erc1155Vault)
         nonReentrant
     {
         _burn(msg.sender, _id, _amount);
