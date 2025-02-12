@@ -46,10 +46,23 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error OldestForcedInclusionDue();
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
+    IProposeBatch public immutable taikoInbox;
+    IForcedInclusionStore public immutable forcedInclusionStore;
+    address public immutable preconfRouter;
 
     uint256[50] private __gap;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(
+        address _taikoInbox,
+        address _forcedInclusionStore,
+        address _preconfRouter
+    )
+        EssentialContract(address(0))
+    {
+        taikoInbox = IProposeBatch(_taikoInbox);
+        forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
+        preconfRouter = _preconfRouter;
+    }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
@@ -61,27 +74,21 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         bytes calldata _txList
     )
         external
-        onlyFromNamed(LibStrings.B_PRECONF_ROUTER)
+        onlyFromOptional(preconfRouter)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        // TODO(daniel): replace with immutable
-        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
-        // TODO(daniel): replace with immutable
-        IForcedInclusionStore store =
-            IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
-
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
         if (bytesX.length == 0) {
-            require(!store.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
+            require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
-            _validateForcedInclusionParams(store, bytesX);
-            inbox.proposeBatch(bytesX, "");
+            _validateForcedInclusionParams(forcedInclusionStore, bytesX);
+            taikoInbox.proposeBatch(bytesX, "");
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        return inbox.proposeBatch(bytesY, _txList);
+        return taikoInbox.proposeBatch(bytesY, _txList);
     }
 
     function _validateForcedInclusionParams(

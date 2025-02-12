@@ -66,37 +66,6 @@ abstract contract Layer1Test is CommonTest {
         );
     }
 
-    function deployForcedInclusionInbox() internal returns (TaikoWrapper) {
-        return TaikoWrapper(
-            deploy({
-                name: "taiko_wrapper",
-                impl: address(new TaikoWrapper(address(resolver))),
-                data: abi.encodeCall(TaikoWrapper.init, (address(0)))
-            })
-        );
-    }
-
-    function deployForcedInclusionStore(
-        uint8 inclusionDelay,
-        uint64 feeInGwei,
-        address owner,
-        address taikoInbox,
-        address taikoInboxWrapper
-    )
-        internal
-        returns (ForcedInclusionStore)
-    {
-        return ForcedInclusionStore(
-            deploy({
-                name: "forced_inclusion_store",
-                impl: address(
-                    new ForcedInclusionStore(inclusionDelay, feeInGwei, taikoInbox, taikoInboxWrapper)
-                ),
-                data: abi.encodeCall(ForcedInclusionStore.init, (owner))
-            })
-        );
-    }
-
     function deployBondToken() internal returns (TaikoToken) {
         return TaikoToken(
             deploy({

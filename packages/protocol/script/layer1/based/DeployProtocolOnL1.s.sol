@@ -404,13 +404,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
-        taikoWrapper = deployProxy({
-            name: "taiko_wrapper",
-            impl: address(new TaikoWrapper(resolver)),
-            data: abi.encodeCall(TaikoWrapper.init, (owner)),
-            registerTo: resolver
-        });
-
         router = deployProxy({
             name: "preconf_router",
             impl: address(new PreconfRouter(taikoWrapper, whitelist)),
@@ -429,6 +422,13 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (owner)),
+            registerTo: resolver
+        });
+
+        taikoWrapper = deployProxy({
+            name: "taiko_wrapper",
+            impl: address(new TaikoWrapper(taikoInbox, store, router)),
+            data: abi.encodeCall(TaikoWrapper.init, (owner)),
             registerTo: resolver
         });
 

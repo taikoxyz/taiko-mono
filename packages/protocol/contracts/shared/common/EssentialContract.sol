@@ -141,6 +141,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
+    /// @dev Modifier that ensures the caller is the specified address.
+    /// @param _addr The address to check against.
+    modifier onlyFromOptional(address _addr) {
+        require(_addr == address(0) || msg.sender == _addr, ACCESS_DENIED());
+        _;
+    }
+
     constructor(address _resolver) {
         __resolver = _resolver;
         _disableInitializers();
