@@ -188,6 +188,9 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					}
 					return nil
 				}
+				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+					return backoff.Permanent(err)
+				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.Ontake().GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
