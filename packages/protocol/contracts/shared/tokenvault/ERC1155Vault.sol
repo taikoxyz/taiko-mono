@@ -73,7 +73,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         // Send the message and obtain the message hash
         bytes32 msgHash;
 
-        // TODO(daniel): replace with immutable
         (msgHash, message_) =
             IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
@@ -297,7 +296,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
-        // TODO(daniel): replace with immutable
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC1155, false), data));
 
         bridgedToCanonical[btoken_] = _ctoken;

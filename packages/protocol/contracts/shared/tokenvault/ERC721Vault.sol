@@ -70,8 +70,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         bytes32 msgHash;
         (msgHash, message_) =
-        // TODO(daniel): replace with immutable
-         IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
+            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -254,7 +253,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
-        // TODO(daniel): replace with immutable
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC721, false), data));
         bridgedToCanonical[btoken_] = _ctoken;
         canonicalToBridged[_ctoken.chainId][_ctoken.addr] = btoken_;
