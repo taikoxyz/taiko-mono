@@ -73,7 +73,7 @@ contract BridgedERC1155 is
     )
         external
         whenNotPaused
-        onlyFromNamed(erc1155Vault)
+        onlyFrom(erc1155Vault)
         nonReentrant
     {
         _mintBatch(_to, _tokenIds, _amounts, "");
@@ -86,7 +86,7 @@ contract BridgedERC1155 is
     )
         external
         whenNotPaused
-        onlyFromNamed(erc1155Vault)
+        onlyFrom(erc1155Vault)
         nonReentrant
     {
         _burn(msg.sender, _id, _amount);
