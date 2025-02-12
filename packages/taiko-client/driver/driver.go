@@ -150,7 +150,9 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			return err
 		}
 
-		d.preconfBlockServer.SetP2PNode(d.p2pNode)
+		if d.preconfBlockServer != nil {
+			d.preconfBlockServer.SetP2PNode(d.p2pNode)
+		}
 	}
 
 	return nil
