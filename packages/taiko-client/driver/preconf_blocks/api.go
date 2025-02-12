@@ -152,7 +152,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
 	if s.p2pNode != nil {
-		log.Info("Gossiping L2 Payload", "blockID", header.Number.Uint64())
+		log.Info("Gossiping L2 Payload", "blockID", header.Number.Uint64(), "time", header.Time)
 
 		if err := s.p2pNode.GossipOut().PublishL2Payload(
 			c.Request().Context(),
