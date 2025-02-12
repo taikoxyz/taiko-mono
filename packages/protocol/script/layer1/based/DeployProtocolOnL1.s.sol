@@ -450,13 +450,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
-        router = deployProxy({
-            name: "preconf_router",
-            impl: address(new PreconfRouter(taikoWrapper, whitelist)),
-            data: abi.encodeCall(PreconfRouter.init, (owner)),
-            registerTo: resolver
-        });
-
+        // Initializable a forced inclusion store with a fake address for TaikoWrapper at first,
+        // to be used for deploying TaikoWrapper, then upgrade it to the real TaikoWrapper address.
         store = deployProxy({
             name: "forced_inclusion_store",
             impl: address(
@@ -464,10 +459,10 @@ contract DeployProtocolOnL1 is DeployCapability {
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
                     taikoInbox,
-                    taikoWrapper
+                    address(1)
                 )
             ),
-            data: abi.encodeCall(ForcedInclusionStore.init, (owner)),
+            data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
             registerTo: resolver
         });
 
@@ -475,6 +470,27 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "taiko_wrapper",
             impl: address(new TaikoWrapper(taikoInbox, store, router)),
             data: abi.encodeCall(TaikoWrapper.init, (owner)),
+            registerTo: resolver
+        });
+
+        UUPSUpgradeable(store).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    taikoInbox,
+                    taikoWrapper
+                )
+            )
+        );
+
+        Ownable2StepUpgradeable(store).transferOwnership(owner);
+        console2.log("** forced_inclusion_store ownership transferred to:", owner);
+
+        router = deployProxy({
+            name: "preconf_router",
+            impl: address(new PreconfRouter(taikoWrapper, whitelist)),
+            data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: resolver
         });
 
