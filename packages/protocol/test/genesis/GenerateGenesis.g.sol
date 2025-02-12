@@ -9,10 +9,10 @@ import "src/shared/bridge/Bridge.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
-import "src/shared/signal/SignalService.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
+import "src/shared/signal/SignalService.sol";
 import "src/layer2/based/TaikoAnchor.sol";
 import "../shared/helpers/RegularERC20.sol";
 
