@@ -70,7 +70,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                // TODO(daniel): replace with immutable
+                // TODO(david): replace with immutable
                 address wrapper = resolve(LibStrings.B_INBOX_WRAPPER, true);
                 if (wrapper == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
@@ -293,7 +293,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
         }
 
-        // TODO(daniel): replace with immutable
+        // TODO(david): replace with immutable
         address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
 
@@ -510,7 +510,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc ITaikoInbox
     function bondToken() public view returns (address) {
-        // TODO(daniel): replace with immutable
+        // TODO(david): replace with immutable
         return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 
@@ -706,7 +706,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     // Ask signal service to write cross chain signal
                     ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                        // TODO(daniel): replace with immutable
+                        // TODO(david): replace with immutable
                         .syncChainData(
                         _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
                     );
@@ -809,12 +809,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 require(numSignals <= _maxSignalsToReceive, TooManySignals());
 
                 if (signalService == address(0)) {
-                    // TODO(daniel): replace with immutable
+                    // TODO(david): replace with immutable
                     signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
                 }
 
                 for (uint256 j; j < numSignals; ++j) {
-                    // TODO(daniel): replace with immutable
+                    // TODO(david): replace with immutable
                     require(
                         ISignalService(signalService).isSignalSent(_params.blocks[i].signalSlots[j]),
                         SignalNotSent()
