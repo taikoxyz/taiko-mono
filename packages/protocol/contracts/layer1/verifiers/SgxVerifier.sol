@@ -133,7 +133,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         returns (uint256)
     {
-        (bool verified,) = _getAutomataDcapAttestation().verifyParsedQuote(_attestation);
+        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
 
         address[] memory addresses = new address[](1);
@@ -229,9 +229,5 @@ contract SgxVerifier is EssentialContract, IVerifier {
         require(instance == instances[id].addr, SGX_INVALID_INSTANCE());
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
-    }
-
-    function _getAutomataDcapAttestation() internal view returns (IAttestation) {
-        return IAttestation(automataDcapAttestation);
     }
 }
