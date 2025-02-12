@@ -265,8 +265,8 @@ func (s *ZKvmProofProducer) requestProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get zk proof, err: %s, msg: %s, zkType: %s",
-			output.Error,
+		return nil, fmt.Errorf("failed to get zk proof, err: %w, msg: %s, zkType: %s",
+			errors.New(output.Error),
 			output.ErrorMessage,
 			ZKProofTypeAny,
 		)
@@ -406,8 +406,8 @@ func (s *ZKvmProofProducer) requestBatchProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get zk batch proof, err: %s, msg: %s, zkType: %s",
-			output.Error,
+		return nil, fmt.Errorf("failed to get zk batch proof, err: %w, msg: %s, zkType: %s",
+			errors.New(output.Error),
 			output.ErrorMessage,
 			zkType,
 		)
