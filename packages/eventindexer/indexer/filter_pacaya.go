@@ -20,33 +20,33 @@ func filterFuncPacaya(
 	wg, ctx := errgroup.WithContext(ctx)
 
 	if i.taikoInbox != nil {
-		// wg.Go(func() error {
-		// 	batchedProvedEvents, err := i.taikoInbox.FilterBatchesProved(filterOpts)
-		// 	if err != nil {
-		// 		return errors.Wrap(err, "i.taikoInbox.FilterBatchesProved")
-		// 	}
+		wg.Go(func() error {
+			batchesProvedEvents, err := i.taikoInbox.FilterBatchesProved(filterOpts)
+			if err != nil {
+				return errors.Wrap(err, "i.taikoInbox.FilterBatchesProved")
+			}
 
-		// 	err = i.saveBatchesProvedEvents(ctx, chainID, batchedProvedEvents)
-		// 	if err != nil {
-		// 		return errors.Wrap(err, "i.saveBatchesProvedEvents")
-		// 	}
+			err = i.saveBatchesProvedEvents(ctx, chainID, batchesProvedEvents)
+			if err != nil {
+				return errors.Wrap(err, "i.saveBatchesProvedEvents")
+			}
 
-		// 	return nil
-		// })
+			return nil
+		})
 
-		// wg.Go(func() error {
-		// 	batchesVerifiedEvents, err := i.taikoInbox.FilterBatchesVerified(filterOpts)
-		// 	if err != nil {
-		// 		return errors.Wrap(err, "i.taikoInbox.FilterBatchesVerified")
-		// 	}
+		wg.Go(func() error {
+			batchesVerifiedEvents, err := i.taikoInbox.FilterBatchesVerified(filterOpts)
+			if err != nil {
+				return errors.Wrap(err, "i.taikoInbox.FilterBatchesVerified")
+			}
 
-		// 	err = i.saveBatchesVerifiedEvents(ctx, chainID, batchesVerifiedEvents)
-		// 	if err != nil {
-		// 		return errors.Wrap(err, "i.saveBatchesVerifiedEvents")
-		// 	}
+			err = i.saveBatchesVerifiedEvents(ctx, chainID, batchesVerifiedEvents)
+			if err != nil {
+				return errors.Wrap(err, "i.saveBatchesVerifiedEvents")
+			}
 
-		// 	return nil
-		// })
+			return nil
+		})
 
 		// dont run in goroutines, as the batchProposed events need to be processed in order and
 		// saved to the DB in order, as we need the previous one's "lastBlockId" to calculate

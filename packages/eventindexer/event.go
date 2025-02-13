@@ -17,7 +17,7 @@ var (
 	EventNameTransitionContested = "TransitionContested"
 	EventNameBlockProposed       = "BlockProposed"
 	EventNameBatchProposed       = "BatchProposed"
-	EventNameBatchesProven       = "BatchesProven"
+	EventNameBatchesProven       = "BatchesProved"
 	EventNameBatchesVerified     = "BatchesVerified"
 	EventNameBlockAssigned       = "BlockAssigned"
 	EventNameBlockVerified       = "BlockVerified"
