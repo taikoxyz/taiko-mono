@@ -202,9 +202,9 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					return nil
 				}
 				log.Info("Request zk any proof error is", "error", err)
-				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+				if err.Error() == proofProducer.ErrZkAnyNotDrawn.Error() {
 					log.Info("Step1", "1", "1")
-					return backoff.Permanent(err)
+					return backoff.Permanent(proofProducer.ErrZkAnyNotDrawn)
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}

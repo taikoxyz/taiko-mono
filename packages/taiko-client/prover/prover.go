@@ -2,6 +2,7 @@ package prover
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -454,9 +455,9 @@ func (p *Prover) requestProofOp(meta metadata.TaikoBlockMetaData, minTier uint16
 		if submitter := p.selectSubmitter(encoding.TierZkVMSp1ID); submitter != nil {
 			if err := submitter.RequestProof(p.ctx, meta); err != nil {
 				log.Info("Request zk any submitter error is", "error", err)
-				if err.Error() == proofProducer.ErrZkAnyNotDrawn.Error() {
+				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
 					if sgxSubmitter := p.selectSubmitter(encoding.TierSgxID); sgxSubmitter != nil {
-						log.Info("Select zk any submitter tier is", "tier", sgxSubmitter.Tier())
+						log.Info("Select sgx submitter tier is", "tier", sgxSubmitter.Tier())
 						if err := sgxSubmitter.RequestProof(p.ctx, meta); err != nil {
 							log.Error(
 								"Request new proof error",
