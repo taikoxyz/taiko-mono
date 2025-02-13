@@ -33,11 +33,12 @@ type ContestRequestBody struct {
 }
 
 type ProofResponse struct {
-	BlockID *big.Int
-	Meta    metadata.TaikoProposalMetaData
-	Proof   []byte
-	Opts    ProofRequestOptions
-	Tier    uint16
+	BlockID   *big.Int
+	Meta      metadata.TaikoProposalMetaData
+	Proof     []byte
+	Opts      ProofRequestOptions
+	Tier      uint16
+	ProofType string
 }
 
 type BatchProofs struct {

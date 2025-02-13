@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
@@ -466,18 +467,49 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 			minTier = encoding.TierGuardianMinorityID
 		}
 	}
-	if submitter := p.selectSubmitter(minTier); submitter != nil {
-		if err := submitter.RequestProof(p.ctx, meta); err != nil {
-			log.Error(
-				"Request new proof error",
-				"blockID", meta.Ontake().GetBlockID(),
-				"minTier", meta.Ontake().GetMinTier(),
-				"error", err,
-			)
-			return err
-		}
+	if minTier == encoding.TierOptimisticID || minTier >= encoding.TierGuardianMinorityID {
+		if submitter := p.selectSubmitter(minTier); submitter != nil {
+			if err := submitter.RequestProof(p.ctx, meta); err != nil {
+				log.Error(
+					"Request new proof error",
+					"blockID", meta.Ontake().GetBlockID(),
+					"minTier", meta.Ontake().GetMinTier(),
+					"error", err,
+				)
+				return err
+			}
 
-		return nil
+			return nil
+		}
+	} else {
+		if submitter := p.selectSubmitter(encoding.TierZkVMSp1ID); submitter != nil {
+			if err := submitter.RequestProof(p.ctx, meta); err != nil {
+				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+					if sgxSubmitter := p.selectSubmitter(encoding.TierSgxID); sgxSubmitter != nil {
+						if err := sgxSubmitter.RequestProof(p.ctx, meta); err != nil {
+							log.Error(
+								"Request new proof error",
+								"blockID", meta.Ontake().GetBlockID(),
+								"proofType", "sgx",
+								"error", err,
+							)
+							return err
+						}
+						return nil
+					}
+				} else {
+					log.Error(
+						"Request new proof error",
+						"blockID", meta.Ontake().GetBlockID(),
+						"proofType", "zkAny",
+						"error", err,
+					)
+					return err
+				}
+			} else {
+				return nil
+			}
+		}
 	}
 
 	log.Error(
