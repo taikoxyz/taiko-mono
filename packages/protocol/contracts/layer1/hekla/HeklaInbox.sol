@@ -42,7 +42,9 @@ contract HeklaInbox is TaikoInbox {
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 840_512,
-                pacaya: 840_512 * 10 // TODO
+                pacaya: 840_512 * 10, // TODO
+                shasta: 0,
+                unzen: 0
              })
         });
     }

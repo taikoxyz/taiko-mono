@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_Cooldownis is InboxTestBase {
+     ITaikoInbox.ForkHeights memory forkHeights;
+
     function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -26,7 +28,7 @@ contract InboxTest_Cooldownis is InboxTestBase {
             cooldownWindow: 1 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: forkHeights
         });
     }
 

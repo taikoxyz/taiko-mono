@@ -191,7 +191,7 @@
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
-  - prover_set: `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A`
+  - prover_set: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
   - chain_watchdog: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -223,7 +223,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B`
+- impl: `0x2784423f7c61Bc7B75dB6CdA26959946f437588D`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -393,7 +393,7 @@
 
 ### prover_set
 
-- impl: `0x518845daA8870bE2C59E49620Fc262AD48953C9a`
+- impl: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
   - deployed @commit`2dd30ab` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
@@ -425,7 +425,7 @@
 
 - ens: `labcontester.taiko.eth`
 - proxy: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
-- impl: `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B`
+- impl: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
 - enabled provers:
   - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
