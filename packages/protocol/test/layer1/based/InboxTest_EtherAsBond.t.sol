@@ -7,7 +7,7 @@ import "./InboxTestBase.sol";
 contract InboxTest_EtherAsBond is InboxTestBase {
     function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
-        
+
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
