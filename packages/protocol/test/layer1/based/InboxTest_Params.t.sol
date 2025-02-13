@@ -31,8 +31,8 @@ contract InboxTest_Params is InboxTestBase {
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_validateParams_defaults_when_anchorBlockId_is_zero() external transactBy(Alice) {
