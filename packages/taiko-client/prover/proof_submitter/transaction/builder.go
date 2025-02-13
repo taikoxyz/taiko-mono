@@ -216,8 +216,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			subProofs   = make([]encoding.SubProof, len(batchProof.ProofResponses))
 			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
-		// NOTE: op_verifier is the only verifier address for now.
-		opVerifier, err := a.rpc.ResolvePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier", false)
+		verifier, err := a.rpc.GetProofVerifierPacaya(&bind.CallOpts{Context: txOpts.Context})
 		if err != nil {
 			return nil, err
 		}
@@ -229,7 +228,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				StateRoot:  proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Root,
 			}
 			batchIDs[i] = proof.Meta.Pacaya().GetBatchID().Uint64()
-			subProofs[i] = encoding.SubProof{Verifier: opVerifier, Proof: batchProof.BatchProof}
+			subProofs[i] = encoding.SubProof{Verifier: verifier, Proof: batchProof.BatchProof}
 			log.Info(
 				"Build batch proof submission transaction",
 				"batchID", batchIDs[i],
@@ -239,6 +238,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				"startBlockID", proof.Opts.PacayaOptions().Headers[0].Number,
 				"endBlockID", proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Number,
 				"gasLimit", txOpts.GasLimit,
+				"verifier", verifier,
 			)
 		}
 
