@@ -45,7 +45,7 @@ contract HeklaInbox is TaikoInbox {
                 pacaya: 840_512 * 10, // TODO
                 shasta: 0,
                 unzen: 0
-             })
+            })
         });
     }
 }

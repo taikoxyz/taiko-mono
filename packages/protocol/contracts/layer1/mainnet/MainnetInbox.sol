@@ -53,7 +53,7 @@ contract MainnetInbox is TaikoInbox {
                 pacaya: 538_304 * 10, // TODO
                 shasta: 0,
                 unzen: 0
-             })
+            })
         });
     }
 
