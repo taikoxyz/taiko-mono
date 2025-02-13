@@ -103,7 +103,16 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "bridge");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
-        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
+        address proofVerifier = deployProxy({
+            name: "proof_verifier",
+            impl: address(
+                new DevnetVerifier(
+                    address(rollupResolver), address(0), address(0), address(0), address(0)
+                )
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
+            registerTo: rollupResolver
+        });
 
         // TaikoInbox
         address newFork =
@@ -142,13 +151,12 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
 
-        UUPSUpgradeable(proofVerifier).upgradeToAndCall({
+        UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
                 new DevnetVerifier(
                     address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
-            ),
-            data: abi.encodeCall(ComposeVerifier.init, (address(0)))
+            )
         });
     }
 }
