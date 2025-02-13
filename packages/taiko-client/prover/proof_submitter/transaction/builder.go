@@ -238,6 +238,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				"startBlockID", proof.Opts.PacayaOptions().Headers[0].Number,
 				"endBlockID", proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Number,
 				"gasLimit", txOpts.GasLimit,
+				"verifier", verifier,
 			)
 		}
 
