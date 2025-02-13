@@ -11,13 +11,9 @@ import "../../verifiers/IVerifier.sol";
 /// onchain.
 /// @custom:security-contact security@taiko.xyz
 contract OpVerifier is EssentialContract, IVerifier {
-    uint64 public immutable taikoChainId;
-
     uint256[50] private __gap;
 
-    constructor(address _resolver, uint64 _taikoChainId) EssentialContract(_resolver) {
-        taikoChainId = _taikoChainId;
-    }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.

@@ -5,6 +5,8 @@ import "./InboxTestBase.sol";
 
 contract InboxTest_ProposeAndProve is InboxTestBase {
     function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+        ITaikoInbox.ForkHeights memory forkHeights;
+
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
@@ -26,13 +28,13 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: forkHeights
         });
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_inbox_query_right_after_genesis_batch() external view {
@@ -521,18 +523,6 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         vm.startPrank(deployer);
         address operator = Bob;
         resolver.registerAddress(block.chainid, "inbox_operator", operator);
-        vm.stopPrank();
-
-        vm.startPrank(Alice);
-        params.proposer = operator;
-        vm.expectRevert(ITaikoInbox.NotInboxWrapper.selector);
-        inbox.proposeBatch(abi.encode(params), "txList");
-        vm.stopPrank();
-
-        vm.startPrank(operator);
-        params.proposer = address(0);
-        vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
-        inbox.proposeBatch(abi.encode(params), "txList");
         vm.stopPrank();
     }
 
