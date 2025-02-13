@@ -35,6 +35,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
+    address public immutable taikoInbox;
+    address public immutable taikoProofVerifier;
+    address public immutable automataDcapAttestation;
 
     /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
     /// set a new pub key, just write storage once.
@@ -78,10 +81,19 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
-    error SGX_RA_NOT_SUPPORTED();
 
-    constructor(address _resolver, uint64 _taikoChainId) EssentialContract(_resolver) {
+    constructor(
+        uint64 _taikoChainId,
+        address _taikoInbox,
+        address _taikoProofVerifier,
+        address _automataDcapAttestation
+    )
+        EssentialContract(address(0))
+    {
         taikoChainId = _taikoChainId;
+        taikoInbox = _taikoInbox;
+        taikoProofVerifier = _taikoProofVerifier;
+        automataDcapAttestation = _automataDcapAttestation;
     }
 
     /// @notice Initializes the contract.
@@ -126,12 +138,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         external
         returns (uint256)
     {
-        address automataDcapAttestation = resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
-
-        require(automataDcapAttestation != address(0), SGX_RA_NOT_SUPPORTED());
-
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
-
         require(verified, SGX_INVALID_ATTESTATION());
 
         address[] memory addresses = new address[](1);
@@ -146,7 +153,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_PROOF_VERIFIER)
+        onlyFromEither(taikoInbox, taikoProofVerifier)
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109

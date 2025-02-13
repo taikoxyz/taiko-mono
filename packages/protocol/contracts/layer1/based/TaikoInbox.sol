@@ -11,6 +11,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
+import "./IProposeBatch.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -25,16 +26,35 @@ import "./ITaikoInbox.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
+
+    address public immutable inboxWrapper;
+    address public immutable verifier;
+    address public immutable bondToken;
+    ISignalService public immutable signalService;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
 
     // External functions ------------------------------------------------------------------------
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(
+        address _inboxWrapper,
+        address _verifier,
+        address _bondToken,
+        address _signalService
+    )
+        nonZeroAddr(_verifier)
+        nonZeroAddr(_signalService)
+        EssentialContract(address(0))
+    {
+        inboxWrapper = _inboxWrapper;
+        verifier = _verifier;
+        bondToken = _bondToken;
+        signalService = ISignalService(_signalService);
+    }
 
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Taiko_init(_owner, _genesisBlockHash);
@@ -51,6 +71,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         bytes calldata _txList
     )
         public
+        override(ITaikoInbox, IProposeBatch)
         nonReentrant
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
@@ -68,15 +89,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                address operator = resolve(LibStrings.B_INBOX_OPERATOR, true);
-                if (operator == address(0)) {
+                if (inboxWrapper == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                 } else {
-                    require(msg.sender == operator, NotInboxOperator());
+                    require(msg.sender == inboxWrapper, NotInboxWrapper());
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
@@ -95,10 +115,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 if (params.blobParams.blobHashes.length == 0) {
                     require(params.blobParams.numBlobs != 0, BlobNotSpecified());
                 } else {
-                    require(
-                        params.blobParams.numBlobs == 0 && params.blobParams.firstBlobIndex == 0,
-                        InvalidBlobParams()
-                    );
+                    require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+                    require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
                 }
             }
 
@@ -292,7 +310,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             }
         }
 
-        address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
 
         // Emit the event
@@ -340,7 +357,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         external
         onlyOwner
     {
-        require(_blockHash != 0 && _parentHash != 0 && _stateRoot != 0, InvalidParams());
+        require(_blockHash != 0, InvalidParams());
+        require(_parentHash != 0, InvalidParams());
+        require(_stateRoot != 0, InvalidParams());
         require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
 
         Config memory config = pacayaConfig();
@@ -394,9 +413,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
         state.bondBalance[msg.sender] -= _amount;
 
-        address bond = bondToken();
-        if (bond != address(0)) {
-            IERC20(bond).safeTransfer(msg.sender, _amount);
+        if (bondToken != address(0)) {
+            IERC20(bondToken).safeTransfer(msg.sender, _amount);
         } else {
             LibAddress.sendEtherAndVerify(msg.sender, _amount);
         }
@@ -425,7 +443,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
-        require(_tid != 0 && _tid < batch.nextTransitionId, TransitionNotFound());
+        require(_tid != 0, TransitionNotFound());
+        require(_tid < batch.nextTransitionId, TransitionNotFound());
         return state.transitions[slot][_tid];
     }
 
@@ -501,11 +520,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     /// @inheritdoc EssentialContract
     function paused() public view override returns (bool) {
         return state.stats2.paused;
-    }
-
-    /// @inheritdoc ITaikoInbox
-    function bondToken() public view returns (address) {
-        return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -699,7 +713,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     emit Stats1Updated(stats1);
 
                     // Ask signal service to write cross chain signal
-                    ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                    signalService.syncChainData(
                         _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
                     );
                 }
@@ -740,14 +754,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         private
         returns (uint256 amountDeposited_)
     {
-        address bond = bondToken();
-
-        if (bond != address(0)) {
+        if (bondToken != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
 
-            uint256 balance = IERC20(bond).balanceOf(address(this));
-            IERC20(bond).safeTransferFrom(_user, address(this), _amount);
-            amountDeposited_ = IERC20(bond).balanceOf(address(this)) - balance;
+            uint256 balance = IERC20(bondToken).balanceOf(address(this));
+            IERC20(bondToken).safeTransferFrom(_user, address(this), _amount);
+            amountDeposited_ = IERC20(bondToken).balanceOf(address(this)) - balance;
         } else {
             require(msg.value == _amount, EtherNotPaidAsBond());
             amountDeposited_ = _amount;
@@ -790,7 +802,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
 
             uint64 totalShift;
-            address signalService;
 
             for (uint256 i; i < blocksLength; ++i) {
                 totalShift += _params.blocks[i].timeShift;
@@ -800,13 +811,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
                 require(numSignals <= _maxSignalsToReceive, TooManySignals());
 
-                if (signalService == address(0)) {
-                    signalService = resolve(LibStrings.B_SIGNAL_SERVICE, false);
-                }
-
                 for (uint256 j; j < numSignals; ++j) {
                     require(
-                        ISignalService(signalService).isSignalSent(_params.blocks[i].signalSlots[j]),
+                        signalService.isSignalSent(_params.blocks[i].signalSlots[j]),
                         SignalNotSent()
                     );
                 }

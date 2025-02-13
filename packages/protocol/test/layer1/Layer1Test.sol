@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/based/TaikoInbox.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
+import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
@@ -14,7 +16,14 @@ import "test/shared/CommonTest.sol";
 contract ConfigurableInbox is TaikoInbox {
     ITaikoInbox.Config private __config;
 
-    constructor(address _resolver) TaikoInbox(_resolver) { }
+    constructor(
+        address _wrapper,
+        address _verifier,
+        address _bondToken,
+        address _signalService
+    )
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+    { }
 
     function initWithConfig(
         address _owner,
@@ -48,6 +57,9 @@ contract ConfigurableInbox is TaikoInbox {
 abstract contract Layer1Test is CommonTest {
     function deployInbox(
         bytes32 _genesisBlockHash,
+        address _verifier,
+        address _bondToken,
+        address _signalService,
         ITaikoInbox.Config memory _config
     )
         internal
@@ -56,7 +68,7 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox(address(resolver))),
+                impl: address(new ConfigurableInbox(address(0), _verifier, _bondToken, _signalService)),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )
@@ -70,16 +82,6 @@ abstract contract Layer1Test is CommonTest {
                 name: "bond_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(TaikoToken.init, (address(0), address(this)))
-            })
-        );
-    }
-
-    function deploySgxVerifier() internal returns (SgxVerifier) {
-        return SgxVerifier(
-            deploy({
-                name: "tier_sgx",
-                impl: address(new SgxVerifier(address(resolver), taikoChainId)),
-                data: abi.encodeCall(SgxVerifier.init, (address(0)))
             })
         );
     }

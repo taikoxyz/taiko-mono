@@ -20,6 +20,8 @@ import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
+import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -112,7 +114,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
-            deployPreconfContracts(contractOwner, rollupResolver);
+            deployPreconfContracts(contractOwner, rollupResolver, address(taikoInbox));
         }
 
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -152,16 +154,17 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(sharedResolver, "bond_token", taikoToken);
 
         // Deploy Bridging contracts
-        deployProxy({
+        address signalService = deployProxy({
             name: "signal_service",
             impl: address(new MainnetSignalService(address(sharedResolver))),
             data: abi.encodeCall(SignalService.init, (address(0))),
             registerTo: sharedResolver
         });
 
+        address quotaManager = address(0);
         address brdige = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver))),
+            impl: address(new MainnetBridge(address(sharedResolver), signalService, quotaManager)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });
@@ -182,7 +185,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Vaults
-        deployProxy({
+        address erc20Vault = deployProxy({
             name: "erc20_vault",
             impl: address(new MainnetERC20Vault(address(sharedResolver))),
             data: abi.encodeCall(ERC20Vault.init, (owner)),
@@ -219,9 +222,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Bridged token implementations
-        register(
-            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
-        );
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(erc20Vault)));
         register(
             sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
         );
@@ -253,17 +254,49 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupResolver, _sharedResolver, "signal_service");
         copyRegister(rollupResolver, _sharedResolver, "bridge");
 
+        // OP verifier
+        address opVerifier = deployProxy({
+            name: "op_verifier",
+            impl: address(new OpVerifier(rollupResolver)),
+            data: abi.encodeCall(OpVerifier.init, (owner)),
+            registerTo: rollupResolver
+        });
+
+        // Inbox
         deployProxy({
             name: "mainnet_taiko",
-            impl: address(new MainnetInbox(address(rollupResolver))),
+            impl: address(
+                new MainnetInbox(
+                    address(0),
+                    opVerifier,
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                )
+            ),
             data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         if (oldFork == address(0)) {
-            oldFork = address(new DevnetInbox(address(rollupResolver)));
+            oldFork = address(
+                new DevnetInbox(
+                    address(0),
+                    opVerifier,
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(_sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
+                )
+            );
         }
-        address newFork = address(new DevnetInbox(address(rollupResolver)));
+        address newFork = address(
+            new DevnetInbox(
+                address(0),
+                opVerifier,
+                IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+            )
+        );
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
 
@@ -276,36 +309,45 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.init(owner, vm.envBytes32("L2_GENESIS_HASH"));
-
         uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
-        address opVerifier = deployProxy({
-            name: "op_verifier",
-            impl: address(new OpVerifier(rollupResolver, l2ChainId)),
-            data: abi.encodeCall(OpVerifier.init, (owner)),
+        // Other verifiers
+        // Initializable the proxy for proofVerifier to get the contract address at first.
+        address proofVerifier = deployProxy({
+            name: "proof_verifier",
+            impl: address(
+                new DevnetVerifier(
+                    address(rollupResolver), address(0), address(0), address(0), address(0)
+                )
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
-
-        address sgxVerifier = deploySgxVerifier(owner, rollupResolver, l2ChainId);
+        address sgxVerifier =
+            deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
         (address risc0Verifier, address sp1Verifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
-        deployProxy({
-            name: "proof_verifier",
-            impl: address(
+        UUPSUpgradeable(proofVerifier).upgradeTo({
+            newImplementation: address(
                 new DevnetVerifier(
                     address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
-            ),
-            data: abi.encodeCall(ComposeVerifier.init, (owner)),
-            registerTo: rollupResolver
+            )
         });
+        ComposeVerifier(proofVerifier).transferOwnership(owner);
+        console2.log("** proofVerifier ownership transferred to:", owner);
 
+        // Prover set
         deployProxy({
             name: "prover_set",
-            impl: address(new ProverSet(address(rollupResolver))),
+            impl: address(
+                new ProverSet(
+                    address(rollupResolver), taikoInboxAddr, taikoInbox.bondToken(), taikoInboxAddr
+                )
+            ),
             data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
         });
     }
@@ -313,18 +355,13 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deploySgxVerifier(
         address owner,
         address rollupResolver,
-        uint64 l2ChainId
+        uint64 l2ChainId,
+        address taikoInbox,
+        address taikoProofVerifier
     )
         private
         returns (address sgxVerifier)
     {
-        sgxVerifier = deployProxy({
-            name: "sgx_verifier",
-            impl: address(new SgxVerifier(rollupResolver, l2ChainId)),
-            data: abi.encodeCall(SgxVerifier.init, owner),
-            registerTo: rollupResolver
-        });
-
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
         P256Verifier p256Verifier = new P256Verifier();
@@ -340,6 +377,14 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             registerTo: rollupResolver
         });
+
+        sgxVerifier = deployProxy({
+            name: "sgx_verifier",
+            impl: address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy)),
+            data: abi.encodeCall(SgxVerifier.init, owner),
+            registerTo: rollupResolver
+        });
+
         // Log addresses for the user to register sgx instance
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
@@ -361,7 +406,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         risc0Verifier = deployProxy({
             name: "risc0_verifier",
-            impl: address(new Risc0Verifier(rollupResolver, l2ChainId)),
+            impl: address(new Risc0Verifier(l2ChainId, address(verifier))),
             data: abi.encodeCall(Risc0Verifier.init, (owner)),
             registerTo: rollupResolver
         });
@@ -372,7 +417,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         sp1Verifier = deployProxy({
             name: "sp1_verifier",
-            impl: address(new SP1Verifier(rollupResolver, l2ChainId)),
+            impl: address(new SP1Verifier(l2ChainId, address(succinctVerifier))),
             data: abi.encodeCall(SP1Verifier.init, (owner)),
             registerTo: rollupResolver
         });
@@ -389,10 +434,11 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function deployPreconfContracts(
         address owner,
-        address resolver
+        address resolver,
+        address taikoInbox
     )
         private
-        returns (address whitelist, address router)
+        returns (address whitelist, address router, address store, address taikoWrapper)
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
@@ -401,14 +447,51 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
+        // Initializable a forced inclusion store with a fake address for TaikoWrapper at first,
+        // to be used for deploying TaikoWrapper, then upgrade it to the real TaikoWrapper address.
+        store = deployProxy({
+            name: "forced_inclusion_store",
+            impl: address(
+                new ForcedInclusionStore(
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    taikoInbox,
+                    address(1)
+                )
+            ),
+            data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
+            registerTo: resolver
+        });
+
+        taikoWrapper = deployProxy({
+            name: "taiko_wrapper",
+            impl: address(new TaikoWrapper(taikoInbox, store, router)),
+            data: abi.encodeCall(TaikoWrapper.init, (owner)),
+            registerTo: resolver
+        });
+
+        UUPSUpgradeable(store).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    taikoInbox,
+                    taikoWrapper
+                )
+            )
+        );
+
+        Ownable2StepUpgradeable(store).transferOwnership(owner);
+        console2.log("** forced_inclusion_store ownership transferred to:", owner);
+
         router = deployProxy({
             name: "preconf_router",
-            impl: address(new PreconfRouter(resolver)),
+            impl: address(new PreconfRouter(taikoWrapper, whitelist)),
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: resolver
         });
 
-        return (whitelist, router);
+        return (whitelist, router, store, taikoWrapper);
     }
 
     function addressNotNull(address addr, string memory err) private pure {

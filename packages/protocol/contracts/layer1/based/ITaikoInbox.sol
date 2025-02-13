@@ -143,6 +143,8 @@ interface ITaikoInbox {
     struct ForkHeights {
         uint64 ontake;
         uint64 pacaya;
+        uint64 shasta;
+        uint64 unzen;
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
@@ -279,7 +281,7 @@ interface ITaikoInbox {
     error MsgValueNotZero();
     error NoBlocksToProve();
     error NotFirstProposal();
-    error NotInboxOperator();
+    error NotInboxWrapper();
     error ParentMetaHashMismatch();
     error SameTransition();
     error SignalNotSent();
@@ -293,7 +295,7 @@ interface ITaikoInbox {
     error ZeroAnchorBlockHash();
 
     /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded BlockParams.
+    /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
     /// @return info_ The info of the proposed batch.
@@ -303,7 +305,7 @@ interface ITaikoInbox {
         bytes calldata _txList
     )
         external
-        returns (BatchInfo memory info_, BatchMetadata memory meta_);
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _params ABI-encoded parameter containing:
