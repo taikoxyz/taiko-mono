@@ -11,5 +11,5 @@
   "packages/supplementary-contracts": "1.0.0",
   "packages/taiko-client": "1.0.1",
   "packages/taikoon-ui": "1.3.0",
-  "packages/ui-lib": "1.0.0"
+  "packages/ui-lib": "1.0.1"
 }
