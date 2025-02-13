@@ -143,6 +143,7 @@ interface ITaikoInbox {
     struct ForkHeights {
         uint64 ontake;
         uint64 pacaya;
+        uint64 shasta;
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.

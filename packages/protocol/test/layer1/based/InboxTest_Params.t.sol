@@ -5,6 +5,7 @@ import "./InboxTestBase.sol";
 
 contract InboxTest_Params is InboxTestBase {
     function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+        ITaikoInbox.ForkHeights memory forkHeights;
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
@@ -26,7 +27,7 @@ contract InboxTest_Params is InboxTestBase {
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: forkHeights
         });
     }
 

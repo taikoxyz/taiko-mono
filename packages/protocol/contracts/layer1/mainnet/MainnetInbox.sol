@@ -50,8 +50,9 @@ contract MainnetInbox is TaikoInbox {
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 538_304,
-                pacaya: 538_304 * 10 // TODO
-             })
+                pacaya: 538_304 * 10, // TODO
+                shasta: 0
+            })
         });
     }
 
