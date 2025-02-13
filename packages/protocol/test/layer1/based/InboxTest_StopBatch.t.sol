@@ -31,8 +31,8 @@ contract InboxTest_StopBatch is InboxTestBase {
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_inbox_num_batches_verified()
