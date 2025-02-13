@@ -310,7 +310,25 @@ func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]
 		return nil, err
 	}
 
-	// TODO; look up batchProposed event to find the relevant batch for a block
+	// Try to find the batch this block belongs to
+	batchEvent := &eventindexer.Event{}
+	err = r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameBatchProposed).
+		Where("? BETWEEN (block_id - num_blocks + 1) AND block_id", blockID).
+		First(batchEvent).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameBatchesProven).
+		Where("batch_id = ?", batchEvent.BatchID.Int64).
+		Find(&e).Error
+
+	if err != nil {
+		return nil, err
+	}
 
 	return e, nil
 }
