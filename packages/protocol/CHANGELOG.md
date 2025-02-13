@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.1.0...taiko-alethia-protocol-v2.1.1) (2025-02-13)
+
+
+### Code Refactoring
+
+* **protocol:** use immutables to avoid address resolving ([#18913](https://github.com/taikoxyz/taiko-mono/issues/18913)) ([d5f9fe5](https://github.com/taikoxyz/taiko-mono/commit/d5f9fe58a0076173f7bed42ade724e135a55b0e9))
+
 ## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.0.0...taiko-alethia-protocol-v2.1.0) (2025-02-11)
 
 
