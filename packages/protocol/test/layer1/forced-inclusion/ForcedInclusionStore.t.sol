@@ -6,11 +6,12 @@ import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 
 contract ForcedInclusionStoreForTest is ForcedInclusionStore {
     constructor(
-        address _resolver,
         uint8 _inclusionDelay,
-        uint64 _feeInGwei
+        uint64 _feeInGwei,
+        address _taikoInbox,
+        address _taikoInboxWrapper
     )
-        ForcedInclusionStore(_resolver, _inclusionDelay, _feeInGwei)
+        ForcedInclusionStore(_inclusionDelay, _feeInGwei, _taikoInbox, _taikoInboxWrapper)
     { }
 
     function _blobHash(uint8 blobIndex) internal view virtual override returns (bytes32) {
@@ -44,20 +45,18 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
     MockInbox internal mockInbox;
 
     function setUpOnEthereum() internal virtual override {
-        register(LibStrings.B_TAIKO_WRAPPER, whitelistedProposer);
-
+        mockInbox = new MockInbox();
         store = ForcedInclusionStore(
             deploy({
                 name: LibStrings.B_FORCED_INCLUSION_STORE,
                 impl: address(
-                    new ForcedInclusionStoreForTest(address(resolver), inclusionDelay, feeInGwei)
+                    new ForcedInclusionStoreForTest(
+                        inclusionDelay, feeInGwei, address(mockInbox), whitelistedProposer
+                    )
                 ),
                 data: abi.encodeCall(ForcedInclusionStore.init, (storeOwner))
             })
         );
-
-        mockInbox = new MockInbox();
-        register(LibStrings.B_TAIKO, address(mockInbox));
     }
 }
 

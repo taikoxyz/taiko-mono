@@ -34,6 +34,7 @@ export SIGNAL_SERVICE=$(echo "$DEPLOYMENT_JSON" | jq '.signal_service' | sed 's/
 export ERC20_VAULT=$(echo "$DEPLOYMENT_JSON" | jq '.erc20_vault' | sed 's/\"//g')
 export ERC721_VAULT=$(echo "$DEPLOYMENT_JSON" | jq '.erc721_vault' | sed 's/\"//g')
 export ERC1155_VAULT=$(echo "$DEPLOYMENT_JSON" | jq '.erc1155_vault' | sed 's/\"//g')
+export QUOTA_MANAGER=0x0000000000000000000000000000000000000000
 
 cd ../protocol &&
   PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/devnet/UpgradeDevnetPacayaL1.s.sol:UpgradeDevnetPacayaL1 \
