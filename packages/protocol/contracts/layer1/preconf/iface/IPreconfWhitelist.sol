@@ -16,6 +16,7 @@ interface IPreconfWhitelist {
     error InvalidOperatorCount();
     error InvalidOperatorAddress();
     error OperatorAlreadyExists();
+    error OperatorNotAvailableYet();
 
     /// @notice Adds a new operator to the whitelist.
     /// @param _operatorAddress The address of the operator to be added.
@@ -32,5 +33,11 @@ interface IPreconfWhitelist {
     /// @dev Uses the beacon block root of the first block in the last epoch as the source
     ///      of randomness.
     /// @return The address of the operator.
-    function getOperatorForEpoch() external view returns (address);
+    function getOperatorForCurrentEpoch() external view returns (address);
+
+    /// @notice Retrieves the address of the operator for the next epoch.
+    /// @dev Uses the beacon block root of the first block in the current epoch as the source
+    ///      of randomness.
+    /// @return The address of the operator.
+    function getOperatorForNextEpoch() external view returns (address);
 }

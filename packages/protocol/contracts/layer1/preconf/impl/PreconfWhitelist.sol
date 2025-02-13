@@ -66,7 +66,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function getOperatorForEpoch() external view returns (address) {
+    function getOperatorForCurrentEpoch() external view returns (address) {
         uint256 _operatorCount = operatorCount;
         require(_operatorCount != 0, InvalidOperatorCount());
 
@@ -76,6 +76,25 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         // Use the beacon block root at the first block of the last epoch as the
         // source of randomness
         bytes32 randomness = LibPreconfUtils.getBeaconBlockRoot(timestampOfLastEpoch);
+        uint256 index = uint256(randomness) % _operatorCount;
+        return operatorIndexToOperator[index];
+    }
+
+    /// @inheritdoc IPreconfWhitelist
+    function getOperatorForNextEpoch() external view returns (address) {
+        uint256 _operatorCount = operatorCount;
+        require(_operatorCount != 0, InvalidOperatorCount());
+
+        // Timestamp at which the current epoch started
+        uint256 timestampOfCurrentEpoch = LibPreconfUtils.getEpochTimestamp();
+
+        // We can only get the beacon block root of the first block in the current
+        // epoch from the second block onward.
+        require(block.timestamp > timestampOfCurrentEpoch, OperatorNotAvailableYet());
+
+        // Use the beacon block root at the first block of the current epoch as the
+        // source of randomness
+        bytes32 randomness = LibPreconfUtils.getBeaconBlockRoot(timestampOfCurrentEpoch);
         uint256 index = uint256(randomness) % _operatorCount;
         return operatorIndexToOperator[index];
     }

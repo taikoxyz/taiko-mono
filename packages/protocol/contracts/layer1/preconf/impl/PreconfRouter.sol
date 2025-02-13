@@ -38,7 +38,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
-        address selectedOperator = IPreconfWhitelist(preconfWhitelist).getOperatorForEpoch();
+        address selectedOperator = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
         require(msg.sender == selectedOperator, NotTheOperator());
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
