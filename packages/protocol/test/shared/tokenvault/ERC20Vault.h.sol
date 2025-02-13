@@ -6,7 +6,7 @@ import "../helpers/CanSayHelloWorld.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
 contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld {
-    constructor(address _resolver) BridgedERC20V2(_resolver) { }
+    constructor(address _erc20Vault) BridgedERC20V2(_erc20Vault) { }
 }
 
 contract PrankTaikoInbox {

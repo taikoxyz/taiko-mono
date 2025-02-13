@@ -7,7 +7,14 @@ import "../based/TaikoInbox.sol";
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract DevnetInbox is TaikoInbox {
-    constructor(address _resolver) TaikoInbox(_resolver) { }
+    constructor(
+        address _wrapper,
+        address _verifier,
+        address _bondToken,
+        address _signalService
+    )
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+    { }
 
     /// @inheritdoc ITaikoInbox
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
@@ -32,7 +39,7 @@ contract DevnetInbox is TaikoInbox {
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10, shasta: 0, unzen: 0 })
         });
     }
 }

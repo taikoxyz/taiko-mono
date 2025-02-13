@@ -37,14 +37,20 @@ abstract contract InboxTestBase is Layer1Test {
 
         __blocksPerBatch = 1;
 
-        inbox = deployInbox(correctBlockhash(0), pacayaConfig());
-
         signalService = deploySignalService(address(new SignalService(address(resolver))));
-        signalService.authorize(address(inbox), true);
 
-        resolver.registerAddress(
-            block.chainid, "proof_verifier", address(new Verifier_ToggleStub())
+        address verifierAddr = address(new Verifier_ToggleStub());
+        resolver.registerAddress(block.chainid, "proof_verifier", verifierAddr);
+
+        inbox = deployInbox(
+            correctBlockhash(0),
+            verifierAddr,
+            address(bondToken),
+            address(signalService),
+            pacayaConfig()
         );
+
+        signalService.authorize(address(inbox), true);
 
         mineOneBlockAndWrap(12 seconds);
     }
