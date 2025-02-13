@@ -435,6 +435,7 @@ func TestIntegration_Event_GetBlockProvenBy(t *testing.T) {
 		BlockID:      &batchBlockID,
 		TransactedAt: time.Now(),
 		NumBlocks:    &numBlocks,
+		BatchID:      &batchID,
 	})
 	assert.Equal(t, nil, err)
 
@@ -447,6 +448,7 @@ func TestIntegration_Event_GetBlockProvenBy(t *testing.T) {
 		ChainID:      big.NewInt(1),
 		BlockID:      &batchBlockID,
 		TransactedAt: time.Now(),
+		BatchID:      &batchID,
 	})
 	assert.Equal(t, nil, err)
 
