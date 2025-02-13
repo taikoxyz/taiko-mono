@@ -144,6 +144,7 @@ interface ITaikoInbox {
         uint64 ontake;
         uint64 pacaya;
         uint64 shasta;
+        uint64 unzen;
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
