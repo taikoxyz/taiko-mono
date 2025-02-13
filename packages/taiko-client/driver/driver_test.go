@@ -311,7 +311,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 		err  error
 	)
 	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true, nil, nil,
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
 	)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
@@ -479,7 +479,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 		err  error
 	)
 	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true, nil, nil,
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
 	)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()

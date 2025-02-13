@@ -17,7 +17,7 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*", nil, nil, s.RPCClient, true, nil, nil)
+	server, err := New("*", nil, nil, s.RPCClient, true)
 	s.Nil(err)
 	s.s = server
 	go func() {
