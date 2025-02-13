@@ -29,7 +29,7 @@ contract InboxTest_BondToken is InboxTestBase {
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights forkHeights
+            forkHeights: forkHeights
         });
     }
 
