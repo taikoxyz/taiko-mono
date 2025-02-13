@@ -365,7 +365,7 @@ func TestIntegration_Event_GetBlockProposedBy(t *testing.T) {
 	}{
 		{
 			"single block proposed event exists",
-			1,
+			0,
 			"0x123",
 			nil,
 		},
