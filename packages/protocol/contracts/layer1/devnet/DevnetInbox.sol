@@ -19,6 +19,7 @@ contract DevnetInbox is TaikoInbox {
     /// @inheritdoc ITaikoInbox
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
+
         return ITaikoInbox.Config({
             chainId: 167_001,
             maxUnverifiedBatches: 324_000,
