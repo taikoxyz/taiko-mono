@@ -102,29 +102,39 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "signal_service");
         copyRegister(rollupResolver, sharedResolver, "bridge");
 
-        // Initializable the proxy for proofVerifier to get the contract address at first.
-        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
-
-        // TaikoInbox
-        address newFork =
-            address(new DevnetInbox(address(0), proofVerifier, taikoToken, signalService));
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        register(rollupResolver, "taiko", taikoInbox);
-        // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, newFork, taikoToken, newFork))
-        );
-        // Verifier
-        TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
-        uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
+        // OP verifier
         address opVerifier = deployProxy({
             name: "op_verifier",
-            impl: address(new OpVerifier(rollupResolver, l2ChainId)),
+            impl: address(new OpVerifier(rollupResolver)),
             data: abi.encodeCall(OpVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
 
+        // TaikoInbox
+        address newFork =
+            address(new DevnetInbox(address(0), opVerifier, taikoToken, signalService));
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
+        register(rollupResolver, "taiko", taikoInbox);
+
+        // Prover set
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(rollupResolver, newFork, taikoToken, newFork))
+        );
+        TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
+        uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
+        // Other verifiers
+        address proofVerifier = address(
+            new ERC1967Proxy(
+                address(
+                    new DevnetVerifier(
+                        address(rollupResolver), address(0), address(0), address(0), address(0)
+                    )
+                ),
+                abi.encodeCall(ComposeVerifier.init, (address(0)))
+            )
+        );
         address automataDcapAttestation = address(0); // not used!
         UUPSUpgradeable(sgxVerifier).upgradeTo(
             address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataDcapAttestation))
@@ -142,13 +152,12 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
 
-        UUPSUpgradeable(proofVerifier).upgradeToAndCall({
-            newImplementation: address(
+        UUPSUpgradeable(proofVerifier).upgradeTo(
+            address(
                 new DevnetVerifier(
                     address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
-            ),
-            data: abi.encodeCall(ComposeVerifier.init, (address(0)))
-        });
+            )
+        );
     }
 }
