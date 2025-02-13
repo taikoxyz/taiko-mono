@@ -79,6 +79,7 @@ func (i *Indexer) saveBatchProposedEvent(
 
 	numBlocks := int64(len(event.Info.Blocks))
 
+	batchId := int64(event.Meta.BatchId)
 	assignedProver := sender.Hex()
 
 	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
@@ -97,6 +98,7 @@ func (i *Indexer) saveBatchProposedEvent(
 		TransactedAt:   time.Unix(int64(block.Time()), 0).UTC(),
 		EmittedBlockID: event.Raw.BlockNumber,
 		NumBlocks:      &numBlocks,
+		BatchID:        &batchId,
 	})
 	if err != nil {
 		return errors.Wrap(err, "i.eventRepo.Save")

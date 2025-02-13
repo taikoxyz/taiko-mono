@@ -297,12 +297,20 @@ func (r *EventRepository) FindLatestBlockID(
 func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]*eventindexer.Event, error) {
 	e := []*eventindexer.Event{}
 
-	if err := r.db.GormDB().WithContext(ctx).
+	err := r.db.GormDB().WithContext(ctx).
 		Where("block_id = ?", blockID).
 		Where("event = ?", eventindexer.EventNameTransitionProved).
-		Find(&e).Error; err != nil {
+		Find(&e).Error
+
+	if err == nil {
+		return e, nil
+	}
+
+	if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+
+	// TODO; look up batchProposed event to find the relevant batch for a block
 
 	return e, nil
 }
