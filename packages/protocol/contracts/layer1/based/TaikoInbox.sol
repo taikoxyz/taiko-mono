@@ -30,7 +30,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
-    address public immutable wrapper;
+    address public immutable inboxWrapper;
     address public immutable verifier;
     address public immutable bondToken;
     ISignalService public immutable signalService;
@@ -41,17 +41,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     // External functions ------------------------------------------------------------------------
 
     constructor(
-        address _resolver,
-        address _wrapper,
+        address _inboxWrapper,
         address _verifier,
         address _bondToken,
         address _signalService
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
-        EssentialContract(_resolver)
+        EssentialContract(address(0))
     {
-        wrapper = _wrapper;
+        inboxWrapper = _inboxWrapper;
         verifier = _verifier;
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
@@ -90,14 +89,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             BatchParams memory params = abi.decode(_params, (BatchParams));
 
             {
-                if (wrapper == address(0)) {
+                if (inboxWrapper == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                 } else {
-                    require(msg.sender == wrapper, NotInboxWrapper());
+                    require(msg.sender == inboxWrapper, NotInboxWrapper());
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 

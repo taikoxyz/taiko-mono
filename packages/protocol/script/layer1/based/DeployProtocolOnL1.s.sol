@@ -271,7 +271,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "mainnet_taiko",
             impl: address(
                 new MainnetInbox(
-                    address(rollupResolver),
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
@@ -285,7 +284,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (oldFork == address(0)) {
             oldFork = address(
                 new DevnetInbox(
-                    address(rollupResolver),
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
@@ -297,7 +295,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         address newFork = address(
             new DevnetInbox(
-                address(rollupResolver),
                 address(0),
                 proofVerifier,
                 IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),

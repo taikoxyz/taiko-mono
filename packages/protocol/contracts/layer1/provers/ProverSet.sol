@@ -17,9 +17,9 @@ contract ProverSet is ProverSetBase, IProposeBatch {
         address _bondToken,
         address _entrypoint
     )
+        nonZeroAddr(_entrypoint)
         ProverSetBase(_resolver, _inbox, _bondToken)
     {
-        require(_entrypoint != address(0), ZERO_ADDRESS());
         entrypoint = _entrypoint;
     }
 

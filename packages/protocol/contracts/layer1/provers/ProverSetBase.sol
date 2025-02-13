@@ -32,7 +32,6 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
     event ProverEnabled(address indexed prover, bool indexed enabled);
 
     error INVALID_STATUS();
-    error INVALID_BOND_TOKEN();
     error PERMISSION_DENIED();
     error NOT_FIRST_PROPOSAL();
 
@@ -54,10 +53,10 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
         address _inbox,
         address _bondToken
     )
+        nonZeroAddr(_inbox)
+        nonZeroAddr(_bondToken)
         EssentialContract(_resolver)
     {
-        require(_inbox != address(0), ZERO_ADDRESS());
-        require(_bondToken != address(0), ZERO_ADDRESS());
         inbox = _inbox;
         bondToken = _bondToken;
     }
@@ -67,13 +66,10 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
         __Essential_init(_owner);
         admin = _admin;
 
-        if (bondToken != address(0)) {
-            IERC20(bondToken).approve(inbox, type(uint256).max);
-        }
+        IERC20(bondToken).approve(inbox, type(uint256).max);
     }
 
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
-        require(bondToken != address(0), INVALID_BOND_TOKEN());
         IERC20(bondToken).approve(_address, _allowance);
     }
 
@@ -87,11 +83,7 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        if (bondToken != address(0)) {
-            IERC20(bondToken).transfer(admin, _amount);
-        } else {
-            LibAddress.sendEtherAndVerify(admin, _amount);
-        }
+        IERC20(bondToken).transfer(admin, _amount);
     }
 
     /// @notice Withdraws ETH back to the owner address.
@@ -112,7 +104,6 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyAuthorized {
-        require(bondToken != address(0), INVALID_BOND_TOKEN());
         ERC20VotesUpgradeable(bondToken).delegate(_delegatee);
     }
 

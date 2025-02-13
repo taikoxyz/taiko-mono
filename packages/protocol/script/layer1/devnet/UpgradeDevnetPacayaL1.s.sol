@@ -106,9 +106,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address proofVerifier = address(new ERC1967Proxy(address(0), ""));
 
         // TaikoInbox
-        address newFork = address(
-            new DevnetInbox(rollupResolver, address(0), proofVerifier, taikoToken, signalService)
-        );
+        address newFork =
+            address(new DevnetInbox(address(0), proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
         // Prover set
