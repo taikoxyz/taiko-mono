@@ -187,17 +187,33 @@ async function generateContractConfigs(
 
     const addressMap: any = {};
 
-    const essentialContractReferencesMap: any = getImmutableReferences(
+    const essentialContractReferencesMap: any = getImmutableReference(
         "EssentialContract",
-        "__resolver",
+        ["__resolver"],
     );
-    const uupsImmutableReferencesMap: any = getImmutableReferences(
+    const uupsImmutableReferencesMap: any = getImmutableReference(
         "UUPSUpgradeable",
-        "__self",
+        ["__self"],
     );
-    const taikoAnchorReferencesMap: any = getImmutableReferences(
-        "TaikoAnchor",
+    const taikoAnchorReferencesMap: any = getImmutableReference("TaikoAnchor", [
         "pacayaForkHeight",
+        "signalService",
+    ]);
+    const bridgeReferencesMap: any = getImmutableReference("Bridge", [
+        "signalService",
+        "quotaManager",
+    ]);
+    const bridgedERC20ReferencesMap: any = getImmutableReference(
+        "BridgedERC20",
+        ["erc20Vault"],
+    );
+    const bridgedERC721ReferencesMap: any = getImmutableReference(
+        "BridgedERC721",
+        ["erc721Vault"],
+    );
+    const bridgedERC1155ReferencesMap: any = getImmutableReference(
+        "BridgedERC1155",
+        ["erc1155Vault"],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -226,9 +242,9 @@ async function generateContractConfigs(
         // Shared Contracts
         SharedResolverImpl: {
             address: addressMap.SharedResolverImpl,
-            deployedBytecode: replaceImmutableValues(
+            deployedBytecode: replaceImmutableValue(
                 contractArtifacts.SharedResolverImpl,
-                uupsImmutableReferencesMap.UUPSUpgradeable.id,
+                uupsImmutableReferencesMap.__self.id,
                 ethers.utils.hexZeroPad(addressMap.SharedResolverImpl, 32),
             ).deployedBytecode.object,
             variables: {
@@ -289,15 +305,29 @@ async function generateContractConfigs(
         BridgeImpl: {
             address: addressMap.BridgeImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.BridgeImpl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(addressMap.BridgeImpl, 32),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                replaceImmutableValues(contractArtifacts.BridgeImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.BridgeImpl,
+                            32,
+                        ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bridgeReferencesMap.signalService.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SignalService,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
             variables: {
@@ -325,15 +355,22 @@ async function generateContractConfigs(
         ERC20VaultImpl: {
             address: addressMap.ERC20VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.ERC20VaultImpl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(addressMap.ERC20VaultImpl, 32),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                replaceImmutableValues(contractArtifacts.ERC20VaultImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.ERC20VaultImpl,
+                            32,
+                        ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
             variables: {
@@ -362,15 +399,22 @@ async function generateContractConfigs(
         ERC721VaultImpl: {
             address: addressMap.ERC721VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.ERC721VaultImpl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(addressMap.ERC721VaultImpl, 32),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                replaceImmutableValues(contractArtifacts.ERC721VaultImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.ERC721VaultImpl,
+                            32,
+                        ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
             variables: {
@@ -399,18 +443,22 @@ async function generateContractConfigs(
         ERC1155VaultImpl: {
             address: addressMap.ERC1155VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.ERC1155VaultImpl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(
+                replaceImmutableValues(contractArtifacts.ERC1155VaultImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
                             addressMap.ERC1155VaultImpl,
                             32,
                         ),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
             variables: {
@@ -439,72 +487,109 @@ async function generateContractConfigs(
         BridgedERC20: {
             address: addressMap.BridgedERC20Impl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.BridgedERC20Impl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(
+                replaceImmutableValues(contractArtifacts.BridgedERC20Impl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
                             addressMap.BridgedERC20Impl,
                             32,
                         ),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bridgedERC20ReferencesMap.erc20Vault.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.ERC20Vault,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
         },
         BridgedERC721: {
             address: addressMap.BridgedERC721Impl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.BridgedERC721Impl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(
+                replaceImmutableValues(contractArtifacts.BridgedERC721Impl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
                             addressMap.BridgedERC721Impl,
                             32,
                         ),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bridgedERC721ReferencesMap.erc721Vault.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.ERC721Vault,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
         },
         BridgedERC1155: {
             address: addressMap.BridgedERC1155Impl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.BridgedERC1155Impl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(
+                replaceImmutableValues(contractArtifacts.BridgedERC1155Impl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
                             addressMap.BridgedERC1155Impl,
                             32,
                         ),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bridgedERC1155ReferencesMap.erc1155Vault.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.ERC1155Vault,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
         },
         SignalServiceImpl: {
             address: addressMap.SignalServiceImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        contractArtifacts.SignalServiceImpl,
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(
+                replaceImmutableValues(contractArtifacts.SignalServiceImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
                             addressMap.SignalServiceImpl,
                             32,
                         ),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.SharedResolver, 32),
-                ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
             variables: {
@@ -537,22 +622,36 @@ async function generateContractConfigs(
         TaikoAnchorImpl: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    replaceImmutableValues(
-                        replaceImmutableValues(
-                            contractArtifacts.TaikoAnchorImpl,
-                            taikoAnchorReferencesMap.TaikoAnchor.id,
-                            ethers.utils.hexZeroPad(
-                                ethers.utils.hexlify(pacayaForkHeight),
-                                32,
-                            ),
+                replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchorImpl,
+                            32,
                         ),
-                        uupsImmutableReferencesMap.UUPSUpgradeable.id,
-                        ethers.utils.hexZeroPad(addressMap.TaikoAnchorImpl, 32),
-                    ),
-                    essentialContractReferencesMap.EssentialContract.id,
-                    ethers.utils.hexZeroPad(addressMap.RollupResolver, 32),
-                ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                    {
+                        id: taikoAnchorReferencesMap.pacayaForkHeight.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(pacayaForkHeight),
+                            32,
+                        ),
+                    },
+                    {
+                        id: taikoAnchorReferencesMap.signalService.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SignalService,
+                            32,
+                        ),
+                    },
+                ]),
                 addressMap,
             ),
             variables: {
@@ -597,9 +696,9 @@ async function generateContractConfigs(
         },
         RollupResolverImpl: {
             address: addressMap.RollupResolverImpl,
-            deployedBytecode: replaceImmutableValues(
+            deployedBytecode: replaceImmutableValue(
                 contractArtifacts.RollupResolverImpl,
-                uupsImmutableReferencesMap.UUPSUpgradeable.id,
+                uupsImmutableReferencesMap.__self.id,
                 ethers.utils.hexZeroPad(addressMap.RollupResolverImpl, 32),
             ).deployedBytecode.object,
             variables: {
@@ -688,9 +787,9 @@ function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
     return result;
 }
 
-function getImmutableReferences(
+function getImmutableReference(
     contractName: string,
-    immutableValueName: string,
+    immutableValueNames: Array<string>,
 ) {
     const references: any = {};
     const artifact = require(
@@ -700,20 +799,30 @@ function getImmutableReferences(
     for (const node of artifact.ast.nodes) {
         if (node.nodeType !== "ContractDefinition") continue;
 
-        for (const subNode of node.nodes) {
-            if (subNode.name !== immutableValueName) continue;
-            references[`${contractName}`] = {
-                name: immutableValueName,
-                id: subNode.id,
-            };
-            break;
+        for (const immutableValueName of immutableValueNames) {
+            for (const subNode of node.nodes) {
+                if (subNode.name !== immutableValueName) continue;
+                references[immutableValueName] = {
+                    name: immutableValueName,
+                    id: subNode.id,
+                };
+                break;
+            }
         }
     }
 
     return references;
 }
 
-function replaceImmutableValues(artifact: any, id: any, value: string): any {
+function replaceImmutableValues(artifact: any, maps: Array<any>): any {
+    for (let i = 0; i < maps.length; i++) {
+        artifact = replaceImmutableValue(artifact, maps[i].id, maps[i].value);
+    }
+
+    return artifact;
+}
+
+function replaceImmutableValue(artifact: any, id: any, value: string): any {
     const offsets = artifact.deployedBytecode.immutableReferences[`${id}`];
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);

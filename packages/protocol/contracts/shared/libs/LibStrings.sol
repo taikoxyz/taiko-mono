@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 /// @title LibStrings
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
-    // TODO(david): remove unused strings
     bytes32 internal constant B_AUTOMATA_DCAP_ATTESTATION = bytes32("automata_dcap_attestation");
     bytes32 internal constant B_BOND_TOKEN = bytes32("bond_token");
     bytes32 internal constant B_BRIDGE = bytes32("bridge");
@@ -17,8 +16,6 @@ library LibStrings {
     bytes32 internal constant B_ERC20_VAULT = bytes32("erc20_vault");
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
     bytes32 internal constant B_FORCED_INCLUSION_STORE = bytes32("forced_inclusion_store");
-    bytes32 internal constant B_INBOX_WRAPPER = bytes32("inbox_operator");
-    bytes32 internal constant B_PRECONF_ROUTER = bytes32("preconf_router");
     bytes32 internal constant B_PRECONF_WHITELIST = bytes32("preconf_whitelist");
     bytes32 internal constant B_PRECONF_WHITELIST_OWNER = bytes32("preconf_whitelist_owner");
     bytes32 internal constant B_PROOF_VERIFIER = bytes32("proof_verifier");
@@ -28,7 +25,6 @@ library LibStrings {
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");
-    bytes32 internal constant B_TAIKO_WRAPPER = bytes32("taiko_wrapper");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");

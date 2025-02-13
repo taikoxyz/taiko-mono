@@ -32,8 +32,8 @@ contract InboxTest_BondMechanics is InboxTestBase {
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_inbox_bonds_debit_and_credit_proved_by_proposer_in_proving_window() external {

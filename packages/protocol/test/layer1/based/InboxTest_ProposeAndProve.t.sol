@@ -31,8 +31,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_inbox_query_right_after_genesis_batch() external view {
@@ -521,18 +521,6 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         vm.startPrank(deployer);
         address operator = Bob;
         resolver.registerAddress(block.chainid, "inbox_operator", operator);
-        vm.stopPrank();
-
-        vm.startPrank(Alice);
-        params.proposer = operator;
-        vm.expectRevert(ITaikoInbox.NotInboxWrapper.selector);
-        inbox.proposeBatch(abi.encode(params), "txList");
-        vm.stopPrank();
-
-        vm.startPrank(operator);
-        params.proposer = address(0);
-        vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
-        inbox.proposeBatch(abi.encode(params), "txList");
         vm.stopPrank();
     }
 
