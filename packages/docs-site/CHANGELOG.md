@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.23.0...docs-site-v1.23.1) (2025-02-11)
+
+
+### Chores
+
+* **docs-site:** update banner ([#18915](https://github.com/taikoxyz/taiko-mono/issues/18915)) ([7b27bf5](https://github.com/taikoxyz/taiko-mono/commit/7b27bf5cf8432a66973b171960b8b82766d14d65))
+
 ## [1.23.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.22.1...docs-site-v1.23.0) (2025-02-05)
 
 

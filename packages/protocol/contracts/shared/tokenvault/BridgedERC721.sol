@@ -16,6 +16,8 @@ contract BridgedERC721 is
     IBridgedERC721Initializable,
     ERC721Upgradeable
 {
+    address public immutable erc721Vault;
+
     /// @notice Address of the source token contract.
     address public srcToken;
 
@@ -27,7 +29,9 @@ contract BridgedERC721 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_BURN();
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _erc721Vault) EssentialContract(address(0)) {
+        erc721Vault = _erc721Vault;
+    }
 
     /// @inheritdoc IBridgedERC721Initializable
     function init(
@@ -56,19 +60,14 @@ contract BridgedERC721 is
     )
         external
         whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC721_VAULT)
+        onlyFrom(erc721Vault)
         nonReentrant
     {
         _safeMint(_account, _tokenId);
     }
 
     /// @inheritdoc IBridgedERC721
-    function burn(uint256 _tokenId)
-        external
-        whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC721_VAULT)
-        nonReentrant
-    {
+    function burn(uint256 _tokenId) external whenNotPaused onlyFrom(erc721Vault) nonReentrant {
         // Check if the caller is the owner of the token. Somehow this is not done inside the
         // _burn() function below.
         if (ownerOf(_tokenId) != msg.sender) {

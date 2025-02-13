@@ -46,10 +46,25 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error OldestForcedInclusionDue();
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
+    IProposeBatch public immutable inbox;
+    IForcedInclusionStore public immutable forcedInclusionStore;
+    address public immutable preconfRouter;
 
     uint256[50] private __gap;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(
+        address _inbox,
+        address _forcedInclusionStore,
+        address _preconfRouter
+    )
+        nonZeroAddr(_inbox)
+        nonZeroAddr(_forcedInclusionStore)
+        EssentialContract(address(0))
+    {
+        inbox = IProposeBatch(_inbox);
+        forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
+        preconfRouter = _preconfRouter;
+    }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
@@ -61,20 +76,16 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         bytes calldata _txList
     )
         external
-        onlyFromNamed(LibStrings.B_PRECONF_ROUTER)
+        onlyFromOptional(preconfRouter)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        ITaikoInbox inbox = ITaikoInbox(resolve(LibStrings.B_TAIKO, false));
-        IForcedInclusionStore store =
-            IForcedInclusionStore(resolve(LibStrings.B_FORCED_INCLUSION_STORE, false));
-
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
         if (bytesX.length == 0) {
-            require(!store.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
+            require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
-            _validateForcedInclusionParams(store, bytesX);
+            _validateForcedInclusionParams(forcedInclusionStore, bytesX);
             inbox.proposeBatch(bytesX, "");
         }
 
@@ -83,7 +94,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     }
 
     function _validateForcedInclusionParams(
-        IForcedInclusionStore _store,
+        IForcedInclusionStore _forcedInclusionStore,
         bytes memory _bytesX
     )
         internal
@@ -91,7 +102,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         ITaikoInbox.BatchParams memory p = abi.decode(_bytesX, (ITaikoInbox.BatchParams));
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
-            _store.consumeOldestForcedInclusion(p.proposer);
+            _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
 
         uint256 numBlocks = p.blocks.length;
         require(numBlocks != 0, NoBlocks());
