@@ -95,25 +95,4 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         message.fee = 0;
         eBridge.sendMessage(message);
     }
-
-    function test_bridge2_sendMessage_missing_local_signal_service()
-        public
-        dealEther(Alice)
-        assertSameTotalBalance
-    {
-        IBridge.Message memory message;
-        message.srcOwner = Alice;
-        message.destOwner = Bob;
-        message.destChainId = taikoChainId;
-
-        vm.prank(Alice);
-        eBridge.sendMessage(message);
-
-        vm.prank(deployer);
-        resolver.registerAddress(ethereumChainId, "signal_service", address(0));
-
-        vm.prank(Alice);
-        vm.expectRevert();
-        eBridge.sendMessage(message);
-    }
 }

@@ -12,7 +12,7 @@ contract TestBridgedERC20V2 is CommonTest {
 
     function test_20Vault_migration__change_migration_status() public {
         vm.startPrank(deployer);
-        BridgedERC20V2 btoken = deployBridgedToken("FOO");
+        BridgedERC20V2 btoken = deployBridgedToken(vault, "FOO");
         vm.stopPrank();
 
         vm.expectRevert();
@@ -33,7 +33,7 @@ contract TestBridgedERC20V2 is CommonTest {
         public
     {
         vm.startPrank(deployer);
-        BridgedERC20V2 btoken = deployBridgedToken("BAR");
+        BridgedERC20V2 btoken = deployBridgedToken(vault, "BAR");
         vm.stopPrank();
 
         // only erc20_vault can brun and mint
@@ -54,8 +54,8 @@ contract TestBridgedERC20V2 is CommonTest {
 
     function test_20Vault_migration__old_to_new() public {
         vm.startPrank(deployer);
-        BridgedERC20V2 oldToken = deployBridgedToken("OLD");
-        BridgedERC20V2 newToken = deployBridgedToken("NEW");
+        BridgedERC20V2 oldToken = deployBridgedToken(vault, "OLD");
+        BridgedERC20V2 newToken = deployBridgedToken(vault, "NEW");
         vm.stopPrank();
 
         vm.startPrank(vault);
@@ -120,14 +120,20 @@ contract TestBridgedERC20V2 is CommonTest {
         assertEq(newToken.balanceOf(Bob), 210);
     }
 
-    function deployBridgedToken(bytes32 name) internal returns (BridgedERC20V2) {
+    function deployBridgedToken(
+        address erc20Vault,
+        bytes32 name
+    )
+        internal
+        returns (BridgedERC20V2)
+    {
         address srcToken = randAddress();
         uint8 srcDecimals = 11;
         string memory _name = bytes32ToString(name);
         return BridgedERC20V2(
             deploy({
                 name: name,
-                impl: address(new BridgedERC20V2(address(resolver))),
+                impl: address(new BridgedERC20V2(erc20Vault)),
                 data: abi.encodeCall(
                     BridgedERC20V2.init, (deployer, srcToken, taikoChainId, srcDecimals, _name, _name)
                 )

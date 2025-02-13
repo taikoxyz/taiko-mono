@@ -31,8 +31,8 @@ contract InboxTest_Cooldownis is InboxTestBase {
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_inbox_batches_cannot_verify_inside_cooldown_window()

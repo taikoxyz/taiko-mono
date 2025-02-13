@@ -36,6 +36,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
+    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -64,7 +65,9 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver)));
+        UUPSUpgradeable(bridgeL1).upgradeTo(
+            address(new Bridge(sharedResolver, signalService, quotaManager))
+        );
         register(sharedResolver, "bridge", bridgeL1);
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
@@ -77,9 +80,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
         register(sharedResolver, "erc1155_vault", erc1155Vault);
         // Bridged Token
-        register(
-            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
-        );
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
         register(
             sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
         );
@@ -100,12 +101,19 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "bond_token");
         copyRegister(rollupResolver, sharedResolver, "signal_service");
         copyRegister(rollupResolver, sharedResolver, "bridge");
+
+        // Initializable the proxy for proofVerifier to get the contract address at first.
+        address proofVerifier = address(new ERC1967Proxy(address(0), ""));
+
         // TaikoInbox
-        address newFork = address(new DevnetInbox(rollupResolver));
+        address newFork =
+            address(new DevnetInbox(address(0), proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
         // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(address(new ProverSet(rollupResolver)));
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(rollupResolver, newFork, taikoToken, newFork))
+        );
         // Verifier
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
@@ -116,23 +124,31 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(OpVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
-        UUPSUpgradeable(sgxVerifier).upgradeTo(address(new SgxVerifier(rollupResolver, l2ChainId)));
+
+        address automataDcapAttestation = address(0); // not used!
+        UUPSUpgradeable(sgxVerifier).upgradeTo(
+            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataDcapAttestation))
+        );
+
         register(rollupResolver, "sgx_verifier", sgxVerifier);
+        address risc0Groth16Verifier = address(0); // TODO
         UUPSUpgradeable(risc0Verifier).upgradeTo(
-            address(new Risc0Verifier(rollupResolver, l2ChainId))
+            address(new Risc0Verifier(l2ChainId, risc0Groth16Verifier))
         );
         register(rollupResolver, "risc0_verifier", risc0Verifier);
-        UUPSUpgradeable(sp1Verifier).upgradeTo(address(new SP1Verifier(rollupResolver, l2ChainId)));
+        address sp1RemoteVerifier = address(0); // TODO
+        UUPSUpgradeable(sp1Verifier).upgradeTo(
+            address(new SP1Verifier(l2ChainId, sp1RemoteVerifier))
+        );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
-        deployProxy({
-            name: "proof_verifier",
-            impl: address(
+
+        UUPSUpgradeable(proofVerifier).upgradeToAndCall({
+            newImplementation: address(
                 new DevnetVerifier(
                     address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             ),
-            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
-            registerTo: rollupResolver
+            data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
     }
 }
