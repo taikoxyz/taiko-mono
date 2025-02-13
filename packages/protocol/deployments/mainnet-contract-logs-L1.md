@@ -191,7 +191,7 @@
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
-  - prover_set: `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A`
+  - prover_set: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
   - chain_watchdog: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -218,12 +218,13 @@
   - upgraded from `0x190D5d50D98D2202a618f75B2fD9986e60E096be` to `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` @commit`2625c60` @tx`0x5d46840df79d8df508880675e7ea549e9b46137f597ca520c3e0c979439441d1`
   - upgraded from `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` to `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` @commit`9ae9a5e` @tx`0x43353a74df973d8f6a379b5c8815ac80935a5099f8ab93a4aa204eb5ef2c663e`
   - upgraded from `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` to `0x0079a79E5d8DDA67029051d505E5A11DE279B36D` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
+  - register `prover_set` to `0x280eAbfd252f017B78e15b69580F249F45FB55Fa` @tx``
 
 #### taikoL1
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B`
+- impl: `0x2784423f7c61Bc7B75dB6CdA26959946f437588D`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -247,6 +248,7 @@
   - Upgrade to `0xb74A66b6CF50AD63E29669F0BDE4354E11758162` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
   - Upgrade to `0xd4896d4537c6425aC5d89B9f122d4E4ac4D65e1c` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `7394458` @tx`0x9c2f36af40c0004110041fc45d980b73b0c8dde8064713a55aeb6f69fca77a99`
   - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
+  - Upgrade to `0x2784423f7c61Bc7B75dB6CdA26959946f437588D` @commit`9d2aac8` @tx``
 
 #### tier_router
 
@@ -393,16 +395,17 @@
 
 ### prover_set
 
-- impl: `0x518845daA8870bE2C59E49620Fc262AD48953C9a`
+- impl: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
   - deployed @commit`2dd30ab` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
+  - deployed @commit`9d2aac8` @tx``
 
 ### labprover.taiko.eth
 
 - ens: `labprover.taiko.eth`
 - proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
-- impl: `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B`
+- impl: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
 - enabled provers:
   - `0x000000629FBCf27A347d1AEbA658435230D74a5f`
   - `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
@@ -420,12 +423,13 @@
   - upgraded from `0x74828E5fe803072AF9Df512B3911B4223572D652` to `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
   - upgraded from `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` to `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - upgraded from `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` to `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
+  - upgraded from `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` to `0x280eAbfd252f017B78e15b69580F249F45FB55Fa` @commit`9d2aac8` @tx``
 
 ### labcontester.taiko.eth
 
 - ens: `labcontester.taiko.eth`
 - proxy: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
-- impl: `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B`
+- impl: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
 - enabled provers:
   - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
@@ -437,3 +441,4 @@
   - upgraded from `0x74828E5fe803072AF9Df512B3911B4223572D652` to `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
   - upgraded from `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` to `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - upgraded from `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` to `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
+  - upgraded from `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` to `0x280eAbfd252f017B78e15b69580F249F45FB55Fa` @commit`9d2aac8` @tx``
