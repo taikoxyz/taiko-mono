@@ -55,28 +55,6 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	return config.NewPacayaProtocolConfigs(&configs), nil
 }
 
-// ResolvePacaya resolves the address from TaikoInbox contract.
-func (c *Client) ResolvePacaya(opts *bind.CallOpts, name string, allowZero bool) (common.Address, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
-	defer cancel()
-
-	resolverAddress, err := c.PacayaClients.TaikoInbox.Resolver(opts)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to fetch resolver address: %w", err)
-	}
-
-	resolver, err := pacayaBindings.NewResolverBase(resolverAddress, c.L1)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to create resolver contract: %w", err)
-	}
-
-	return resolver.Resolve(opts, c.L1.ChainID, StringToBytes32(name), allowZero)
-}
-
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context) error {
@@ -1117,8 +1095,8 @@ func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
 	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
 }
 
-// GetPreconfWhiteListOperator resolves the current preconf whitelist operator address.
-func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
+// GetProofVerifierPacaya resolves the Pacaya proof verifier address.
+func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1126,21 +1104,12 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	whiteListAddress, err := c.ResolvePacaya(opts, "preconf_whitelist", true)
-	if err != nil {
-		return common.Address{}, err
-	}
+	return c.PacayaClients.TaikoInbox.Verifier(opts)
+}
 
-	if whiteListAddress == (common.Address{}) {
-		return common.Address{}, errors.New("empty preconf_whitelist address")
-	}
-
-	preconfWhiteList, err := pacayaBindings.NewPreconfWhitelist(whiteListAddress, c.L1)
-	if err != nil {
-		return common.Address{}, err
-	}
-
-	return preconfWhiteList.GetOperatorForEpoch(opts)
+// GetPreconfWhiteListOperator resolves the current preconf whitelist operator address.
+func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
+	return common.Address{}, nil
 }
 
 // GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
