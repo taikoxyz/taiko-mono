@@ -51,6 +51,7 @@ type Event struct {
 	Tier            sql.NullInt16       `json:"tier"`
 	EmittedBlockID  uint64              `json:"emittedBlockID"`
 	NumBlocks       sql.NullInt64       `json:"numBlocks"`
+	BatchID         sql.NullInt64       `json:"batchID"`
 }
 
 // SaveEventOpts
@@ -73,6 +74,7 @@ type SaveEventOpts struct {
 	Tier            *uint16
 	EmittedBlockID  uint64
 	NumBlocks       *int64
+	BatchID         *int64
 }
 
 type UniqueProversResponse struct {

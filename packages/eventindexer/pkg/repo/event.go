@@ -108,6 +108,13 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		}
 	}
 
+	if opts.BatchID != nil {
+		e.BatchID = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.BatchID,
+		}
+	}
+
 	if opts.To != nil {
 		e.To = *opts.To
 	}

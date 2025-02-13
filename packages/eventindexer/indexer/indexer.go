@@ -74,7 +74,9 @@ type Indexer struct {
 	contractToMetadataMutex *sync.Mutex
 
 	ontakeForkHeight              uint64
+	pacayaForkHeight              uint64
 	isPostOntakeForkHeightReached bool
+	isPostPacayaForkHeightReached bool
 }
 
 func (i *Indexer) Start() error {
@@ -228,6 +230,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
 	i.contractToMetadataMutex = &sync.Mutex{}
 	i.ontakeForkHeight = cfg.OntakeForkHeight
+	i.pacayaForkHeight = cfg.PacayaForkHeight
 
 	return nil
 }
