@@ -14,9 +14,7 @@ import (
 )
 
 var (
-	latestBlockId       int64 = 1
 	blockID             int64 = 1
-	numBlocks           int64 = 2
 	dummyProveEventOpts       = eventindexer.SaveEventOpts{
 		Name:         eventindexer.EventNameTransitionProved,
 		Address:      "0x123",
@@ -34,16 +32,6 @@ var (
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
-	}
-	dummyBatchProposeEventOpts = eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBatchProposed,
-		Address:      "0x123",
-		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBlockProposed,
-		ChainID:      big.NewInt(1),
-		BlockID:      &blockID,
-		TransactedAt: time.Now(),
-		NumBlocks:    &numBlocks,
 	}
 )
 

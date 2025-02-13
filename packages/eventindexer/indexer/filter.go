@@ -194,11 +194,12 @@ func (i *Indexer) filter(
 
 		var filter FilterFunc
 
-		if i.isPostPacayaForkHeightReached {
+		switch {
+		case i.isPostPacayaForkHeightReached:
 			filter = filterFuncPacaya
-		} else if i.isPostOntakeForkHeightReached {
+		case i.isPostOntakeForkHeightReached:
 			filter = filterFuncOntake
-		} else {
+		default:
 			filter = filterFunc
 		}
 
