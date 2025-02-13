@@ -307,8 +307,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            ontakeForkHeight: 0,
-            pacayaForkHeight: 0
+            ontakeForkHeight: 0
         });
     }
 
