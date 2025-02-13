@@ -5,7 +5,7 @@ import "./InboxTestBase.sol";
 
 contract InboxTest_Cooldownis is InboxTestBase {
     function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
-        TaikoInbox.ForkHeights memory forkHeights;
+        ITaikoInbox.ForkHeights memory forkHeights;
         
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
