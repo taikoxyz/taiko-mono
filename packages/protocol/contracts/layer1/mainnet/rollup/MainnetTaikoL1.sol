@@ -39,6 +39,10 @@ contract MainnetTaikoL1 is TaikoL1, RollupAddressCache {
         });
     }
 
+    function getPacayaForkHeight() public pure override returns (uint64) {
+        return 1_000_000; // TODO: set the right value
+    }
+
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         return getAddress(_chainId, _name, super._getAddress);
     }

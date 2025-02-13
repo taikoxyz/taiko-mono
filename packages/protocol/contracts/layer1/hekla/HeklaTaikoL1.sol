@@ -30,4 +30,8 @@ contract HeklaTaikoL1 is TaikoL1 {
             ontakeForkHeight: 840_512
         });
     }
+
+    function getPacayaForkHeight() public pure override returns (uint64) {
+        return 1_000_000; // TODO: set the right value
+    }
 }

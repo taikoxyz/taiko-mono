@@ -70,8 +70,14 @@ library LibVerifying {
         unchecked {
             ++local.blockId;
 
+            (bool success, bytes memory data) =
+                address(this).staticcall(abi.encodeWithSignature("getPacayaForkHeight()"));
+            require(success, "Static call failed");
+            uint64 pacayaForkHeight = abi.decode(data, (uint64));
+
             while (
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
+                    && (pacayaForkHeight == 0 || local.blockId < pacayaForkHeight)
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
 

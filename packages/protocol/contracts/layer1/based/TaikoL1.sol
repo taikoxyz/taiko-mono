@@ -322,4 +322,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         override
         onlyFromOwnerOrNamed(LibStrings.B_CHAIN_WATCHDOG)
     { }
+
+    function getPacayaForkHeight() public pure virtual returns (uint64) {
+        return 0;
+    }
 }
