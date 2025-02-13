@@ -32,8 +32,8 @@ contract InboxTest_BondToken is InboxTestBase {
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_inbox_deposit_withdraw() external {

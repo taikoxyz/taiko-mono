@@ -178,6 +178,7 @@ abstract contract CommonTest is Test, Script {
     }
 
     function deployBridgedERC20(
+        address erc20Vault,
         address srcToken,
         uint256 _ethereumChainId,
         uint8 decimals,
@@ -190,7 +191,7 @@ abstract contract CommonTest is Test, Script {
         return BridgedERC20(
             deploy({
                 name: "erc20_token",
-                impl: address(new BridgedERC20(address(resolver))),
+                impl: address(new BridgedERC20(erc20Vault)),
                 data: abi.encodeCall(
                     BridgedERC20.init, (address(0), srcToken, _ethereumChainId, decimals, symbol, name)
                 )

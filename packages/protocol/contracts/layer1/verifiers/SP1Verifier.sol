@@ -14,6 +14,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
 
     uint64 public immutable taikoChainId;
+    address public immutable sp1RemoteVerifier;
 
     /// @notice The verification keys mappings for the proving programs.
     mapping(bytes32 provingProgramVKey => bool trusted) public isProgramTrusted;
@@ -30,8 +31,9 @@ contract SP1Verifier is EssentialContract, IVerifier {
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 
-    constructor(address _resolver, uint64 _taikoChainId) EssentialContract(_resolver) {
+    constructor(uint64 _taikoChainId, address _sp1RemoteVerifier) EssentialContract(address(0)) {
         taikoChainId = _taikoChainId;
+        sp1RemoteVerifier = _sp1RemoteVerifier;
     }
 
     /// @notice Initializes the contract with the provided address manager.
@@ -45,7 +47,6 @@ contract SP1Verifier is EssentialContract, IVerifier {
     /// @param _trusted True if trusted, false otherwise.
     function setProgramTrusted(bytes32 _programVKey, bool _trusted) external onlyOwner {
         isProgramTrusted[_programVKey] = _trusted;
-
         emit ProgramTrusted(_programVKey, _trusted);
     }
 
@@ -75,7 +76,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         }
 
         // _proof[64:] is the succinct's proof position
-        (bool success,) = sp1RemoteVerifier().staticcall(
+        (bool success,) = sp1RemoteVerifier.staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
                 (aggregationProgram, abi.encodePacked(publicInputs), _proof[64:])
@@ -83,9 +84,5 @@ contract SP1Verifier is EssentialContract, IVerifier {
         );
 
         require(success, SP1_INVALID_PROOF());
-    }
-
-    function sp1RemoteVerifier() public view virtual returns (address) {
-        return resolve(SP1_REMOTE_VERIFIER, false);
     }
 }

@@ -11,7 +11,7 @@ contract TestERC1155Vault is CommonTest {
     SignalService private eSignalService;
     Bridge private eBridge;
     ERC1155Vault private eVault;
-
+    address private quotaManager = address(0);
     // Contracts on Taiko
     SignalService private tSignalService;
     PrankDestBridge private tBridge;
@@ -23,10 +23,12 @@ contract TestERC1155Vault is CommonTest {
         eSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        eBridge = deployBridge(address(new Bridge(address(resolver))));
+        eBridge = deployBridge(
+            address(new Bridge(address(resolver), address(eSignalService), quotaManager))
+        );
         eVault = deployERC1155Vault();
 
-        register("bridged_erc1155", address(new BridgedERC1155(address(resolver))));
+        register("bridged_erc1155", address(new BridgedERC1155(address(eVault))));
 
         vm.deal(address(eBridge), 100 ether);
         vm.deal(Alice, 100 ether);
@@ -41,7 +43,7 @@ contract TestERC1155Vault is CommonTest {
         );
 
         register("bridge", address(tBridge));
-        register("bridged_erc1155", address(new BridgedERC1155(address(resolver))));
+        register("bridged_erc1155", address(new BridgedERC1155(address(tVault))));
 
         vm.deal(address(tBridge), 100 ether);
     }

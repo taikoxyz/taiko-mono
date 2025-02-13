@@ -32,8 +32,8 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
     }
 
     function setUpOnEthereum() internal override {
-        super.setUpOnEthereum();
         bondToken = deployBondToken();
+        super.setUpOnEthereum();
     }
 
     function test_calldata_used_for_txlist_da() external {
