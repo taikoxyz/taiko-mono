@@ -447,6 +447,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: resolver
         });
 
+
         // Initializable a forced inclusion store with a fake address for TaikoWrapper at first,
         // to be used for deploying TaikoWrapper, then upgrade it to the real TaikoWrapper address.
         store = deployProxy({

@@ -12,6 +12,8 @@ import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
+import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -36,6 +38,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
+    uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
+    uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
     address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
@@ -115,6 +119,25 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new DevnetInbox(address(0), opVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
+
+        // ForcedInclusionStore
+        deployProxy({
+            name: "forced_inclusion_store",
+            impl: address(
+                new ForcedInclusionStore(
+                    rollupResolver, uint8(inclusionWindow), uint64(inclusionFeeInGwei)
+                )
+            ),
+            data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
+            registerTo: rollupResolver
+        });
+        // TaikoWrapper
+        deployProxy({
+            name: "taiko_wrapper",
+            impl: address(new TaikoWrapper(rollupResolver)),
+            data: abi.encodeCall(TaikoWrapper.init, (address(0))),
+            registerTo: rollupResolver
+        });
 
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(

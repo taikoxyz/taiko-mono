@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -26,6 +28,7 @@ type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
 	taikoL1Address          common.Address
+	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
 	gasLimit                uint64
@@ -38,6 +41,7 @@ func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	taikoL1Address common.Address,
+	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
 	gasLimit uint64,
@@ -48,6 +52,7 @@ func NewBlobTransactionBuilder(
 		rpc,
 		proposerPrivateKey,
 		taikoL1Address,
+		taikoWrapperAddress,
 		proverSetAddress,
 		l2SuggestedFeeRecipient,
 		gasLimit,
@@ -134,16 +139,30 @@ func (b *BlobTransactionBuilder) BuildOntake(
 func (b *BlobTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
 ) (*txmgr.TxCandidate, error) {
-	// ABI encode the TaikoInbox.proposeBatch / ProverSet.proposeBatch parameters.
+	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
-		to            = &b.taikoL1Address
-		data          []byte
-		blobs         []*eth.Blob
-		encodedParams []byte
-		blockParams   []pacayaBindings.ITaikoInboxBlockParams
-		allTxs        types.Transactions
+		to                    = &b.taikoWrapperAddress
+		data                  []byte
+		blobs                 []*eth.Blob
+		encodedParams         []byte
+		blockParams           []pacayaBindings.ITaikoInboxBlockParams
+		forcedInclusionParams *encoding.BatchParams
+		allTxs                types.Transactions
 	)
+
+	if forcedInclusion != nil {
+		blobParams, blockParams := buildBlobAndBlockParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		forcedInclusionParams = &encoding.BatchParams{
+			Proposer:                 crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey),
+			Coinbase:                 b.l2SuggestedFeeRecipient,
+			RevertIfNotFirstProposal: b.revertProtectionEnabled,
+			BlobParams:               *blobParams,
+			Blocks:                   blockParams,
+		}
+	}
 
 	for _, txs := range txBatch {
 		allTxs = append(allTxs, txs...)
@@ -167,18 +186,20 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
-	if encodedParams, err = encoding.EncodeBatchParams(&encoding.BatchParams{
-		Coinbase:                 b.l2SuggestedFeeRecipient,
-		RevertIfNotFirstProposal: b.revertProtectionEnabled,
-		BlobParams: encoding.BlobParams{
-			BlobHashes:     [][32]byte{},
-			FirstBlobIndex: 0,
-			NumBlobs:       uint8(len(blobs)),
-			ByteOffset:     0,
-			ByteSize:       uint32(len(txListsBytes)),
-		},
-		Blocks: blockParams,
-	}); err != nil {
+	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(
+		forcedInclusionParams,
+		&encoding.BatchParams{
+			Coinbase:                 b.l2SuggestedFeeRecipient,
+			RevertIfNotFirstProposal: b.revertProtectionEnabled,
+			BlobParams: encoding.BlobParams{
+				BlobHashes:     [][32]byte{},
+				FirstBlobIndex: 0,
+				NumBlobs:       uint8(len(blobs)),
+				ByteOffset:     0,
+				ByteSize:       uint32(len(txListsBytes)),
+			},
+			Blocks: blockParams,
+		}); err != nil {
 		return nil, err
 	}
 
@@ -189,10 +210,11 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 			return nil, err
 		}
 	} else {
-		if data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
+		if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
 			return nil, err
 		}
 	}
+	log.Info("BlobTransactionBuilder.BuildPacaya", "to", to)
 
 	return &txmgr.TxCandidate{
 		TxData:   data,
