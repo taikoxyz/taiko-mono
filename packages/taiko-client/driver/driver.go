@@ -45,7 +45,7 @@ type Driver struct {
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
 
-	// P2P network for soft block propagation
+	// P2P network for preconf block propagation
 	p2pNode   *p2p.NodeP2P
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P

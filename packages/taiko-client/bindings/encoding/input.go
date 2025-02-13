@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -583,7 +584,7 @@ func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
 		return nil, fmt.Errorf("failed to abi.encode pacaya difficulty, %w", err)
 	}
 
-	return packed, nil
+	return crypto.Keccak256(packed), nil
 }
 
 // EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
