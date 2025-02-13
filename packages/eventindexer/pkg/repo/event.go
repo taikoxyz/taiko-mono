@@ -54,6 +54,13 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		}
 	}
 
+	if opts.NumBlocks != nil {
+		e.NumBlocks = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.NumBlocks,
+		}
+	}
+
 	if opts.Amount != nil {
 		amt, err := decimal.NewFromString(opts.Amount.String())
 		if err != nil {
@@ -296,9 +303,23 @@ func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]
 func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (*eventindexer.Event, error) {
 	e := &eventindexer.Event{}
 
-	if err := r.db.GormDB().WithContext(ctx).
+	// First, try to find a direct BlockProposed event
+	err := r.db.GormDB().WithContext(ctx).
 		Where("block_id = ?", blockID).
 		Where("event = ?", eventindexer.EventNameBlockProposed).
+		First(&e).Error
+
+	if err == nil {
+		return e, nil
+	}
+
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	if err := r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameBatchProposed).
+		Where("? BETWEEN (block_id - num_blocks + 1) AND block_id", blockID).
 		First(&e).Error; err != nil {
 		return nil, err
 	}

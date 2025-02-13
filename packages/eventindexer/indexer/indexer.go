@@ -13,6 +13,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/pacaya/taikoinbox"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/v2/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
@@ -53,9 +54,10 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1   *taikol1.TaikoL1
-	taikol1V2 *v2.TaikoL1
-	bridge    *bridge.Bridge
+	taikol1    *taikol1.TaikoL1
+	taikol1V2  *v2.TaikoL1
+	bridge     *bridge.Bridge
+	taikoInbox *taikoinbox.TaikoInbox
 
 	indexNfts   bool
 	indexERC20s bool
@@ -168,6 +170,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	var taikol1V2 *v2.TaikoL1
 
+	var taikoInbox *taikoinbox.TaikoInbox
+
 	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
 		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
 
@@ -179,6 +183,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		taikol1V2, err = v2.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "contracts.NewTaikoL1")
+		}
+
+		taikoInbox, err = taikoinbox.NewTaikoInbox(cfg.L1TaikoAddress, ethClient)
+		if err != nil {
+			return errors.Wrap(err, "taikonbox.NewTaikoInbox")
 		}
 	}
 
@@ -205,6 +214,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
+	i.taikoInbox = taikoInbox
 	i.taikol1V2 = taikol1V2
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize

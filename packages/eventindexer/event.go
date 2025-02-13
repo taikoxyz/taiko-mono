@@ -16,6 +16,9 @@ var (
 	EventNameTransitionProved    = "TransitionProved"
 	EventNameTransitionContested = "TransitionContested"
 	EventNameBlockProposed       = "BlockProposed"
+	EventNameBatchProposed       = "BatchProposed"
+	EventNameBatchesProven       = "BatchesProven"
+	EventNameBatchesVerified     = "BatchesVerified"
 	EventNameBlockAssigned       = "BlockAssigned"
 	EventNameBlockVerified       = "BlockVerified"
 	EventNameMessageSent         = "MessageSent"
@@ -47,6 +50,7 @@ type Event struct {
 	TransactedAt    time.Time           `json:"transactedAt"`
 	Tier            sql.NullInt16       `json:"tier"`
 	EmittedBlockID  uint64              `json:"emittedBlockID"`
+	NumBlocks       sql.NullInt64       `json:"numBlocks"`
 }
 
 // SaveEventOpts
@@ -68,6 +72,7 @@ type SaveEventOpts struct {
 	TransactedAt    time.Time
 	Tier            *uint16
 	EmittedBlockID  uint64
+	NumBlocks       *int64
 }
 
 type UniqueProversResponse struct {
