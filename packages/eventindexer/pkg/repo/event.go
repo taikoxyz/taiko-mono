@@ -54,6 +54,13 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		}
 	}
 
+	if opts.NumBlocks != nil {
+		e.NumBlocks = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.NumBlocks,
+		}
+	}
+
 	if opts.Amount != nil {
 		amt, err := decimal.NewFromString(opts.Amount.String())
 		if err != nil {
@@ -98,6 +105,13 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		e.TokenID = sql.NullInt64{
 			Valid: true,
 			Int64: *opts.TokenID,
+		}
+	}
+
+	if opts.BatchID != nil {
+		e.BatchID = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.BatchID,
 		}
 	}
 
@@ -283,10 +297,35 @@ func (r *EventRepository) FindLatestBlockID(
 func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]*eventindexer.Event, error) {
 	e := []*eventindexer.Event{}
 
-	if err := r.db.GormDB().WithContext(ctx).
+	err := r.db.GormDB().WithContext(ctx).
 		Where("block_id = ?", blockID).
 		Where("event = ?", eventindexer.EventNameTransitionProved).
-		Find(&e).Error; err != nil {
+		Find(&e).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(e) > 0 {
+		return e, nil
+	}
+	// Try to find the batch this block belongs to
+	batchEvent := &eventindexer.Event{}
+	err = r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameBatchProposed).
+		Where("? BETWEEN (block_id - num_blocks + 1) AND block_id", blockID).
+		First(batchEvent).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameBatchesProven).
+		Where("batch_id = ?", batchEvent.BatchID.Int64).
+		Find(&e).Error
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -296,9 +335,23 @@ func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]
 func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (*eventindexer.Event, error) {
 	e := &eventindexer.Event{}
 
-	if err := r.db.GormDB().WithContext(ctx).
+	// First, try to find a direct BlockProposed event
+	err := r.db.GormDB().WithContext(ctx).
 		Where("block_id = ?", blockID).
 		Where("event = ?", eventindexer.EventNameBlockProposed).
+		First(&e).Error
+
+	if err == nil {
+		return e, nil
+	}
+
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	if err := r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameBatchProposed).
+		Where("? BETWEEN (block_id - num_blocks + 1) AND block_id", blockID).
 		First(&e).Error; err != nil {
 		return nil, err
 	}
