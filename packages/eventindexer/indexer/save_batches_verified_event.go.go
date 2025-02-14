@@ -10,17 +10,17 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/pacaya/taikoinbox"
 	"golang.org/x/sync/errgroup"
 )
 
-func (i *Indexer) saveBlockVerifiedEvents(
+func (i *Indexer) saveBatchesVerifiedEvents(
 	ctx context.Context,
 	chainID *big.Int,
-	events *taikol1.TaikoL1BlockVerifiedIterator,
+	events *taikoinbox.TaikoInboxBatchesVerifiedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		slog.Info("no BlockVerified events")
+		slog.Info("no BatchesVerified events")
 		return nil
 	}
 
@@ -30,10 +30,10 @@ func (i *Indexer) saveBlockVerifiedEvents(
 		event := events.Event
 
 		wg.Go(func() error {
-			if err := i.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
-				eventindexer.BlockVerifiedEventsProcessedError.Inc()
+			if err := i.saveBatchesVerifiedEvent(ctx, chainID, event); err != nil {
+				eventindexer.BatchesVerifiedEventsProcessedError.Inc()
 
-				return errors.Wrap(err, "i.saveBlockVerifiedEvent")
+				return errors.Wrap(err, "i.saveBatchesVerifiedEvent")
 			}
 
 			return nil
@@ -51,94 +51,19 @@ func (i *Indexer) saveBlockVerifiedEvents(
 	return nil
 }
 
-func (i *Indexer) saveBlockVerifiedEvent(
+func (i *Indexer) saveBatchesVerifiedEvent(
 	ctx context.Context,
 	chainID *big.Int,
-	event *taikol1.TaikoL1BlockVerified,
+	event *taikoinbox.TaikoInboxBatchesVerified,
 ) error {
-	slog.Info("new blockVerified event", "blockID", event.BlockId.Int64())
+	slog.Info("new BatchesVerified event", "batchId", event.BatchId)
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	blockID := event.BlockId.Int64()
-
-	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
-	if err != nil {
-		return errors.Wrap(err, "i.ethClient.BlockByNumber")
-	}
-
-	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:           eventindexer.EventNameBlockVerified,
-		Data:           string(marshaled),
-		ChainID:        chainID,
-		Event:          eventindexer.EventNameBlockVerified,
-		Address:        "",
-		BlockID:        &blockID,
-		TransactedAt:   time.Unix(int64(block.Time()), 0),
-		EmittedBlockID: event.Raw.BlockNumber,
-	})
-	if err != nil {
-		return errors.Wrap(err, "i.eventRepo.Save")
-	}
-
-	eventindexer.BlockVerifiedEventsProcessed.Inc()
-
-	return nil
-}
-
-func (i *Indexer) saveBlockVerifiedEventsV2(
-	ctx context.Context,
-	chainID *big.Int,
-	events *taikol1.TaikoL1BlockVerifiedV2Iterator,
-) error {
-	if !events.Next() || events.Event == nil {
-		slog.Info("no BlockVerified events")
-		return nil
-	}
-
-	wg, ctx := errgroup.WithContext(ctx)
-
-	for {
-		event := events.Event
-
-		wg.Go(func() error {
-			if err := i.saveBlockVerifiedEventV2(ctx, chainID, event); err != nil {
-				eventindexer.BlockVerifiedEventsProcessedError.Inc()
-
-				return errors.Wrap(err, "i.saveBlockVerifiedEvent")
-			}
-
-			return nil
-		})
-
-		if !events.Next() {
-			break
-		}
-	}
-
-	if err := wg.Wait(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (i *Indexer) saveBlockVerifiedEventV2(
-	ctx context.Context,
-	chainID *big.Int,
-	event *taikol1.TaikoL1BlockVerifiedV2,
-) error {
-	slog.Info("new blockVerified event", "blockID", event.BlockId.Int64())
-
-	marshaled, err := json.Marshal(event)
-	if err != nil {
-		return errors.Wrap(err, "json.Marshal(event)")
-	}
-
-	blockID := event.BlockId.Int64()
+	batchID := int64(event.BatchId)
 
 	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
@@ -151,7 +76,7 @@ func (i *Indexer) saveBlockVerifiedEventV2(
 		ChainID:        chainID,
 		Event:          eventindexer.EventNameBatchesVerified,
 		Address:        "",
-		BlockID:        &blockID,
+		BatchID:        &batchID,
 		TransactedAt:   time.Unix(int64(block.Time()), 0),
 		EmittedBlockID: event.Raw.BlockNumber,
 	})
@@ -159,7 +84,7 @@ func (i *Indexer) saveBlockVerifiedEventV2(
 		return errors.Wrap(err, "i.eventRepo.Save")
 	}
 
-	eventindexer.BlockVerifiedEventsProcessed.Inc()
+	eventindexer.BatchesVerifiedEventsProcessed.Inc()
 
 	return nil
 }
