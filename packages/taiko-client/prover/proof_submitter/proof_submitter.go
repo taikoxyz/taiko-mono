@@ -201,9 +201,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					}
 					return nil
 				}
-				log.Info("Request zk any proof error is", "error", err)
 				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-					log.Info("Step1", "1", "1")
 					return backoff.Permanent(err)
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
@@ -261,7 +259,7 @@ func (s *ProofSubmitter) SubmitProof(
 		"hash", proofWithHeader.Opts.BlockHash,
 		"stateRoot", proofWithHeader.Opts.StateRoot,
 		"proof", common.Bytes2Hex(proofWithHeader.Proof),
-		"tier", proofWithHeader.Tier,
+		"proofType", proofWithHeader.ProofType,
 	)
 
 	// Check if we still need to generate a new proof for that block.
