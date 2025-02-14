@@ -30,7 +30,7 @@ const (
 var (
 	ErrProofInProgress = errors.New("work_in_progress")
 	ErrRetry           = errors.New("retry")
-	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn_error")
+	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
 	StatusRegistered   = "registered"
 )
 
@@ -148,6 +148,7 @@ func (s *ZKvmProofProducer) Aggregate(
 		BatchProof:     batchProof,
 		Tier:           s.Tier(),
 		BlockIDs:       blockIDs,
+		ProofType:      zkType,
 	}, nil
 }
 
@@ -191,6 +192,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	log.Info(
 		"Proof generated",
 		"blockID", opts.OntakeOptions().BlockID,
+		"zkType", output.ProofType,
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
@@ -239,6 +241,7 @@ func (s *ZKvmProofProducer) requestProof(
 	log.Debug(
 		"Send proof generation request",
 		"blockID", opts.OntakeOptions().BlockID,
+		"zkProofType", ZKProofTypeAny,
 		"input", string(jsonValue),
 	)
 
@@ -264,6 +267,7 @@ func (s *ZKvmProofProducer) requestProof(
 	log.Debug(
 		"Proof generation output",
 		"blockID", opts.OntakeOptions().BlockID,
+		"zkProofType", ZKProofTypeAny,
 		"output", string(resBytes),
 	)
 	var output RaikoRequestProofBodyResponseV2
@@ -272,10 +276,12 @@ func (s *ZKvmProofProducer) requestProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get zk proof, err: %s, msg: %s",
-			output.Error,
-			output.ErrorMessage,
+		log.Error("Failed to get zk proof",
+			"err", output.Error,
+			"msg", output.ErrorMessage,
+			"zkType", ZKProofTypeAny,
 		)
+		return nil, errors.New(output.Error)
 	}
 
 	return &output, nil
@@ -294,6 +300,9 @@ func (s *ZKvmProofProducer) requestCancel(
 		Block:    opts.OntakeOptions().BlockID,
 		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
 		Graffiti: opts.OntakeOptions().Graffiti,
+		ZkAny: &ZkAnyRequestProofBodyParam{
+			Aggregation: opts.OntakeOptions().Compressed,
+		},
 	}
 
 	client := &http.Client{}
@@ -404,6 +413,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 	log.Debug(
 		"Batch proof generation output",
 		"blockIDs", blockIDs,
+		"zkProofType", zkType,
 		"output", string(resBytes),
 	)
 
@@ -413,11 +423,12 @@ func (s *ZKvmProofProducer) requestBatchProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get zk batch proof, err: %s, msg: %s, zkType: %s",
-			output.Error,
-			output.ErrorMessage,
-			zkType,
+		log.Error("Failed to get zk batch proof",
+			"err", output.Error,
+			"msg", output.ErrorMessage,
+			"zkType", zkType,
 		)
+		return nil, errors.New(output.Error)
 	}
 	if output.Data == nil {
 		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
@@ -438,6 +449,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 	log.Info(
 		"Batch proof generated",
 		"blockIDs", blockIDs,
+		"zkType", zkType,
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)

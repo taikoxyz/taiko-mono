@@ -208,6 +208,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					"blockID", meta.Ontake().GetBlockID(),
 					"bufferSize", bufferSize,
 					"maxBufferSize", s.proofBuffer.MaxLength,
+					"proofType", result.ProofType,
 					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
 					"bufferLastUpdatedAt", s.proofBuffer.lastUpdatedAt,
 				)
@@ -245,6 +246,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 		"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
 		"proof", common.Bytes2Hex(proofResponse.Proof),
 		"tier", proofResponse.Tier,
+		"proofType", proofResponse.ProofType,
 	)
 
 	// Check if we still need to generate a new proof for that block.

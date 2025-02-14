@@ -46,6 +46,7 @@ type BatchProofs struct {
 	BatchProof     []byte
 	Tier           uint16
 	BlockIDs       []*big.Int
+	ProofType      string
 }
 
 type ProofProducer interface {
