@@ -60,6 +60,7 @@ func (s *ClientTestSuite) SetupTest() {
 		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 		JwtSecret:         string(jwtSecret),
+		ResolverAddress:   common.HexToAddress(os.Getenv("RESOLVER")),
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli

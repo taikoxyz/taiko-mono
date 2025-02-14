@@ -2,6 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
+import { SP1Verifier as SuccinctVerifier } from
+"@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@p256-verifier/contracts/P256Verifier.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
@@ -21,6 +25,9 @@ import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
 contract UpgradeDevnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -102,6 +109,18 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "signal_service");
         copyRegister(rollupResolver, sharedResolver, "bridge");
 
+        // Proof verifier
+        address proofVerifier = deployProxy({
+            name: "proof_verifier",
+            impl: address(
+                new DevnetVerifier(
+                    address(rollupResolver), address(0), address(0), address(0), address(0)
+                )
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
+            registerTo: rollupResolver
+        });
+
         // OP verifier
         address opVerifier = deployProxy({
             name: "op_verifier",
@@ -112,7 +131,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         // TaikoInbox
         address newFork =
-            address(new DevnetInbox(address(0), opVerifier, taikoToken, signalService));
+            address(new DevnetInbox(address(0), proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
 
@@ -125,30 +144,38 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(l2ChainId != block.chainid, "same chainid");
 
         // Other verifiers
-        address proofVerifier = address(
-            new ERC1967Proxy(
-                address(
-                    new DevnetVerifier(
-                        address(rollupResolver), address(0), address(0), address(0), address(0)
-                    )
-                ),
-                abi.encodeCall(ComposeVerifier.init, (address(0)))
-            )
-        );
-        address automataDcapAttestation = address(0); // not used!
-        UUPSUpgradeable(sgxVerifier).upgradeTo(
-            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataDcapAttestation))
-        );
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
 
+        address automataProxy = deployProxy({
+            name: "automata_dcap_attestation",
+            impl: automataDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init, (address(0), address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
+        UUPSUpgradeable(sgxVerifier).upgradeTo(
+            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy))
+        );
         register(rollupResolver, "sgx_verifier", sgxVerifier);
-        address risc0Groth16Verifier = address(0); // TODO
+
+        // Deploy r0 groth16 verifier
+        RiscZeroGroth16Verifier risc0Groth16Verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        register(rollupResolver, "risc0_groth16_verifier", address(risc0Groth16Verifier));
         UUPSUpgradeable(risc0Verifier).upgradeTo(
-            address(new Risc0Verifier(l2ChainId, risc0Groth16Verifier))
+            address(new Risc0Verifier(l2ChainId, address(risc0Groth16Verifier)))
         );
         register(rollupResolver, "risc0_verifier", risc0Verifier);
-        address sp1RemoteVerifier = address(0); // TODO
+
+        // Deploy sp1 plonk verifier
+        SuccinctVerifier sp1RemoteVerifier = new SuccinctVerifier();
+        register(rollupResolver, "sp1_remote_verifier", address(sp1RemoteVerifier));
         UUPSUpgradeable(sp1Verifier).upgradeTo(
-            address(new SP1Verifier(l2ChainId, sp1RemoteVerifier))
+            address(new SP1Verifier(l2ChainId, address(sp1RemoteVerifier)))
         );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
 

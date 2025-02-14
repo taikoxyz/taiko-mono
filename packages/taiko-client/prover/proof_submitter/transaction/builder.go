@@ -216,10 +216,12 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			subProofs   = make([]encoding.SubProof, len(batchProof.ProofResponses))
 			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
-		verifier, err := a.rpc.GetProofVerifierPacaya(&bind.CallOpts{Context: txOpts.Context})
+		// TODO: Use the op verifier to keep the workflow until zk_any is online
+		opVerifier, err := a.rpc.GetVerifierByNamePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier")
 		if err != nil {
 			return nil, err
 		}
+		log.Info("Get op verifier", "addr", opVerifier)
 		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta
 			transitions[i] = pacayaBindings.ITaikoInboxTransition{
@@ -228,7 +230,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				StateRoot:  proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Root,
 			}
 			batchIDs[i] = proof.Meta.Pacaya().GetBatchID().Uint64()
-			subProofs[i] = encoding.SubProof{Verifier: verifier, Proof: batchProof.BatchProof}
+			subProofs[i] = encoding.SubProof{Verifier: opVerifier, Proof: batchProof.BatchProof}
 			log.Info(
 				"Build batch proof submission transaction",
 				"batchID", batchIDs[i],
@@ -238,7 +240,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				"startBlockID", proof.Opts.PacayaOptions().Headers[0].Number,
 				"endBlockID", proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Number,
 				"gasLimit", txOpts.GasLimit,
-				"verifier", verifier,
+				"verifier", opVerifier,
 			)
 		}
 

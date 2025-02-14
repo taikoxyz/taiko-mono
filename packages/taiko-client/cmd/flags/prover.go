@@ -214,4 +214,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
+	ResolverAddress,
 }, TxmgrFlags)

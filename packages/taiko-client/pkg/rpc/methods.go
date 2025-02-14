@@ -1095,6 +1095,20 @@ func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
 	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
 }
 
+// GetVerifierByNamePacaya resolves the Pacaya specific type verifier address.
+func (c *Client) GetVerifierByNamePacaya(opts *bind.CallOpts, name string) (common.Address, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.PacayaClients.Resolver.Resolve(
+		&bind.CallOpts{Context: opts.Context}, c.L1.ChainID, StringToBytes32(name), true,
+	)
+}
+
 // GetProofVerifierPacaya resolves the Pacaya proof verifier address.
 func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
 	var cancel context.CancelFunc

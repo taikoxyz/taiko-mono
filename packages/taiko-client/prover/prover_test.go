@@ -665,6 +665,7 @@ func (s *ProverTestSuite) initProver(
 		BackOffMaxRetries:     12,
 		L1NodeVersion:         "1.0.0",
 		L2NodeVersion:         "0.1.0",
+		ResolverAddress:       common.HexToAddress(os.Getenv("RESOLVER")),
 	}, s.txmgr, s.txmgr))
 
 	p.guardianProverHeartbeater = guardianProverHeartbeater.New(

@@ -44,6 +44,7 @@ type PacayaClients struct {
 	TaikoToken  *pacayaBindings.TaikoToken
 	ProverSet   *pacayaBindings.ProverSet
 	ForkRouter  *pacayaBindings.ForkRouter
+	Resolver    *pacayaBindings.ResolverBase
 	ForkHeight  uint64
 }
 
@@ -79,6 +80,7 @@ type ClientConfig struct {
 	L2EngineEndpoint              string
 	JwtSecret                     string
 	Timeout                       time.Duration
+	ResolverAddress               common.Address
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -257,6 +259,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	var (
 		taikoToken *pacayaBindings.TaikoToken
 		proverSet  *pacayaBindings.ProverSet
+		resolver   *pacayaBindings.ResolverBase
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -268,6 +271,11 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return err
 		}
 	}
+	if cfg.ResolverAddress.Hex() != ZeroAddress.Hex() {
+		if resolver, err = pacayaBindings.NewResolverBase(cfg.ResolverAddress, c.L1); err != nil {
+			return err
+		}
+	}
 
 	c.PacayaClients = &PacayaClients{
 		TaikoInbox:  taikoInbox,
@@ -275,6 +283,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		TaikoToken:  taikoToken,
 		ProverSet:   proverSet,
 		ForkRouter:  forkManager,
+		Resolver:    resolver,
 	}
 
 	return nil
