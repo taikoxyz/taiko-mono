@@ -148,7 +148,10 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new DevnetInbox(taikoWrapper, opVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
-
+        // Prover set
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
+        );
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
@@ -183,11 +186,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(
                 new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
-        );
-
-        // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
         );
     }
 }
