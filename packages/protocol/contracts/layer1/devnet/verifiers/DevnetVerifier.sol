@@ -9,25 +9,22 @@ import "../../verifiers/compose/ComposeVerifier.sol";
 contract DevnetVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
-    address public immutable opVerifier;
-    address public immutable sgxVerifier;
-    address public immutable risc0Verifier;
-    address public immutable sp1Verifier;
-
     constructor(
-        address _resolver,
+        address _taikoInbox,
         address _opVerifier,
         address _sgxVerifier,
         address _risc0Verifier,
         address _sp1Verifier
     )
-        EssentialContract(_resolver)
-    {
-        opVerifier = _opVerifier;
-        sgxVerifier = _sgxVerifier;
-        risc0Verifier = _risc0Verifier;
-        sp1Verifier = _sp1Verifier;
-    }
+        ComposeVerifier(
+            _taikoInbox,
+            _opVerifier,
+            _sgxVerifier,
+            address(0),
+            _risc0Verifier,
+            _sp1Verifier
+        )
+    { }
 
     function areVerifiersSufficient(address[] memory _verifiers)
         internal

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.23.1...docs-site-v1.23.2) (2025-02-14)
+
+
+### Chores
+
+* **docs-site:** disable banner ([#18939](https://github.com/taikoxyz/taiko-mono/issues/18939)) ([28076e6](https://github.com/taikoxyz/taiko-mono/commit/28076e6cb0e6cbd3daee7d099b252bb106afac43))
+
 ## [1.23.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.23.0...docs-site-v1.23.1) (2025-02-11)
 
 
