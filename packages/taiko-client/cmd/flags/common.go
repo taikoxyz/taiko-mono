@@ -89,13 +89,6 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
-	ResolverAddress = &cli.StringFlag{
-		Name:     "resolver",
-		Usage:    "Rollup resolver contract `address`",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"RESOLVER"},
-	}
 
 	// Optional flags used by all client software.
 	// Logging

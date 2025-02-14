@@ -127,7 +127,6 @@ func InitFromConfig(
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
 		Timeout:                       cfg.RPCTimeout,
-		ResolverAddress:               cfg.ResolverAddress,
 	}); err != nil {
 		return err
 	}

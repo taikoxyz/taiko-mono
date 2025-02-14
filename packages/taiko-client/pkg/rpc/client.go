@@ -39,13 +39,13 @@ type OntakeClients struct {
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
 type PacayaClients struct {
-	TaikoInbox  *pacayaBindings.TaikoInboxClient
-	TaikoAnchor *pacayaBindings.TaikoAnchorClient
-	TaikoToken  *pacayaBindings.TaikoToken
-	ProverSet   *pacayaBindings.ProverSet
-	ForkRouter  *pacayaBindings.ForkRouter
-	Resolver    *pacayaBindings.ResolverBase
-	ForkHeight  uint64
+	TaikoInbox      *pacayaBindings.TaikoInboxClient
+	TaikoAnchor     *pacayaBindings.TaikoAnchorClient
+	TaikoToken      *pacayaBindings.TaikoToken
+	ProverSet       *pacayaBindings.ProverSet
+	ForkRouter      *pacayaBindings.ForkRouter
+	ComposeVerifier *pacayaBindings.ComposeVerifier
+	ForkHeight      uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -80,7 +80,6 @@ type ClientConfig struct {
 	L2EngineEndpoint              string
 	JwtSecret                     string
 	Timeout                       time.Duration
-	ResolverAddress               common.Address
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -259,7 +258,6 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	var (
 		taikoToken *pacayaBindings.TaikoToken
 		proverSet  *pacayaBindings.ProverSet
-		resolver   *pacayaBindings.ResolverBase
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -271,19 +269,26 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return err
 		}
 	}
-	if cfg.ResolverAddress.Hex() != ZeroAddress.Hex() {
-		if resolver, err = pacayaBindings.NewResolverBase(cfg.ResolverAddress, c.L1); err != nil {
-			return err
-		}
+	var cancel context.CancelFunc
+	opts := &bind.CallOpts{Context: context.Background()}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+	composeVerifierAddress, err := taikoInbox.Verifier(opts)
+	if err != nil {
+		return err
+	}
+	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+	if err != nil {
+		return err
 	}
 
 	c.PacayaClients = &PacayaClients{
-		TaikoInbox:  taikoInbox,
-		TaikoAnchor: taikoAnchor,
-		TaikoToken:  taikoToken,
-		ProverSet:   proverSet,
-		ForkRouter:  forkManager,
-		Resolver:    resolver,
+		TaikoInbox:      taikoInbox,
+		TaikoAnchor:     taikoAnchor,
+		TaikoToken:      taikoToken,
+		ProverSet:       proverSet,
+		ForkRouter:      forkManager,
+		ComposeVerifier: composeVerifier,
 	}
 
 	return nil

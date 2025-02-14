@@ -217,9 +217,12 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
 		// TODO: Use the op verifier to keep the workflow until zk_any is online
-		opVerifier, err := a.rpc.GetVerifierByNamePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier")
+		opVerifier, err := a.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: txOpts.Context})
 		if err != nil {
 			return nil, err
+		}
+		if opVerifier == ZeroAddress {
+			return nil, fmt.Errorf("empty op verfier address")
 		}
 		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta

@@ -114,7 +114,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             name: "proof_verifier",
             impl: address(
                 new DevnetVerifier(
-                    address(rollupResolver), address(0), address(0), address(0), address(0)
+                    address(0), address(0), address(0), address(0), address(0)
                 )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
