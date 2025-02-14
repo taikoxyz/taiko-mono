@@ -192,6 +192,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		txs := types.Transactions{}
 		if txListCursor+int(blockInfo.NumTransactions) <= len(allTxs) {
 			txs = allTxs[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
+		} else if txListCursor < len(allTxs) {
+			txs = allTxs[txListCursor:]
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
