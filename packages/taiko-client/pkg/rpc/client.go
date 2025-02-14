@@ -39,12 +39,13 @@ type OntakeClients struct {
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
 type PacayaClients struct {
-	TaikoInbox  *pacayaBindings.TaikoInboxClient
-	TaikoAnchor *pacayaBindings.TaikoAnchorClient
-	TaikoToken  *pacayaBindings.TaikoToken
-	ProverSet   *pacayaBindings.ProverSet
-	ForkRouter  *pacayaBindings.ForkRouter
-	ForkHeight  uint64
+	TaikoInbox      *pacayaBindings.TaikoInboxClient
+	TaikoAnchor     *pacayaBindings.TaikoAnchorClient
+	TaikoToken      *pacayaBindings.TaikoToken
+	ProverSet       *pacayaBindings.ProverSet
+	ForkRouter      *pacayaBindings.ForkRouter
+	ComposeVerifier *pacayaBindings.ComposeVerifier
+	ForkHeight      uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -268,13 +269,26 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return err
 		}
 	}
+	var cancel context.CancelFunc
+	opts := &bind.CallOpts{Context: context.Background()}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+	composeVerifierAddress, err := taikoInbox.Verifier(opts)
+	if err != nil {
+		return err
+	}
+	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+	if err != nil {
+		return err
+	}
 
 	c.PacayaClients = &PacayaClients{
-		TaikoInbox:  taikoInbox,
-		TaikoAnchor: taikoAnchor,
-		TaikoToken:  taikoToken,
-		ProverSet:   proverSet,
-		ForkRouter:  forkManager,
+		TaikoInbox:      taikoInbox,
+		TaikoAnchor:     taikoAnchor,
+		TaikoToken:      taikoToken,
+		ProverSet:       proverSet,
+		ForkRouter:      forkManager,
+		ComposeVerifier: composeVerifier,
 	}
 
 	return nil
