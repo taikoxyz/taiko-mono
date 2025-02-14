@@ -44,8 +44,10 @@ func (s *ProverTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
 	// Init prover
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
+	var (
+		l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+		err             error
+	)
 
 	s.txmgr, err = txmgr.NewSimpleTxManager(
 		"prover_test",
@@ -93,10 +95,10 @@ func (s *ProverTestSuite) SetupTest() {
 	s.d = d
 
 	// Init proposer
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	prop := new(proposer.Proposer)
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+		prop              = new(proposer.Proposer)
+	)
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
@@ -128,10 +130,11 @@ func (s *ProverTestSuite) TestName() {
 func (s *ProverTestSuite) TestInitError() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
 
-	p := new(Prover)
+	var (
+		l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+		p               = new(Prover)
+	)
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:          os.Getenv("L1_WS"),
@@ -151,8 +154,8 @@ func (s *ProverTestSuite) TestInitError() {
 
 func (s *ProverTestSuite) TestOnBlockProposed() {
 	// Init prover
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
+	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 	// Valid block
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
@@ -499,10 +502,11 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 }
 
 func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
-	batchSize := 2
 	// Init batch prover
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
+	var (
+		l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+		batchSize       = 2
+	)
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 	batchProver := new(Prover)
@@ -566,10 +570,11 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 }
 
 func (s *ProverTestSuite) TestAggregateProofs() {
-	batchSize := 2
 	// Init batch prover
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
+	var (
+		l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+		batchSize       = 2
+	)
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 	batchProver := new(Prover)

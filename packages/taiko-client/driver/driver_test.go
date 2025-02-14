@@ -409,10 +409,10 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	anchoredL1Block *types.Header,
 	l2BlockID uint64,
 ) *resty.Response {
-	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	preconferAddress := crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
+	var (
+		preconferPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		preconferAddress = crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
+	)
 
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
@@ -592,14 +592,14 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 }
 
 func (s *DriverTestSuite) InitProposer() {
-	p := new(proposer.Proposer)
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		p                 = new(proposer.Proposer)
+	)
 
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	s.Nil(err)
 	s.NotEmpty(jwtSecret)
-
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
 
 	s.Nil(p.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{

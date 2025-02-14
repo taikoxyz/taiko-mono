@@ -55,10 +55,10 @@ func (s *ProposerTestSuite) SetupTest() {
 	s.Nil(err)
 	s.s = syncer
 
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	p := new(Proposer)
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		p                 = new(Proposer)
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))

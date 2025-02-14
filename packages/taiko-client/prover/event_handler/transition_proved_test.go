@@ -69,10 +69,10 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.Nil(err)
 
 	// Init proposer
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	prop := new(proposer.Proposer)
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		prop              = new(proposer.Proposer)
+	)
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
