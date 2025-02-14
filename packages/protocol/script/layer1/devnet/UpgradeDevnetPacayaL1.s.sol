@@ -135,7 +135,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         // TaikoWrapper
         address taikoWrapper = deployProxy({
             name: "taiko_wrapper",
-            impl: address(new TaikoWrapper(rollupResolver, store, address(0))),
+            impl: address(new TaikoWrapper(taikoInbox, store, address(0))),
             data: abi.encodeCall(TaikoWrapper.init, (address(0))),
             registerTo: rollupResolver
         });
