@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "../../verifiers/compose/ComposeVerifier.sol";
 
-/// @title AllTypeVerifier.sol
-/// @notice OP or SGX or TDX or SP1 or Risc0 verifier
+/// @title DevnetVerifier.sol
+/// @notice OP or SGX or SP1 or Risc0 verifier
 /// @custom:security-contact security@taiko.xyz
 contract DevnetVerifier is ComposeVerifier {
     uint256[50] private __gap;
