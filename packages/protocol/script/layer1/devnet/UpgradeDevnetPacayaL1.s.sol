@@ -125,7 +125,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), newFork, address(1)
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
@@ -144,15 +144,11 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), newFork, taikoWrapper
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
                 )
             )
         );
 
-        // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, newFork, taikoToken, newFork))
-        );
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
@@ -191,6 +187,11 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
                     address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             )
+        );
+
+        // Prover set
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
         );
     }
 }
