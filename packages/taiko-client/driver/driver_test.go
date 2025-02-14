@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -296,6 +297,63 @@ func (s *DriverTestSuite) TestStartClose() {
 	s.Nil(s.d.Start())
 	s.cancel()
 	s.d.Close(s.d.ctx)
+}
+
+func (s *DriverTestSuite) TestForcedInclusion() {
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	forcedInclusionTx, err := testutils.AssembleTestTx(
+		s.RPCClient.L2,
+		s.TestAddrPrivKey,
+		nonce,
+		&s.TestAddr,
+		common.Big0,
+		[]byte{},
+	)
+	s.Nil(err)
+	b, err := encodeAndCompressTxList([]*types.Transaction{forcedInclusionTx})
+	s.Nil(err)
+	s.NotEmpty(b)
+
+	var blob = &eth.Blob{}
+	s.Nil(blob.FromData(b))
+	data, err := encoding.ForcedInclusionStoreABI.Pack("storeForcedInclusion", uint8(0), uint32(0), uint32(len(b)))
+	s.Nil(err)
+
+	feeInGwei, err := s.RPCClient.PacayaClients.ForcedInclusionStore.FeeInGwei(nil)
+	s.Nil(err)
+
+	receipt, err := s.TxMgr("storeForcedInclusion", s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")).Send(
+		context.Background(),
+		txmgr.TxCandidate{
+			TxData: data,
+			To:     &s.p.ForcedInclusionStoreAddress,
+			Blobs:  []*eth.Blob{blob},
+			Value:  new(big.Int).SetUint64(feeInGwei * params.GWei),
+		},
+	)
+	s.Nil(err)
+	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
+
+	delay, err := s.RPCClient.PacayaClients.ForcedInclusionStore.InclusionDelay(nil)
+	s.Nil(err)
+	s.NotZero(delay)
+
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	// Wait `InclusionDelay` blocks
+	for i := 0; i < int(delay-1); i++ {
+		s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+		s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
+	}
+
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+uint64(delay-1), l2Head2.Number.Uint64())
 }
 
 func (s *DriverTestSuite) TestL1Current() {

@@ -441,7 +441,19 @@ func (p *Proposer) ProposeTxListPacaya(
 		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
 	}
 
-	log.Info("Forced inclusion", "forcedInclusion", forcedInclusion)
+	if forcedInclusion == nil {
+		log.Info("No forced inclusion", "minTxsPerForcedInclusion", minTxsPerForcedInclusion)
+	} else {
+		log.Info(
+			"Forced inclusion",
+			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"feeInGwei", forcedInclusion.FeeInGwei,
+			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
+			"blobByteOffset", forcedInclusion.BlobByteOffset,
+			"blobByteSize", forcedInclusion.BlobByteSize,
+			"minTxsPerForcedInclusion", minTxsPerForcedInclusion,
+		)
+	}
 
 	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	if err != nil {
