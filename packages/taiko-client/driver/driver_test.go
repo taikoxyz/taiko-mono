@@ -542,10 +542,16 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
 	var (
 		to          = &s.p.TaikoL1Address
+		proposer    = crypto.PubkeyToAddress(s.p.L1ProposerPrivKey.PublicKey)
 		data        []byte
 		blockParams []pacayaBindings.ITaikoInboxBlockParams
 		allTxs      types.Transactions
 	)
+
+	if s.p.ProverSetAddress != rpc.ZeroAddress {
+		to = &s.p.ProverSetAddress
+		proposer = s.p.ProverSetAddress
+	}
 
 	s.NotZero(len(blocks))
 	s.Equal(len(blocks), len(anchoredL1Blocks))
@@ -566,6 +572,7 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	encodedParams, err := encoding.EncodeBatchParamsWithForcedInclusion(
 		nil,
 		&encoding.BatchParams{
+			Proposer: proposer,
 			Coinbase: blocks[0].Coinbase(),
 			BlobParams: encoding.BlobParams{
 				ByteOffset: 0,
@@ -578,7 +585,6 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	s.Nil(err)
 
 	if s.p.ProverSetAddress != rpc.ZeroAddress {
-		to = &s.p.ProverSetAddress
 		data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
 	} else {
 		data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes)

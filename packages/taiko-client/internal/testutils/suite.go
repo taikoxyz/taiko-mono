@@ -95,8 +95,7 @@ func (s *ClientTestSuite) SetupTest() {
 }
 
 func (s *ClientTestSuite) enableProver(key *ecdsa.PrivateKey, address common.Address) {
-	t, err := s.txMgr("enableProver", key)
-	s.Nil(err)
+	t := s.TxMgr("enableProver", key)
 
 	proverSetAddress := common.HexToAddress(os.Getenv("PROVER_SET"))
 
@@ -136,8 +135,7 @@ func (s *ClientTestSuite) sendBondTokens(key *ecdsa.PrivateKey, recipient common
 }
 
 func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
-	t, err := s.txMgr("setAllowance", key)
-	s.Nil(err)
+	t := s.TxMgr("setAllowance", key)
 
 	var (
 		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN"))
@@ -164,8 +162,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 }
 
 func (s *ClientTestSuite) depositProverSetTokens(key *ecdsa.PrivateKey) {
-	t, err := s.txMgr("setProverSetAllowance", key)
-	s.Nil(err)
+	t := s.TxMgr("setProverSetAllowance", key)
 
 	var proverSetAddress = common.HexToAddress(os.Getenv("PROVER_SET"))
 
@@ -182,8 +179,8 @@ func (s *ClientTestSuite) depositProverSetTokens(key *ecdsa.PrivateKey) {
 	s.Nil(err)
 }
 
-func (s *ClientTestSuite) txMgr(name string, key *ecdsa.PrivateKey) (*txmgr.SimpleTxManager, error) {
-	return txmgr.NewSimpleTxManager(
+func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) *txmgr.SimpleTxManager {
+	txmgr, err := txmgr.NewSimpleTxManager(
 		name,
 		log.Root(),
 		new(metrics.NoopTxMetrics),
@@ -203,6 +200,8 @@ func (s *ClientTestSuite) txMgr(name string, key *ecdsa.PrivateKey) (*txmgr.Simp
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
 	)
+	s.Nil(err)
+	return txmgr
 }
 
 func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {

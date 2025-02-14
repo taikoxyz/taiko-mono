@@ -114,12 +114,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        // TaikoInbox
-        address newFork =
-            address(new DevnetInbox(address(0), opVerifier, taikoToken, signalService));
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        register(rollupResolver, "taiko", taikoInbox);
-
         // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
         address store = deployProxy({
             name: "forced_inclusion_store",
@@ -148,6 +142,12 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
                 )
             )
         );
+
+        // TaikoInbox
+        address newFork =
+            address(new DevnetInbox(taikoWrapper, opVerifier, taikoToken, signalService));
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
+        register(rollupResolver, "taiko", taikoInbox);
 
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;

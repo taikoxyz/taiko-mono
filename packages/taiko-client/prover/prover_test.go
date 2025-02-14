@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -270,10 +269,11 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	// Unpause the TaikoInbox contract
 	data, err := encoding.TaikoInboxABI.Pack("unpause")
 	s.Nil(err)
-	receipt, err := s.p.txmgr.Send(context.Background(), txmgr.TxCandidate{
-		TxData: data,
-		To:     &s.p.cfg.TaikoL1Address,
-	})
+	receipt, err := s.TxMgr("unpauseTaikoInbox", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")).
+		Send(
+			context.Background(),
+			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.TaikoL1Address},
+		)
 	s.Nil(err)
 	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 }
@@ -516,6 +516,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
 		Dummy:                 true,
@@ -584,6 +585,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
 		Dummy:                 true,
@@ -618,24 +620,27 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	s.Nil(batchProver.aggregateOp(tier))
 	s.Nil(batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 	for i := 0; i < batchSize; i++ {
-		<-sink
+		s.NotNil(<-sink)
 	}
 }
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
-	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.
-		Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	s.p.cfg.Allowance = common.Big256
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
+
+	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
 	s.Nil(err)
 
-	s.p.cfg.Allowance = common.Big1
+	s.NotZero(originalAllowance.Uint64())
+
+	s.p.cfg.Allowance = new(big.Int).Sub(originalAllowance, common.Big1)
 
 	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
 
-	allowance, err := s.p.rpc.PacayaClients.TaikoToken.
-		Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
 	s.Nil(err)
 
-	s.Equal(0, allowance.Cmp(originalAllowance))
+	s.Zero(allowance.Cmp(originalAllowance))
 }
 
 func (s *ProverTestSuite) TearDownTest() {
@@ -649,10 +654,7 @@ func TestProverTestSuite(t *testing.T) {
 	suite.Run(t, new(ProverTestSuite))
 }
 
-func (s *ProverTestSuite) initProver(
-	ctx context.Context,
-	key *ecdsa.PrivateKey,
-) {
+func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey) {
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 

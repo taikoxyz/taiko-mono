@@ -490,7 +490,6 @@ func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 	return b, nil
 }
 
-
 // EncodeBatchParamsWithForcedInclusion performs the solidity `abi.encode` for the given two pacaya batchParams.
 func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchParams) ([]byte, error) {
 	var (
@@ -498,15 +497,15 @@ func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchPa
 		err error
 	)
 	if paramsForcedInclusion != nil {
-		if x, err = batchParamsComponentsArgs.Pack(paramsForcedInclusion); err != nil {
+		if x, err = BatchParamsComponentsArgs.Pack(paramsForcedInclusion); err != nil {
 			return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
 		}
 	}
-	y, err := batchParamsComponentsArgs.Pack(params)
-  if err != nil {
+	y, err := BatchParamsComponentsArgs.Pack(params)
+	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
 	}
-  return batchParamsWithForcedInclusionArgs.Pack(x, y)
+	return batchParamsWithForcedInclusionArgs.Pack(x, y)
 }
 
 // EncodeBatchesSubProofs performs the solidity `abi.encode` for the given pacaya batchParams.
