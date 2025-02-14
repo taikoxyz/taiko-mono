@@ -31,7 +31,7 @@ const (
 var (
 	ErrProofInProgress = errors.New("work_in_progress")
 	ErrRetry           = errors.New("retry")
-	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn_error")
+	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
 	StatusRegistered   = "registered"
 )
 
@@ -176,6 +176,9 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	if output.Data.Status == StatusRegistered {
 		return nil, "", ErrRetry
 	}
+	if output.Data.Status == ErrZkAnyNotDrawn.Error() {
+		return nil, "", ErrZkAnyNotDrawn
+	}
 
 	if !opts.Compressed {
 		if len(output.Data.Proof.Proof) == 0 {
@@ -187,6 +190,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		"Proof generated",
 		"blockID", opts.BlockID,
 		"time", time.Since(requestAt),
+		"zkType", output.ProofType,
 		"producer", "ZKvmProofProducer",
 	)
 	if output.ProofType == ZKProofTypeR0 {
@@ -434,6 +438,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		"Batch proof generated",
 		"blockIDs", blockIDs,
 		"time", time.Since(requestAt),
+		"zkType", zkType,
 		"producer", "ZKvmProofProducer",
 	)
 
