@@ -258,9 +258,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new DevnetVerifier(
-                    address(0), address(0), address(0), address(0), address(0)
-                )
+                new DevnetVerifier(address(0), address(0), address(0), address(0), address(0))
             ),
             data: abi.encodeCall(ComposeVerifier.init, (owner)),
             registerTo: rollupResolver
