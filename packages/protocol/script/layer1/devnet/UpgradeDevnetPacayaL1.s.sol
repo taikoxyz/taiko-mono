@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import { SP1Verifier as SuccinctVerifier } from
-"@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
@@ -153,7 +153,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init, (address(0), address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init,
+                (address(0), address(sigVerifyLib), address(pemCertChainLib))
             ),
             registerTo: rollupResolver
         });
