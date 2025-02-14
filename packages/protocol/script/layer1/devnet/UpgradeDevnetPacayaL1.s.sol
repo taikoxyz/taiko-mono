@@ -21,9 +21,9 @@ import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
-import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
@@ -182,9 +182,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
-                new DevnetVerifier(
-                    address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
-                )
+                new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
         );
     }
