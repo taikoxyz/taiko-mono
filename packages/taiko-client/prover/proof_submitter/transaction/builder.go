@@ -221,7 +221,6 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 		if err != nil {
 			return nil, err
 		}
-		log.Info("Get op verifier", "addr", opVerifier)
 		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta
 			transitions[i] = pacayaBindings.ITaikoInboxTransition{
