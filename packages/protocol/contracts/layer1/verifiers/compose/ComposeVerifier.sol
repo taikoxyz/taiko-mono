@@ -19,6 +19,31 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
+    address public immutable taikoInbox;
+    address public immutable opVerifier;
+    address public immutable sgxVerifier;
+    address public immutable tdxVerifier;
+    address public immutable risc0Verifier;
+    address public immutable sp1Verifier;
+
+    constructor(
+        address _taikoInbox,
+        address _opVerifier,
+        address _sgxVerifier,
+        address _tdxVerifier,
+        address _risc0Verifier,
+        address _sp1Verifier
+    )
+        EssentialContract(address(0))
+    {
+        taikoInbox = _taikoInbox;
+        opVerifier = _opVerifier;
+        sgxVerifier = _sgxVerifier;
+        tdxVerifier = _tdxVerifier;
+        risc0Verifier = _risc0Verifier;
+        sp1Verifier = _sp1Verifier;
+    }
+
     error CV_INVALID_SUB_VERIFIER();
     error CV_INVALID_SUB_VERIFIER_ORDER();
     error CV_VERIFIERS_INSUFFICIENT();
@@ -35,7 +60,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyFromNamed(LibStrings.B_TAIKO)
+        onlyFrom(taikoInbox)
     {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;

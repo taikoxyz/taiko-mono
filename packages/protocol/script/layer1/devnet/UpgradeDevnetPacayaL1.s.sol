@@ -19,7 +19,7 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
-import "src/layer1/verifiers/compose/AllTypeVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 
 contract UpgradeDevnetPacayaL1 is DeployCapability {
@@ -128,13 +128,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address proofVerifier = address(
             new ERC1967Proxy(
                 address(
-                    new AllTypeVerifier(
-                        address(rollupResolver),
-                        address(0),
-                        address(0),
-                        address(0),
-                        address(0),
-                        address(0)
+                    new DevnetVerifier(
+                        taikoInbox, address(0), address(0), address(0), address(0)
                     )
                 ),
                 abi.encodeCall(ComposeVerifier.init, (address(0)))
@@ -159,13 +154,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
-                new AllTypeVerifier(
-                    address(rollupResolver),
-                    opVerifier,
-                    sgxVerifier,
-                    address(0),
-                    risc0Verifier,
-                    sp1Verifier
+                new DevnetVerifier(
+                    taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             )
         );

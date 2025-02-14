@@ -34,7 +34,7 @@ import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
-import "src/layer1/verifiers/compose/AllTypeVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -317,8 +317,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         address proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new AllTypeVerifier(
-                    address(rollupResolver), address(0), address(0), address(0), address(0), address(0)
+                new DevnetVerifier(
+                    taikoInboxAddr, address(0), address(0), address(0), address(0)
                 )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
@@ -332,13 +332,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
-                new AllTypeVerifier(
-                    address(rollupResolver),
-                    opVerifier,
-                    sgxVerifier,
-                    address(0),
-                    risc0Verifier,
-                    sp1Verifier
+                new DevnetVerifier(
+                    taikoInboxAddr, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             )
         });
