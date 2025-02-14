@@ -128,9 +128,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address proofVerifier = address(
             new ERC1967Proxy(
                 address(
-                    new DevnetVerifier(
-                        taikoInbox, address(0), address(0), address(0), address(0)
-                    )
+                    new DevnetVerifier(taikoInbox, address(0), address(0), address(0), address(0))
                 ),
                 abi.encodeCall(ComposeVerifier.init, (address(0)))
             )
@@ -154,9 +152,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
-                new DevnetVerifier(
-                    taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
-                )
+                new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
         );
     }

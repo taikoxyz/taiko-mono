@@ -317,9 +317,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new DevnetVerifier(
-                    taikoInboxAddr, address(0), address(0), address(0), address(0)
-                )
+                new DevnetVerifier(taikoInboxAddr, address(0), address(0), address(0), address(0))
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: rollupResolver
@@ -332,9 +330,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
-                new DevnetVerifier(
-                    taikoInboxAddr, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
-                )
+                new DevnetVerifier(taikoInboxAddr, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
         });
         ComposeVerifier(proofVerifier).transferOwnership(owner);
