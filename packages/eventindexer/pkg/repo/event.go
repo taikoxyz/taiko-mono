@@ -302,14 +302,13 @@ func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]
 		Where("event = ?", eventindexer.EventNameTransitionProved).
 		Find(&e).Error
 
-	if err == nil {
-		return e, nil
-	}
-
-	if err != gorm.ErrRecordNotFound {
+	if err != nil {
 		return nil, err
 	}
 
+	if len(e) > 0 {
+		return e, nil
+	}
 	// Try to find the batch this block belongs to
 	batchEvent := &eventindexer.Event{}
 	err = r.db.GormDB().WithContext(ctx).

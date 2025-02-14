@@ -446,7 +446,6 @@ func TestIntegration_Event_GetBlockProvenBy(t *testing.T) {
 		Data:         fmt.Sprintf("{\"batchID\": %d}", batchID),
 		Event:        eventindexer.EventNameBatchesProven,
 		ChainID:      big.NewInt(1),
-		BlockID:      &batchBlockID,
 		TransactedAt: time.Now(),
 		BatchID:      &batchID,
 	})
