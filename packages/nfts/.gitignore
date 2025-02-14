@@ -21,7 +21,7 @@ artifacts
 cache
 cache_forge
 cache_hardhat
-out
+out/build-info
 
 # Foundry
 broadcast
