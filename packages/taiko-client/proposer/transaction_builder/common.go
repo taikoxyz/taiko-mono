@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
@@ -22,9 +23,9 @@ type ProposeBlocksTransactionBuilder interface {
 	) (*txmgr.TxCandidate, error)
 }
 
-// buildBlobAndBlockParamsForForcedInclusion builds the blob params and the block params
+// buildParamsForForcedInclusion builds the blob params and the block params
 // for the given forced inclusion.
-func buildBlobAndBlockParamsForForcedInclusion(
+func buildParamsForForcedInclusion(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 ) (*encoding.BlobParams, []pacayaBindings.ITaikoInboxBlockParams) {
@@ -33,7 +34,7 @@ func buildBlobAndBlockParamsForForcedInclusion(
 	}
 	return &encoding.BlobParams{
 			BlobHashes: [][32]byte{forcedInclusion.BlobHash},
-			NumBlobs:   1,
+			NumBlobs:   0,
 			ByteOffset: forcedInclusion.BlobByteOffset,
 			ByteSize:   forcedInclusion.BlobByteSize,
 		}, []pacayaBindings.ITaikoInboxBlockParams{
