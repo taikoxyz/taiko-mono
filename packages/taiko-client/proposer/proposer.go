@@ -395,8 +395,8 @@ func (p *Proposer) ProposeTxListPacaya(
 	txBatch []types.Transactions,
 ) error {
 	var (
-		proverAddress = p.proposerAddress
-		txs           uint64
+		proposerAddress = p.proposerAddress
+		txs             uint64
 	)
 
 	// Make sure the tx list is not bigger than the maxBlocksPerBatch.
@@ -408,15 +408,15 @@ func (p *Proposer) ProposeTxListPacaya(
 		txs += uint64(len(txList))
 	}
 
-	// Check prover balance.
+	// Check balance.
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proverAddress = p.Config.ClientConfig.ProverSetAddress
+		proposerAddress = p.Config.ClientConfig.ProverSetAddress
 	}
 
 	ok, err := rpc.CheckProverBalance(
 		ctx,
 		p.rpc,
-		proverAddress,
+		proposerAddress,
 		p.TaikoL1Address,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
@@ -428,12 +428,12 @@ func (p *Proposer) ProposeTxListPacaya(
 	)
 
 	if err != nil {
-		log.Warn("Failed to check prover balance", "prover", proverAddress, "error", err)
+		log.Warn("Failed to check prover balance", "proposer", proposerAddress, "error", err)
 		return err
 	}
 
 	if !ok {
-		return fmt.Errorf("insufficient prover (%s) balance", proverAddress.Hex())
+		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
 
 	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
@@ -442,10 +442,11 @@ func (p *Proposer) ProposeTxListPacaya(
 	}
 
 	if forcedInclusion == nil {
-		log.Info("No forced inclusion", "minTxsPerForcedInclusion", minTxsPerForcedInclusion)
+		log.Info("No forced inclusion", "proposer", proposerAddress.Hex())
 	} else {
 		log.Info(
 			"Forced inclusion",
+			"proposer", proposerAddress.Hex(),
 			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
 			"feeInGwei", forcedInclusion.FeeInGwei,
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
