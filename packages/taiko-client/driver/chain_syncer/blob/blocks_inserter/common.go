@@ -45,7 +45,7 @@ func createPayloadAndSetHead(
 
 	// If the Pacaya block is preconfirmed, we don't need to insert it again.
 	if meta.BlockID.Cmp(new(big.Int).SetUint64(rpc.PacayaClients.ForkHeight)) >= 0 {
-		header, err := isBlockPreconfirmed(ctx, rpc, meta, txListBytes, anchorTx)
+		header, err := isBlockPreconfirmed(ctx, rpc, meta, anchorTx)
 		if err != nil {
 			log.Debug("Failed to check if the block is preconfirmed", "error", err)
 		} else if header != nil {
@@ -218,7 +218,6 @@ func isBlockPreconfirmed(
 	ctx context.Context,
 	rpc *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
-	txListBytes []byte,
 	anchorTx *types.Transaction,
 ) (*types.Header, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
@@ -229,6 +228,11 @@ func isBlockPreconfirmed(
 
 	if block == nil {
 		return nil, fmt.Errorf("block not found by number %d", blockID)
+	}
+
+	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{block.Transactions()[0]}, meta.Txs...))
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode transactions: %w", err)
 	}
 
 	var (

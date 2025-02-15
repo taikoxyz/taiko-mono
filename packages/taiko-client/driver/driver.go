@@ -162,6 +162,7 @@ func (d *Driver) Start() error {
 
 	// Start the preconf block server if it is enabled.
 	if d.preconfBlockServer != nil {
+		log.Info("starting preconfirmation block server")
 		go func() {
 			if err := d.preconfBlockServer.Start(d.PreconfBlockServerPort); err != nil {
 				log.Crit("Failed to start preconfirmation block server", "error", err)
