@@ -329,9 +329,14 @@ var (
 	}
 	stringType, _             = abi.NewType("string", "", nil)
 	uint256Type, _            = abi.NewType("uint256", "", nil)
+	bytesType, _              = abi.NewType("bytes", "", nil)
 	PacayaDifficultyInputArgs = abi.Arguments{
 		{Name: "TAIKO_DIFFICULTY", Type: stringType},
 		{Name: "block.number", Type: uint256Type},
+	}
+	batchParamsWithForcedInclusionArgs = abi.Arguments{
+		{Name: "bytesX", Type: bytesType},
+		{Name: "bytesY", Type: bytesType},
 	}
 )
 
@@ -352,13 +357,15 @@ var (
 	ForkRouterABI       *abi.ABI
 
 	// Pacaya fork
-	TaikoInboxABI       *abi.ABI
-	TaikoAnchorABI      *abi.ABI
-	ResloverBaseABI     *abi.ABI
-	ComposeVerifierABI  *abi.ABI
-	ForkRouterPacayaABI *abi.ABI
-	TaikoTokenPacayaABI *abi.ABI
-	ProverSetPacayaABI  *abi.ABI
+	TaikoInboxABI           *abi.ABI
+	TaikoWrapperABI         *abi.ABI
+	ForcedInclusionStoreABI *abi.ABI
+	TaikoAnchorABI          *abi.ABI
+	ResloverBaseABI         *abi.ABI
+	ComposeVerifierABI      *abi.ABI
+	ForkRouterPacayaABI     *abi.ABI
+	TaikoTokenPacayaABI     *abi.ABI
+	ProverSetPacayaABI      *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -418,6 +425,14 @@ func init() {
 		log.Crit("Get TaikoInbox ABI error", "error", err)
 	}
 
+	if TaikoWrapperABI, err = pacayaBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoWrapper ABI error", "error", err)
+	}
+
+	if ForcedInclusionStoreABI, err = pacayaBindings.ForcedInclusionStoreMetaData.GetAbi(); err != nil {
+		log.Crit("Get ForcedInclusionStore ABI error", "error", err)
+	}
+
 	if TaikoAnchorABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoAnchor ABI error", "error", err)
 	}
@@ -455,6 +470,8 @@ func init() {
 		ProverSetABI.Errors,
 		ForkRouterABI.Errors,
 		TaikoInboxABI.Errors,
+		TaikoWrapperABI.Errors,
+		ForcedInclusionStoreABI.Errors,
 		TaikoAnchorABI.Errors,
 		ResloverBaseABI.Errors,
 		ComposeVerifierABI.Errors,
@@ -473,13 +490,22 @@ func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 	return b, nil
 }
 
-// EncodeBatchParams performs the solidity `abi.encode` for the given pacaya batchParams.
-func EncodeBatchParams(params *BatchParams) ([]byte, error) {
-	b, err := BatchParamsComponentsArgs.Pack(params)
+// EncodeBatchParamsWithForcedInclusion performs the solidity `abi.encode` for the given two pacaya batchParams.
+func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchParams) ([]byte, error) {
+	var (
+		x   []byte
+		err error
+	)
+	if paramsForcedInclusion != nil {
+		if x, err = BatchParamsComponentsArgs.Pack(paramsForcedInclusion); err != nil {
+			return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
+		}
+	}
+	y, err := BatchParamsComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
 	}
-	return b, nil
+	return batchParamsWithForcedInclusionArgs.Pack(x, y)
 }
 
 // EncodeBatchesSubProofs performs the solidity `abi.encode` for the given pacaya batchParams.

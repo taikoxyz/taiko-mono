@@ -110,7 +110,7 @@ func (ds *BlobDataSource) GetBlobs(
 	return sidecars, nil
 }
 
-// getBlobFromServer get blob data from server path `/getBlob`.
+// getBlobFromServer get blob data from server path `/blob` or `/blobs`.
 func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common.Hash) (*BlobDataSeq, error) {
 	var (
 		route      string
@@ -134,7 +134,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 		SetHeader("Accept", "application/json").
 		Get(requestURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get blob from server, request_url: %s, err: %w", requestURL, err)
+		return nil, fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, err)
 	}
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf(

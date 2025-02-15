@@ -61,6 +61,8 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
         bondToken = _bondToken;
     }
 
+    receive() external payable { }
+
     /// @notice Initializes the contract.
     function init(address _owner, address _admin) external nonZeroAddr(_admin) initializer {
         __Essential_init(_owner);
