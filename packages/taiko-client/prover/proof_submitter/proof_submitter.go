@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -199,6 +201,9 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					}
 					return nil
 				}
+				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+					return backoff.Permanent(err)
+				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
@@ -254,7 +259,7 @@ func (s *ProofSubmitter) SubmitProof(
 		"hash", proofWithHeader.Opts.BlockHash,
 		"stateRoot", proofWithHeader.Opts.StateRoot,
 		"proof", common.Bytes2Hex(proofWithHeader.Proof),
-		"tier", proofWithHeader.Tier,
+		"proofType", proofWithHeader.ProofType,
 	)
 
 	// Check if we still need to generate a new proof for that block.
@@ -314,6 +319,15 @@ func (s *ProofSubmitter) SubmitProof(
 	}
 
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
+	var tier uint16
+	switch proofWithHeader.ProofType {
+	case proofProducer.ZKProofTypeR0:
+		tier = encoding.TierZkVMRisc0ID
+	case proofProducer.ZKProofTypeSP1:
+		tier = encoding.TierZkVMSp1ID
+	default:
+		tier = proofWithHeader.Tier
+	}
 	if err = s.sender.Send(
 		ctx,
 		proofWithHeader,
@@ -327,7 +341,7 @@ func (s *ProofSubmitter) SubmitProof(
 				Graffiti:   s.graffiti,
 			},
 			&bindings.TaikoDataTierProof{
-				Tier: proofWithHeader.Tier,
+				Tier: tier,
 				Data: proofWithHeader.Proof,
 			},
 			proofWithHeader.Tier,
