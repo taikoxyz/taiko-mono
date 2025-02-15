@@ -326,7 +326,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	feeInGwei, err := s.RPCClient.PacayaClients.ForcedInclusionStore.FeeInGwei(nil)
 	s.Nil(err)
 
-	receipt, err := s.TxMgr("storeForcedInclusion", s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")).Send(
+	receipt, err := s.TxMgr("storeForcedInclusion", s.KeyFromEnv("TEST_ACCOUNT_PRIVATE_KEY")).Send(
 		context.Background(),
 		txmgr.TxCandidate{
 			TxData: data,
@@ -345,15 +345,21 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	// Wait `InclusionDelay` blocks
-	for i := 0; i < int(delay-1); i++ {
-		s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
-		s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
-	}
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
 
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head1.Number.Uint64()+uint64(delay-1), l2Head2.Number.Uint64())
+	s.Equal(l2Head1.Number.Uint64()+2, l2Head2.Number().Uint64())
+	s.Equal(1, len(l2Head2.Transactions()))
+
+	forcedIncludedBlock, err := s.d.rpc.L2.BlockByNumber(
+		context.Background(),
+		new(big.Int).Add(l2Head1.Number, common.Big1),
+	)
+	s.Nil(err)
+	s.Equal(2, len(forcedIncludedBlock.Transactions()))
+	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
 }
 
 func (s *DriverTestSuite) TestL1Current() {

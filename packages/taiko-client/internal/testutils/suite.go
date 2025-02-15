@@ -179,7 +179,7 @@ func (s *ClientTestSuite) depositProverSetTokens(key *ecdsa.PrivateKey) {
 	s.Nil(err)
 }
 
-func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) *txmgr.SimpleTxManager {
+func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) txmgr.TxManager {
 	txmgr, err := txmgr.NewSimpleTxManager(
 		name,
 		log.Root(),
@@ -201,7 +201,7 @@ func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) *txmgr.Simpl
 		},
 	)
 	s.Nil(err)
-	return txmgr
+	return NewMemoryBlobTxMgr(s.RPCClient, txmgr, s.BlobServer)
 }
 
 func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
