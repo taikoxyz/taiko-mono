@@ -11,56 +11,62 @@ Based rollups are arguably the **most effective, decentralized, and Ethereum-ali
 
 ## Introducing Taiko Gwyneth
 
-Taiko Gwyneth is a **horizontal Ethereum scaling solution** ([as opposed to vertical](/taiko-alethia-protocol/protocol-design/inception-layers)), combining based sequencing, real-time proving, and booster functionality. Gwyneth creates a **uniform execution environment** that scales Ethereum while solving liquidity fragmentation across multiple rollups.
+Taiko Gwyneth is a **horizontal Ethereum scaling solution** ([as opposed to vertical](/taiko-alethia-protocol/protocol-design/inception-layers)). Gwyneth is a network of multiple identical Ethereum equivalent L2s, combining based sequencing, real-time proving, and booster functionality to achieve a **synchronously composable network**. In doing so, Gwyneth creates a **uniform execution environment** that scales Ethereum while solving liquidity fragmentation across multiple rollups.
 
 ### Why Taiko Gwyneth?
 
-- **Ethereum-equivalent:** Each Gwyneth L2 functions like Ethereum, maintaining compatibility with existing dApps and tooling.
-- **Scalable:** Developers can launch new rollups in the Gwyneth network as needed, increasing capacity without disrupting existing applications.
-- **Seamless UX:** Users experience L1 and L2s as a unified system, retaining the same addresses across chains.
-- **Synchronous composability:** Contracts on different Gwyneth L2s interact atomically via cross-chain `DELEGATECALL`.
-- **Decentralized:** Built on a network of L2s that inherit Ethereum’s decentralization without reliance on centralized sequencers.
-- **Secure execution:** Preconfirmations and real-time multi-proving ensure reliable execution and prevent MEV attacks.
-- **Based Preconfirmations:** Transactions gain near-instant inclusion guarantees through preconfirmers.
+- **Ethereum-equivalent**: Each Taiko Gwyneth L2 is fully Ethereum equivalent, maintaining compatibility with existing dApps and tooling.
+- **Scalable**: Developers can launch new rollups in the network as needed, increasing capacity without disrupting existing applications.
+- **Permissionless**: Anyone can permissionlessly disable proofs in the verifier registry smart contract when it can be shown that a proof type is faulty.
+- **Seamless UX**: Users experience L1 and L2s as a unified system, retaining the same addresses across chains.
+- **Secure execution**: Preconfirmations and real-time multi-proving ensure reliable execution.
 
 ### Key Concepts in Taiko Gwyneth
 
-- **Based Booster Rollups:** L2s that inherit L1 state and function as execution shards of Ethereum.
-- **Synchronous Composability:** Contracts on different Gwyneth L2s interact atomically via cross-chain calls.
-- **Real-Time Multi-Prover System:** L2 state proofs are submitted in real-time for immediate verification.
-- **Based Preconfirmations:** Transactions receive fast execution guarantees, significantly improving UX.
+- [Based booster rollup](/taiko-gwyneth-protocol/booster-rollup): L2 rollups that utilize L1 state and function as execution shards of Ethereum.
 
 ## How Taiko Gwyneth Works
 
-### **Synchronous Composability and L2 ↔ L2 Calls**
+The Taiko Gwyneth network has a theoretically unbounded throughput with the experience of a single unified chain. The addition of each L2 adds extra parallel processing and storage capacity, without limitation.
 
-Gwyneth introduces a new **XCALLOPTIONS** precompile that enables seamless cross-rollup execution.
+To achieve this Taiko Gwyneth relies on a few key concepts to achieve its scaling goals:
+
+### **Synchronous Composability**
+
+All Taiko Gwyneth L2s can **access** each other synchronously. They can also **access** L1 synchronously with an L1 proposer's support. In this context, **access** means to read and write all states as if they are part of the same chain.
+
+To achieve this functionality, Taiko Gwyneth introduces a new **XCALLOPTIONS** precompile that enables seamless cross-rollup execution.
 
 <Code code='
 XCALLOPTIONS(version: uint16, chainID: uint, sandbox: bool, txOrigin: address,
 msgSender: address, blockHash: bytes32, proof: bytes)
  'lang="solidity" title="XCALLOPTIONS Context" />
 
-- **Cross-rollup transactions:** The precompile allows contracts to specify the target chain for the next `CALL`, enabling direct state access across rollups.
-- **Proof system:** Execution proofs ensure correctness when modifying states across chains.
-- **State updates:** Each rollup maintains its own execution state but verifies interactions with other L2s through Merkle proofs.
+The precompile allows contracts to specify the target chain for the next `CALL`, enabling direct state access across rollups. The entire execution environment of the specific chain is emulated, including the basefee.
 
-### **Booster Functionality and L1 Scaling**
+Execution proofs are utilized to ensure correctness when modifying states across chains.
 
-- **Unified L1 State:** Any Gwyneth L2 can read and interact with Ethereum’s L1 contracts without extra bridging logic.
-- **Low-cost Execution:** Transactions use L2 gas fees while still accessing L1, reducing costs for users and developers.
-- **Optimized Data Availability:** L2s post only necessary state deltas to L1, reducing congestion and storage costs.
+In this way, each rollup can maintain its own execution state while verifying interactions with other L2s through Merkle proofs.
 
-### **Real-Time Proving and Based Preconfirmations**
+### **Booster Functionality**
+
+Taiko Gwyneth adopts parts of the concept of **booster rollups** to enable L1 scaling. We call this **booster functionality**.
+
+Booster functionality entails the L1 state being accessible on any L2 at the same cost as the native L2 state. This enables Taiko Gwyneth to use Ethereum as the global state to store most DApps since Ethereum is, by design, always available for cross-chain reading. Existing contracts on L1 can be directly accessed and used with precompiles, eliminating the need for redeployment on every L2. This is an efficient way to horizontally scale Ethereum, and comes with the added benefit of preventing fragmentation.
+
+### **Real-Time Proving**
 
 To maintain high throughput, Taiko Gwyneth leverages **real-time proving** with multiple proof types:
 
 - **TEE-Based Provers:** Fast hardware-based proofs using SGX, AMD SEV, and Nitro enclaves.
 - **AVS Provers:** Distributed attestation systems that ensure correctness via economic incentives.
-- **ZK Proofs (Future Integration):** While real-time ZK proving is not feasible today, Gwyneth is designed to integrate them as they mature.
+- **ZK Proofs (Future Integration):** While real-time ZK proving is not feasible today, Taiko Gwyneth is designed to integrate them as they mature. At the moment, they will still be used to harden the security of the protocol indirectly by using them to show that other provers are faulty
 
-Preconfirmations enhance UX by allowing transactions to be executed and confirmed near-instantly before final L1 settlement.
+### **Based Preconfirmations**
+Taiko Gwyneth will also support based preconfirmations. Preconfirmations enhance UX by allowing transactions to be executed and confirmed near-instantly before final L1 settlement.
 
-## Conclusion
+Read more about based preconfirmations [here](https://ethresear.ch/t/based-preconfirmations/17353)!
+
+## Summary
 
 Taiko Gwyneth is designed to scale Ethereum efficiently while preserving its security, decentralization, and user experience. With booster rollups, real-time proving, and preconfirmations, it enables synchronous execution across multiple L2s, creating a **seamless and scalable Ethereum-native rollup ecosystem**.
