@@ -119,8 +119,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
 			d.rpc,
 			d.Config.PreconfBlockServerCheckSig,
-			d.p2pNode,
-			d.p2pSigner,
 		); err != nil {
 			return err
 		}
@@ -132,7 +130,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 		if d.p2pNode, err = p2p.NewNodeP2P(
 			d.ctx,
-			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
 			log.Root(),
 			d.p2pSetup,
 			d.preconfBlockServer,
@@ -148,6 +146,11 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 		if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 			return err
+		}
+
+		if d.preconfBlockServer != nil {
+			d.preconfBlockServer.SetP2PNode(d.p2pNode)
+			d.preconfBlockServer.SetP2PSigner(d.p2pSigner)
 		}
 	}
 

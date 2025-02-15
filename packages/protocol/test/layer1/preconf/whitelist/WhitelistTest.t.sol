@@ -95,7 +95,7 @@ contract WhitelistTest is WhitelistTestBase {
         vm.stopPrank();
     }
 
-    function test_getOperatorForEpoch_immediateRoot() external {
+    function test_getOperatorForCurrentEpoch_immediateRoot() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -124,11 +124,11 @@ contract WhitelistTest is WhitelistTestBase {
             epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
         );
 
-        address selectedOperator = whitelist.getOperatorForEpoch();
+        address selectedOperator = whitelist.getOperatorForCurrentEpoch();
         assertEq(selectedOperator, Carol);
     }
 
-    function test_getOperatorForEpoch_iteratedRoot() external {
+    function test_getOperatorForCurrentEpoch_iteratedRoot() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -157,12 +157,12 @@ contract WhitelistTest is WhitelistTestBase {
             epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT * 3, mockRoot
         );
 
-        address selectedOperator = whitelist.getOperatorForEpoch();
+        address selectedOperator = whitelist.getOperatorForCurrentEpoch();
         assertEq(selectedOperator, Carol);
     }
 
-    function test_getOperatorForEpoch_emptyList() external {
+    function test_getOperatorForCurrentEpoch_emptyList() external {
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorCount.selector);
-        whitelist.getOperatorForEpoch();
+        whitelist.getOperatorForCurrentEpoch();
     }
 }

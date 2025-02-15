@@ -295,8 +295,8 @@ func isBlockPreconfirmed(
 		err = fmt.Errorf("block number mismatch: %d != %d", block.Number(), meta.BlockID)
 		return nil, err
 	}
-	if block.GasLimit() != meta.GasLimit+consensus.AnchorGasLimit {
-		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorGasLimit)
+	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3GasLimit {
+		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3GasLimit)
 		return nil, err
 	}
 	if block.Time() != meta.Timestamp {
