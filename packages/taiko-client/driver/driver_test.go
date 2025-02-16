@@ -312,19 +312,7 @@ func (s *DriverTestSuite) TestL1Current() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocks() {
-	var (
-		port = uint64(testutils.RandomPort())
-		err  error
-	)
-	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
-	)
-	s.Nil(err)
-	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
-	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
-
-	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
-	s.Nil(err)
+	url := s.setUpPreconfServer()
 
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -409,90 +397,8 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.False(l1Origin3.IsPreconfBlock())
 }
 
-// insertPreconfBlock inserts a preconfirmation block with the given parameters.
-func (s *DriverTestSuite) insertPreconfBlock(
-	url *url.URL,
-	anchoredL1Block *types.Header,
-	l2BlockID uint64,
-) *resty.Response {
-	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	preconferAddress := crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
-
-	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
-	s.Nil(err)
-
-	tx := types.NewTransaction(
-		nonce,
-		common.BytesToAddress(testutils.RandomBytes(32)),
-		common.Big0,
-		100_000,
-		new(big.Int).SetUint64(uint64(10*params.GWei)),
-		[]byte{},
-	)
-	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
-	s.Nil(err)
-
-	// If the transaction is underpriced, we just ingore it.
-	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		s.Equal("replacement transaction underpriced", err.Error())
-	}
-
-	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
-	s.Nil(err)
-
-	b, err := encodeAndCompressTxList([]*types.Transaction{signedTx})
-	s.Nil(err)
-
-	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{
-		ExecutableData: &preconfblocks.ExecutableData{
-			ParentHash:   parent.Hash(),
-			FeeRecipient: preconferAddress,
-			Number:       l2BlockID,
-			GasLimit:     uint64(s.d.protocolConfig.BlockMaxGasLimit()),
-			Timestamp:    anchoredL1Block.Time,
-			Transactions: b,
-		},
-		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
-		AnchorStateRoot: anchoredL1Block.Root,
-		SignalSlots:     [][32]byte{},
-		BaseFeeConfig:   s.d.protocolConfig.BaseFeeConfig(),
-	}
-
-	payload, err := rlp.EncodeToBytes(reqBody)
-	s.Nil(err)
-	s.NotEmpty(payload)
-
-	sig, err := crypto.Sign(crypto.Keccak256(payload), preconferPrivKey)
-	s.Nil(err)
-	reqBody.Signature = common.Bytes2Hex(sig)
-
-	// Try to propose a preconfirmation block
-	res, err := resty.New().
-		R().
-		SetBody(reqBody).
-		Post(url.String() + "/preconfBlocks")
-	s.Nil(err)
-	log.Info("Preconfirmation block creation response", "body", res.String())
-	return res
-}
-
 func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
-	var (
-		port = uint64(testutils.RandomPort())
-		err  error
-	)
-	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
-	)
-	s.Nil(err)
-	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
-	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
-
-	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
-	s.Nil(err)
+	url := s.setUpPreconfServer()
 
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -546,7 +452,8 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 }
 
 func (s *DriverTestSuite) TestP2PGossip() {
-	s.T().Skip("TODO")
+	// s.setUpPreconfServer()
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 }
 
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
@@ -661,6 +568,99 @@ func (s *DriverTestSuite) InitProposer() {
 
 func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverTestSuite))
+}
+
+// insertPreconfBlock inserts a preconfirmation block with the given parameters.
+func (s *DriverTestSuite) insertPreconfBlock(
+	url *url.URL,
+	anchoredL1Block *types.Header,
+	l2BlockID uint64,
+) *resty.Response {
+	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
+	s.Nil(err)
+
+	preconferAddress := crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	tx := types.NewTransaction(
+		nonce,
+		common.BytesToAddress(testutils.RandomBytes(32)),
+		common.Big0,
+		100_000,
+		new(big.Int).SetUint64(uint64(10*params.GWei)),
+		[]byte{},
+	)
+	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
+	s.Nil(err)
+
+	// If the transaction is underpriced, we just ingore it.
+	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		s.Equal("replacement transaction underpriced", err.Error())
+	}
+
+	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
+	s.Nil(err)
+
+	b, err := encodeAndCompressTxList([]*types.Transaction{signedTx})
+	s.Nil(err)
+
+	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{
+		ExecutableData: &preconfblocks.ExecutableData{
+			ParentHash:   parent.Hash(),
+			FeeRecipient: preconferAddress,
+			Number:       l2BlockID,
+			GasLimit:     uint64(s.d.protocolConfig.BlockMaxGasLimit()),
+			Timestamp:    anchoredL1Block.Time,
+			Transactions: b,
+		},
+		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
+		AnchorStateRoot: anchoredL1Block.Root,
+		SignalSlots:     [][32]byte{},
+		BaseFeeConfig:   s.d.protocolConfig.BaseFeeConfig(),
+	}
+
+	payload, err := rlp.EncodeToBytes(reqBody)
+	s.Nil(err)
+	s.NotEmpty(payload)
+
+	sig, err := crypto.Sign(crypto.Keccak256(payload), preconferPrivKey)
+	s.Nil(err)
+	reqBody.Signature = common.Bytes2Hex(sig)
+
+	// Try to propose a preconfirmation block
+	res, err := resty.New().
+		R().
+		SetBody(reqBody).
+		Post(url.String() + "/preconfBlocks")
+	s.Nil(err)
+	log.Info("Preconfirmation block creation response", "body", res.String())
+	return res
+}
+
+func (s *DriverTestSuite) setUpPreconfServer() *url.URL {
+	var (
+		port = uint64(testutils.RandomPort())
+		err  error
+	)
+	s.d.preconfBlockServer, err = preconfblocks.New(
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
+	)
+	s.Nil(err)
+
+	s.d.preconfBlockServer.SetP2PNode(s.d.p2pNode)
+	s.d.preconfBlockServer.SetP2PSigner(s.d.p2pSigner)
+
+	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
+	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
+
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
+	s.Nil(err)
+	s.NotNil(url)
+
+	return url
 }
 
 // compress compresses the given txList bytes using zlib.
