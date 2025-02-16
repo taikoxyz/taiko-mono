@@ -12,7 +12,7 @@ Before compiling the smart contracts, ensure the following are installed and up 
 To install dependencies:
 
 ```bash
-foundryup && pnpm install
+foundryup -v stable && pnpm install
 ```
 
 ## Compilation
