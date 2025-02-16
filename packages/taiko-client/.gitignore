@@ -24,6 +24,7 @@ dbdata
 
 # Testing
 integration_test/nodes/deployments/mainnet.json
+integration_test/nodes/deployments/mainnet.json
 .env
 
 \.idea/

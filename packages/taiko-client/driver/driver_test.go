@@ -539,6 +539,10 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.False(l1Origin2.IsPreconfBlock())
 }
 
+func (s *DriverTestSuite) TestP2PGossip() {
+	s.T().Skip("TODO")
+}
+
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
 	var (
 		to          = &s.p.TaikoL1Address

@@ -7,6 +7,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 )
 
@@ -54,6 +55,10 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.P2PSync.Name,
 		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
+		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
+		"--" + p2pFlags.DiscoveryPathName, "memory",
+		"--" + p2pFlags.PeerstorePathName, "memory",
+		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
 	}))
 }
 
@@ -77,7 +82,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 
 func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
-	app.Flags = []cli.Flag{
+	app.Flags = flags.MergeFlags([]cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
@@ -89,7 +94,7 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.CheckPointSyncURL.Name},
-	}
+	}, p2pFlags.P2PFlags("PRECONFIRMATION"))
 	app.Action = func(ctx *cli.Context) error {
 		_, err := NewConfigFromCliContext(ctx)
 		return err
