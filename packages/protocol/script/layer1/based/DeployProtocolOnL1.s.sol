@@ -254,6 +254,16 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupResolver, _sharedResolver, "signal_service");
         copyRegister(rollupResolver, _sharedResolver, "bridge");
 
+        // Proof verifier
+        address proofVerifier = deployProxy({
+            name: "proof_verifier",
+            impl: address(
+                new DevnetVerifier(address(0), address(0), address(0), address(0), address(0))
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
+            registerTo: rollupResolver
+        });
+
         // OP verifier
         address opVerifier = deployProxy({
             name: "op_verifier",
@@ -268,7 +278,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(
                 new MainnetInbox(
                     address(0),
-                    opVerifier,
+                    proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
                 )
@@ -281,7 +291,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             oldFork = address(
                 new DevnetInbox(
                     address(0),
-                    opVerifier,
+                    proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(_sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
@@ -292,7 +302,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address newFork = address(
             new DevnetInbox(
                 address(0),
-                opVerifier,
+                proofVerifier,
                 IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                 IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
             )
@@ -314,14 +324,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Other verifiers
         // Initializable the proxy for proofVerifier to get the contract address at first.
-        address proofVerifier = deployProxy({
-            name: "proof_verifier",
-            impl: address(
-                new DevnetVerifier(taikoInboxAddr, address(0), address(0), address(0), address(0))
-            ),
-            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
-            registerTo: rollupResolver
-        });
         address sgxVerifier =
             deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
@@ -333,8 +335,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new DevnetVerifier(taikoInboxAddr, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
         });
-        ComposeVerifier(proofVerifier).transferOwnership(owner);
-        console2.log("** proofVerifier ownership transferred to:", owner);
 
         // Prover set
         deployProxy({
