@@ -453,6 +453,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 
 func (s *DriverTestSuite) TestP2PGossip() {
 	// s.setUpPreconfServer()
+
 	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 }
 
@@ -566,6 +567,12 @@ func (s *DriverTestSuite) InitProposer() {
 	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
+func (s *DriverTestSuite) TearDownTestTearDown() {
+	if s.d.preconfBlockServer != nil {
+		s.d.preconfBlockServer.Shutdown(context.Background())
+	}
+}
+
 func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverTestSuite))
 }
@@ -654,7 +661,6 @@ func (s *DriverTestSuite) setUpPreconfServer() *url.URL {
 	s.d.preconfBlockServer.SetP2PSigner(s.d.p2pSigner)
 
 	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
-	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
 
 	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
 	s.Nil(err)
