@@ -50,6 +50,10 @@ func (s *DriverTestSuite) SetupTest() {
 
 	d := new(Driver)
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Get default in-memory db p2p configs
+	p2pConfig, p2pSignerConfig := s.defaultCliP2PConfigs()
+
 	s.Nil(d.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:       os.Getenv("L1_WS"),
@@ -60,6 +64,8 @@ func (s *DriverTestSuite) SetupTest() {
 			JwtSecret:        string(jwtSecret),
 		},
 		BlobServerEndpoint: s.BlobServer.URL(),
+		P2PConfigs:         p2pConfig,
+		P2PSignerConfigs:   p2pSignerConfig,
 	}))
 	s.d = d
 	s.cancel = cancel

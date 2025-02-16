@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 )
 
@@ -100,4 +101,47 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		return err
 	}
 	return app
+}
+
+func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) {
+	var (
+		p2pConfigCh   = make(chan *p2p.Config)
+		signerSetupCh = make(chan p2p.SignerSetup)
+		app           = s.SetupApp()
+	)
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		s.Nil(err)
+		s.NotNil(c.P2PConfigs)
+		s.NotNil(c.P2PSignerConfigs)
+
+		go func() {
+			p2pConfigCh <- c.P2PConfigs
+			signerSetupCh <- c.P2PSignerConfigs
+		}()
+
+		return nil
+	}
+
+	s.Nil(app.Run([]string{
+		"GetDefaultP2PConfig",
+		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
+		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
+		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
+		"--" + flags.TaikoL1Address.Name, taikoL1,
+		"--" + flags.TaikoL2Address.Name, taikoL2,
+		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
+		"--" + flags.P2PSyncTimeout.Name, "120s",
+		"--" + flags.RPCTimeout.Name, "5s",
+		"--" + flags.P2PSync.Name,
+		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
+		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
+		"--" + p2pFlags.DiscoveryPathName, "memory",
+		"--" + p2pFlags.PeerstorePathName, "memory",
+		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
+	}))
+
+	return <-p2pConfigCh, <-signerSetupCh
 }
