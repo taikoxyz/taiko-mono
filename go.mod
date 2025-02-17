@@ -320,7 +320,7 @@ require (
 
 replace github.com/ethereum/go-ethereum v1.14.11 => github.com/taikoxyz/taiko-geth v1.12.1-0.20250210044710-a0b97be30cc0
 
-replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20250212013257-f7ccb8141f3c
+replace github.com/ethereum-optimism/optimism v1.7.4 => /Users/davidcai/taikocha/optimism
 
 replace github.com/uber/jaeger-client-go => github.com/uber/jaeger-client-go v2.25.0+incompatible
 

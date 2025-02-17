@@ -35,9 +35,10 @@ import (
 
 type DriverTestSuite struct {
 	testutils.ClientTestSuite
-	cancel context.CancelFunc
-	p      *proposer.Proposer
-	d      *Driver
+	cancel           context.CancelFunc
+	p                *proposer.Proposer
+	d                *Driver
+	preconfServerURL *url.URL
 }
 
 func (s *DriverTestSuite) SetupTest() {
@@ -53,6 +54,7 @@ func (s *DriverTestSuite) SetupTest() {
 
 	// Get default in-memory db p2p configs
 	p2pConfig, p2pSignerConfig := s.defaultCliP2PConfigs()
+	preconfServerPort := uint64(testutils.RandomPort())
 
 	s.Nil(d.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
@@ -63,12 +65,23 @@ func (s *DriverTestSuite) SetupTest() {
 			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:        string(jwtSecret),
 		},
-		BlobServerEndpoint: s.BlobServer.URL(),
-		P2PConfigs:         p2pConfig,
-		P2PSignerConfigs:   p2pSignerConfig,
+		BlobServerEndpoint:     s.BlobServer.URL(),
+		P2PConfigs:             p2pConfig,
+		P2PSignerConfigs:       p2pSignerConfig,
+		PreconfBlockServerPort: preconfServerPort,
 	}))
 	s.d = d
 	s.cancel = cancel
+
+	go func() {
+		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
+			log.Error("Failed to start preconfirmation block server", "port", preconfServerPort, "error", err)
+		}
+	}()
+
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", preconfServerPort))
+	s.Nil(err)
+	s.preconfServerURL = url
 
 	// InitFromConfig proposer
 	s.InitProposer()
@@ -298,12 +311,6 @@ func (s *DriverTestSuite) TestDoSyncNoNewL2Blocks() {
 	s.Nil(s.d.l2ChainSyncer.Sync())
 }
 
-func (s *DriverTestSuite) TestStartClose() {
-	s.Nil(s.d.Start())
-	s.cancel()
-	s.d.Close(s.d.ctx)
-}
-
 func (s *DriverTestSuite) TestL1Current() {
 	// propose and insert a block
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
@@ -312,8 +319,6 @@ func (s *DriverTestSuite) TestL1Current() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocks() {
-	url := s.setUpPreconfServer()
-
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -330,12 +335,12 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
-	res, err := resty.New().R().Get(url.String() + "/healthz")
+	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert two preconfirmation blocks
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -348,7 +353,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -367,7 +372,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{
 			NewLastBlockID: l2Head4.Number().Uint64() - 1,
 		}).
-		Delete(url.String() + "/preconfBlocks")
+		Delete(s.preconfServerURL.String() + "/preconfBlocks")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
@@ -398,8 +403,6 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
-	url := s.setUpPreconfServer()
-
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -416,12 +419,12 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
-	res, err := resty.New().R().Get(url.String() + "/healthz")
+	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert one preconfirmation block
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -645,28 +648,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	s.Nil(err)
 	log.Info("Preconfirmation block creation response", "body", res.String())
 	return res
-}
-
-func (s *DriverTestSuite) setUpPreconfServer() *url.URL {
-	var (
-		port = uint64(testutils.RandomPort())
-		err  error
-	)
-	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
-	)
-	s.Nil(err)
-
-	s.d.preconfBlockServer.SetP2PNode(s.d.p2pNode)
-	s.d.preconfBlockServer.SetP2PSigner(s.d.p2pSigner)
-
-	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
-
-	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
-	s.Nil(err)
-	s.NotNil(url)
-
-	return url
 }
 
 // compress compresses the given txList bytes using zlib.

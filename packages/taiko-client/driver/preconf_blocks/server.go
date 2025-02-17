@@ -30,6 +30,7 @@ type preconfBlockChainSyncer interface {
 		signalSlots [][32]byte,
 		baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	) (*types.Header, error)
+	InsertPreconfBlockFromExecutionPayload(context.Context, *eth.ExecutionPayload) (*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
@@ -164,30 +165,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("only one transaction list is allowed")
 	}
 
-	_, err := s.chainSyncer.InsertPreconfBlockFromTransactionsBatch(
-		ctx,
-		&ExecutableData{
-			ParentHash:   msg.ExecutionPayload.ParentHash,
-			FeeRecipient: msg.ExecutionPayload.FeeRecipient,
-			Number:       uint64(msg.ExecutionPayload.BlockNumber),
-			GasLimit:     uint64(msg.ExecutionPayload.GasLimit),
-			Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
-			Transactions: common.FromHex(msg.ExecutionPayload.Transactions[0].String()),
-		},
-		msg.AnchorBlockID,
-		msg.AnchorStateRoot,
-		msg.SignalSlots,
-		&pacayaBindings.LibSharedDataBaseFeeConfig{
-			AdjustmentQuotient:     msg.AdjustmentQuotient,
-			SharingPctg:            msg.SharingPctg,
-			GasIssuancePerSecond:   msg.GasIssuancePerSecond,
-			MinGasExcess:           msg.MinGasExcess,
-			MaxGasIssuancePerBlock: msg.MaxGasIssuancePerBlock,
-		},
-	)
-	if err != nil {
+	if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, msg.ExecutionPayload); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
+
 	return nil
 }
 

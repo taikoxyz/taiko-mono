@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -383,4 +384,36 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	}
 
 	return nil
+}
+
+// InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
+func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
+	ctx context.Context,
+	executableData *eth.ExecutionPayload,
+) (*types.Header, error) {
+	payload, err := createExecutionPayloads(
+		ctx,
+		i.rpc,
+		&createExecutionPayloadsMetaData{
+			BlockID:               new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+			ExtraData:             executableData.ExtraData,
+			SuggestedFeeRecipient: executableData.FeeRecipient,
+			GasLimit:              uint64(executableData.GasLimit),
+			Difficulty:            common.Hash(executableData.PrevRandao),
+			Timestamp:             uint64(executableData.Timestamp),
+			ParentHash:            executableData.ParentHash,
+			L1Origin: &rawdb.L1Origin{
+				BlockID:       new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+				L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+				L1BlockHeight: nil,
+				L1BlockHash:   common.Hash{},
+			},
+			BaseFee: new(big.Int).SetUint64(uint64(executableData.BaseFeePerGas)),
+		},
+		executableData.Transactions[0],
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create execution data: %w", err)
+	}
+	return nil, nil
 }
