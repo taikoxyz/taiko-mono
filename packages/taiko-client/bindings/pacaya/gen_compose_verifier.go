@@ -38,7 +38,7 @@ type IVerifierContext struct {
 
 // ComposeVerifierMetaData contains all meta data concerning the ComposeVerifier contract.
 var ComposeVerifierMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifyProof\",\"inputs\":[{\"name\":\"_ctxs\",\"type\":\"tuple[]\",\"internalType\":\"structIVerifier.Context[]\",\"components\":[{\"name\":\"batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CV_INVALID_SUB_VERIFIER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CV_INVALID_SUB_VERIFIER_ORDER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CV_VERIFIERS_INSUFFICIENT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"opVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"risc0Verifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sgxVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sp1Verifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"taikoInbox\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"tdxVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifyProof\",\"inputs\":[{\"name\":\"_ctxs\",\"type\":\"tuple[]\",\"internalType\":\"structIVerifier.Context[]\",\"components\":[{\"name\":\"batchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structITaikoInbox.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CV_INVALID_SUB_VERIFIER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CV_INVALID_SUB_VERIFIER_ORDER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CV_VERIFIERS_INSUFFICIENT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // ComposeVerifierABI is the input ABI used to generate the binding from.
@@ -249,6 +249,37 @@ func (_ComposeVerifier *ComposeVerifierCallerSession) InNonReentrant() (bool, er
 	return _ComposeVerifier.Contract.InNonReentrant(&_ComposeVerifier.CallOpts)
 }
 
+// OpVerifier is a free data retrieval call binding the contract method 0xd09aed48.
+//
+// Solidity: function opVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCaller) OpVerifier(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ComposeVerifier.contract.Call(opts, &out, "opVerifier")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// OpVerifier is a free data retrieval call binding the contract method 0xd09aed48.
+//
+// Solidity: function opVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierSession) OpVerifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.OpVerifier(&_ComposeVerifier.CallOpts)
+}
+
+// OpVerifier is a free data retrieval call binding the contract method 0xd09aed48.
+//
+// Solidity: function opVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCallerSession) OpVerifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.OpVerifier(&_ComposeVerifier.CallOpts)
+}
+
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -402,6 +433,161 @@ func (_ComposeVerifier *ComposeVerifierSession) Resolver() (common.Address, erro
 // Solidity: function resolver() view returns(address)
 func (_ComposeVerifier *ComposeVerifierCallerSession) Resolver() (common.Address, error) {
 	return _ComposeVerifier.Contract.Resolver(&_ComposeVerifier.CallOpts)
+}
+
+// Risc0Verifier is a free data retrieval call binding the contract method 0x5c9770c5.
+//
+// Solidity: function risc0Verifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCaller) Risc0Verifier(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ComposeVerifier.contract.Call(opts, &out, "risc0Verifier")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Risc0Verifier is a free data retrieval call binding the contract method 0x5c9770c5.
+//
+// Solidity: function risc0Verifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierSession) Risc0Verifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.Risc0Verifier(&_ComposeVerifier.CallOpts)
+}
+
+// Risc0Verifier is a free data retrieval call binding the contract method 0x5c9770c5.
+//
+// Solidity: function risc0Verifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCallerSession) Risc0Verifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.Risc0Verifier(&_ComposeVerifier.CallOpts)
+}
+
+// SgxVerifier is a free data retrieval call binding the contract method 0x622d699a.
+//
+// Solidity: function sgxVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCaller) SgxVerifier(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ComposeVerifier.contract.Call(opts, &out, "sgxVerifier")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SgxVerifier is a free data retrieval call binding the contract method 0x622d699a.
+//
+// Solidity: function sgxVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierSession) SgxVerifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.SgxVerifier(&_ComposeVerifier.CallOpts)
+}
+
+// SgxVerifier is a free data retrieval call binding the contract method 0x622d699a.
+//
+// Solidity: function sgxVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCallerSession) SgxVerifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.SgxVerifier(&_ComposeVerifier.CallOpts)
+}
+
+// Sp1Verifier is a free data retrieval call binding the contract method 0x52a07fa3.
+//
+// Solidity: function sp1Verifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCaller) Sp1Verifier(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ComposeVerifier.contract.Call(opts, &out, "sp1Verifier")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Sp1Verifier is a free data retrieval call binding the contract method 0x52a07fa3.
+//
+// Solidity: function sp1Verifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierSession) Sp1Verifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.Sp1Verifier(&_ComposeVerifier.CallOpts)
+}
+
+// Sp1Verifier is a free data retrieval call binding the contract method 0x52a07fa3.
+//
+// Solidity: function sp1Verifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCallerSession) Sp1Verifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.Sp1Verifier(&_ComposeVerifier.CallOpts)
+}
+
+// TaikoInbox is a free data retrieval call binding the contract method 0x5de92721.
+//
+// Solidity: function taikoInbox() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCaller) TaikoInbox(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ComposeVerifier.contract.Call(opts, &out, "taikoInbox")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// TaikoInbox is a free data retrieval call binding the contract method 0x5de92721.
+//
+// Solidity: function taikoInbox() view returns(address)
+func (_ComposeVerifier *ComposeVerifierSession) TaikoInbox() (common.Address, error) {
+	return _ComposeVerifier.Contract.TaikoInbox(&_ComposeVerifier.CallOpts)
+}
+
+// TaikoInbox is a free data retrieval call binding the contract method 0x5de92721.
+//
+// Solidity: function taikoInbox() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCallerSession) TaikoInbox() (common.Address, error) {
+	return _ComposeVerifier.Contract.TaikoInbox(&_ComposeVerifier.CallOpts)
+}
+
+// TdxVerifier is a free data retrieval call binding the contract method 0xeb7fa682.
+//
+// Solidity: function tdxVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCaller) TdxVerifier(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _ComposeVerifier.contract.Call(opts, &out, "tdxVerifier")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// TdxVerifier is a free data retrieval call binding the contract method 0xeb7fa682.
+//
+// Solidity: function tdxVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierSession) TdxVerifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.TdxVerifier(&_ComposeVerifier.CallOpts)
+}
+
+// TdxVerifier is a free data retrieval call binding the contract method 0xeb7fa682.
+//
+// Solidity: function tdxVerifier() view returns(address)
+func (_ComposeVerifier *ComposeVerifierCallerSession) TdxVerifier() (common.Address, error) {
+	return _ComposeVerifier.Contract.TdxVerifier(&_ComposeVerifier.CallOpts)
 }
 
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
