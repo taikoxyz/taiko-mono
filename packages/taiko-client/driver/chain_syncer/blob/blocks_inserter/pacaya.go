@@ -391,6 +391,9 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
 		i.rpc,

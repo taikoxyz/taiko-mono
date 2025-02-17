@@ -153,6 +153,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
+	// Ignore the message if it is from the current P2P node.
+	if s.p2pNode.Host().ID() == from {
+		return nil
+	}
+
 	log.Info(
 		"📢 New preconfirmation block payload from P2P network",
 		"peer", from,
@@ -171,7 +176,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	if header != nil {
-		log.Debug("Preconfirmation block already exists, skip", "blockID", header.Number.Uint64())
+		log.Debug(
+			"Preconfirmation block already exists",
+			"peer", from,
+			"blockID", msg.ExecutionPayload.BlockNumber,
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"txs", len(msg.ExecutionPayload.Transactions),
+		)
 		return nil
 	}
 
