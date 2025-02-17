@@ -76,7 +76,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Bridge
-        upgradeBridgeContracts();
+        upgradeBridgeContracts(sharedResolver);
 
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
@@ -197,7 +197,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
     }
 
-    function upgradeBridgeContracts() internal {
+    function upgradeBridgeContracts(sharedResolver address) internal {
           UUPSUpgradeable(bridgeL1).upgradeTo(
             address(new Bridge(sharedResolver, signalService, quotaManager))
         );
