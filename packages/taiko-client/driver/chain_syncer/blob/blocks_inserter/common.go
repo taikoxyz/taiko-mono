@@ -80,13 +80,20 @@ func createPayloadAndSetHead(
 		meta.GasLimit += consensus.AnchorGasLimit
 	}
 
+	// Create a new execution payload and set the chain head.
+	return createExecutionPayloadsAndSetHead(ctx, rpc, meta.createExecutionPayloadsMetaData, txListBytes)
+}
+
+// createExecutionPayloadsAndSetHead creates a new execution payloads through Engine APIs,
+// and sets the head block to the L2 execution engine's local block chain.
+func createExecutionPayloadsAndSetHead(
+	ctx context.Context,
+	rpc *rpc.Client,
+	meta *createExecutionPayloadsMetaData,
+	txListBytes []byte,
+) (payloadData *engine.ExecutableData, err error) {
 	// Create a new execution payload.
-	payload, err := createExecutionPayloads(
-		ctx,
-		rpc,
-		meta.createExecutionPayloadsMetaData,
-		txListBytes,
-	)
+	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}

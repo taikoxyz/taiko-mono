@@ -391,7 +391,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
-	payload, err := createExecutionPayloads(
+	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
 		i.rpc,
 		&createExecutionPayloadsMetaData{
@@ -408,12 +408,14 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 				L1BlockHeight: nil,
 				L1BlockHash:   common.Hash{},
 			},
-			BaseFee: new(big.Int).SetUint64(uint64(executableData.BaseFeePerGas)),
+			BaseFee:     new(big.Int).SetBytes(common.Hex2Bytes(executableData.BaseFeePerGas.String())),
+			Withdrawals: make([]*types.Withdrawal, 0),
 		},
 		executableData.Transactions[0],
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
 	}
-	return nil, nil
+
+	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }

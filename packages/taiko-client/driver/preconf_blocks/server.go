@@ -165,6 +165,16 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("only one transaction list is allowed")
 	}
 
+	header, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
+	if err != nil {
+		return fmt.Errorf("failed to fetch header by hash: %w", err)
+	}
+
+	if header != nil {
+		log.Debug("Preconfirmation block already exists, skip", "blockID", header.Number.Uint64())
+		return nil
+	}
+
 	if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, msg.ExecutionPayload); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
