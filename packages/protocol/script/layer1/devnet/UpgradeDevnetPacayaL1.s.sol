@@ -197,7 +197,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
     }
 
-    function upgradeBridgeContracts(sharedResolver address) internal {
+    function upgradeBridgeContracts(address sharedResolver) internal {
           UUPSUpgradeable(bridgeL1).upgradeTo(
             address(new Bridge(sharedResolver, signalService, quotaManager))
         );
