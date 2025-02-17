@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -298,6 +299,79 @@ func (s *DriverTestSuite) TestStartClose() {
 	s.d.Close(s.d.ctx)
 }
 
+func (s *DriverTestSuite) TestForcedInclusion() {
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	forcedInclusionTx, err := testutils.AssembleTestTx(
+		s.RPCClient.L2,
+		s.TestAddrPrivKey,
+		nonce,
+		&s.TestAddr,
+		common.Big0,
+		[]byte{},
+	)
+	s.Nil(err)
+	b, err := encodeAndCompressTxList([]*types.Transaction{forcedInclusionTx})
+	s.Nil(err)
+	s.NotEmpty(b)
+
+	var blob = &eth.Blob{}
+	s.Nil(blob.FromData(b))
+	data, err := encoding.ForcedInclusionStoreABI.Pack("storeForcedInclusion", uint8(0), uint32(0), uint32(len(b)))
+	s.Nil(err)
+
+	feeInGwei, err := s.RPCClient.PacayaClients.ForcedInclusionStore.FeeInGwei(nil)
+	s.Nil(err)
+
+	receipt, err := s.TxMgr("storeForcedInclusion", s.KeyFromEnv("TEST_ACCOUNT_PRIVATE_KEY")).Send(
+		context.Background(),
+		txmgr.TxCandidate{
+			TxData: data,
+			To:     &s.p.ForcedInclusionStoreAddress,
+			Blobs:  []*eth.Blob{blob},
+			Value:  new(big.Int).SetUint64(feeInGwei * params.GWei),
+		},
+	)
+	s.Nil(err)
+	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
+
+	delay, err := s.RPCClient.PacayaClients.ForcedInclusionStore.InclusionDelay(nil)
+	s.Nil(err)
+	s.NotZero(delay)
+
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	// Propose an empty batch, should with another batch with the forced inclusion tx.
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
+
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+2, l2Head2.Number().Uint64())
+	s.Equal(1, len(l2Head2.Transactions()))
+
+	forcedIncludedBlock, err := s.d.rpc.L2.BlockByNumber(
+		context.Background(),
+		new(big.Int).Add(l2Head1.Number, common.Big1),
+	)
+	s.Nil(err)
+	s.Equal(2, len(forcedIncludedBlock.Transactions()))
+	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
+
+	// Propose an empty batch, without another batch with the forced inclusion tx.
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
+
+	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head2.Number().Uint64()+1, l2Head3.Number().Uint64())
+	s.Equal(1, len(l2Head3.Transactions()))
+}
+
 func (s *DriverTestSuite) TestL1Current() {
 	// propose and insert a block
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
@@ -311,7 +385,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 		err  error
 	)
 	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true, nil, nil,
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
 	)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
@@ -409,10 +483,10 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	anchoredL1Block *types.Header,
 	l2BlockID uint64,
 ) *resty.Response {
-	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	preconferAddress := crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
+	var (
+		preconferPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		preconferAddress = crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
+	)
 
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
@@ -479,7 +553,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 		err  error
 	)
 	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true, nil, nil,
+		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
 	)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
@@ -542,10 +616,16 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
 	var (
 		to          = &s.p.TaikoL1Address
+		proposer    = crypto.PubkeyToAddress(s.p.L1ProposerPrivKey.PublicKey)
 		data        []byte
 		blockParams []pacayaBindings.ITaikoInboxBlockParams
 		allTxs      types.Transactions
 	)
+
+	if s.p.ProverSetAddress != rpc.ZeroAddress {
+		to = &s.p.ProverSetAddress
+		proposer = s.p.ProverSetAddress
+	}
 
 	s.NotZero(len(blocks))
 	s.Equal(len(blocks), len(anchoredL1Blocks))
@@ -566,6 +646,7 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	encodedParams, err := encoding.EncodeBatchParamsWithForcedInclusion(
 		nil,
 		&encoding.BatchParams{
+			Proposer: proposer,
 			Coinbase: blocks[0].Coinbase(),
 			BlobParams: encoding.BlobParams{
 				ByteOffset: 0,
@@ -578,7 +659,6 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	s.Nil(err)
 
 	if s.p.ProverSetAddress != rpc.ZeroAddress {
-		to = &s.p.ProverSetAddress
 		data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
 	} else {
 		data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes)
@@ -592,14 +672,14 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 }
 
 func (s *DriverTestSuite) InitProposer() {
-	p := new(proposer.Proposer)
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		p                 = new(proposer.Proposer)
+	)
 
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	s.Nil(err)
 	s.NotEmpty(jwtSecret)
-
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
 
 	s.Nil(p.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{

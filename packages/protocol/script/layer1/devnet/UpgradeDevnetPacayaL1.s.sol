@@ -19,9 +19,9 @@ import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
-import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 
 contract UpgradeDevnetPacayaL1 is DeployCapability {
@@ -114,34 +114,43 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        // TaikoInbox
-        address newFork =
-            address(new DevnetInbox(address(0), opVerifier, taikoToken, signalService));
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        register(rollupResolver, "taiko", taikoInbox);
-
-        // ForcedInclusionStore
-        deployProxy({
+        // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
+        address store = deployProxy({
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    rollupResolver, uint8(inclusionWindow), uint64(inclusionFeeInGwei)
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
             registerTo: rollupResolver
         });
+
         // TaikoWrapper
-        deployProxy({
+        address taikoWrapper = deployProxy({
             name: "taiko_wrapper",
-            impl: address(new TaikoWrapper(rollupResolver)),
+            impl: address(new TaikoWrapper(taikoInbox, store, address(0))),
             data: abi.encodeCall(TaikoWrapper.init, (address(0))),
             registerTo: rollupResolver
         });
 
+        // Upgrade ForcedInclusionStore to use the real TaikoWrapper address.
+        UUPSUpgradeable(store).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
+                )
+            )
+        );
+
+        // TaikoInbox
+        address newFork =
+            address(new DevnetInbox(taikoWrapper, opVerifier, taikoToken, signalService));
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
+        register(rollupResolver, "taiko", taikoInbox);
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, newFork, taikoToken, newFork))
+            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
         );
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
@@ -151,9 +160,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address proofVerifier = address(
             new ERC1967Proxy(
                 address(
-                    new DevnetVerifier(
-                        address(rollupResolver), address(0), address(0), address(0), address(0)
-                    )
+                    new DevnetVerifier(taikoInbox, address(0), address(0), address(0), address(0))
                 ),
                 abi.encodeCall(ComposeVerifier.init, (address(0)))
             )
@@ -177,9 +184,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
-                new DevnetVerifier(
-                    address(rollupResolver), opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
-                )
+                new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
         );
     }

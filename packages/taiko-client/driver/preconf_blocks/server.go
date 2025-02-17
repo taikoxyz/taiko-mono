@@ -62,8 +62,6 @@ func New(
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 	checkSig bool,
-	p2pNode *p2p.NodeP2P,
-	p2pSigner p2p.Signer,
 ) (*PreconfBlockAPIServer, error) {
 	protocolConfigs, err := cli.GetProtocolConfigs(nil)
 	if err != nil {
@@ -78,10 +76,8 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:       cli,
-		checkSig:  checkSig,
-		p2pNode:   p2pNode,
-		p2pSigner: p2pSigner,
+		rpc:      cli,
+		checkSig: checkSig,
 	}
 
 	server.echo.HideBanner = true
@@ -92,6 +88,14 @@ func New(
 	}
 
 	return server, nil
+}
+
+func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
+	s.p2pNode = p2pNode
+}
+
+func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
+	s.p2pSigner = p2pSigner
 }
 
 // LogSkipper implements the `middleware.Skipper` interface.

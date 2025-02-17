@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -145,6 +144,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
 		to                    = &b.taikoWrapperAddress
+		proposer              = crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey)
 		data                  []byte
 		blobs                 []*eth.Blob
 		encodedParams         []byte
@@ -153,10 +153,15 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		allTxs                types.Transactions
 	)
 
+	if b.proverSetAddress != rpc.ZeroAddress {
+		to = &b.proverSetAddress
+		proposer = b.proverSetAddress
+	}
+
 	if forcedInclusion != nil {
-		blobParams, blockParams := buildBlobAndBlockParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		blobParams, blockParams := buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
 		forcedInclusionParams = &encoding.BatchParams{
-			Proposer:                 crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey),
+			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
 			BlobParams:               *blobParams,
@@ -189,6 +194,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(
 		forcedInclusionParams,
 		&encoding.BatchParams{
+			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
 			BlobParams: encoding.BlobParams{
@@ -204,8 +210,6 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-
 		if data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
 			return nil, err
 		}
@@ -214,7 +218,6 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 			return nil, err
 		}
 	}
-	log.Info("BlobTransactionBuilder.BuildPacaya", "to", to)
 
 	return &txmgr.TxCandidate{
 		TxData:   data,

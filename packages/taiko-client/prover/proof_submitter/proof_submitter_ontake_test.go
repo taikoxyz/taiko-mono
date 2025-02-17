@@ -47,16 +47,16 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
 	s.aggregationNotify = make(chan uint16, 1)
 
-	builder := transaction.NewProveBlockTxBuilder(
-		s.RPCClient,
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		common.Address{},
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
+	var (
+		builder = transaction.NewProveBlockTxBuilder(
+			s.RPCClient,
+			common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			common.Address{},
+			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
+			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
+		)
+		l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 	)
-
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
 
 	txMgr, err := txmgr.NewSimpleTxManager(
 		"proofSubmitterTestSuite",
@@ -144,9 +144,10 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.Nil(err)
 
 	// Init proposer
-	prop := new(proposer.Proposer)
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		prop              = new(proposer.Proposer)
+	)
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	s.Nil(err)
 	s.NotEmpty(jwtSecret)
@@ -175,8 +176,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 }
 
 func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
+	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 	txMgr, err := txmgr.NewSimpleTxManager(
 		"proofSubmitterTestSuite",
 		log.Root(),

@@ -15,7 +15,7 @@ import (
 
 // ABI arguments marshaling components.
 var (
-	blockMetadataV2Components = []abi.ArgumentMarshaling{
+	BlockMetadataV2Components = []abi.ArgumentMarshaling{
 		{
 			Name: "anchorBlockHash",
 			Type: "bytes32",
@@ -119,7 +119,7 @@ var (
 			},
 		},
 	}
-	transitionComponents = []abi.ArgumentMarshaling{
+	TransitionComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "parentHash",
 			Type: "bytes32",
@@ -137,7 +137,7 @@ var (
 			Type: "bytes32",
 		},
 	}
-	tierProofComponents = []abi.ArgumentMarshaling{
+	TierProofComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "tier",
 			Type: "uint16",
@@ -147,7 +147,7 @@ var (
 			Type: "bytes",
 		},
 	}
-	blockParamsV2Components = []abi.ArgumentMarshaling{
+	BlockParamsV2Components = []abi.ArgumentMarshaling{
 		{
 			Name: "proposer",
 			Type: "address",
@@ -181,7 +181,7 @@ var (
 			Type: "uint8",
 		},
 	}
-	batchParamsComponents = []abi.ArgumentMarshaling{
+	BatchParamsComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "proposer",
 			Type: "address",
@@ -251,7 +251,7 @@ var (
 			},
 		},
 	}
-	batchMetaDataComponents = []abi.ArgumentMarshaling{
+	BatchMetaDataComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "infoHash",
 			Type: "bytes32",
@@ -269,7 +269,7 @@ var (
 			Type: "uint64",
 		},
 	}
-	batchTransitionComponents = []abi.ArgumentMarshaling{
+	BatchTransitionComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "parentHash",
 			Type: "bytes32",
@@ -283,7 +283,7 @@ var (
 			Type: "bytes32",
 		},
 	}
-	subProofComponents = []abi.ArgumentMarshaling{
+	SubProofComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "verifier",
 			Type: "address",
@@ -296,36 +296,36 @@ var (
 )
 
 var (
-	blockParamsV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
-	blockParamsV2ComponentsArgs    = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
-	batchParamsComponentsType, _   = abi.NewType("tuple", "ITaikoInbox.BatchParams", batchParamsComponents)
-	batchParamsComponentsArgs      = abi.Arguments{
-		{Name: "ITaikoInbox.BatchParams", Type: batchParamsComponentsType},
+	BlockParamsV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockParamsV2", BlockParamsV2Components)
+	BlockParamsV2ComponentsArgs    = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: BlockParamsV2ComponentsType}}
+	BatchParamsComponentsType, _   = abi.NewType("tuple", "ITaikoInbox.BatchParams", BatchParamsComponents)
+	BatchParamsComponentsArgs      = abi.Arguments{
+		{Name: "ITaikoInbox.BatchParams", Type: BatchParamsComponentsType},
 	}
-	blockMetadataV2ComponentsType, _      = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
-	batchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", batchMetaDataComponents)
-	transitionComponentsType, _           = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
-	batchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", batchTransitionComponents)
-	tierProofComponentsType, _            = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
-	subProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", subProofComponents)
-	subProofsComponentsArrayArgs          = abi.Arguments{
-		{Name: "ComposeVerifier.SubProof[]", Type: subProofsComponentsArrayType},
+	BlockMetadataV2ComponentsType, _      = abi.NewType("tuple", "TaikoData.BlockMetadataV2", BlockMetadataV2Components)
+	BatchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataComponents)
+	TransitionComponentsType, _           = abi.NewType("tuple", "TaikoData.Transition", TransitionComponents)
+	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
+	TierProofComponentsType, _            = abi.NewType("tuple", "TaikoData.TierProof", TierProofComponents)
+	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofComponents)
+	SubProofsComponentsArrayArgs          = abi.Arguments{
+		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
 	}
-	proveOntakeBlockInputArgs = abi.Arguments{
-		{Name: "TaikoData.BlockMetadataV2", Type: blockMetadataV2ComponentsType},
-		{Name: "TaikoData.Transition", Type: transitionComponentsType},
-		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
+	ProveOntakeBlockInputArgs = abi.Arguments{
+		{Name: "TaikoData.BlockMetadataV2", Type: BlockMetadataV2ComponentsType},
+		{Name: "TaikoData.Transition", Type: TransitionComponentsType},
+		{Name: "TaikoData.TierProof", Type: TierProofComponentsType},
 	}
-	proveBlocksInputArgs = abi.Arguments{
-		{Name: "TaikoData.BlockMetadata", Type: blockMetadataV2ComponentsType},
-		{Name: "TaikoData.Transition", Type: transitionComponentsType},
+	ProveBlocksInputArgs = abi.Arguments{
+		{Name: "TaikoData.BlockMetadata", Type: BlockMetadataV2ComponentsType},
+		{Name: "TaikoData.Transition", Type: TransitionComponentsType},
 	}
-	proveBlocksBatchProofArgs = abi.Arguments{
-		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
+	ProveBlocksBatchProofArgs = abi.Arguments{
+		{Name: "TaikoData.TierProof", Type: TierProofComponentsType},
 	}
-	proveBatchesInputArgs = abi.Arguments{
-		{Name: "ITaikoInbox.BlockMetadata[]", Type: batchMetaDataComponentsArrayType},
-		{Name: "TaikoData.Transition[]", Type: batchTransitionComponentsArrayType},
+	ProveBatchesInputArgs = abi.Arguments{
+		{Name: "ITaikoInbox.BlockMetadata[]", Type: BatchMetaDataComponentsArrayType},
+		{Name: "TaikoData.Transition[]", Type: BatchTransitionComponentsArrayType},
 	}
 	stringType, _             = abi.NewType("string", "", nil)
 	uint256Type, _            = abi.NewType("uint256", "", nil)
@@ -483,7 +483,7 @@ func init() {
 
 // EncodeBlockParamsOntake performs the solidity `abi.encode` for the given ontake blockParams.
 func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
-	b, err := blockParamsV2ComponentsArgs.Pack(params)
+	b, err := BlockParamsV2ComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode ontake block params, %w", err)
 	}
@@ -497,11 +497,11 @@ func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchPa
 		err error
 	)
 	if paramsForcedInclusion != nil {
-		if x, err = batchParamsComponentsArgs.Pack(paramsForcedInclusion); err != nil {
+		if x, err = BatchParamsComponentsArgs.Pack(paramsForcedInclusion); err != nil {
 			return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
 		}
 	}
-	y, err := batchParamsComponentsArgs.Pack(params)
+	y, err := BatchParamsComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode pacaya batch params, %w", err)
 	}
@@ -510,7 +510,7 @@ func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchPa
 
 // EncodeBatchesSubProofs performs the solidity `abi.encode` for the given pacaya batchParams.
 func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
-	b, err := subProofsComponentsArrayArgs.Pack(subProofs)
+	b, err := SubProofsComponentsArrayArgs.Pack(subProofs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode pacaya batch subproofs, %w", err)
 	}
@@ -527,7 +527,7 @@ func EncodeProveBlockInput(
 		b   []byte
 		err error
 	)
-	if b, err = proveOntakeBlockInputArgs.Pack(
+	if b, err = ProveOntakeBlockInputArgs.Pack(
 		meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
 		transition,
 		tierProof,
@@ -548,7 +548,7 @@ func EncodeProveBlocksInput(
 	}
 	b := make([][]byte, 0, len(metas))
 	for i := range metas {
-		input, err := proveBlocksInputArgs.Pack(
+		input, err := ProveBlocksInputArgs.Pack(
 			metas[i].Ontake().InnerMetadata(),
 			transitions[i],
 		)
@@ -579,7 +579,7 @@ func EncodeProveBatchesInput(
 			ProposedAt: metas[i].Pacaya().GetProposedAt(),
 		})
 	}
-	input, err := proveBatchesInputArgs.Pack(
+	input, err := ProveBatchesInputArgs.Pack(
 		pacayaMetas,
 		transitions,
 	)
@@ -594,7 +594,7 @@ func EncodeProveBatchesInput(
 func EncodeProveBlocksBatchProof(
 	tierProof *ontakeBindings.TaikoDataTierProof,
 ) ([]byte, error) {
-	input, err := proveBlocksBatchProofArgs.Pack(
+	input, err := ProveBlocksBatchProofArgs.Pack(
 		tierProof,
 	)
 	if err != nil {

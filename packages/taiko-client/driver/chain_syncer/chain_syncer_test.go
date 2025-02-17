@@ -45,9 +45,10 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 	s.Nil(err)
 	s.s = syncer
 
-	prop := new(proposer.Proposer)
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		prop              = new(proposer.Proposer)
+	)
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	s.Nil(err)
 

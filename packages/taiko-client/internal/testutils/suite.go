@@ -42,11 +42,15 @@ func (s *ClientTestSuite) SetupTest() {
 	glogger.Verbosity(log.FromLegacyLevel(ver))
 	log.SetDefault(log.NewLogger(glogger))
 
-	testAddrPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
+	var (
+		testAddrPrivKey   = s.KeyFromEnv("TEST_ACCOUNT_PRIVATE_KEY")
+		ownerPrivKey      = s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")
+		l1ProverPrivKey   = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+	)
 
 	s.TestAddrPrivKey = testAddrPrivKey
-	s.TestAddr = common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+	s.TestAddr = crypto.PubkeyToAddress(testAddrPrivKey.PublicKey)
 
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	s.Nil(err)
@@ -69,47 +73,21 @@ func (s *ClientTestSuite) SetupTest() {
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
-	ownerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
-	s.Nil(err)
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
-	l1ProposerprivateKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	for _, key := range []*ecdsa.PrivateKey{ownerPrivKey, l1ProposerprivateKey, l1ProverPrivKey} {
-		s.enableProver(key, crypto.PubkeyToAddress(key.PublicKey))
+	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
+		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))
 	}
-	s.enableProver(ownerPrivKey, common.HexToAddress(os.Getenv("PROVER_SET")))
 
-	allowance, err := rpcCli.PacayaClients.TaikoToken.Allowance(
-		nil,
-		crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey),
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-	)
+	bondBalance, err := rpcCli.PacayaClients.TaikoInbox.BondBalanceOf(nil, common.HexToAddress(os.Getenv("PROVER_SET")))
 	s.Nil(err)
 
-	if allowance.Cmp(common.Big0) == 0 {
-		// Transfer some tokens to provers and prover set.
-		for _, address := range []common.Address{
-			crypto.PubkeyToAddress(ownerPrivKey.PublicKey),
-			common.HexToAddress(os.Getenv("PROVER_SET")),
-		} {
-			balance, err := rpcCli.PacayaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(ownerPrivKey.PublicKey))
-			s.Nil(err)
-			s.Greater(balance.Cmp(common.Big0), 0)
+	if bondBalance.Cmp(common.Big0) == 0 {
+		s.sendBondTokens(ownerPrivKey, crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey))
+		s.sendBondTokens(ownerPrivKey, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey))
+		s.sendBondTokens(ownerPrivKey, common.HexToAddress(os.Getenv("PROVER_SET")))
 
-			opts, err := bind.NewKeyedTransactorWithChainID(ownerPrivKey, rpcCli.L1.ChainID)
-			s.Nil(err)
-			proverBalance := new(big.Int).Div(balance, common.Big256)
-			s.Greater(proverBalance.Cmp(common.Big0), 0)
-
-			_, err = rpcCli.PacayaClients.TaikoToken.Transfer(opts, address, proverBalance)
-			s.Nil(err)
-		}
-
-		// Increase allowance for TaikoL1
-		s.setAllowance(l1ProverPrivKey)
-		s.setAllowance(ownerPrivKey)
+		s.depositTokens(l1ProposerPrivKey)
+		s.depositTokens(l1ProverPrivKey)
+		s.depositProverSetTokens(ownerPrivKey)
 	}
 
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
@@ -117,8 +95,7 @@ func (s *ClientTestSuite) SetupTest() {
 }
 
 func (s *ClientTestSuite) enableProver(key *ecdsa.PrivateKey, address common.Address) {
-	t, err := s.txMgr("enableProver", key)
-	s.Nil(err)
+	t := s.TxMgr("enableProver", key)
 
 	proverSetAddress := common.HexToAddress(os.Getenv("PROVER_SET"))
 
@@ -127,6 +104,7 @@ func (s *ClientTestSuite) enableProver(key *ecdsa.PrivateKey, address common.Add
 
 	if !enabled {
 		log.Info("Enable prover / proposer in ProverSet", "address", address.Hex())
+
 		data, err := encoding.ProverSetABI.Pack("enableProver", address, true)
 		s.Nil(err)
 		_, err = t.Send(context.Background(), txmgr.TxCandidate{
@@ -141,33 +119,68 @@ func (s *ClientTestSuite) enableProver(key *ecdsa.PrivateKey, address common.Add
 	}
 }
 
-func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
-	t, err := s.txMgr("setAllowance", key)
+func (s *ClientTestSuite) sendBondTokens(key *ecdsa.PrivateKey, recipient common.Address) {
+	protocolConfig, err := s.RPCClient.GetProtocolConfigs(nil)
 	s.Nil(err)
 
-	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
+	amount := new(big.Int).Mul(protocolConfig.LivenessBond(), common.Big256)
+
+	log.Info("Send bond tokens", "recipient", recipient.Hex(), "amount", utils.WeiToEther(amount))
+
+	opts, err := bind.NewKeyedTransactorWithChainID(key, s.RPCClient.L1.ChainID)
 	s.Nil(err)
 
-	var (
-		bigInt            = new(big.Int).Exp(big.NewInt(1_000_000_000), new(big.Int).SetUint64(uint64(decimal)), nil)
-		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN"))
-	)
-
-	data, err := encoding.TaikoTokenABI.Pack(
-		"approve",
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		bigInt,
-	)
-	s.Nil(err)
-	_, err = t.Send(context.Background(), txmgr.TxCandidate{
-		TxData: data,
-		To:     &taikoTokenAddress,
-	})
+	_, err = s.RPCClient.PacayaClients.TaikoToken.Transfer(opts, recipient, amount)
 	s.Nil(err)
 }
 
-func (s *ClientTestSuite) txMgr(name string, key *ecdsa.PrivateKey) (*txmgr.SimpleTxManager, error) {
-	return txmgr.NewSimpleTxManager(
+func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
+	t := s.TxMgr("setAllowance", key)
+
+	var (
+		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN"))
+		taikoInboxAddress = common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+	)
+
+	log.Info("Deposit tokens", "address", crypto.PubkeyToAddress(key.PublicKey).Hex())
+
+	balance, err := s.RPCClient.PacayaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(key.PublicKey))
+	s.Nil(err)
+	s.Greater(balance.Cmp(common.Big0), 0)
+
+	data, err := encoding.TaikoTokenABI.Pack("approve", common.HexToAddress(os.Getenv("TAIKO_INBOX")), balance)
+	s.Nil(err)
+
+	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoTokenAddress})
+	s.Nil(err)
+
+	data, err = encoding.TaikoInboxABI.Pack("depositBond", balance)
+	s.Nil(err)
+
+	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoInboxAddress})
+	s.Nil(err)
+}
+
+func (s *ClientTestSuite) depositProverSetTokens(key *ecdsa.PrivateKey) {
+	t := s.TxMgr("setProverSetAllowance", key)
+
+	var proverSetAddress = common.HexToAddress(os.Getenv("PROVER_SET"))
+
+	balance, err := s.RPCClient.PacayaClients.TaikoToken.BalanceOf(nil, proverSetAddress)
+	s.Nil(err)
+	s.Greater(balance.Cmp(common.Big0), 0)
+
+	log.Info("Deposit ProverSet tokens", "address", proverSetAddress.Hex(), "balance", utils.WeiToEther(balance))
+
+	data, err := encoding.ProverSetPacayaABI.Pack("depositBond", balance)
+	s.Nil(err)
+
+	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &proverSetAddress})
+	s.Nil(err)
+}
+
+func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) txmgr.TxManager {
+	txmgr, err := txmgr.NewSimpleTxManager(
 		name,
 		log.Root(),
 		new(metrics.NoopTxMetrics),
@@ -187,6 +200,14 @@ func (s *ClientTestSuite) txMgr(name string, key *ecdsa.PrivateKey) (*txmgr.Simp
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
 	)
+	s.Nil(err)
+	return NewMemoryBlobTxMgr(s.RPCClient, txmgr, s.BlobServer)
+}
+
+func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
+	key, err := crypto.ToECDSA(common.FromHex(os.Getenv(envName)))
+	s.Nil(err)
+	return key
 }
 
 func (s *ClientTestSuite) TearDownTest() {
