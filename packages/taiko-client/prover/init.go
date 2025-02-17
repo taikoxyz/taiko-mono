@@ -115,23 +115,15 @@ func (p *Prover) initProofSubmitters(
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
 		case encoding.TierZkVMRisc0ID:
-			producer = &proofProducer.ZKvmProofProducer{
-				ZKProofType:         proofProducer.ZKProofTypeR0,
-				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-				JWT:                 p.cfg.RaikoJWT,
-				Dummy:               p.cfg.Dummy,
-				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			}
-			bufferSize = p.cfg.ZKVMProofBufferSize
+			continue
 		case encoding.TierZkVMSp1ID:
 			producer = &proofProducer.ZKvmProofProducer{
-				ZKProofType:         proofProducer.ZKProofTypeSP1,
 				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 				JWT:                 p.cfg.RaikoJWT,
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
-			bufferSize = p.cfg.ZKVMProofBufferSize
+			bufferSize = 0
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 			bufferSize = 0
