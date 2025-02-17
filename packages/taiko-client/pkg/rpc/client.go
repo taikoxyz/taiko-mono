@@ -46,6 +46,7 @@ type PacayaClients struct {
 	TaikoToken           *pacayaBindings.TaikoToken
 	ProverSet            *pacayaBindings.ProverSet
 	ForkRouter           *pacayaBindings.ForkRouter
+	ComposeVerifier      *pacayaBindings.ComposeVerifier
 	ForkHeight           uint64
 }
 
@@ -274,11 +275,25 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return err
 		}
 	}
-	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
+	var cancel context.CancelFunc
+	opts := &bind.CallOpts{Context: context.Background()}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+	composeVerifierAddress, err := taikoInbox.Verifier(opts)
+	if err != nil {
+		return err
+	}
+	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+	if err != nil {
+		return err
+	}
+
+	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
 		if taikoWrapper, err = pacayaBindings.NewTaikoWrapperClient(cfg.TaikoWrapperAddress, c.L1); err != nil {
 			return err
 		}
 	}
+
 	if cfg.ForcedInclusionStoreAddress.Hex() != ZeroAddress.Hex() {
 		if forcedInclusionStore, err = pacayaBindings.NewForcedInclusionStore(
 			cfg.ForcedInclusionStoreAddress,
@@ -290,12 +305,13 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 
 	c.PacayaClients = &PacayaClients{
 		TaikoInbox:           taikoInbox,
-		TaikoWrapper:         taikoWrapper,
-		ForcedInclusionStore: forcedInclusionStore,
 		TaikoAnchor:          taikoAnchor,
 		TaikoToken:           taikoToken,
 		ProverSet:            proverSet,
 		ForkRouter:           forkManager,
+		TaikoWrapper:         taikoWrapper,
+		ForcedInclusionStore: forcedInclusionStore,
+		ComposeVerifier:      composeVerifier,
 	}
 
 	return nil
