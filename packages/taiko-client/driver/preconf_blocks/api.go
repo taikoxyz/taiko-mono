@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -37,7 +38,7 @@ type ExecutableData struct {
 	Number       uint64         `json:"blockNumber"`
 	GasLimit     uint64         `json:"gasLimit"`
 	Timestamp    uint64         `json:"timestamp"`
-	Transactions []byte         `json:"transactions"`
+	Transactions hexutil.Bytes  `json:"transactions"`
 }
 
 // BuildPreconfBlockRequestBody represents a request body when handling
