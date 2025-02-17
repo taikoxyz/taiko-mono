@@ -76,28 +76,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(
-            address(new Bridge(sharedResolver, signalService, quotaManager))
-        );
-        register(sharedResolver, "bridge", bridgeL1);
-        // SignalService
-        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
-        register(sharedResolver, "signal_service", signalService);
-        // Vault
-        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
-        register(sharedResolver, "erc20_vault", erc20Vault);
-        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
-        register(sharedResolver, "erc721_vault", erc721Vault);
-        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
-        register(sharedResolver, "erc1155_vault", erc1155Vault);
-        // Bridged Token
-        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
-        register(
-            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
-        );
-        register(
-            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
-        );
+        upgradeBridgeContracts();
+
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
@@ -214,6 +194,31 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(
                 new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
+        );
+    }
+
+    function upgradeBridgeContracts() internal {
+          UUPSUpgradeable(bridgeL1).upgradeTo(
+            address(new Bridge(sharedResolver, signalService, quotaManager))
+        );
+        register(sharedResolver, "bridge", bridgeL1);
+        // SignalService
+        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
+        register(sharedResolver, "signal_service", signalService);
+        // Vault
+        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
+        register(sharedResolver, "erc20_vault", erc20Vault);
+        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
+        register(sharedResolver, "erc721_vault", erc721Vault);
+        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
+        register(sharedResolver, "erc1155_vault", erc1155Vault);
+        // Bridged Token
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
+        register(
+            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
+        );
+        register(
+            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
         );
     }
 }
