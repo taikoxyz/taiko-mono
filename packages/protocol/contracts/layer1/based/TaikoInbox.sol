@@ -95,9 +95,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+
+                    require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                    params.blobParams.createdIn = uint64(block.number);
                 } else {
                     require(msg.sender == inboxWrapper, NotInboxWrapper());
                     require(params.proposer != address(0), CustomProposerMissing());
+                    require(params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
                 }
 
                 if (params.coinbase == address(0)) {
@@ -118,6 +122,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     require(params.blobParams.numBlobs == 0, InvalidBlobParams());
                     require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
                 }
+            } else {
+                params.blobParams.createdIn = 0;
             }
 
             // Keep track of last batch's information.
@@ -151,6 +157,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
                 proposedIn: uint64(block.number),
+                blobCreatedIn: params.blobParams.createdIn,
                 blobByteOffset: params.blobParams.byteOffset,
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,

@@ -501,14 +501,27 @@ contract DeployProtocolOnL1 is DeployCapability {
             );
         }
 
-        address newFork = address(
-            new DevnetInbox(
-                taikoWrapper,
-                verifier,
-                IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
-            )
-        );
+        address newFork;
+        
+         if (vm.envBool("PRECONF_INBOX")) {
+              newFork = address(
+                new PreconfInbox(
+                  taikoWrapper,
+                    verifier,
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                )
+            );
+        } else {
+            newFork = address(
+                new DevnetInbox(
+                    taikoWrapper,
+                    verifier,
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                )
+            );
+        }
 
         UUPSUpgradeable(taikoInbox).upgradeTo({
             newImplementation: address(
@@ -520,15 +533,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         UUPSUpgradeable(taikoWrapper).upgradeTo({
-            newImplementation: address(
-                new TaikoWrapper(taikoInbox, store, router
-                )
-            )
+            newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
         });
 
-         Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
+        Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
         console2.log("** taiko_wrapper ownership transferred to:", owner);
-
 
         UUPSUpgradeable(store).upgradeTo(
             address(
