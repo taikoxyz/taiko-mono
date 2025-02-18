@@ -90,4 +90,4 @@ Ethereum-equivalence across L2s, L3s, and beyond means **native arbitrary messag
 
 ## Further Reading
 
-For more details on **cross-layer communication**, refer to the [Bridging](/taiko-alethia-protocol/bridging) documentation.
+For more details on **cross-layer communication**, refer to the [Bridging](/taiko-alethia-protocol/protocol-architecture/bridging) documentation.
