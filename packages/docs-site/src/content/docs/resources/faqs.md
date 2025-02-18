@@ -11,7 +11,7 @@ This page is divided between [General FAQs](#general-faqs) and [Developer FAQs](
 
 ### What is Taiko Alethia?
 
-See [What is Taiko Alethia?](/core-concepts/what-is-taiko-alethia).
+See [What is Taiko Alethia?](/taiko-alethia-protocol/what-is-taiko-alethia).
 
 ### What is a Type 1 ZK-EVM?
 
