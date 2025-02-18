@@ -207,6 +207,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
+				firstItemTime := s.proofBuffer.FirstItemTime()
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
 					return fmt.Errorf(
@@ -222,12 +223,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					"bufferSize", bufferSize,
 					"maxBufferSize", s.proofBuffer.MaxLength,
 					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
-					"bufferLastUpdatedAt", s.proofBuffer.lastUpdatedAt,
+					"bufferFirstItemTime", firstItemTime,
 				)
 				// Check if we need to aggregate proofs.
 				if !s.proofBuffer.IsAggregating() &&
 					(uint64(bufferSize) >= s.proofBuffer.MaxLength ||
-						time.Since(s.proofBuffer.lastUpdatedAt) > s.forceBatchProvingInterval) {
+						(s.proofBuffer.Len() != 0 && time.Since(firstItemTime) > s.forceBatchProvingInterval)) {
 					s.aggregationNotify <- s.Tier()
 					s.proofBuffer.MarkAggregating()
 				}
@@ -467,8 +468,6 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 	s.proofBuffer.ClearItems(uint64BlockIDs...)
-	// Each time we submit a batch proof, we should update the LastUpdatedAt() of the buffer.
-	s.proofBuffer.UpdateLastUpdatedAt()
 
 	return nil
 }

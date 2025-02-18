@@ -17,7 +17,7 @@ var (
 type ProofBuffer struct {
 	MaxLength     uint64
 	buffer        []*producer.ProofWithHeader
-	lastUpdatedAt time.Time
+	firstItemTime time.Time
 	isAggregating bool
 	mutex         sync.RWMutex
 }
@@ -26,7 +26,7 @@ type ProofBuffer struct {
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
 		buffer:        make([]*producer.ProofWithHeader, 0, maxLength),
-		lastUpdatedAt: time.Now(),
+		firstItemTime: time.Now(),
 		MaxLength:     maxLength,
 	}
 }
@@ -39,9 +39,11 @@ func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
 	if len(pb.buffer)+1 > int(pb.MaxLength) {
 		return len(pb.buffer), errBufferOverflow
 	}
+	if len(pb.buffer) == 0 {
+		pb.firstItemTime = time.Now()
+	}
 
 	pb.buffer = append(pb.buffer, item)
-	pb.lastUpdatedAt = time.Now()
 	return len(pb.buffer), nil
 }
 
@@ -70,14 +72,9 @@ func (pb *ProofBuffer) Len() int {
 	return len(pb.buffer)
 }
 
-// LastUpdatedAt returns the last updated time of the buffer.
-func (pb *ProofBuffer) LastUpdatedAt() time.Time {
-	return pb.lastUpdatedAt
-}
-
-// LastUpdatedAt returns the last updated time of the buffer.
-func (pb *ProofBuffer) UpdateLastUpdatedAt() {
-	pb.lastUpdatedAt = time.Now()
+// FirstItemTime returns the first item updated time of the buffer.
+func (pb *ProofBuffer) FirstItemTime() time.Time {
+	return pb.firstItemTime
 }
 
 // ClearItems clears items that has given block ids in the buffer.
