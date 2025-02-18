@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
 var (
@@ -141,6 +143,7 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		"--" + p2pFlags.DiscoveryPathName, "memory",
 		"--" + p2pFlags.PeerstorePathName, "memory",
 		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
+		"--" + p2pFlags.ListenUDPPortName, fmt.Sprintf("%d", testutils.RandomPort()),
 	}))
 
 	return <-p2pConfigCh, <-signerSetupCh
