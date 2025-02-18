@@ -128,6 +128,11 @@ func (m *TaikoDataBlockMetadataOntake) GetProposedIn() uint64 {
 	return m.ProposedIn
 }
 
+// GetBlobCreatedIn returns the L1 block number when the blob created.
+func (m *TaikoDataBlockMetadataOntake) GetBlobCreatedIn() *big.Int {
+	return new(big.Int).SetUint64(m.BlockNumber)
+}
+
 // GetBlobTxListOffset returns the blob tx list offset.
 func (m *TaikoDataBlockMetadataOntake) GetBlobTxListOffset() uint32 {
 	return m.BlobTxListOffset
