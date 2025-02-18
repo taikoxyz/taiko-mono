@@ -366,7 +366,9 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         view
         returns (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_)
     {
+        // 255 bytes32 ring buffer + 1 bytes32 for chainId
         bytes32[256] memory inputs;
+        inputs[255] = bytes32(block.chainid);
 
         // Unchecked is safe because it cannot overflow.
         unchecked {
@@ -377,8 +379,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
                 inputs[j % 255] = blockhash(j);
             }
         }
-
-        inputs[255] = bytes32(block.chainid);
 
         assembly {
             currPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
