@@ -2,10 +2,11 @@ package driver
 
 import (
 	"context"
-	"fmt"
+	"net"
 	"os"
 	"time"
 
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/urfave/cli/v2"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
@@ -117,6 +118,10 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		s.Nil(err)
 		s.NotNil(c.P2PConfigs)
 		s.NotNil(c.P2PSignerConfigs)
+		c.P2PConfigs.NoDiscovery = true
+		c.P2PConfigs.NAT = false
+		c.P2PConfigs.Bootnodes = []*enode.Node{}
+		c.P2PConfigs.ListenIP = net.IP{127, 0, 0, 1}
 
 		go func() {
 			p2pConfigCh <- c.P2PConfigs
@@ -139,11 +144,14 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.P2PSync.Name,
 		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
-		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
+		"--" + p2pFlags.P2PPrivRawName, testutils.RandomHash().Hex(),
 		"--" + p2pFlags.DiscoveryPathName, "memory",
 		"--" + p2pFlags.PeerstorePathName, "memory",
 		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
-		"--" + p2pFlags.ListenUDPPortName, fmt.Sprintf("%d", testutils.RandomPort()),
+		"--" + p2pFlags.ListenTCPPortName, "0",
+		"--" + p2pFlags.ListenUDPPortName, "0",
+		"--" + p2pFlags.NATName, "false",
+		"--" + p2pFlags.NoDiscoveryName, "true",
 	}))
 
 	return <-p2pConfigCh, <-signerSetupCh

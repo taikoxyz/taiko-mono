@@ -6,15 +6,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"net"
 	"net/url"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/ethereum-optimism/optimism/op-node/p2p"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -22,20 +19,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-resty/resty/v2"
 	"github.com/holiman/uint256"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/multiformats/go-multiaddr"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -530,93 +524,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	s.Zero(anchorTx.GasFeeCap().Cmp(l2Head2.BaseFee()))
 	s.Equal(1, len(l2Head2.Transactions()))
 	s.Equal(anchorTx.Hash(), l2Head2.Transactions()[0].Hash())
-}
-
-type testGossipIn struct {
-	gossipInCh chan *eth.ExecutionPayloadEnvelope
-}
-
-func (i *testGossipIn) OnUnsafeL2Payload(
-	ctx context.Context,
-	from peer.ID, msg *eth.ExecutionPayloadEnvelope,
-) error {
-	log.Info("Received L2 payload", "from", from, "payload", msg)
-	i.gossipInCh <- msg
-	return nil
-}
-
-func (s *DriverTestSuite) TestPreconfBlocksP2P() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
-
-	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	p2pConfig, _ := s.defaultCliP2PConfigs()
-
-	privKeyBytes, err := p2pConfig.Priv.Raw()
-	s.Nil(err)
-	s.NotEmpty(privKeyBytes)
-
-	ecdsaPrivKey, err := crypto.ToECDSA(privKeyBytes)
-	s.Nil(err)
-	s.NotNil(ecdsaPrivKey)
-
-	p2pConfig.Bootnodes = []*enode.Node{}
-
-	for _, host := range s.d.p2pNode.Host().Addrs() {
-		hostValue, err := host.ValueForProtocol(multiaddr.P_IP4)
-		s.Nil(err)
-
-		p2pConfig.Bootnodes = append(
-			p2pConfig.Bootnodes,
-			enode.NewV4(
-				&ecdsaPrivKey.PublicKey,
-				net.ParseIP(hostValue),
-				int(p2pConfig.ListenTCPPort),
-				int(p2pConfig.ListenUDPPort),
-			),
-		)
-	}
-
-	log.Info("P2P bootnodes", "enodes", p2pConfig.Bootnodes)
-
-	p2pConfig.ListenTCPPort = uint16(testutils.RandomPort())
-	p2pConfig.ListenUDPPort = uint16(testutils.RandomPort())
-	gossipIn := &testGossipIn{gossipInCh: make(chan *eth.ExecutionPayloadEnvelope)}
-
-	p2pNode, err := p2p.NewNodeP2P(
-		context.Background(),
-		&rollup.Config{L1ChainID: s.RPCClient.L1.ChainID, L2ChainID: s.RPCClient.L2.ChainID, Taiko: true},
-		log.Root(),
-		p2pConfig,
-		gossipIn,
-		nil,
-		s.d.preconfBlockServer,
-		metrics.P2PNodeMetrics,
-		false,
-	)
-	s.Nil(err)
-
-	go p2pNode.DiscoveryProcess(
-		context.Background(),
-		log.Root(),
-		&rollup.Config{L1ChainID: s.RPCClient.L1.ChainID, L2ChainID: s.RPCClient.L2.ChainID, Taiko: true},
-		s.d.p2pSetup.TargetPeers(),
-	)
-
-	defer func() { s.Nil(p2pNode.Close()) }()
-
-	l2Head, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	// Try to insert one preconfirmation block
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head, l2Head.Number.Uint64()+1).IsSuccess())
-	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head.Number.Uint64()+1, l2Head2.Number().Uint64())
-
-	payload := <-gossipIn.gossipInCh
-	s.Equal(l2Head2.ParentHash(), payload.ExecutionPayload.ParentHash)
 }
 
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {

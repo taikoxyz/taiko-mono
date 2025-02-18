@@ -179,7 +179,7 @@ func (d *Driver) Start() error {
 		go d.p2pNode.DiscoveryProcess(
 			d.ctx,
 			log.Root(),
-			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
 			d.p2pSetup.TargetPeers(),
 		)
 	}

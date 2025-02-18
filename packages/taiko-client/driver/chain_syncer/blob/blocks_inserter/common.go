@@ -168,7 +168,7 @@ func createExecutionPayloads(
 		"timestamp", attributes.BlockMetadata.Timestamp,
 		"mixHash", attributes.BlockMetadata.MixHash,
 		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
-		"extraData", string(attributes.BlockMetadata.ExtraData),
+		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
 		"l1OriginHeight", attributes.L1Origin.L1BlockHeight,
 		"l1OriginHash", attributes.L1Origin.L1BlockHash,
 	)
