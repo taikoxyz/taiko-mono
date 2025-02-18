@@ -304,6 +304,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
+        
         address newFork = address(
             new DevnetInbox(
                 address(0),
