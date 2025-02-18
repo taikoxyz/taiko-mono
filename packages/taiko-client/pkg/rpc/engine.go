@@ -134,10 +134,10 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 }
 
 // UpdateL1Origin sets the L2 block's corresponding L1 origin.
-func (ec *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Origin) (*rawdb.L1Origin, error) {
+func (c *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Origin) (*rawdb.L1Origin, error) {
 	var res *rawdb.L1Origin
 
-	if err := ec.CallContext(ctx, &res, "taikoAuth_updateL1Origin", l1Origin); err != nil {
+	if err := c.CallContext(ctx, &res, "taikoAuth_updateL1Origin", l1Origin); err != nil {
 		return nil, err
 	}
 
@@ -145,10 +145,10 @@ func (ec *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Or
 }
 
 // SetHeadL1Origin sets the latest L2 block's corresponding L1 origin.
-func (ec *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
+func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
 	var res *big.Int
 
-	if err := ec.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID); err != nil {
+	if err := c.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID); err != nil {
 		return nil, err
 	}
 
