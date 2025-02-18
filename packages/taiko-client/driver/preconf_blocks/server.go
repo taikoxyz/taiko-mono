@@ -174,16 +174,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
 			Transactions: common.FromHex(msg.ExecutionPayload.Transactions[0].String()),
 		},
-		msg.AnchorBlockID,
-		msg.AnchorStateRoot,
-		msg.SignalSlots,
-		&pacayaBindings.LibSharedDataBaseFeeConfig{
-			AdjustmentQuotient:     msg.AdjustmentQuotient,
-			SharingPctg:            msg.SharingPctg,
-			GasIssuancePerSecond:   msg.GasIssuancePerSecond,
-			MinGasExcess:           msg.MinGasExcess,
-			MaxGasIssuancePerBlock: msg.MaxGasIssuancePerBlock,
-		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
