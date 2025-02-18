@@ -188,6 +188,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
+
 	return nil
 }
 
