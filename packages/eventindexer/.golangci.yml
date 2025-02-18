@@ -9,7 +9,8 @@
 # ],
 
 output:
-  formats: colored-line-number
+  formats:
+    - colored-line-number
 
 linters:
   enable:
