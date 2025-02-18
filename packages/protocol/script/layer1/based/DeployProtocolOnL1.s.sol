@@ -308,12 +308,14 @@ contract DeployProtocolOnL1 is DeployCapability {
         address newFork;
 
         if (vm.envBool("PRECONF_INBOX")) {
-              newFork = address(
+            newFork = address(
                 new PreconfInbox(
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                    IResolver(_sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
                 )
             );
         } else {
@@ -322,7 +324,9 @@ contract DeployProtocolOnL1 is DeployCapability {
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                    IResolver(_sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
                 )
             );
         }
@@ -502,14 +506,16 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         address newFork;
-        
-         if (vm.envBool("PRECONF_INBOX")) {
-              newFork = address(
+
+        if (vm.envBool("PRECONF_INBOX")) {
+            newFork = address(
                 new PreconfInbox(
-                  taikoWrapper,
+                    taikoWrapper,
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                    IResolver(sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
                 )
             );
         } else {
@@ -518,7 +524,9 @@ contract DeployProtocolOnL1 is DeployCapability {
                     taikoWrapper,
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                    IResolver(sharedResolver).resolve(
+                        uint64(block.chainid), "signal_service", false
+                    )
                 )
             );
         }
