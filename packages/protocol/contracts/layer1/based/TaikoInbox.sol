@@ -150,7 +150,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 blobHashes: new bytes32[](0), // to be initialised later
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
-                proposedIn: uint64(block.number),
+                proposedIn: params.blobParams.submittedIn, // use blob info even if txList is used
                 blobByteOffset: params.blobParams.byteOffset,
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,

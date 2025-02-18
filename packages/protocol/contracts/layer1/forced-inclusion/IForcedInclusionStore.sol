@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 interface IForcedInclusionStore {
     struct ForcedInclusion {
         bytes32 blobHash;
+        uint64 proposedIn;
         uint64 feeInGwei;
         uint64 createdAtBatchId;
         uint32 blobByteOffset;

@@ -44,6 +44,8 @@ interface ITaikoInbox {
         uint32 byteOffset;
         // The byte size of the blob.
         uint32 byteSize;
+        // The block number who holds the blob.
+        uint64 submittedIn;
     }
 
     struct BatchParams {

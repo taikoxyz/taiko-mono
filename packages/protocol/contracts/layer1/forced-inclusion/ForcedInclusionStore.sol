@@ -67,6 +67,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
+            proposedIn: uint64(block.number),
             feeInGwei: uint64(msg.value / 1 gwei),
             createdAtBatchId: _nextBatchId(),
             blobByteOffset: blobByteOffset,

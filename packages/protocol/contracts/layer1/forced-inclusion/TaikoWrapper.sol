@@ -41,6 +41,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidBlockTxs();
     error InvalidBlobHashesSize();
     error InvalidBlobHash();
+    error InvalidBlobSubmittedIn();
     error InvalidBlobByteOffset();
     error InvalidBlobByteSize();
     error OldestForcedInclusionDue();
@@ -90,7 +91,14 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
+        _validateProposalParams(bytesY, _txList);
         return inbox.proposeBatch(bytesY, _txList);
+    }
+
+    // ensure that the batch is submitted in the current block even if it is a txlist proposal
+    function _validateProposalParams(bytes memory _params, bytes calldata _txList) internal {
+        ITaikoInbox.BatchParams memory p = abi.decode(_params, (ITaikoInbox.BatchParams));
+        require(p.blobParams.submittedIn == uint64(block.number), InvalidBlobSubmittedIn());
     }
 
     function _validateForcedInclusionParams(
@@ -116,6 +124,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());
         require(p.blobParams.byteOffset == inclusion.blobByteOffset, InvalidBlobByteOffset());
         require(p.blobParams.byteSize == inclusion.blobByteSize, InvalidBlobByteSize());
+        require(p.blobParams.submittedIn == inclusion.proposedIn, InvalidBlobSubmittedIn());
 
         emit ForcedInclusionProcessed(inclusion);
     }
