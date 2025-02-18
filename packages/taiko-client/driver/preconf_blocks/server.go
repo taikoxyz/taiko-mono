@@ -160,6 +160,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"txs", len(msg.ExecutionPayload.Transactions),
 	)
 
+	// Ignore the message if it is from the current P2P node.
+	if s.p2pNode.Host().ID() == from {
+		log.Info("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
 	if len(msg.ExecutionPayload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
 	}
@@ -188,6 +194,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
+
 	return nil
 }
 
