@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -223,12 +224,12 @@ func isBlockPreconfirmed(
 ) (*types.Header, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
 	block, err := rpc.L2.BlockByNumber(ctx, blockID)
-	if err != nil {
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, fmt.Errorf("failed to get block by number %d: %w", blockID, err)
 	}
 
 	if block == nil {
-		return nil, fmt.Errorf("block not found by number %d", blockID)
+		return nil, nil
 	}
 
 	var (
