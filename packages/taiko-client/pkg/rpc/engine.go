@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -130,4 +131,26 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 		return nil, err
 	}
 	return result, nil
+}
+
+// UpdateL1Origin sets the L2 block's corresponding L1 origin.
+func (ec *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Origin) (*rawdb.L1Origin, error) {
+	var res *rawdb.L1Origin
+
+	if err := ec.CallContext(ctx, &res, "taikoAuth_updateL1Origin", l1Origin); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// SetHeadL1Origin sets the latest L2 block's corresponding L1 origin.
+func (ec *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
+	var res *big.Int
+
+	if err := ec.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
