@@ -70,7 +70,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             feeInGwei: uint64(msg.value / 1 gwei),
             createdAtBatchId: _nextBatchId(),
             blobByteOffset: blobByteOffset,
-            blobByteSize: blobByteSize
+            blobByteSize: blobByteSize,
+            blobCreatedIn: uint64(block.number)
         });
 
         queue[tail++] = inclusion;

@@ -43,6 +43,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidBlobHash();
     error InvalidBlobByteOffset();
     error InvalidBlobByteSize();
+    error InvalidBlobCreatedIn();
     error OldestForcedInclusionDue();
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
@@ -116,6 +117,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());
         require(p.blobParams.byteOffset == inclusion.blobByteOffset, InvalidBlobByteOffset());
         require(p.blobParams.byteSize == inclusion.blobByteSize, InvalidBlobByteSize());
+        require(p.blobParams.createdIn == inclusion.blobCreatedIn, InvalidBlobCreatedIn());
 
         emit ForcedInclusionProcessed(inclusion);
     }
