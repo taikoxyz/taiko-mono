@@ -10,6 +10,7 @@ interface IForcedInclusionStore {
         uint64 createdAtBatchId;
         uint32 blobByteOffset;
         uint32 blobByteSize;
+        uint64 blobCreatedIn;
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
