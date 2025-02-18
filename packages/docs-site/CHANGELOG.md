@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.23.2...docs-site-v1.23.3) (2025-02-18)
+
+
+### Bug Fixes
+
+* **docs-site:** fix release version filter ([#18947](https://github.com/taikoxyz/taiko-mono/issues/18947)) ([0c501dc](https://github.com/taikoxyz/taiko-mono/commit/0c501dccfd8382a16ccf9b21d9b64415da690ed0))
+
 ## [1.23.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.23.1...docs-site-v1.23.2) (2025-02-14)
 
 
