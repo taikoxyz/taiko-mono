@@ -469,7 +469,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         taikoWrapper = deployProxy({
             name: "taiko_wrapper",
             impl: address(new TaikoWrapper(taikoInbox, store, router)),
-            data: abi.encodeCall(TaikoWrapper.init, (owner)),
+            data: abi.encodeCall(TaikoWrapper.init, (msg.sender)),
             registerTo: rollupResolver
         });
 
@@ -504,6 +504,17 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
         });
+
+        UUPSUpgradeable(taikoWrapper).upgradeTo({
+            newImplementation: address(
+                new TaikoWrapper(taikoInbox, store, router
+                )
+            )
+        });
+
+         Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
+        console2.log("** taiko_wrapper ownership transferred to:", owner);
+
 
         UUPSUpgradeable(store).upgradeTo(
             address(
