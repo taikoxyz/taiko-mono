@@ -52,10 +52,10 @@ func createPayloadAndSetHead(
 		} else if header != nil {
 			// Update the l1Origin and headL1Origin cursor for that preconfirmed block.
 			meta.L1Origin.L2BlockHash = header.Hash()
-			if _, err := rpc.L2.UpdateL1Origin(ctx, meta.L1Origin); err != nil {
+			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, meta.L1Origin); err != nil {
 				return nil, fmt.Errorf("failed to update L1 origin: %w", err)
 			}
-			if _, err := rpc.L2.SetHeadL1Origin(ctx, meta.L1Origin.BlockID); err != nil {
+			if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, meta.L1Origin.BlockID); err != nil {
 				return nil, fmt.Errorf("failed to write head L1 origin: %w", err)
 			}
 
