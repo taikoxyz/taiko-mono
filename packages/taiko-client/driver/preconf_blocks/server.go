@@ -2,11 +2,13 @@ package preconfblocks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -18,6 +20,7 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
@@ -161,7 +164,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	log.Info(
 		"📢 New preconfirmation block payload from P2P network",
 		"peer", from,
-		"blockID", msg.ExecutionPayload.BlockNumber,
+		"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 		"hash", msg.ExecutionPayload.BlockHash.Hex(),
 		"txs", len(msg.ExecutionPayload.Transactions),
 	)
@@ -171,7 +174,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	header, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
-	if err != nil {
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
 
@@ -179,11 +182,15 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		log.Debug(
 			"Preconfirmation block already exists",
 			"peer", from,
-			"blockID", msg.ExecutionPayload.BlockNumber,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"txs", len(msg.ExecutionPayload.Transactions),
 		)
 		return nil
+	}
+
+	if msg.ExecutionPayload.Transactions[0], err = utils.Decompress(msg.ExecutionPayload.Transactions[0]); err != nil {
+		return fmt.Errorf("failed to decompress tx list bytes: %w", err)
 	}
 
 	if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, msg.ExecutionPayload); err != nil {

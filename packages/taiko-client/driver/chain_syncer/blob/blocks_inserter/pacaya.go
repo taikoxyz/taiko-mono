@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -394,6 +395,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
 		i.rpc,
@@ -411,7 +413,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 				L1BlockHeight: nil,
 				L1BlockHash:   common.Hash{},
 			},
-			BaseFee:     new(big.Int).SetBytes(common.Hex2Bytes(executableData.BaseFeePerGas.String())),
+			BaseFee:     u256BaseFee.ToBig(),
 			Withdrawals: make([]*types.Withdrawal, 0),
 		},
 		executableData.Transactions[0],
