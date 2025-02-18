@@ -207,7 +207,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
-				firstItemTime := s.proofBuffer.FirstItemTime()
+				firstItemAt := s.proofBuffer.FirstItemAt()
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
 					return fmt.Errorf(
@@ -223,12 +223,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					"bufferSize", bufferSize,
 					"maxBufferSize", s.proofBuffer.MaxLength,
 					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
-					"bufferFirstItemTime", firstItemTime,
+					"bufferFirstItemAt", firstItemAt,
 				)
 				// Check if we need to aggregate proofs.
 				if !s.proofBuffer.IsAggregating() &&
 					(uint64(bufferSize) >= s.proofBuffer.MaxLength ||
-						(s.proofBuffer.Len() != 0 && time.Since(firstItemTime) > s.forceBatchProvingInterval)) {
+						(s.proofBuffer.Len() != 0 && time.Since(firstItemAt) > s.forceBatchProvingInterval)) {
 					s.aggregationNotify <- s.Tier()
 					s.proofBuffer.MarkAggregating()
 				}
