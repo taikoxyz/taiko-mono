@@ -34,6 +34,7 @@ contract MockTaikoInbox is EssentialContract {
             lastBlockId: 0,
             lastBlockTimestamp: 0,
             proposedIn: uint64(block.number),
+            blobCreatedIn: 0,
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             blocks: params.blocks,

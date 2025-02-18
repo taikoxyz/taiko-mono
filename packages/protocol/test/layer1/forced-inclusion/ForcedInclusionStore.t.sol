@@ -77,7 +77,8 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
                 uint64 feeInGwei,
                 uint64 createdAt,
                 uint32 blobByteOffset,
-                uint32 blobByteSize
+                uint32 blobByteSize,
+                uint64 blobCreatedIn
             ) = store.queue(store.tail() - 1);
 
             assertEq(blobHash, bytes32(uint256(i + 1))); //  = blobIndex + 1
@@ -85,6 +86,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
             assertEq(feeInGwei, _feeInGwei);
             assertEq(blobByteOffset, 0);
             assertEq(blobByteSize, 1024);
+            assertEq(blobCreatedIn, uint64(block.number));
         }
     }
 
