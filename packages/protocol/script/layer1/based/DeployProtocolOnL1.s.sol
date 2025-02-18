@@ -28,6 +28,7 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
+import "src/layer1/preconf/PreconfInbox.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -304,15 +305,27 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        
-        address newFork = address(
-            new DevnetInbox(
-                address(0),
-                proofVerifier,
-                IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
-            )
-        );
+        address newFork;
+
+        if (vm.envBool("PRECONF_INBOX")) {
+              newFork = address(
+                new PreconfInbox(
+                    address(0),
+                    proofVerifier,
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                )
+            );
+        } else {
+            newFork = address(
+                new DevnetInbox(
+                    address(0),
+                    proofVerifier,
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
+                )
+            );
+        }
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
 
