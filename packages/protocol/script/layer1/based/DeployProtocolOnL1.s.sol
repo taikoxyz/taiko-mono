@@ -65,7 +65,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        (address rollupResolver, address proofVerifier) = deployRollupContracts(sharedResolver, contractOwner);
+        (address rollupResolver, address proofVerifier) =
+            deployRollupContracts(sharedResolver, contractOwner);
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
@@ -114,7 +115,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
-            deployPreconfContracts(contractOwner, rollupResolver,sharedResolver, address(taikoInbox), proofVerifier);
+            deployPreconfContracts(
+                contractOwner, rollupResolver, sharedResolver, address(taikoInbox), proofVerifier
+            );
         }
 
         if (DefaultResolver(sharedResolver).owner() == msg.sender) {
@@ -493,16 +496,14 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
         );
 
-         UUPSUpgradeable(taikoInbox).upgradeTo(
-            {
+        UUPSUpgradeable(taikoInbox).upgradeTo({
             newImplementation: address(
                 new PacayaForkRouter(
                     oldFork, // dont need old fork, we are using pacaya fork height 0 here
                     newFork
                 )
             )
-        }
-        );
+        });
 
         UUPSUpgradeable(store).upgradeTo(
             address(

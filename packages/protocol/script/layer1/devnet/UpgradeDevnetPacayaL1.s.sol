@@ -154,11 +154,21 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(l2ChainId != block.chainid, "same chainid");
 
         // Other verifiers
-        upgradeVerifierContracts(sharedResolver, rollupResolver, opVerifier, proofVerifier, l2ChainId);
+        upgradeVerifierContracts(
+            sharedResolver, rollupResolver, opVerifier, proofVerifier, l2ChainId
+        );
     }
 
-    function upgradeVerifierContracts(address sharedResolver, address rollupResolver, address opVerifier, address proofVerifier, uint64 l2ChainId) internal {
-          P256Verifier p256Verifier = new P256Verifier();
+    function upgradeVerifierContracts(
+        address sharedResolver,
+        address rollupResolver,
+        address opVerifier,
+        address proofVerifier,
+        uint64 l2ChainId
+    )
+        internal
+    {
+        P256Verifier p256Verifier = new P256Verifier();
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
         address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
@@ -202,7 +212,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     }
 
     function upgradeBridgeContracts(address sharedResolver) internal {
-          UUPSUpgradeable(bridgeL1).upgradeTo(
+        UUPSUpgradeable(bridgeL1).upgradeTo(
             address(new Bridge(sharedResolver, signalService, quotaManager))
         );
         register(sharedResolver, "bridge", bridgeL1);
