@@ -44,6 +44,8 @@ interface ITaikoInbox {
         uint32 byteOffset;
         // The byte size of the blob.
         uint32 byteSize;
+        // The block number when the blob was created.
+        uint64 createdIn;
     }
 
     struct BatchParams {
@@ -68,6 +70,7 @@ interface ITaikoInbox {
         bytes32 extraData;
         address coinbase;
         uint64 proposedIn; // Used by node/client
+        uint64 blobCreatedIn;
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
@@ -271,6 +274,7 @@ interface ITaikoInbox {
     error EtherNotPaidAsBond();
     error ForkNotActivated();
     error InsufficientBond();
+    error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidGenesisBlockHash();
     error InvalidParams();
