@@ -81,7 +81,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
-        // Rollup resolver
+        // Rollup resolverpro
         address rollupResolver = deployProxy({
             name: "rollup_address_resolver",
             impl: address(new DefaultResolver()),
@@ -142,7 +142,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         // TaikoInbox
         address newFork =
-            address(new DevnetInbox(taikoWrapper, opVerifier, taikoToken, signalService));
+            address(new DevnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
         // Prover set
