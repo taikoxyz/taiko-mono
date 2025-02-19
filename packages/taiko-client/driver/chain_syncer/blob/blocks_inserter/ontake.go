@@ -57,7 +57,6 @@ func NewBlocksInserterOntake(
 func (i *BlocksInserterOntake) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	proposingTx *types.Transaction,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	if metadata.IsPacaya() {
@@ -95,11 +94,11 @@ func (i *BlocksInserterOntake) InsertBlocks(
 
 	// Fetch transactions list.
 	if meta.GetBlobUsed() {
-		if txListBytes, err = i.blobFetcher.FetchOntake(ctx, proposingTx, meta); err != nil {
+		if txListBytes, err = i.blobFetcher.FetchOntake(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
 		}
 	} else {
-		if txListBytes, err = i.calldataFetcher.FetchOntake(ctx, proposingTx, meta); err != nil {
+		if txListBytes, err = i.calldataFetcher.FetchOntake(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
 		}
 	}
