@@ -1,8 +1,6 @@
 package driver
 
 import (
-	"bytes"
-	"compress/zlib"
 	"context"
 	"fmt"
 	"math/big"
@@ -716,29 +714,3 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	return res
 }
 
-// compress compresses the given txList bytes using zlib.
-func compress(txListBytes []byte) ([]byte, error) {
-	var b bytes.Buffer
-	w := zlib.NewWriter(&b)
-	defer w.Close()
-
-	if _, err := w.Write(txListBytes); err != nil {
-		return nil, err
-	}
-
-	if err := w.Flush(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-// encodeAndCompressTxList encodes and compresses the given transactions list.
-func encodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(txs)
-	if err != nil {
-		return nil, err
-	}
-
-	return compress(b)
-}

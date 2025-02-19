@@ -74,7 +74,7 @@ func NewSyncer(
 	)
 
 	var (
-		txListFetcherBlob     = txlistFetcher.NewBlobTxListFetcher(client.L1Beacon, blobDataSource)
+		txListFetcherBlob     = txlistFetcher.NewBlobTxListFetcher(client, blobDataSource)
 		txListFetcherCalldata = txlistFetcher.NewCalldataFetch(client)
 	)
 	return &Syncer{
