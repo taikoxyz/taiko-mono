@@ -114,6 +114,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	config.ReportProtocolConfigs(d.protocolConfig)
 
 	if d.PreconfBlockServerPort > 0 {
+		// Initialize the preconf block server.
 		if d.preconfBlockServer, err = preconfBlocks.New(
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
@@ -123,35 +124,34 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
-	}
 
-	if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
-		log.Info("Enabling P2P network", "configs", cfg.P2PConfigs)
-		d.p2pSetup = cfg.P2PConfigs
+		// Enable P2P network for preconf block propagation.
+		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
+			log.Info("Enabling P2P network", "configs", cfg.P2PConfigs)
+			d.p2pSetup = cfg.P2PConfigs
 
-		if d.p2pNode, err = p2p.NewNodeP2P(
-			d.ctx,
-			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
-			log.Root(),
-			d.p2pSetup,
-			d.preconfBlockServer,
-			nil,
-			d.preconfBlockServer,
-			metrics.P2PNodeMetrics,
-			false,
-		); err != nil {
-			return err
-		}
-
-		log.Info("P2PNodes", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
-
-		if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
-			if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
+			if d.p2pNode, err = p2p.NewNodeP2P(
+				d.ctx,
+				&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
+				log.Root(),
+				d.p2pSetup,
+				d.preconfBlockServer,
+				nil,
+				d.preconfBlockServer,
+				metrics.P2PNodeMetrics,
+				false,
+			); err != nil {
 				return err
 			}
-		}
 
-		if d.preconfBlockServer != nil {
+			log.Info("P2PNode", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
+
+			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
+				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
+					return err
+				}
+			}
+
 			d.preconfBlockServer.SetP2PNode(d.p2pNode)
 			d.preconfBlockServer.SetP2PSigner(d.p2pSigner)
 		}

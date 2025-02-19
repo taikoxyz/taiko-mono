@@ -21,7 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-resty/resty/v2"
 	"github.com/holiman/uint256"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
