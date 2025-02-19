@@ -98,7 +98,7 @@ func (d *BlobFetcher) FetchPacaya(
 	if meta.GetBlobCreatedIn().Int64() == 0 {
 		log.Info("BlobCreatedIn 0, using proposedAt", "proposedAt", meta.GetProposedAt())
 
-		blockNum = uint64(meta.GetProposedIn())
+		blockNum = meta.GetProposedIn()
 	} else {
 		log.Info("BlobCreatedIn not 0, using blobCreatedIn", "blobCreatedIn", meta.GetBlobCreatedIn())
 
