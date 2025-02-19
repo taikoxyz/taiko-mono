@@ -29,13 +29,6 @@ var (
 	_ = abi.ConvertType
 )
 
-// ITaikoInboxTransition is an auto generated low-level Go binding around an user-defined struct.
-type ITaikoInboxTransition struct {
-	ParentHash [32]byte
-	BlockHash  [32]byte
-	StateRoot  [32]byte
-}
-
 // IVerifierContext is an auto generated low-level Go binding around an user-defined struct.
 type IVerifierContext struct {
 	BatchId    uint64

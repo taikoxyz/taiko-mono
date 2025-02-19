@@ -43,6 +43,40 @@ type ITaikoInboxBatch struct {
 	VerifiedTransitionId *big.Int
 }
 
+// ITaikoInboxBatchInfo is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxBatchInfo struct {
+	TxsHash            [32]byte
+	Blocks             []ITaikoInboxBlockParams
+	BlobHashes         [][32]byte
+	ExtraData          [32]byte
+	Coinbase           common.Address
+	ProposedIn         uint64
+	BlobCreatedIn      uint64
+	BlobByteOffset     uint32
+	BlobByteSize       uint32
+	GasLimit           uint32
+	LastBlockId        uint64
+	LastBlockTimestamp uint64
+	AnchorBlockId      uint64
+	AnchorBlockHash    [32]byte
+	BaseFeeConfig      LibSharedDataBaseFeeConfig
+}
+
+// ITaikoInboxBatchMetadata is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxBatchMetadata struct {
+	InfoHash   [32]byte
+	Proposer   common.Address
+	BatchId    uint64
+	ProposedAt uint64
+}
+
+// ITaikoInboxBlockParams is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxBlockParams struct {
+	NumTransactions uint16
+	TimeShift       uint8
+	SignalSlots     [][32]byte
+}
+
 // ITaikoInboxConfig is an auto generated low-level Go binding around an user-defined struct.
 type ITaikoInboxConfig struct {
 	ChainId               uint64
@@ -87,6 +121,13 @@ type ITaikoInboxStats2 struct {
 	LastUnpausedAt      uint64
 }
 
+// ITaikoInboxTransition is an auto generated low-level Go binding around an user-defined struct.
+type ITaikoInboxTransition struct {
+	ParentHash [32]byte
+	BlockHash  [32]byte
+	StateRoot  [32]byte
+}
+
 // ITaikoInboxTransitionState is an auto generated low-level Go binding around an user-defined struct.
 type ITaikoInboxTransitionState struct {
 	ParentHash      [32]byte
@@ -95,6 +136,15 @@ type ITaikoInboxTransitionState struct {
 	Prover          common.Address
 	InProvingWindow bool
 	CreatedAt       *big.Int
+}
+
+// LibSharedDataBaseFeeConfig is an auto generated low-level Go binding around an user-defined struct.
+type LibSharedDataBaseFeeConfig struct {
+	AdjustmentQuotient     uint8
+	SharingPctg            uint8
+	GasIssuancePerSecond   uint32
+	MinGasExcess           uint64
+	MaxGasIssuancePerBlock uint32
 }
 
 // TaikoInboxClientMetaData contains all meta data concerning the TaikoInboxClient contract.

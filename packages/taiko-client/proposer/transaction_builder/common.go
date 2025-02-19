@@ -37,6 +37,7 @@ func buildParamsForForcedInclusion(
 			NumBlobs:   0,
 			ByteOffset: forcedInclusion.BlobByteOffset,
 			ByteSize:   forcedInclusion.BlobByteSize,
+			CreatedIn:  forcedInclusion.BlobCreatedIn,
 		}, []pacayaBindings.ITaikoInboxBlockParams{
 			{
 				NumTransactions: uint16(minTxsPerForcedInclusion.Uint64()),

@@ -230,6 +230,10 @@ var (
 					Name: "byteSize",
 					Type: "uint32",
 				},
+				{
+					Name: "createdIn",
+					Type: "uint64",
+				},
 			},
 		},
 		{
