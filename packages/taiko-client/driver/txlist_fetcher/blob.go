@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -29,7 +28,6 @@ func NewBlobTxListFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher 
 // FetchOntake implements the TxListFetcher interface.
 func (d *BlobFetcher) FetchOntake(
 	ctx context.Context,
-	_ *types.Transaction,
 	meta metadata.TaikoBlockMetaDataOntake,
 ) ([]byte, error) {
 	if !meta.GetBlobUsed() {
@@ -88,7 +86,6 @@ func (d *BlobFetcher) FetchOntake(
 // FetchPacaya implements the TxListFetcher interface.
 func (d *BlobFetcher) FetchPacaya(
 	ctx context.Context,
-	tx *types.Transaction,
 	meta metadata.TaikoBatchMetaDataPacaya,
 ) ([]byte, error) {
 	if len(meta.GetBlobHashes()) == 0 {
