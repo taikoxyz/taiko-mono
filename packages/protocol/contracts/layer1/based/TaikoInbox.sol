@@ -101,7 +101,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 } else {
                     require(msg.sender == inboxWrapper, NotInboxWrapper());
                     require(params.proposer != address(0), CustomProposerMissing());
-                    require(params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
                 }
 
                 if (params.coinbase == address(0)) {
