@@ -103,6 +103,11 @@ func (m *TaikoDataBlockMetadataPacaya) GetProposedIn() uint64 {
 	return m.ProposedIn
 }
 
+// GetBlobCreatedIn returns the L1 block number when the blob created.
+func (m *TaikoDataBlockMetadataPacaya) GetBlobCreatedIn() *big.Int {
+	return new(big.Int).SetUint64(m.BlobCreatedIn)
+}
+
 // GetTxListOffset returns calldata tx list offset.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListOffset() uint32 {
 	return m.BlobByteOffset
