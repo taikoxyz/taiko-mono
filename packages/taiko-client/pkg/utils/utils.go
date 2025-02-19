@@ -76,10 +76,15 @@ func Min[T constraints.Integer](a, b T) T {
 func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	b, err := rlp.EncodeToBytes(txs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to RLP encode transactions: %w", err)
 	}
 
-	return Compress(b)
+	compressed, err := Compress(b)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compress RLP encoded transactions: %w", err)
+	}
+
+	return compressed, nil
 }
 
 // Compress compresses the given txList bytes using zlib.
