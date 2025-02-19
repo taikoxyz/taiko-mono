@@ -17,13 +17,13 @@ import (
 
 // BlobFetcher is responsible for fetching the txList blob from the L1 block sidecar.
 type BlobFetcher struct {
-	l1Beacon   *rpc.BeaconClient
+	cli        *rpc.Client
 	dataSource *rpc.BlobDataSource
 }
 
 // NewBlobTxListFetcher creates a new BlobFetcher instance based on the given rpc client.
-func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *BlobFetcher {
-	return &BlobFetcher{l1Beacon, ds}
+func NewBlobTxListFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher {
+	return &BlobFetcher{cli, ds}
 }
 
 // FetchOntake implements the TxListFetcher interface.
@@ -95,11 +95,17 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, pkg.ErrBlobUnused
 	}
 
+	// Fetch the L1 block header with the given blob.
+	l1Header, err := d.cli.L1.HeaderByNumber(ctx, meta.GetBlobCreatedIn())
+	if err != nil {
+		return nil, err
+	}
+
 	var b []byte
 	// Fetch the L1 block sidecars.
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
-		meta.GetProposedAt(),
+		l1Header.Time,
 		meta.GetBlobHashes()[0],
 	)
 	if err != nil {
@@ -108,7 +114,7 @@ func (d *BlobFetcher) FetchPacaya(
 
 	log.Info(
 		"Fetch sidecars",
-		"blockNumber", meta.GetRawBlockHeight(),
+		"blockNumber", meta.GetBlobCreatedIn(),
 		"sidecars", len(sidecars),
 	)
 
