@@ -3,6 +3,7 @@ package txlistfetcher
 import (
 	"context"
 	"crypto/sha256"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -92,31 +93,33 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, pkg.ErrBlobUnused
 	}
 
-	var time uint64
+	var blockNum uint64
 
 	if meta.GetBlobCreatedIn().Int64() == 0 {
 		log.Info("BlobCreatedIn 0, using proposedAt", "proposedAt", meta.GetProposedAt())
 
-		time = uint64(meta.GetProposedAt())
+		blockNum = uint64(meta.GetProposedIn())
 	} else {
-		// Fetch the L1 block header with the given blob.
-		log.Info("Fetch L1 block header", "blobCreatedIn", meta.GetBlobCreatedIn())
+		log.Info("BlobCreatedIn not 0, using blobCreatedIn", "blobCreatedIn", meta.GetBlobCreatedIn())
 
-		l1Header, err := d.cli.L1.HeaderByNumber(ctx, meta.GetBlobCreatedIn())
-		if err != nil {
-			return nil, err
-		}
-
-		log.Info("L1 Header fetched", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
-
-		time = l1Header.Time
+		blockNum = uint64(meta.GetBlobCreatedIn().Int64())
 	}
+
+	// Fetch the L1 block header with the given blob.
+	log.Info("Fetch L1 block header", "blockNum", blockNum)
+
+	l1Header, err := d.cli.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info("L1 Header fetched", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
 
 	var b []byte
 	// Fetch the L1 block sidecars.
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
-		time,
+		l1Header.Time,
 		meta.GetBlobHashes()[0],
 	)
 	if err != nil {
