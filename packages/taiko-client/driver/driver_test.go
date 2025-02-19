@@ -1,8 +1,6 @@
 package driver
 
 import (
-	"bytes"
-	"compress/zlib"
 	"context"
 	"fmt"
 	"math/big"
@@ -437,7 +435,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
 	s.Nil(err)
 
-	b, err := encodeAndCompressTxList([]*types.Transaction{signedTx})
+	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{signedTx})
 	s.Nil(err)
 
 	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{
@@ -651,31 +649,4 @@ func (s *DriverTestSuite) InitProposer() {
 
 func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverTestSuite))
-}
-
-// compress compresses the given txList bytes using zlib.
-func compress(txListBytes []byte) ([]byte, error) {
-	var b bytes.Buffer
-	w := zlib.NewWriter(&b)
-	defer w.Close()
-
-	if _, err := w.Write(txListBytes); err != nil {
-		return nil, err
-	}
-
-	if err := w.Flush(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-// encodeAndCompressTxList encodes and compresses the given transactions list.
-func encodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(txs)
-	if err != nil {
-		return nil, err
-	}
-
-	return compress(b)
 }
