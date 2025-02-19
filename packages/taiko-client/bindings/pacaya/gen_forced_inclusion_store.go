@@ -29,9 +29,19 @@ var (
 	_ = abi.ConvertType
 )
 
+// IForcedInclusionStoreForcedInclusion is an auto generated low-level Go binding around an user-defined struct.
+type IForcedInclusionStoreForcedInclusion struct {
+	BlobHash         [32]byte
+	FeeInGwei        uint64
+	CreatedAtBatchId uint64
+	BlobByteOffset   uint32
+	BlobByteSize     uint32
+	BlobCreatedIn    uint64
+}
+
 // ForcedInclusionStoreMetaData contains all meta data concerning the ForcedInclusionStore contract.
 var ForcedInclusionStoreMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_inclusionDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"_feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_inbox\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_inboxWrapper\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consumeOldestForcedInclusion\",\"inputs\":[{\"name\":\"_feeRecipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"inclusion_\",\"type\":\"tuple\",\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"feeInGwei\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getForcedInclusion\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOldestForcedInclusionDeadline\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"head\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inbox\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractITaikoInbox\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inboxWrapper\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inclusionDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOldestForcedInclusionDue\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastProcessedAtBatchId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"queue\",\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"storeForcedInclusion\",\"inputs\":[{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"tail\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ForcedInclusionConsumed\",\"inputs\":[{\"name\":\"forcedInclusion\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ForcedInclusionStored\",\"inputs\":[{\"name\":\"forcedInclusion\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IncorrectFee\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoForcedInclusionFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_inclusionDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"_feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_inbox\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_inboxWrapper\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consumeOldestForcedInclusion\",\"inputs\":[{\"name\":\"_feeRecipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"inclusion_\",\"type\":\"tuple\",\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobCreatedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"feeInGwei\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getForcedInclusion\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobCreatedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOldestForcedInclusionDeadline\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"head\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inbox\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractITaikoInbox\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inboxWrapper\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inclusionDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOldestForcedInclusionDue\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastProcessedAtBatchId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"queue\",\"inputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobCreatedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"storeForcedInclusion\",\"inputs\":[{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"tail\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ForcedInclusionConsumed\",\"inputs\":[{\"name\":\"forcedInclusion\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobCreatedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ForcedInclusionStored\",\"inputs\":[{\"name\":\"forcedInclusion\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"createdAtBatchId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobByteOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobByteSize\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobCreatedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IncorrectFee\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoForcedInclusionFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // ForcedInclusionStoreABI is the input ABI used to generate the binding from.
@@ -213,7 +223,7 @@ func (_ForcedInclusionStore *ForcedInclusionStoreCallerSession) FeeInGwei() (uin
 
 // GetForcedInclusion is a free data retrieval call binding the contract method 0xa7c6b857.
 //
-// Solidity: function getForcedInclusion(uint256 index) view returns((bytes32,uint64,uint64,uint32,uint32))
+// Solidity: function getForcedInclusion(uint256 index) view returns((bytes32,uint64,uint64,uint32,uint32,uint64))
 func (_ForcedInclusionStore *ForcedInclusionStoreCaller) GetForcedInclusion(opts *bind.CallOpts, index *big.Int) (IForcedInclusionStoreForcedInclusion, error) {
 	var out []interface{}
 	err := _ForcedInclusionStore.contract.Call(opts, &out, "getForcedInclusion", index)
@@ -230,14 +240,14 @@ func (_ForcedInclusionStore *ForcedInclusionStoreCaller) GetForcedInclusion(opts
 
 // GetForcedInclusion is a free data retrieval call binding the contract method 0xa7c6b857.
 //
-// Solidity: function getForcedInclusion(uint256 index) view returns((bytes32,uint64,uint64,uint32,uint32))
+// Solidity: function getForcedInclusion(uint256 index) view returns((bytes32,uint64,uint64,uint32,uint32,uint64))
 func (_ForcedInclusionStore *ForcedInclusionStoreSession) GetForcedInclusion(index *big.Int) (IForcedInclusionStoreForcedInclusion, error) {
 	return _ForcedInclusionStore.Contract.GetForcedInclusion(&_ForcedInclusionStore.CallOpts, index)
 }
 
 // GetForcedInclusion is a free data retrieval call binding the contract method 0xa7c6b857.
 //
-// Solidity: function getForcedInclusion(uint256 index) view returns((bytes32,uint64,uint64,uint32,uint32))
+// Solidity: function getForcedInclusion(uint256 index) view returns((bytes32,uint64,uint64,uint32,uint32,uint64))
 func (_ForcedInclusionStore *ForcedInclusionStoreCallerSession) GetForcedInclusion(index *big.Int) (IForcedInclusionStoreForcedInclusion, error) {
 	return _ForcedInclusionStore.Contract.GetForcedInclusion(&_ForcedInclusionStore.CallOpts, index)
 }
@@ -647,13 +657,14 @@ func (_ForcedInclusionStore *ForcedInclusionStoreCallerSession) ProxiableUUID() 
 
 // Queue is a free data retrieval call binding the contract method 0xddf0b009.
 //
-// Solidity: function queue(uint256 id) view returns(bytes32 blobHash, uint64 feeInGwei, uint64 createdAtBatchId, uint32 blobByteOffset, uint32 blobByteSize)
+// Solidity: function queue(uint256 id) view returns(bytes32 blobHash, uint64 feeInGwei, uint64 createdAtBatchId, uint32 blobByteOffset, uint32 blobByteSize, uint64 blobCreatedIn)
 func (_ForcedInclusionStore *ForcedInclusionStoreCaller) Queue(opts *bind.CallOpts, id *big.Int) (struct {
 	BlobHash         [32]byte
 	FeeInGwei        uint64
 	CreatedAtBatchId uint64
 	BlobByteOffset   uint32
 	BlobByteSize     uint32
+	BlobCreatedIn    uint64
 }, error) {
 	var out []interface{}
 	err := _ForcedInclusionStore.contract.Call(opts, &out, "queue", id)
@@ -664,6 +675,7 @@ func (_ForcedInclusionStore *ForcedInclusionStoreCaller) Queue(opts *bind.CallOp
 		CreatedAtBatchId uint64
 		BlobByteOffset   uint32
 		BlobByteSize     uint32
+		BlobCreatedIn    uint64
 	})
 	if err != nil {
 		return *outstruct, err
@@ -674,6 +686,7 @@ func (_ForcedInclusionStore *ForcedInclusionStoreCaller) Queue(opts *bind.CallOp
 	outstruct.CreatedAtBatchId = *abi.ConvertType(out[2], new(uint64)).(*uint64)
 	outstruct.BlobByteOffset = *abi.ConvertType(out[3], new(uint32)).(*uint32)
 	outstruct.BlobByteSize = *abi.ConvertType(out[4], new(uint32)).(*uint32)
+	outstruct.BlobCreatedIn = *abi.ConvertType(out[5], new(uint64)).(*uint64)
 
 	return *outstruct, err
 
@@ -681,26 +694,28 @@ func (_ForcedInclusionStore *ForcedInclusionStoreCaller) Queue(opts *bind.CallOp
 
 // Queue is a free data retrieval call binding the contract method 0xddf0b009.
 //
-// Solidity: function queue(uint256 id) view returns(bytes32 blobHash, uint64 feeInGwei, uint64 createdAtBatchId, uint32 blobByteOffset, uint32 blobByteSize)
+// Solidity: function queue(uint256 id) view returns(bytes32 blobHash, uint64 feeInGwei, uint64 createdAtBatchId, uint32 blobByteOffset, uint32 blobByteSize, uint64 blobCreatedIn)
 func (_ForcedInclusionStore *ForcedInclusionStoreSession) Queue(id *big.Int) (struct {
 	BlobHash         [32]byte
 	FeeInGwei        uint64
 	CreatedAtBatchId uint64
 	BlobByteOffset   uint32
 	BlobByteSize     uint32
+	BlobCreatedIn    uint64
 }, error) {
 	return _ForcedInclusionStore.Contract.Queue(&_ForcedInclusionStore.CallOpts, id)
 }
 
 // Queue is a free data retrieval call binding the contract method 0xddf0b009.
 //
-// Solidity: function queue(uint256 id) view returns(bytes32 blobHash, uint64 feeInGwei, uint64 createdAtBatchId, uint32 blobByteOffset, uint32 blobByteSize)
+// Solidity: function queue(uint256 id) view returns(bytes32 blobHash, uint64 feeInGwei, uint64 createdAtBatchId, uint32 blobByteOffset, uint32 blobByteSize, uint64 blobCreatedIn)
 func (_ForcedInclusionStore *ForcedInclusionStoreCallerSession) Queue(id *big.Int) (struct {
 	BlobHash         [32]byte
 	FeeInGwei        uint64
 	CreatedAtBatchId uint64
 	BlobByteOffset   uint32
 	BlobByteSize     uint32
+	BlobCreatedIn    uint64
 }, error) {
 	return _ForcedInclusionStore.Contract.Queue(&_ForcedInclusionStore.CallOpts, id)
 }
@@ -790,21 +805,21 @@ func (_ForcedInclusionStore *ForcedInclusionStoreTransactorSession) AcceptOwners
 
 // ConsumeOldestForcedInclusion is a paid mutator transaction binding the contract method 0x23524905.
 //
-// Solidity: function consumeOldestForcedInclusion(address _feeRecipient) returns((bytes32,uint64,uint64,uint32,uint32) inclusion_)
+// Solidity: function consumeOldestForcedInclusion(address _feeRecipient) returns((bytes32,uint64,uint64,uint32,uint32,uint64) inclusion_)
 func (_ForcedInclusionStore *ForcedInclusionStoreTransactor) ConsumeOldestForcedInclusion(opts *bind.TransactOpts, _feeRecipient common.Address) (*types.Transaction, error) {
 	return _ForcedInclusionStore.contract.Transact(opts, "consumeOldestForcedInclusion", _feeRecipient)
 }
 
 // ConsumeOldestForcedInclusion is a paid mutator transaction binding the contract method 0x23524905.
 //
-// Solidity: function consumeOldestForcedInclusion(address _feeRecipient) returns((bytes32,uint64,uint64,uint32,uint32) inclusion_)
+// Solidity: function consumeOldestForcedInclusion(address _feeRecipient) returns((bytes32,uint64,uint64,uint32,uint32,uint64) inclusion_)
 func (_ForcedInclusionStore *ForcedInclusionStoreSession) ConsumeOldestForcedInclusion(_feeRecipient common.Address) (*types.Transaction, error) {
 	return _ForcedInclusionStore.Contract.ConsumeOldestForcedInclusion(&_ForcedInclusionStore.TransactOpts, _feeRecipient)
 }
 
 // ConsumeOldestForcedInclusion is a paid mutator transaction binding the contract method 0x23524905.
 //
-// Solidity: function consumeOldestForcedInclusion(address _feeRecipient) returns((bytes32,uint64,uint64,uint32,uint32) inclusion_)
+// Solidity: function consumeOldestForcedInclusion(address _feeRecipient) returns((bytes32,uint64,uint64,uint32,uint32,uint64) inclusion_)
 func (_ForcedInclusionStore *ForcedInclusionStoreTransactorSession) ConsumeOldestForcedInclusion(_feeRecipient common.Address) (*types.Transaction, error) {
 	return _ForcedInclusionStore.Contract.ConsumeOldestForcedInclusion(&_ForcedInclusionStore.TransactOpts, _feeRecipient)
 }
@@ -1329,9 +1344,9 @@ type ForcedInclusionStoreForcedInclusionConsumed struct {
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterForcedInclusionConsumed is a free log retrieval operation binding the contract event 0x8f612ae49d91aff40c4b627e9315de0d6c96c9b31d6d4eb9ba1562461fa8bf72.
+// FilterForcedInclusionConsumed is a free log retrieval operation binding the contract event 0xf809dd2f6c75fbd4675267b566cae3fc3091966f0efbfca97341e5c7eb9a4fe4.
 //
-// Solidity: event ForcedInclusionConsumed((bytes32,uint64,uint64,uint32,uint32) forcedInclusion)
+// Solidity: event ForcedInclusionConsumed((bytes32,uint64,uint64,uint32,uint32,uint64) forcedInclusion)
 func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) FilterForcedInclusionConsumed(opts *bind.FilterOpts) (*ForcedInclusionStoreForcedInclusionConsumedIterator, error) {
 
 	logs, sub, err := _ForcedInclusionStore.contract.FilterLogs(opts, "ForcedInclusionConsumed")
@@ -1341,9 +1356,9 @@ func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) FilterForcedInclusion
 	return &ForcedInclusionStoreForcedInclusionConsumedIterator{contract: _ForcedInclusionStore.contract, event: "ForcedInclusionConsumed", logs: logs, sub: sub}, nil
 }
 
-// WatchForcedInclusionConsumed is a free log subscription operation binding the contract event 0x8f612ae49d91aff40c4b627e9315de0d6c96c9b31d6d4eb9ba1562461fa8bf72.
+// WatchForcedInclusionConsumed is a free log subscription operation binding the contract event 0xf809dd2f6c75fbd4675267b566cae3fc3091966f0efbfca97341e5c7eb9a4fe4.
 //
-// Solidity: event ForcedInclusionConsumed((bytes32,uint64,uint64,uint32,uint32) forcedInclusion)
+// Solidity: event ForcedInclusionConsumed((bytes32,uint64,uint64,uint32,uint32,uint64) forcedInclusion)
 func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) WatchForcedInclusionConsumed(opts *bind.WatchOpts, sink chan<- *ForcedInclusionStoreForcedInclusionConsumed) (event.Subscription, error) {
 
 	logs, sub, err := _ForcedInclusionStore.contract.WatchLogs(opts, "ForcedInclusionConsumed")
@@ -1378,9 +1393,9 @@ func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) WatchForcedInclusionC
 	}), nil
 }
 
-// ParseForcedInclusionConsumed is a log parse operation binding the contract event 0x8f612ae49d91aff40c4b627e9315de0d6c96c9b31d6d4eb9ba1562461fa8bf72.
+// ParseForcedInclusionConsumed is a log parse operation binding the contract event 0xf809dd2f6c75fbd4675267b566cae3fc3091966f0efbfca97341e5c7eb9a4fe4.
 //
-// Solidity: event ForcedInclusionConsumed((bytes32,uint64,uint64,uint32,uint32) forcedInclusion)
+// Solidity: event ForcedInclusionConsumed((bytes32,uint64,uint64,uint32,uint32,uint64) forcedInclusion)
 func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) ParseForcedInclusionConsumed(log types.Log) (*ForcedInclusionStoreForcedInclusionConsumed, error) {
 	event := new(ForcedInclusionStoreForcedInclusionConsumed)
 	if err := _ForcedInclusionStore.contract.UnpackLog(event, "ForcedInclusionConsumed", log); err != nil {
@@ -1463,9 +1478,9 @@ type ForcedInclusionStoreForcedInclusionStored struct {
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterForcedInclusionStored is a free log retrieval operation binding the contract event 0x1bfa449601ec715130d0af62abed2c5355abe87089bd750188332a1d7240c43e.
+// FilterForcedInclusionStored is a free log retrieval operation binding the contract event 0xae657aef29b5c692a97f741e24336b517560eaafaaf57dfafc0a24781b631ff1.
 //
-// Solidity: event ForcedInclusionStored((bytes32,uint64,uint64,uint32,uint32) forcedInclusion)
+// Solidity: event ForcedInclusionStored((bytes32,uint64,uint64,uint32,uint32,uint64) forcedInclusion)
 func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) FilterForcedInclusionStored(opts *bind.FilterOpts) (*ForcedInclusionStoreForcedInclusionStoredIterator, error) {
 
 	logs, sub, err := _ForcedInclusionStore.contract.FilterLogs(opts, "ForcedInclusionStored")
@@ -1475,9 +1490,9 @@ func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) FilterForcedInclusion
 	return &ForcedInclusionStoreForcedInclusionStoredIterator{contract: _ForcedInclusionStore.contract, event: "ForcedInclusionStored", logs: logs, sub: sub}, nil
 }
 
-// WatchForcedInclusionStored is a free log subscription operation binding the contract event 0x1bfa449601ec715130d0af62abed2c5355abe87089bd750188332a1d7240c43e.
+// WatchForcedInclusionStored is a free log subscription operation binding the contract event 0xae657aef29b5c692a97f741e24336b517560eaafaaf57dfafc0a24781b631ff1.
 //
-// Solidity: event ForcedInclusionStored((bytes32,uint64,uint64,uint32,uint32) forcedInclusion)
+// Solidity: event ForcedInclusionStored((bytes32,uint64,uint64,uint32,uint32,uint64) forcedInclusion)
 func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) WatchForcedInclusionStored(opts *bind.WatchOpts, sink chan<- *ForcedInclusionStoreForcedInclusionStored) (event.Subscription, error) {
 
 	logs, sub, err := _ForcedInclusionStore.contract.WatchLogs(opts, "ForcedInclusionStored")
@@ -1512,9 +1527,9 @@ func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) WatchForcedInclusionS
 	}), nil
 }
 
-// ParseForcedInclusionStored is a log parse operation binding the contract event 0x1bfa449601ec715130d0af62abed2c5355abe87089bd750188332a1d7240c43e.
+// ParseForcedInclusionStored is a log parse operation binding the contract event 0xae657aef29b5c692a97f741e24336b517560eaafaaf57dfafc0a24781b631ff1.
 //
-// Solidity: event ForcedInclusionStored((bytes32,uint64,uint64,uint32,uint32) forcedInclusion)
+// Solidity: event ForcedInclusionStored((bytes32,uint64,uint64,uint32,uint32,uint64) forcedInclusion)
 func (_ForcedInclusionStore *ForcedInclusionStoreFilterer) ParseForcedInclusionStored(log types.Log) (*ForcedInclusionStoreForcedInclusionStored, error) {
 	event := new(ForcedInclusionStoreForcedInclusionStored)
 	if err := _ForcedInclusionStore.contract.UnpackLog(event, "ForcedInclusionStored", log); err != nil {
