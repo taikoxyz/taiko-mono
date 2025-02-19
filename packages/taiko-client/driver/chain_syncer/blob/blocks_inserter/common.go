@@ -28,6 +28,7 @@ func createPayloadAndSetHead(
 	rpc *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
 	anchorTx *types.Transaction,
+	addAnchorGasLimit bool,
 ) (*engine.ExecutableData, error) {
 	log.Debug(
 		"Try to insert a new L2 head block",
@@ -73,11 +74,13 @@ func createPayloadAndSetHead(
 		}
 	}
 
-	// Increase the gas limit for the anchor block.
-	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
-		meta.GasLimit += consensus.AnchorV3GasLimit
-	} else {
-		meta.GasLimit += consensus.AnchorGasLimit
+	if addAnchorGasLimit {
+		// Increase the gas limit for the anchor block.
+		if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
+			meta.GasLimit += consensus.AnchorV3GasLimit
+		} else {
+			meta.GasLimit += consensus.AnchorGasLimit
+		}
 	}
 
 	// Create a new execution payload and set the chain head.

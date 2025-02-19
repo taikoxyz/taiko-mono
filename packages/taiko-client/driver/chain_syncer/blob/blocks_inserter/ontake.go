@@ -173,6 +173,7 @@ func (i *BlocksInserterOntake) InsertBlocks(
 			Parent:          parent,
 		},
 		anchorTx,
+		true,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert new head to L2 execution engine: %w", err)

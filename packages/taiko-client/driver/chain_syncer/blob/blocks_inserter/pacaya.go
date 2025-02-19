@@ -226,6 +226,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				Parent:          parent,
 			},
 			anchorTx,
+			true,
 		); err != nil {
 			return fmt.Errorf("failed to insert new head to L2 execution engine: %w", err)
 		}
@@ -335,6 +336,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 			Parent:          parentHeader,
 		},
 		txs[0],
+		false,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert new preconfirmation head to L2 execution engine: %w", err)
