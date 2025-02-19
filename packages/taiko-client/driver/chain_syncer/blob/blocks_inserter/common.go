@@ -73,13 +73,27 @@ func createPayloadAndSetHead(
 		}
 	}
 
-	payload, err := createExecutionPayloads(
-		ctx,
-		rpc,
-		meta.createExecutionPayloadsMetaData,
-		txListBytes,
-		anchorTx,
-	)
+	// Increase the gas limit for the anchor block.
+	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
+		meta.GasLimit += consensus.AnchorV3GasLimit
+	} else {
+		meta.GasLimit += consensus.AnchorGasLimit
+	}
+
+	// Create a new execution payload and set the chain head.
+	return createExecutionPayloadsAndSetHead(ctx, rpc, meta.createExecutionPayloadsMetaData, txListBytes)
+}
+
+// createExecutionPayloadsAndSetHead creates a new execution payloads through Engine APIs,
+// and sets the head block to the L2 execution engine's local block chain.
+func createExecutionPayloadsAndSetHead(
+	ctx context.Context,
+	rpc *rpc.Client,
+	meta *createExecutionPayloadsMetaData,
+	txListBytes []byte,
+) (payloadData *engine.ExecutableData, err error) {
+	// Create a new execution payload.
+	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
@@ -107,7 +121,7 @@ func createPayloadAndSetHead(
 		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
 
-	// Update the fork choice
+	// Update the fork choice.
 	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
 	if err != nil {
 		return nil, err
@@ -125,15 +139,7 @@ func createExecutionPayloads(
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
-	anchorTx *types.Transaction,
 ) (payloadData *engine.ExecutableData, err error) {
-	var gasLimit = meta.GasLimit
-	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
-		gasLimit += consensus.AnchorV3GasLimit
-	} else {
-		gasLimit += consensus.AnchorGasLimit
-	}
-
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.Difficulty,
@@ -141,7 +147,7 @@ func createExecutionPayloads(
 		Withdrawals:           meta.Withdrawals,
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.SuggestedFeeRecipient,
-			GasLimit:    gasLimit,
+			GasLimit:    meta.GasLimit,
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,
@@ -162,7 +168,7 @@ func createExecutionPayloads(
 		"timestamp", attributes.BlockMetadata.Timestamp,
 		"mixHash", attributes.BlockMetadata.MixHash,
 		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
-		"extraData", string(attributes.BlockMetadata.ExtraData),
+		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
 		"l1OriginHeight", attributes.L1Origin.L1BlockHeight,
 		"l1OriginHash", attributes.L1Origin.L1BlockHash,
 	)

@@ -6,11 +6,13 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -62,7 +64,6 @@ func NewBlocksInserterPacaya(
 func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	proposingTx *types.Transaction,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
@@ -78,11 +79,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 	// Fetch transactions list.
 	if len(meta.GetBlobHashes()) != 0 {
-		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, proposingTx, meta); err != nil {
+		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
 		}
 	} else {
-		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, proposingTx, meta); err != nil {
+		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
 		}
 	}
@@ -286,6 +287,8 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 		"blockID", executableData.Number,
 		"baseFee", utils.WeiToGWei(baseFee),
 		"parentGasUsed", parentHeader.GasUsed,
+		"anchorBlockID", anchorBlockID,
+		"anchorStateRoot", anchorStateRoot.Hex(),
 	)
 	anchorBlockHeader, err := i.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(anchorBlockID))
 	if err != nil {
@@ -383,4 +386,42 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	}
 
 	return nil
+}
+
+// InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
+func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
+	ctx context.Context,
+	executableData *eth.ExecutionPayload,
+) (*types.Header, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
+	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
+	payload, err := createExecutionPayloadsAndSetHead(
+		ctx,
+		i.rpc,
+		&createExecutionPayloadsMetaData{
+			BlockID:               new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+			ExtraData:             executableData.ExtraData,
+			SuggestedFeeRecipient: executableData.FeeRecipient,
+			GasLimit:              uint64(executableData.GasLimit),
+			Difficulty:            common.Hash(executableData.PrevRandao),
+			Timestamp:             uint64(executableData.Timestamp),
+			ParentHash:            executableData.ParentHash,
+			L1Origin: &rawdb.L1Origin{
+				BlockID:       new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+				L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+				L1BlockHeight: nil,
+				L1BlockHash:   common.Hash{},
+			},
+			BaseFee:     u256BaseFee.ToBig(),
+			Withdrawals: make([]*types.Withdrawal, 0),
+		},
+		executableData.Transactions[0],
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create execution data: %w", err)
+	}
+
+	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }

@@ -122,6 +122,7 @@ func (p *Proposer) InitFromConfig(
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
 		cfg.TaikoL1Address,
+		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
 		cfg.ProposeBlockTxGasLimit,
 		p.chainConfig,
@@ -394,8 +395,8 @@ func (p *Proposer) ProposeTxListPacaya(
 	txBatch []types.Transactions,
 ) error {
 	var (
-		proverAddress = p.proposerAddress
-		txs           uint64
+		proposerAddress = p.proposerAddress
+		txs             uint64
 	)
 
 	// Make sure the tx list is not bigger than the maxBlocksPerBatch.
@@ -407,15 +408,15 @@ func (p *Proposer) ProposeTxListPacaya(
 		txs += uint64(len(txList))
 	}
 
-	// Check prover balance.
+	// Check balance.
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proverAddress = p.Config.ClientConfig.ProverSetAddress
+		proposerAddress = p.Config.ClientConfig.ProverSetAddress
 	}
 
 	ok, err := rpc.CheckProverBalance(
 		ctx,
 		p.rpc,
-		proverAddress,
+		proposerAddress,
 		p.TaikoL1Address,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
@@ -427,15 +428,35 @@ func (p *Proposer) ProposeTxListPacaya(
 	)
 
 	if err != nil {
-		log.Warn("Failed to check prover balance", "prover", proverAddress, "error", err)
+		log.Warn("Failed to check prover balance", "proposer", proposerAddress, "error", err)
 		return err
 	}
 
 	if !ok {
-		return fmt.Errorf("insufficient prover (%s) balance", proverAddress.Hex())
+		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
 
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch)
+	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
+	}
+
+	if forcedInclusion == nil {
+		log.Info("No forced inclusion", "proposer", proposerAddress.Hex())
+	} else {
+		log.Info(
+			"Forced inclusion",
+			"proposer", proposerAddress.Hex(),
+			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"feeInGwei", forcedInclusion.FeeInGwei,
+			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
+			"blobByteOffset", forcedInclusion.BlobByteOffset,
+			"blobByteSize", forcedInclusion.BlobByteSize,
+			"minTxsPerForcedInclusion", minTxsPerForcedInclusion,
+		)
+	}
+
+	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
 		return err
@@ -477,7 +498,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoL1.proposeBlock / TaikoL1.proposeBlocksV2 transaction by tx manager",
+			"Failed to send TaikoL1.proposeBlockV2 / TaikoInbox.proposeBatch transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)

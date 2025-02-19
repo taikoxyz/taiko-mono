@@ -2,11 +2,13 @@ package preconfblocks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -18,6 +20,7 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
@@ -30,6 +33,7 @@ type preconfBlockChainSyncer interface {
 		signalSlots [][32]byte,
 		baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	) (*types.Header, error)
+	InsertPreconfBlockFromExecutionPayload(context.Context, *eth.ExecutionPayload) (*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
@@ -152,42 +156,54 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
+	// Ignore the message if it is from the current P2P node.
+	if s.p2pNode.Host().ID() == from {
+		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
 	log.Info(
 		"📢 New preconfirmation block payload from P2P network",
 		"peer", from,
-		"blockID", msg.ExecutionPayload.BlockNumber,
+		"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 		"hash", msg.ExecutionPayload.BlockHash.Hex(),
 		"txs", len(msg.ExecutionPayload.Transactions),
 	)
+
+	// Ignore the message if it is from the current P2P node.
+	if s.p2pNode.Host().ID() == from {
+		log.Info("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
 
 	if len(msg.ExecutionPayload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
 	}
 
-	_, err := s.chainSyncer.InsertPreconfBlockFromTransactionsBatch(
-		ctx,
-		&ExecutableData{
-			ParentHash:   msg.ExecutionPayload.ParentHash,
-			FeeRecipient: msg.ExecutionPayload.FeeRecipient,
-			Number:       uint64(msg.ExecutionPayload.BlockNumber),
-			GasLimit:     uint64(msg.ExecutionPayload.GasLimit),
-			Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
-			Transactions: common.FromHex(msg.ExecutionPayload.Transactions[0].String()),
-		},
-		msg.AnchorBlockID,
-		msg.AnchorStateRoot,
-		msg.SignalSlots,
-		&pacayaBindings.LibSharedDataBaseFeeConfig{
-			AdjustmentQuotient:     msg.AdjustmentQuotient,
-			SharingPctg:            msg.SharingPctg,
-			GasIssuancePerSecond:   msg.GasIssuancePerSecond,
-			MinGasExcess:           msg.MinGasExcess,
-			MaxGasIssuancePerBlock: msg.MaxGasIssuancePerBlock,
-		},
-	)
-	if err != nil {
+	header, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return fmt.Errorf("failed to fetch header by hash: %w", err)
+	}
+
+	if header != nil {
+		log.Debug(
+			"Preconfirmation block already exists",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"txs", len(msg.ExecutionPayload.Transactions),
+		)
+		return nil
+	}
+
+	if msg.ExecutionPayload.Transactions[0], err = utils.Decompress(msg.ExecutionPayload.Transactions[0]); err != nil {
+		return fmt.Errorf("failed to decompress tx list bytes: %w", err)
+	}
+
+	if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, msg.ExecutionPayload); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
+
 	return nil
 }
 

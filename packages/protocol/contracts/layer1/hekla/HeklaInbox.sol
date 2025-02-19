@@ -37,7 +37,7 @@ contract HeklaInbox is TaikoInbox {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             provingWindow: 2 hours,
-            cooldownWindow: 0 hours,
+            cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
