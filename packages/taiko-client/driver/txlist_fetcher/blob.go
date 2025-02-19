@@ -93,10 +93,14 @@ func (d *BlobFetcher) FetchPacaya(
 	}
 
 	// Fetch the L1 block header with the given blob.
+	log.Info("Fetch L1 block header", "blobCreatedIn", meta.GetBlobCreatedIn())
+
 	l1Header, err := d.cli.L1.HeaderByNumber(ctx, meta.GetBlobCreatedIn())
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info("L1 Header", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
 
 	var b []byte
 	// Fetch the L1 block sidecars.
