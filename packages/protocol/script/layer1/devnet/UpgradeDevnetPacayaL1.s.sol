@@ -154,9 +154,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(l2ChainId != block.chainid, "same chainid");
 
         // Other verifiers
-        upgradeVerifierContracts(
-            rollupResolver, opVerifier, proofVerifier, l2ChainId
-        );
+        upgradeVerifierContracts(rollupResolver, opVerifier, proofVerifier, l2ChainId);
     }
 
     function upgradeVerifierContracts(
