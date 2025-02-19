@@ -111,6 +111,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
 		return err
 	}
+
 	config.ReportProtocolConfigs(d.protocolConfig)
 
 	if d.PreconfBlockServerPort > 0 {

@@ -81,13 +81,13 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 	fallback bool,
 	gasPriceEstimatorFn txmgr.GasPriceEstimatorFn,
 ) *TxBuilderWithFallback {
-	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
-	s.Nil(err)
-
-	chainConfig := config.NewChainConfig(
-		s.RPCClient.L2.ChainID,
-		s.RPCClient.OntakeClients.ForkHeight,
-		s.RPCClient.PacayaClients.ForkHeight,
+	var (
+		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+		chainConfig       = config.NewChainConfig(
+			s.RPCClient.L2.ChainID,
+			s.RPCClient.OntakeClients.ForkHeight,
+			s.RPCClient.PacayaClients.ForkHeight,
+		)
 	)
 
 	cfg, err := txmgr.NewConfig(txmgr.CLIConfig{
@@ -121,6 +121,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.Address{},
 		10_000_000,
 		chainConfig,

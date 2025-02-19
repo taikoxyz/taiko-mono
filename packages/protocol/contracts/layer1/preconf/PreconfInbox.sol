@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "../based/TaikoInbox.sol";
 
-/// @title DevnetInbox
+/// @title PreconfInbox
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract DevnetInbox is TaikoInbox {
+contract PreconfInbox is TaikoInbox {
     constructor(
         address _wrapper,
         address _verifier,
@@ -19,7 +19,7 @@ contract DevnetInbox is TaikoInbox {
     /// @inheritdoc ITaikoInbox
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
-            chainId: 167,
+            chainId: 167_010,
             maxUnverifiedBatches: 324_000,
             batchRingBufferSize: 360_000,
             maxBatchesToVerify: 16,
@@ -36,10 +36,10 @@ contract DevnetInbox is TaikoInbox {
                 maxGasIssuancePerBlock: 600_000_000
             }),
             provingWindow: 2 hours,
-            cooldownWindow: 2 hours,
+            cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10, shasta: 0, unzen: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0, shasta: 0, unzen: 0 })
         });
     }
 }
