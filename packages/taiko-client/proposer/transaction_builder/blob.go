@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -193,13 +192,9 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		})
 	}
 
-	rlpEncoded, err := rlp.EncodeToBytes(allTxs)
+	txListsBytes, err := utils.EncodeAndCompressTxList(allTxs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode transactions: %w", err)
-	}
-	txListsBytes, err := utils.Compress(rlpEncoded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compress transactions: %w", err)
+		return nil, err
 	}
 
 	if blobs, err = b.splitToBlobs(txListsBytes); err != nil {
