@@ -58,6 +58,7 @@ type BlobParams struct {
 	NumBlobs       uint8
 	ByteOffset     uint32
 	ByteSize       uint32
+	CreatedIn      uint64
 }
 
 // BatchParams should be same with ITaikoInbox.BatchParams.

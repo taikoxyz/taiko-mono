@@ -287,6 +287,8 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 		"blockID", executableData.Number,
 		"baseFee", utils.WeiToGWei(baseFee),
 		"parentGasUsed", parentHeader.GasUsed,
+		"anchorBlockID", anchorBlockID,
+		"anchorStateRoot", anchorStateRoot.Hex(),
 	)
 	anchorBlockHeader, err := i.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(anchorBlockID))
 	if err != nil {
