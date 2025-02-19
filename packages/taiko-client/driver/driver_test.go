@@ -488,7 +488,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	baseFee, overflow = uint256.FromBig(anchorTx.GasFeeCap())
 	s.False(overflow)
 
-	b, err := encodeAndCompressTxList(types.Transactions{anchorTx})
+	b, err := utils.EncodeAndCompressTxList(types.Transactions{anchorTx})
 	s.Nil(err)
 
 	// failed to decode txList: rlp: expected input list for types.Transactions
@@ -678,7 +678,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
 	s.Nil(err)
 
-	b, err := encodeAndCompressTxList([]*types.Transaction{signedTx})
+	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{signedTx})
 	s.Nil(err)
 
 	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{
@@ -713,4 +713,3 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	log.Info("Preconfirmation block creation response", "body", res.String())
 	return res
 }
-
