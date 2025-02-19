@@ -312,7 +312,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 		[]byte{},
 	)
 	s.Nil(err)
-	b, err := encodeAndCompressTxList([]*types.Transaction{forcedInclusionTx})
+	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{forcedInclusionTx})
 	s.Nil(err)
 	s.NotEmpty(b)
 
