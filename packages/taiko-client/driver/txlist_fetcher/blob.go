@@ -100,7 +100,7 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, err
 	}
 
-	log.Info("L1 Header", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
+	log.Info("L1 Header fetched", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
 
 	var b []byte
 	// Fetch the L1 block sidecars.
