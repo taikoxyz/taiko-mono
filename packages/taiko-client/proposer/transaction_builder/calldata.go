@@ -79,13 +79,29 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 		encodedParamsArray [][]byte
 	)
 
-	for range txListBytesArray {
-		encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
+	for i := range txListBytesArray {
+		params := &encoding.BlockParamsV2{
 			Coinbase:       b.l2SuggestedFeeRecipient,
 			ParentMetaHash: [32]byte{},
 			AnchorBlockId:  0,
 			Timestamp:      0,
-		})
+		}
+
+		if i == 0 && b.revertProtectionEnabled {
+			_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(nil)
+			if err != nil {
+				return nil, err
+			}
+
+			blockInfo, err := b.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(slotB.NumBlocks-1))
+			if err != nil {
+				return nil, err
+			}
+
+			params.ParentMetaHash = blockInfo.MetaHash
+		}
+
+		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
 		if err != nil {
 			return nil, err
 		}

@@ -90,10 +90,9 @@ func (b *BlobTransactionBuilder) BuildOntake(
 		if err := blob.FromData(txListBytesArray[i]); err != nil {
 			return nil, err
 		}
-
 		blobs = append(blobs, blob)
 
-		encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
+		params := &encoding.BlockParamsV2{
 			Coinbase:         b.l2SuggestedFeeRecipient,
 			ParentMetaHash:   [32]byte{},
 			AnchorBlockId:    0,
@@ -101,7 +100,23 @@ func (b *BlobTransactionBuilder) BuildOntake(
 			BlobTxListOffset: 0,
 			BlobTxListLength: uint32(len(txListBytesArray[i])),
 			BlobIndex:        uint8(i),
-		})
+		}
+
+		if i == 0 && b.revertProtectionEnabled {
+			_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(nil)
+			if err != nil {
+				return nil, err
+			}
+
+			blockInfo, err := b.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(slotB.NumBlocks-1))
+			if err != nil {
+				return nil, err
+			}
+
+			params.ParentMetaHash = blockInfo.MetaHash
+		}
+
+		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
 		if err != nil {
 			return nil, err
 		}
