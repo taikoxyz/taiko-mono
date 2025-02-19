@@ -467,9 +467,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	baseFee, overflow := uint256.FromBig(l2Head1.BaseFee)
-	s.False(overflow)
-
 	anchorConstructor, err := anchortxconstructor.New(s.d.rpc)
 	s.Nil(err)
 
@@ -485,7 +482,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	)
 	s.Nil(err)
 
-	baseFee, overflow = uint256.FromBig(anchorTx.GasFeeCap())
+	baseFee, overflow := uint256.FromBig(anchorTx.GasFeeCap())
 	s.False(overflow)
 
 	b, err := utils.EncodeAndCompressTxList(types.Transactions{anchorTx})
@@ -636,7 +633,7 @@ func (s *DriverTestSuite) InitProposer() {
 
 func (s *DriverTestSuite) TearDownTestTearDown() {
 	if s.d.preconfBlockServer != nil {
-		s.d.preconfBlockServer.Shutdown(context.Background())
+		s.NotNil(s.d.preconfBlockServer.Shutdown(context.Background()))
 	}
 }
 
