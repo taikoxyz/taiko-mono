@@ -20,10 +20,13 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-resty/resty/v2"
+	"github.com/holiman/uint256"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -34,9 +37,10 @@ import (
 
 type DriverTestSuite struct {
 	testutils.ClientTestSuite
-	cancel context.CancelFunc
-	p      *proposer.Proposer
-	d      *Driver
+	cancel           context.CancelFunc
+	p                *proposer.Proposer
+	d                *Driver
+	preconfServerURL *url.URL
 }
 
 func (s *DriverTestSuite) SetupTest() {
@@ -49,6 +53,11 @@ func (s *DriverTestSuite) SetupTest() {
 
 	d := new(Driver)
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Get default in-memory db p2p configs
+	p2pConfig, p2pSignerConfig := s.defaultCliP2PConfigs()
+	preconfServerPort := uint64(testutils.RandomPort())
+
 	s.Nil(d.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:       os.Getenv("L1_WS"),
@@ -58,10 +67,23 @@ func (s *DriverTestSuite) SetupTest() {
 			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:        string(jwtSecret),
 		},
-		BlobServerEndpoint: s.BlobServer.URL(),
+		BlobServerEndpoint:     s.BlobServer.URL(),
+		P2PConfigs:             p2pConfig,
+		P2PSignerConfigs:       p2pSignerConfig,
+		PreconfBlockServerPort: preconfServerPort,
 	}))
 	s.d = d
 	s.cancel = cancel
+
+	go func() {
+		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
+			log.Error("Failed to start preconfirmation block server", "port", preconfServerPort, "error", err)
+		}
+	}()
+
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", preconfServerPort))
+	s.Nil(err)
+	s.preconfServerURL = url
 
 	// InitFromConfig proposer
 	s.InitProposer()
@@ -291,12 +313,6 @@ func (s *DriverTestSuite) TestDoSyncNoNewL2Blocks() {
 	s.Nil(s.d.l2ChainSyncer.Sync())
 }
 
-func (s *DriverTestSuite) TestStartClose() {
-	s.Nil(s.d.Start())
-	s.cancel()
-	s.d.Close(s.d.ctx)
-}
-
 func (s *DriverTestSuite) TestForcedInclusion() {
 	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 
@@ -378,20 +394,6 @@ func (s *DriverTestSuite) TestL1Current() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocks() {
-	var (
-		port = uint64(testutils.RandomPort())
-		err  error
-	)
-	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
-	)
-	s.Nil(err)
-	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
-	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
-
-	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
-	s.Nil(err)
-
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -408,12 +410,12 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
-	res, err := resty.New().R().Get(url.String() + "/healthz")
+	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert two preconfirmation blocks
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -426,7 +428,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -445,7 +447,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{
 			NewLastBlockID: l2Head4.Number().Uint64() - 1,
 		}).
-		Delete(url.String() + "/preconfBlocks")
+		Delete(s.preconfServerURL.String() + "/preconfBlocks")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
@@ -546,20 +548,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
-	var (
-		port = uint64(testutils.RandomPort())
-		err  error
-	)
-	s.d.preconfBlockServer, err = preconfblocks.New(
-		"*", nil, s.d.ChainSyncer().BlobSyncer().BlocksInserterPacaya(), s.RPCClient, true,
-	)
-	s.Nil(err)
-	go func() { s.NotNil(s.d.preconfBlockServer.Start(port)) }()
-	defer func() { s.Nil(s.d.preconfBlockServer.Shutdown(s.d.ctx)) }()
-
-	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
-	s.Nil(err)
-
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -576,12 +564,12 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
-	res, err := resty.New().R().Get(url.String() + "/healthz")
+	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert one preconfirmation block
-	s.True(s.insertPreconfBlock(url, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -609,6 +597,71 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
 	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
 	s.False(l1Origin2.IsPreconfBlock())
+}
+
+func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
+	// Propose some valid L2 blocks
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	anchorConstructor, err := anchortxconstructor.New(s.d.rpc)
+	s.Nil(err)
+
+	anchorTx, err := anchorConstructor.AssembleAnchorV3Tx(
+		context.Background(),
+		l1Head.Number,
+		l1Head.Root,
+		l2Head1.GasUsed,
+		s.d.protocolConfig.BaseFeeConfig(),
+		[][32]byte{},
+		new(big.Int).Add(l2Head1.Number, common.Big1),
+		l2Head1.BaseFee,
+	)
+	s.Nil(err)
+
+	baseFee, overflow := uint256.FromBig(anchorTx.GasFeeCap())
+	s.False(overflow)
+
+	b, err := utils.EncodeAndCompressTxList(types.Transactions{anchorTx})
+	s.Nil(err)
+
+	// failed to decode txList: rlp: expected input list for types.Transactions
+	payload := &eth.ExecutionPayload{
+		ParentHash:    l2Head1.Hash(),
+		FeeRecipient:  s.TestAddr,
+		PrevRandao:    eth.Bytes32(testutils.RandomHash()),
+		BlockNumber:   eth.Uint64Quantity(l2Head1.Number.Uint64() + 1),
+		GasLimit:      eth.Uint64Quantity(l2Head1.GasLimit),
+		Timestamp:     eth.Uint64Quantity(time.Now().Unix()),
+		ExtraData:     l2Head1.Extra,
+		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+		Transactions:  []eth.Data{b},
+		Withdrawals:   &types.Withdrawals{},
+	}
+
+	s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
+		context.Background(),
+		peer.ID(testutils.RandomBytes(32)),
+		&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload},
+	))
+
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64()+1, l2Head2.Number().Uint64())
+	s.Equal(payload.ParentHash, l2Head2.ParentHash())
+	s.Equal(payload.FeeRecipient, l2Head2.Coinbase())
+	s.Equal(uint64(payload.GasLimit), l2Head2.GasLimit())
+	s.Equal(uint64(payload.Timestamp), l2Head2.Time())
+	s.Equal([]byte(payload.ExtraData), l2Head2.Extra())
+	s.Zero(anchorTx.GasFeeCap().Cmp(l2Head2.BaseFee()))
+	s.Equal(1, len(l2Head2.Transactions()))
+	s.Equal(anchorTx.Hash(), l2Head2.Transactions()[0].Hash())
 }
 
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
@@ -732,6 +785,82 @@ func (s *DriverTestSuite) InitProposer() {
 	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
+func (s *DriverTestSuite) TearDownTestTearDown() {
+	if s.d.preconfBlockServer != nil {
+		s.NotNil(s.d.preconfBlockServer.Shutdown(context.Background()))
+	}
+}
+
 func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverTestSuite))
+}
+
+// insertPreconfBlock inserts a preconfirmation block with the given parameters.
+func (s *DriverTestSuite) insertPreconfBlock(
+	url *url.URL,
+	anchoredL1Block *types.Header,
+	l2BlockID uint64,
+) *resty.Response {
+	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
+	s.Nil(err)
+
+	preconferAddress := crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
+
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	s.Nil(err)
+
+	tx := types.NewTransaction(
+		nonce,
+		common.BytesToAddress(testutils.RandomBytes(32)),
+		common.Big0,
+		100_000,
+		new(big.Int).SetUint64(uint64(10*params.GWei)),
+		[]byte{},
+	)
+	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
+	s.Nil(err)
+
+	// If the transaction is underpriced, we just ingore it.
+	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		s.Equal("replacement transaction underpriced", err.Error())
+	}
+
+	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
+	s.Nil(err)
+
+	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{signedTx})
+	s.Nil(err)
+
+	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{
+		ExecutableData: &preconfblocks.ExecutableData{
+			ParentHash:   parent.Hash(),
+			FeeRecipient: preconferAddress,
+			Number:       l2BlockID,
+			GasLimit:     uint64(s.d.protocolConfig.BlockMaxGasLimit()),
+			Timestamp:    anchoredL1Block.Time,
+			Transactions: b,
+		},
+		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
+		AnchorStateRoot: anchoredL1Block.Root,
+		SignalSlots:     [][32]byte{},
+		BaseFeeConfig:   s.d.protocolConfig.BaseFeeConfig(),
+	}
+
+	payload, err := rlp.EncodeToBytes(reqBody)
+	s.Nil(err)
+	s.NotEmpty(payload)
+
+	sig, err := crypto.Sign(crypto.Keccak256(payload), preconferPrivKey)
+	s.Nil(err)
+	reqBody.Signature = common.Bytes2Hex(sig)
+
+	// Try to propose a preconfirmation block
+	res, err := resty.New().
+		R().
+		SetBody(reqBody).
+		Post(url.String() + "/preconfBlocks")
+	s.Nil(err)
+	log.Info("Preconfirmation block creation response", "body", res.String())
+	return res
 }

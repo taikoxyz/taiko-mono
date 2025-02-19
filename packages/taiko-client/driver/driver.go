@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/modern-go/reflect2"
 	"github.com/urfave/cli/v2"
 
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
@@ -84,7 +85,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	}
 
 	if cfg.P2PSync && peers == 0 {
-		log.Warn("P2P syncing verified blocks enabled, but no connected peer found in L2 execution engine")
+		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
 	if d.l2ChainSyncer, err = chainSyncer.New(
@@ -114,6 +115,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	config.ReportProtocolConfigs(d.protocolConfig)
 
 	if d.PreconfBlockServerPort > 0 {
+		// Initialize the preconf block server.
 		if d.preconfBlockServer, err = preconfBlocks.New(
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
@@ -123,33 +125,34 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
-	}
 
-	if cfg.P2PConfigs != nil {
-		log.Info("enabling p2p network")
-		d.p2pSetup = cfg.P2PConfigs
+		// Enable P2P network for preconf block propagation.
+		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
+			log.Info("Enabling P2P network", "configs", cfg.P2PConfigs)
+			d.p2pSetup = cfg.P2PConfigs
 
-		if d.p2pNode, err = p2p.NewNodeP2P(
-			d.ctx,
-			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
-			log.Root(),
-			d.p2pSetup,
-			d.preconfBlockServer,
-			nil,
-			d.preconfBlockServer,
-			metrics.P2PNodeMetrics,
-			false,
-		); err != nil {
-			return err
-		}
+			if d.p2pNode, err = p2p.NewNodeP2P(
+				d.ctx,
+				&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
+				log.Root(),
+				d.p2pSetup,
+				d.preconfBlockServer,
+				nil,
+				d.preconfBlockServer,
+				metrics.P2PNodeMetrics,
+				false,
+			); err != nil {
+				return err
+			}
 
-		log.Info("p2pNode", "Addrs", d.p2pNode.Host().Addrs(), "peerID", d.p2pNode.Host().ID())
+			log.Info("P2PNode", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
-		if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
-			return err
-		}
+			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
+				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
+					return err
+				}
+			}
 
-		if d.preconfBlockServer != nil {
 			d.preconfBlockServer.SetP2PNode(d.p2pNode)
 			d.preconfBlockServer.SetP2PSigner(d.p2pSigner)
 		}
@@ -177,7 +180,7 @@ func (d *Driver) Start() error {
 		go d.p2pNode.DiscoveryProcess(
 			d.ctx,
 			log.Root(),
-			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID},
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
 			d.p2pSetup.TargetPeers(),
 		)
 	}
