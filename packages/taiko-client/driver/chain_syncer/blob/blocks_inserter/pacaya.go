@@ -146,7 +146,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			return fmt.Errorf("failed to calculate difficulty: %w", err)
 		}
 		timestamp := meta.GetLastBlockTimestamp()
-		for i := len(meta.GetBlocks()) - 1; i >= 0; i-- {
+		for i := len(meta.GetBlocks()) - 1; i > j; i-- {
 			timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 		}
 
