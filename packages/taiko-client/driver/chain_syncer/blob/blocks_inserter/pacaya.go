@@ -298,20 +298,6 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 		return nil, fmt.Errorf("invalid anchor state root %s", anchorStateRoot)
 	}
 
-	// Assemble a TaikoAnchor.anchorV3 transaction
-	anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
-		ctx,
-		new(big.Int).SetUint64(anchorBlockID),
-		anchorStateRoot,
-		parentHeader.GasUsed,
-		baseFeeConfig,
-		signalSlots,
-		new(big.Int).Add(parentHeader.Number, common.Big1),
-		baseFee,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
-	}
 	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(executableData.Number))
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate difficulty: %w", err)
@@ -339,7 +325,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 					L1BlockHeight: nil,
 					L1BlockHash:   common.Hash{},
 				},
-				Txs:         txs,
+				Txs:         txs[len(txs)-1:],
 				Withdrawals: make([]*types.Withdrawal, 0),
 				BaseFee:     baseFee,
 			},
@@ -348,7 +334,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 			BaseFeeConfig:   baseFeeConfig,
 			Parent:          parentHeader,
 		},
-		anchorTx,
+		txs[0],
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert new preconfirmation head to L2 execution engine: %w", err)
