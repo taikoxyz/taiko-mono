@@ -6,11 +6,13 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -144,7 +146,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			return fmt.Errorf("failed to calculate difficulty: %w", err)
 		}
 		timestamp := meta.GetLastBlockTimestamp()
-		for i := len(meta.GetBlocks()) - 1; i >= 0; i-- {
+		for i := len(meta.GetBlocks()) - 1; i > j; i-- {
 			timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 		}
 
@@ -383,4 +385,42 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	}
 
 	return nil
+}
+
+// InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
+func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
+	ctx context.Context,
+	executableData *eth.ExecutionPayload,
+) (*types.Header, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
+	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
+	payload, err := createExecutionPayloadsAndSetHead(
+		ctx,
+		i.rpc,
+		&createExecutionPayloadsMetaData{
+			BlockID:               new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+			ExtraData:             executableData.ExtraData,
+			SuggestedFeeRecipient: executableData.FeeRecipient,
+			GasLimit:              uint64(executableData.GasLimit),
+			Difficulty:            common.Hash(executableData.PrevRandao),
+			Timestamp:             uint64(executableData.Timestamp),
+			ParentHash:            executableData.ParentHash,
+			L1Origin: &rawdb.L1Origin{
+				BlockID:       new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+				L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+				L1BlockHeight: nil,
+				L1BlockHash:   common.Hash{},
+			},
+			BaseFee:     u256BaseFee.ToBig(),
+			Withdrawals: make([]*types.Withdrawal, 0),
+		},
+		executableData.Transactions[0],
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create execution data: %w", err)
+	}
+
+	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
