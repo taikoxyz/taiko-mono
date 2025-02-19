@@ -7,7 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // Tier IDs defined in protocol.
@@ -50,6 +51,34 @@ type BlockParamsV2 struct {
 	BlobIndex        uint8
 }
 
+// BlobParams should be same with ITaikoInbox.BlobParams.
+type BlobParams struct {
+	BlobHashes     [][32]byte
+	FirstBlobIndex uint8
+	NumBlobs       uint8
+	ByteOffset     uint32
+	ByteSize       uint32
+	CreatedIn      uint64
+}
+
+// BatchParams should be same with ITaikoInbox.BatchParams.
+type BatchParams struct {
+	Proposer                 common.Address
+	Coinbase                 common.Address
+	ParentMetaHash           [32]byte
+	AnchorBlockId            uint64
+	LastBlockTimestamp       uint64
+	RevertIfNotFirstProposal bool
+	BlobParams               BlobParams
+	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
+}
+
+// SubProof should be same with ComposeVerifier.SubProof.
+type SubProof struct {
+	Verifier common.Address
+	Proof    []byte
+}
+
 // TierFee should be same with TaikoData.TierFee.
 type TierFee struct {
 	Tier uint16
@@ -82,13 +111,13 @@ func ToExecutableData(header *types.Header) *engine.ExecutableData {
 	return executableData
 }
 
-// TransitionProvedEventToV2 converts a *bindings.TaikoL1ClientTransitionProved
-// to *bindings.TaikoL1ClientTransitionProvedV2.
+// TransitionProvedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientTransitionProved
+// to *ontakeBindings.OntakeClients.TaikoL1ClientTransitionProvedV2.
 func TransitionProvedEventToV2(
-	e *bindings.TaikoL1ClientTransitionProved,
+	e *ontakeBindings.TaikoL1ClientTransitionProved,
 	proposedIn uint64,
-) *bindings.TaikoL1ClientTransitionProvedV2 {
-	return &bindings.TaikoL1ClientTransitionProvedV2{
+) *ontakeBindings.TaikoL1ClientTransitionProvedV2 {
+	return &ontakeBindings.TaikoL1ClientTransitionProvedV2{
 		BlockId:      e.BlockId,
 		Tran:         e.Tran,
 		Prover:       e.Prover,
@@ -99,13 +128,13 @@ func TransitionProvedEventToV2(
 	}
 }
 
-// TransitionContestedEventToV2 converts a *bindings.TaikoL1ClientTransitionContested
-// to *bindings.TaikoL1ClientTransitionContestedV2.
+// TransitionContestedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientTransitionContested
+// to *ontakeBindings.OntakeClients.TaikoL1ClientTransitionContestedV2.
 func TransitionContestedEventToV2(
-	e *bindings.TaikoL1ClientTransitionContested,
+	e *ontakeBindings.TaikoL1ClientTransitionContested,
 	proposedIn uint64,
-) *bindings.TaikoL1ClientTransitionContestedV2 {
-	return &bindings.TaikoL1ClientTransitionContestedV2{
+) *ontakeBindings.TaikoL1ClientTransitionContestedV2 {
+	return &ontakeBindings.TaikoL1ClientTransitionContestedV2{
 		BlockId:     e.BlockId,
 		Tran:        e.Tran,
 		Contester:   e.Contester,
@@ -116,29 +145,14 @@ func TransitionContestedEventToV2(
 	}
 }
 
-// BlockVerifiedEventToV2 converts a *bindings.TaikoL1ClientBlockVerified to *bindings.TaikoL1ClientBlockVerifiedV2.
-func BlockVerifiedEventToV2(e *bindings.TaikoL1ClientBlockVerified) *bindings.TaikoL1ClientBlockVerifiedV2 {
-	return &bindings.TaikoL1ClientBlockVerifiedV2{
+// BlockVerifiedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerified to *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerifiedV2.
+func BlockVerifiedEventToV2(e *ontakeBindings.TaikoL1ClientBlockVerified) *ontakeBindings.TaikoL1ClientBlockVerifiedV2 {
+	return &ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 		BlockId:   e.BlockId,
 		Prover:    e.Prover,
 		BlockHash: e.BlockHash,
 		Tier:      e.Tier,
 		Raw:       e.Raw,
-	}
-}
-
-// BlockVerifiedEventToV2 converts a *bindings.TaikoDataBlock to *bindings.TaikoDataBlockV2.
-func TaikoDataBlockToV2(b *bindings.TaikoDataBlock) *bindings.TaikoDataBlockV2 {
-	return &bindings.TaikoDataBlockV2{
-		MetaHash:             b.MetaHash,
-		AssignedProver:       b.AssignedProver,
-		LivenessBond:         b.LivenessBond,
-		BlockId:              b.BlockId,
-		ProposedAt:           b.ProposedAt,
-		ProposedIn:           b.ProposedIn,
-		NextTransitionId:     big.NewInt(int64(b.NextTransitionId)),
-		LivenessBondReturned: false,
-		VerifiedTransitionId: big.NewInt(int64(b.VerifiedTransitionId)),
 	}
 }
 

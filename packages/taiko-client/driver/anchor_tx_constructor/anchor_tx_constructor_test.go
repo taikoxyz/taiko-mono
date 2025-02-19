@@ -11,7 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
@@ -49,7 +50,22 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 		s.l1Height,
 		s.l1Hash,
 		1024,
-		&bindings.LibSharedDataBaseFeeConfig{},
+		&ontakeBindings.LibSharedDataBaseFeeConfig{},
+		common.Big1,
+		common.Big256,
+	)
+	s.Nil(err)
+	s.NotNil(tx)
+}
+
+func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
+	tx, err := s.c.AssembleAnchorV3Tx(
+		context.Background(),
+		s.l1Height,
+		s.l1Hash,
+		1024,
+		&pacayaBindings.LibSharedDataBaseFeeConfig{},
+		[][32]byte{},
 		common.Big1,
 		common.Big256,
 	)
@@ -58,7 +74,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 }
 
 func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
-	goldenTouchAddress, err := s.RPCClient.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.OntakeClients.TaikoL2.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	c, err := New(s.RPCClient)

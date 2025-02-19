@@ -21,59 +21,56 @@ cd ../protocol &&
   cd -
 
 ABIGEN_BIN=$TAIKO_GETH_DIR/build/bin/abigen
+FORK=pacaya
 
 echo ""
-echo "Start generating go contract bindings..."
+echo "PROTOCOL_FORK_NAME: ${FORK}"
 echo ""
 
-cat ../protocol/out/layer1/TaikoL1.sol/TaikoL1.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoL1Client --pkg bindings --out $DIR/../bindings/gen_taiko_l1.go
+echo ""
+echo "Start generating Go contract bindings..."
+echo ""
 
-cat ../protocol/out/layer1/LibProving.sol/LibProving.json |
+cat ../protocol/out/layer1/TaikoWrapper.sol/TaikoWrapper.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibProving --pkg bindings --out $DIR/../bindings/gen_lib_proving.go
+	${ABIGEN_BIN} --abi - --type TaikoWrapperClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_wrapper.go
 
-cat ../protocol/out/layer1/LibProposing.sol/LibProposing.json |
+cat ../protocol/out/layer1/ForcedInclusionStore.sol/ForcedInclusionStore.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibProposing --pkg bindings --out $DIR/../bindings/gen_lib_proposing.go
+	${ABIGEN_BIN} --abi - --type ForcedInclusionStore --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_forced_inclusion_store.go
 
-cat ../protocol/out/layer1/LibUtils.sol/LibUtils.json |
+cat ../protocol/out/layer1/TaikoInbox.sol/TaikoInbox.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibUtils --pkg bindings --out $DIR/../bindings/gen_lib_utils.go
+	${ABIGEN_BIN} --abi - --type TaikoInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_inbox.go
 
-cat ../protocol/out/layer1/LibVerifying.sol/LibVerifying.json |
+cat ../protocol/out/layer2/TaikoAnchor.sol/TaikoAnchor.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibVerifying --pkg bindings --out $DIR/../bindings/gen_lib_verifying.go
-
-cat ../protocol/out/layer2/TaikoL2.sol/TaikoL2.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoL2Client --pkg bindings --out $DIR/../bindings/gen_taiko_l2.go
+	${ABIGEN_BIN} --abi - --type TaikoAnchorClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_anchor.go
 
 cat ../protocol/out/layer1/TaikoToken.sol/TaikoToken.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoToken --pkg bindings --out $DIR/../bindings/gen_taiko_token.go
+	${ABIGEN_BIN} --abi - --type TaikoToken --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_token.go
 
-cat ../protocol/out/layer1/AddressManager.sol/AddressManager.json |
+cat ../protocol/out/layer1/ResolverBase.sol/ResolverBase.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type AddressManager --pkg bindings --out $DIR/../bindings/gen_address_manager.go
-
-cat ../protocol/out/layer1/GuardianProver.sol/GuardianProver.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type GuardianProver --pkg bindings --out $DIR/../bindings/gen_guardian_prover.go
+	${ABIGEN_BIN} --abi - --type ResolverBase --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_resolver_base.go
 
 cat ../protocol/out/layer1/ProverSet.sol/ProverSet.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type ProverSet --pkg bindings --out $DIR/../bindings/gen_prover_set.go
+	${ABIGEN_BIN} --abi - --type ProverSet --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_prover_set.go
 
-cat ../protocol/out/layer1/MainnetTierRouter.sol/MainnetTierRouter.json |
+cat ../protocol/out/layer1/ForkRouter.sol/ForkRouter.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type TierProvider --pkg bindings --out $DIR/../bindings/gen_tier_provider.go
+	${ABIGEN_BIN} --abi - --type ForkRouter --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_fork_router.go
 
-cat ../protocol/out/layer1/SgxVerifier.sol/SgxVerifier.json |
+cat ../protocol/out/layer1/ComposeVerifier.sol/ComposeVerifier.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type SgxVerifier --pkg bindings --out $DIR/../bindings/gen_sgx_verifier.go
+	${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
 
-git -C ../../ log --format="%H" -n 1 >./bindings/.githead
+cat ../protocol/out/layer1/PreconfWhitelist.sol/PreconfWhitelist.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type PreconfWhitelist --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_preconf_whitelist.go
+
+git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"

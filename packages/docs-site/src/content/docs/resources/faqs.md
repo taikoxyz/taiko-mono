@@ -9,9 +9,9 @@ This page is divided between [General FAQs](#general-faqs) and [Developer FAQs](
 
 ---
 
-### What is Taiko?
+### What is Taiko Alethia?
 
-See [What is Taiko?](/core-concepts/what-is-taiko).
+See [What is Taiko Alethia?](/taiko-alethia-protocol/what-is-taiko-alethia).
 
 ### What is a Type 1 ZK-EVM?
 
@@ -19,25 +19,25 @@ The different types of ZK-EVMs make tradeoffs between compatibility and proof ge
 
 Another term for a Type 1 ZK-EVM is “Ethereum-equivalent”. This term comes from the fact that Type 1 ZK-EVMs make no changes to the Ethereum architecture, whether it be the hash function, state trees, or gas costs. This equivalency allows us to reuse execution clients with minimal modification.
 
-### Is Taiko open source?
+### Is Taiko Alethia open source?
 
-Yes, Taiko is open source under the permissive MIT license (free to access and modify). The Geth fork ([taiko-geth](https://github.com/taikoxyz/taiko-geth)) retains the original Geth GPL licenses.
+Yes, Taiko Alethia is open source under the permissive MIT license (free to access and modify). The Geth fork ([taiko-geth](https://github.com/taikoxyz/taiko-geth)) retains the original Geth GPL licenses.
 
 ### Can I ignore these logs from my node?
 
 Join the Discord ([`#errors-faq` channel](https://discord.com/channels/984015101017346058/1193975550256107660)) to see the node logs that can be ignored and which are errors.
 
-### Where can I find the deployed contract addresses for Hekla?
+### Where can I find the deployed contract addresses for Taiko Hekla?
 
-See [deployed contracts](/network-reference/testnet-addresses) for a list of deployed contract addresses.
+See [deployed contracts](/network-reference/hekla-addresses) for a list of deployed contract addresses.
 
-### Where can I find the deployed contract addresses for Mainnet?
+### Where can I find the deployed contract addresses for Taiko Alethia?
 
-See [deployed contracts](/network-reference/mainnet-addresses) for a list of deployed contract addresses.
+See [deployed contracts](/network-reference/alethia-addresses) for a list of deployed contract addresses.
 
 ### I ran a node during a previous testnet do I need to do anything different?
 
-Yes, please update your simple-taiko-node and run through one of the profiles described in the guides. You can also shut down your Taiko (Katla) node and run a Taiko (Hekla) node. Check out our guides in the sidebar.
+Yes, please update your simple-taiko-node and run through one of the profiles described in the guides. You can also shut down your Taiko (Katla) node and run a Taiko Hekla node. Check out our guides in the sidebar.
 
 ### Does Taiko have a sequencer?
 
@@ -51,6 +51,6 @@ You can use the official [Taiko bridge](https://bridge.hekla.taiko.xyz/) to send
 
 ---
 
-### How can I get the L1 block number from L2 on Testnet?
+### How can I get the L1 block number from L2 on Taiko Hekla?
 
-You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/testnet-addresses#taiko-l2-hekla-contracts). You can do the same for [Mainnet](/network-reference/mainnet-addresses#taiko-l2-contracts).
+You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/hekla-addresses#taiko-l2-taiko-hekla-contracts). You can do the same for [Taiko Alethia](/network-reference/alethia-addresses#taiko-alethia-l2-contracts).

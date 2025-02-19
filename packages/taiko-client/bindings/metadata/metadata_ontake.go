@@ -6,21 +6,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
 // Ensure TaikoDataBlockMetadataOntake implements TaikoBlockMetaData.
-var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataOntake)(nil)
+var _ TaikoProposalMetaData = (*TaikoDataBlockMetadataOntake)(nil)
 
 // TaikoDataBlockMetadataOntake is the metadata of an ontake Taiko block.
 type TaikoDataBlockMetadataOntake struct {
-	bindings.TaikoDataBlockMetadataV2
+	ontakeBindings.TaikoDataBlockMetadataV2
 	types.Log
 }
 
 // NewTaikoDataBlockMetadataOntake creates a new instance of TaikoDataBlockMetadataOntake
 // from the TaikoL1.BlockProposedV2 event.
-func NewTaikoDataBlockMetadataOntake(e *bindings.TaikoL1ClientBlockProposedV2) *TaikoDataBlockMetadataOntake {
+func NewTaikoDataBlockMetadataOntake(e *ontakeBindings.TaikoL1ClientBlockProposedV2) *TaikoDataBlockMetadataOntake {
 	return &TaikoDataBlockMetadataOntake{
 		TaikoDataBlockMetadataV2: e.Meta,
 		Log:                      e.Raw,
@@ -30,6 +30,21 @@ func NewTaikoDataBlockMetadataOntake(e *bindings.TaikoL1ClientBlockProposedV2) *
 // GetAnchorBlockHash returns the anchor block hash.
 func (m *TaikoDataBlockMetadataOntake) GetAnchorBlockHash() common.Hash {
 	return m.AnchorBlockHash
+}
+
+// Ontake implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataOntake) Ontake() TaikoBlockMetaDataOntake {
+	return m
+}
+
+// Pacaya implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataOntake) Pacaya() TaikoBatchMetaDataPacaya {
+	return nil
+}
+
+// IsPacaya implemnts TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataOntake) IsPacaya() bool {
+	return false
 }
 
 // GetDifficulty returns the difficulty.
@@ -113,6 +128,11 @@ func (m *TaikoDataBlockMetadataOntake) GetProposedIn() uint64 {
 	return m.ProposedIn
 }
 
+// GetBlobCreatedIn returns the L1 block number when the blob created.
+func (m *TaikoDataBlockMetadataOntake) GetBlobCreatedIn() *big.Int {
+	return new(big.Int).SetUint64(m.BlockNumber)
+}
+
 // GetBlobTxListOffset returns the blob tx list offset.
 func (m *TaikoDataBlockMetadataOntake) GetBlobTxListOffset() uint32 {
 	return m.BlobTxListOffset
@@ -129,7 +149,7 @@ func (m *TaikoDataBlockMetadataOntake) GetBlobIndex() uint8 {
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataOntake) GetBaseFeeConfig() *bindings.LibSharedDataBaseFeeConfig {
+func (m *TaikoDataBlockMetadataOntake) GetBaseFeeConfig() *ontakeBindings.LibSharedDataBaseFeeConfig {
 	return &m.BaseFeeConfig
 }
 
@@ -153,12 +173,7 @@ func (m *TaikoDataBlockMetadataOntake) GetTxHash() common.Hash {
 	return m.Log.TxHash
 }
 
-// IsOntakeBlock returns whether the block is an ontake block.
-func (m *TaikoDataBlockMetadataOntake) IsOntakeBlock() bool {
-	return true
-}
-
 // InnerMetadata returns the inner metadata.
-func (m *TaikoDataBlockMetadataOntake) InnerMetadata() *bindings.TaikoDataBlockMetadataV2 {
+func (m *TaikoDataBlockMetadataOntake) InnerMetadata() *ontakeBindings.TaikoDataBlockMetadataV2 {
 	return &m.TaikoDataBlockMetadataV2
 }

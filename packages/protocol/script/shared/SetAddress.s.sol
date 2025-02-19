@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
-import "src/shared/common/AddressManager.sol";
+import "src/shared/common/DefaultResolver.sol";
 
 contract SetAddress is Script {
     uint256 public adminPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -17,7 +17,7 @@ contract SetAddress is Script {
 
     address public addr = vm.envAddress("ADDRESS");
 
-    AddressManager proxy;
+    DefaultResolver proxy;
 
     function run() external {
         require(adminPrivateKey != 0, "PRIVATE_KEY not set");
@@ -28,9 +28,9 @@ contract SetAddress is Script {
 
         vm.startBroadcast(adminPrivateKey);
 
-        proxy = AddressManager(payable(proxyAddress));
+        proxy = DefaultResolver(payable(proxyAddress));
 
-        proxy.setAddress(domain, name, addr);
+        proxy.registerAddress(domain, name, addr);
 
         vm.stopBroadcast();
     }

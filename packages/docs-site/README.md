@@ -18,4 +18,4 @@ This is where we extend the `docsSchema`.
 
 ## Contributing
 
-View CONTRIBUTING.md inside of the [Taiko monorepo](https://github.com/taikoxyz/taiko-mono/blob/main/CONTRIBUTING.md).
+View CONTRIBUTING.md inside of the [Taiko Alethia monorepo](https://github.com/taikoxyz/taiko-mono/blob/main/CONTRIBUTING.md).

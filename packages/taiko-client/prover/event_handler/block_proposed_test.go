@@ -12,19 +12,18 @@ import (
 )
 
 func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
-	opts := &NewBlockProposedEventHandlerOps{
+	handler := NewBlockProposedEventHandler(&NewBlockProposedEventHandlerOps{
 		SharedState:           &state.SharedState{},
 		ProverAddress:         common.Address{},
 		RPC:                   s.RPCClient,
-		ProofGenerationCh:     make(chan *proofProducer.ProofWithHeader),
-		AssignmentExpiredCh:   make(chan metadata.TaikoBlockMetaData),
+		ProofGenerationCh:     make(chan *proofProducer.ProofResponse),
+		AssignmentExpiredCh:   make(chan metadata.TaikoProposalMetaData),
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
 		ProofContestCh:        make(chan *proofProducer.ContestRequestBody),
 		BackOffRetryInterval:  1 * time.Minute,
 		BackOffMaxRetrys:      5,
 		ContesterMode:         true,
 		ProveUnassignedBlocks: true,
-	}
-	handler := NewBlockProposedEventHandler(opts)
+	})
 	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer), func() {}))
 }

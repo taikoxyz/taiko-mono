@@ -19,7 +19,6 @@ export default defineConfig({
           exclude: [
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
-            "/api-reference/prover-server",
           ],
         }),
         starlightOpenAPI([
@@ -60,45 +59,55 @@ export default defineConfig({
           label: "Start Here",
           items: [
             { label: "Getting started", link: "/start-here/getting-started/" },
+            { label: "Set up your wallet", link: "/start-here/set-up-your-wallet/", },
             { label: "Contributing", link: "/start-here/contributing/" },
             { label: "Getting support", link: "/start-here/getting-support" },
           ],
         },
         {
-          label: "Core Concepts",
+          label: "Taiko Alethia Protocol",
+          collapsed: true,
           items: [
-            { label: "What is Taiko?", link: "/core-concepts/what-is-taiko/" },
             {
-              label: "Contestable rollups (BCR)",
-              link: "/core-concepts/contestable-rollup/",
+              label: "Protocol Design",
+              collapsed: true,
+              items: [
+                { label: "Based rollups", link: "/taiko-alethia-protocol/protocol-design/based-rollups/" },
+                { label: "Contestable rollups (BCR)", link: "/taiko-alethia-protocol/protocol-design/contestable-rollup/" },
+                { label: "Multi-proofs", link: "/taiko-alethia-protocol/protocol-design/multi-proofs/" },
+                { label: "Inception layers", link: "/taiko-alethia-protocol/protocol-design/inception-layers/" },
+              ]
             },
             {
-              label: "Booster rollups (BBR)",
-              link: "/core-concepts/booster-rollups/",
+              label: "Protocol Architecture",
+              collapsed: true,
+              items: [
+                { label: "Block states", link: "/taiko-alethia-protocol/protocol-architecture/block-states" },
+                { label: "Bridging", link: "/taiko-alethia-protocol/protocol-architecture/bridging" },
+                { label: "Economics", link: "/taiko-alethia-protocol/protocol-architecture/economics" },
+                { label: "Taiko nodes", link: "/taiko-alethia-protocol/protocol-architecture/taiko-alethia-nodes" },
+              ],
             },
-            { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
-            {
-              label: "Inception layers",
-              link: "/core-concepts/inception-layers/",
-            },
-          ],
-        },
-        {
-          label: "Taiko Protocol",
-          items: [
             {
               label: "Codebase Analysis",
               collapsed: true,
               items: [
-                {label: "TaikoL1 Contract", link: "/taiko-protocol/codebase-analysis/taikol1-contract"},
-                {label: "TaikoL2 Contract", link: "/taiko-protocol/codebase-analysis/taikol2-contract"},
-                {label: "SGXVerifier Contract", link: "/taiko-protocol/codebase-analysis/sgxverifier-contract"},
+                {label: "TaikoL1 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol1-contract"},
+                {label: "TaikoL2 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol2-contract"},
+                {label: "SGXVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/sgxverifier-contract"},
+                {label: "SignalService Contract", link: "/taiko-alethia-protocol/codebase-analysis/signalservice-contract"},
+                {label: "Bridge Contract", link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract"},
               ],
             },
-            { label: "Block states", link: "/taiko-protocol/block-states" },
-            { label: "Bridging", link: "/taiko-protocol/bridging" },
-            { label: "Economics", link: "/taiko-protocol/economics" },
-            { label: "Taiko nodes", link: "/taiko-protocol/taiko-nodes" },
+            { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
+          ]
+        },
+        {
+          label: "Taiko Gwyneth Protocol",
+          collapsed: true,
+          items: [
+            { label: "What is Taiko Gwyneth?", link: "/taiko-gwyneth-protocol/what-is-taiko-gwyneth/" },
+            { label: "Booster rollups", link: "/taiko-gwyneth-protocol/booster-rollups/" },
           ]
         },
         {
@@ -108,10 +117,6 @@ export default defineConfig({
               label: "App Developers",
               collapsed: true,
               items: [
-                {
-                  label: "Set up your wallet",
-                  link: "/guides/app-developers/set-up-your-wallet/",
-                },
                 {
                   label: "Receive tokens",
                   link: "/guides/app-developers/receive-tokens/",
@@ -135,8 +140,8 @@ export default defineConfig({
               collapsed: true,
               items: [
                 {
-                  label: "Run a Taiko node with Docker",
-                  link: "/guides/node-operators/run-a-taiko-node-with-docker/",
+                  label: "Run a Taiko Alethia node with Docker",
+                  link: "/guides/node-operators/run-a-taiko-alethia-node-with-docker/",
                 },
 
                 {
@@ -144,23 +149,23 @@ export default defineConfig({
                   link: "/guides/node-operators/run-an-ethereum-testnet-node/",
                 },
                 {
-                  label: "Build a Taiko node from source",
-                  link: "/guides/node-operators/build-a-taiko-node-from-source/",
+                  label: "Build a Taiko Alethia node from source",
+                  link: "/guides/node-operators/build-a-taiko-alethia-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko mainnet node from source",
-                  link: "/guides/node-operators/run-a-mainnet-taiko-node-from-source/",
+                  label: "Run a node for Taiko Alethia",
+                  link: "/guides/node-operators/run-a-node-for-taiko-alethia/",
                 },
                 {
-                  label: "Run a Taiko testnet node from source",
-                  link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
+                  label: "Run a node for Taiko Hekla",
+                  link: "/guides/node-operators/run-a-node-for-taiko-hekla/",
                 },
                 {
-                  label: "Run a Taiko proposer",
+                  label: "Enable a proposer",
                   link: "/guides/node-operators/enable-a-proposer/",
                 },
                 {
-                  label: "Run a Taiko prover",
+                  label: "Enable a prover",
                   link: "/guides/node-operators/enable-a-prover/",
                 },
                 {
@@ -177,14 +182,15 @@ export default defineConfig({
         },
         {
           label: "Network Reference",
+          collapsed: true,
           items: [
             {
-              label: "Mainnet addresses",
-              link: "/network-reference/mainnet-addresses",
+              label: "Alethia addresses",
+              link: "/network-reference/alethia-addresses",
             },
             {
-              label: "Testnet addresses",
-              link: "/network-reference/testnet-addresses",
+              label: "Hekla addresses",
+              link: "/network-reference/hekla-addresses",
             },
             {
               label: "Differences from Ethereum",

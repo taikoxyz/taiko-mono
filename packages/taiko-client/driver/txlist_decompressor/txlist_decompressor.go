@@ -41,33 +41,35 @@ func NewTxListDecompressor(
 //  2. The transaction list bytes must be able to be RLP decoded into a list of transactions.
 func (v *TxListDecompressor) TryDecompress(
 	chainID *big.Int,
-	blockID *big.Int,
 	txListBytes []byte,
 	blobUsed bool,
-) []byte {
-	if chainID.Cmp(params.HeklaNetworkID) == 0 {
-		return v.tryDecompressHekla(blockID, txListBytes, blobUsed)
+	postPacaya bool,
+) types.Transactions {
+	if chainID.Cmp(params.HeklaNetworkID) != 0 && !postPacaya {
+		return v.tryDecompressHekla(txListBytes, blobUsed)
 	}
 
-	return v.tryDecompress(blockID, txListBytes, blobUsed)
+	return v.tryDecompress(txListBytes, blobUsed)
 }
 
 // tryDecompress is the inner implementation of TryDecompress.
 func (v *TxListDecompressor) tryDecompress(
-	blockID *big.Int,
 	txListBytes []byte,
 	blobUsed bool,
-) []byte {
+) types.Transactions {
 	// If the transaction list is empty, it's valid.
 	if len(txListBytes) == 0 {
-		return []byte{}
+		return types.Transactions{}
 	}
 
 	// If calldata is used, the compressed bytes of the transaction list must be
 	// less than or equal to maxBytesPerTxList.
 	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
-		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
-		return []byte{}
+		log.Info(
+			"Compressed transactions list binary too large",
+			"length", len(txListBytes),
+		)
+		return types.Transactions{}
 	}
 
 	var (
@@ -77,31 +79,29 @@ func (v *TxListDecompressor) tryDecompress(
 
 	// Decompress the transaction list bytes.
 	if txListBytes, err = utils.Decompress(txListBytes); err != nil {
-		log.Info("Failed to decompress tx list bytes", "blockID", blockID, "error", err)
-		return []byte{}
+		log.Info("Failed to decompress tx list bytes", "error", err)
+		return types.Transactions{}
 	}
 
 	// Try to RLP decode the transaction list bytes.
 	if err = rlp.DecodeBytes(txListBytes, &txs); err != nil {
-		log.Info("Failed to decode transactions list bytes", "blockID", blockID, "error", err)
-		return []byte{}
+		log.Info("Failed to decode transactions list bytes", "error", err)
+		return types.Transactions{}
 	}
 
-	log.Info("Transaction list is valid", "blockID", blockID)
-	return txListBytes
+	return txs
 }
 
 // TryDecompressHekla is the same as tryDecompress, but it's used for Hekla network with
 // an incorrect legacy bytes size check.
 // ref: https://github.com/taikoxyz/taiko-client/pull/783
 func (v *TxListDecompressor) tryDecompressHekla(
-	blockID *big.Int,
 	txListBytes []byte,
 	blobUsed bool,
-) []byte {
+) types.Transactions {
 	// If the transaction list is empty, it's valid.
 	if len(txListBytes) == 0 {
-		return []byte{}
+		return types.Transactions{}
 	}
 
 	var (
@@ -111,23 +111,23 @@ func (v *TxListDecompressor) tryDecompressHekla(
 
 	// Decompress the transaction list bytes.
 	if txListBytes, err = utils.Decompress(txListBytes); err != nil {
-		log.Info("Failed to decompress tx list bytes", "blockID", blockID, "error", err)
-		return []byte{}
+		log.Info("Failed to decompress tx list bytes", "error", err)
+		return types.Transactions{}
 	}
 
 	// If calldata is used, the compressed bytes of the transaction list must be
 	// less than or equal to maxBytesPerTxList.
 	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
-		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
-		return []byte{}
+		log.Info("Compressed transactions list binary too large", "length", len(txListBytes))
+		return types.Transactions{}
 	}
 
 	// Try to RLP decode the transaction list bytes.
 	if err = rlp.DecodeBytes(txListBytes, &txs); err != nil {
-		log.Info("Failed to decode transactions list bytes", "blockID", blockID, "error", err)
-		return []byte{}
+		log.Info("Failed to decode transactions list bytes", "error", err)
+		return types.Transactions{}
 	}
 
-	log.Info("Transaction list is valid", "blockID", blockID)
-	return txListBytes
+	log.Info("Transaction list is valid")
+	return txs
 }

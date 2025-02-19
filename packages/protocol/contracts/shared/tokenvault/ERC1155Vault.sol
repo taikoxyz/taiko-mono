@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
-import "../common/LibAddress.sol";
-import "../common/LibStrings.sol";
+import "../libs/LibAddress.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC1155.sol";
 import "./BaseNFTVault.sol";
 
 /// @title ERC1155Vault
-/// @dev Labeled in AddressResolver as "erc1155_vault"
+/// @dev Labeled in address resolver as "erc1155_vault"
 /// @notice This vault holds all ERC1155 tokens that users have deposited.
 /// It also manages the mapping between canonical tokens and their bridged
 /// tokens.
@@ -18,11 +18,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     uint256[50] private __gap;
 
+    constructor(address _resolver) BaseNFTVault(_resolver) { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external initializer {
-        __Essential_init(_owner, _sharedAddressManager);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
         __ERC1155Receiver_init();
     }
     /// @notice Transfers ERC1155 tokens to this vault and sends a message to
@@ -41,8 +42,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
 
-        for (uint256 i; i < _op.amounts.length; ++i) {
-            if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
+        {
+            uint256 size = _op.amounts.length;
+            for (uint256 i; i < size; ++i) {
+                if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
+            }
         }
         // Check token interface support
         if (!_op.token.supportsInterface(type(IERC1155).interfaceId)) {
@@ -68,6 +72,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         // Send the message and obtain the message hash
         bytes32 msgHash;
+
         (msgHash, message_) =
             IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
@@ -243,7 +248,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 IERC1155(_op.token).safeBatchTransferFrom(
                     msg.sender, address(this), _op.tokenIds, _op.amounts, ""
                 );
-                for (uint256 i; i < _op.tokenIds.length; ++i) {
+                uint256 size = _op.tokenIds.length;
+                for (uint256 i; i < size; ++i) {
                     IBridgedERC1155(_op.token).burn(_op.tokenIds[i], _op.amounts[i]);
                 }
             } else {
@@ -287,7 +293,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
             IBridgedERC1155Initializable.init,
-            (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
+            (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC1155, false), data));

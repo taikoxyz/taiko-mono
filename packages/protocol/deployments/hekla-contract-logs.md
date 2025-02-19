@@ -115,7 +115,7 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x833958CF23DAA9F19Ab418BCA114C2842819284A`
+- impl: `0x7CD0b27dad6718b54Cf6d12Bf912eD9BE69cd2af`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -133,6 +133,8 @@
   - upgraded on Oct 16, 2024 at commit `233806e`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
   - upgraded on Nov 3, 2024 at commit `ea0158f`
+  - upgraded on Feb 1, 2025 at commit `75359cc`
+  - upgraded on Feb 2, 2025 at commit `e294023`
 
 ### assignmentHook
 
@@ -155,7 +157,7 @@
 
 ### tierRouter
 
-- impl: `0x6A666F2C56a6559dB0BD8866Bd0c0dDB9ec03c66`
+- impl: `0x426F0674a80314D8862348F1482C3F7B4a9C64A4.`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
@@ -166,6 +168,7 @@
   - upgraded on Oct 30, 2024 at commit `63455f9`
   - upgraded on Nov 4, 2024 at commit `90b2693`
   - upgraded on Nov 4, 2024 at commit `8e00612`
+  - upgraded on Feb 17, 2025 at commit `51090ba`
 
 ### prover_set
 

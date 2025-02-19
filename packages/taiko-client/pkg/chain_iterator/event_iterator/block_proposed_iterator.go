@@ -10,8 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -23,7 +24,7 @@ type EndBlockProposedEventIterFunc func()
 // iterated.
 type OnBlockProposedEvent func(
 	context.Context,
-	metadata.TaikoBlockMetaData,
+	metadata.TaikoProposalMetaData,
 	EndBlockProposedEventIterFunc,
 ) error
 
@@ -31,20 +32,21 @@ type OnBlockProposedEvent func(
 // with the awareness of reorganization.
 type BlockProposedIterator struct {
 	ctx                context.Context
-	taikoL1            *bindings.TaikoL1Client
+	taikoL1            *ontakeBindings.TaikoL1Client
+	taikoInbox         *pacayaBindings.TaikoInboxClient
 	blockBatchIterator *chainIterator.BlockBatchIterator
-	filterQuery        []*big.Int
 	isEnd              bool
 }
 
 // BlockProposedIteratorConfig represents the configs of a BlockProposed event iterator.
 type BlockProposedIteratorConfig struct {
 	Client                *rpc.EthClient
-	TaikoL1               *bindings.TaikoL1Client
+	TaikoL1               *ontakeBindings.TaikoL1Client
+	TaikoInbox            *pacayaBindings.TaikoInboxClient
+	PacayaForkHeight      uint64
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
-	FilterQuery           []*big.Int
 	OnBlockProposedEvent  OnBlockProposedEvent
 	BlockConfirmations    *uint64
 }
@@ -56,9 +58,9 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 	}
 
 	iterator := &BlockProposedIterator{
-		ctx:         ctx,
-		taikoL1:     cfg.TaikoL1,
-		filterQuery: cfg.FilterQuery,
+		ctx:        ctx,
+		taikoL1:    cfg.TaikoL1,
+		taikoInbox: cfg.TaikoInbox,
 	}
 
 	// Initialize the inner block iterator.
@@ -71,7 +73,8 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 		OnBlocks: assembleBlockProposedIteratorCallback(
 			cfg.Client,
 			cfg.TaikoL1,
-			cfg.FilterQuery,
+			cfg.TaikoInbox,
+			cfg.PacayaForkHeight,
 			cfg.OnBlockProposedEvent,
 			iterator,
 		),
@@ -100,8 +103,9 @@ func (i *BlockProposedIterator) end() {
 // by a event iterator's inner block iterator.
 func assembleBlockProposedIteratorCallback(
 	client *rpc.EthClient,
-	taikoL1 *bindings.TaikoL1Client,
-	filterQuery []*big.Int,
+	taikoL1 *ontakeBindings.TaikoL1Client,
+	taikoInbox *pacayaBindings.TaikoInboxClient,
+	pacayaForkHeight uint64,
 	callback OnBlockProposedEvent,
 	eventIter *BlockProposedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -114,13 +118,15 @@ func assembleBlockProposedIteratorCallback(
 		var (
 			endHeight   = end.Number.Uint64()
 			lastBlockID uint64
+			lastBatchID uint64
 		)
 
-		log.Debug("Iterating BlockProposed events", "start", start.Number, "end", endHeight)
+		log.Debug("Iterating BlockProposedV2 / BatchProposed events", "start", start.Number, "end", endHeight)
 
+		// Iterate the BlockProposedV2 events at first.
 		iterOntake, err := taikoL1.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
-			filterQuery,
+			nil,
 		)
 		if err != nil {
 			return err
@@ -130,6 +136,19 @@ func assembleBlockProposedIteratorCallback(
 		for iterOntake.Next() {
 			event := iterOntake.Event
 			log.Debug("Processing BlockProposedV2 event", "block", event.BlockId, "l1BlockHeight", event.Raw.BlockNumber)
+
+			// In case some proposers calling the old contract after Pacaya fork, we should skip the event
+			// when the block ID is greater than or equal to the Pacaya fork height.
+			if event.BlockId.Uint64() >= pacayaForkHeight {
+				log.Warn(
+					"BlockProposedV2 event after Pacaya fork, skip this event",
+					"block", event.BlockId,
+					"pacayaForkHeight", pacayaForkHeight,
+					"proposer", event.Meta.Proposer,
+					"l1BlockHeight", event.Raw.BlockNumber,
+				)
+				break
+			}
 
 			if lastBlockID != 0 && event.BlockId.Uint64() != lastBlockID+1 {
 				log.Warn(
@@ -168,9 +187,64 @@ func assembleBlockProposedIteratorCallback(
 			updateCurrentFunc(current)
 		}
 
-		if err := iterOntake.Error(); err != nil {
-			log.Error("Error while iterating BlockProposedV2 events", "error", err)
+		// Check if there is any error during the iteration.
+		if iterOntake.Error() != nil {
+			return iterOntake.Error()
+		}
+
+		// Iterate the BatchProposed events.
+		iterPacaya, err := taikoInbox.FilterBatchProposed(
+			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
+		)
+		if err != nil {
 			return err
+		}
+		defer iterPacaya.Close()
+
+		for iterPacaya.Next() {
+			event := iterPacaya.Event
+			log.Debug("Processing BatchProposed event", "batch", event.Meta.BatchId, "l1BlockHeight", event.Raw.BlockNumber)
+
+			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
+				log.Warn(
+					"BatchProposed event is not continuous, rescan the L1 chain",
+					"fromL1Block", start.Number,
+					"toL1Block", endHeight,
+					"lastScannedBlockID", lastBlockID,
+					"currentScannedBlockID", event.Meta.BatchId,
+				)
+				return fmt.Errorf(
+					"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
+					lastBlockID, event.Meta.BatchId,
+				)
+			}
+
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {
+				log.Warn("Error while processing BatchProposed events, keep retrying", "error", err)
+				return err
+			}
+
+			if eventIter.isEnd {
+				log.Debug("BlockProposedIterator is ended", "start", start.Number, "end", endHeight)
+				endFunc()
+				return nil
+			}
+
+			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			if err != nil {
+				return err
+			}
+
+			log.Debug("Updating current block cursor for processing BatchProposed events", "block", current.Number)
+
+			lastBlockID = event.Meta.BatchId
+
+			updateCurrentFunc(current)
+		}
+
+		// Check if there is any error during the iteration.
+		if iterPacaya.Error() != nil {
+			return iterPacaya.Error()
 		}
 
 		return nil

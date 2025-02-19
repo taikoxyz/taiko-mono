@@ -5,11 +5,12 @@ import (
 	"math/big"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -44,7 +45,7 @@ func NewTransitionProvedEventHandler(
 // Handle implements the TransitionProvedHandler interface.
 func (h *TransitionProvedEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientTransitionProvedV2,
+	e *ontakeBindings.TaikoL1ClientTransitionProvedV2,
 ) error {
 	metrics.ProverReceivedProvenBlockGauge.Set(float64(e.BlockId.Uint64()))
 
@@ -74,7 +75,7 @@ func (h *TransitionProvedEventHandler) Handle(
 		return nil
 	}
 	// If the proof is invalid, we contest it.
-	meta, err := getMetadataFromBlockID(ctx, h.rpc, e.BlockId, new(big.Int).SetUint64(e.ProposedIn))
+	meta, err := getMetadataFromBlockIDOntake(ctx, h.rpc, e.BlockId, new(big.Int).SetUint64(e.ProposedIn))
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (h *TransitionProvedEventHandler) Handle(
 		"stateRoot", common.Bytes2Hex(e.Tran.StateRoot[:]),
 	)
 	if h.isGuardian {
-		meta, err := getMetadataFromBlockID(
+		meta, err := getMetadataFromBlockIDOntake(
 			ctx,
 			h.rpc,
 			e.BlockId,
@@ -115,5 +116,21 @@ func (h *TransitionProvedEventHandler) Handle(
 			}
 		}()
 	}
+	return nil
+}
+
+// Handle implements the TransitionProvedHandler interface.
+func (h *TransitionProvedEventHandler) HandlePacaya(
+	ctx context.Context,
+	e *pacayaBindings.TaikoInboxClientBatchesProved,
+) error {
+	lastBatchID := e.BatchIds[len(e.BatchIds)-1]
+
+	batch, err := h.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))
+	if err != nil {
+		return err
+	}
+	metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId))
+
 	return nil
 }

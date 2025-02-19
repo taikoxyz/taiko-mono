@@ -12,8 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -67,7 +68,7 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 		"gasUsed", parentGasUsed,
 	)
 
-	return c.rpc.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
+	return c.rpc.OntakeClients.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
 }
 
 // AssembleAnchorV2Tx assembles a signed TaikoL2.anchorV2 transaction.
@@ -77,7 +78,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
 	parentGasUsed uint64,
-	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
 	// Height of the L2 block which including the TaikoL2.anchorV2 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
@@ -98,12 +99,52 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		"baseFee", utils.WeiToGWei(baseFee),
 	)
 
-	return c.rpc.TaikoL2.AnchorV2(
+	return c.rpc.OntakeClients.TaikoL2.AnchorV2(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
 		uint32(parentGasUsed),
 		*baseFeeConfig,
+	)
+}
+
+// AssembleAnchorV3Tx assembles a signed TaikoAnchor.anchorV3 transaction.
+func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
+	ctx context.Context,
+	// Parameters of the TaikoAnchor.anchorV3 transaction.
+	anchorBlockID *big.Int,
+	anchorStateRoot common.Hash,
+	parentGasUsed uint64,
+	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	signalSlots [][32]byte,
+	// Height of the L2 block which including the TaikoAnchor.anchorV3 transaction.
+	l2Height *big.Int,
+	baseFee *big.Int,
+) (*types.Transaction, error) {
+	opts, err := c.transactOpts(ctx, l2Height, baseFee)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"AnchorV3 arguments",
+		"l2Height", l2Height,
+		"anchorBlockId", anchorBlockID,
+		"anchorStateRoot", anchorStateRoot,
+		"parentGasUsed", parentGasUsed,
+		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
+		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
+		"signalSlots", len(signalSlots),
+		"baseFee", utils.WeiToGWei(baseFee),
+	)
+
+	return c.rpc.PacayaClients.TaikoAnchor.AnchorV3(
+		opts,
+		anchorBlockID.Uint64(),
+		anchorStateRoot,
+		uint32(parentGasUsed),
+		*baseFeeConfig,
+		signalSlots,
 	)
 }
 
@@ -132,6 +173,11 @@ func (c *AnchorTxConstructor) transactOpts(
 		"parent", parentHeight,
 	)
 
+	gasLimit := consensus.AnchorGasLimit
+	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeight {
+		gasLimit = consensus.AnchorV3GasLimit
+	}
+
 	return &bind.TransactOpts{
 		From: consensus.GoldenTouchAccount,
 		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -148,7 +194,7 @@ func (c *AnchorTxConstructor) transactOpts(
 		Context:   ctx,
 		GasFeeCap: baseFee,
 		GasTipCap: common.Big0,
-		GasLimit:  consensus.AnchorGasLimit,
+		GasLimit:  gasLimit,
 		NoSend:    true,
 	}, nil
 }

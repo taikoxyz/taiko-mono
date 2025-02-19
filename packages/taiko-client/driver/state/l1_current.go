@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // GetL1Current reads the L1 current cursor concurrent safely.
@@ -50,13 +51,24 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 
 	// Fetch the block info from TaikoL1 contract, and set the L1 height.
 	var (
-		blockInfo bindings.TaikoDataBlockV2
-		err       error
+		proposedIn uint64
+		err        error
 	)
-	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockID); err != nil {
-		return fmt.Errorf("failed to get L2 block (%d) info from TaikoL1 contract: %w", blockID, err)
+	if blockID.Uint64() >= s.rpc.PacayaClients.ForkHeight {
+		batch, err := s.FindBatchForBlockID(ctx, blockID.Uint64())
+		if err != nil {
+			return fmt.Errorf("failed to find batch for block ID (%d): %w", blockID, err)
+		}
+		proposedIn = batch.AnchorBlockId
+	} else {
+		blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, blockID)
+		if err != nil {
+			return fmt.Errorf("failed to get L2 block (%d) info from TaikoL1 contract: %w", blockID, err)
+		}
+		proposedIn = blockInfo.ProposedIn
 	}
-	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockInfo.ProposedIn))
+
+	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(proposedIn))
 	if err != nil {
 		return fmt.Errorf("failed to fetch L1 header by number (%d): %w", blockID, err)
 	}
@@ -65,4 +77,37 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	log.Info("Reset L1 current cursor", "height", s.GetL1Current().Number, "hash", s.GetL1Current().Hash())
 
 	return nil
+}
+
+// FindBatchForBlockID finds the TaikoInboxBatch for the given block ID.
+func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacayaBindings.ITaikoInboxBatch, error) {
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		lastBatchID = stateVars.Stats2.NumBatches - 1
+		lastBatch   *pacayaBindings.ITaikoInboxBatch
+	)
+	batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))
+	if err != nil {
+		return nil, err
+	}
+	lastBatch = batch
+
+	for {
+		batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID-1))
+		if err != nil {
+			return nil, err
+		}
+
+		if batch.LastBlockId < blockID {
+			return lastBatch, nil
+		}
+
+		lastBatch = batch
+		lastBatchID = batch.BatchId
+		continue
+	}
 }

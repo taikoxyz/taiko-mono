@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/common/LibStrings.sol";
+import "src/shared/libs/LibStrings.sol";
 import "../IVerifier.sol";
 
 /// @title ComposeVerifier
@@ -19,105 +19,71 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
-    error CV_INVALID_CALLER();
-    error CV_INVALID_SUB_VERIFIER();
-    error CV_INVALID_SUBPROOF_LENGTH();
-    error CV_SUB_VERIFIER_NOT_FOUND();
+    address public immutable taikoInbox;
+    address public immutable opVerifier;
+    address public immutable sgxVerifier;
+    address public immutable tdxVerifier;
+    address public immutable risc0Verifier;
+    address public immutable sp1Verifier;
 
-    modifier onlyAuthorizedCaller() {
-        require(isCallerAuthorized(msg.sender), CV_INVALID_CALLER());
-        _;
+    constructor(
+        address _taikoInbox,
+        address _opVerifier,
+        address _sgxVerifier,
+        address _tdxVerifier,
+        address _risc0Verifier,
+        address _sp1Verifier
+    )
+        EssentialContract(address(0))
+    {
+        taikoInbox = _taikoInbox;
+        opVerifier = _opVerifier;
+        sgxVerifier = _sgxVerifier;
+        tdxVerifier = _tdxVerifier;
+        risc0Verifier = _risc0Verifier;
+        sp1Verifier = _sp1Verifier;
     }
+
+    error CV_INVALID_SUB_VERIFIER();
+    error CV_INVALID_SUB_VERIFIER_ORDER();
+    error CV_VERIFIERS_INSUFFICIENT();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _rollupAddressManager) external initializer {
-        __Essential_init(_owner, _rollupAddressManager);
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
+        Context[] calldata _ctxs,
+        bytes calldata _proof
     )
         external
-        onlyAuthorizedCaller
-        nonReentrant
+        onlyFrom(taikoInbox)
     {
-        (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
+        SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
+        uint256 size = subProofs.length;
+        address[] memory verifiers = new address[](size);
 
-        SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
-        require(subProofs.length == numSubProofs_, CV_INVALID_SUBPROOF_LENGTH());
+        address verifier;
 
-        for (uint256 i; i < subProofs.length; ++i) {
+        for (uint256 i; i < size; ++i) {
             require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
+            require(subProofs[i].verifier > verifier, CV_INVALID_SUB_VERIFIER_ORDER());
 
-            // find the verifier
-            bool verifierFound;
-            for (uint256 j; j < verifiers.length; ++j) {
-                if (verifiers[j] == subProofs[i].verifier) {
-                    verifierFound = true;
-                    verifiers[j] = address(0);
-                }
-            }
+            verifier = subProofs[i].verifier;
+            IVerifier(verifier).verifyProof(_ctxs, subProofs[i].proof);
 
-            require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
-
-            IVerifier(subProofs[i].verifier).verifyProof(
-                _ctx, _tran, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
-            );
+            verifiers[i] = verifier;
         }
+
+        require(areVerifiersSufficient(verifiers), CV_VERIFIERS_INSUFFICIENT());
     }
 
-    /// @inheritdoc IVerifier
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-        onlyAuthorizedCaller
-        nonReentrant
-    {
-        (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
-
-        SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
-        require(subProofs.length == numSubProofs_, CV_INVALID_SUBPROOF_LENGTH());
-
-        for (uint256 i; i < subProofs.length; ++i) {
-            require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
-
-            // find the verifier
-            bool verifierFound;
-            for (uint256 j; j < verifiers.length; ++j) {
-                if (verifiers[j] == subProofs[i].verifier) {
-                    verifierFound = true;
-                    verifiers[j] = address(0);
-                }
-            }
-
-            require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
-
-            IVerifier(subProofs[i].verifier).verifyBatchProof(
-                _ctxs, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
-            );
-        }
-    }
-
-    /// @notice Returns the list of sub-verifiers and calculates the threshold.
-    /// @return verifiers_ An array of addresses of sub-verifiers.
-    /// @return numSubProofs_ The number of sub proofs required.
-    function getSubVerifiersAndThreshold()
-        public
+    function areVerifiersSufficient(address[] memory _verifiers)
+        internal
         view
         virtual
-        returns (address[] memory verifiers_, uint256 numSubProofs_);
-
-    /// @notice Checks if the caller is authorized.
-    /// @param _caller The address of the caller to be checked.
-    /// @return A boolean value indicating whether the caller is authorized.
-    function isCallerAuthorized(address _caller) public view virtual returns (bool) {
-        return _caller == resolve(LibStrings.B_TAIKO, false);
-    }
+        returns (bool);
 }

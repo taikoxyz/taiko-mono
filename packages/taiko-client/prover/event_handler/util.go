@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -22,12 +21,16 @@ var (
 
 // isBlockVerified checks whether the given L2 block has been verified.
 func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
-	stateVars, err := rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+	lastVerifiedTransition, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		return false, err
+		lastVerifiedBlock, err := rpc.GetLastVerifiedBlockOntake(ctx)
+		if err != nil {
+			return false, err
+		}
+		return id.Uint64() <= lastVerifiedBlock.BlockId, nil
 	}
 
-	return id.Uint64() <= stateVars.B.LastVerifiedBlockId, nil
+	return id.Uint64() <= lastVerifiedTransition.BlockId, nil
 }
 
 // isValidProof checks if the given proof is a valid one, comparing to current L2 node canonical chain.
@@ -39,7 +42,7 @@ func isValidProof(
 	blockHash common.Hash,
 	stateRoot common.Hash,
 ) (bool, error) {
-	parent, err := rpc.L2ParentByBlockID(ctx, blockID)
+	parent, err := rpc.L2ParentByCurrentBlockID(ctx, blockID)
 	if err != nil {
 		return false, err
 	}
@@ -54,8 +57,8 @@ func isValidProof(
 		l2Header.Root == stateRoot, nil
 }
 
-// getProvingWindow returns the provingWindow of the given tier.
-func getProvingWindow(
+// getProvingWindowOntake returns the provingWindow of the given tier.
+func getProvingWindowOntake(
 	tier uint16,
 	tiers []*rpc.TierProviderTierWithID,
 ) (time.Duration, error) {
@@ -68,20 +71,20 @@ func getProvingWindow(
 	return 0, errTierNotFound
 }
 
-// getMetadataFromBlockID fetches the block meta from the onchain event by the given block id.
-func getMetadataFromBlockID(
+// getMetadataFromBlockIDOntake fetches the block meta from the onchain event by the given block id.
+func getMetadataFromBlockIDOntake(
 	ctx context.Context,
 	rpc *rpc.Client,
 	id *big.Int,
 	proposedIn *big.Int,
-) (m metadata.TaikoBlockMetaData, err error) {
+) (m metadata.TaikoProposalMetaData, err error) {
 	callback := func(
 		_ context.Context,
-		meta metadata.TaikoBlockMetaData,
+		meta metadata.TaikoProposalMetaData,
 		_ eventIterator.EndBlockProposedEventIterFunc,
 	) error {
 		// Only filter for exact blockID we want.
-		if meta.GetBlockID().Cmp(id) != 0 {
+		if meta.Ontake().GetBlockID().Cmp(id) != 0 {
 			return nil
 		}
 
@@ -92,7 +95,9 @@ func getMetadataFromBlockID(
 
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               rpc.L1,
-		TaikoL1:              rpc.TaikoL1,
+		TaikoL1:              rpc.OntakeClients.TaikoL1,
+		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     rpc.PacayaClients.ForkHeight,
 		StartHeight:          new(big.Int).Sub(proposedIn, common.Big1),
 		EndHeight:            proposedIn,
 		OnBlockProposedEvent: callback,
@@ -107,7 +112,7 @@ func getMetadataFromBlockID(
 	}
 
 	if m == nil {
-		return nil, fmt.Errorf("failed to find BlockProposed event for block %d", id)
+		return nil, fmt.Errorf("failed to find BlockProposedV2 event for block %d", id)
 	}
 
 	return m, nil
@@ -117,17 +122,37 @@ func getMetadataFromBlockID(
 // proving window of the given proposed block is expired, and the second return parameter is the time
 // remaining til proving window is expired.
 func IsProvingWindowExpired(
-	metadata metadata.TaikoBlockMetaData,
+	rpc *rpc.Client,
+	metadata metadata.TaikoProposalMetaData,
 	tiers []*rpc.TierProviderTierWithID,
 ) (bool, time.Time, time.Duration, error) {
-	provingWindow, err := getProvingWindow(metadata.GetMinTier(), tiers)
-	if err != nil {
-		return false, time.Time{}, 0, fmt.Errorf("failed to get proving window: %w", err)
+	var (
+		provingWindow time.Duration
+		timestamp     uint64
+		err           error
+	)
+	if metadata.IsPacaya() {
+		protocolConfigs, err := rpc.GetProtocolConfigs(nil)
+		if err != nil {
+			return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya protocol configs: %w", err)
+		}
+		if provingWindow, err = protocolConfigs.ProvingWindow(); err != nil {
+			return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya proving window: %w", err)
+		}
+		timestamp = metadata.Pacaya().GetProposedAt()
+	} else {
+		if provingWindow, err = getProvingWindowOntake(
+			metadata.Ontake().GetMinTier(),
+			tiers,
+		); err != nil {
+			return false, time.Time{}, 0, fmt.Errorf("failed to get Ontake proving window: %w", err)
+		}
+		timestamp = metadata.Ontake().GetTimestamp()
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.GetTimestamp() + uint64(provingWindow.Seconds())
+		expiredAt = timestamp + uint64(provingWindow.Seconds())
 	)
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

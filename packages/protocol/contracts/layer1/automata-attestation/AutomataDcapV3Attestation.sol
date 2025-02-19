@@ -57,6 +57,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     event RevokedCertSerialNumAdded(uint256 indexed index, bytes serialNum);
     event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
 
+    constructor() EssentialContract(address(0)) { }
+
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.
     /// @param pemCertLibAddr Address of certificate library.
@@ -90,7 +92,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         external
         onlyOwner
     {
-        for (uint256 i; i < serialNumBatch.length; ++i) {
+        uint256 size = serialNumBatch.length;
+        for (uint256 i; i < size; ++i) {
             if (serialNumIsRevoked[index][serialNumBatch[i]]) {
                 continue;
             }
@@ -106,7 +109,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         external
         onlyOwner
     {
-        for (uint256 i; i < serialNumBatch.length; ++i) {
+        uint256 size = serialNumBatch.length;
+        for (uint256 i; i < size; ++i) {
             if (!serialNumIsRevoked[index][serialNumBatch[i]]) {
                 continue;
             }
@@ -206,7 +210,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         bool isvprodidMatched = quoteEnclaveReport.isvProdId == enclaveId.isvprodid;
 
         bool tcbFound;
-        for (uint256 i; i < enclaveId.tcbLevels.length; ++i) {
+        uint256 size = enclaveId.tcbLevels.length;
+        for (uint256 i; i < size; ++i) {
             EnclaveIdStruct.TcbLevel memory tcb = enclaveId.tcbLevels[i];
             if (tcb.tcb.isvsvn <= quoteEnclaveReport.isvSvn) {
                 tcbFound = true;
@@ -229,7 +234,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         pure
         returns (bool, TCBInfoStruct.TCBStatus status)
     {
-        for (uint256 i; i < tcb.tcbLevels.length; ++i) {
+        uint256 size = tcb.tcbLevels.length;
+        for (uint256 i; i < size; ++i) {
             TCBInfoStruct.TCBLevelObj memory current = tcb.tcbLevels[i];
             bool pceSvnIsHigherOrGreater = pck.sgxExtension.pcesvn >= current.pcesvn;
             bool cpuSvnsAreHigherOrGreater = _isCpuSvnHigherOrGreater(
@@ -437,7 +443,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             for (uint256 i; i < 3; ++i) {
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
-                // todo! move decodeCert offchain
+                // TODO(Yue): move decodeCert offchain
                 (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
                     authDataV3.certification.decodedCertDataArray[i], isPckCert
                 );

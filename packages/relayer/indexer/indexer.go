@@ -23,6 +23,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
+	v3 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v3/taikoinbox"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -95,7 +97,9 @@ type Indexer struct {
 	numGoroutines       int
 	subscriptionBackoff time.Duration
 
-	taikol1 *taikol1.TaikoL1
+	taikol1      *taikol1.TaikoL1
+	taikoL1V2    *v2.TaikoL1
+	taikoInboxV3 *v3.TaikoInbox
 
 	queue queue.Queue
 
@@ -175,12 +179,26 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	// taikoL1 will only be set when initializing a L1 - L2 indexer
 	var taikoL1 *taikol1.TaikoL1
 
+	var taikoL1V2 *v2.TaikoL1
+
+	var taikoInboxV3 *v3.TaikoInbox
+
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
 
 		taikoL1, err = taikol1.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "taikol1.NewTaikoL1")
+		}
+
+		taikoL1V2, err = v2.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "v2.NewTaikoL1")
+		}
+
+		taikoInboxV3, err = v3.NewTaikoInbox(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "v3.NewTaikoInbox")
 		}
 	}
 
@@ -212,6 +230,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.destBridge = destBridge
 	i.signalService = signalService
 	i.taikol1 = taikoL1
+	i.taikoL1V2 = taikoL1V2
+	i.taikoInboxV3 = taikoInboxV3
 
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)

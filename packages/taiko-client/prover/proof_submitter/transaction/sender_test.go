@@ -30,16 +30,15 @@ type TransactionTestSuite struct {
 func (s *TransactionTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
+	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
+
 	s.builder = NewProveBlockTxBuilder(
 		s.RPCClient,
-		common.HexToAddress(os.Getenv("TAIKO_L1")),
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		ZeroAddress,
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 	)
-
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
 
 	txmgr, err := txmgr.NewSimpleTxManager(
 		"transactionTestSuite",

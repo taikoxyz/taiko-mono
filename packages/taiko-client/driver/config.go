@@ -1,12 +1,17 @@
 package driver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	p2pCli "github.com/ethereum-optimism/optimism/op-node/p2p/cli"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
@@ -17,12 +22,18 @@ import (
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
-	P2PSync            bool
-	P2PSyncTimeout     time.Duration
-	RetryInterval      time.Duration
-	MaxExponent        uint64
-	BlobServerEndpoint *url.URL
-	SocialScanEndpoint *url.URL
+	P2PSync                       bool
+	P2PSyncTimeout                time.Duration
+	RetryInterval                 time.Duration
+	MaxExponent                   uint64
+	BlobServerEndpoint            *url.URL
+	SocialScanEndpoint            *url.URL
+	PreconfBlockServerPort        uint64
+	PreconfBlockServerJWTSecret   []byte
+	PreconfBlockServerCORSOrigins string
+	PreconfBlockServerCheckSig    bool
+	P2PConfigs                    *p2p.Config
+	P2PSignerConfigs              p2p.SignerSetup
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -69,9 +80,18 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
 	}
 
-	var timeout = c.Duration(flags.RPCTimeout.Name)
-	return &Config{
-		ClientConfig: &rpc.ClientConfig{
+	var preconfBlockServerJWTSecret []byte
+	if c.String(flags.PreconfBlockServerJWTSecret.Name) != "" {
+		if preconfBlockServerJWTSecret, err = jwt.ParseSecretFromFile(
+			c.String(flags.PreconfBlockServerJWTSecret.Name),
+		); err != nil {
+			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
+		}
+	}
+
+	// Check P2P network flags and create the P2P configurations.
+	var (
+		clientConfig = &rpc.ClientConfig{
 			L1Endpoint:       c.String(flags.L1WSEndpoint.Name),
 			L1BeaconEndpoint: beaconEndpoint,
 			L2Endpoint:       c.String(flags.L2WSEndpoint.Name),
@@ -80,13 +100,44 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			TaikoL2Address:   common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
 			L2EngineEndpoint: c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:        string(jwtSecret),
-			Timeout:          timeout,
-		},
-		RetryInterval:      c.Duration(flags.BackOffRetryInterval.Name),
-		P2PSync:            p2pSync,
-		P2PSyncTimeout:     c.Duration(flags.P2PSyncTimeout.Name),
-		MaxExponent:        c.Uint64(flags.MaxExponent.Name),
-		BlobServerEndpoint: blobServerEndpoint,
-		SocialScanEndpoint: socialScanEndpoint,
+			Timeout:          c.Duration(flags.RPCTimeout.Name),
+		}
+		p2pConfigs    *p2p.Config
+		signerConfigs p2p.SignerSetup
+	)
+
+	// Create a new RPC client to get the chain IDs.
+	rpc, err := rpc.NewClient(context.Background(), clientConfig)
+	if err != nil {
+		return nil, err
+	}
+	// Create a new P2P config.
+	if p2pConfigs, err = p2pCli.NewConfig(c, &rollup.Config{
+		L1ChainID: rpc.L1.ChainID,
+		L2ChainID: rpc.L2.ChainID,
+		Taiko:     true,
+	}); err != nil {
+		return nil, err
+	}
+
+	// Create a new P2P signer setup.
+	if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
+		return nil, err
+	}
+
+	return &Config{
+		ClientConfig:                  clientConfig,
+		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
+		P2PSync:                       p2pSync,
+		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
+		MaxExponent:                   c.Uint64(flags.MaxExponent.Name),
+		BlobServerEndpoint:            blobServerEndpoint,
+		SocialScanEndpoint:            socialScanEndpoint,
+		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
+		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
+		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
+		PreconfBlockServerCheckSig:    c.Bool(flags.PreconfBlockServerCheckSig.Name),
+		P2PConfigs:                    p2pConfigs,
+		P2PSignerConfigs:              signerConfigs,
 	}, nil
 }

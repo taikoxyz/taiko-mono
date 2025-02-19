@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC20.sol";
 import "./LibBridgedToken.sol";
 
@@ -20,6 +20,8 @@ contract BridgedERC20 is
     IERC165Upgradeable,
     ERC20Upgradeable
 {
+    address public immutable erc20Vault;
+
     /// @dev Slot 1.
     address public srcToken;
 
@@ -57,10 +59,13 @@ contract BridgedERC20 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_MINT_DISALLOWED();
 
+    constructor(address _erc20Vault) EssentialContract(address(0)) {
+        erc20Vault = _erc20Vault;
+    }
+
     /// @inheritdoc IBridgedERC20Initializable
     function init(
         address _owner,
-        address _sharedAddressManager,
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,
@@ -73,7 +78,7 @@ contract BridgedERC20 is
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _sharedAddressManager);
+        __Essential_init(_owner);
         __ERC20_init(_name, _symbol);
 
         // Set contract properties
@@ -89,7 +94,7 @@ contract BridgedERC20 is
     )
         external
         whenNotPaused
-        onlyFromNamed(LibStrings.B_ERC20_VAULT)
+        onlyFrom(erc20Vault)
         nonReentrant
     {
         if (_migratingAddress == migratingAddress && _migratingInbound == migratingInbound) {
@@ -172,8 +177,5 @@ contract BridgedERC20 is
         return super._beforeTokenTransfer(_from, _to, _amount);
     }
 
-    function _authorizedMintBurn(address addr)
-        private
-        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
-    { }
+    function _authorizedMintBurn(address addr) private onlyFromOwnerOr(erc20Vault) { }
 }

@@ -1,45 +1,68 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/shared/DeployCapability.sol";
-import "src/shared/common/AddressManager.sol";
-import "src/shared/bridge/Bridge.sol";
+import "script/BaseScript.sol";
 
 // Run with:
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/PostGenesisQuery.s.sol
-contract PostGenesisQuery is DeployCapability {
-    uint64 taiko_id = 167_000;
+contract PostGenesisQuery is BaseScript {
+    uint256 public constant ethereumChainId = 1;
+    uint256 public constant taikoChainId = 167_000;
 
     function run() external view {
         display_general_info();
 
-        console2.log("sam");
-        AddressManager am = AddressManager(0x1670000000000000000000000000000000000006);
-        console2.log("- taiko_token:", am.getAddress(taiko_id, "taiko_token"));
-        console2.log("- signal_service:", am.getAddress(taiko_id, "signal_service"));
-        console2.log("- bridge:", am.getAddress(taiko_id, "bridge"));
-        console2.log("- erc20_vault:", am.getAddress(taiko_id, "erc20_vault"));
-        console2.log("- erc721_vault:", am.getAddress(taiko_id, "erc721_vault"));
-        console2.log("- erc1155_vault:", am.getAddress(taiko_id, "erc1155_vault"));
+        console2.log("sharedResolver");
+        DefaultResolver sharedResolver = DefaultResolver(0x1670000000000000000000000000000000000006);
+        console2.log("- taiko_token:", sharedResolver.resolve(taikoChainId, "taiko_token", true));
+        console2.log(
+            "- signal_service:", sharedResolver.resolve(taikoChainId, "signal_service", true)
+        );
+        console2.log("- bridge:", sharedResolver.resolve(taikoChainId, "bridge", true));
+        console2.log("- erc20_vault:", sharedResolver.resolve(taikoChainId, "erc20_vault", true));
+        console2.log("- erc721_vault:", sharedResolver.resolve(taikoChainId, "erc721_vault", true));
+        console2.log(
+            "- erc1155_vault:", sharedResolver.resolve(taikoChainId, "erc1155_vault", true)
+        );
 
-        console2.log("- signal_service@1:", am.getAddress(1, "signal_service"));
-        console2.log("- bridge@1:", am.getAddress(1, "bridge"));
-        console2.log("- erc20_vault@1:", am.getAddress(1, "erc20_vault"));
-        console2.log("- erc721_vault@1:", am.getAddress(1, "erc721_vault"));
-        console2.log("- erc1155_vault@1:", am.getAddress(1, "erc1155_vault"));
+        console2.log(
+            "- signal_service@1:", sharedResolver.resolve(ethereumChainId, "signal_service", true)
+        );
+        console2.log("- bridge@1:", sharedResolver.resolve(ethereumChainId, "bridge", true));
+        console2.log(
+            "- erc20_vault@1:", sharedResolver.resolve(ethereumChainId, "erc20_vault", true)
+        );
+        console2.log(
+            "- erc721_vault@1:", sharedResolver.resolve(ethereumChainId, "erc721_vault", true)
+        );
+        console2.log(
+            "- erc1155_vault@1:", sharedResolver.resolve(ethereumChainId, "erc1155_vault", true)
+        );
 
-        console2.log("- bridged_erc20:", am.getAddress(taiko_id, "bridged_erc20"));
-        console2.log("- bridged_erc721:", am.getAddress(taiko_id, "bridged_erc721"));
-        console2.log("- bridged_erc1155:", am.getAddress(taiko_id, "bridged_erc1155"));
-        console2.log("- quota_manager:", am.getAddress(taiko_id, "quota_manager"));
-        console2.log("- bridge_watchdog:", am.getAddress(taiko_id, "bridge_watchdog"));
+        console2.log(
+            "- bridged_erc20:", sharedResolver.resolve(taikoChainId, "bridged_erc20", true)
+        );
+        console2.log(
+            "- bridged_erc721:", sharedResolver.resolve(taikoChainId, "bridged_erc721", true)
+        );
+        console2.log(
+            "- bridged_erc1155:", sharedResolver.resolve(taikoChainId, "bridged_erc1155", true)
+        );
+        console2.log(
+            "- quota_manager:", sharedResolver.resolve(taikoChainId, "quota_manager", true)
+        );
+        console2.log(
+            "- bridge_watchdog:", sharedResolver.resolve(taikoChainId, "bridge_watchdog", true)
+        );
 
-        console2.log("ram");
-        am = AddressManager(0x1670000000000000000000000000000000010002);
-        console2.log("- taiko_token:", am.getAddress(taiko_id, "taiko_token"));
-        console2.log("- signal_service:", am.getAddress(taiko_id, "signal_service"));
-        console2.log("- bridge:", am.getAddress(taiko_id, "bridge"));
-        console2.log("- taiko:", am.getAddress(taiko_id, "taiko"));
+        console2.log("sharedResolver");
+        sharedResolver = DefaultResolver(0x1670000000000000000000000000000000010002);
+        console2.log("- taiko_token:", sharedResolver.resolve(taikoChainId, "taiko_token", true));
+        console2.log(
+            "- signal_service:", sharedResolver.resolve(taikoChainId, "signal_service", true)
+        );
+        console2.log("- bridge:", sharedResolver.resolve(taikoChainId, "bridge", true));
+        console2.log("- taiko:", sharedResolver.resolve(taikoChainId, "taiko", true));
     }
 
     function display_general_info() internal view {

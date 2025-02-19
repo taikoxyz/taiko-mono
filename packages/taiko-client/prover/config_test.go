@@ -19,8 +19,8 @@ var (
 	l2HttpEndpoint = os.Getenv("L2_HTTP")
 	l1NodeVersion  = "1.0.0"
 	l2NodeVersion  = "0.1.0"
-	taikoL1        = os.Getenv("TAIKO_L1")
-	taikoL2        = os.Getenv("TAIKO_L2")
+	taikoL1        = os.Getenv("TAIKO_INBOX")
+	taikoL2        = os.Getenv("TAIKO_ANCHOR")
 	allowance      = 10.0
 	rpcTimeout     = 5 * time.Second
 )

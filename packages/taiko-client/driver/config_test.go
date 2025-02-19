@@ -2,12 +2,18 @@ package driver
 
 import (
 	"context"
+	"net"
 	"os"
 	"time"
 
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/urfave/cli/v2"
 
+	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
 var (
@@ -16,8 +22,8 @@ var (
 	l2Endpoint       = os.Getenv("L2_WS")
 	l2CheckPoint     = os.Getenv("L2_HTTP")
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
-	taikoL1          = os.Getenv("TAIKO_L1")
-	taikoL2          = os.Getenv("TAIKO_L2")
+	taikoL1          = os.Getenv("TAIKO_INBOX")
+	taikoL2          = os.Getenv("TAIKO_ANCHOR")
 )
 
 func (s *DriverTestSuite) TestNewConfigFromCliContext() {
@@ -54,6 +60,10 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.P2PSync.Name,
 		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
+		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
+		"--" + p2pFlags.DiscoveryPathName, "memory",
+		"--" + p2pFlags.PeerstorePathName, "memory",
+		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
 	}))
 }
 
@@ -77,7 +87,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 
 func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
-	app.Flags = []cli.Flag{
+	app.Flags = flags.MergeFlags([]cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
@@ -89,10 +99,61 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.CheckPointSyncURL.Name},
-	}
+	}, p2pFlags.P2PFlags("PRECONFIRMATION"))
 	app.Action = func(ctx *cli.Context) error {
 		_, err := NewConfigFromCliContext(ctx)
 		return err
 	}
 	return app
+}
+
+func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) {
+	var (
+		p2pConfigCh   = make(chan *p2p.Config)
+		signerSetupCh = make(chan p2p.SignerSetup)
+		app           = s.SetupApp()
+	)
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		s.Nil(err)
+		s.NotNil(c.P2PConfigs)
+		s.NotNil(c.P2PSignerConfigs)
+		c.P2PConfigs.NoDiscovery = true
+		c.P2PConfigs.NAT = false
+		c.P2PConfigs.Bootnodes = []*enode.Node{}
+		c.P2PConfigs.ListenIP = net.IP{127, 0, 0, 1}
+
+		go func() {
+			p2pConfigCh <- c.P2PConfigs
+			signerSetupCh <- c.P2PSignerConfigs
+		}()
+
+		return nil
+	}
+
+	s.Nil(app.Run([]string{
+		"GetDefaultP2PConfig",
+		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
+		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
+		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
+		"--" + flags.TaikoL1Address.Name, taikoL1,
+		"--" + flags.TaikoL2Address.Name, taikoL2,
+		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
+		"--" + flags.P2PSyncTimeout.Name, "120s",
+		"--" + flags.RPCTimeout.Name, "5s",
+		"--" + flags.P2PSync.Name,
+		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
+		"--" + p2pFlags.P2PPrivRawName, testutils.RandomHash().Hex(),
+		"--" + p2pFlags.DiscoveryPathName, "memory",
+		"--" + p2pFlags.PeerstorePathName, "memory",
+		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
+		"--" + p2pFlags.ListenTCPPortName, "0",
+		"--" + p2pFlags.ListenUDPPortName, "0",
+		"--" + p2pFlags.NATName, "false",
+		"--" + p2pFlags.NoDiscoveryName, "true",
+	}))
+
+	return <-p2pConfigCh, <-signerSetupCh
 }
