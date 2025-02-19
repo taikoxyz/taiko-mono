@@ -155,12 +155,11 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         // Other verifiers
         upgradeVerifierContracts(
-            sharedResolver, rollupResolver, opVerifier, proofVerifier, l2ChainId
+            rollupResolver, opVerifier, proofVerifier, l2ChainId
         );
     }
 
     function upgradeVerifierContracts(
-        address sharedResolver,
         address rollupResolver,
         address opVerifier,
         address proofVerifier,
