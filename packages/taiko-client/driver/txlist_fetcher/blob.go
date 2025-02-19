@@ -92,21 +92,31 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, pkg.ErrBlobUnused
 	}
 
-	// Fetch the L1 block header with the given blob.
-	log.Info("Fetch L1 block header", "blobCreatedIn", meta.GetBlobCreatedIn())
+	var time uint64
 
-	l1Header, err := d.cli.L1.HeaderByNumber(ctx, meta.GetBlobCreatedIn())
-	if err != nil {
-		return nil, err
+	if meta.GetBlobCreatedIn().Int64() == 0 {
+		log.Info("BlobCreatedIn 0, using proposedAt", "proposedAt", meta.GetProposedAt())
+
+		time = uint64(meta.GetProposedAt())
+	} else {
+		// Fetch the L1 block header with the given blob.
+		log.Info("Fetch L1 block header", "blobCreatedIn", meta.GetBlobCreatedIn())
+
+		l1Header, err := d.cli.L1.HeaderByNumber(ctx, meta.GetBlobCreatedIn())
+		if err != nil {
+			return nil, err
+		}
+
+		log.Info("L1 Header fetched", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
+
+		time = l1Header.Time
 	}
-
-	log.Info("L1 Header fetched", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
 
 	var b []byte
 	// Fetch the L1 block sidecars.
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
-		l1Header.Time,
+		time,
 		meta.GetBlobHashes()[0],
 	)
 	if err != nil {
