@@ -3,6 +3,7 @@ package txlistfetcher
 import (
 	"context"
 	"crypto/sha256"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -92,8 +93,15 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, pkg.ErrBlobUnused
 	}
 
+	var blockNum uint64
+	if meta.GetBlobCreatedIn().Int64() == 0 {
+		blockNum = meta.GetProposedIn()
+	} else {
+		blockNum = uint64(meta.GetBlobCreatedIn().Int64())
+	}
+
 	// Fetch the L1 block header with the given blob.
-	l1Header, err := d.cli.L1.HeaderByNumber(ctx, meta.GetBlobCreatedIn())
+	l1Header, err := d.cli.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +119,7 @@ func (d *BlobFetcher) FetchPacaya(
 
 	log.Info(
 		"Fetch sidecars",
-		"blockNumber", meta.GetBlobCreatedIn(),
+		"blockNumber", blockNum,
 		"sidecars", len(sidecars),
 	)
 

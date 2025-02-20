@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"errors"
+	"math/big"
 	"net/http"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -11,9 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // ValidateSignature validates the signature of the request body.
@@ -33,12 +36,14 @@ func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
 
 // ExecutableData is the data necessary to execute an EL payload.
 type ExecutableData struct {
-	ParentHash   common.Hash    `json:"parentHash"`
-	FeeRecipient common.Address `json:"feeRecipient"`
-	Number       uint64         `json:"blockNumber"`
-	GasLimit     uint64         `json:"gasLimit"`
-	Timestamp    uint64         `json:"timestamp"`
-	Transactions hexutil.Bytes  `json:"transactions"`
+	ParentHash    common.Hash    `json:"parentHash"`
+	FeeRecipient  common.Address `json:"feeRecipient"`
+	Number        uint64         `json:"blockNumber"`
+	GasLimit      uint64         `json:"gasLimit"`
+	Timestamp     uint64         `json:"timestamp"`
+	Transactions  hexutil.Bytes  `json:"transactions"`
+	ExtraData     hexutil.Bytes  `json:"extraData"`
+	BaseFeePerGas uint64         `json:"baseFeePerGas"`
 }
 
 // BuildPreconfBlockRequestBody represents a request body when handling
@@ -48,13 +53,6 @@ type BuildPreconfBlockRequestBody struct {
 	ExecutableData *ExecutableData `json:"executableData"`
 	// @param signature string Signature of this executable data payload.
 	Signature string `json:"signature" rlp:"-"`
-
-	// @param anchorBlockID uint64 `_anchorBlockId` parameter of the `anchorV3` transaction in the preconf block
-	AnchorBlockID uint64 `json:"anchorBlockID"`
-	// @param anchorStateRoot string `_anchorStateRoot` parameter of the `anchorV3` transaction in the preconf block
-	AnchorStateRoot common.Hash                                `json:"anchorStateRoot"`
-	SignalSlots     [][32]byte                                 `json:"signalSlots"`
-	BaseFeeConfig   *pacayaBindings.LibSharedDataBaseFeeConfig `json:"baseFeeConfig"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconf
@@ -91,25 +89,31 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
 		"signature", reqBody.Signature,
-		"timestamp", reqBody.ExecutableData.Timestamp,
 		"coinbase", reqBody.ExecutableData.FeeRecipient.Hex(),
-		"anchorBlockID", reqBody.AnchorBlockID,
-		"anchorStateRoot", reqBody.AnchorStateRoot,
-		"signalSlots", len(reqBody.SignalSlots),
+		"timestamp", reqBody.ExecutableData.Timestamp,
+		"gasLimit", reqBody.ExecutableData.GasLimit,
+		"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas)),
+		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 	)
 
-	// Request body validation.
-	if reqBody.AnchorBlockID == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero anchorBlockID is required"))
-	}
-	if reqBody.AnchorStateRoot == (common.Hash{}) {
-		return s.returnError(c, http.StatusBadRequest, errors.New("empty anchorStateRoot"))
-	}
 	if reqBody.ExecutableData.Timestamp == 0 {
 		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero timestamp is required"))
 	}
 	if reqBody.ExecutableData.FeeRecipient == (common.Address{}) {
 		return s.returnError(c, http.StatusBadRequest, errors.New("empty L2 fee recipient"))
+	}
+	if reqBody.ExecutableData.GasLimit == 0 {
+		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero gas limit is required"))
+	}
+	if reqBody.ExecutableData.BaseFeePerGas == 0 {
+		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero base fee per gas is required"))
+	}
+	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
+	if overflow {
+		return s.returnError(c, http.StatusBadRequest, errors.New("base fee per gas is too large"))
+	}
+	if len(reqBody.ExecutableData.ExtraData) == 0 {
+		return s.returnError(c, http.StatusBadRequest, errors.New("empty extra data"))
 	}
 
 	// If the `--preconfBlock.signatureCheck` flag is enabled, validate the signature.
@@ -137,41 +141,75 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
 	}
 
+	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
 	// Insert the preconf block.
-	header, err := s.chainSyncer.InsertPreconfBlockFromTransactionsBatch(
+	header, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(
 		c.Request().Context(),
-		reqBody.ExecutableData,
-		reqBody.AnchorBlockID,
-		reqBody.AnchorStateRoot,
-		reqBody.SignalSlots,
-		reqBody.BaseFeeConfig,
+		&eth.ExecutionPayload{
+			ParentHash:    reqBody.ExecutableData.ParentHash,
+			FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
+			PrevRandao:    eth.Bytes32(difficulty[:]),
+			BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
+			GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
+			Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
+			ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
+			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+			Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+		},
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
+
+	log.Info(
+		"⏰ New preconfirmation L2 block inserted",
+		"blockID", header.Number,
+		"hash", header.Hash(),
+		"coinbase", header.Coinbase.Hex(),
+		"timestamp", header.Time,
+		"gasLimit", header.GasLimit,
+		"gasUsed", header.GasUsed,
+		"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
+		"extraData", common.Bytes2Hex(header.Extra),
+		"baseFee", utils.WeiToEther(header.BaseFee),
+	)
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
 	if s.p2pNode != nil {
 		log.Info("Gossiping L2 Payload", "blockID", header.Number.Uint64(), "time", header.Time)
 
-		if err := s.p2pNode.GossipOut().PublishL2Payload(
-			c.Request().Context(),
-			&eth.ExecutionPayloadEnvelope{
-				ExecutionPayload: &eth.ExecutionPayload{
-					ParentHash:   header.ParentHash,
-					FeeRecipient: header.Coinbase,
-					BlockNumber:  eth.Uint64Quantity(header.Number.Uint64()),
-					GasLimit:     eth.Uint64Quantity(header.GasLimit),
-					GasUsed:      eth.Uint64Quantity(header.GasUsed),
-					Timestamp:    eth.Uint64Quantity(header.Time),
-					BlockHash:    header.Hash(),
-					Transactions: []eth.Data{reqBody.ExecutableData.Transactions},
+		var u256 uint256.Int
+		if overflow := u256.SetFromBig(header.BaseFee); overflow {
+			log.Warn(
+				"Failed to convert base fee to uint256, skip propagating the preconfirmation block",
+				"baseFee", header.BaseFee,
+			)
+		} else {
+			if err := s.p2pNode.GossipOut().PublishL2Payload(
+				c.Request().Context(),
+				&eth.ExecutionPayloadEnvelope{
+					ExecutionPayload: &eth.ExecutionPayload{
+						BaseFeePerGas: eth.Uint256Quantity(u256),
+						ParentHash:    header.ParentHash,
+						FeeRecipient:  header.Coinbase,
+						ExtraData:     header.Extra,
+						PrevRandao:    eth.Bytes32(header.MixDigest),
+						BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+						GasLimit:      eth.Uint64Quantity(header.GasLimit),
+						GasUsed:       eth.Uint64Quantity(header.GasUsed),
+						Timestamp:     eth.Uint64Quantity(header.Time),
+						BlockHash:     header.Hash(),
+						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+					},
 				},
-			},
-			s.p2pSigner,
-		); err != nil {
-			log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
+				s.p2pSigner,
+			); err != nil {
+				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
+			}
 		}
 	}
 
