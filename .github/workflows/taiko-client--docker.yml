@@ -8,6 +8,10 @@ on:
     paths:
       - "packages/taiko-client/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/taiko-client
 
