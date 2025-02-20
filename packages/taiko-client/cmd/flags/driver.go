@@ -83,7 +83,7 @@ var (
 	PreconfWhitelistAddress = &cli.StringFlag{
 		Name:     "preconfWhitelist",
 		Usage:    "PreconfWhitelist L1 `address`",
-		Required: true,
+		Required: false,
 		Category: commonCategory,
 		EnvVars:  []string{"PRECONF_WHITELIST"},
 	}
