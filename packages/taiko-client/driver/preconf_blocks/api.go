@@ -112,7 +112,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if overflow {
 		return s.returnError(c, http.StatusBadRequest, errors.New("base fee per gas is too large"))
 	}
-	if reqBody.ExecutableData.ExtraData == nil || len(reqBody.ExecutableData.ExtraData) == 0 {
+	if len(reqBody.ExecutableData.ExtraData) == 0 {
 		return s.returnError(c, http.StatusBadRequest, errors.New("empty extra data"))
 	}
 
