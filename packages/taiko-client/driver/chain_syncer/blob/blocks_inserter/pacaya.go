@@ -383,6 +383,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	defer i.mutex.Unlock()
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
+
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
 		i.rpc,

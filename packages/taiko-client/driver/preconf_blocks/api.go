@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -155,18 +156,22 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if s.p2pNode != nil {
 		log.Info("Gossiping L2 Payload", "blockID", header.Number.Uint64(), "time", header.Time)
 
+		var u256 eth.Uint256Quantity
+		(*uint256.Int)(&u256).SetFromBig(header.BaseFee)
+
 		if err := s.p2pNode.GossipOut().PublishL2Payload(
 			c.Request().Context(),
 			&eth.ExecutionPayloadEnvelope{
 				ExecutionPayload: &eth.ExecutionPayload{
-					ParentHash:   header.ParentHash,
-					FeeRecipient: header.Coinbase,
-					BlockNumber:  eth.Uint64Quantity(header.Number.Uint64()),
-					GasLimit:     eth.Uint64Quantity(header.GasLimit),
-					GasUsed:      eth.Uint64Quantity(header.GasUsed),
-					Timestamp:    eth.Uint64Quantity(header.Time),
-					BlockHash:    header.Hash(),
-					Transactions: []eth.Data{reqBody.ExecutableData.Transactions},
+					BaseFeePerGas: u256,
+					ParentHash:    header.ParentHash,
+					FeeRecipient:  header.Coinbase,
+					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+					GasLimit:      eth.Uint64Quantity(header.GasLimit),
+					GasUsed:       eth.Uint64Quantity(header.GasUsed),
+					Timestamp:     eth.Uint64Quantity(header.Time),
+					BlockHash:     header.Hash(),
+					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 				},
 			},
 			s.p2pSigner,
