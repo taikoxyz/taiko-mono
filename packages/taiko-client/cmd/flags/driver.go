@@ -84,7 +84,7 @@ var (
 		Name:     "preconfWhitelist",
 		Usage:    "PreconfWhitelist L1 `address`",
 		Required: false,
-		Category: commonCategory,
+		Category: driverCategory,
 		EnvVars:  []string{"PRECONF_WHITELIST"},
 	}
 )
