@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 
@@ -36,14 +37,15 @@ func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
 
 // ExecutableData is the data necessary to execute an EL payload.
 type ExecutableData struct {
-	ParentHash    common.Hash    `json:"parentHash"`
-	FeeRecipient  common.Address `json:"feeRecipient"`
-	Number        uint64         `json:"blockNumber"`
-	GasLimit      uint64         `json:"gasLimit"`
-	Timestamp     uint64         `json:"timestamp"`
-	Transactions  hexutil.Bytes  `json:"transactions"`
-	ExtraData     hexutil.Bytes  `json:"extraData"`
-	BaseFeePerGas uint64         `json:"baseFeePerGas"`
+	ParentHash   common.Hash    `json:"parentHash"`
+	FeeRecipient common.Address `json:"feeRecipient"`
+	Number       uint64         `json:"blockNumber"`
+	GasLimit     uint64         `json:"gasLimit"`
+	Timestamp    uint64         `json:"timestamp"`
+	// Transactions list with RLP encoded at first, then zlib compressed.
+	Transactions  hexutil.Bytes `json:"transactions"`
+	ExtraData     hexutil.Bytes `json:"extraData"`
+	BaseFeePerGas uint64        `json:"baseFeePerGas"`
 }
 
 // BuildPreconfBlockRequestBody represents a request body when handling
@@ -145,6 +147,13 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+
+	// Decompress the transactions list.
+	decompressed, err := utils.Decompress(reqBody.ExecutableData.Transactions)
+	if err != nil {
+		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
+	}
+
 	// Insert the preconf block.
 	header, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(
 		c.Request().Context(),
@@ -157,7 +166,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
 			ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
 			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-			Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+			Transactions:  []eth.Data{decompressed},
 		},
 	)
 	if err != nil {
