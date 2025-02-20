@@ -4,8 +4,6 @@ gas_price = 10_000_000_000 # 10 Gwei
 gas_limit = "18446744073709551615" # u64::MAX
 optimizer = true
 optimizer_runs = 200
-fuzz_runs = 200
-fuzz_runs_show_logs = false
 ffi = true
 memory_limit = 2_073_741_824
 solc_version = "0.8.27"
@@ -46,6 +44,9 @@ fs_permissions = [
 # 5740: Unreachable code
 ignored_error_codes = [2394, 3860, 5574, 5740]
 
+[fuzz]
+runs = 200
+
 [fmt]
 bracket_spacing = true
 line_length = 100
@@ -60,23 +61,44 @@ script = "script/layer1"
 out = "out/layer1"
 evm_version = "cancun"
 
+
+
 [profile.layer2]
 src = "contracts/layer2"
 test = "test/layer2"
 script = "script/layer2"
 out = "out/layer2"
 evm_version = "shanghai"
+rpc_url = "://1rpc.io/holesky"
 
-[profile.shared]
-src = "contracts/shared"
-test = "test/shared"
-script = "script/shared"
-out = "out/shared"
+
+
+
+[profile.lidol1]
+src = "contracts/lido"
+test = "test/lidol1"
+script = "script/lido"
+out = "out/lido"
+evm_version = "cancun"
+eth_rpc_url = "https://1rpc.io/holesky"
+
+
+[profile.lidol2]
+src = "contracts/lido"
+test = "test/lidol2"
+script = "script/lido"
+out = "out/lido"
 evm_version = "shanghai"
+eth_rpc_url = "https://rpc.ankr.com/taiko_hekla"
+
+
+
+
+
 
 [profile.genesis]
 src = "contracts/layer2"
 test = "test/genesis"
 script = "script/layer2"
-out = "out/genesis"
+out = "out/layer2"
 evm_version = "shanghai"
