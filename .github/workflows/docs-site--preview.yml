@@ -12,6 +12,10 @@ on:
     branches-ignore:
       - release-please--branches--**
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy-docs-site-preview:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]' }}
