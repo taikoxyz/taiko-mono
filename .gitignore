@@ -113,7 +113,6 @@ __pycache__/
 # backwards compatibility for past contributors
 .husky
 
-
 # VSCode
 .vscode/launch.json
 .vercel
@@ -122,6 +121,7 @@ __pycache__/
 .idea/
 packages/protocol/snapshots/InboxTest_ProposeAndProve.json
 
+# Test data
 packages/taiko-client/opnode_discovery_db
 packages/taiko-client/opnode_peerstore_db
 packages/taiko-client/opnode_p2p_priv.txt

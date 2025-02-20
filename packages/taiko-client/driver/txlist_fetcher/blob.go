@@ -94,26 +94,17 @@ func (d *BlobFetcher) FetchPacaya(
 	}
 
 	var blockNum uint64
-
 	if meta.GetBlobCreatedIn().Int64() == 0 {
-		log.Info("FetchPacaya meta.BlobCreatedIn 0, using proposedAt", "getProposedAt", meta.GetProposedAt())
-
 		blockNum = meta.GetProposedIn()
 	} else {
-		log.Info("FetchPacaya using blobCreatedIn", "blobCreatedIn", meta.GetBlobCreatedIn())
-
 		blockNum = uint64(meta.GetBlobCreatedIn().Int64())
 	}
 
 	// Fetch the L1 block header with the given blob.
-	log.Info("Fetch L1 block header", "blockNum", blockNum)
-
 	l1Header, err := d.cli.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 	if err != nil {
 		return nil, err
 	}
-
-	log.Info("L1 Header fetched", "header", l1Header.Number.Int64(), "timestamp", l1Header.Time)
 
 	var b []byte
 	// Fetch the L1 block sidecars.
@@ -128,7 +119,7 @@ func (d *BlobFetcher) FetchPacaya(
 
 	log.Info(
 		"Fetch sidecars",
-		"blockNumber", meta.GetBlobCreatedIn(),
+		"blockNumber", blockNum,
 		"sidecars", len(sidecars),
 	)
 

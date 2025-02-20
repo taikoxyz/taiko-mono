@@ -540,9 +540,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
         });
 
-        // UUPSUpgradeable(taikoWrapper).upgradeTo({
-        //     newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
-        // });
+        UUPSUpgradeable(taikoWrapper).upgradeTo({
+            newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
+        });
 
         Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
         console2.log("** taiko_wrapper ownership transferred to:", owner);
