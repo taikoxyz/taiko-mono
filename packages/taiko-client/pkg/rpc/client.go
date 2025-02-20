@@ -47,6 +47,7 @@ type PacayaClients struct {
 	ProverSet            *pacayaBindings.ProverSet
 	ForkRouter           *pacayaBindings.ForkRouter
 	ComposeVerifier      *pacayaBindings.ComposeVerifier
+	PreconfWhitelist     *pacayaBindings.PreconfWhitelist
 	ForkHeight           uint64
 }
 
@@ -78,6 +79,7 @@ type ClientConfig struct {
 	TaikoL2Address                common.Address
 	TaikoTokenAddress             common.Address
 	ForcedInclusionStoreAddress   common.Address
+	PreconfWhitelistAddress       common.Address
 	GuardianProverMinorityAddress common.Address
 	GuardianProverMajorityAddress common.Address
 	ProverSetAddress              common.Address
@@ -264,6 +266,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		proverSet            *pacayaBindings.ProverSet
 		taikoWrapper         *pacayaBindings.TaikoWrapperClient
 		forcedInclusionStore *pacayaBindings.ForcedInclusionStore
+		preconfWhitelist     *pacayaBindings.PreconfWhitelist
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -303,6 +306,13 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		}
 	}
 
+	if cfg.PreconfWhitelistAddress.Hex() == ZeroAddress.Hex() {
+		preconfWhitelist, err = pacayaBindings.NewPreconfWhitelist(cfg.PreconfWhitelistAddress, c.L1)
+		if err != nil {
+			return err
+		}
+	}
+
 	c.PacayaClients = &PacayaClients{
 		TaikoInbox:           taikoInbox,
 		TaikoAnchor:          taikoAnchor,
@@ -312,6 +322,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		TaikoWrapper:         taikoWrapper,
 		ForcedInclusionStore: forcedInclusionStore,
 		ComposeVerifier:      composeVerifier,
+		PreconfWhitelist:     preconfWhitelist,
 	}
 
 	return nil
