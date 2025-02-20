@@ -306,7 +306,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		}
 	}
 
-	if cfg.PreconfWhitelistAddress.Hex() == ZeroAddress.Hex() {
+	if cfg.PreconfWhitelistAddress.Hex() != ZeroAddress.Hex() {
 		preconfWhitelist, err = pacayaBindings.NewPreconfWhitelist(cfg.PreconfWhitelistAddress, c.L1)
 		if err != nil {
 			return err
