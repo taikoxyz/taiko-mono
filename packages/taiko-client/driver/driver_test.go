@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -759,22 +761,47 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
 	s.Nil(err)
 
-	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{signedTx})
+	baseFee, err := s.RPCClient.CalculateBaseFee(
+		context.Background(),
+		parent,
+		true,
+		s.d.protocolConfig.BaseFeeConfig(),
+		anchoredL1Block.Time,
+	)
 	s.Nil(err)
+
+	anchortxConstructor, err := anchortxconstructor.New(s.d.rpc)
+	s.Nil(err)
+
+	anchorTx, err := anchortxConstructor.AssembleAnchorV3Tx(
+		context.Background(),
+		anchoredL1Block.Number,
+		anchoredL1Block.Root,
+		parent.GasUsed,
+		s.d.protocolConfig.BaseFeeConfig(),
+		[][32]byte{},
+		new(big.Int).Add(parent.Number, common.Big1),
+		baseFee,
+	)
+	s.Nil(err)
+
+	b, err := rlp.EncodeToBytes(types.Transactions{anchorTx, signedTx})
+	s.Nil(err)
+
+	extraData := encoding.EncodeBaseFeeConfig(s.d.protocolConfig.BaseFeeConfig())
+	s.NotEmpty(extraData)
 
 	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{
 		ExecutableData: &preconfblocks.ExecutableData{
-			ParentHash:   parent.Hash(),
-			FeeRecipient: preconferAddress,
-			Number:       l2BlockID,
-			GasLimit:     uint64(s.d.protocolConfig.BlockMaxGasLimit()),
-			Timestamp:    anchoredL1Block.Time,
-			Transactions: b,
+			ParentHash:    parent.Hash(),
+			FeeRecipient:  preconferAddress,
+			Number:        l2BlockID,
+			GasLimit:      uint64(s.d.protocolConfig.BlockMaxGasLimit() + uint32(consensus.AnchorV3GasLimit)),
+			ExtraData:     hexutil.Bytes(extraData[:]),
+			Timestamp:     anchoredL1Block.Time,
+			Transactions:  b,
+			BaseFeePerGas: baseFee.Uint64(),
 		},
-		AnchorBlockID:   anchoredL1Block.Number.Uint64(),
-		AnchorStateRoot: anchoredL1Block.Root,
-		SignalSlots:     [][32]byte{},
-		BaseFeeConfig:   s.d.protocolConfig.BaseFeeConfig(),
 	}
 
 	payload, err := rlp.EncodeToBytes(reqBody)

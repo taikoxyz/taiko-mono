@@ -89,7 +89,7 @@ func (ds *BlobDataSource) GetBlobs(
 	}
 	if err != nil {
 		if !errors.Is(err, pkg.ErrBeaconNotFound) {
-			log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+			log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
 		}
 		if ds.blobServerEndpoint == nil && ds.socialScanEndpoint == nil {
 			log.Info("No blob server endpoint set")
