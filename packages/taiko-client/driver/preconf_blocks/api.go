@@ -166,6 +166,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 					BaseFeePerGas: u256,
 					ParentHash:    header.ParentHash,
 					FeeRecipient:  header.Coinbase,
+					ExtraData:     header.Extra,
 					PrevRandao:    eth.Bytes32(header.MixDigest),
 					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
 					GasLimit:      eth.Uint64Quantity(header.GasLimit),
