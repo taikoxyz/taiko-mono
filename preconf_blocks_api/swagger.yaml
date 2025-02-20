@@ -38,6 +38,7 @@ definitions:
       timestamp:
         type: integer
       transactions:
+        description: Transactions list with RLP encoded at first, then zlib compressed.
         items:
           type: integer
         type: array

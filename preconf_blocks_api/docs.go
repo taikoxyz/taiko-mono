@@ -166,6 +166,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "transactions": {
+                    "description": "Transactions list with RLP encoded at first, then zlib compressed.",
                     "type": "array",
                     "items": {
                         "type": "integer"
