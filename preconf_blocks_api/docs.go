@@ -108,40 +108,9 @@ const docTemplate = `{
         "big.Int": {
             "type": "object"
         },
-        "pacaya.LibSharedDataBaseFeeConfig": {
-            "type": "object",
-            "properties": {
-                "adjustmentQuotient": {
-                    "type": "integer"
-                },
-                "gasIssuancePerSecond": {
-                    "type": "integer"
-                },
-                "maxGasIssuancePerBlock": {
-                    "type": "integer"
-                },
-                "minGasExcess": {
-                    "type": "integer"
-                },
-                "sharingPctg": {
-                    "type": "integer"
-                }
-            }
-        },
         "preconfblocks.BuildPreconfBlockRequestBody": {
             "type": "object",
             "properties": {
-                "anchorBlockID": {
-                    "description": "@param anchorBlockID uint64 ` + "`" + `_anchorBlockId` + "`" + ` parameter of the ` + "`" + `anchorV3` + "`" + ` transaction in the preconf block",
-                    "type": "integer"
-                },
-                "anchorStateRoot": {
-                    "description": "@param anchorStateRoot string ` + "`" + `_anchorStateRoot` + "`" + ` parameter of the ` + "`" + `anchorV3` + "`" + ` transaction in the preconf block",
-                    "type": "string"
-                },
-                "baseFeeConfig": {
-                    "$ref": "#/definitions/pacaya.LibSharedDataBaseFeeConfig"
-                },
                 "executableData": {
                     "description": "@param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.",
                     "allOf": [
@@ -149,15 +118,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/preconfblocks.ExecutableData"
                         }
                     ]
-                },
-                "signalSlots": {
-                    "type": "array",
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
                 },
                 "signature": {
                     "description": "@param signature string Signature of this executable data payload.",
@@ -181,8 +141,17 @@ const docTemplate = `{
         "preconfblocks.ExecutableData": {
             "type": "object",
             "properties": {
+                "baseFeePerGas": {
+                    "type": "integer"
+                },
                 "blockNumber": {
                     "type": "integer"
+                },
+                "extraData": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "feeRecipient": {
                     "type": "string"
