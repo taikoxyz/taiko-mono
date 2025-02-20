@@ -206,5 +206,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 		return common.Address{}
 	}
 
+	log.Info("operator address", "address", operatorAddress.Hex())
+
 	return operatorAddress
 }
