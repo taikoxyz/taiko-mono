@@ -140,8 +140,6 @@ func createExecutionPayloads(
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 ) (payloadData *engine.ExecutableData, err error) {
-	log.Info("metaDifficulty", "difficulty", meta.Difficulty.Hex())
-
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.Difficulty,

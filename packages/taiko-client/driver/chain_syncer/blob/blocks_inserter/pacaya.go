@@ -325,7 +325,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
 					L1BlockHeight: nil,
 					L1BlockHash:   common.Hash{},
 				},
-				Txs:         txs[len(txs)-1:],
+				Txs:         txs[1:],
 				Withdrawals: make([]*types.Withdrawal, 0),
 				BaseFee:     baseFee,
 			},
