@@ -785,7 +785,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	)
 	s.Nil(err)
 
-	b, err := rlp.EncodeToBytes(types.Transactions{anchorTx, signedTx})
+	b, err := utils.EncodeAndCompressTxList(types.Transactions{anchorTx, signedTx})
 	s.Nil(err)
 
 	extraData := encoding.EncodeBaseFeeConfig(s.d.protocolConfig.BaseFeeConfig())
