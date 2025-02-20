@@ -121,3 +121,6 @@ __pycache__/
 # Idea
 .idea/
 packages/protocol/snapshots/InboxTest_ProposeAndProve.json
+
+packages/taiko-client/opnode_discovery_db
+packages/taiko-client/opnode_peerstore_db
