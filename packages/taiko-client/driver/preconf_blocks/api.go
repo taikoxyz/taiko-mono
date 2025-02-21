@@ -22,7 +22,7 @@ import (
 
 // ValidateSignature validates the signature of the request body.
 func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
-	payload, err := rlp.EncodeToBytes(b)
+	payload, err := rlp.EncodeToBytes(b.ExecutableData)
 	if err != nil {
 		return false, err
 	}
