@@ -6,6 +6,10 @@ on:
       - main
   merge_group: # Trigger in merge queue to pass the required status check
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   merge-gatekeeper:
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}

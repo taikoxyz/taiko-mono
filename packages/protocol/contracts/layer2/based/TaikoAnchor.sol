@@ -30,6 +30,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
+    ISignalService public immutable signalService;
     uint64 public immutable pacayaForkHeight;
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
@@ -90,7 +91,14 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _;
     }
 
-    constructor(address _resolver, uint64 _pacayaForkHeight) EssentialContract(_resolver) {
+    constructor(
+        address _resolver,
+        address _signalService,
+        uint64 _pacayaForkHeight
+    )
+        EssentialContract(_resolver)
+    {
+        signalService = ISignalService(_signalService);
         pacayaForkHeight = _pacayaForkHeight;
     }
 
@@ -162,7 +170,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
-        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).receiveSignals(_signalSlots);
+        signalService.receiveSignals(_signalSlots);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -288,7 +296,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
         /// @dev Store the L1's state root as a signal to the local signal service to
         /// allow for multi-hop bridging.
-        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+        signalService.syncChainData(
             l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
         );
 
@@ -358,7 +366,9 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         view
         returns (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_)
     {
+        // 255 bytes32 ring buffer + 1 bytes32 for chainId
         bytes32[256] memory inputs;
+        inputs[255] = bytes32(block.chainid);
 
         // Unchecked is safe because it cannot overflow.
         unchecked {
@@ -369,8 +379,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
                 inputs[j % 255] = blockhash(j);
             }
         }
-
-        inputs[255] = bytes32(block.chainid);
 
         assembly {
             currPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )

@@ -8,6 +8,10 @@ on:
     branches-ignore:
       - release-please--branches--**
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-supplementary-contracts:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}

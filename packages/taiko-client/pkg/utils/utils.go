@@ -13,8 +13,10 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/joho/godotenv"
 	"github.com/modern-go/reflect2"
 	"golang.org/x/exp/constraints"
@@ -67,6 +69,22 @@ func Min[T constraints.Integer](a, b T) T {
 		return a
 	}
 	return b
+}
+
+// EncodeAndCompressTxList encodes and compresses the given transactions list using RLP encoding
+// followed by zlib compression.
+func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(txs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to RLP encode transactions: %w", err)
+	}
+
+	compressed, err := Compress(b)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compress RLP encoded transactions: %w", err)
+	}
+
+	return compressed, nil
 }
 
 // Compress compresses the given txList bytes using zlib.

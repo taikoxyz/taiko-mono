@@ -11,7 +11,14 @@ import "./libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is TaikoInbox {
-    constructor(address _resolver) TaikoInbox(_resolver) { }
+    constructor(
+        address _wrapper,
+        address _verifier,
+        address _bondToken,
+        address _signalService
+    )
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+    { }
 
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
@@ -38,13 +45,15 @@ contract MainnetInbox is TaikoInbox {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 2 hours,
-            cooldownWindow: 0 hours,
+            cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 538_304,
-                pacaya: 538_304 * 10 // TODO
-             })
+                pacaya: 538_304 * 10, // TODO
+                shasta: 0,
+                unzen: 0
+            })
         });
     }
 

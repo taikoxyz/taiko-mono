@@ -6,18 +6,18 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -62,7 +62,6 @@ func NewBlocksInserterPacaya(
 func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	proposingTx *types.Transaction,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
@@ -78,11 +77,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 	// Fetch transactions list.
 	if len(meta.GetBlobHashes()) != 0 {
-		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, proposingTx, meta); err != nil {
+		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
 		}
 	} else {
-		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, proposingTx, meta); err != nil {
+		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
 		}
 	}
@@ -144,7 +143,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			return fmt.Errorf("failed to calculate difficulty: %w", err)
 		}
 		timestamp := meta.GetLastBlockTimestamp()
-		for i := len(meta.GetBlocks()) - 1; i >= 0; i-- {
+		for i := len(meta.GetBlocks()) - 1; i > j; i-- {
 			timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 		}
 
@@ -192,6 +191,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		txs := types.Transactions{}
 		if txListCursor+int(blockInfo.NumTransactions) <= len(allTxs) {
 			txs = allTxs[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
+		} else if txListCursor < len(allTxs) {
+			txs = allTxs[txListCursor:]
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
@@ -247,118 +248,46 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	return nil
 }
 
-// InsertPreconfBlockFromTransactionsBatch inserts a preconf block from transactions batch.
-func (i *BlocksInserterPacaya) InsertPreconfBlockFromTransactionsBatch(
+// InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
+func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
-	executableData *preconfblocks.ExecutableData,
-	anchorBlockID uint64,
-	anchorStateRoot common.Hash,
-	signalSlots [][32]byte,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	parentHeader, err := i.rpc.L2.HeaderByHash(ctx, executableData.ParentHash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
+	if len(executableData.Transactions) == 0 {
+		return nil, fmt.Errorf("no transactions data in the payload")
 	}
 
-	if parentHeader.Number.Uint64()+1 != executableData.Number {
-		return nil, fmt.Errorf("invalid parent hash %s", executableData.ParentHash)
-	}
-
-	baseFee, err := i.rpc.CalculateBaseFee(
-		ctx,
-		parentHeader,
-		true,
-		baseFeeConfig,
-		executableData.Timestamp,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate base fee: %w", err)
-	}
-
-	log.Info(
-		"L2 baseFee for the next preconfirmation block",
-		"blockID", executableData.Number,
-		"baseFee", utils.WeiToGWei(baseFee),
-		"parentGasUsed", parentHeader.GasUsed,
-	)
-	anchorBlockHeader, err := i.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(anchorBlockID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch anchor block: %w", err)
-	}
-	if anchorBlockHeader.Root != anchorStateRoot {
-		return nil, fmt.Errorf("invalid anchor state root %s", anchorStateRoot)
-	}
-
-	// Assemble a TaikoAnchor.anchorV3 transaction
-	anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
-		ctx,
-		new(big.Int).SetUint64(anchorBlockID),
-		anchorStateRoot,
-		parentHeader.GasUsed,
-		baseFeeConfig,
-		signalSlots,
-		new(big.Int).Add(parentHeader.Number, common.Big1),
-		baseFee,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
-	}
-	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(executableData.Number))
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate difficulty: %w", err)
-	}
-	var (
-		extraData = encoding.EncodeBaseFeeConfig(baseFeeConfig)
-		txs       = i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, executableData.Transactions, true, true)
-	)
-
-	payloadData, err := createPayloadAndSetHead(
+	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
+	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
 		i.rpc,
-		&createPayloadAndSetHeadMetaData{
-			createExecutionPayloadsMetaData: &createExecutionPayloadsMetaData{
-				BlockID:               new(big.Int).SetUint64(executableData.Number),
-				ExtraData:             extraData[:],
-				SuggestedFeeRecipient: executableData.FeeRecipient,
-				GasLimit:              executableData.GasLimit,
-				Difficulty:            common.BytesToHash(difficulty),
-				Timestamp:             executableData.Timestamp,
-				ParentHash:            executableData.ParentHash,
-				L1Origin: &rawdb.L1Origin{
-					BlockID:       new(big.Int).SetUint64(executableData.Number),
-					L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-					L1BlockHeight: nil,
-					L1BlockHash:   common.Hash{},
-				},
-				Txs:         txs,
-				Withdrawals: make([]*types.Withdrawal, 0),
-				BaseFee:     baseFee,
+		&createExecutionPayloadsMetaData{
+			BlockID:               new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+			ExtraData:             executableData.ExtraData,
+			SuggestedFeeRecipient: executableData.FeeRecipient,
+			GasLimit:              uint64(executableData.GasLimit),
+			Difficulty:            common.Hash(executableData.PrevRandao),
+			Timestamp:             uint64(executableData.Timestamp),
+			ParentHash:            executableData.ParentHash,
+			L1Origin: &rawdb.L1Origin{
+				BlockID:       new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+				L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+				L1BlockHeight: nil,
+				L1BlockHash:   common.Hash{},
 			},
-			AnchorBlockID:   new(big.Int).SetUint64(anchorBlockID),
-			AnchorBlockHash: anchorBlockHeader.Hash(),
-			BaseFeeConfig:   baseFeeConfig,
-			Parent:          parentHeader,
+			BaseFee:     u256BaseFee.ToBig(),
+			Withdrawals: make([]*types.Withdrawal, 0),
 		},
-		anchorTx,
+		executableData.Transactions[0],
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert new preconfirmation head to L2 execution engine: %w", err)
+		return nil, fmt.Errorf("failed to create execution data: %w", err)
 	}
 
-	log.Info(
-		"⏰ New preconfirmation L2 block inserted",
-		"blockID", executableData.Number,
-		"hash", payloadData.BlockHash,
-		"transactions", txs.Len(),
-		"baseFee", utils.WeiToGWei(payloadData.BaseFeePerGas),
-		"withdrawals", len(payloadData.Withdrawals),
-	)
-
-	return i.rpc.L2.HeaderByHash(ctx, payloadData.BlockHash)
+	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
 
 // RemovePreconfBlocks removes preconf blocks from the L2 execution engine.

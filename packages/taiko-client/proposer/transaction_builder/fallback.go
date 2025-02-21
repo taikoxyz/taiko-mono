@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -36,6 +37,7 @@ func NewBuilderWithFallback(
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
 	taikoL1Address common.Address,
+	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
 	chainConfig *config.ChainConfig,
@@ -55,6 +57,7 @@ func NewBuilderWithFallback(
 			rpc,
 			proposerPrivateKey,
 			taikoL1Address,
+			taikoWrapperAddress,
 			proverSetAddress,
 			l2SuggestedFeeRecipient,
 			gasLimit,
@@ -68,6 +71,7 @@ func NewBuilderWithFallback(
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
 		taikoL1Address,
+		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,
 		chainConfig,
@@ -153,14 +157,16 @@ func (b *TxBuilderWithFallback) BuildOntake(
 func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
+	forcedInclusion *pacaya.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
 ) (*txmgr.TxCandidate, error) {
 	// If calldata is the only option, just use it.
 	if b.blobTransactionBuilder == nil {
-		return b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch)
+		return b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
 	if !b.fallback {
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch)
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	}
 
 	// Otherwise, compare the cost, and choose the cheaper option.
@@ -174,7 +180,12 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	)
 
 	g.Go(func() error {
-		if txWithCalldata, err = b.calldataTransactionBuilder.BuildPacaya(ctx, txBatch); err != nil {
+		if txWithCalldata, err = b.calldataTransactionBuilder.BuildPacaya(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+		); err != nil {
 			return fmt.Errorf("failed to build type-2 transaction: %w", err)
 		}
 		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
@@ -183,7 +194,12 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 		return nil
 	})
 	g.Go(func() error {
-		if txWithBlob, err = b.blobTransactionBuilder.BuildPacaya(ctx, txBatch); err != nil {
+		if txWithBlob, err = b.blobTransactionBuilder.BuildPacaya(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+		); err != nil {
 			return fmt.Errorf("failed to build type-3 transaction: %w", err)
 		}
 		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
@@ -196,7 +212,7 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
 		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch)
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion)
 	}
 
 	var (

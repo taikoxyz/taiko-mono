@@ -146,10 +146,10 @@ func (i *Indexer) saveBlockVerifiedEventV2(
 	}
 
 	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:           eventindexer.EventNameBlockVerified,
+		Name:           eventindexer.EventNameBatchesVerified,
 		Data:           string(marshaled),
 		ChainID:        chainID,
-		Event:          eventindexer.EventNameBlockVerified,
+		Event:          eventindexer.EventNameBatchesVerified,
 		Address:        "",
 		BlockID:        &blockID,
 		TransactedAt:   time.Unix(int64(block.Time()), 0),

@@ -58,29 +58,6 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         eBridge.recallMessage(m, FAKE_PROOF);
     }
 
-    function test_bridge2_recallMessage_missing_local_signal_service()
-        public
-        dealEther(Carol)
-        assertSameTotalBalance
-    {
-        IBridge.Message memory message;
-        message.srcOwner = Alice;
-        message.destOwner = Bob;
-        message.destChainId = taikoChainId;
-        message.value = 1 ether;
-        message.srcChainId = ethereumChainId;
-
-        vm.prank(Carol);
-        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
-
-        vm.prank(deployer);
-        register("signal_service", address(0));
-
-        vm.prank(Carol);
-        vm.expectRevert();
-        eBridge.recallMessage(m, FAKE_PROOF);
-    }
-
     function test_bridge2_recallMessage_callable_sender() public dealEther(Carol) {
         TestRecallableSender callableSender = new TestRecallableSender(eBridge);
         vm.deal(address(callableSender), 100 ether);

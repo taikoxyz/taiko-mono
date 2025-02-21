@@ -14,8 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
-
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -94,39 +92,38 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Check P2P network flags and create the P2P configurations.
 	var (
 		clientConfig = &rpc.ClientConfig{
-			L1Endpoint:       c.String(flags.L1WSEndpoint.Name),
-			L1BeaconEndpoint: beaconEndpoint,
-			L2Endpoint:       c.String(flags.L2WSEndpoint.Name),
-			L2CheckPoint:     l2CheckPoint,
-			TaikoL1Address:   common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
-			TaikoL2Address:   common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
-			L2EngineEndpoint: c.String(flags.L2AuthEndpoint.Name),
-			JwtSecret:        string(jwtSecret),
-			Timeout:          c.Duration(flags.RPCTimeout.Name),
+			L1Endpoint:              c.String(flags.L1WSEndpoint.Name),
+			L1BeaconEndpoint:        beaconEndpoint,
+			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
+			L2CheckPoint:            l2CheckPoint,
+			TaikoL1Address:          common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
+			TaikoL2Address:          common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
+			PreconfWhitelistAddress: common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name)),
+			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
+			JwtSecret:               string(jwtSecret),
+			Timeout:                 c.Duration(flags.RPCTimeout.Name),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup
 	)
 
-	if c.IsSet(p2pFlags.DisableP2PName) && !c.Bool(p2pFlags.DisableP2PName) {
-		// Create a new RPC client to get the chain IDs.
-		rpc, err := rpc.NewClient(context.Background(), clientConfig)
-		if err != nil {
-			return nil, err
-		}
-		// Create a new P2P config.
-		if p2pConfigs, err = p2pCli.NewConfig(c, &rollup.Config{
-			L1ChainID: rpc.L1.ChainID,
-			L2ChainID: rpc.L2.ChainID,
-			Taiko:     true,
-		}); err != nil {
-			return nil, err
-		}
+	// Create a new RPC client to get the chain IDs.
+	rpc, err := rpc.NewClient(context.Background(), clientConfig)
+	if err != nil {
+		return nil, err
+	}
+	// Create a new P2P config.
+	if p2pConfigs, err = p2pCli.NewConfig(c, &rollup.Config{
+		L1ChainID: rpc.L1.ChainID,
+		L2ChainID: rpc.L2.ChainID,
+		Taiko:     true,
+	}); err != nil {
+		return nil, err
+	}
 
-		// Create a new P2P signer setup.
-		if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
-			return nil, err
-		}
+	// Create a new P2P signer setup.
+	if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
+		return nil, err
 	}
 
 	return &Config{

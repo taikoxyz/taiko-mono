@@ -216,10 +216,13 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			subProofs   = make([]encoding.SubProof, len(batchProof.ProofResponses))
 			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
-		// NOTE: op_verifier is the only verifier address for now.
-		opVerifier, err := a.rpc.ResolvePacaya(&bind.CallOpts{Context: txOpts.Context}, "op_verifier", false)
+		// TODO: Use the op verifier to keep the workflow until zk_any is online
+		opVerifier, err := a.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: txOpts.Context})
 		if err != nil {
 			return nil, err
+		}
+		if opVerifier == ZeroAddress {
+			return nil, fmt.Errorf("empty op verfier address")
 		}
 		for i, proof := range batchProof.ProofResponses {
 			metas[i] = proof.Meta
@@ -239,6 +242,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				"startBlockID", proof.Opts.PacayaOptions().Headers[0].Number,
 				"endBlockID", proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Number,
 				"gasLimit", txOpts.GasLimit,
+				"verifier", opVerifier,
 			)
 		}
 

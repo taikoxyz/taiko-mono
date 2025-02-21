@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
@@ -26,7 +25,6 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 // Fetch fetches the txList bytes from the transaction's calldata, by parsing the `BlockProposedV2` event.
 func (d *CalldataFetcher) FetchOntake(
 	ctx context.Context,
-	tx *types.Transaction,
 	meta metadata.TaikoBlockMetaDataOntake,
 ) ([]byte, error) {
 	if meta.GetBlobUsed() {
@@ -58,7 +56,6 @@ func (d *CalldataFetcher) FetchOntake(
 // FetchPacaya fetches the txList bytes from the transaction's calldata, by parsing the `BatchProposed` event.
 func (d *CalldataFetcher) FetchPacaya(
 	ctx context.Context,
-	tx *types.Transaction,
 	meta metadata.TaikoBatchMetaDataPacaya,
 ) ([]byte, error) {
 	if len(meta.GetBlobHashes()) != 0 {
