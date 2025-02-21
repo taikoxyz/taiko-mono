@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.1.0...taiko-alethia-protocol-v2.2.0) (2025-02-21)
+
+
+### Features
+
+* **taiko-client:** changes based on the protocol forced inclusion feature ([#18909](https://github.com/taikoxyz/taiko-mono/issues/18909)) ([d351788](https://github.com/taikoxyz/taiko-mono/commit/d35178843968b133cf228fe3a156b16ef3983bbe))
+
+
+### Bug Fixes
+
+* **protocol:** fix a `blobParams.createdIn` issue ([#18967](https://github.com/taikoxyz/taiko-mono/issues/18967)) ([a9d9e43](https://github.com/taikoxyz/taiko-mono/commit/a9d9e4362c47f32906d0556d4ee1ba63b4dbb4b7))
+
+
+### Chores
+
+* **protocol:** update `DevnetInbox.chainId` ([#18969](https://github.com/taikoxyz/taiko-mono/issues/18969)) ([ef188e0](https://github.com/taikoxyz/taiko-mono/commit/ef188e0b1016a5f90080fac78c81e4533bcf51e8))
+* **protocol:** update Inbox configs ([#18965](https://github.com/taikoxyz/taiko-mono/issues/18965)) ([650cb1f](https://github.com/taikoxyz/taiko-mono/commit/650cb1febe0f6e872947ec9eb9bf15904189d4b0))
+
 ## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.0.0...taiko-alethia-protocol-v2.1.0) (2025-02-19)
 
 
