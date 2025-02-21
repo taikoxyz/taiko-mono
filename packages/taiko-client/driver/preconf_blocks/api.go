@@ -32,11 +32,6 @@ func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
 		return false, err
 	}
 
-	log.Info("Signature verification",
-		"pubKey", crypto.PubkeyToAddress(*pubKey).Hex(),
-		"feeRecipient", b.ExecutableData.FeeRecipient.Hex(),
-	)
-
 	return crypto.PubkeyToAddress(*pubKey).Hex() == b.ExecutableData.FeeRecipient.Hex(), nil
 }
 
