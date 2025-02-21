@@ -85,7 +85,7 @@ var (
 		Usage:    "PreconfWhitelist contract L1 `address`",
 		Required: false,
 		Category: driverCategory,
-		EnvVars:  []string{"PRECONF_WHITELIST"},
+		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
 	}
 )
 
