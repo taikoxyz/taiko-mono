@@ -17,6 +17,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // Config contains the configurations to initialize a Taiko driver.
@@ -124,6 +125,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Create a new P2P signer setup.
 	if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
 		return nil, err
+	}
+
+	// Check if the P2P signer setup is empty.
+	if c.Uint64(flags.PreconfBlockServerPort.Name) > 0 && utils.IsNil(signerConfigs) {
+		return nil, errors.New("empty P2P signer setup")
 	}
 
 	return &Config{
