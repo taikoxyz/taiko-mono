@@ -129,7 +129,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	// Check if the P2P signer setup is empty.
 	if c.Uint64(flags.PreconfBlockServerPort.Name) > 0 && utils.IsNil(signerConfigs) {
-		return nil, errors.New("empty P2P signer setup")
+		return nil, errors.New("`--p2p.sequencer.key` flag is required for preconfirmation server")
 	}
 
 	return &Config{
