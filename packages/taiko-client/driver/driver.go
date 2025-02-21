@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"sync"
 	"time"
