@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -147,10 +148,11 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 			log.Info("P2PNode", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
-			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
-				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
-					return err
-				}
+			if reflect2.IsNil(d.Config.P2PSignerConfigs) {
+				return errors.New("missing P2P signer setup")
+			}
+			if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
+				return err
 			}
 
 			d.preconfBlockServer.SetP2PNode(d.p2pNode)
