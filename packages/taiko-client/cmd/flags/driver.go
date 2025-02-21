@@ -81,8 +81,8 @@ var (
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_SIGNATURE_CHECK"},
 	}
 	PreconfWhitelistAddress = &cli.StringFlag{
-		Name:     "preconfWhitelist",
-		Usage:    "PreconfWhitelist L1 `address`",
+		Name:     "preconfirmation.whitelist",
+		Usage:    "PreconfWhitelist contract L1 `address`",
 		Required: false,
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONF_WHITELIST"},
