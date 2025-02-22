@@ -437,7 +437,9 @@ func (p *Prover) requestProofOp(meta metadata.TaikoBlockMetaData, minTier uint16
 			minTier = encoding.TierGuardianMinorityID
 		}
 	}
-	if minTier == encoding.TierOptimisticID || minTier >= encoding.TierGuardianMinorityID || len(p.cfg.RaikoZKVMHostEndpoint) == 0 {
+	if minTier == encoding.TierOptimisticID ||
+		minTier >= encoding.TierGuardianMinorityID ||
+		len(p.cfg.RaikoZKVMHostEndpoint) == 0 {
 		if submitter := p.selectSubmitter(minTier); submitter != nil {
 			if err := submitter.RequestProof(p.ctx, meta); err != nil {
 				log.Error(
