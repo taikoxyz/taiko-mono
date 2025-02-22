@@ -2,6 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
+import { SP1Verifier as SuccinctVerifier } from
+    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@p256-verifier/contracts/P256Verifier.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
@@ -12,6 +16,8 @@ import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
+import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -21,6 +27,9 @@ import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
 contract UpgradeDevnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -36,6 +45,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
+    uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
+    uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
     address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
@@ -65,6 +76,139 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Bridge
+        upgradeBridgeContracts(sharedResolver);
+
+        // register unchanged contract
+        register(sharedResolver, "taiko_token", taikoToken);
+        register(sharedResolver, "bond_token", taikoToken);
+        // Rollup resolverpro
+        address rollupResolver = deployProxy({
+            name: "rollup_address_resolver",
+            impl: address(new DefaultResolver()),
+            data: abi.encodeCall(DefaultResolver.init, (address(0)))
+        });
+        // register copy
+        copyRegister(rollupResolver, sharedResolver, "taiko_token");
+        copyRegister(rollupResolver, sharedResolver, "bond_token");
+        copyRegister(rollupResolver, sharedResolver, "signal_service");
+        copyRegister(rollupResolver, sharedResolver, "bridge");
+
+        // Proof verifier
+        address proofVerifier = deployProxy({
+            name: "proof_verifier",
+            impl: address(
+                new DevnetVerifier(address(0), address(0), address(0), address(0), address(0))
+            ),
+            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
+            registerTo: rollupResolver
+        });
+
+        // OP verifier
+        address opVerifier = deployProxy({
+            name: "op_verifier",
+            impl: address(new OpVerifier(rollupResolver)),
+            data: abi.encodeCall(OpVerifier.init, (address(0))),
+            registerTo: rollupResolver
+        });
+
+        // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
+        address store = deployProxy({
+            name: "forced_inclusion_store",
+            impl: address(
+                new ForcedInclusionStore(
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
+                )
+            ),
+            data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
+            registerTo: rollupResolver
+        });
+
+        // TaikoWrapper
+        address taikoWrapper = deployProxy({
+            name: "taiko_wrapper",
+            impl: address(new TaikoWrapper(taikoInbox, store, address(0))),
+            data: abi.encodeCall(TaikoWrapper.init, (address(0))),
+            registerTo: rollupResolver
+        });
+
+        // Upgrade ForcedInclusionStore to use the real TaikoWrapper address.
+        UUPSUpgradeable(store).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
+                )
+            )
+        );
+
+        // TaikoInbox
+        address newFork =
+            address(new DevnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
+        register(rollupResolver, "taiko", taikoInbox);
+        // Prover set
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
+        );
+        TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
+        uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
+        // Other verifiers
+        upgradeVerifierContracts(rollupResolver, opVerifier, proofVerifier, l2ChainId);
+    }
+
+    function upgradeVerifierContracts(
+        address rollupResolver,
+        address opVerifier,
+        address proofVerifier,
+        uint64 l2ChainId
+    )
+        internal
+    {
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        address automataProxy = deployProxy({
+            name: "automata_dcap_attestation",
+            impl: automataDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init,
+                (address(0), address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
+        UUPSUpgradeable(sgxVerifier).upgradeTo(
+            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy))
+        );
+        register(rollupResolver, "sgx_verifier", sgxVerifier);
+
+        // Deploy r0 groth16 verifier
+        RiscZeroGroth16Verifier risc0Groth16Verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        register(rollupResolver, "risc0_groth16_verifier", address(risc0Groth16Verifier));
+        UUPSUpgradeable(risc0Verifier).upgradeTo(
+            address(new Risc0Verifier(l2ChainId, address(risc0Groth16Verifier)))
+        );
+        register(rollupResolver, "risc0_verifier", risc0Verifier);
+
+        // Deploy sp1 plonk verifier
+        SuccinctVerifier sp1RemoteVerifier = new SuccinctVerifier();
+        register(rollupResolver, "sp1_remote_verifier", address(sp1RemoteVerifier));
+        UUPSUpgradeable(sp1Verifier).upgradeTo(
+            address(new SP1Verifier(l2ChainId, address(sp1RemoteVerifier)))
+        );
+        register(rollupResolver, "sp1_verifier", sp1Verifier);
+
+        UUPSUpgradeable(proofVerifier).upgradeTo(
+            address(
+                new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
+            )
+        );
+    }
+
+    function upgradeBridgeContracts(address sharedResolver) internal {
         UUPSUpgradeable(bridgeL1).upgradeTo(
             address(new Bridge(sharedResolver, signalService, quotaManager))
         );
@@ -86,74 +230,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
         register(
             sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
-        );
-        // register unchanged contract
-        register(sharedResolver, "taiko_token", taikoToken);
-        register(sharedResolver, "bond_token", taikoToken);
-        // Rollup resolver
-        address rollupResolver = deployProxy({
-            name: "rollup_address_resolver",
-            impl: address(new DefaultResolver()),
-            data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        });
-        // register copy
-        copyRegister(rollupResolver, sharedResolver, "taiko_token");
-        copyRegister(rollupResolver, sharedResolver, "bond_token");
-        copyRegister(rollupResolver, sharedResolver, "signal_service");
-        copyRegister(rollupResolver, sharedResolver, "bridge");
-
-        // OP verifier
-        address opVerifier = deployProxy({
-            name: "op_verifier",
-            impl: address(new OpVerifier(rollupResolver)),
-            data: abi.encodeCall(OpVerifier.init, (address(0))),
-            registerTo: rollupResolver
-        });
-
-        // TaikoInbox
-        address newFork =
-            address(new DevnetInbox(address(0), opVerifier, taikoToken, signalService));
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        register(rollupResolver, "taiko", taikoInbox);
-
-        // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, newFork, taikoToken, newFork))
-        );
-        TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
-        uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
-
-        // Other verifiers
-        address proofVerifier = address(
-            new ERC1967Proxy(
-                address(
-                    new DevnetVerifier(taikoInbox, address(0), address(0), address(0), address(0))
-                ),
-                abi.encodeCall(ComposeVerifier.init, (address(0)))
-            )
-        );
-        address automataDcapAttestation = address(0); // not used!
-        UUPSUpgradeable(sgxVerifier).upgradeTo(
-            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataDcapAttestation))
-        );
-
-        register(rollupResolver, "sgx_verifier", sgxVerifier);
-        address risc0Groth16Verifier = address(0); // TODO
-        UUPSUpgradeable(risc0Verifier).upgradeTo(
-            address(new Risc0Verifier(l2ChainId, risc0Groth16Verifier))
-        );
-        register(rollupResolver, "risc0_verifier", risc0Verifier);
-        address sp1RemoteVerifier = address(0); // TODO
-        UUPSUpgradeable(sp1Verifier).upgradeTo(
-            address(new SP1Verifier(l2ChainId, sp1RemoteVerifier))
-        );
-        register(rollupResolver, "sp1_verifier", sp1Verifier);
-
-        UUPSUpgradeable(proofVerifier).upgradeTo(
-            address(
-                new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
-            )
         );
     }
 }

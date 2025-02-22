@@ -20,6 +20,7 @@ type TaikoProposalMetaData interface {
 	GetTxHash() common.Hash
 	GetProposer() common.Address
 	GetCoinbase() common.Address
+	GetBlobCreatedIn() *big.Int
 }
 
 type TaikoBlockMetaDataOntake interface {
@@ -40,6 +41,7 @@ type TaikoBlockMetaDataOntake interface {
 	GetLivenessBond() *big.Int
 	GetProposedAt() uint64
 	GetProposedIn() uint64
+	GetBlobCreatedIn() *big.Int
 	GetBlobTxListOffset() uint32
 	GetBlobTxListLength() uint32
 	GetBlobIndex() uint8
@@ -61,6 +63,7 @@ type TaikoBatchMetaDataPacaya interface {
 	GetProposer() common.Address
 	GetProposedAt() uint64
 	GetProposedIn() uint64
+	GetBlobCreatedIn() *big.Int
 	GetTxListOffset() uint32
 	GetTxListSize() uint32
 	GetLastBlockID() uint64

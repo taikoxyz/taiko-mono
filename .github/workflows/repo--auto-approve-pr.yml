@@ -6,6 +6,10 @@ on:
     branches-ignore:
       - release-please--branches--**
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   auto-approve:
     if: github.event.pull_request.draft == false && github.actor == 'dependabot[bot]'

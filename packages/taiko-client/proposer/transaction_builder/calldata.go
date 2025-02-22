@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -25,6 +25,7 @@ type CalldataTransactionBuilder struct {
 	proposerPrivateKey      *ecdsa.PrivateKey
 	l2SuggestedFeeRecipient common.Address
 	taikoL1Address          common.Address
+	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	gasLimit                uint64
 	chainConfig             *config.ChainConfig
@@ -37,6 +38,7 @@ func NewCalldataTransactionBuilder(
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
 	taikoL1Address common.Address,
+	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
 	chainConfig *config.ChainConfig,
@@ -47,6 +49,7 @@ func NewCalldataTransactionBuilder(
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
 		taikoL1Address,
+		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,
 		chainConfig,
@@ -76,13 +79,29 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 		encodedParamsArray [][]byte
 	)
 
-	for range txListBytesArray {
-		encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
+	for i := range txListBytesArray {
+		params := &encoding.BlockParamsV2{
 			Coinbase:       b.l2SuggestedFeeRecipient,
 			ParentMetaHash: [32]byte{},
 			AnchorBlockId:  0,
 			Timestamp:      0,
-		})
+		}
+
+		if i == 0 && b.revertProtectionEnabled {
+			_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(nil)
+			if err != nil {
+				return nil, err
+			}
+
+			blockInfo, err := b.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(slotB.NumBlocks-1))
+			if err != nil {
+				return nil, err
+			}
+
+			params.ParentMetaHash = blockInfo.MetaHash
+		}
+
+		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
 		if err != nil {
 			return nil, err
 		}
@@ -118,15 +137,35 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 func (b *CalldataTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
 ) (*txmgr.TxCandidate, error) {
-	// ABI encode the TaikoInbox.proposeBatch / ProverSet.proposeBatch parameters.
+	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
-		to            = &b.taikoL1Address
-		data          []byte
-		encodedParams []byte
-		blockParams   []pacayaBindings.ITaikoInboxBlockParams
-		allTxs        types.Transactions
+		to                    = &b.taikoWrapperAddress
+		proposer              = crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey)
+		data                  []byte
+		encodedParams         []byte
+		blockParams           []pacayaBindings.ITaikoInboxBlockParams
+		forcedInclusionParams *encoding.BatchParams
+		allTxs                types.Transactions
 	)
+
+	if b.proverSetAddress != rpc.ZeroAddress {
+		to = &b.proverSetAddress
+		proposer = b.proverSetAddress
+	}
+
+	if forcedInclusion != nil {
+		blobParams, blockParams := buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		forcedInclusionParams = &encoding.BatchParams{
+			Proposer:                 proposer,
+			Coinbase:                 b.l2SuggestedFeeRecipient,
+			RevertIfNotFirstProposal: b.revertProtectionEnabled,
+			BlobParams:               *blobParams,
+			Blocks:                   blockParams,
+		}
+	}
 
 	for _, txs := range txBatch {
 		allTxs = append(allTxs, txs...)
@@ -137,35 +176,32 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		})
 	}
 
-	rlpEncoded, err := rlp.EncodeToBytes(allTxs)
+	txListsBytes, err := utils.EncodeAndCompressTxList(allTxs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode transactions: %w", err)
-	}
-	txListsBytes, err := utils.Compress(rlpEncoded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compress transactions: %w", err)
+		return nil, err
 	}
 
-	if encodedParams, err = encoding.EncodeBatchParams(&encoding.BatchParams{
-		Coinbase:                 b.l2SuggestedFeeRecipient,
-		RevertIfNotFirstProposal: b.revertProtectionEnabled,
-		BlobParams: encoding.BlobParams{
-			ByteOffset: 0,
-			ByteSize:   uint32(len(txListsBytes)),
-		},
-		Blocks: blockParams,
-	}); err != nil {
+	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(
+		forcedInclusionParams,
+		&encoding.BatchParams{
+			Proposer:                 proposer,
+			Coinbase:                 b.l2SuggestedFeeRecipient,
+			RevertIfNotFirstProposal: b.revertProtectionEnabled,
+			BlobParams: encoding.BlobParams{
+				ByteOffset: 0,
+				ByteSize:   uint32(len(txListsBytes)),
+			},
+			Blocks: blockParams,
+		}); err != nil {
 		return nil, err
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-
 		if data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
 			return nil, err
 		}
 	} else {
-		if data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
+		if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
 			return nil, err
 		}
 	}

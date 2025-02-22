@@ -18,7 +18,6 @@ type Inserter interface {
 	InsertBlocks(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		proposingTx *types.Transaction,
 		endIter eventIterator.EndBlockProposedEventIterFunc,
 	) error
 }

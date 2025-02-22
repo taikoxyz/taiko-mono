@@ -74,7 +74,7 @@ func NewSyncer(
 	)
 
 	var (
-		txListFetcherBlob     = txlistFetcher.NewBlobTxListFetcher(client.L1Beacon, blobDataSource)
+		txListFetcherBlob     = txlistFetcher.NewBlobTxListFetcher(client, blobDataSource)
 		txListFetcherCalldata = txlistFetcher.NewCalldataFetch(client)
 	)
 	return &Syncer{
@@ -248,16 +248,6 @@ func (s *Syncer) onBlockProposed(
 		time.Sleep(time.Until(time.Unix(int64(timestamp), 0)))
 	}
 
-	// Fetch the original TaikoL1.proposeBlockV2 / TaikoInbox.proposeBatch transaction.
-	tx, err := s.rpc.L1.TransactionInBlock(
-		ctx,
-		meta.GetRawBlockHash(),
-		meta.GetTxIndex(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to fetch original TaikoL1.proposeBlockV2 transaction: %w", err)
-	}
-
 	// Insert new blocks to L2 EE's chain.
 	if meta.IsPacaya() {
 		log.Info(
@@ -269,7 +259,7 @@ func (s *Syncer) onBlockProposed(
 			"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
 			"blocks", len(meta.Pacaya().GetBlocks()),
 		)
-		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, tx, endIter); err != nil {
+		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, endIter); err != nil {
 			return err
 		}
 	} else {
@@ -280,7 +270,7 @@ func (s *Syncer) onBlockProposed(
 			"blockID", meta.Ontake().GetBlockID(),
 			"coinbase", meta.Ontake().GetCoinbase(),
 		)
-		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, tx, endIter); err != nil {
+		if err := s.blocksInserterOntake.InsertBlocks(ctx, meta, endIter); err != nil {
 			return err
 		}
 	}
