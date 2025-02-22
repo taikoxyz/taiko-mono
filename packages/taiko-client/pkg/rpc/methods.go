@@ -1132,6 +1132,11 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
+	if c.PacayaClients.ForcedInclusionStore == nil {
+		log.Info("ForcedInclusionStore contract is not set")
+		return nil, nil, nil
+	}
+
 	var (
 		head uint64
 		tail uint64
