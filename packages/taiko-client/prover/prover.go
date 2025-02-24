@@ -565,10 +565,17 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	}
 
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) ||
-			strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
 			log.Error(
 				"Proof submission reverted",
+				"blockIDs", batchProof.BlockIDs,
+				"tier", batchProof.Tier,
+				"error", err,
+			)
+			return nil
+		} else if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+			log.Warn(
+				"Detected proven blocks",
 				"blockIDs", batchProof.BlockIDs,
 				"tier", batchProof.Tier,
 				"error", err,
