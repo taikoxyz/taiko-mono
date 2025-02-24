@@ -124,6 +124,7 @@ func (s *Sender) Send(
 			"Failed to submit proof",
 			"blockID", proofResponse.BlockID,
 			"tier", proofResponse.Tier,
+			"proofType", proofResponse.ProofType,
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
@@ -146,6 +147,7 @@ func (s *Sender) Send(
 			"hash", proofResponse.Opts.OntakeOptions().BlockHash,
 			"txHash", receipt.TxHash,
 			"tier", proofResponse.Tier,
+			"proofType", proofResponse.ProofType,
 			"isContest", len(proofResponse.Proof) == 0,
 		)
 	}

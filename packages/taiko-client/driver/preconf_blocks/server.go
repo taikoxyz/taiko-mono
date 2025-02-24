@@ -202,9 +202,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	operatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
 	if err != nil || operatorAddress == (common.Address{}) {
-		log.Warn("Failed to get current preconf whitelist operator address, skip signature verification", "error", err)
+		log.Warn("Failed to get current preconf whitelist operator address", "error", err)
 		return common.Address{}
 	}
+
+	log.Info("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
 
 	return operatorAddress
 }

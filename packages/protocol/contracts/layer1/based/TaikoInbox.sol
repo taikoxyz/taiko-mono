@@ -686,11 +686,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     synced.tid = tid;
                     synced.stateRoot = ts.stateRoot;
                 }
-
-                for (uint24 i = 2; i < nextTransitionId; ++i) {
-                    ts = state.transitions[slot][i];
-                    delete state.transitionIds[batchId][ts.parentHash];
-                }
             }
 
             unchecked {

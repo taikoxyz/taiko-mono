@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
+	"github.com/modern-go/reflect2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -22,7 +23,7 @@ import (
 
 // ValidateSignature validates the signature of the request body.
 func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
-	payload, err := rlp.EncodeToBytes(b)
+	payload, err := rlp.EncodeToBytes(b.ExecutableData)
 	if err != nil {
 		return false, err
 	}
@@ -188,7 +189,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
-	if s.p2pNode != nil {
+	if s.p2pNode != nil && !reflect2.IsNil(s.p2pSigner) {
 		log.Info("Gossiping L2 Payload", "blockID", header.Number.Uint64(), "time", header.Time)
 
 		var u256 uint256.Int
@@ -220,6 +221,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
 			}
 		}
+	} else {
+		log.Info(
+			"P2P network / signer is disabled, skip propagating the preconfirmation block",
+			"blockID", header.Number,
+			"hash", header.Hash(),
+			"coinbase", header.Coinbase.Hex(),
+			"timestamp", header.Time,
+			"gasLimit", header.GasLimit,
+			"gasUsed", header.GasUsed,
+			"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
+			"extraData", common.Bytes2Hex(header.Extra),
+			"baseFee", utils.WeiToEther(header.BaseFee),
+		)
 	}
 
 	return c.JSON(http.StatusOK, BuildPreconfBlockResponseBody{BlockHeader: header})
