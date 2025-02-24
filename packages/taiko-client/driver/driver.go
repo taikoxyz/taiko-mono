@@ -46,7 +46,6 @@ func (d *Driver) InitFromCli(ctx context.Context, c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
 	return d.InitFromConfig(ctx, cfg)
 }
 
