@@ -227,6 +227,7 @@ func isSubmitProofTxErrorRetryable(err error, blockID *big.Int) bool {
 		strings.HasPrefix(err.Error(), "L1_INVALID_PAUSE_STATUS") {
 		return true
 	}
+
 	log.Warn("🤷 Unretryable proof submission error", "error", err, "blockID", blockID)
 	return false
 }
