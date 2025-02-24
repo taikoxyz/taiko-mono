@@ -182,7 +182,7 @@
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-  - tier_router: `0x8a4c692F12d3a9750E744A4CE24a1d351bE52E66`
+  - tier_router: `0x44d307a9ec47aA55a7a30849d065686753C86Db6`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
   - risc0_groth16_verifier: `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9`
   - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
@@ -224,7 +224,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0x2784423f7c61Bc7B75dB6CdA26959946f437588D`
+- impl: `0x5110634593Ccb8072d161A7d260A409A7E74D7Ca`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -249,10 +249,11 @@
   - Upgrade to `0xd4896d4537c6425aC5d89B9f122d4E4ac4D65e1c` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `7394458` @tx`0x9c2f36af40c0004110041fc45d980b73b0c8dde8064713a55aeb6f69fca77a99`
   - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
   - Upgrade to `0x2784423f7c61Bc7B75dB6CdA26959946f437588D` @commit`9d2aac8` @tx`0xc0e8ec30d1479ca2414d4d28a09a543c2845247d80387f78c179d663ffe55c3c`
+  - Upgrade to `0x5110634593Ccb8072d161A7d260A409A7E74D7Ca` @commit`9a89166` @tx``
 
 #### tier_router
 
-- impl: `0x8a4c692F12d3a9750E744A4CE24a1d351bE52E66`
+- impl: `0x44d307a9ec47aA55a7a30849d065686753C86Db6`
 - logs:
   - deployed on Oct 24, 2024 @commit`7334b1d`
   - deployed on Nov 1, 2024 @commit`f4f4796`
@@ -260,6 +261,7 @@
   - deployed on Nov 8, 2024 @commit`1fee7bb` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
   - deployed on Nov 10, 2024 @commit`f24a908` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
   - deployed on Dec 20, 2024 @commit`06128e8` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
+  - deployed on Feb 25, 2024 @commit`9a89166`
 
 #### tier_sgx
 
@@ -385,6 +387,7 @@
   - Called `configureTcbInfoJson` @commit`3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
   - Update mrenclave & mrsign on May 28, 2024 @commit`b335b70` @tx`0x6a240314c6a48f3ab58e0a3d5bf0e915668dac5eec19c694656eeb3d66c12465`
   - Called `setMrEnclave` @commit`9d06958` @tx`0x0aa35e03c521f8e4b4d03662a6ecc6de5dd3e336f63e6ea00eff7b4184eae9be`
+  - Called `setMrEnclave` @commit`9a89166` @tx``
 
 ### token_unlock
 
