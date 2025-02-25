@@ -124,6 +124,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	sgxBatchSize := c.Uint64(flags.SGXBatchSize.Name)
+	zkvmBatchSize := c.Uint64(flags.ZKVMBatchSize.Name)
+	if sgxBatchSize < 1 || zkvmBatchSize < 1 {
+		return nil, fmt.Errorf("batch size should be larger than 1, SGXBatchSize: %d, ZKVMBatchSize: %d",
+			sgxBatchSize,
+			zkvmBatchSize,
+		)
+	}
+
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:                            c.String(flags.L2WSEndpoint.Name),
@@ -167,8 +176,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProverPrivKey,
 			c,
 		),
-		SGXProofBufferSize:        c.Uint64(flags.SGXBatchSize.Name),
-		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
+		SGXProofBufferSize:        sgxBatchSize,
+		ZKVMProofBufferSize:       zkvmBatchSize,
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 	}, nil
 }

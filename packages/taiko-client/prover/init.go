@@ -160,6 +160,32 @@ func (p *Prover) initProofSubmitters(
 			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 		}
 	}
+	// Init verifiers for pacaya
+	var provers = make([]proofProducer.ProofProducer, 3)
+	opVerifier, err := p.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: p.ctx})
+	if err == nil && opVerifier != transaction.ZeroAddress{
+		provers = append(provers, &proofProducer.OptimisticProofProducerPacaya{
+			Verifier: opVerifier,
+			ProofBuffers: map[string]*proofProducer.ProofBuffer{
+				proofProducer.ProofTypeOP: proofProducer.NewProofBuffer(p.cfg.SGXProofBufferSize),
+		},
+		})
+	}
+	sgxVerifier, err := p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx})
+	if err == nil && sgxVerifier != transaction.ZeroAddress{
+		provers[proofProducer.ProofTypeSgx] =
+	}
+	risc0Verifier, err := p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx})
+	if err == nil && risc0Verifier != transaction.ZeroAddress{
+		provers[proofProducer.ZKProofTypeR0] =
+	}
+	sp1Verifier, err := p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx})
+	if err == nil && sp1Verifier != transaction.ZeroAddress{
+		provers[proofProducer.ZKProofTypeSP1] =
+	}
+	if len(provers) == 0 {
+		return fmt.Errorf("unsupported tier: %d", tier.ID)
+	}
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
 		&proofProducer.OptimisticProofProducer{},

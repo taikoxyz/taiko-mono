@@ -19,23 +19,43 @@ func (o *DummyProofProducer) RequestProof(
 	tier uint16,
 	_ time.Time,
 ) (*ProofResponse, error) {
-	return &ProofResponse{
-		BlockID: blockID,
-		Meta:    meta,
-		Proof:   bytes.Repeat([]byte{0xff}, 100),
-		Opts:    opts,
-		Tier:    tier,
-	}, nil
+	if meta.IsPacaya() {
+		return &ProofResponse{
+			BlockID:   blockID,
+			Meta:      meta,
+			Proof:     bytes.Repeat([]byte{0xff}, 100),
+			Opts:      opts,
+			ProofType: ProofTypeOP,
+		}, nil
+	} else {
+		return &ProofResponse{
+			BlockID: blockID,
+			Meta:    meta,
+			Proof:   bytes.Repeat([]byte{0xff}, 100),
+			Opts:    opts,
+			Tier:    tier,
+		}, nil
+	}
 }
 
 // RequestBatchProofs returns a dummy proof aggregation to the result channel.
 func (o *DummyProofProducer) RequestBatchProofs(
 	proofs []*ProofResponse,
 	tier uint16,
+	proofType string,
 ) (*BatchProofs, error) {
-	return &BatchProofs{
-		ProofResponses: proofs,
-		BatchProof:     bytes.Repeat([]byte{0xbb}, 100),
-		Tier:           tier,
-	}, nil
+	if len(proofType) == 0 {
+		return &BatchProofs{
+			ProofResponses: proofs,
+			BatchProof:     bytes.Repeat([]byte{0xbb}, 100),
+			Tier:           tier,
+		}, nil
+	} else {
+		return &BatchProofs{
+			ProofResponses: proofs,
+			BatchProof:     bytes.Repeat([]byte{0xbb}, 100),
+			ProofType:      proofType,
+		}, nil
+	}
+
 }

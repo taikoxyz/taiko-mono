@@ -47,7 +47,8 @@ func (o *OptimisticProofProducer) Aggregate(
 	for i, item := range items {
 		blockIDs[i] = item.Meta.Ontake().GetBlockID()
 	}
-	batchProof, err := o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
+	proofType := items[0].ProofType
+	batchProof, err := o.DummyProofProducer.RequestBatchProofs(items, o.Tier(), proofType)
 	if err != nil {
 		return nil, err
 	}

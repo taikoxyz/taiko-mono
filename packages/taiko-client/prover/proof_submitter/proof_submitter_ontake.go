@@ -21,7 +21,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
-	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
@@ -29,9 +29,9 @@ import (
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitterOntake struct {
 	rpc               *rpc.Client
-	proofProducer     proofProducer.ProofProducer
-	resultCh          chan *proofProducer.ProofResponse
-	batchResultCh     chan *proofProducer.BatchProofs
+	proofProducer     producer.ProofProducer
+	resultCh          chan *producer.ProofResponse
+	batchResultCh     chan *producer.BatchProofs
 	aggregationNotify chan uint16
 	anchorValidator   *validator.AnchorTxValidator
 	txBuilder         *transaction.ProveBlockTxBuilder
@@ -45,16 +45,16 @@ type ProofSubmitterOntake struct {
 	isGuardian      bool
 	submissionDelay time.Duration
 	// Batch proof related
-	proofBuffer               *ProofBuffer
+	proofBuffer               *producer.ProofBuffer
 	forceBatchProvingInterval time.Duration
 }
 
 // NewProofSubmitterOntake creates a new ProofSubmitter instance.
 func NewProofSubmitterOntake(
 	rpcClient *rpc.Client,
-	proofProducer proofProducer.ProofProducer,
-	resultCh chan *proofProducer.ProofResponse,
-	batchResultCh chan *proofProducer.BatchProofs,
+	proofProducer producer.ProofProducer,
+	resultCh chan *producer.ProofResponse,
+	batchResultCh chan *producer.BatchProofs,
 	aggregationNotify chan uint16,
 	proverSetAddress common.Address,
 	taikoL2Address common.Address,
@@ -90,7 +90,7 @@ func NewProofSubmitterOntake(
 		tiers:                     tiers,
 		isGuardian:                isGuardian,
 		submissionDelay:           submissionDelay,
-		proofBuffer:               NewProofBuffer(proofBufferSize),
+		proofBuffer:               producer.NewProofBuffer(proofBufferSize),
 		forceBatchProvingInterval: forceBatchProvingInterval,
 	}, nil
 }
@@ -120,7 +120,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 	}
 
 	// Request proof.
-	opts := &proofProducer.ProofRequestOptionsOntake{
+	opts := &producer.ProofRequestOptionsOntake{
 		BlockID:            header.Number,
 		ProverAddress:      s.proverAddress,
 		ProposeBlockTxHash: meta.GetTxHash(),
@@ -155,7 +155,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					"tier", meta.Ontake().GetMinTier(),
 					"size", s.proofBuffer.Len(),
 				)
-				return errBufferOverflow
+				return producer.errBufferOverflow
 			}
 			// Check if there is a need to generate proof
 			proofStatus, err := rpc.GetBlockProofStatus(
@@ -181,14 +181,14 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 			)
 			if err != nil {
 				// If request proof has timed out in retry, let's cancel the proof generating and skip
-				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
+				if errors.Is(err, producer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
 					log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
 					if cancelErr := s.proofProducer.RequestCancel(ctx, opts); cancelErr != nil {
 						log.Error("Failed to request cancellation of proof", "err", cancelErr)
 					}
 					return nil
 				}
-				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+				if errors.Is(err, producer.ErrZkAnyNotDrawn) {
 					return backoff.Permanent(err)
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.Ontake().GetBlockID(), err)
@@ -237,7 +237,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 // SubmitProof implements the Submitter interface.
 func (s *ProofSubmitterOntake) SubmitProof(
 	ctx context.Context,
-	proofResponse *proofProducer.ProofResponse,
+	proofResponse *producer.ProofResponse,
 ) (err error) {
 	log.Info(
 		"Submit block proof",
@@ -320,9 +320,9 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
 	var tier uint16
 	switch proofResponse.ProofType {
-	case proofProducer.ZKProofTypeR0:
+	case producer.ZKProofTypeR0:
 		tier = encoding.TierZkVMRisc0ID
-	case proofProducer.ZKProofTypeSP1:
+	case producer.ZKProofTypeSP1:
 		tier = encoding.TierZkVMSp1ID
 	default:
 		tier = proofResponse.Tier
@@ -360,7 +360,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 }
 
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
-func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
+func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof *producer.BatchProofs) error {
 	log.Info(
 		"Batch submit block proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
@@ -375,7 +375,7 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 		uint64BlockIDs      []uint64
 	)
 	if len(batchProof.ProofResponses) == 0 {
-		return proofProducer.ErrInvalidLength
+		return producer.ErrInvalidLength
 	}
 	// Check if the proof has already been submitted.
 	proofStatus, err := rpc.BatchGetBlocksProofStatus(
@@ -492,8 +492,8 @@ func (s *ProofSubmitterOntake) AggregateProofs(ctx context.Context) error {
 				startTime,
 			)
 			if err != nil {
-				if errors.Is(err, proofProducer.ErrProofInProgress) ||
-					errors.Is(err, proofProducer.ErrRetry) {
+				if errors.Is(err, producer.ErrProofInProgress) ||
+					errors.Is(err, producer.ErrRetry) {
 					log.Info(
 						"Aggregating proofs",
 						"status", err,
@@ -542,7 +542,7 @@ func (s *ProofSubmitterOntake) getRandomBumpedSubmissionDelay(expiredAt time.Tim
 }
 
 // Producer returns the inner proof producer.
-func (s *ProofSubmitterOntake) Producer() proofProducer.ProofProducer {
+func (s *ProofSubmitterOntake) Producer() producer.ProofProducer {
 	return s.proofProducer
 }
 

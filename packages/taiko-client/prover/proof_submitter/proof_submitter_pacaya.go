@@ -27,7 +27,7 @@ import (
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitterPacaya struct {
 	rpc                *rpc.Client
-	proofProducer      proofProducer.ProofProducer
+	teeProofProducer   proofProducer.ProofProducer
 	resultCh           chan *proofProducer.ProofResponse
 	batchResultCh      chan *proofProducer.BatchProofs
 	aggregationNotify  chan uint16
@@ -37,12 +37,15 @@ type ProofSubmitterPacaya struct {
 	proverAddress      common.Address
 	proverSetAddress   common.Address
 	taikoAnchorAddress common.Address
+	// Batch proof related
+	proofBuffers              map[string]*proofProducer.ProofBuffer
+	forceBatchProvingInterval time.Duration
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
 func NewProofSubmitterPacaya(
 	rpcClient *rpc.Client,
-	proofProducer proofProducer.ProofProducer,
+	proofProducers proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
 	aggregationNotify chan uint16,
@@ -60,7 +63,7 @@ func NewProofSubmitterPacaya(
 
 	return &ProofSubmitterPacaya{
 		rpc:                rpcClient,
-		proofProducer:      proofProducer,
+		teeProofProducer:   proofProducers,
 		resultCh:           resultCh,
 		batchResultCh:      batchResultCh,
 		aggregationNotify:  aggregationNotify,
@@ -168,8 +171,31 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.Pacaya().GetBatchID(), err)
 			}
-
-			s.resultCh <- result
+			bufferSize, err := s.proofBuffer.Write(result)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
+					meta.Ontake().GetBlockID(),
+					bufferSize,
+					err,
+				)
+			}
+			log.Info(
+				"Proof generated",
+				"blockID", meta.Ontake().GetBlockID(),
+				"bufferSize", bufferSize,
+				"maxBufferSize", s.proofBuffer.MaxLength,
+				"proofType", result.ProofType,
+				"bufferIsAggregating", s.proofBuffer.IsAggregating(),
+				"bufferLastUpdatedAt", s.proofBuffer.lastUpdatedAt,
+			)
+			// Check if we need to aggregate proofs.
+			if !s.proofBuffer.IsAggregating() &&
+				(uint64(bufferSize) >= s.proofBuffer.MaxLength ||
+					time.Since(s.proofBuffer.lastUpdatedAt) > s.forceBatchProvingInterval) {
+				s.aggregationNotify <- s.Tier()
+				s.proofBuffer.MarkAggregating()
+			}
 			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
 		},
