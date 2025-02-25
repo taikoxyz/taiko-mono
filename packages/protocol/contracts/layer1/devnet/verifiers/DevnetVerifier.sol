@@ -11,6 +11,7 @@ contract DevnetVerifier is ComposeVerifier {
 
     constructor(
         address _taikoInbox,
+        address _trustedVerifier,
         address _opVerifier,
         address _sgxVerifier,
         address _risc0Verifier,
@@ -19,6 +20,7 @@ contract DevnetVerifier is ComposeVerifier {
         ComposeVerifier(
             _taikoInbox,
             _opVerifier,
+            _trustedVerifier,
             _sgxVerifier,
             address(0),
             _risc0Verifier,
@@ -32,9 +34,12 @@ contract DevnetVerifier is ComposeVerifier {
         override
         returns (bool)
     {
-        if (_verifiers.length != 1) return false;
+        if (_verifiers.length != 2) return false;
 
-        return _verifiers[0] == opVerifier || _verifiers[0] == sgxVerifier
-            || _verifiers[0] == risc0Verifier || _verifiers[0] == sp1Verifier;
+        return _verifiers[0] == trustedVerifier
+            && (
+                _verifiers[1] == opVerifier || _verifiers[1] == sgxVerifier
+                    || _verifiers[1] == risc0Verifier || _verifiers[1] == sp1Verifier
+            );
     }
 }
