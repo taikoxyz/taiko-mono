@@ -20,7 +20,7 @@ library LibPreconfConstants {
             return ETHEREUM_MAINNET_BEACON_GENESIS;
         } else if (_chainid == LibNetwork.ETHEREUM_HOLESKY) {
             return ETHEREUM_HOLESKY_BEACON_GENESIS;
-        } else if(_chainid == LibNetwork.ETHEREUM_HELDER) {
+        } else if (_chainid == LibNetwork.ETHEREUM_HELDER) {
             return ETHEREUM_HELDER_BEACON_GENESIS;
         }
         return uint256(0);
