@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -189,17 +188,16 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 
 			}
 			if result == nil {
-				result, err2 = s.teeProofProducer.RequestProof(
+				if result, err = s.teeProofProducer.RequestProof(
 					ctx,
 					opts,
 					meta.Pacaya().GetBatchID(),
 					meta,
 					startTime,
-				)
-				if err2 != nil {
+				); err != nil {
 					// If request proof has timed out in retry, let's cancel the proof generating and skip
-					if errors.Is(err2, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
-						log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
+					if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
+						log.Error("Request proof has timed out, start to cancel", "batchID", opts.BatchID)
 						if cancelErr := s.teeProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
 							log.Error("Failed to request cancellation of proof", "err", cancelErr)
 						}
@@ -345,6 +343,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
 	if !exist {
+		log.Warn("Tier is not implemented for Pacaya submitter")
 		return fmt.Errorf("when submit batches proofs, found unexpected proof type from raiko %s", batchProof.ProofType)
 	}
 	if len(invalidBatchIDs) > 0 {
@@ -374,12 +373,27 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	return nil
 }
 
-// AggregateProofs read all data from buffer and aggregate them.
-func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
+// AggregateProofsByType read all data from buffer and aggregate them.
+func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofType string) error {
+	proofBuffer, exist := s.proofBuffers[proofType]
+	if !exist {
+		return fmt.Errorf("get unexpected proof type: %s", proofType)
+	}
+	var producer proofProducer.ProofProducer
+	switch proofType {
+	case proofProducer.ProofTypeSgx:
+		producer = s.teeProofProducer
+	case proofProducer.ZKProofTypeSP1:
+		producer = s.zkvmProofProducer
+	case proofProducer.ZKProofTypeR0:
+		producer = s.zkvmProofProducer
+	default:
+		return fmt.Errorf("unknown proof type: %s", proofType)
+	}
 	startTime := time.Now()
 	if err := backoff.Retry(
 		func() error {
-			buffer, err := s.proofBuffer.ReadAll()
+			buffer, err := proofBuffer.ReadAll()
 			if err != nil {
 				return fmt.Errorf("failed to read proof from buffer: %w", err)
 			}
@@ -388,21 +402,21 @@ func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
 				return nil
 			}
 
-			result, err := s.proofProducer.Aggregate(
+			result, err := producer.Aggregate(
 				ctx,
 				buffer,
 				startTime,
 			)
 			if err != nil {
-				if errors.Is(err, producer.ErrProofInProgress) ||
-					errors.Is(err, producer.ErrRetry) {
+				if errors.Is(err, proofProducer.ErrProofInProgress) ||
+					errors.Is(err, proofProducer.ErrRetry) {
 					log.Info(
 						"Aggregating proofs",
 						"status", err,
 						"batchSize", len(buffer),
 						"firstID", buffer[0].BlockID,
 						"lastID", buffer[len(buffer)-1].BlockID,
-						"tier", s.Tier(),
+						"proofType", proofType,
 					)
 				} else {
 					log.Error("Failed to request proof aggregation", "err", err)
@@ -421,7 +435,13 @@ func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
 }
 
 // Producer implements the Submitter interface.
+func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
+	return fmt.Errorf("tier is not implemented for Pacaya submitter")
+}
+
+// Producer implements the Submitter interface.
 func (s *ProofSubmitterPacaya) Producer() proofProducer.ProofProducer {
+	log.Warn("Tier is not implemented for Pacaya submitter")
 	return nil
 }
 
@@ -439,5 +459,5 @@ func (s *ProofSubmitterPacaya) BufferSize() uint64 {
 
 // AggregationEnabled implements the Submitter interface.
 func (s *ProofSubmitterPacaya) AggregationEnabled() bool {
-	return false
+	return true
 }

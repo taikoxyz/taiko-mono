@@ -3,9 +3,10 @@ package producer
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"math/big"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"

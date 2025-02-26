@@ -112,6 +112,7 @@ func (pb *ProofBuffer) IsAggregating() bool {
 }
 
 // Enabled returns if the buffer is enabled.
+// @dev this function would be deprecated after Pacaya fork
 func (pb *ProofBuffer) Enabled() bool {
 	return pb.MaxLength > 1
 }

@@ -70,9 +70,10 @@ type Prover struct {
 	proofContesterOntake  proofSubmitter.Contester
 	proofSubmitterPacaya  proofSubmitter.Submitter
 
-	assignmentExpiredCh chan metadata.TaikoProposalMetaData
-	proveNotify         chan struct{}
-	aggregationNotify   chan uint16
+	assignmentExpiredCh     chan metadata.TaikoProposalMetaData
+	proveNotify             chan struct{}
+	aggregationNotify       chan uint16
+	aggregationPacayaNotify chan string
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -340,6 +341,8 @@ func (p *Prover) eventLoop() {
 			}
 		case tier := <-p.aggregationNotify:
 			p.withRetry(func() error { return p.aggregateOp(tier) })
+		case proofType := <-p.aggregationPacayaNotify:
+			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
 		case e := <-blockVerifiedV2Ch:
 			p.eventHandlers.blockVerifiedHandler.Handle(e)
 		case e := <-transitionProvedV2Ch:
@@ -413,6 +416,19 @@ func (p *Prover) aggregateOp(tier uint16) error {
 	}
 
 	return g.Wait()
+}
+
+// aggregateOp aggregates all proofs in buffer.
+func (p *Prover) aggregateOpPacaya(proofType string) error {
+	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
+		log.Error(
+			"Failed to aggregate proofs",
+			"error", err,
+			"proofType", proofType,
+		)
+		return err
+	}
+	return nil
 }
 
 // contestProofOp performs a proof contest operation.

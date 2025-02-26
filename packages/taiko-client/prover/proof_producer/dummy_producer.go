@@ -21,11 +21,10 @@ func (o *DummyProofProducer) RequestProof(
 ) (*ProofResponse, error) {
 	if meta.IsPacaya() {
 		return &ProofResponse{
-			BlockID:   blockID,
-			Meta:      meta,
-			Proof:     bytes.Repeat([]byte{0xff}, 100),
-			Opts:      opts,
-			ProofType: ProofTypeOP,
+			BlockID: blockID,
+			Meta:    meta,
+			Proof:   bytes.Repeat([]byte{0xff}, 100),
+			Opts:    opts,
 		}, nil
 	} else {
 		return &ProofResponse{

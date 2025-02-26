@@ -559,3 +559,8 @@ func (s *ProofSubmitterOntake) BufferSize() uint64 {
 func (s *ProofSubmitterOntake) AggregationEnabled() bool {
 	return s.proofBuffer.Enabled()
 }
+
+// AggregateProofsByType implements the Submitter interface.
+func (s *ProofSubmitterOntake) AggregateProofsByType(ctx context.Context, proofType string) error {
+	return fmt.Errorf("tier is not implemented for Ontake submitter")
+}
