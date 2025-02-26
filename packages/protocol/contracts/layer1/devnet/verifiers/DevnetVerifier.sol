@@ -35,11 +35,14 @@ contract DevnetVerifier is ComposeVerifier {
         returns (bool)
     {
         if (_verifiers.length != 2) return false;
+        uint256 trustedVerifierIdx = (_verifiers[0] == trustedVerifier) ? 0 : 1;
+        uint256 refVerifierIdx = (trustedVerifierIdx == 0) ? 1 : 0;
+        require(_verifiers[trustedVerifierIdx] == trustedVerifier, "CV_INVALID_TRUSTED_VERIFIER");
 
-        return _verifiers[0] == trustedVerifier
-            && (
-                _verifiers[1] == opVerifier || _verifiers[1] == sgxVerifier
-                    || _verifiers[1] == risc0Verifier || _verifiers[1] == sp1Verifier
-            );
+        return (
+            _verifiers[refVerifierIdx] == opVerifier || _verifiers[refVerifierIdx] == sgxVerifier
+                || _verifiers[refVerifierIdx] == risc0Verifier
+                || _verifiers[refVerifierIdx] == sp1Verifier
+        );
     }
 }
