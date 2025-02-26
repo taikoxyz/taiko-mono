@@ -97,13 +97,16 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new DevnetVerifier(address(0), address(0), address(0), address(0), address(0))
+                new DevnetVerifier(
+                    address(0), address(0), address(0), address(0), address(0), address(0)
+                )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
 
         // OP verifier
+
         address opVerifier = deployProxy({
             name: "op_verifier",
             impl: address(new OpVerifier(rollupResolver)),
@@ -179,10 +182,16 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             ),
             registerTo: rollupResolver
         });
-        UUPSUpgradeable(sgxVerifier).upgradeTo(
-            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy))
-        );
+        address sgxImpl =
+            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy));
+        UUPSUpgradeable(sgxVerifier).upgradeTo(sgxImpl);
         register(rollupResolver, "sgx_verifier", sgxVerifier);
+        address trustedVerifier = deployProxy({
+            name: "trusted_verifier",
+            impl: sgxVerifier,
+            data: abi.encodeCall(SgxVerifier.init, address(0)),
+            registerTo: rollupResolver
+        });
 
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier risc0Groth16Verifier =
@@ -203,7 +212,9 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
-                new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
+                new DevnetVerifier(
+                    taikoInbox, trustedVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                )
             )
         );
     }
