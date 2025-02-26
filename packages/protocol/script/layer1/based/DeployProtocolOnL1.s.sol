@@ -411,8 +411,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         trustedVerifier = deployProxy({
             name: "trusted_verifier",
-            impl: sgxVerifier,
-            data: abi.encodeCall(SgxVerifier.init, address(0)),
+            impl: sgxImpl,
+            data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
 
