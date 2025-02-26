@@ -12,7 +12,9 @@ import (
 )
 
 // OptimisticProofProducer always returns an optimistic (dummy) proof.
-type OptimisticProofProducer struct{ DummyProofProducer }
+type OptimisticProofProducer struct {
+	DummyProofProducer
+}
 
 // RequestProof implements the ProofProducer interface.
 func (o *OptimisticProofProducer) RequestProof(

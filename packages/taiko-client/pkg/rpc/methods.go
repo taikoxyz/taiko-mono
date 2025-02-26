@@ -1233,3 +1233,18 @@ func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, erro
 		&bind.CallOpts{Context: opts.Context},
 	)
 }
+
+// GetTrustedVerifierPacaya resolves the Pacaya trusted verifier address.
+func (c *Client) GetTrustedVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	// TODO: change it to `TrustedVerifier`
+	return c.PacayaClients.ComposeVerifier.SgxVerifier(
+		&bind.CallOpts{Context: opts.Context},
+	)
+}

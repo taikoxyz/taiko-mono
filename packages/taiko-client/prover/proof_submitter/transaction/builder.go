@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -213,7 +214,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			err         error
 			metas       = make([]metadata.TaikoProposalMetaData, len(batchProof.ProofResponses))
 			transitions = make([]pacayaBindings.ITaikoInboxTransition, len(batchProof.ProofResponses))
-			subProofs   = make([]encoding.SubProof, len(batchProof.ProofResponses))
+			subProofs   = make([]encoding.SubProof, 2)
 			batchIDs    = make([]uint64, len(batchProof.ProofResponses))
 		)
 		for i, proof := range batchProof.ProofResponses {
@@ -224,7 +225,6 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				StateRoot:  proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Root,
 			}
 			batchIDs[i] = proof.Meta.Pacaya().GetBatchID().Uint64()
-			subProofs[i] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
 			log.Info(
 				"Build batch proof submission transaction",
 				"batchID", batchIDs[i],
@@ -236,6 +236,13 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				"gasLimit", txOpts.GasLimit,
 				"verifier", batchProof.Verifier,
 			)
+		}
+		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.TrustedProofVerifier.Bytes()) < 0 {
+			subProofs[0] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
+			subProofs[1] = encoding.SubProof{Verifier: batchProof.TrustedProofVerifier, Proof: batchProof.TrustedBatchProof}
+		} else {
+			subProofs[0] = encoding.SubProof{Verifier: batchProof.TrustedProofVerifier, Proof: batchProof.TrustedBatchProof}
+			subProofs[1] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
 		}
 
 		input, err := encoding.EncodeProveBatchesInput(metas, transitions)

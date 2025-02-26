@@ -71,7 +71,6 @@ func (s *TrustedProofProducer) RequestProof(
 		Meta:    meta,
 		Proof:   proof,
 		Opts:    opts,
-		Tier:    s.Tier(),
 	}, nil
 }
 
@@ -119,6 +118,7 @@ func (s *TrustedProofProducer) Aggregate(
 		BatchProof:     batchProof,
 		Tier:           s.Tier(),
 		BlockIDs:       batchIDs,
+		Verifier:       s.Verifier,
 	}, nil
 }
 

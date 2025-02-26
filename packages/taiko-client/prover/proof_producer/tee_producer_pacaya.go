@@ -3,29 +3,22 @@ package producer
 import (
 	"context"
 	"fmt"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"golang.org/x/sync/errgroup"
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
-const (
-	ProofTypeOP = "op"
-)
-
-// OptimisticProofProducerPacaya always returns an optimistic (dummy) proof.
-type OptimisticProofProducerPacaya struct {
-	Verifier        common.Address
+// TEEProofProducerPacaya generates a SGX proof for the given block.
+type TEEProofProducerPacaya struct {
 	TrustedProducer TrustedProofProducer
-	OptimisticProofProducer
+	TeeProducer     TrustedProofProducer
 }
 
 // RequestProof implements the ProofProducer interface.
-func (o *OptimisticProofProducerPacaya) RequestProof(
+func (t *TEEProofProducerPacaya) RequestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	batchID *big.Int,
@@ -35,13 +28,13 @@ func (o *OptimisticProofProducerPacaya) RequestProof(
 	g := new(errgroup.Group)
 
 	g.Go(func() error {
-		if _, err := o.TrustedProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+		if _, err := t.TrustedProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
 			return err
 		}
 		return nil
 	})
 	g.Go(func() error {
-		if _, err := o.OptimisticProofProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+		if _, err := t.TeeProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
 			return err
 		}
 		return nil
@@ -50,14 +43,15 @@ func (o *OptimisticProofProducerPacaya) RequestProof(
 		return nil, fmt.Errorf("failed to get proofs: %w", err)
 	}
 	return &ProofResponse{
-		BlockID: batchID,
-		Meta:    meta,
-		Opts:    opts,
+		BlockID:   batchID,
+		Meta:      meta,
+		Opts:      opts,
+		ProofType: t.TeeProducer.ProofType,
 	}, nil
 }
 
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
-func (o *OptimisticProofProducerPacaya) Aggregate(
+func (t *TEEProofProducerPacaya) Aggregate(
 	ctx context.Context,
 	items []*ProofResponse,
 	startTime time.Time,
@@ -73,18 +67,18 @@ func (o *OptimisticProofProducerPacaya) Aggregate(
 	var (
 		g                  = new(errgroup.Group)
 		trustedBatchProofs *BatchProofs
-		opBatchProofs      *BatchProofs
+		sgxBatchProofs     *BatchProofs
 		err                error
 	)
 
 	g.Go(func() error {
-		if trustedBatchProofs, err = o.TrustedProducer.Aggregate(ctx, items, startTime); err != nil {
+		if trustedBatchProofs, err = t.TrustedProducer.Aggregate(ctx, items, startTime); err != nil {
 			return err
 		}
 		return nil
 	})
 	g.Go(func() error {
-		if opBatchProofs, err = o.OptimisticProofProducer.Aggregate(ctx, items, startTime); err != nil {
+		if sgxBatchProofs, err = t.TeeProducer.Aggregate(ctx, items, startTime); err != nil {
 			return err
 		}
 		return nil
@@ -93,17 +87,26 @@ func (o *OptimisticProofProducerPacaya) Aggregate(
 		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
 	}
 	return &BatchProofs{
-		ProofResponses:       opBatchProofs.ProofResponses,
-		BatchProof:           opBatchProofs.BatchProof,
+		ProofResponses:       sgxBatchProofs.ProofResponses,
+		BatchProof:           sgxBatchProofs.BatchProof,
 		BlockIDs:             batchIDs,
-		ProofType:            opBatchProofs.ProofType,
-		Verifier:             o.Verifier,
+		ProofType:            sgxBatchProofs.ProofType,
+		Verifier:             sgxBatchProofs.Verifier,
 		TrustedProofVerifier: trustedBatchProofs.Verifier,
 		TrustedBatchProof:    trustedBatchProofs.BatchProof,
 	}, nil
 }
 
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
+func (t *TEEProofProducerPacaya) RequestCancel(
+	_ context.Context,
+	_ ProofRequestOptions,
+) error {
+	// TODO: waiting raiko api specific
+	return nil
+}
+
 // Tier implements the ProofProducer interface.
-func (o *OptimisticProofProducerPacaya) Tier() uint16 {
-	return encoding.TierOptimisticID
+func (t *TEEProofProducerPacaya) Tier() uint16 {
+	return encoding.TierDeprecated
 }

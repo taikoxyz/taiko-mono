@@ -155,7 +155,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					"tier", meta.Ontake().GetMinTier(),
 					"size", s.proofBuffer.Len(),
 				)
-				return producer.errBufferOverflow
+				return producer.ErrBufferOverflow
 			}
 			// Check if there is a need to generate proof
 			proofStatus, err := rpc.GetBlockProofStatus(
@@ -194,6 +194,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.Ontake().GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
+				firstItemAt := s.proofBuffer.FirstItemAt()
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
 					return fmt.Errorf(
@@ -210,12 +211,12 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					"maxBufferSize", s.proofBuffer.MaxLength,
 					"proofType", result.ProofType,
 					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
-					"bufferLastUpdatedAt", s.proofBuffer.lastUpdatedAt,
+					"bufferFirstItemAt", firstItemAt,
 				)
 				// Check if we need to aggregate proofs.
 				if !s.proofBuffer.IsAggregating() &&
 					(uint64(bufferSize) >= s.proofBuffer.MaxLength ||
-						time.Since(s.proofBuffer.lastUpdatedAt) > s.forceBatchProvingInterval) {
+						(s.proofBuffer.Len() != 0 && time.Since(firstItemAt) > s.forceBatchProvingInterval)) {
 					s.aggregationNotify <- s.Tier()
 					s.proofBuffer.MarkAggregating()
 				}
@@ -466,8 +467,6 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 	s.proofBuffer.ClearItems(uint64BlockIDs...)
-	// Each time we submit a batch proof, we should update the LastUpdatedAt() of the buffer.
-	s.proofBuffer.UpdateLastUpdatedAt()
 
 	return nil
 }
