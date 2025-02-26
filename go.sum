@@ -599,8 +599,8 @@ github.com/taikoxyz/hive v0.0.0-20240827015317-405b241dd082 h1:ymZR+Y88LOnA8i3Ke
 github.com/taikoxyz/hive v0.0.0-20240827015317-405b241dd082/go.mod h1:RHnIu3EFehrWX3JhFAMQSXD5uz7l0xaNroTzXrap7EQ=
 github.com/taikoxyz/optimism v0.0.0-20241003061504-cdf8af288f39 h1:JssMxaDmORjQ9RPZNulVJhAD8zSPd6LZFq5wsr6Nwz8=
 github.com/taikoxyz/optimism v0.0.0-20241003061504-cdf8af288f39/go.mod h1:ym7scR7ZHvEmwx1DLGVDzFlAdR+uhP1+Z4XCiFuSD5s=
-github.com/taikoxyz/taiko-geth v1.11.1 h1:pur1WP6YJkwKhLVeN3Zf7dOwbPq6tS88gYod6QKlJc4=
-github.com/taikoxyz/taiko-geth v1.11.1/go.mod h1:+l/fr42Mma+xBnhefL/+z11/hcmJ2egl+ScIVPjhc7E=
+github.com/taikoxyz/taiko-geth v1.12.1-0.20250224231923-153b900e1b19 h1:MkKSPohTrmDL4P0stewcY65ApxSvCJ6c0zOEWw/kKxc=
+github.com/taikoxyz/taiko-geth v1.12.1-0.20250224231923-153b900e1b19/go.mod h1:+l/fr42Mma+xBnhefL/+z11/hcmJ2egl+ScIVPjhc7E=
 github.com/testcontainers/testcontainers-go v0.34.0 h1:5fbgF0vIN5u+nD3IWabQwRybuB4GY8G2HHgCkbMzMHo=
 github.com/testcontainers/testcontainers-go v0.34.0/go.mod h1:6P/kMkQe8yqPHfPWNulFGdFHTD8HB2vLq/231xY2iPQ=
 github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e h1:cR8/SYRgyQCt5cNCMniB/ZScMkhI9nk8U5C7SbISXjo=
