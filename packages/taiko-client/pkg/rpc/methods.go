@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -395,7 +394,7 @@ func (c *Client) GetPoolContent(
 	minTip uint64,
 	chainConfig *config.ChainConfig,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-) ([]*miner.PreBuiltTxList, error) {
+) (PoolContent, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 

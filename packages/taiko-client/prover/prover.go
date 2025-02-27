@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
@@ -466,18 +467,54 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 			minTier = encoding.TierGuardianMinorityID
 		}
 	}
-	if submitter := p.selectSubmitter(minTier); submitter != nil {
-		if err := submitter.RequestProof(p.ctx, meta); err != nil {
-			log.Error(
-				"Request new proof error",
-				"blockID", meta.Ontake().GetBlockID(),
-				"minTier", meta.Ontake().GetMinTier(),
-				"error", err,
-			)
-			return err
-		}
+	if minTier == encoding.TierOptimisticID ||
+		minTier >= encoding.TierGuardianMinorityID ||
+		len(p.cfg.RaikoZKVMHostEndpoint) == 0 {
+		if submitter := p.selectSubmitter(minTier); submitter != nil {
+			if err := submitter.RequestProof(p.ctx, meta); err != nil {
+				log.Error(
+					"Request new proof error",
+					"blockID", meta.Ontake().GetBlockID(),
+					"minTier", meta.Ontake().GetMinTier(),
+					"error", err,
+				)
+				return err
+			}
 
-		return nil
+			return nil
+		}
+	} else {
+		if submitter := p.selectSubmitter(encoding.TierZkVMSp1ID); submitter != nil {
+			if err := submitter.RequestProof(p.ctx, meta); err != nil {
+				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+					log.Debug("ZK proof was not chosen, attempting to request SGX proof",
+						"blockID", meta.Ontake().GetBlockID(),
+					)
+					if sgxSubmitter := p.selectSubmitter(encoding.TierSgxID); sgxSubmitter != nil {
+						if err := sgxSubmitter.RequestProof(p.ctx, meta); err != nil {
+							log.Error(
+								"Request new proof error",
+								"blockID", meta.Ontake().GetBlockID(),
+								"proofType", "sgx",
+								"error", err,
+							)
+							return err
+						}
+						return nil
+					}
+				} else {
+					log.Error(
+						"Request new proof error",
+						"blockID", meta.Ontake().GetBlockID(),
+						"proofType", "zkAny",
+						"error", err,
+					)
+					return err
+				}
+			} else {
+				return nil
+			}
+		}
 	}
 
 	log.Error(
@@ -528,10 +565,17 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	}
 
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) ||
-			strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
 			log.Error(
 				"Proof submission reverted",
+				"blockIDs", batchProof.BlockIDs,
+				"tier", batchProof.Tier,
+				"error", err,
+			)
+			return nil
+		} else if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+			log.Warn(
+				"Detected proven blocks",
 				"blockIDs", batchProof.BlockIDs,
 				"tier", batchProof.Tier,
 				"error", err,
