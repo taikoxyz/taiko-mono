@@ -18,10 +18,6 @@ import "src/shared/based/LibSharedData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
     struct BlockParams {
-        // the max number of transactions in this block. Note that if there are not enough
-        // transactions in calldata or blobs, the block will contains as many transactions as
-        // possible.
-        uint16 numTransactions;
         // For the first block in a batch,  the block timestamp is the batch params' `timestamp`
         // plus this time shift value;
         // For all other blocks in the same batch, the block timestamp is its parent block's
