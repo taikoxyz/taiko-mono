@@ -634,9 +634,8 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 				ByteOffset: 0,
 				ByteSize:   uint32(len(txListsBytes)),
 			},
-			Blocks:             blockParams,
-			AnchorBlockId:      anchoredL1Blocks[0].Number.Uint64(),
-			LastBlockTimestamp: blocks[len(blocks)-1].Time(),
+			Blocks:        blockParams,
+			AnchorBlockId: anchoredL1Blocks[0].Number.Uint64(),
 		})
 	s.Nil(err)
 

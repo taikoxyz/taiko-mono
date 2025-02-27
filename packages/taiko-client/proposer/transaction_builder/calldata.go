@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -167,10 +168,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	}
 
 	for _, txs := range txBatch {
-		blockMetaList = append(blockMetaList, utils.InboxBlockMeta{
-			Timestamp: 0,
-			Txs:       txs,
-		})
+		blockMetaList = append(blockMetaList, utils.InboxBlockMeta{Timestamp: 0, Txs: txs})
 		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{SignalSlots: make([][32]byte, 0)})
 	}
 
@@ -195,10 +193,12 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
+		log.Info("jajaja3")
 		if data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
 			return nil, err
 		}
 	} else {
+		log.Info("jajaja4")
 		if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, txListsBytes); err != nil {
 			return nil, err
 		}

@@ -199,10 +199,6 @@ var (
 			Type: "uint64",
 		},
 		{
-			Name: "lastBlockTimestamp",
-			Type: "uint64",
-		},
-		{
 			Name: "revertIfNotFirstProposal",
 			Type: "bool",
 		},
