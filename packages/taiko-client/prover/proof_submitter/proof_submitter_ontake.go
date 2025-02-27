@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -187,6 +188,9 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					}
 					return nil
 				}
+				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+					return backoff.Permanent(err)
+				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.Ontake().GetBlockID(), err)
 			}
 			if s.proofBuffer.Enabled() {
@@ -204,6 +208,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					"blockID", meta.Ontake().GetBlockID(),
 					"bufferSize", bufferSize,
 					"maxBufferSize", s.proofBuffer.MaxLength,
+					"proofType", result.ProofType,
 					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
 					"bufferLastUpdatedAt", s.proofBuffer.lastUpdatedAt,
 				)
@@ -241,6 +246,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 		"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
 		"proof", common.Bytes2Hex(proofResponse.Proof),
 		"tier", proofResponse.Tier,
+		"proofType", proofResponse.ProofType,
 	)
 
 	// Check if we still need to generate a new proof for that block.
@@ -312,6 +318,15 @@ func (s *ProofSubmitterOntake) SubmitProof(
 	}
 
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
+	var tier uint16
+	switch proofResponse.ProofType {
+	case proofProducer.ZKProofTypeR0:
+		tier = encoding.TierZkVMRisc0ID
+	case proofProducer.ZKProofTypeSP1:
+		tier = encoding.TierZkVMSp1ID
+	default:
+		tier = proofResponse.Tier
+	}
 	if err = s.sender.Send(
 		ctx,
 		proofResponse,
@@ -325,7 +340,7 @@ func (s *ProofSubmitterOntake) SubmitProof(
 				Graffiti:   s.graffiti,
 			},
 			&ontakeBindings.TaikoDataTierProof{
-				Tier: proofResponse.Tier,
+				Tier: tier,
 				Data: proofResponse.Proof,
 			},
 			proofResponse.Tier,

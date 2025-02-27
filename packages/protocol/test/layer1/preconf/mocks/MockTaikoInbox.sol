@@ -32,18 +32,33 @@ contract MockTaikoInbox is EssentialContract {
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             gasLimit: 0, // Mock value
             lastBlockId: 0,
-            lastBlockTimestamp: 0,
             proposedIn: uint64(block.number),
             blobCreatedIn: 0,
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             blocks: params.blocks,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 0,
-                sharingPctg: 0,
-                gasIssuancePerSecond: 0,
-                minGasExcess: 0,
-                maxGasIssuancePerBlock: 0
+            config: ITaikoInbox.Config({
+                chainId: 0,
+                maxUnverifiedBatches: 0,
+                batchRingBufferSize: 0,
+                maxBatchesToVerify: 0,
+                blockMaxGasLimit: 0,
+                livenessBondBase: 0,
+                livenessBondPerBlock: 0,
+                stateRootSyncInternal: 0,
+                maxAnchorHeightOffset: 0,
+                baseFeeConfig: LibSharedData.BaseFeeConfig({
+                    adjustmentQuotient: 0,
+                    sharingPctg: 0,
+                    gasIssuancePerSecond: 0,
+                    minGasExcess: 0,
+                    maxGasIssuancePerBlock: 0
+                }),
+                provingWindow: 0,
+                cooldownWindow: 0,
+                maxSignalsToReceive: 0,
+                maxBlocksPerBatch: 0,
+                forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0, shasta: 0, unzen: 0 })
             })
         });
 

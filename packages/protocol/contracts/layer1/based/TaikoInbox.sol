@@ -129,7 +129,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             Batch storage lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
-            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
+            (uint64 anchorBlockId) = _validateBatchParams(
                 params,
                 config.maxAnchorHeightOffset,
                 config.maxSignalsToReceive,
@@ -161,12 +161,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,
                 lastBlockId: 0, // to be initialised later
-                lastBlockTimestamp: lastBlockTimestamp,
                 //
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                baseFeeConfig: config.baseFeeConfig
+                config: config
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
@@ -192,7 +191,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             // SSTORE #2 {{
             batch.batchId = stats2.numBatches;
-            batch.lastBlockTimestamp = lastBlockTimestamp;
             batch.anchorBlockId = anchorBlockId;
             batch.nextTransitionId = 1;
             batch.verifiedTransitionId = 0;
@@ -566,7 +564,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         Batch storage batch = state.batches[0];
         batch.metaHash = bytes32(uint256(1));
-        batch.lastBlockTimestamp = uint64(block.timestamp);
         batch.anchorBlockId = uint64(block.number);
         batch.nextTransitionId = 2;
         batch.verifiedTransitionId = 1;
@@ -686,11 +683,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     synced.tid = tid;
                     synced.stateRoot = ts.stateRoot;
                 }
-
-                for (uint24 i = 2; i < nextTransitionId; ++i) {
-                    ts = state.transitions[slot][i];
-                    delete state.transitionIds[batchId][ts.parentHash];
-                }
             }
 
             unchecked {
@@ -782,7 +774,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         private
         view
-        returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
+        returns (uint64 anchorBlockId_)
     {
         uint256 blocksLength = _params.blocks.length;
         unchecked {
@@ -801,17 +793,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 anchorBlockId_ = _params.anchorBlockId;
             }
 
-            lastBlockTimestamp_ = _params.lastBlockTimestamp == 0
-                ? uint64(block.timestamp)
-                : _params.lastBlockTimestamp;
-
-            require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
-
-            uint64 totalShift;
-
             for (uint256 i; i < blocksLength; ++i) {
-                totalShift += _params.blocks[i].timeShift;
-
                 uint256 numSignals = _params.blocks[i].signalSlots.length;
                 if (numSignals == 0) continue;
 
@@ -824,20 +806,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     );
                 }
             }
-
-            require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());
-
-            uint64 firstBlockTimestamp = lastBlockTimestamp_ - totalShift;
-
-            require(
-                firstBlockTimestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp,
-                TimestampTooSmall()
-            );
-
-            require(
-                firstBlockTimestamp >= _lastBatch.lastBlockTimestamp, TimestampSmallerThanParent()
-            );
 
             // make sure the batch builds on the expected latest chain state.
             require(
