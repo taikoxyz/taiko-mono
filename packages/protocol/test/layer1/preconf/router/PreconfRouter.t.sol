@@ -37,7 +37,6 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Create batch params with correct structure
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
             proposer: Carol,
-            coinbase: address(0),
             parentMetaHash: bytes32(0),
             anchorBlockId: 0,
             revertIfNotFirstProposal: false,
@@ -118,7 +117,6 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Create batch params with DIFFERENT proposer than sender
         ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
             proposer: Bob, // Set different proposer than sender (Carol)
-            coinbase: address(0),
             parentMetaHash: bytes32(0),
             anchorBlockId: 0,
             revertIfNotFirstProposal: false,

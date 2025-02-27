@@ -103,10 +103,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
-                if (params.coinbase == address(0)) {
-                    params.coinbase = params.proposer;
-                }
-
                 if (params.revertIfNotFirstProposal) {
                     require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
                 }
@@ -154,7 +150,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 blocks: params.blocks,
                 blobHashes: new bytes32[](0), // to be initialised later
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                coinbase: params.coinbase,
                 proposedIn: uint64(block.number),
                 blobCreatedIn: params.blobParams.createdIn,
                 blobByteOffset: params.blobParams.byteOffset,

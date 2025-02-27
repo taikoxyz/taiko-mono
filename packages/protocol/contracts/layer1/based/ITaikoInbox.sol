@@ -41,7 +41,6 @@ interface ITaikoInbox {
 
     struct BatchParams {
         address proposer;
-        address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
         bool revertIfNotFirstProposal;
@@ -58,7 +57,6 @@ interface ITaikoInbox {
         BlockParams[] blocks;
         bytes32[] blobHashes;
         bytes32 extraData;
-        address coinbase;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;
         uint32 blobByteOffset;
