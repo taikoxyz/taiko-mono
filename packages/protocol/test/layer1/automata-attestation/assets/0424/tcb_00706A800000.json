@@ -1,8 +1,8 @@
 {
   "tcbInfo": {
     "version": 2,
-    "issueDate": "2025-02-22T20:27:46Z",
-    "nextUpdate": "2025-03-24T20:27:46Z",
+    "issueDate": "2025-02-27T20:12:22Z",
+    "nextUpdate": "2025-03-29T20:12:22Z",
     "fmspc": "00706A800000",
     "pceId": "0000",
     "tcbType": 0,
@@ -217,5 +217,5 @@
       }
     ]
   },
-  "signature": "8d261904effeff67143bef61123073ee4f40e2f2f69356e330ee5e51ecee513f95bd592bec44c0f4f9489f726b79daabdcbccb2e9c287df4f61c044c6346e131"
+  "signature": "e0656e8f6fd0b143dbaa726f42b50a03aa9d261eb98b05faf13d2fc231cdc5f02470e421ffb7900120caf31a3339892843ce982f5944571d9255d49349853195"
 }
