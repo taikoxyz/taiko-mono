@@ -18,11 +18,6 @@ import "src/shared/based/LibSharedData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
     struct BlockParams {
-        // For the first block in a batch,  the block timestamp is the batch params' `timestamp`
-        // plus this time shift value;
-        // For all other blocks in the same batch, the block timestamp is its parent block's
-        // timestamp plus this time shift value.
-        uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
     }
@@ -49,7 +44,6 @@ interface ITaikoInbox {
         address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
-        uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
@@ -71,7 +65,6 @@ interface ITaikoInbox {
         uint32 blobByteSize;
         uint32 gasLimit;
         uint64 lastBlockId;
-        uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
@@ -113,7 +106,6 @@ interface ITaikoInbox {
         uint96 reserved3;
         uint96 livenessBond;
         uint64 batchId; // slot 3
-        uint64 lastBlockTimestamp;
         uint64 anchorBlockId;
         uint24 nextTransitionId;
         uint8 reserved4;
@@ -285,9 +277,6 @@ interface ITaikoInbox {
     error ParentMetaHashMismatch();
     error SameTransition();
     error SignalNotSent();
-    error TimestampSmallerThanParent();
-    error TimestampTooLarge();
-    error TimestampTooSmall();
     error TooManyBatches();
     error TooManyBlocks();
     error TooManySignals();
