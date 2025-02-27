@@ -616,8 +616,7 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	for _, b := range blocks {
 		allTxs = append(allTxs, b.Transactions()[1:]...)
 		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
-			NumTransactions: uint16(b.Transactions()[1:].Len()),
-			TimeShift:       0,
+			SignalSlots: make([][32]byte, 0),
 		})
 	}
 

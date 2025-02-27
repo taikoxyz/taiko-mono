@@ -59,7 +59,6 @@ type TaikoBatchMetaDataPacaya interface {
 	GetCoinbase() common.Address
 	GetBatchID() *big.Int
 	GetGasLimit() uint32
-	GetLastBlockTimestamp() uint64
 	GetProposer() common.Address
 	GetProposedAt() uint64
 	GetProposedIn() uint64

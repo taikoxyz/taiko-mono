@@ -241,14 +241,6 @@ var (
 			Type: "tuple[]",
 			Components: []abi.ArgumentMarshaling{
 				{
-					Name: "numTransactions",
-					Type: "uint16",
-				},
-				{
-					Name: "timeShift",
-					Type: "uint8",
-				},
-				{
 					Name: "signalSlots",
 					Type: "bytes32[]",
 				},

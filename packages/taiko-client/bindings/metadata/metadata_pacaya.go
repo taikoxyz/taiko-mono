@@ -69,11 +69,6 @@ func (m *TaikoDataBlockMetadataPacaya) GetGasLimit() uint32 {
 	return m.GasLimit
 }
 
-// GetLastBlockTimestamp returns last block's timestamp in this batch.
-func (m *TaikoDataBlockMetadataPacaya) GetLastBlockTimestamp() uint64 {
-	return m.LastBlockTimestamp
-}
-
 // GetBlobHashes returns blob hashes in this batch.
 func (m *TaikoDataBlockMetadataPacaya) GetBlobHashes() []common.Hash {
 	var blobHashes []common.Hash
