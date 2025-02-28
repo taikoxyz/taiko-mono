@@ -330,7 +330,9 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 		[]byte{},
 	)
 	s.Nil(err)
-	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{forcedInclusionTx})
+	b, err := utils.EncodeAndCompressInboxBlockMetas([]*utils.InboxBlockMeta{
+		&utils.InboxBlockMeta{Txs: types.Transactions{forcedInclusionTx}, Timestamp: 0},
+	})
 	s.Nil(err)
 	s.NotEmpty(b)
 
@@ -598,11 +600,11 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 
 func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1Blocks []*types.Header) {
 	var (
-		to          = &s.p.TaikoL1Address
-		proposer    = crypto.PubkeyToAddress(s.p.L1ProposerPrivKey.PublicKey)
-		data        []byte
-		blockParams []pacayaBindings.ITaikoInboxBlockParams
-		allTxs      types.Transactions
+		to                = &s.p.TaikoL1Address
+		proposer          = crypto.PubkeyToAddress(s.p.L1ProposerPrivKey.PublicKey)
+		data              []byte
+		blockParams       []pacayaBindings.ITaikoInboxBlockParams
+		blockMetadataList []*utils.InboxBlockMeta
 	)
 
 	if s.p.ProverSetAddress != rpc.ZeroAddress {
@@ -614,15 +616,18 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	s.Equal(len(blocks), len(anchoredL1Blocks))
 
 	for _, b := range blocks {
-		allTxs = append(allTxs, b.Transactions()[1:]...)
+		blockMetadataList = append(blockMetadataList, &utils.InboxBlockMeta{
+			Timestamp: b.Time(),
+			Txs:       b.Transactions()[1:],
+		})
 		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
 			SignalSlots: make([][32]byte, 0),
 		})
 	}
 
-	rlpEncoded, err := rlp.EncodeToBytes(allTxs)
+	rlpEncoded, err := rlp.EncodeToBytes(blockMetadataList)
 	s.Nil(err)
-	txListsBytes, err := utils.Compress(rlpEncoded)
+	b, err := utils.Compress(rlpEncoded)
 	s.Nil(err)
 
 	encodedParams, err := encoding.EncodeBatchParamsWithForcedInclusion(
@@ -632,7 +637,7 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 			Coinbase: blocks[0].Coinbase(),
 			BlobParams: encoding.BlobParams{
 				ByteOffset: 0,
-				ByteSize:   uint32(len(txListsBytes)),
+				ByteSize:   uint32(len(b)),
 			},
 			Blocks:        blockParams,
 			AnchorBlockId: anchoredL1Blocks[0].Number.Uint64(),
@@ -640,9 +645,9 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 	s.Nil(err)
 
 	if s.p.ProverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
+		data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, b)
 	} else {
-		data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes)
+		data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, b)
 	}
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{TxData: data, Blobs: nil, To: to}))

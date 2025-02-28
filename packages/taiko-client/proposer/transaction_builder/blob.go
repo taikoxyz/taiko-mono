@@ -164,7 +164,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		encodedParams         []byte
 		blockParams           []pacayaBindings.ITaikoInboxBlockParams
 		forcedInclusionParams *encoding.BatchParams
-		blockMetaList         []utils.InboxBlockMeta
+		blockMetaList         []*utils.InboxBlockMeta
 	)
 
 	if b.proverSetAddress != rpc.ZeroAddress {
@@ -183,7 +183,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	}
 
 	for _, txs := range txBatch {
-		blockMetaList = append(blockMetaList, utils.InboxBlockMeta{Timestamp: 0, Txs: txs})
+		blockMetaList = append(blockMetaList, &utils.InboxBlockMeta{Timestamp: 0, Txs: txs})
 		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{SignalSlots: make([][32]byte, 0)})
 	}
 

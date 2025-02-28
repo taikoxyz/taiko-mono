@@ -95,7 +95,7 @@ type InboxBlockMeta struct {
 
 // EncodeAndCompressInboxBlockMetas encodes and compresses the given inbox block metadata list using RLP encoding
 // followed by zlib compression.
-func EncodeAndCompressInboxBlockMetas(metas []InboxBlockMeta) ([]byte, error) {
+func EncodeAndCompressInboxBlockMetas(metas []*InboxBlockMeta) ([]byte, error) {
 	b, err := rlp.EncodeToBytes(metas)
 	if err != nil {
 		return nil, fmt.Errorf("failed to RLP encode inbox block metadata list: %w", err)
