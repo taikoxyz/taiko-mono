@@ -241,8 +241,8 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
 	); err != nil {
 		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
-			errors.Is(err, proofProducer.ErrProofInProgress) &&
-			errors.Is(err, proofProducer.ErrRetry) {
+			!errors.Is(err, proofProducer.ErrProofInProgress) &&
+			!errors.Is(err, proofProducer.ErrRetry) {
 			log.Error("Request proof error", "error", err)
 		}
 		return err
