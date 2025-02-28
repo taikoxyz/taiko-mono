@@ -148,7 +148,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		encodedParams         []byte
 		blockParams           []pacayaBindings.ITaikoInboxBlockParams
 		forcedInclusionParams *encoding.BatchParams
-		allTxs                types.Transactions
+		blockMetaList         []*utils.InboxBlockMeta
 	)
 
 	if b.proverSetAddress != rpc.ZeroAddress {
@@ -157,26 +157,21 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	}
 
 	if forcedInclusion != nil {
-		blobParams, blockParams := buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
 		forcedInclusionParams = &encoding.BatchParams{
 			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
-			BlobParams:               *blobParams,
-			Blocks:                   blockParams,
+			BlobParams:               *buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion),
+			Blocks:                   []pacayaBindings.ITaikoInboxBlockParams{{SignalSlots: make([][32]byte, 0)}},
 		}
 	}
 
 	for _, txs := range txBatch {
-		allTxs = append(allTxs, txs...)
-		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
-			NumTransactions: uint16(len(txs)),
-			TimeShift:       0,
-			SignalSlots:     make([][32]byte, 0),
-		})
+		blockMetaList = append(blockMetaList, &utils.InboxBlockMeta{Timestamp: 0, Txs: txs})
+		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{SignalSlots: make([][32]byte, 0)})
 	}
 
-	txListsBytes, err := utils.EncodeAndCompressTxList(allTxs)
+	txListsBytes, err := utils.EncodeAndCompressInboxBlockMetas(blockMetaList)
 	if err != nil {
 		return nil, err
 	}
