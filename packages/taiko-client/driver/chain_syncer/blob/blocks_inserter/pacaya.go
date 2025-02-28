@@ -71,34 +71,36 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	defer i.mutex.Unlock()
 
 	var (
-		meta        = metadata.Pacaya()
-		txListBytes []byte
+		meta               = metadata.Pacaya()
+		blockMetaListBytes []byte
 	)
 
-	// Fetch transactions list.
+	// Fetch block metadata list.
 	if len(meta.GetBlobHashes()) != 0 {
-		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, meta); err != nil {
-			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
+		if blockMetaListBytes, err = i.blobFetcher.FetchPacaya(ctx, meta); err != nil {
+			return fmt.Errorf("failed to fetch block metadata list from blob: %w", err)
 		}
 	} else {
-		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, meta); err != nil {
-			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
+		if blockMetaListBytes, err = i.calldataFetcher.FetchPacaya(ctx, meta); err != nil {
+			return fmt.Errorf("failed to fetch block metadata list from calldata: %w", err)
 		}
 	}
 
 	var (
-		allTxs = i.txListDecompressor.TryDecompress(
-			i.rpc.L2.ChainID,
-			txListBytes,
-			len(meta.GetBlobHashes()) != 0,
-			true,
-		)
-		parent          *types.Header
-		lastPayloadData *engine.ExecutableData
-		txListCursor    = 0
+		blockMetadataList     = i.txListDecompressor.TryDecompressPacaya(blockMetaListBytes)
+		parent                *types.Header
+		lastPayloadData       *engine.ExecutableData
+		blockNums             = len(blockMetadataList)
+		maxAnchorHeightOffset = meta.GetConfig().MaxAnchorHeightOffset
 	)
 
-	for j, blockInfo := range meta.GetBlocks() {
+	// If the block metadata list is longer than the number of blocks in the metadata,
+	// we only insert the number of blocks in the metadata.
+	if len(blockMetadataList) > len(meta.GetBlocks()) {
+		blockNums = len(meta.GetBlocks())
+	}
+
+	for j := 0; j < blockNums; j++ {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 		// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
 		if i.progressTracker.Triggered() {
@@ -137,21 +139,30 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		blockID := new(big.Int).SetUint64(parent.Number.Uint64() + 1)
+		var (
+			blockID   = new(big.Int).SetUint64(parent.Number.Uint64() + 1)
+			timestamp = blockMetadataList[j].Timestamp
+			txs       = blockMetadataList[j].Txs
+		)
 		difficulty, err := encoding.CalculatePacayaDifficulty(blockID)
 		if err != nil {
 			return fmt.Errorf("failed to calculate difficulty: %w", err)
 		}
-		timestamp := meta.GetLastBlockTimestamp()
-		for i := len(meta.GetBlocks()) - 1; i > j; i-- {
-			timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
+
+		// Validate the timestamp.
+		timestampUpperBound := meta.GetProposedAt() - maxAnchorHeightOffset*12
+		if timestampUpperBound < parent.Time {
+			timestampUpperBound = parent.Time
+		}
+		if timestamp < timestampUpperBound {
+			timestamp = meta.GetProposedAt()
 		}
 
 		baseFee, err := i.rpc.CalculateBaseFee(
 			ctx,
 			parent,
 			true,
-			meta.GetBaseFeeConfig(),
+			&meta.GetConfig().BaseFeeConfig,
 			timestamp,
 		)
 		if err != nil {
@@ -164,7 +175,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"baseFee", utils.WeiToGWei(baseFee),
 			"parentGasUsed", parent.GasUsed,
 			"batchID", meta.GetBatchID(),
-			"indexInBatch", j,
 		)
 
 		// Assemble a TaikoAnchor.anchorV3 transaction
@@ -178,21 +188,13 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			anchorBlockHeader.Root,
 			parent.GasUsed,
-			meta.GetBaseFeeConfig(),
+			&meta.GetConfig().BaseFeeConfig,
 			meta.GetBlocks()[j].SignalSlots,
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFee,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
-		}
-
-		// Get transactions in the block.
-		txs := types.Transactions{}
-		if txListCursor+int(blockInfo.NumTransactions) <= len(allTxs) {
-			txs = allTxs[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
-		} else if txListCursor < len(allTxs) {
-			txs = allTxs[txListCursor:]
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
@@ -220,7 +222,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				},
 				AnchorBlockID:   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 				AnchorBlockHash: meta.GetAnchorBlockHash(),
-				BaseFeeConfig:   meta.GetBaseFeeConfig(),
+				BaseFeeConfig:   &meta.GetConfig().BaseFeeConfig,
 				Parent:          parent,
 			},
 			anchorTx,
@@ -241,8 +243,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"batchID", meta.GetBatchID(),
 			"indexInBatch", j,
 		)
-
-		txListCursor += int(blockInfo.NumTransactions)
 	}
 
 	return nil
