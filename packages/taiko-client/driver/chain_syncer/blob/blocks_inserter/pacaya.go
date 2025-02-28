@@ -150,7 +150,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		}
 
 		// Validate the timestamp.
-		timestampUpperBound := meta.GetProposedAt() - uint64(maxAnchorHeightOffset)*12
+		timestampUpperBound := meta.GetProposedAt() - maxAnchorHeightOffset*12
 		if timestampUpperBound < parent.Time {
 			timestampUpperBound = parent.Time
 		}

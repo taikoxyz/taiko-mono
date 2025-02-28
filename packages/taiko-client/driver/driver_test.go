@@ -331,7 +331,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	)
 	s.Nil(err)
 	b, err := utils.EncodeAndCompressInboxBlockMetas([]*utils.InboxBlockMeta{
-		&utils.InboxBlockMeta{Txs: types.Transactions{forcedInclusionTx}, Timestamp: 0},
+		{Txs: types.Transactions{forcedInclusionTx}, Timestamp: 0},
 	})
 	s.Nil(err)
 	s.NotEmpty(b)
