@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -87,19 +86,12 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		}
 	}
 
-	protocolConfig, err := i.rpc.GetProtocolConfigs(
-		&bind.CallOpts{Context: ctx, BlockNumber: new(big.Int).Sub(meta.GetRawBlockHeight(), common.Big1)},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to fetch Pacaya protocol configs: %w", err)
-	}
-
 	var (
 		blockMetadataList     = i.txListDecompressor.TryDecompressPacaya(blockMetaListBytes)
 		parent                *types.Header
 		lastPayloadData       *engine.ExecutableData
 		blockNums             = len(blockMetadataList)
-		maxAnchorHeightOffset = protocolConfig.MaxAnchorHeightOffset // ?
+		maxAnchorHeightOffset = meta.GetConfig().MaxAnchorHeightOffset
 	)
 
 	// If the block metadata list is longer than the number of blocks in the metadata,
@@ -158,7 +150,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		}
 
 		// Validate the timestamp.
-		timestampUpperBound := meta.GetProposedAt() - uint64(maxAnchorHeightOffset())*12
+		timestampUpperBound := meta.GetProposedAt() - uint64(maxAnchorHeightOffset)*12
 		if timestampUpperBound < parent.Time {
 			timestampUpperBound = parent.Time
 		}
@@ -170,7 +162,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			ctx,
 			parent,
 			true,
-			meta.GetBaseFeeConfig(),
+			&meta.GetConfig().BaseFeeConfig,
 			timestamp,
 		)
 		if err != nil {
@@ -196,7 +188,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			anchorBlockHeader.Root,
 			parent.GasUsed,
-			meta.GetBaseFeeConfig(),
+			&meta.GetConfig().BaseFeeConfig,
 			meta.GetBlocks()[j].SignalSlots,
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFee,
@@ -230,7 +222,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				},
 				AnchorBlockID:   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 				AnchorBlockHash: meta.GetAnchorBlockHash(),
-				BaseFeeConfig:   meta.GetBaseFeeConfig(),
+				BaseFeeConfig:   &meta.GetConfig().BaseFeeConfig,
 				Parent:          parent,
 			},
 			anchorTx,

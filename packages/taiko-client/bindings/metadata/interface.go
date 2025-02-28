@@ -70,7 +70,7 @@ type TaikoBatchMetaDataPacaya interface {
 	GetAnchorBlockID() uint64
 	GetAnchorBlockHash() common.Hash
 	GetBlocks() []pacayaBindings.ITaikoInboxBlockParams
-	GetBaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig
+	GetConfig() *pacayaBindings.ITaikoInboxConfig
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
