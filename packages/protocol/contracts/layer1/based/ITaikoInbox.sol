@@ -70,7 +70,7 @@ interface ITaikoInbox {
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
-        LibSharedData.BaseFeeConfig baseFeeConfig;
+        Config config;
     }
 
     /// @dev This struct holds batch metadata essential for proving the batch.
