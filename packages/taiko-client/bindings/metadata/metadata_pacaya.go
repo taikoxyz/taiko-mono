@@ -69,11 +69,6 @@ func (m *TaikoDataBlockMetadataPacaya) GetGasLimit() uint32 {
 	return m.GasLimit
 }
 
-// GetLastBlockTimestamp returns last block's timestamp in this batch.
-func (m *TaikoDataBlockMetadataPacaya) GetLastBlockTimestamp() uint64 {
-	return m.LastBlockTimestamp
-}
-
 // GetBlobHashes returns blob hashes in this batch.
 func (m *TaikoDataBlockMetadataPacaya) GetBlobHashes() []common.Hash {
 	var blobHashes []common.Hash
@@ -133,9 +128,9 @@ func (m *TaikoDataBlockMetadataPacaya) GetBlocks() []pacayaBindings.ITaikoInboxB
 	return m.Blocks
 }
 
-// GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataPacaya) GetBaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig {
-	return &m.BaseFeeConfig
+// GetConfig returns the L2 protocol configs.
+func (m *TaikoDataBlockMetadataPacaya) GetConfig() *pacayaBindings.ITaikoInboxConfig {
+	return &m.Config
 }
 
 // GetRawBlockHeight returns the raw L1 block height.

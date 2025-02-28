@@ -189,7 +189,7 @@ func (s *Syncer) onBlockProposed(
 	)
 	if meta.IsPacaya() {
 		lastBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
-		timestamp = meta.Pacaya().GetLastBlockTimestamp()
+		timestamp = meta.Pacaya().GetProposedAt()
 	} else {
 		lastBlockID = meta.Ontake().GetBlockID()
 		timestamp = meta.Ontake().GetTimestamp()
@@ -256,7 +256,7 @@ func (s *Syncer) onBlockProposed(
 			"l1Hash", meta.GetRawBlockHash(),
 			"batchID", meta.Pacaya().GetBatchID(),
 			"lastBlockID", lastBlockID,
-			"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
+			"proposedAt", meta.Pacaya().GetProposedAt(),
 			"blocks", len(meta.Pacaya().GetBlocks()),
 		)
 		if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, endIter); err != nil {
