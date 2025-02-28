@@ -130,7 +130,7 @@ func (m *TaikoDataBlockMetadataPacaya) GetBlocks() []pacayaBindings.ITaikoInboxB
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
 func (m *TaikoDataBlockMetadataPacaya) GetBaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig {
-	return &m.BaseFeeConfig
+	return &m.Config.BaseFeeConfig
 }
 
 // GetRawBlockHeight returns the raw L1 block height.
