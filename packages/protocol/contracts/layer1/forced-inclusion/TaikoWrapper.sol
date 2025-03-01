@@ -107,6 +107,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
 
+        // Only one block can be built from the request
         require(p.blocks.length == 1, InvalidBlockSize());
 
         // Need to make sure enough transactions in the forced inclusion request are included.
