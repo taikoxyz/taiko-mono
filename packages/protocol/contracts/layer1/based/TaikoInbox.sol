@@ -291,6 +291,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 hasConflictingProof = true;
                 emit ConflictingProof(meta.batchId, _ts, tran);
+
+                // Invalidate the previous transition
+                state.transitions[slot][tid].blockHash = 0;
+                // Do not save this transition
+                continue;
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
@@ -347,62 +352,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         whenNotPaused
     {
         _verifyBatches(pacayaConfig(), state.stats2, _length);
-    }
-
-    /// @notice Manually write a transition for a batch.
-    /// @dev This function is supposed to be used by the owner to force prove a transition for a
-    /// block that has not been verified.
-    function writeTransition(
-        uint64 _batchId,
-        bytes32 _parentHash,
-        bytes32 _blockHash,
-        bytes32 _stateRoot,
-        address _prover,
-        bool _inProvingWindow
-    )
-        external
-        onlyOwner
-    {
-        require(_blockHash != 0, InvalidParams());
-        require(_parentHash != 0, InvalidParams());
-        require(_stateRoot != 0, InvalidParams());
-        require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
-
-        Config memory config = pacayaConfig();
-        uint256 slot = _batchId % config.batchRingBufferSize;
-        Batch storage batch = state.batches[slot];
-        require(batch.batchId == _batchId, BatchNotFound());
-
-        uint24 tid = state.transitionIds[_batchId][_parentHash];
-        if (tid == 0) {
-            tid = batch.nextTransitionId++;
-        }
-
-        TransitionState storage ts = state.transitions[slot][tid];
-        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
-        ts.blockHash = _blockHash;
-        ts.prover = _prover;
-        ts.inProvingWindow = _inProvingWindow;
-        ts.createdAt = uint48(block.timestamp);
-
-        if (tid == 1) {
-            ts.parentHash = _parentHash;
-        } else {
-            state.transitionIds[_batchId][_parentHash] = tid;
-        }
-
-        emit TransitionWritten(
-            _batchId,
-            tid,
-            TransitionState(
-                _parentHash,
-                _blockHash,
-                _stateRoot,
-                _prover,
-                _inProvingWindow,
-                uint48(block.timestamp)
-            )
-        );
     }
 
     /// @inheritdoc ITaikoInbox
@@ -668,13 +617,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     break;
                 }
 
+                bytes32 _blockHash = ts.blockHash;
+                // This transition has been invalidated due to conflicting proof
+                if (_blockHash == 0) break;
+
                 unchecked {
                     if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
                         break;
                     }
                 }
 
-                blockHash = ts.blockHash;
+                blockHash = _blockHash;
 
                 uint96 bondToReturn =
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
