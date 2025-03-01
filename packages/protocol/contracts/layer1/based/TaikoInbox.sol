@@ -292,8 +292,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 hasConflictingProof = true;
                 emit ConflictingProof(meta.batchId, _ts, tran);
 
-                // Invalidate the previous transition
+                // Invalidate the existing transition
                 state.transitions[slot][tid].blockHash = 0;
+
                 // Do not save this transition
                 continue;
             }
