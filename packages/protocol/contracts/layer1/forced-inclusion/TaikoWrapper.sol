@@ -44,7 +44,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidBlobByteOffset();
     error InvalidBlobByteSize();
     error InvalidBlobCreatedIn();
-    error InvalidBlocksSize();
     error OldestForcedInclusionDue();
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
@@ -102,7 +101,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         internal
     {
         ITaikoInbox.BatchParams memory p = abi.decode(_bytesX, (ITaikoInbox.BatchParams));
-        require(p.blocks.length == 1, InvalidBlocksSize());
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
