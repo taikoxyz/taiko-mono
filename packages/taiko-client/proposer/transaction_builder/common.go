@@ -28,15 +28,21 @@ type ProposeBlocksTransactionBuilder interface {
 func buildParamsForForcedInclusion(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
-) *encoding.BlobParams {
+) (*encoding.BlobParams, []pacayaBindings.ITaikoInboxBlockParams) {
 	if forcedInclusion == nil {
-		return nil
+		return nil, nil
 	}
 	return &encoding.BlobParams{
-		BlobHashes: [][32]byte{forcedInclusion.BlobHash},
-		NumBlobs:   0,
-		ByteOffset: forcedInclusion.BlobByteOffset,
-		ByteSize:   forcedInclusion.BlobByteSize,
-		CreatedIn:  forcedInclusion.BlobCreatedIn,
-	}
+			BlobHashes: [][32]byte{forcedInclusion.BlobHash},
+			NumBlobs:   0,
+			ByteOffset: forcedInclusion.BlobByteOffset,
+			ByteSize:   forcedInclusion.BlobByteSize,
+			CreatedIn:  forcedInclusion.BlobCreatedIn,
+		}, []pacayaBindings.ITaikoInboxBlockParams{
+			{
+				NumTransactions: uint16(minTxsPerForcedInclusion.Uint64()),
+				TimeShift:       0,
+				SignalSlots:     make([][32]byte, 0),
+			},
+		}
 }
