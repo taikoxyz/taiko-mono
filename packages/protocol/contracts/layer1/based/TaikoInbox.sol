@@ -165,7 +165,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                config: config
+                baseFeeConfig: config.baseFeeConfig
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
