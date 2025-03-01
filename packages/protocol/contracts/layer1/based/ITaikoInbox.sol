@@ -253,12 +253,6 @@ interface ITaikoInbox {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
-    /// @notice Emitted when a transition is written to the state by the owner.
-    /// @param batchId The ID of the batch containing the transition.
-    /// @param tid The ID of the transition within the batch.
-    /// @param ts The transition state written.
-    event TransitionWritten(uint64 batchId, uint24 tid, TransitionState ts);
-
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
     error AnchorBlockIdTooSmall();
