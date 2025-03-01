@@ -150,16 +150,12 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		}
 
 		// Validate the timestamp.
-		timestampUpperBound := meta.GetProposedAt()
-		timestampLowerBound := meta.GetProposedAt() - maxAnchorHeightOffset*12
-		if timestampLowerBound < parent.Time {
-			timestampLowerBound = parent.Time
+		timestampUpperBound := meta.GetProposedAt() - maxAnchorHeightOffset*12
+		if timestampUpperBound < parent.Time {
+			timestampUpperBound = parent.Time
 		}
-		if timestamp < timestampLowerBound {
-			timestamp = timestampLowerBound
-		}
-		if timestamp > timestampUpperBound {
-			timestamp = timestampUpperBound
+		if timestamp < timestampUpperBound {
+			timestamp = meta.GetProposedAt()
 		}
 
 		baseFee, err := i.rpc.CalculateBaseFee(
