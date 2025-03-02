@@ -37,14 +37,15 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
 
-    error NoBlocks();
     error InvalidBlockTxs();
     error InvalidBlobHashesSize();
     error InvalidBlobHash();
     error InvalidBlobByteOffset();
     error InvalidBlobByteSize();
     error InvalidBlobCreatedIn();
-    error InvalidBlocksSize();
+    error InvalidBlockSize();
+    error InvalidTimeShift();
+    error InvalidSignalSlots();
     error OldestForcedInclusionDue();
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
@@ -102,10 +103,17 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         internal
     {
         ITaikoInbox.BatchParams memory p = abi.decode(_bytesX, (ITaikoInbox.BatchParams));
-        require(p.blocks.length == 1, InvalidBlocksSize());
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
+
+        // Only one block can be built from the request
+        require(p.blocks.length == 1, InvalidBlockSize());
+
+        // Need to make sure enough transactions in the forced inclusion request are included.
+        require(p.blocks[0].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
+        require(p.blocks[0].timeShift == 0, InvalidTimeShift());
+        require(p.blocks[0].signalSlots.length == 0, InvalidSignalSlots());
 
         require(p.blobParams.blobHashes.length == 1, InvalidBlobHashesSize());
         require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());

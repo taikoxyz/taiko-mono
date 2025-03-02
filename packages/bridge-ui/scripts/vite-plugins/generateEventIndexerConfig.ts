@@ -47,7 +47,7 @@ export function generateEventIndexerConfig() {
           throw new Error('encoded configuredEventIndexer.json is not valid.');
         }
       }
-      // Path to where you want to save the generated Typ eScript file
+      // Path to where you want to save the generated TypeScript file
       const tsFilePath = path.resolve(outputPath);
 
       const project = new Project();
