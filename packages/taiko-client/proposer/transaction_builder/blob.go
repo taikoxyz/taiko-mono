@@ -164,7 +164,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		encodedParams         []byte
 		blockParams           []pacayaBindings.ITaikoInboxBlockParams
 		forcedInclusionParams *encoding.BatchParams
-		blockMetaList         []*utils.InboxBlockMeta
+		allTxs                types.Transactions
 	)
 
 	if b.proverSetAddress != rpc.ZeroAddress {
@@ -173,26 +173,31 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	}
 
 	if forcedInclusion != nil {
+		blobParams, blockParams := buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
 		forcedInclusionParams = &encoding.BatchParams{
 			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
-			BlobParams:               *buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion),
-			Blocks:                   []pacayaBindings.ITaikoInboxBlockParams{{SignalSlots: make([][32]byte, 0)}},
+			BlobParams:               *blobParams,
+			Blocks:                   blockParams,
 		}
 	}
 
 	for _, txs := range txBatch {
-		blockMetaList = append(blockMetaList, &utils.InboxBlockMeta{Timestamp: 0, Txs: txs})
-		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{SignalSlots: make([][32]byte, 0)})
+		allTxs = append(allTxs, txs...)
+		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
+			NumTransactions: uint16(len(txs)),
+			TimeShift:       0,
+			SignalSlots:     make([][32]byte, 0),
+		})
 	}
 
-	blockMetasBytes, err := utils.EncodeAndCompressInboxBlockMetas(blockMetaList)
+	txListsBytes, err := utils.EncodeAndCompressTxList(allTxs)
 	if err != nil {
 		return nil, err
 	}
 
-	if blobs, err = b.splitToBlobs(blockMetasBytes); err != nil {
+	if blobs, err = b.splitToBlobs(txListsBytes); err != nil {
 		return nil, err
 	}
 
@@ -207,7 +212,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 				FirstBlobIndex: 0,
 				NumBlobs:       uint8(len(blobs)),
 				ByteOffset:     0,
-				ByteSize:       uint32(len(blockMetasBytes)),
+				ByteSize:       uint32(len(txListsBytes)),
 			},
 			Blocks: blockParams,
 		}); err != nil {

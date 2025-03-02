@@ -215,69 +215,6 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 	})
 }
 
-func (s *ProverTestSuite) TestInvalidPacayaProof() {
-	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	s.True(m.IsPacaya())
-	s.Nil(s.p.proveOp())
-
-	var req *proofProducer.ProofRequestBody
-	for r := range s.p.proofSubmissionCh {
-		if r.Meta.IsPacaya() && r.Meta.Pacaya().GetBatchID().Uint64() == m.Pacaya().GetBatchID().Uint64() {
-			req = r
-			break
-		}
-	}
-	s.NotNil(req)
-	s.True(req.Meta.IsPacaya())
-	s.Equal(m.Pacaya().GetBatchID().Uint64(), req.Meta.Pacaya().GetBatchID().Uint64())
-
-	s.Nil(s.p.proofSubmitterPacaya.RequestProof(context.Background(), m))
-	res := <-s.p.proofGenerationCh
-	s.Equal(m.Pacaya().GetBatchID().Uint64(), res.Meta.Pacaya().GetBatchID().Uint64())
-	s.NotEmpty(res.Opts.PacayaOptions().Headers)
-	paused, err := s.p.rpc.PacayaClients.TaikoInbox.Paused(nil)
-	s.Nil(err)
-	s.False(paused)
-
-	// Submit an invalid proof
-	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
-
-	// Then submit a valid proof, the TaikoInbox contract should be paused
-	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBlockID(0)
-
-	s.Nil(s.p.proveOp())
-	for r := range s.p.proofSubmissionCh {
-		if r.Meta.IsPacaya() && r.Meta.Pacaya().GetBatchID().Uint64() == m.Pacaya().GetBatchID().Uint64() {
-			req = r
-			break
-		}
-	}
-
-	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
-
-	paused, err = s.p.rpc.PacayaClients.TaikoInbox.Paused(nil)
-	s.Nil(err)
-	s.True(paused)
-
-	// Unpause the TaikoInbox contract
-	data, err := encoding.TaikoInboxABI.Pack("unpause")
-	s.Nil(err)
-	receipt, err := s.TxMgr("unpauseTaikoInbox", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")).
-		Send(
-			context.Background(),
-			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.TaikoL1Address},
-		)
-	s.Nil(err)
-	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
-}
-
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 

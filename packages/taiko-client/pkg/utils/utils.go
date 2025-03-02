@@ -87,35 +87,13 @@ func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	return compressed, nil
 }
 
-// InboxBlockMeta contains block timestamp, coinbase and transactions, which will be stored in the blob data.
-type InboxBlockMeta struct {
-	Timestamp uint64
-	Txs       types.Transactions
-}
-
-// EncodeAndCompressInboxBlockMetas encodes and compresses the given inbox block metadata list using RLP encoding
-// followed by zlib compression.
-func EncodeAndCompressInboxBlockMetas(metas []*InboxBlockMeta) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(metas)
-	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode inbox block metadata list: %w", err)
-	}
-
-	compressed, err := Compress(b)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compress RLP encoded block metadata list: %w", err)
-	}
-
-	return compressed, nil
-}
-
-// Compress compresses the given bytes using zlib.
-func Compress(data []byte) ([]byte, error) {
+// Compress compresses the given txList bytes using zlib.
+func Compress(txList []byte) ([]byte, error) {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
 	defer w.Close()
 
-	if _, err := w.Write(data); err != nil {
+	if _, err := w.Write(txList); err != nil {
 		return nil, err
 	}
 
@@ -126,9 +104,9 @@ func Compress(data []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// Decompress decompresses the given bytes using zlib.
-func Decompress(data []byte) ([]byte, error) {
-	r, err := zlib.NewReader(bytes.NewBuffer(data))
+// Decompress decompresses the given txList bytes using zlib.
+func Decompress(compressedTxList []byte) ([]byte, error) {
+	r, err := zlib.NewReader(bytes.NewBuffer(compressedTxList))
 	if err != nil {
 		return nil, err
 	}
