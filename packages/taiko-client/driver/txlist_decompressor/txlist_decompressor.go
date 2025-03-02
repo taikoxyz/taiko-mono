@@ -52,29 +52,6 @@ func (v *TxListDecompressor) TryDecompress(
 	return v.tryDecompress(txListBytes, blobUsed)
 }
 
-// TryDecompressPacaya is the same as TryDecompress, but it's used for Pacaya network.
-func (v *TxListDecompressor) TryDecompressPacaya(data []byte) []*utils.InboxBlockMeta {
-	var (
-		metas []*utils.InboxBlockMeta
-		err   error
-	)
-
-	// Decompress the block metadata list bytes.
-	b, err := utils.Decompress(data)
-	if err != nil {
-		log.Info("Failed to decompress block metadata list bytes", "error", err)
-		return []*utils.InboxBlockMeta{}
-	}
-
-	// Try to RLP decode the block metadata list bytes.
-	if err = rlp.DecodeBytes(b, &metas); err != nil {
-		log.Info("Failed to decode block metadata list bytes", "error", err)
-		return []*utils.InboxBlockMeta{}
-	}
-
-	return metas
-}
-
 // tryDecompress is the inner implementation of TryDecompress.
 func (v *TxListDecompressor) tryDecompress(
 	txListBytes []byte,

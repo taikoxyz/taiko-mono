@@ -24,7 +24,6 @@ type ProtocolConfigs interface {
 	MaxProposals() uint64
 	ProvingWindow() (time.Duration, error)
 	MaxBlocksPerBatch() int
-	MaxAnchorHeightOffset() int
 }
 
 // ReportProtocolConfigs logs the protocol configurations.
@@ -107,11 +106,6 @@ func (c *OntakeProtocolConfigs) MaxBlocksPerBatch() int {
 	return 0
 }
 
-// MaxAnchorHeightOffset implements the ProtocolConfigs interface.
-func (c *OntakeProtocolConfigs) MaxAnchorHeightOffset() int {
-	return 0
-}
-
 // PacayaProtocolConfigs is the configuration for the Pacaya fork protocol.
 type PacayaProtocolConfigs struct {
 	configs *pacayaBindings.ITaikoInboxConfig
@@ -165,9 +159,4 @@ func (c *PacayaProtocolConfigs) ProvingWindow() (time.Duration, error) {
 // MaxBlocksPerBatch implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) MaxBlocksPerBatch() int {
 	return int(c.configs.MaxBlocksPerBatch)
-}
-
-// MaxAnchorHeightOffset implements the ProtocolConfigs interface.
-func (c *PacayaProtocolConfigs) MaxAnchorHeightOffset() int {
-	return int(c.configs.MaxAnchorHeightOffset)
 }
