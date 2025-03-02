@@ -287,13 +287,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 bool isSameTransition = _ts.blockHash == tran.blockHash
                     && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
-                require(!isSameTransition, SameTransition());
 
-                hasConflictingProof = true;
-                emit ConflictingProof(meta.batchId, _ts, tran);
+                if (!isSameTransition) {
+                    hasConflictingProof = true;
+                    emit ConflictingProof(meta.batchId, _ts, tran);
 
-                // Invalidate the existing transition
-                state.transitions[slot][tid].blockHash = 0;
+                    // Invalidate the conflict transition
+                    state.transitions[slot][tid].blockHash = 0;
+                }
 
                 // Do not save this transition
                 continue;
