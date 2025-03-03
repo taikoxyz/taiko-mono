@@ -194,7 +194,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address erc20Vault = deployProxy({
             name: "erc20_vault",
             impl: address(new MainnetERC20Vault(address(sharedResolver))),
-            data: abi.encodeCall(ERC20VaultOriginal.init, (owner)),
+            data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });
 
