@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.25.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.0...docs-site-v1.25.1) (2025-03-01)
+
+
+### Documentation
+
+* **docs-site:** add tenderly info ([#19010](https://github.com/taikoxyz/taiko-mono/issues/19010)) ([2e13993](https://github.com/taikoxyz/taiko-mono/commit/2e1399328801a6ec1e9c20e64da8581bb2a2fa65))
+
+## [1.25.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.24.0...docs-site-v1.25.0) (2025-02-27)
+
+
+### Features
+
+* **docs-site:** update tierRouter docs and graphics, proving guide ([#18997](https://github.com/taikoxyz/taiko-mono/issues/18997)) ([d334d48](https://github.com/taikoxyz/taiko-mono/commit/d334d4894f873284061522c01e7cc3d41e180f68))
+
 ## [1.24.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.23.3...docs-site-v1.24.0) (2025-02-19)
 
 
