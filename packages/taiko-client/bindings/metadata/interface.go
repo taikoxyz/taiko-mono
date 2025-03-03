@@ -59,6 +59,7 @@ type TaikoBatchMetaDataPacaya interface {
 	GetCoinbase() common.Address
 	GetBatchID() *big.Int
 	GetGasLimit() uint32
+	GetLastBlockTimestamp() uint64
 	GetProposer() common.Address
 	GetProposedAt() uint64
 	GetProposedIn() uint64
@@ -70,7 +71,7 @@ type TaikoBatchMetaDataPacaya interface {
 	GetAnchorBlockID() uint64
 	GetAnchorBlockHash() common.Hash
 	GetBlocks() []pacayaBindings.ITaikoInboxBlockParams
-	GetConfig() *pacayaBindings.ITaikoInboxConfig
+	GetBaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint

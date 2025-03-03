@@ -129,7 +129,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             Batch storage lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
-            (uint64 anchorBlockId) = _validateBatchParams(
+            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
                 params,
                 config.maxAnchorHeightOffset,
                 config.maxSignalsToReceive,
@@ -161,11 +161,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,
                 lastBlockId: 0, // to be initialised later
+                lastBlockTimestamp: lastBlockTimestamp,
                 //
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                config: config
+                baseFeeConfig: config.baseFeeConfig
             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
@@ -191,6 +192,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             // SSTORE #2 {{
             batch.batchId = stats2.numBatches;
+            batch.lastBlockTimestamp = lastBlockTimestamp;
             batch.anchorBlockId = anchorBlockId;
             batch.nextTransitionId = 1;
             batch.verifiedTransitionId = 0;
@@ -285,10 +287,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 bool isSameTransition = _ts.blockHash == tran.blockHash
                     && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
-                require(!isSameTransition, SameTransition());
 
-                hasConflictingProof = true;
-                emit ConflictingProof(meta.batchId, _ts, tran);
+                if (!isSameTransition) {
+                    hasConflictingProof = true;
+                    emit ConflictingProof(meta.batchId, _ts, tran);
+
+                    // Invalidate the conflict transition
+                    state.transitions[slot][tid].blockHash = 0;
+                }
+
+                // Do not save this transition
+                continue;
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
@@ -345,62 +354,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         whenNotPaused
     {
         _verifyBatches(pacayaConfig(), state.stats2, _length);
-    }
-
-    /// @notice Manually write a transition for a batch.
-    /// @dev This function is supposed to be used by the owner to force prove a transition for a
-    /// block that has not been verified.
-    function writeTransition(
-        uint64 _batchId,
-        bytes32 _parentHash,
-        bytes32 _blockHash,
-        bytes32 _stateRoot,
-        address _prover,
-        bool _inProvingWindow
-    )
-        external
-        onlyOwner
-    {
-        require(_blockHash != 0, InvalidParams());
-        require(_parentHash != 0, InvalidParams());
-        require(_stateRoot != 0, InvalidParams());
-        require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
-
-        Config memory config = pacayaConfig();
-        uint256 slot = _batchId % config.batchRingBufferSize;
-        Batch storage batch = state.batches[slot];
-        require(batch.batchId == _batchId, BatchNotFound());
-
-        uint24 tid = state.transitionIds[_batchId][_parentHash];
-        if (tid == 0) {
-            tid = batch.nextTransitionId++;
-        }
-
-        TransitionState storage ts = state.transitions[slot][tid];
-        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
-        ts.blockHash = _blockHash;
-        ts.prover = _prover;
-        ts.inProvingWindow = _inProvingWindow;
-        ts.createdAt = uint48(block.timestamp);
-
-        if (tid == 1) {
-            ts.parentHash = _parentHash;
-        } else {
-            state.transitionIds[_batchId][_parentHash] = tid;
-        }
-
-        emit TransitionWritten(
-            _batchId,
-            tid,
-            TransitionState(
-                _parentHash,
-                _blockHash,
-                _stateRoot,
-                _prover,
-                _inProvingWindow,
-                uint48(block.timestamp)
-            )
-        );
     }
 
     /// @inheritdoc ITaikoInbox
@@ -564,6 +517,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         Batch storage batch = state.batches[0];
         batch.metaHash = bytes32(uint256(1));
+        batch.lastBlockTimestamp = uint64(block.timestamp);
         batch.anchorBlockId = uint64(block.number);
         batch.nextTransitionId = 2;
         batch.verifiedTransitionId = 1;
@@ -665,13 +619,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     break;
                 }
 
+                bytes32 _blockHash = ts.blockHash;
+                // This transition has been invalidated due to conflicting proof
+                if (_blockHash == 0) break;
+
                 unchecked {
                     if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
                         break;
                     }
                 }
 
-                blockHash = ts.blockHash;
+                blockHash = _blockHash;
 
                 uint96 bondToReturn =
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
@@ -774,7 +732,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         private
         view
-        returns (uint64 anchorBlockId_)
+        returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
         uint256 blocksLength = _params.blocks.length;
         unchecked {
@@ -793,7 +751,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 anchorBlockId_ = _params.anchorBlockId;
             }
 
+            lastBlockTimestamp_ = _params.lastBlockTimestamp == 0
+                ? uint64(block.timestamp)
+                : _params.lastBlockTimestamp;
+
+            require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
+
+            uint64 totalShift;
+
             for (uint256 i; i < blocksLength; ++i) {
+                totalShift += _params.blocks[i].timeShift;
+
                 uint256 numSignals = _params.blocks[i].signalSlots.length;
                 if (numSignals == 0) continue;
 
@@ -806,6 +774,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     );
                 }
             }
+
+            require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());
+
+            uint64 firstBlockTimestamp = lastBlockTimestamp_ - totalShift;
+
+            require(
+                firstBlockTimestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    >= block.timestamp,
+                TimestampTooSmall()
+            );
+
+            require(
+                firstBlockTimestamp >= _lastBatch.lastBlockTimestamp, TimestampSmallerThanParent()
+            );
 
             // make sure the batch builds on the expected latest chain state.
             require(

@@ -35,7 +35,8 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         "/test/layer1/automata-attestation/assets/0424/tcb_00A067110000.json",
         "/test/layer1/automata-attestation/assets/0424/tcb_00906ED50000.json",
         "/test/layer1/automata-attestation/assets/0424/tcb_30606a000000.json",
-        "/test/layer1/automata-attestation/assets/0424/tcb_00706A100000.json"
+        "/test/layer1/automata-attestation/assets/0424/tcb_00706A100000.json",
+        "/test/layer1/automata-attestation/assets/0225/tcb_00706A800000.json"
     ];
     string internal idPath = "/test/layer1/automata-attestation/assets/0923/identity.json";
     address constant admin = address(1);
