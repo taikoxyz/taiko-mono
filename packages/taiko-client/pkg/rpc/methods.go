@@ -1122,7 +1122,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
 }
 
-// GetPreconfWhiteListOperator resolves the next preconf whitelist operator address.
+// GetNextPreconfWhiteListOperator resolves the next preconf whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.PreconfWhitelist == nil {
 		return common.Address{}, errors.New("preconf whitelist contract is not set")
