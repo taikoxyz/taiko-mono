@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/tokenvault/ERC20Vault.sol";
+import "src/shared/tokenvault/ERC20VaultOriginal.sol";
 import "../libs/LibFasterReentryLock.sol";
 
 /// @title MainnetERC20Vault
@@ -10,8 +10,8 @@ import "../libs/LibFasterReentryLock.sol";
 /// not well testee nor necessary.
 /// @notice See the documentation in {ER20Vault}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetERC20Vault is ERC20Vault {
-    constructor(address _resolver) ERC20Vault(_resolver) { }
+contract MainnetERC20Vault is ERC20VaultOriginal {
+    constructor(address _resolver) ERC20VaultOriginal(_resolver) { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
