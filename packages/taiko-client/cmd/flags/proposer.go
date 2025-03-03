@@ -1,6 +1,7 @@
 package flags
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/urfave/cli/v2"
 )
 
@@ -9,15 +10,15 @@ var (
 	TaikoWrapperAddress = &cli.StringFlag{
 		Name:     "taikoWrapper",
 		Usage:    "TaikoWrapper contract `address`",
-		Required: true,
+		Value:    common.Address{}.String(),
 		Category: proposerCategory,
 		EnvVars:  []string{"TAIKO_WRAPPER"},
 	}
 	ForcedInclusionStoreAddress = &cli.StringFlag{
-		Name:     "forcedInclusionStore",
-		Usage:    "ForcedInclusionStore contract `address`",
-		Required: true,
-		EnvVars:  []string{"FORCED_INCLUSION_STORE"},
+		Name:    "forcedInclusionStore",
+		Usage:   "ForcedInclusionStore contract `address`",
+		Value:   common.Address{}.String(),
+		EnvVars: []string{"FORCED_INCLUSION_STORE"},
 	}
 	L1ProposerPrivKey = &cli.StringFlag{
 		Name:     "l1.proposerPrivKey",
