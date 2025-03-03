@@ -231,6 +231,8 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
 			!errors.Is(err, proofProducer.ErrRetry) {
 			log.Error("Request proof error", "error", err)
+		} else {
+			log.Debug("Expected error code", "error", err)
 		}
 		return err
 	}
