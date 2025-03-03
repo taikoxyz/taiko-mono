@@ -65,7 +65,6 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 		"batchID", meta.Pacaya().GetBatchID(),
 		"lastBlockID", meta.Pacaya().GetLastBlockID(),
 		"assignedProver", meta.GetProposer(),
-		"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
 		"numBlobs", len(meta.Pacaya().GetBlobHashes()),
 		"blocks", len(meta.Pacaya().GetBlocks()),
 	)
