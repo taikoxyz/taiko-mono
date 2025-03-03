@@ -16,6 +16,7 @@ import "./BaseVault.sol";
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens. This vault does not support rebase/elastic tokens.
 /// @dev Labeled in address resolver as "erc20_vault".
+/// @dev This is the original ERC20Vault contract without solver features as in ERC20Vault.sol
 /// @custom:security-contact security@taiko.xyz
 contract ERC20VaultOriginal is BaseVault {
     using Address for address;
