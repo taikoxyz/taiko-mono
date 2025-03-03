@@ -1122,6 +1122,22 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
 }
 
+// GetPreconfWhiteListOperator resolves the next preconf whitelist operator address.
+func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return common.Address{}, errors.New("preconf whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+}
+
 // GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
 func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
