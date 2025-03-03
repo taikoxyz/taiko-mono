@@ -58,7 +58,6 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &tempMap); err != nil {
 		return err
 	}
-
 	// Parsing data based on different keys
 	if versionedHash, ok := tempMap["versionedHash"]; ok {
 		p.VersionedHash = versionedHash.(string)
