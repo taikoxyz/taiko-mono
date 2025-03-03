@@ -623,6 +623,7 @@ func EncodeBaseFeeConfig(baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfi
 		bytes32Value [32]byte
 		uintValue    = new(big.Int).SetUint64(uint64(baseFeeConfig.SharingPctg))
 	)
+	
 	copy(bytes32Value[32-len(uintValue.Bytes()):], uintValue.Bytes())
 	return bytes32Value
 }
