@@ -72,7 +72,8 @@ contract TestERC20Vault_solver is CommonTest {
         uint64 solverFee = 2;
         address to = Bob;
         address solver = David;
-        bytes32 solverCondition = eVault.getSolverCondition(1, address(eERC20Token1), to, amount);
+        bytes32 solverCondition =
+            eVault.getSolverCondition(1, address(eERC20Token1), to, address(this), amount);
 
         eERC20Token1.mint(address(solver));
 
@@ -93,7 +94,9 @@ contract TestERC20Vault_solver is CommonTest {
             eERC20Token1.approve(address(eVault), 2);
 
             eVault.solve(
-                ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+                ERC20Vault.SolverOp(
+                    1, address(eERC20Token1), to, address(this), amount, blockId, blockMetaHash
+                )
             );
         }
 
@@ -129,7 +132,8 @@ contract TestERC20Vault_solver is CommonTest {
         uint64 solverFee = 2;
         address to = James;
         address solver = David;
-        bytes32 solverCondition = eVault.getSolverCondition(1, address(eERC20Token1), to, amount);
+        bytes32 solverCondition =
+            eVault.getSolverCondition(1, address(eERC20Token1), to, address(this), amount);
         uint256 etherAmount = 0.1 ether;
 
         eERC20Token1.mint(address(solver));
@@ -151,7 +155,9 @@ contract TestERC20Vault_solver is CommonTest {
             eERC20Token1.approve(address(eVault), 2);
 
             eVault.solve(
-                ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+                ERC20Vault.SolverOp(
+                    1, address(eERC20Token1), to, address(this), amount, blockId, blockMetaHash
+                )
             );
         }
 
@@ -199,12 +205,16 @@ contract TestERC20Vault_solver is CommonTest {
 
         eERC20Token1.approve(address(eVault), 2);
         eVault.solve(
-            ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+            ERC20Vault.SolverOp(
+                1, address(eERC20Token1), to, address(this), amount, blockId, blockMetaHash
+            )
         );
 
         vm.expectRevert(ERC20Vault.VAULT_ALREADY_SOLVED.selector);
         eVault.solve(
-            ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+            ERC20Vault.SolverOp(
+                1, address(eERC20Token1), to, address(this), amount, blockId, blockMetaHash
+            )
         );
     }
 
@@ -228,7 +238,13 @@ contract TestERC20Vault_solver is CommonTest {
         vm.expectRevert(ERC20Vault.VAULT_METAHASH_MISMATCH.selector);
         eVault.solve(
             ERC20Vault.SolverOp(
-                1, address(eERC20Token1), to, amount, blockId, mismatchedBlockMetahash
+                1,
+                address(eERC20Token1),
+                to,
+                address(this),
+                amount,
+                blockId,
+                mismatchedBlockMetahash
             )
         );
     }
@@ -351,7 +367,7 @@ contract TestERC20Vault_solver is CommonTest {
         taikoInbox.setBatch(batch);
 
         eVault.solve{ value: amount }(
-            ERC20Vault.SolverOp(1, address(0), to, amount, blockId, blockMetaHash)
+            ERC20Vault.SolverOp(1, address(0), to, address(this), amount, blockId, blockMetaHash)
         );
 
         uint256 toBalanceAfter = to.balance;
@@ -388,7 +404,8 @@ contract TestERC20Vault_solver is CommonTest {
         uint64 solverFee = 0.1 ether;
         address to = Bob;
         address solver = David;
-        bytes32 solverCondition = eVault.getSolverCondition(1, address(0), to, amount);
+        bytes32 solverCondition =
+            eVault.getSolverCondition(1, address(0), to, address(this), amount);
 
         vm.deal(solver, amount);
 
@@ -406,7 +423,9 @@ contract TestERC20Vault_solver is CommonTest {
             taikoInbox.setBatch(batch);
 
             eVault.solve{ value: amount }(
-                ERC20Vault.SolverOp(1, address(0), to, amount, blockId, blockMetaHash)
+                ERC20Vault.SolverOp(
+                    1, address(0), to, address(this), amount, blockId, blockMetaHash
+                )
             );
         }
 
