@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2025-03-04)
+
+
+### Features
+
+* **eventindexer:** eventindexer post ontake fork ([#18474](https://github.com/taikoxyz/taiko-mono/issues/18474)) ([83b6f15](https://github.com/taikoxyz/taiko-mono/commit/83b6f154e372afe8512fdb6c528afabc8560a840))
+* **eventindexer:** pacaya event updates ([#18919](https://github.com/taikoxyz/taiko-mono/issues/18919)) ([e44ee25](https://github.com/taikoxyz/taiko-mono/commit/e44ee25fff0e8610c48c5e853e91a8ee16b1d54d))
+* **eventindexer:** updates for ontake fork eventindexer ([#18178](https://github.com/taikoxyz/taiko-mono/issues/18178)) ([227c5b1](https://github.com/taikoxyz/taiko-mono/commit/227c5b11685708aa783eacc6a7a59539bb00dbcc))
+
+
+### Bug Fixes
+
+* **eventindexer:** remove nft metadata indexing, far too slowy and bug ridden right now ([#18126](https://github.com/taikoxyz/taiko-mono/issues/18126)) ([f0ab1e1](https://github.com/taikoxyz/taiko-mono/commit/f0ab1e1fc86d3790eea743dee6aa717886321adc))
+
+
+### Chores
+
+* **eventindexer:** ei update for state vars ([#18867](https://github.com/taikoxyz/taiko-mono/issues/18867)) ([5ac01d9](https://github.com/taikoxyz/taiko-mono/commit/5ac01d9d41d867e1a8fb0f9b3b6a5cad8aff300f))
+* **eventindexer:** rm ei generator ([#18723](https://github.com/taikoxyz/taiko-mono/issues/18723)) ([b781f76](https://github.com/taikoxyz/taiko-mono/commit/b781f761d786d32d25877fd7299fc90dab208d82))
+
+
+### Documentation
+
+* **repo:** fix links to LICENSE file ([#18641](https://github.com/taikoxyz/taiko-mono/issues/18641)) ([cd2d918](https://github.com/taikoxyz/taiko-mono/commit/cd2d9180d313af6c858f7059b01851bd8e3290da))
+
+
+### Tests
+
+* **taiko-client:** introduce TestTxPoolContentWithMinTip test case ([#18285](https://github.com/taikoxyz/taiko-mono/issues/18285)) ([d572f4c](https://github.com/taikoxyz/taiko-mono/commit/d572f4c412e59094ea9a4c5ff0b0667c9c04bd66))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+* **repo:** update go mod and use random port ([#18515](https://github.com/taikoxyz/taiko-mono/issues/18515)) ([3c2e943](https://github.com/taikoxyz/taiko-mono/commit/3c2e943ab2d6ff636ad69dc7e93df34d8f549c4d))
+
+
+### Build
+
+* **deps:** bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#18539](https://github.com/taikoxyz/taiko-mono/issues/18539)) ([79f3fab](https://github.com/taikoxyz/taiko-mono/commit/79f3fab5f1d1ec1bb4ee18afb9268b622e894780))
+* **deps:** bump golang.org/x/sync from 0.9.0 to 0.10.0 ([#18560](https://github.com/taikoxyz/taiko-mono/issues/18560)) ([3d51970](https://github.com/taikoxyz/taiko-mono/commit/3d51970aa0953bbfecaeebf76ea7e664c875c0e4))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
