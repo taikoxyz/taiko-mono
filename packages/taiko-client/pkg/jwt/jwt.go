@@ -20,6 +20,7 @@ func ParseSecretFromFile(jwtSecretFile string) ([]byte, error) {
 	if jwtSecretFile == "" {
 		return nil, nil
 	}
+	
 	enc, err := file.ReadFileAsBytes(jwtSecretFile)
 	if err != nil {
 		return nil, err
