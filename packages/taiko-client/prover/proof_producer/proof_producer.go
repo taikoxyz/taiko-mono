@@ -42,11 +42,14 @@ type ProofResponse struct {
 }
 
 type BatchProofs struct {
-	ProofResponses []*ProofResponse
-	BatchProof     []byte
-	Tier           uint16
-	BlockIDs       []*big.Int
-	ProofType      string
+	ProofResponses       []*ProofResponse
+	BatchProof           []byte
+	Tier                 uint16
+	BlockIDs             []*big.Int
+	ProofType            string
+	Verifier             common.Address
+	TrustedBatchProof    []byte
+	TrustedProofVerifier common.Address
 }
 
 type ProofProducer interface {

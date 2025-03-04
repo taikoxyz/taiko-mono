@@ -160,9 +160,65 @@ func (p *Prover) initProofSubmitters(
 			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 		}
 	}
+	// Init verifiers for pacaya
+	var (
+		teeProducer  *proofProducer.TEEProofProducerPacaya
+		zkvmProducer *proofProducer.ZKvmProofProducerPacaya
+		zkVerifiers  = make(map[string]common.Address, 2)
+	)
+	trustedVerifier, err := p.rpc.GetTrustedVerifierPacaya(&bind.CallOpts{Context: p.ctx})
+	if err != nil || trustedVerifier == transaction.ZeroAddress {
+		return fmt.Errorf("required trusted verifier not found: %w", err)
+	}
+	trustedProducer := proofProducer.TrustedProofProducer{
+		Verifier:            trustedVerifier,
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		ProofType:           proofProducer.ProofTypeTrusted,
+		JWT:                 p.cfg.RaikoJWT,
+		Dummy:               p.cfg.Dummy,
+		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+	}
+	if sgxVerifier, err := p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if sgxVerifier != transaction.ZeroAddress {
+		teeProducer = &proofProducer.TEEProofProducerPacaya{
+			TrustedProducer: trustedProducer,
+			TeeProducer: proofProducer.TrustedProofProducer{
+				Verifier:            sgxVerifier,
+				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+				ProofType:           proofProducer.ProofTypeSgx,
+				JWT:                 p.cfg.RaikoJWT,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			},
+		}
+	}
+
+	if risc0Verifier, err := p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if risc0Verifier != transaction.ZeroAddress {
+		zkVerifiers[proofProducer.ZKProofTypeR0] = risc0Verifier
+	}
+
+	if sp1Verifier, err := p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if sp1Verifier != transaction.ZeroAddress {
+		zkVerifiers[proofProducer.ZKProofTypeSP1] = sp1Verifier
+	}
+
+	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
+		zkvmProducer = &proofProducer.ZKvmProofProducerPacaya{
+			Verifiers:           zkVerifiers,
+			TrustedProducer:     trustedProducer,
+			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+			JWT:                 p.cfg.RaikoJWT,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		}
+	}
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
-		&proofProducer.OptimisticProofProducer{},
+		teeProducer,
+		zkvmProducer,
 		p.proofGenerationCh,
 		p.batchProofGenerationCh,
 		p.aggregationNotify,
@@ -175,7 +231,6 @@ func (p *Prover) initProofSubmitters(
 	); err != nil {
 		return err
 	}
-
 	return nil
 }
 
