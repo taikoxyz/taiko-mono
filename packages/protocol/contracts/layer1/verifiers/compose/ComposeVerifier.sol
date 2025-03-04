@@ -20,6 +20,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     address public immutable taikoInbox;
+    address public immutable trustedVerifier;
     address public immutable opVerifier;
     address public immutable sgxVerifier;
     address public immutable tdxVerifier;
@@ -28,6 +29,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     constructor(
         address _taikoInbox,
+        address _trustedVerifier,
         address _opVerifier,
         address _sgxVerifier,
         address _tdxVerifier,
@@ -37,6 +39,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         EssentialContract(address(0))
     {
         taikoInbox = _taikoInbox;
+        trustedVerifier = _trustedVerifier;
         opVerifier = _opVerifier;
         sgxVerifier = _sgxVerifier;
         tdxVerifier = _tdxVerifier;
