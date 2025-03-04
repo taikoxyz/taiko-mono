@@ -185,7 +185,7 @@ func (r *EventRepository) FindUniqueProposers(
 	if err := r.db.GormDB().WithContext(ctx).
 		Raw("SELECT address, count(*) AS count FROM events WHERE event IN (?, ?) GROUP BY address",
 			eventindexer.EventNameBlockProposed, eventindexer.EventNameBatchProposed).
-		Find(&addrs).Error; err != nil {
+		FirstOrInit(&addrs).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
 
