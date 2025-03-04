@@ -265,7 +265,7 @@ const docTemplate = `{
                 "receiptsRoot": {
                     "type": "string"
                 },
-                "requestsRoot": {
+                "requestsHash": {
                     "description": "RequestsHash was added by EIP-7685 and is ignored in legacy headers.",
                     "type": "string"
                 },
