@@ -557,6 +557,15 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
         );
+        // Prover set
+        IResolver(sharedResolver).resolve(uint64(block.chainid), "prover_set", false).upgradeTo(
+            new ProverSet(
+                address(rollupResolver),
+                taikoInbox,
+                IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                taikoWrapper
+            )
+        );
 
         Ownable2StepUpgradeable(store).transferOwnership(owner);
         console2.log("** forced_inclusion_store ownership transferred to:", owner);
