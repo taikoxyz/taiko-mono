@@ -52,7 +52,8 @@ contract ERC20Vault is BaseVault {
         uint32 gasLimit;
         // Amount to be bridged.
         uint256 amount;
-        // Fee paid to the solver in the same ERC20 token
+        // Fee paid to the solver in the same ERC20 token. A value of zero means this operation is
+        // not solvable.
         uint256 solverFee;
     }
 
@@ -188,6 +189,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_ALREADY_SOLVED();
     error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
+    error VAULT_ETHER_TRANSFER_FAILED();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_CTOKEN();
@@ -356,20 +358,36 @@ contract ERC20Vault is BaseVault {
 
         address tokenRecipient = to;
 
-        // If the bridging intent has been solved, the solver becomes the token recipient
-        address solver = solverConditionToSolver[solverCondition];
-        if (solver != address(0)) {
-            tokenRecipient = solver;
-            delete solverConditionToSolver[solverCondition];
+        // If the bridging intent is solvable and has been solved, the solver becomes the token
+        // recipient
+        address solver;
+        if (solverFee != 0) {
+            solver = solverConditionToSolver[solverCondition];
+            if (solver != address(0)) {
+                tokenRecipient = solver;
+                delete solverConditionToSolver[solverCondition];
+            }
         }
 
         address token;
         {
             uint256 amountToTransfer = amount + solverFee;
             token = _transferTokensOrEther(ctoken, tokenRecipient, amountToTransfer);
-            to.sendEtherAndVerify(
-                ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value
+
+            bool succeeded = to.sendEther(
+                ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value, gasleft(), ""
             );
+
+            // Only require Ether transfer to succeed if the bridging intent is not solved by a
+            // solver.  The bridging intent owner must ensure that the recipient address can
+            // successfully receive Ether.
+            if (solver == address(0)) {
+                require(succeeded, VAULT_ETHER_TRANSFER_FAILED());
+            } else {
+                // Do not check Ether transfer success. If we did, the bridging intent owner could
+                // intentionally cause the Ether transfer to fail on the destination chain, then
+                // falsely claim the transaction failed and reclaim the Ether on the source chain.
+            }
         }
 
         emit TokenReceived({
