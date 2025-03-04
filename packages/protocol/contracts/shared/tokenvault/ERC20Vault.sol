@@ -364,6 +364,7 @@ contract ERC20Vault is BaseVault {
             solver = solverConditionToSolver[solverCondition];
             if (solver != address(0)) {
                 tokenRecipient = solver;
+                delete solverConditionToSolver[solverCondition];
             }
         }
 
@@ -372,7 +373,7 @@ contract ERC20Vault is BaseVault {
             uint256 amountToTransfer = amount + solverFee;
             token = _transferTokensOrEther(ctoken, tokenRecipient, amountToTransfer);
 
-            bool successed = to.sendEther(
+            bool succeeded = to.sendEther(
                 ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value, gasleft(), ""
             );
 
@@ -380,7 +381,7 @@ contract ERC20Vault is BaseVault {
             // solver.  The bridging intent owner must ensure that the recipient address can
             // successfully receive Ether.
             if (solver == address(0)) {
-                require(successed, VAULT_ETHER_TRANSFER_FAILED());
+                require(succeeded, VAULT_ETHER_TRANSFER_FAILED());
             } else {
                 // Do not check Ether transfer success. If we did, the bridging intent owner could
                 // intentionally cause the Ether transfer to fail on the destination chain, then
