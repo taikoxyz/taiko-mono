@@ -367,7 +367,8 @@ contract DeployProtocolOnL1 is DeployCapability {
                     address(rollupResolver), taikoInboxAddr, taikoInbox.bondToken(), taikoInboxAddr
                 )
             ),
-            data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
+            data: abi.encodeCall(ProverSetBase.init, (address(0), vm.envAddress("PROVER_SET_ADMIN"))),
+            registerTo: rollupResolver
         });
     }
 
@@ -553,6 +554,19 @@ contract DeployProtocolOnL1 is DeployCapability {
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
                     taikoInbox,
+                    taikoWrapper
+                )
+            )
+        );
+        // Prover set for preconfirmation
+        UUPSUpgradeable(
+            IResolver(rollupResolver).resolve(uint64(block.chainid), "prover_set", false)
+        ).upgradeTo(
+            address(
+                new ProverSet(
+                    address(rollupResolver),
+                    taikoInbox,
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     taikoWrapper
                 )
             )
