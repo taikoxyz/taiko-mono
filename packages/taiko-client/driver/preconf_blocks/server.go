@@ -16,7 +16,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"golang.org/x/sync/errgroup"
 
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -214,29 +213,28 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 
 // P2PSequencerAddresses implements the p2p.PreconfGossipRuntimeConfig interface.
 func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
-	var (
-		g                      = new(errgroup.Group)
-		currentOperatorAddress common.Address
-		nextOperatorAddress    common.Address
-		err                    error
-	)
-	g.Go(func() error {
-		currentOperatorAddress, err = s.rpc.GetPreconfWhiteListOperator(nil)
-		return err
-	})
-	g.Go(func() error {
-		nextOperatorAddress, err = s.rpc.GetNextPreconfWhiteListOperator(nil)
-		return err
-	})
-	if err := g.Wait(); err != nil {
-		log.Warn("Failed to get current and next preconf whitelist operator address", "error", err)
-		return []common.Address{}
+	var sequencerAddresses []common.Address
+	currentOperatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
+	if err != nil {
+		// TODO: return an error instead of logging it after we have a real whitelist contract to test.
+		log.Warn("Failed to get current preconf whitelist operator address", "error", err)
+	} else {
+		sequencerAddresses = append(sequencerAddresses, currentOperatorAddress)
 	}
+
+	nextOperatorAddress, err := s.rpc.GetNextPreconfWhiteListOperator(nil)
+	if err != nil {
+		// TODO: return an error instead of logging it after we have a real whitelist contract to test.
+		log.Warn("Failed to get next preconf whitelist operator address", "error", err)
+	} else {
+		sequencerAddresses = append(sequencerAddresses, nextOperatorAddress)
+	}
+
 	log.Info(
 		"Operator addresses as P2P sequencer",
 		"current", currentOperatorAddress.Hex(),
 		"next", nextOperatorAddress.Hex(),
 	)
 
-	return []common.Address{currentOperatorAddress, nextOperatorAddress}
+	return sequencerAddresses
 }
