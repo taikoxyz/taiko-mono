@@ -168,8 +168,8 @@ func (r *EventRepository) FindUniqueProvers(
 	addrs := make([]eventindexer.UniqueProversResponse, 0)
 
 	if err := r.db.GormDB().WithContext(ctx).
-		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
-			eventindexer.EventNameTransitionProved).
+		Raw("SELECT address, count(*) AS count FROM events WHERE event IN (?, ?) GROUP BY address",
+			eventindexer.EventNameTransitionProved, eventindexer.EventNameBatchesProven).
 		FirstOrInit(&addrs).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.FirstOrInit")
 	}
@@ -183,10 +183,10 @@ func (r *EventRepository) FindUniqueProposers(
 	addrs := make([]eventindexer.UniqueProposersResponse, 0)
 
 	if err := r.db.GormDB().WithContext(ctx).
-		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
-			eventindexer.EventNameBlockProposed).
-		FirstOrInit(&addrs).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.FirstOrInit")
+		Raw("SELECT address, count(*) AS count FROM events WHERE event IN (?, ?) GROUP BY address",
+			eventindexer.EventNameBlockProposed, eventindexer.EventNameBatchProposed).
+		Find(&addrs).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Find")
 	}
 
 	return addrs, nil
