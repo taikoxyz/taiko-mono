@@ -188,6 +188,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_ALREADY_SOLVED();
     error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
+    error VAULT_ETHER_TRANSFER_FAILED();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
     error VAULT_INVALID_CTOKEN();
@@ -356,20 +357,35 @@ contract ERC20Vault is BaseVault {
 
         address tokenRecipient = to;
 
-        // If the bridging intent has been solved, the solver becomes the token recipient
-        address solver = solverConditionToSolver[solverCondition];
-        if (solver != address(0)) {
-            tokenRecipient = solver;
-            delete solverConditionToSolver[solverCondition];
+        // If the bridging intent is solvable and has been solved, the solver becomes the token
+        // recipient
+        address solver;
+        if (solverFee != 0) {
+            solver = solverConditionToSolver[solverCondition];
+            if (solver != address(0)) {
+                tokenRecipient = solver;
+            }
         }
 
         address token;
         {
             uint256 amountToTransfer = amount + solverFee;
             token = _transferTokensOrEther(ctoken, tokenRecipient, amountToTransfer);
-            to.sendEtherAndVerify(
-                ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value
+
+            bool successed = to.sendEther(
+                ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value, gasleft(), ""
             );
+
+            // Only require Ether transfer to succeed if the bridging intent is not solved by a
+            // solver.  The bridging intent owner must ensure that the recipient address can
+            // successfully receive Ether.
+            if (solver == address(0)) {
+                require(successed, VAULT_ETHER_TRANSFER_FAILED());
+            } else {
+                // Do not check Ether transfer success. If we did, the bridging intent owner could
+                // intentionally cause the Ether transfer to fail on the destination chain, then
+                // falsely claim the transaction failed and reclaim the Ether on the source chain.
+            }
         }
 
         emit TokenReceived({
