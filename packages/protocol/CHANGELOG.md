@@ -1,5 +1,46 @@
 # Changelog
 
+## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.1.0...taiko-alethia-protocol-v2.2.0) (2025-03-04)
+
+
+### Features
+
+* **protocol:** add `ITaikoInbox.Config` to `ITaikoInbox.BatchInfo` ([#19004](https://github.com/taikoxyz/taiko-mono/issues/19004)) ([6afec95](https://github.com/taikoxyz/taiko-mono/commit/6afec955d8ea1e804e485f6aa5e26a2328684cd0))
+* **protocol:** add helder constants for preconf ([#18993](https://github.com/taikoxyz/taiko-mono/issues/18993)) ([f67f616](https://github.com/taikoxyz/taiko-mono/commit/f67f616e2c1145172da19b15cd1e50693c398086))
+* **protocol:** add new tcb & add test case  ([#19008](https://github.com/taikoxyz/taiko-mono/issues/19008)) ([12ddb55](https://github.com/taikoxyz/taiko-mono/commit/12ddb55c1bfb462c508a77177841620402d56d46))
+* **protocol:** invalidate existing conflicting transition ([#19014](https://github.com/taikoxyz/taiko-mono/issues/19014)) ([b3b9569](https://github.com/taikoxyz/taiko-mono/commit/b3b9569124f85510941432e2e7e830cedb82275b))
+* **protocol:** revert 3 previous PRs ([#19012](https://github.com/taikoxyz/taiko-mono/issues/19012)) ([4a348e7](https://github.com/taikoxyz/taiko-mono/commit/4a348e762e81c4dfa67afc799c0c9847460007a3))
+* **taiko-client:** changes based on the protocol forced inclusion feature ([#18909](https://github.com/taikoxyz/taiko-mono/issues/18909)) ([d351788](https://github.com/taikoxyz/taiko-mono/commit/d35178843968b133cf228fe3a156b16ef3983bbe))
+
+
+### Bug Fixes
+
+* **protocol:** 1 block per forced transaction ([#19001](https://github.com/taikoxyz/taiko-mono/issues/19001)) ([fa63bb3](https://github.com/taikoxyz/taiko-mono/commit/fa63bb3bb49b7402a3b98ef84ecc2b4f5595fe88))
+* **protocol:** enforce 1 block per forced inclusion ([#19013](https://github.com/taikoxyz/taiko-mono/issues/19013)) ([c8e6499](https://github.com/taikoxyz/taiko-mono/commit/c8e6499561f2fc2c8b5a7b470c533191edf1cedf))
+* **protocol:** fix a `blobParams.createdIn` issue ([#18967](https://github.com/taikoxyz/taiko-mono/issues/18967)) ([a9d9e43](https://github.com/taikoxyz/taiko-mono/commit/a9d9e4362c47f32906d0556d4ee1ba63b4dbb4b7))
+* **protocol:** fix deployment script for preconf proverSet ([#19031](https://github.com/taikoxyz/taiko-mono/issues/19031)) ([12de741](https://github.com/taikoxyz/taiko-mono/commit/12de7410a2eece5e62a5adbb7b0a0b5774729fe6))
+* **protocol:** fix Ether surplus transfer issue ([#19026](https://github.com/taikoxyz/taiko-mono/issues/19026)) ([c9edab8](https://github.com/taikoxyz/taiko-mono/commit/c9edab82888f6577f1c42c336a23a7f432946da1))
+* **protocol:** fix the same or the conflicted transaction ([#19017](https://github.com/taikoxyz/taiko-mono/issues/19017)) ([a790640](https://github.com/taikoxyz/taiko-mono/commit/a7906400d1d42767f0a8d0fdd2cab5c690b07605))
+* **protocol:** move numTransactions and timestamp to blobs ([#18998](https://github.com/taikoxyz/taiko-mono/issues/18998)) ([67ff89b](https://github.com/taikoxyz/taiko-mono/commit/67ff89b3877a6ee3d5b88d1b8ae19e0e56322d0f))
+
+
+### Chores
+
+* **protocol:** add back ERC20Vault (without solver) as ERC20VaultOriginal ([#19020](https://github.com/taikoxyz/taiko-mono/issues/19020)) ([8b1c3f9](https://github.com/taikoxyz/taiko-mono/commit/8b1c3f95d5439500f702c58985b5cdaf078bb225))
+* **protocol:** update `DevnetInbox.chainId` ([#18969](https://github.com/taikoxyz/taiko-mono/issues/18969)) ([ef188e0](https://github.com/taikoxyz/taiko-mono/commit/ef188e0b1016a5f90080fac78c81e4533bcf51e8))
+* **protocol:** update Inbox configs ([#18965](https://github.com/taikoxyz/taiko-mono/issues/18965)) ([650cb1f](https://github.com/taikoxyz/taiko-mono/commit/650cb1febe0f6e872947ec9eb9bf15904189d4b0))
+
+
+### Documentation
+
+* **protocol:** update mainnet deployment docs ([#18987](https://github.com/taikoxyz/taiko-mono/issues/18987)) ([49e7774](https://github.com/taikoxyz/taiko-mono/commit/49e7774fc432d09f95ea016587c70645a8d0d0eb))
+
+
+### Code Refactoring
+
+* **protocol:** do not delete old transition as it will not refund enough gas ([#18984](https://github.com/taikoxyz/taiko-mono/issues/18984)) ([a0be0fa](https://github.com/taikoxyz/taiko-mono/commit/a0be0faac0ce95375d35409c865e70c55b268597))
+* **protocol:** make it explicit that Ether as bond must be deposited beforehand. ([#19028](https://github.com/taikoxyz/taiko-mono/issues/19028)) ([a7cf79e](https://github.com/taikoxyz/taiko-mono/commit/a7cf79e127e9a8f1b792db5f77731d7ef744ea6b))
+
 ## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.0.0...taiko-alethia-protocol-v2.1.0) (2025-02-19)
 
 
