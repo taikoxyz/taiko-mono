@@ -25,6 +25,7 @@ contract ERC20Vault is BaseVault {
     using SafeERC20 for IERC20;
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
+    uint256 public constant MAX_SURPLUS_RETURN_GAS = 40_000;
 
     /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
@@ -64,6 +65,8 @@ contract ERC20Vault is BaseVault {
         address token;
         // Recipient of the tokens
         address to;
+        // Owner of the original op on the destination chain
+        address destOwner;
         // Amount of tokens to be transferred to the recipient
         uint256 amount;
         // Fields below are used to constrain a solve operation to only pass if an L2 batch
@@ -195,6 +198,8 @@ contract ERC20Vault is BaseVault {
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
     error VAULT_METAHASH_MISMATCH();
     error VAULT_NOT_ON_L1();
+    error VAULT_SOLVER_CONDITION_MISMATCH();
+    error VAULT_SENDER_NOT_AUTHORISED();
 
     constructor(address _resolver) BaseVault(_resolver) { }
 
@@ -312,7 +317,7 @@ contract ERC20Vault is BaseVault {
             srcChainId: 0, // will receive a new value
             destChainId: _op.destChainId,
             srcOwner: msg.sender,
-            destOwner: _op.destOwner != address(0) ? _op.destOwner : msg.sender,
+            destOwner: address(this),
             to: resolve(_op.destChainId, name(), false),
             value: msg.value - _op.fee,
             fee: _op.fee,
@@ -366,10 +371,11 @@ contract ERC20Vault is BaseVault {
         address token;
         {
             uint256 amountToTransfer = amount + solverFee;
-            token = _transferTokensOrEther(ctoken, tokenRecipient, amountToTransfer);
             to.sendEtherAndVerify(
-                ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value
+                ctoken.addr == address(0) ? msg.value - amountToTransfer : msg.value,
+                MAX_SURPLUS_RETURN_GAS
             );
+            token = _transferTokensOrEther(ctoken, tokenRecipient, amountToTransfer);
         }
 
         emit TokenReceived({
@@ -433,7 +439,8 @@ contract ERC20Vault is BaseVault {
         }
 
         // Record the solver's address
-        bytes32 solverCondition = getSolverCondition(_op.nonce, _op.token, _op.to, _op.amount);
+        bytes32 solverCondition =
+            getSolverCondition(_op.nonce, _op.token, _op.to, _op.destOwner, _op.amount);
         if (solverConditionToSolver[solverCondition] != address(0)) revert VAULT_ALREADY_SOLVED();
         solverConditionToSolver[solverCondition] = msg.sender;
 
@@ -450,23 +457,56 @@ contract ERC20Vault is BaseVault {
         emit ERC20Solved(solverCondition, msg.sender);
     }
 
+    function failSendToken(
+        IBridge.Message calldata _message,
+        bytes calldata _extraData
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        // Resolve message data to the token transfer data
+        (bytes memory data) = abi.decode(_message.data[4:], (bytes));
+        (CanonicalERC20 memory ctoken,, address to, uint256 amount,, bytes32 solverCondition) =
+            abi.decode(data, (CanonicalERC20, address, address, uint256, uint256, bytes32));
+
+        // Reconstruct solver condition using the provided extra data
+        if (_extraData.length != 0) {
+            (uint256 nonce, address destOwner) = abi.decode(_extraData, (uint256, address));
+            bytes32 reconstructedSolverCondition =
+                getSolverCondition(nonce, ctoken.addr, to, destOwner, amount);
+
+            require(destOwner == msg.sender, VAULT_SENDER_NOT_AUTHORISED());
+            require(
+                reconstructedSolverCondition == solverCondition, VAULT_SOLVER_CONDITION_MISMATCH()
+            );
+            // Do not allow failing the message if the tranfer has been solved
+            require(solverConditionToSolver[solverCondition] == address(0), VAULT_ALREADY_SOLVED());
+        }
+
+        address bridge = resolve(LibStrings.B_BRIDGE, false);
+        IBridge(bridge).failMessage(_message);
+    }
+
     /// @notice Returns the solver condition for a bridging intent
     /// @param _nonce Unique numeric value to prevent nonce collision
     /// @param _token Token address (address(0) for Ether)
     /// @param _to Recipient on destination chain
+    /// @param _destOwner The owner of the bridge op on the destination chain
     /// @param _amount Amount of tokens/ether expected by the recipient
     /// @return solver condition
     function getSolverCondition(
         uint256 _nonce,
         address _token,
         address _to,
+        address _destOwner,
         uint256 _amount
     )
         public
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(_nonce, _token, _to, _amount));
+        return keccak256(abi.encodePacked(_nonce, _token, _to, _destOwner, _amount));
     }
 
     /// @inheritdoc BaseVault
@@ -547,7 +587,13 @@ contract ERC20Vault is BaseVault {
         // Prepare solver condition
         if (_op.solverFee > 0) {
             uint256 _nonce = IBridge(_bridge).nextMessageId();
-            solverCondition = getSolverCondition(_nonce, ctoken_.addr, _op.to, balanceChangeAmount_);
+            solverCondition = getSolverCondition(
+                _nonce,
+                ctoken_.addr,
+                _op.to,
+                _op.destOwner == address(0) ? msg.sender : _op.destOwner,
+                balanceChangeAmount_
+            );
         }
 
         msgData_ = abi.encodeCall(
