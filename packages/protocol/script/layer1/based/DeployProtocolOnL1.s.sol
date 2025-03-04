@@ -557,13 +557,17 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
         );
-        // Prover set
-        IResolver(sharedResolver).resolve(uint64(block.chainid), "prover_set", false).upgradeTo(
-            new ProverSet(
-                address(rollupResolver),
-                taikoInbox,
-                IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                taikoWrapper
+        // Prover set for preconfirmation
+        UUPSUpgradeable(
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "prover_set", false)
+        ).upgradeTo(
+            address(
+                new ProverSet(
+                    address(rollupResolver),
+                    taikoInbox,
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
+                    taikoWrapper
+                )
             )
         );
 
