@@ -560,7 +560,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
         // Prover set for preconfirmation
         UUPSUpgradeable(
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "prover_set", false)
+            IResolver(rollupResolver).resolve(uint64(block.chainid), "prover_set", false)
         ).upgradeTo(
             address(
                 new ProverSet(
