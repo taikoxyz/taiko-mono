@@ -367,7 +367,8 @@ contract DeployProtocolOnL1 is DeployCapability {
                     address(rollupResolver), taikoInboxAddr, taikoInbox.bondToken(), taikoInboxAddr
                 )
             ),
-            data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
+            data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN"))),
+            registerTo: rollupResolver
         });
     }
 
