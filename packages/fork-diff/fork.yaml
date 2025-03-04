@@ -94,12 +94,13 @@ def:
           globs:
             - "core/*/*"
 
-    # - title: "Changes in crypto"
-    #   description: This shows modifications to crypto files
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "crypto/*"
+    - title: "crypto"
+      description: This shows modifications to crypto files
+      sub:
+        - title: "Files"
+          description: "This cherry-picks the !isOnCurve() bugfix from 1.15.4."
+          globs:
+            - "crypto/*"
     #     - title: "second layer"
     #       globs:
     #         - "crypto/*/*"
