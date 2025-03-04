@@ -52,7 +52,8 @@ contract ERC20Vault is BaseVault {
         uint32 gasLimit;
         // Amount to be bridged.
         uint256 amount;
-        // Fee paid to the solver in the same ERC20 token
+        // Fee paid to the solver in the same ERC20 token. A value of zero means this operation is
+        // not solvable.
         uint256 solverFee;
     }
 
