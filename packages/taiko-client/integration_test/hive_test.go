@@ -118,12 +118,13 @@ func TestHiveHandler(t *testing.T) {
 
 func hiveFramework(t *testing.T, dockerPull bool, simPattern string, clientGroups [][]string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		BuildOutput:     true,
+		BuildOutput:     false,
 		ContainerOutput: true,
 		DockerPull:      dockerPull,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  simPattern,
+		SimLogLevel:     2,
 		ClientGroups:    clientGroups,
 	})
 	assert.NoError(t, err)
