@@ -186,8 +186,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy));
         UUPSUpgradeable(sgxVerifier).upgradeTo(sgxImpl);
         register(rollupResolver, "sgx_verifier", sgxVerifier);
-        address trustedVerifier = deployProxy({
-            name: "trusted_verifier",
+        address pivotVerifier = deployProxy({
+            name: "pivot_verifier",
             impl: sgxVerifier,
             data: abi.encodeCall(SgxVerifier.init, address(0)),
             registerTo: rollupResolver
@@ -213,7 +213,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox, trustedVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInbox, pivotVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             )
         );

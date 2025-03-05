@@ -11,7 +11,7 @@ contract DevnetVerifier is ComposeVerifier {
 
     constructor(
         address _taikoInbox,
-        address _trustedVerifier,
+        address _pivotVerifier,
         address _opVerifier,
         address _sgxVerifier,
         address _risc0Verifier,
@@ -20,7 +20,7 @@ contract DevnetVerifier is ComposeVerifier {
         ComposeVerifier(
             _taikoInbox,
             _opVerifier,
-            _trustedVerifier,
+            _pivotVerifier,
             _sgxVerifier,
             address(0),
             _risc0Verifier,
@@ -35,9 +35,9 @@ contract DevnetVerifier is ComposeVerifier {
         returns (bool)
     {
         if (_verifiers.length != 2) return false;
-        uint256 trustedVerifierIdx = (_verifiers[0] == trustedVerifier) ? 0 : 1;
-        uint256 refVerifierIdx = (trustedVerifierIdx == 0) ? 1 : 0;
-        require(_verifiers[trustedVerifierIdx] == trustedVerifier, "CV_INVALID_TRUSTED_VERIFIER");
+        uint256 pivotVerifierIdx = (_verifiers[0] == pivotVerifier) ? 0 : 1;
+        uint256 refVerifierIdx = (pivotVerifierIdx == 0) ? 1 : 0;
+        require(_verifiers[pivotVerifierIdx] == pivotVerifier, "CV_INVALID_TRUSTED_VERIFIER");
 
         return (
             _verifiers[refVerifierIdx] == opVerifier || _verifiers[refVerifierIdx] == sgxVerifier
