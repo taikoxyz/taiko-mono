@@ -166,14 +166,14 @@ func (p *Prover) initProofSubmitters(
 		zkvmProducer *proofProducer.ZKvmProofProducerPacaya
 		zkVerifiers  = make(map[string]common.Address, 2)
 	)
-	trustedVerifier, err := p.rpc.GetTrustedVerifierPacaya(&bind.CallOpts{Context: p.ctx})
-	if err != nil || trustedVerifier == transaction.ZeroAddress {
-		return fmt.Errorf("required trusted verifier not found: %w", err)
+	pivotVerifier, err := p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx})
+	if err != nil || pivotVerifier == transaction.ZeroAddress {
+		return fmt.Errorf("required pivot verifier not found: %w", err)
 	}
-	trustedProducer := proofProducer.TrustedProofProducer{
-		Verifier:            trustedVerifier,
+	pivotProducer := proofProducer.PivotProofProducer{
+		Verifier:            pivotVerifier,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		ProofType:           proofProducer.ProofTypeTrusted,
+		ProofType:           proofProducer.ProofTypePivot,
 		JWT:                 p.cfg.RaikoJWT,
 		Dummy:               p.cfg.Dummy,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
@@ -182,8 +182,8 @@ func (p *Prover) initProofSubmitters(
 		return err
 	} else if sgxVerifier != transaction.ZeroAddress {
 		teeProducer = &proofProducer.TEEProofProducerPacaya{
-			TrustedProducer: trustedProducer,
-			TeeProducer: proofProducer.TrustedProofProducer{
+			PivotProducer: pivotProducer,
+			TeeProducer: proofProducer.PivotProofProducer{
 				Verifier:            sgxVerifier,
 				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 				ProofType:           proofProducer.ProofTypeSgx,
@@ -209,7 +209,7 @@ func (p *Prover) initProofSubmitters(
 	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
 		zkvmProducer = &proofProducer.ZKvmProofProducerPacaya{
 			Verifiers:           zkVerifiers,
-			TrustedProducer:     trustedProducer,
+			PivotProducer:       pivotProducer,
 			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,

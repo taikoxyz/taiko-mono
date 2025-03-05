@@ -237,11 +237,11 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				"verifier", batchProof.Verifier,
 			)
 		}
-		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.TrustedProofVerifier.Bytes()) < 0 {
+		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.PivotProofVerifier.Bytes()) < 0 {
 			subProofs[0] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
-			subProofs[1] = encoding.SubProof{Verifier: batchProof.TrustedProofVerifier, Proof: batchProof.TrustedBatchProof}
+			subProofs[1] = encoding.SubProof{Verifier: batchProof.PivotProofVerifier, Proof: batchProof.PivotBatchProof}
 		} else {
-			subProofs[0] = encoding.SubProof{Verifier: batchProof.TrustedProofVerifier, Proof: batchProof.TrustedBatchProof}
+			subProofs[0] = encoding.SubProof{Verifier: batchProof.PivotProofVerifier, Proof: batchProof.PivotBatchProof}
 			subProofs[1] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
 		}
 

@@ -21,11 +21,11 @@ import (
 )
 
 const (
-	ProofTypeTrusted = "trusted"
+	ProofTypePivot = "pivot"
 )
 
-// TrustedProofProducer generates a trusted proof for the given block.
-type TrustedProofProducer struct {
+// PivotProofProducer generates a pivot proof for the given block.
+type PivotProofProducer struct {
 	Verifier            common.Address
 	RaikoHostEndpoint   string // a proverd RPC endpoint
 	ProofType           string // Proof type
@@ -36,7 +36,7 @@ type TrustedProofProducer struct {
 }
 
 // RequestProof implements the ProofProducer interface.
-func (s *TrustedProofProducer) RequestProof(
+func (s *PivotProofProducer) RequestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	batchID *big.Int,
@@ -60,8 +60,8 @@ func (s *TrustedProofProducer) RequestProof(
 		return nil, err
 	}
 
-	if s.ProofType == ProofTypeTrusted {
-		metrics.ProverTrustedProofGeneratedCounter.Add(1)
+	if s.ProofType == ProofTypePivot {
+		metrics.ProverPivotProofGeneratedCounter.Add(1)
 	} else if s.ProofType == ProofTypeSgx {
 		metrics.ProverSgxProofGeneratedCounter.Add(1)
 	}
@@ -75,7 +75,7 @@ func (s *TrustedProofProducer) RequestProof(
 }
 
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
-func (s *TrustedProofProducer) Aggregate(
+func (s *PivotProofProducer) Aggregate(
 	ctx context.Context,
 	items []*ProofResponse,
 	requestAt time.Time,
@@ -107,8 +107,8 @@ func (s *TrustedProofProducer) Aggregate(
 		return nil, err
 	}
 
-	if s.ProofType == ProofTypeTrusted {
-		metrics.ProverTrustedProofAggregationGeneratedCounter.Add(1)
+	if s.ProofType == ProofTypePivot {
+		metrics.ProverPivotProofAggregationGeneratedCounter.Add(1)
 	} else if s.ProofType == ProofTypeSgx {
 		metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
 	}
@@ -123,12 +123,12 @@ func (s *TrustedProofProducer) Aggregate(
 }
 
 // Tier implements the ProofProducer interface.
-func (s *TrustedProofProducer) Tier() uint16 {
+func (s *PivotProofProducer) Tier() uint16 {
 	return encoding.TierDeprecated
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
-func (s *TrustedProofProducer) callProverDaemon(
+func (s *PivotProofProducer) callProverDaemon(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	requestAt time.Time,
@@ -158,7 +158,7 @@ func (s *TrustedProofProducer) callProverDaemon(
 			"batchID", opts.PacayaOptions().BatchID,
 			"time", time.Since(requestAt),
 			"proofType", s.ProofType,
-			"producer", "TrustedProofProducer",
+			"producer", "PivotProofProducer",
 		)
 		return nil, errProofGenerating
 	}
@@ -180,10 +180,10 @@ func (s *TrustedProofProducer) callProverDaemon(
 		"batchID", opts.PacayaOptions().BatchID,
 		"time", time.Since(requestAt),
 		"proofType", s.ProofType,
-		"producer", "TrustedProofProducer",
+		"producer", "PivotProofProducer",
 	)
-	if s.ProofType == ProofTypeTrusted {
-		metrics.ProverTrustedProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	if s.ProofType == ProofTypePivot {
+		metrics.ProverPivotProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 	} else if s.ProofType == ProofTypeSgx {
 		metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 	}
@@ -192,7 +192,7 @@ func (s *TrustedProofProducer) callProverDaemon(
 }
 
 // requestProof sends a RPC request to proverd to try to get the requested proof.
-func (s *TrustedProofProducer) requestProof(
+func (s *PivotProofProducer) requestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
@@ -268,7 +268,7 @@ func (s *TrustedProofProducer) requestProof(
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
-func (s *TrustedProofProducer) requestBatchProof(
+func (s *PivotProofProducer) requestBatchProof(
 	ctx context.Context,
 	batchIDs []*big.Int,
 	proverAddress common.Address,
@@ -382,11 +382,11 @@ func (s *TrustedProofProducer) requestBatchProof(
 		"Batch proof generated",
 		"batchIDs", batchIDs,
 		"time", time.Since(requestAt),
-		"producer", "TrustedProofProducer",
+		"producer", "PivotProofProducer",
 	)
 
-	if s.ProofType == ProofTypeTrusted {
-		metrics.ProverTrustedAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	if s.ProofType == ProofTypePivot {
+		metrics.ProverPivotAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 	} else if s.ProofType == ProofTypeSgx {
 		metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 	}

@@ -12,10 +12,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
-// TEEProofProducerPacaya generates a SGX proof for the given block.
+// TEEProofProducerPacaya generates a TEE proof for the given block.
 type TEEProofProducerPacaya struct {
-	TrustedProducer TrustedProofProducer
-	TeeProducer     TrustedProofProducer
+	PivotProducer PivotProofProducer
+	TeeProducer   PivotProofProducer
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -29,7 +29,7 @@ func (t *TEEProofProducerPacaya) RequestProof(
 	g := new(errgroup.Group)
 
 	g.Go(func() error {
-		if _, err := t.TrustedProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+		if _, err := t.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
 			return err
 		}
 		return nil
@@ -66,14 +66,14 @@ func (t *TEEProofProducerPacaya) Aggregate(
 	}
 
 	var (
-		g                  = new(errgroup.Group)
-		trustedBatchProofs *BatchProofs
-		sgxBatchProofs     *BatchProofs
-		err                error
+		g                = new(errgroup.Group)
+		pivotBatchProofs *BatchProofs
+		sgxBatchProofs   *BatchProofs
+		err              error
 	)
 
 	g.Go(func() error {
-		if trustedBatchProofs, err = t.TrustedProducer.Aggregate(ctx, items, startTime); err != nil {
+		if pivotBatchProofs, err = t.PivotProducer.Aggregate(ctx, items, startTime); err != nil {
 			return err
 		}
 		return nil
@@ -88,13 +88,13 @@ func (t *TEEProofProducerPacaya) Aggregate(
 		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
 	}
 	return &BatchProofs{
-		ProofResponses:       sgxBatchProofs.ProofResponses,
-		BatchProof:           sgxBatchProofs.BatchProof,
-		BlockIDs:             batchIDs,
-		ProofType:            sgxBatchProofs.ProofType,
-		Verifier:             sgxBatchProofs.Verifier,
-		TrustedProofVerifier: trustedBatchProofs.Verifier,
-		TrustedBatchProof:    trustedBatchProofs.BatchProof,
+		ProofResponses:     sgxBatchProofs.ProofResponses,
+		BatchProof:         sgxBatchProofs.BatchProof,
+		BlockIDs:           batchIDs,
+		ProofType:          sgxBatchProofs.ProofType,
+		Verifier:           sgxBatchProofs.Verifier,
+		PivotProofVerifier: pivotBatchProofs.Verifier,
+		PivotBatchProof:    pivotBatchProofs.BatchProof,
 	}, nil
 }
 

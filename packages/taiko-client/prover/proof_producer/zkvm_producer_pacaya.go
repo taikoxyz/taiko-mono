@@ -29,7 +29,7 @@ type ZKvmProofProducerPacaya struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	JWT                 string // JWT provided by Raiko
-	TrustedProducer     TrustedProofProducer
+	PivotProducer       PivotProofProducer
 }
 
 func (z *ZKvmProofProducerPacaya) RequestProof(
@@ -54,7 +54,7 @@ func (z *ZKvmProofProducerPacaya) RequestProof(
 	g := new(errgroup.Group)
 
 	g.Go(func() error {
-		if _, err := z.TrustedProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+		if _, err := z.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
 			return err
 		}
 		return nil
@@ -98,17 +98,17 @@ func (z *ZKvmProofProducerPacaya) Aggregate(
 		"time", time.Since(requestAt),
 	)
 	var (
-		g                  = new(errgroup.Group)
-		trustedBatchProofs *BatchProofs
-		zkBatchProofs      []byte
-		err                error
-		batchIDs           = make([]*big.Int, len(items))
+		g                = new(errgroup.Group)
+		pivotBatchProofs *BatchProofs
+		zkBatchProofs    []byte
+		err              error
+		batchIDs         = make([]*big.Int, len(items))
 	)
 	for i, item := range items {
 		batchIDs[i] = item.Meta.Pacaya().GetBatchID()
 	}
 	g.Go(func() error {
-		if trustedBatchProofs, err = z.TrustedProducer.Aggregate(ctx, items, requestAt); err != nil {
+		if pivotBatchProofs, err = z.PivotProducer.Aggregate(ctx, items, requestAt); err != nil {
 			return err
 		}
 		return nil
@@ -131,14 +131,14 @@ func (z *ZKvmProofProducerPacaya) Aggregate(
 	}
 
 	return &BatchProofs{
-		ProofResponses:       items,
-		BatchProof:           zkBatchProofs,
-		Tier:                 z.Tier(),
-		BlockIDs:             batchIDs,
-		ProofType:            zkType,
-		Verifier:             verifier,
-		TrustedBatchProof:    trustedBatchProofs.BatchProof,
-		TrustedProofVerifier: trustedBatchProofs.Verifier,
+		ProofResponses:     items,
+		BatchProof:         zkBatchProofs,
+		Tier:               z.Tier(),
+		BlockIDs:           batchIDs,
+		ProofType:          zkType,
+		Verifier:           verifier,
+		PivotBatchProof:    pivotBatchProofs.BatchProof,
+		PivotProofVerifier: pivotBatchProofs.Verifier,
 	}, nil
 }
 
