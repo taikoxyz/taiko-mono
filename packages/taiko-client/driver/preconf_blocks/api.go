@@ -10,9 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
 	"github.com/modern-go/reflect2"
@@ -20,21 +18,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
-
-// ValidateSignature validates the signature of the request body.
-func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
-	payload, err := rlp.EncodeToBytes(b.ExecutableData)
-	if err != nil {
-		return false, err
-	}
-
-	pubKey, err := crypto.SigToPub(crypto.Keccak256(payload), common.FromHex(b.Signature))
-	if err != nil {
-		return false, err
-	}
-
-	return crypto.PubkeyToAddress(*pubKey).Hex() == b.ExecutableData.FeeRecipient.Hex(), nil
-}
 
 // ExecutableData is the data necessary to execute an EL payload.
 type ExecutableData struct {
@@ -54,8 +37,6 @@ type ExecutableData struct {
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
 	ExecutableData *ExecutableData `json:"executableData"`
-	// @param signature string Signature of this executable data payload.
-	Signature string `json:"signature" rlp:"-"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconf
@@ -91,7 +72,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	log.Info(
 		"New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
-		"signature", reqBody.Signature,
 		"coinbase", reqBody.ExecutableData.FeeRecipient.Hex(),
 		"timestamp", reqBody.ExecutableData.Timestamp,
 		"gasLimit", reqBody.ExecutableData.GasLimit,
@@ -117,22 +97,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 	if len(reqBody.ExecutableData.ExtraData) == 0 {
 		return s.returnError(c, http.StatusBadRequest, errors.New("empty extra data"))
-	}
-
-	// If the `--preconfBlock.signatureCheck` flag is enabled, validate the signature.
-	if s.checkSig {
-		ok, err := reqBody.ValidateSignature()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		if !ok {
-			log.Warn(
-				"Invalid signature",
-				"signature", reqBody.Signature,
-				"coinbase", reqBody.ExecutableData.FeeRecipient.Hex(),
-			)
-			return s.returnError(c, http.StatusBadRequest, errors.New("invalid signature"))
-		}
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
