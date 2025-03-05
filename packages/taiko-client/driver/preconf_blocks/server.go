@@ -44,7 +44,6 @@ type PreconfBlockAPIServer struct {
 	chainSyncer        preconfBlockChainSyncer
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
-	checkSig           bool
 	// P2P network for preconf block propagation
 	p2pNode   *p2p.NodeP2P
 	p2pSigner p2p.Signer
