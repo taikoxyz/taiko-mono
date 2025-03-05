@@ -46,6 +46,7 @@ jobs:
         run: |
           make hive_alpine_dependency
           make hive_go_dependency
+          make -C hiveproxy hiveproxy
           make -C simulators/taiko taiko
 
       - name: Hive tests
