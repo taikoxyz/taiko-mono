@@ -688,9 +688,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             unchecked {
                 state.bondBalance[_user] = balance - _amount;
             }
-        } else {
+        } else if (bondToken != address(0)) {
             uint256 amountDeposited = _handleDeposit(_user, _amount);
             require(amountDeposited == _amount, InsufficientBond());
+        } else {
+            // Ether as bond must be deposited before proposing a batch
+            revert InsufficientBond();
         }
         emit BondDebited(_user, _amount);
     }
