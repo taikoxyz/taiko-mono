@@ -808,10 +808,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	s.Nil(err)
 	s.NotEmpty(payload)
 
-	sig, err := crypto.Sign(crypto.Keccak256(payload), preconferPrivKey)
-	s.Nil(err)
-	reqBody.Signature = common.Bytes2Hex(sig)
-
 	// Try to propose a preconfirmation block
 	res, err := resty.New().
 		R().

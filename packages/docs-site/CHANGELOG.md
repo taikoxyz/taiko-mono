@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.25.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.1...docs-site-v1.25.2) (2025-03-04)
+
+
+### Bug Fixes
+
+* **docs-site:** fix links to contracts ([#19033](https://github.com/taikoxyz/taiko-mono/issues/19033)) ([397cb21](https://github.com/taikoxyz/taiko-mono/commit/397cb21ebf68aca49f03eb19196bd309d987731e))
+
+
+### Chores
+
+* **docs-site:** add note about zk coverage ([#19035](https://github.com/taikoxyz/taiko-mono/issues/19035)) ([8c64a59](https://github.com/taikoxyz/taiko-mono/commit/8c64a5968238b1121146ba7ce1caddcaab023391))
+
 ## [1.25.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.0...docs-site-v1.25.1) (2025-03-01)
 
 
