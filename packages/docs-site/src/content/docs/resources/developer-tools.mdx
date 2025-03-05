@@ -18,6 +18,11 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
     description="A Dune dashboard to track Taiko BCR mainnet, built by Taiko Labs."
     href="https://dune.com/taiko_xyz/taikobcr"
   />
+    <LinkCard
+    title="Tenderly Developer Explorer"
+    description="Developer Explorer allows you to monitor and inspect transactions, providing high level of details and additional tools such as debugger, simulator, alerts, Virtual TestNets and more."
+    href="https://docs.tenderly.co/developer-explorer?mtm_campaign=ext-docs&mtm_kwd=taiko"
+  />
 </CardGrid>
 
 ## Debugging tools
@@ -25,8 +30,8 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
 <CardGrid>
   <LinkCard
     title="Tenderly"
-    description="Tenderly is an all-in-one Web3 development platform that empowers developers to build, test, monitor, and operate smart contracts from inception to mass adoption."
-    href="https://tenderly.co/"
+    description="Debugger is the complete debugging solution for analyzing, testing, and optimizing smart contracts and transactions. It brings visibility to transaction details to enhance the debugging experience, with features like step-by-step execution, expression evaluation, and more."
+    href="https://tenderly.co?mtm_campaign=ext-docs&mtm_kwd=taiko"
   />
 </CardGrid>
 
@@ -64,6 +69,11 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
     description="PORTERS provides Web3 DePIN infrastructure through the POKT Network. The PORTERS Token Name Service API provides API access to token metadata, including TAIKO, through REST endpoints that may be accessed through the user's PORTERS App."
     href="https://docs.porters.xyz/"
   />
+  <LinkCard
+    title="Tenderly"
+    description="Tenderly offers a highly performant and reliable production infrastructure, equipped with custom RPC methods for gas price prediction, simulations, tracing, and more."
+    href="https://docs.tenderly.co/node/rpc-reference/taiko-hekla?mtm_campaign=ext-docs&mtm_kwd=taiko"
+  />
 </CardGrid>
 
 ## Indexers
@@ -73,5 +83,31 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
     title="Goldsky"
     description="Goldsky offers high-performance subgraph hosting and realtime data replication pipelines (Mirror). Subgraphs allow for flexible indexing with typescript, with support for webhooks, and Mirror allows users to get live blockchain data in database or message queues with a single yaml config."
     href="https://docs.goldsky.com/chains/taiko/?utm_source=taiko&utm_medium=docs"
+  />
+</CardGrid>
+
+## Monitoring
+
+<CardGrid>
+  <LinkCard
+    title="Tenderly Alerts"
+    description="Tenderly Alerts allow you to get notifications or trigger external webhooks based on transactions and contract interactions on Taiko. With Alerts API, it's possible to create custom alerts with more granular triggering criteria."
+    href="https://docs.tenderly.co/alerts/intro-to-alerts?mtm_campaign=ext-docs&mtm_kwd=taiko"
+  />
+
+    <LinkCard
+    title="Tenderly Web3 Actions"
+    description="Tenderly Web3 Actions are the serverless backend for smart contracts, enabling you to automate responses to different smart contract interactions, build runtime invariant checks, circuit breakers, and more."
+    href="https://docs.tenderly.co/alerts/intro-to-alerts?mtm_campaign=ext-docs&mtm_kwd=taiko"
+  />
+</CardGrid>
+
+## Simulations
+
+<CardGrid>
+  <LinkCard
+    title="Tenderly Simulations"
+    description="Integrate Simulation RPC to predict transaction outcomes such as asset changes, precise gas usage, and emitted events."
+    href="https://docs.tenderly.co/simulations/single-simulations#simulate-via-rpc?mtm_campaign=ext-docs&mtm_kwd=taiko"
   />
 </CardGrid>

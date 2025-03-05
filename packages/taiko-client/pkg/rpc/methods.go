@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -394,7 +395,7 @@ func (c *Client) GetPoolContent(
 	minTip uint64,
 	chainConfig *config.ChainConfig,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-) (PoolContent, error) {
+) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -1120,6 +1121,22 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	defer cancel()
 
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
+}
+
+// GetNextPreconfWhiteListOperator resolves the next preconf whitelist operator address.
+func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return common.Address{}, errors.New("preconf whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 }
 
 // GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.

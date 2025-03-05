@@ -256,6 +256,19 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
+	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch head L1 origin: %w", err)
+	}
+	if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+		return nil, fmt.Errorf(
+			"preconfirmation block number (%d) is less than or equal to the current head L1 origin block ID (%d)",
+			executableData.BlockNumber,
+			headL1Origin.BlockID,
+		)
+	}
+
 	if len(executableData.Transactions) == 0 {
 		return nil, fmt.Errorf("no transactions data in the payload")
 	}
