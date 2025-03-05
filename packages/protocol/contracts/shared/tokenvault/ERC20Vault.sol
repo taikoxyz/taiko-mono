@@ -297,7 +297,7 @@ contract ERC20Vault is BaseVault {
             if (_op.token != address(0) && btokenDenylist[_op.token]) {
                 revert VAULT_BTOKEN_BLACKLISTED();
             }
-            checkBridgeOpToAddress(_op.to, _op.destChainId);
+            checkToAddressOnSrcChain(_op.to, _op.destChainId);
         }
 
         address bridge = resolve(LibStrings.B_BRIDGE, false);
@@ -355,7 +355,7 @@ contract ERC20Vault is BaseVault {
 
         // Don't allow sending to disallowed addresses.
         // Don't send the tokens back to `from` because `from` is on the source chain.
-        checkToAddress(to);
+        checkToAddressOnDestChain(to);
 
         address tokenRecipient = to;
 

@@ -71,11 +71,11 @@ abstract contract BaseVault is
         if (ctx_.from != msg.sender) revert VAULT_PERMISSION_DENIED();
     }
 
-    function checkToAddress(address _to) internal view {
+    function checkToAddressOnDestChain(address _to) internal view {
         if (_to == address(0) || _to == address(this)) revert VAULT_INVALID_TO_ADDR();
     }
 
-    function checkBridgeOpToAddress(address _to, uint64 _destChainId) internal view {
+    function checkToAddressOnSrcChain(address _to, uint64 _destChainId) internal view {
         if (_to == address(0) || _to == resolve(_destChainId, name(), true)) {
             revert VAULT_INVALID_TO_ADDR();
         }

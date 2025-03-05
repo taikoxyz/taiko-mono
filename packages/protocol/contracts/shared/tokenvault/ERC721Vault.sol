@@ -52,7 +52,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
-        checkBridgeOpToAddress(_op.to, _op.destChainId);
+        checkToAddressOnSrcChain(_op.to, _op.destChainId);
 
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(_op);
 
@@ -101,7 +101,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         // Don't allow sending to disallowed addresses.
         // Don't send the tokens back to `from` because `from` is on the source chain.
-        checkToAddress(to);
+        checkToAddressOnDestChain(to);
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, tokenIds);
