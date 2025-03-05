@@ -118,10 +118,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/preconfblocks.ExecutableData"
                         }
                     ]
-                },
-                "signature": {
-                    "description": "@param signature string Signature of this executable data payload.",
-                    "type": "string"
                 }
             }
         },

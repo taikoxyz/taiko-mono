@@ -8,9 +8,6 @@ definitions:
         - $ref: '#/definitions/preconfblocks.ExecutableData'
         description: '@param ExecutableData engine.ExecutableData the data necessary
           to execute an EL payload.'
-      signature:
-        description: '@param signature string Signature of this executable data payload.'
-        type: string
     type: object
   preconfblocks.BuildPreconfBlockResponseBody:
     properties:
