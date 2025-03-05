@@ -56,7 +56,6 @@ func New(
 	jwtSecret []byte,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
-	checkSig bool,
 ) (*PreconfBlockAPIServer, error) {
 	protocolConfigs, err := cli.GetProtocolConfigs(nil)
 	if err != nil {
@@ -71,8 +70,7 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:      cli,
-		checkSig: checkSig,
+		rpc: cli,
 	}
 
 	server.echo.HideBanner = true

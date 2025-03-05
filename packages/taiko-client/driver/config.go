@@ -31,7 +31,6 @@ type Config struct {
 	PreconfBlockServerPort        uint64
 	PreconfBlockServerJWTSecret   []byte
 	PreconfBlockServerCORSOrigins string
-	PreconfBlockServerCheckSig    bool
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
 }

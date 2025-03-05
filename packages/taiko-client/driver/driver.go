@@ -121,7 +121,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerJWTSecret,
 			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
 			d.rpc,
-			d.Config.PreconfBlockServerCheckSig,
 		); err != nil {
 			return err
 		}
