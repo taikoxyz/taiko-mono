@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -35,84 +34,93 @@ func TestHiveHandler(t *testing.T) {
 	}
 
 	// Multi clusters full sync and snap sync tests.
-	t.Run(fmt.Sprintf("taiko-genesis/l2-snap-sync/clusters(%d)", len(clientGroups)), func(t *testing.T) {
-		testDenebGenesis(t, "taiko-genesis/l2-snap-sync", clientGroups)
-	})
-	t.Run(fmt.Sprintf("taiko-genesis/l2-full-sync/clusters(%d)", len(clientGroups)), func(t *testing.T) {
-		testDenebGenesis(t, "taiko-genesis/l2-full-sync", clientGroups)
+	t.Run("base/fullsync", func(t *testing.T) {
+		hiveFramework(t, true, "base/fullsync", clientGroups)
 	})
 
-	// Multi clusters reorg test.
-	t.Run("taiko-reorg/taiko-reorg", func(t *testing.T) {
-		testDenebReorg(t, "taiko-reorg/taiko-reorg", [][]string{clientGroups[0]})
+	// Reorg test.
+	t.Run("reorg/reorg", func(t *testing.T) {
+		hiveFramework(t, false, "reorg/reorg", [][]string{clientGroups[0]})
 	})
 
-	t.Run("taiko-blob/blob-server", func(t *testing.T) {
-		testBlobAPI(t, "taiko-blob/blob-server", []string{
-			"geth",
-			"prysm/prysm-bn",
-			"prysm/prysm-vc",
-			"taiko/taiko-geth",
-			"taiko/driver",
-			"taiko/proposer",
-			"taiko/prover",
-			"storage/redis",
-			"storage/postgres",
-			"blobscan/blobscan-api",
-			"blobscan/blobscan-indexer",
+	// Preconf tests.
+	t.Run("preconf/preconf", func(t *testing.T) {
+		hiveFramework(t, false, "preconf/preconf", [][]string{
+			{
+				"anvil",
+				"taiko/taiko-geth",
+				"taiko/driver",
+				"taiko/proposer",
+			},
+			{
+				"taiko/taiko-geth",
+				"taiko/driver",
+			},
 		})
 	})
 
-	t.Run("taiko-blob/blob-l1-beacon", func(t *testing.T) {
-		testBlobAPI(t, "taiko-blob/blob-l1-beacon", []string{
-			"geth",
-			"prysm/prysm-bn",
-			"prysm/prysm-vc",
-			"taiko/taiko-geth",
-			"taiko/driver",
-			"taiko/proposer",
-			"taiko/prover",
+	t.Run("preconf/reorg", func(t *testing.T) {
+		hiveFramework(t, false, "preconf/reorg", [][]string{
+			{
+				"anvil",
+				"taiko/taiko-geth",
+				"taiko/driver",
+				"taiko/proposer",
+			},
+		})
+	})
+
+	t.Run("preconf/forced-inclusion", func(t *testing.T) {
+		hiveFramework(t, false, "preconf/forced-inclusion", [][]string{
+			{
+				"geth",
+				"prysm/prysm-bn",
+				"prysm/prysm-vc",
+				"taiko/taiko-geth",
+				"taiko/driver",
+				"taiko/proposer",
+			},
+		})
+	})
+
+	t.Run("blob/blob-server", func(t *testing.T) {
+		hiveFramework(t, false, "blob/blob-server", [][]string{
+			{
+				"geth",
+				"prysm/prysm-bn",
+				"prysm/prysm-vc",
+				"taiko/taiko-geth",
+				"taiko/driver",
+				"taiko/proposer",
+				"taiko/prover",
+				"storage/redis",
+				"storage/postgres",
+				"blobscan/blobscan-api",
+				"blobscan/blobscan-indexer",
+			},
+		})
+	})
+
+	t.Run("blob/blob-l1-beacon", func(t *testing.T) {
+		hiveFramework(t, false, "blob/blob-l1-beacon", [][]string{
+			{
+				"geth",
+				"prysm/prysm-bn",
+				"prysm/prysm-vc",
+				"taiko/taiko-geth",
+				"taiko/driver",
+				"taiko/proposer",
+				"taiko/prover",
+			},
 		})
 	})
 }
 
-func testBlobAPI(t *testing.T, pattern string, clients []string) {
+func hiveFramework(t *testing.T, dockerPull bool, simPattern string, clientGroups [][]string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		BuildOutput:     false,
+		BuildOutput:     true,
 		ContainerOutput: true,
-		BaseDir:         os.Getenv("HIVE_DIR"),
-		SimPattern:      "taiko",
-		SimTestPattern:  pattern,
-		ClientGroups:    [][]string{clients},
-	})
-	assert.NoError(t, err)
-
-	failedCount, err := handler.Run(context.Background())
-	assert.NoError(t, err)
-	assert.Equal(t, 0, failedCount)
-}
-
-func testDenebGenesis(t *testing.T, simPattern string, clientGroups [][]string) {
-	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		BuildOutput:     false,
-		ContainerOutput: true,
-		DockerPull:      true,
-		BaseDir:         os.Getenv("HIVE_DIR"),
-		SimPattern:      "taiko",
-		SimTestPattern:  simPattern,
-		ClientGroups:    clientGroups,
-	})
-	assert.NoError(t, err)
-
-	failedCount, err := handler.Run(context.Background())
-	assert.NoError(t, err)
-	assert.Equal(t, 0, failedCount)
-}
-
-func testDenebReorg(t *testing.T, simPattern string, clientGroups [][]string) {
-	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		BuildOutput:     false,
-		ContainerOutput: true,
+		DockerPull:      dockerPull,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  simPattern,

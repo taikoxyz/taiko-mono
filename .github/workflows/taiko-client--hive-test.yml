@@ -39,7 +39,10 @@ jobs:
           cache: true
 
       - name: Clone taikoxyz/hive
-        run: git clone https://github.com/taikoxyz/hive.git /tmp/hive
+        run: |
+          git clone --branch pacaya_fork https://github.com/taikoxyz/hive.git /tmp/hive
+          cd /tmp/hive && make hive_alpine_dependency && make hive_go_dependency
+          cd /tmp/hive/simulators/taiko && make taiko
 
       - name: Hive tests
         working-directory: packages/taiko-client

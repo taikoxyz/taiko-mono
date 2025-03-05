@@ -327,4 +327,4 @@ replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/opti
 
 replace github.com/uber/jaeger-client-go => github.com/uber/jaeger-client-go v2.25.0+incompatible
 
-replace github.com/ethereum/hive v0.0.0-20240822135954-91829ccfb2c5 => github.com/taikoxyz/hive v0.0.0-20240827015317-405b241dd082
+replace github.com/ethereum/hive v0.0.0-20240822135954-91829ccfb2c5 => github.com/taikoxyz/hive v0.0.0-20250305011529-34568f1eff50
