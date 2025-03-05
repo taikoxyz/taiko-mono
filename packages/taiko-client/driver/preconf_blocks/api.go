@@ -22,7 +22,7 @@ import (
 )
 
 // ValidateSignature validates the signature of the request body.
-func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
+func (b *BuildPreconfBlockRequestBody) ValidateSignature(addresses []common.Address) (bool, error) {
 	payload, err := rlp.EncodeToBytes(b.ExecutableData)
 	if err != nil {
 		return false, err
@@ -33,7 +33,19 @@ func (b *BuildPreconfBlockRequestBody) ValidateSignature() (bool, error) {
 		return false, err
 	}
 
-	return crypto.PubkeyToAddress(*pubKey).Hex() == b.ExecutableData.FeeRecipient.Hex(), nil
+	// NOTE: right now P2PSequencerAddresses() may will return empty list, if
+	// there is no `PreconfWhitelist` contract deployed, if so, we skip the
+	// signature check temporarily.
+	if len(addresses) == 0 {
+		return true, nil
+	}
+
+	for _, addr := range addresses {
+		if crypto.PubkeyToAddress(*pubKey) == addr {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ExecutableData is the data necessary to execute an EL payload.
@@ -121,7 +133,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	// If the `--preconfBlock.signatureCheck` flag is enabled, validate the signature.
 	if s.checkSig {
-		ok, err := reqBody.ValidateSignature()
+		ok, err := reqBody.ValidateSignature(s.P2PSequencerAddresses())
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
