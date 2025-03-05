@@ -75,6 +75,12 @@ abstract contract BaseVault is
         if (_to == address(0) || _to == address(this)) revert VAULT_INVALID_TO_ADDR();
     }
 
+    function checkBridgeOpToAddress(address _to, uint64 _destChainId) internal view {
+        if (_to == address(0) || _to == resolve(_destChainId, name(), true)) {
+            revert VAULT_INVALID_TO_ADDR();
+        }
+    }
+
     function safeSymbol(address _token) internal view returns (string memory symbol_) {
         (bool success, bytes memory data) =
             address(_token).staticcall(abi.encodeCall(INameSymbol.symbol, ()));

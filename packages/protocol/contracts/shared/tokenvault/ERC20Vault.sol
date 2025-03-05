@@ -297,6 +297,7 @@ contract ERC20Vault is BaseVault {
             if (_op.token != address(0) && btokenDenylist[_op.token]) {
                 revert VAULT_BTOKEN_BLACKLISTED();
             }
+            checkBridgeOpToAddress(_op.to, _op.destChainId);
         }
 
         address bridge = resolve(LibStrings.B_BRIDGE, false);

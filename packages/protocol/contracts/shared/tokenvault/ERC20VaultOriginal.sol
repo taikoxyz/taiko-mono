@@ -252,6 +252,7 @@ contract ERC20VaultOriginal is BaseVault {
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
         if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
+        checkBridgeOpToAddress(_op.to, _op.destChainId);
 
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
             _handleMessage(_op);

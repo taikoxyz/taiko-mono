@@ -53,6 +53,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
+        checkBridgeOpToAddress(_op.to, _op.destChainId);
+
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(_op);
 
         // Create a message to send to the destination chain
