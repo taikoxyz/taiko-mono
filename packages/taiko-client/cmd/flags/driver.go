@@ -73,13 +73,6 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_CORS_ORIGINS"},
 	}
-	PreconfBlockServerCheckSig = &cli.BoolFlag{
-		Name:     "preconfirmation.signatureCheck",
-		Usage:    "If the preconfirmation block server will check the signature of the incoming preconf blocks",
-		Category: driverCategory,
-		Value:    false,
-		EnvVars:  []string{"PRECONFIRMATION_SERVER_SIGNATURE_CHECK"},
-	}
 	PreconfWhitelistAddress = &cli.StringFlag{
 		Name:     "preconfirmation.whitelist",
 		Usage:    "PreconfWhitelist contract L1 `address`",
@@ -104,6 +97,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerPort,
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
-	PreconfBlockServerCheckSig,
 	PreconfWhitelistAddress,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))
