@@ -884,8 +884,8 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7/go.mod h1:q4W45IWZaF22tdD+VEXcAWRA037jwmWEB5VWYORlTpc=
 github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d h1:vfofYNRScrDdvS342BElfbETmL1Aiz3i2t0zfRj16Hs=
 github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d/go.mod h1:RRCYJbIwD5jmqPI9XoAFR0OcDxqUctll6zUj/+B4S48=
-github.com/taikoxyz/hive v0.0.0-20250305011529-34568f1eff50 h1:KUO7Ol3wgzgXahHeuuNjqdj1CtlxYLE4f81RknrHVng=
-github.com/taikoxyz/hive v0.0.0-20250305011529-34568f1eff50/go.mod h1:440iYbvXRcztju0A5OfLyXlAqT2L3VioFdtbQaQWOrY=
+github.com/taikoxyz/hive v0.0.0-20250306072731-214ad8b92539 h1:SIIu1G4YgDT25TJj5gKM7tlHZLBjoPBce0IkYtg2pbE=
+github.com/taikoxyz/hive v0.0.0-20250306072731-214ad8b92539/go.mod h1:440iYbvXRcztju0A5OfLyXlAqT2L3VioFdtbQaQWOrY=
 github.com/taikoxyz/optimism v0.0.0-20250303060421-e5b44ffd49ba h1:9xt4bnxPbzwqhI+eNd0ly2Uf8vZ0gvICA0P+KJdFTmo=
 github.com/taikoxyz/optimism v0.0.0-20250303060421-e5b44ffd49ba/go.mod h1:V0VCkKtCzuaJH6qcL75SRcbdlakM9LhurMEJUhO6VXA=
 github.com/taikoxyz/taiko-geth v1.12.1-0.20250304021556-03f614fb278a h1:iQlXXdup0gnEiyrpED3KePWkTy4DzBJ08f/SYL0t24s=
