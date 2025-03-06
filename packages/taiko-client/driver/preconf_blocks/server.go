@@ -210,3 +210,31 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 
 	return operatorAddress
 }
+
+// P2PSequencerAddresses implements the p2p.PreconfGossipRuntimeConfig interface.
+func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
+	var sequencerAddresses []common.Address
+	currentOperatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
+	if err != nil {
+		// TODO: return an error instead of logging it after we have a real whitelist contract to test.
+		log.Warn("Failed to get current preconf whitelist operator address", "error", err)
+	} else {
+		sequencerAddresses = append(sequencerAddresses, currentOperatorAddress)
+	}
+
+	nextOperatorAddress, err := s.rpc.GetNextPreconfWhiteListOperator(nil)
+	if err != nil {
+		// TODO: return an error instead of logging it after we have a real whitelist contract to test.
+		log.Warn("Failed to get next preconf whitelist operator address", "error", err)
+	} else {
+		sequencerAddresses = append(sequencerAddresses, nextOperatorAddress)
+	}
+
+	log.Info(
+		"Operator addresses as P2P sequencer",
+		"current", currentOperatorAddress.Hex(),
+		"next", nextOperatorAddress.Hex(),
+	)
+
+	return sequencerAddresses
+}

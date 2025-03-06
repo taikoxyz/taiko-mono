@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -101,13 +101,6 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	return result, nil
 }
 
-// PoolContent represents the response body of the `taikoAuth_txPoolContentWithMinTip` RPC.
-type PoolContent = []*struct {
-	TxList           types.Transactions
-	EstimatedGasUsed uint64
-	BytesLength      uint64
-}
-
 // TxPoolContentWithMinTip fetches the transaction pool content from the L2 execution engine.
 func (c *EngineClient) TxPoolContentWithMinTip(
 	ctx context.Context,
@@ -118,10 +111,10 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	locals []string,
 	maxTransactionsLists uint64,
 	minTip uint64,
-) (PoolContent, error) {
+) ([]*miner.PreBuiltTxList, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	var result PoolContent
+	var result []*miner.PreBuiltTxList
 
 	if err := c.CallContext(
 		timeoutCtx,
