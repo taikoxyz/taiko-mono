@@ -170,7 +170,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		zkvmProducer    proofProducer.ProofProducer
 		zkVerifiers     = make(map[string]common.Address, 2)
 		proofBuffers    = make(map[string]*proofProducer.ProofBuffer, 4)
-		proofTypes      = make([]string, 4)
+		proofTypes      = make([]string, 0, 4)
 	)
 	pivotVerifier, err := p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx})
 	if err != nil || pivotVerifier == transaction.ZeroAddress {

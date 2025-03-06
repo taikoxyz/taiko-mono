@@ -126,11 +126,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	sgxBatchSize := c.Uint64(flags.SGXBatchSize.Name)
 	zkvmBatchSize := c.Uint64(flags.ZKVMBatchSize.Name)
-	if sgxBatchSize < 1 || zkvmBatchSize < 1 {
-		return nil, fmt.Errorf("batch size should be larger than 1, SGXBatchSize: %d, ZKVMBatchSize: %d",
-			sgxBatchSize,
-			zkvmBatchSize,
-		)
+	if sgxBatchSize < 1 {
+		sgxBatchSize = 1
+	}
+	if zkvmBatchSize < 1 {
+		zkvmBatchSize = 1
 	}
 
 	return &Config{

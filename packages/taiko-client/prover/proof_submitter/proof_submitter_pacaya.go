@@ -222,14 +222,14 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			if err != nil {
 				return fmt.Errorf(
 					"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
-					meta.Ontake().GetBlockID(),
+					meta.Pacaya().GetBatchID(),
 					bufferSize,
 					err,
 				)
 			}
 			log.Info(
 				"Proof generated",
-				"blockID", meta.Ontake().GetBlockID(),
+				"batchID", meta.Pacaya().GetBatchID(),
 				"bufferSize", bufferSize,
 				"maxBufferSize", proofBuffer.MaxLength,
 				"proofType", result.ProofType,
