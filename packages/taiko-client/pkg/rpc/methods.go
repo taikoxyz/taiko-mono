@@ -1260,8 +1260,7 @@ func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, er
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	// TODO: change it to `PivotVerifier`
-	return c.PacayaClients.ComposeVerifier.SgxVerifier(
+	return c.PacayaClients.ComposeVerifier.PivotVerifier(
 		&bind.CallOpts{Context: opts.Context},
 	)
 }
