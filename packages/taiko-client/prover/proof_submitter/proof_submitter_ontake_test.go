@@ -137,7 +137,6 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		testState,
 		tracker,
-		0,
 		s.BlobServer.URL(),
 	)
 	s.Nil(err)

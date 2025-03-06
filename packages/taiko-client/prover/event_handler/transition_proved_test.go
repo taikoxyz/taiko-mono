@@ -62,7 +62,6 @@ func (s *EventHandlerTestSuite) SetupTest() {
 		s.RPCClient,
 		testState,
 		tracker,
-		0,
 		nil,
 	)
 	s.Nil(err)

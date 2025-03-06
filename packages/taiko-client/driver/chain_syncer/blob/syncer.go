@@ -47,7 +47,6 @@ func NewSyncer(
 	client *rpc.Client,
 	state *state.State,
 	progressTracker *beaconsync.SyncProgressTracker,
-	maxRetrieveExponent uint64,
 	blobServerEndpoint *url.URL,
 ) (*Syncer, error) {
 	constructor, err := anchorTxConstructor.New(client)

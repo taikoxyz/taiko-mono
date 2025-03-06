@@ -25,7 +25,6 @@ type Config struct {
 	P2PSync                       bool
 	P2PSyncTimeout                time.Duration
 	RetryInterval                 time.Duration
-	MaxExponent                   uint64
 	BlobServerEndpoint            *url.URL
 	PreconfBlockServerPort        uint64
 	PreconfBlockServerJWTSecret   []byte
@@ -120,7 +119,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
 		P2PSync:                       p2pSync,
 		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
-		MaxExponent:                   c.Uint64(flags.MaxExponent.Name),
 		BlobServerEndpoint:            blobServerEndpoint,
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,

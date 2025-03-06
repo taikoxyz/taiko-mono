@@ -31,15 +31,6 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_CHECK_POINT_SYNC_URL"},
 	}
-	// Chain syncer specific flag
-	MaxExponent = &cli.Uint64Flag{
-		Name: "syncer.maxExponent",
-		Usage: "Maximum exponent of retrieving L1 blocks when there is a mismatch between protocol and L2 EE," +
-			"0 means that it is reset to the genesis height",
-		Value:    0,
-		Category: driverCategory,
-		EnvVars:  []string{"SYNCER_MAX_EXPONENT"},
-	}
 	// blob server endpoint
 	BlobServerEndpoint = &cli.StringFlag{
 		Name:     "blob.server",
@@ -85,7 +76,6 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	P2PSync,
 	P2PSyncTimeout,
 	CheckPointSyncURL,
-	MaxExponent,
 	BlobServerEndpoint,
 	PreconfBlockServerPort,
 	PreconfBlockServerJWTSecret,

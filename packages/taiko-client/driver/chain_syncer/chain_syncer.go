@@ -41,7 +41,6 @@ func New(
 	state *state.State,
 	p2pSync bool,
 	p2pSyncTimeout time.Duration,
-	maxRetrieveExponent uint64,
 	blobServerEndpoint *url.URL,
 ) (*L2ChainSyncer, error) {
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
@@ -53,7 +52,6 @@ func New(
 		rpc,
 		state,
 		tracker,
-		maxRetrieveExponent,
 		blobServerEndpoint,
 	)
 	if err != nil {
