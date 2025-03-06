@@ -47,12 +47,6 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SERVER"},
 	}
-	SocialScanEndpoint = &cli.StringFlag{
-		Name:     "blob.socialScanEndpoint",
-		Usage:    "Social Scan's blob storage server",
-		Category: driverCategory,
-		EnvVars:  []string{"BLOB_SOCIAL_SCAN_ENDPOINT"},
-	}
 	// preconf block server
 	PreconfBlockServerPort = &cli.Uint64Flag{
 		Name:     "preconfirmation.serverPort",
@@ -93,7 +87,6 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	CheckPointSyncURL,
 	MaxExponent,
 	BlobServerEndpoint,
-	SocialScanEndpoint,
 	PreconfBlockServerPort,
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
