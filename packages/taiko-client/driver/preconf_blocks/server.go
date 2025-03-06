@@ -44,7 +44,6 @@ type PreconfBlockAPIServer struct {
 	chainSyncer        preconfBlockChainSyncer
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
-	checkSig           bool
 	// P2P network for preconf block propagation
 	p2pNode   *p2p.NodeP2P
 	p2pSigner p2p.Signer
@@ -56,7 +55,6 @@ func New(
 	jwtSecret []byte,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
-	checkSig bool,
 ) (*PreconfBlockAPIServer, error) {
 	protocolConfigs, err := cli.GetProtocolConfigs(nil)
 	if err != nil {
@@ -71,8 +69,7 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:      cli,
-		checkSig: checkSig,
+		rpc: cli,
 	}
 
 	server.echo.HideBanner = true

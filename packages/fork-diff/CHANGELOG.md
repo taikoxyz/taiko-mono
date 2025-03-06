@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.2](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.1...fork-diff-v0.6.2) (2025-03-06)
+
+
+### Chores
+
+* **fork-diff:** update fork-diff ([#19027](https://github.com/taikoxyz/taiko-mono/issues/19027)) ([c3eb53e](https://github.com/taikoxyz/taiko-mono/commit/c3eb53e2c0770b2eb244b75818e48c7ee2117e72))
+
+
+### Documentation
+
+* **repo:** improve grammar and readability ([#18501](https://github.com/taikoxyz/taiko-mono/issues/18501)) ([61994ff](https://github.com/taikoxyz/taiko-mono/commit/61994ffefcf29981beb567b84a3a55706300cf13))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
+
+### Build
+
+* **deps:** bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#18539](https://github.com/taikoxyz/taiko-mono/issues/18539)) ([79f3fab](https://github.com/taikoxyz/taiko-mono/commit/79f3fab5f1d1ec1bb4ee18afb9268b622e894780))
+* **deps:** bump golang.org/x/sync from 0.9.0 to 0.10.0 ([#18560](https://github.com/taikoxyz/taiko-mono/issues/18560)) ([3d51970](https://github.com/taikoxyz/taiko-mono/commit/3d51970aa0953bbfecaeebf76ea7e664c875c0e4))
+
 ## [0.6.1](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.0...fork-diff-v0.6.1) (2024-10-04)
 
 
