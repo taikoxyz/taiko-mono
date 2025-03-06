@@ -31,7 +31,6 @@ type Config struct {
 	PreconfBlockServerPort        uint64
 	PreconfBlockServerJWTSecret   []byte
 	PreconfBlockServerCORSOrigins string
-	PreconfBlockServerCheckSig    bool
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
 }
@@ -137,7 +136,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
-		PreconfBlockServerCheckSig:    c.Bool(flags.PreconfBlockServerCheckSig.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
 	}, nil
