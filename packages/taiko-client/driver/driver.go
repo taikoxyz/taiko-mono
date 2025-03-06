@@ -94,9 +94,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		d.state,
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
-		cfg.MaxExponent,
 		cfg.BlobServerEndpoint,
-		cfg.SocialScanEndpoint,
 	); err != nil {
 		return err
 	}
@@ -121,7 +119,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerJWTSecret,
 			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
 			d.rpc,
-			d.Config.PreconfBlockServerCheckSig,
 		); err != nil {
 			return err
 		}
