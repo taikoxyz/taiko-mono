@@ -35,17 +35,17 @@ func TestHiveHandler(t *testing.T) {
 
 	// Multi clusters full sync and snap sync tests.
 	t.Run("base/fullsync", func(t *testing.T) {
-		hiveFramework(t, true, "base/fullsync", clientGroups)
+		hiveFramework(t, "base/fullsync", clientGroups)
 	})
 
 	// Reorg test.
 	t.Run("reorg/reorg", func(t *testing.T) {
-		hiveFramework(t, false, "reorg/reorg", [][]string{clientGroups[0]})
+		hiveFramework(t, "reorg/reorg", [][]string{clientGroups[0]})
 	})
 
 	// Preconf tests.
 	t.Run("preconf/preconf", func(t *testing.T) {
-		hiveFramework(t, false, "preconf/preconf", [][]string{
+		hiveFramework(t, "preconf/preconf", [][]string{
 			{
 				"anvil",
 				"taiko/taiko-geth",
@@ -60,7 +60,7 @@ func TestHiveHandler(t *testing.T) {
 	})
 
 	t.Run("preconf/reorg", func(t *testing.T) {
-		hiveFramework(t, false, "preconf/reorg", [][]string{
+		hiveFramework(t, "preconf/reorg", [][]string{
 			{
 				"anvil",
 				"taiko/taiko-geth",
@@ -71,7 +71,7 @@ func TestHiveHandler(t *testing.T) {
 	})
 
 	t.Run("preconf/forced-inclusion", func(t *testing.T) {
-		hiveFramework(t, false, "preconf/forced-inclusion", [][]string{
+		hiveFramework(t, "preconf/forced-inclusion", [][]string{
 			{
 				"geth",
 				"prysm/prysm-bn",
@@ -84,7 +84,7 @@ func TestHiveHandler(t *testing.T) {
 	})
 
 	t.Run("blob/blob-server", func(t *testing.T) {
-		hiveFramework(t, false, "blob/blob-server", [][]string{
+		hiveFramework(t, "blob/blob-server", [][]string{
 			{
 				"geth",
 				"prysm/prysm-bn",
@@ -102,7 +102,7 @@ func TestHiveHandler(t *testing.T) {
 	})
 
 	t.Run("blob/blob-l1-beacon", func(t *testing.T) {
-		hiveFramework(t, false, "blob/blob-l1-beacon", [][]string{
+		hiveFramework(t, "blob/blob-l1-beacon", [][]string{
 			{
 				"geth",
 				"prysm/prysm-bn",
@@ -116,11 +116,11 @@ func TestHiveHandler(t *testing.T) {
 	})
 }
 
-func hiveFramework(t *testing.T, dockerPull bool, simPattern string, clientGroups [][]string) {
+func hiveFramework(t *testing.T, simPattern string, clientGroups [][]string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
 		BuildOutput:     false,
 		ContainerOutput: true,
-		DockerPull:      dockerPull,
+		DockerPull:      true,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  simPattern,
