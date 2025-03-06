@@ -53,6 +53,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
+        checkToAddressOnSrcChain(_op.to, _op.destChainId);
+
         (bytes memory data, CanonicalNFT memory ctoken) = _handleMessage(_op);
 
         // Create a message to send to the destination chain
@@ -105,7 +107,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         // Don't allow sending to disallowed addresses.
         // Don't send the tokens back to `from` because `from` is on the source chain.
-        checkToAddress(to);
+        checkToAddressOnDestChain(to);
 
         // Transfer the ETH and the tokens to the `to` address
         address token = _transferTokens(ctoken, to, tokenIds, amounts);

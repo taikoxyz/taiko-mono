@@ -47,9 +47,7 @@ func NewSyncer(
 	client *rpc.Client,
 	state *state.State,
 	progressTracker *beaconsync.SyncProgressTracker,
-	maxRetrieveExponent uint64,
 	blobServerEndpoint *url.URL,
-	socialScanEndpoint *url.URL,
 ) (*Syncer, error) {
 	constructor, err := anchorTxConstructor.New(client)
 	if err != nil {
@@ -64,7 +62,6 @@ func NewSyncer(
 		ctx,
 		client,
 		blobServerEndpoint,
-		socialScanEndpoint,
 	)
 
 	txListDecompressor := txListDecompressor.NewTxListDecompressor(
