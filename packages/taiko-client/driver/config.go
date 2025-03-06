@@ -27,7 +27,6 @@ type Config struct {
 	RetryInterval                 time.Duration
 	MaxExponent                   uint64
 	BlobServerEndpoint            *url.URL
-	SocialScanEndpoint            *url.URL
 	PreconfBlockServerPort        uint64
 	PreconfBlockServerJWTSecret   []byte
 	PreconfBlockServerCORSOrigins string
@@ -66,16 +65,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	var socialScanEndpoint *url.URL
-	if c.IsSet(flags.SocialScanEndpoint.Name) {
-		if socialScanEndpoint, err = url.Parse(
-			c.String(flags.SocialScanEndpoint.Name),
-		); err != nil {
-			return nil, err
-		}
-	}
-
-	if beaconEndpoint == "" && blobServerEndpoint == nil && socialScanEndpoint == nil {
+	if beaconEndpoint == "" && blobServerEndpoint == nil {
 		return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
 	}
 
@@ -132,7 +122,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
 		MaxExponent:                   c.Uint64(flags.MaxExponent.Name),
 		BlobServerEndpoint:            blobServerEndpoint,
-		SocialScanEndpoint:            socialScanEndpoint,
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),

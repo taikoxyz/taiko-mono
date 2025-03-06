@@ -50,7 +50,6 @@ func (s *ProposerTestSuite) SetupTest() {
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
 		s.BlobServer.URL(),
-		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
