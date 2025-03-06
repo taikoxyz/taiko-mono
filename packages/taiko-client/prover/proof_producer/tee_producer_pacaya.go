@@ -95,6 +95,7 @@ func (t *TEEProofProducerPacaya) Aggregate(
 		Verifier:           sgxBatchProofs.Verifier,
 		PivotProofVerifier: pivotBatchProofs.Verifier,
 		PivotBatchProof:    pivotBatchProofs.BatchProof,
+		IsPacaya:           true,
 	}, nil
 }
 

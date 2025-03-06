@@ -139,6 +139,7 @@ func (z *ZKvmProofProducerPacaya) Aggregate(
 		Verifier:           verifier,
 		PivotBatchProof:    pivotBatchProofs.BatchProof,
 		PivotProofVerifier: pivotBatchProofs.Verifier,
+		IsPacaya:           true,
 	}, nil
 }
 

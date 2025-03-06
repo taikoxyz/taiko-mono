@@ -576,9 +576,14 @@ func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error
 
 // submitProofsOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
-	submitter := p.getSubmitterByTier(batchProof.Tier)
+	var submitter proofSubmitter.Submitter
+	if batchProof.IsPacaya {
+		submitter = p.proofSubmitterPacaya
+	} else {
+		submitter = p.getSubmitterByTier(batchProof.Tier)
+	}
 	if submitter == nil {
-		return nil
+		return fmt.Errorf("submitter not found %d & %s", batchProof.Tier, batchProof.ProofType)
 	}
 
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {

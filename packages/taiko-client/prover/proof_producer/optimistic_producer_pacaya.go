@@ -92,6 +92,7 @@ func (o *OptimisticProofProducerPacaya) Aggregate(
 		Verifier:           o.OpVerifier,
 		PivotProofVerifier: o.PivotVerifier,
 		PivotBatchProof:    pivotBatchProofs.BatchProof,
+		IsPacaya:           true,
 	}, nil
 }
 

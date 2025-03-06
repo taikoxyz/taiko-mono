@@ -50,6 +50,7 @@ type BatchProofs struct {
 	Verifier           common.Address
 	PivotBatchProof    []byte
 	PivotProofVerifier common.Address
+	IsPacaya           bool
 }
 
 type ProofProducer interface {
