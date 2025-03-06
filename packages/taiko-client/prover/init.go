@@ -160,11 +160,17 @@ func (p *Prover) initProofSubmitters(
 			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 		}
 	}
+	return p.initPacayaProofSubmitter(txBuilder)
+}
+
+func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
 	// Init verifiers for pacaya
 	var (
-		teeProducer  *proofProducer.TEEProofProducerPacaya
-		zkvmProducer *proofProducer.ZKvmProofProducerPacaya
-		zkVerifiers  = make(map[string]common.Address, 2)
+		baseLevelProver proofProducer.ProofProducer
+		zkvmProducer    proofProducer.ProofProducer
+		zkVerifiers     = make(map[string]common.Address, 2)
+		proofBuffers    = make(map[string]*proofProducer.ProofBuffer, 4)
+		proofTypes      = make([]string, 4)
 	)
 	pivotVerifier, err := p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx})
 	if err != nil || pivotVerifier == transaction.ZeroAddress {
@@ -178,10 +184,21 @@ func (p *Prover) initProofSubmitters(
 		Dummy:               p.cfg.Dummy,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 	}
+
+	if opVerifier, err := p.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if opVerifier != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, proofProducer.ProofTypeOp)
+		baseLevelProver = &proofProducer.OptimisticProofProducerPacaya{
+			OpVerifier:    opVerifier,
+			PivotVerifier: pivotVerifier,
+		}
+	}
 	if sgxVerifier, err := p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return err
 	} else if sgxVerifier != transaction.ZeroAddress {
-		teeProducer = &proofProducer.TEEProofProducerPacaya{
+		proofTypes = append(proofTypes, proofProducer.ProofTypeSgx)
+		baseLevelProver = &proofProducer.TEEProofProducerPacaya{
 			PivotProducer: pivotProducer,
 			TeeProducer: proofProducer.PivotProofProducer{
 				Verifier:            sgxVerifier,
@@ -197,16 +214,18 @@ func (p *Prover) initProofSubmitters(
 	if risc0Verifier, err := p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return err
 	} else if risc0Verifier != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, proofProducer.ZKProofTypeR0)
 		zkVerifiers[proofProducer.ZKProofTypeR0] = risc0Verifier
 	}
 
 	if sp1Verifier, err := p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return err
 	} else if sp1Verifier != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, proofProducer.ZKProofTypeSP1)
 		zkVerifiers[proofProducer.ZKProofTypeSP1] = sp1Verifier
 	}
 
-	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
+	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
 		zkvmProducer = &proofProducer.ZKvmProofProducerPacaya{
 			Verifiers:           zkVerifiers,
 			PivotProducer:       pivotProducer,
@@ -215,19 +234,34 @@ func (p *Prover) initProofSubmitters(
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		}
 	}
+	// Init proof buffers for pacaya
+	for _, proofType := range proofTypes {
+		switch proofType {
+		case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
+			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.SGXProofBufferSize)
+		case proofProducer.ZKProofTypeR0, proofProducer.ZKProofTypeSP1:
+			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
+		default:
+			return fmt.Errorf("unexpected proof type: %s", proofType)
+		}
+	}
+
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
-		teeProducer,
+		baseLevelProver,
 		zkvmProducer,
 		p.proofGenerationCh,
 		p.batchProofGenerationCh,
 		p.aggregationNotify,
+		p.batchesAggregationNotify,
 		p.cfg.ProverSetAddress,
 		p.cfg.TaikoL2Address,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
 		p.privateTxmgr,
 		txBuilder,
+		proofBuffers,
+		p.cfg.ForceBatchProvingInterval,
 	); err != nil {
 		return err
 	}

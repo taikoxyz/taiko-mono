@@ -157,7 +157,7 @@ func (z *ZKvmProofProducerPacaya) Tier() uint16 {
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
-func (s *ZKvmProofProducerPacaya) callProverDaemon(
+func (z *ZKvmProofProducerPacaya) callProverDaemon(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	requestAt time.Time,
@@ -166,16 +166,16 @@ func (s *ZKvmProofProducerPacaya) callProverDaemon(
 		proof []byte
 	)
 
-	zkCtx, zkCancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	zkCtx, zkCancel := rpc.CtxWithTimeoutOrDefault(ctx, z.RaikoRequestTimeout)
 	defer zkCancel()
 
-	output, err := s.requestProof(zkCtx, opts)
+	output, err := z.requestProof(zkCtx, opts)
 	if err != nil {
 		log.Error(
 			"Failed to request proof",
 			"batchID", opts.PacayaOptions().BatchID,
 			"error", err,
-			"endpoint", s.RaikoHostEndpoint,
+			"endpoint", z.RaikoHostEndpoint,
 		)
 		return nil, "", err
 	}

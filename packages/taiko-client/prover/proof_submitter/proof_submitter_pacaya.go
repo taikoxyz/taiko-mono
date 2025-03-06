@@ -25,18 +25,19 @@ import (
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitterPacaya struct {
-	rpc                *rpc.Client
-	teeProofProducer   proofProducer.ProofProducer
-	zkvmProofProducer  proofProducer.ProofProducer
-	resultCh           chan *proofProducer.ProofResponse
-	batchResultCh      chan *proofProducer.BatchProofs
-	aggregationNotify  chan uint16
-	anchorValidator    *validator.AnchorTxValidator
-	txBuilder          *transaction.ProveBlockTxBuilder
-	sender             *transaction.Sender
-	proverAddress      common.Address
-	proverSetAddress   common.Address
-	taikoAnchorAddress common.Address
+	rpc                    *rpc.Client
+	baseLevelProofProducer proofProducer.ProofProducer
+	zkvmProofProducer      proofProducer.ProofProducer
+	resultCh               chan *proofProducer.ProofResponse
+	batchResultCh          chan *proofProducer.BatchProofs
+	aggregationNotify      chan uint16
+	batchAggregationNotify chan string
+	anchorValidator        *validator.AnchorTxValidator
+	txBuilder              *transaction.ProveBlockTxBuilder
+	sender                 *transaction.Sender
+	proverAddress          common.Address
+	proverSetAddress       common.Address
+	taikoAnchorAddress     common.Address
 	// Batch proof related
 	proofBuffers              map[string]*proofProducer.ProofBuffer
 	forceBatchProvingInterval time.Duration
@@ -45,17 +46,20 @@ type ProofSubmitterPacaya struct {
 // NewProofSubmitter creates a new ProofSubmitter instance.
 func NewProofSubmitterPacaya(
 	rpcClient *rpc.Client,
-	teeProofProducer proofProducer.ProofProducer,
+	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
 	aggregationNotify chan uint16,
+	batchAggregationNotify chan string,
 	proverSetAddress common.Address,
 	taikoAnchorAddress common.Address,
 	gasLimit uint64,
 	txmgr txmgr.TxManager,
 	privateTxmgr txmgr.TxManager,
 	builder *transaction.ProveBlockTxBuilder,
+	proofBuffers map[string]*proofProducer.ProofBuffer,
+	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
@@ -63,18 +67,21 @@ func NewProofSubmitterPacaya(
 	}
 
 	return &ProofSubmitterPacaya{
-		rpc:                rpcClient,
-		teeProofProducer:   teeProofProducer,
-		zkvmProofProducer:  zkvmProofProducer,
-		resultCh:           resultCh,
-		batchResultCh:      batchResultCh,
-		aggregationNotify:  aggregationNotify,
-		anchorValidator:    anchorValidator,
-		txBuilder:          builder,
-		sender:             transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
-		proverAddress:      txmgr.From(),
-		proverSetAddress:   proverSetAddress,
-		taikoAnchorAddress: taikoAnchorAddress,
+		rpc:                       rpcClient,
+		baseLevelProofProducer:    baseLevelProver,
+		zkvmProofProducer:         zkvmProofProducer,
+		resultCh:                  resultCh,
+		batchResultCh:             batchResultCh,
+		aggregationNotify:         aggregationNotify,
+		batchAggregationNotify:    batchAggregationNotify,
+		anchorValidator:           anchorValidator,
+		txBuilder:                 builder,
+		sender:                    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
+		proverAddress:             txmgr.From(),
+		proverSetAddress:          proverSetAddress,
+		taikoAnchorAddress:        taikoAnchorAddress,
+		proofBuffers:              proofBuffers,
+		forceBatchProvingInterval: forceBatchProvingInterval,
 	}, nil
 }
 
@@ -185,10 +192,9 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 						return err
 					}
 				}
-
 			}
 			if result == nil {
-				if result, err = s.teeProofProducer.RequestProof(
+				if result, err = s.baseLevelProofProducer.RequestProof(
 					ctx,
 					opts,
 					meta.Pacaya().GetBatchID(),
@@ -198,7 +204,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					// If request proof has timed out in retry, let's cancel the proof generating and skip
 					if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
 						log.Error("Request proof has timed out, start to cancel", "batchID", opts.BatchID)
-						if cancelErr := s.teeProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
+						if cancelErr := s.baseLevelProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
 							log.Error("Failed to request cancellation of proof", "err", cancelErr)
 						}
 						return nil
@@ -206,6 +212,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					return fmt.Errorf("failed to request proof (id: %d): %w", meta.Pacaya().GetBatchID(), err)
 				}
 			}
+			proofType = result.ProofType
 			proofBuffer, exist := s.proofBuffers[proofType]
 			if !exist {
 				return fmt.Errorf("get unexpected proof type from raiko %s", proofType)
@@ -233,7 +240,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			if !proofBuffer.IsAggregating() &&
 				(uint64(bufferSize) >= proofBuffer.MaxLength ||
 					(proofBuffer.Len() != 0 && time.Since(firstItemAt) > s.forceBatchProvingInterval)) {
-				s.aggregationNotify <- s.Tier()
+				s.batchAggregationNotify <- proofType
 				proofBuffer.MarkAggregating()
 			}
 			metrics.ProverQueuedProofCounter.Add(1)
@@ -241,7 +248,19 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		},
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
 	); err != nil {
-		log.Error("Request proof error", "batchID", meta.Pacaya().GetBatchID(), "error", err)
+		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
+			!errors.Is(err, proofProducer.ErrProofInProgress) &&
+			!errors.Is(err, proofProducer.ErrRetry) {
+			log.Error("Request proof error",
+				"batchID", meta.Pacaya().GetBatchID(),
+				"error", err,
+			)
+		} else {
+			log.Debug("Expected error code",
+				"error", err,
+				"batchID", meta.Pacaya().GetBatchID(),
+			)
+		}
 		return err
 	}
 
@@ -268,7 +287,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	)
 	var (
 		invalidBatchIDs     []uint64
-		latestProvenBatchID = common.Big0
+		latestProvenBlockID = common.Big0
 		uint64BatchIDs      []uint64
 	)
 	if len(batchProof.ProofResponses) == 0 {
@@ -301,7 +320,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 			return err
 		}
 		if !ok {
-			log.Error("A valid proof for block is already submitted", "blockId", proof.BlockID)
+			log.Error("A valid proof for block is already submitted", "batchID", proof.BlockID)
 			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
 			continue
 		}
@@ -312,32 +331,38 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 			continue
 		}
 
-		// Get the corresponding L2 block.
-		block, err := s.rpc.L2.BlockByHash(ctx, proof.Opts.PacayaOptions().BlockHash)
-		if err != nil {
-			log.Error(
-				"Failed to get L2 block with given hash",
-				"hash", proof.Opts.OntakeOptions().BlockHash,
-				"error", err,
-			)
-			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-			continue
-		}
+		for _, blockHeader := range proof.Opts.PacayaOptions().Headers {
+			// Get the corresponding L2 block.
+			block, err := s.rpc.L2.BlockByHash(ctx, blockHeader.Hash())
+			if err != nil {
+				log.Error(
+					"Failed to get L2 block with given hash",
+					"hash", blockHeader.Hash(),
+					"error", err,
+				)
+				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				break
+			}
 
-		if block.Transactions().Len() == 0 {
-			log.Error("Invalid block without anchor transaction, blockID", "blockId", proof.BlockID)
-			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-			continue
-		}
+			if block.Transactions().Len() == 0 {
+				log.Error("Invalid block without anchor transaction",
+					"batchID", proof.BlockID,
+					"blockID", block.Number(),
+				)
+				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				break
+			}
 
-		// Validate TaikoL2.anchor transaction inside the L2 block.
-		anchorTx := block.Transactions()[0]
-		if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
-			log.Error("Invalid anchor transaction", "error", err)
-			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-		}
-		if proof.BlockID.Cmp(latestProvenBatchID) > 0 {
-			latestProvenBatchID = proof.BlockID
+			// Validate TaikoL2.anchor transaction inside the L2 block.
+			anchorTx := block.Transactions()[0]
+			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
+				log.Error("Invalid anchor transaction", "error", err)
+				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				break
+			}
+			if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
+				latestProvenBlockID = proof.BlockID
+			}
 		}
 	}
 
@@ -347,7 +372,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		return fmt.Errorf("when submit batches proofs, found unexpected proof type from raiko %s", batchProof.ProofType)
 	}
 	if len(invalidBatchIDs) > 0 {
-		log.Warn("Invalid proofs in batch", "blockIds", invalidBatchIDs)
+		log.Warn("Invalid proofs in batch", "batchIDs", invalidBatchIDs)
 		proofBuffer.ClearItems(invalidBatchIDs...)
 		return ErrInvalidProof
 	}
@@ -366,8 +391,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	}
 
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
-	// TODO
-	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBatchID.Uint64()))
+	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 	proofBuffer.ClearItems(uint64BatchIDs...)
 
 	return nil
@@ -381,11 +405,9 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 	}
 	var producer proofProducer.ProofProducer
 	switch proofType {
-	case proofProducer.ProofTypeSgx:
-		producer = s.teeProofProducer
-	case proofProducer.ZKProofTypeSP1:
-		producer = s.zkvmProofProducer
-	case proofProducer.ZKProofTypeR0:
+	case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
+		producer = s.baseLevelProofProducer
+	case proofProducer.ZKProofTypeR0, proofProducer.ZKProofTypeSP1:
 		producer = s.zkvmProofProducer
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
@@ -434,14 +456,14 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 	return nil
 }
 
-// Producer implements the Submitter interface.
+// AggregateProofs implements the Submitter interface.
 func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
-	return fmt.Errorf("tier is not implemented for Pacaya submitter")
+	return fmt.Errorf("%s is not implemented for Pacaya submitter", "AggregateProofs")
 }
 
 // Producer implements the Submitter interface.
 func (s *ProofSubmitterPacaya) Producer() proofProducer.ProofProducer {
-	log.Warn("Tier is not implemented for Pacaya submitter")
+	log.Warn("Producer is not implemented for Pacaya submitter")
 	return nil
 }
 

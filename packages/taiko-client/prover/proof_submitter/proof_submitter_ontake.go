@@ -22,7 +22,6 @@ import (
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
-	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
@@ -229,9 +228,9 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 		},
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
 	); err != nil {
-		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
-			!errors.Is(err, proofProducer.ErrProofInProgress) &&
-			!errors.Is(err, proofProducer.ErrRetry) {
+		if !errors.Is(err, producer.ErrZkAnyNotDrawn) &&
+			!errors.Is(err, producer.ErrProofInProgress) &&
+			!errors.Is(err, producer.ErrRetry) {
 			log.Error("Request proof error", "error", err)
 		} else {
 			log.Debug("Expected error code", "error", err)
@@ -569,5 +568,5 @@ func (s *ProofSubmitterOntake) AggregationEnabled() bool {
 
 // AggregateProofsByType implements the Submitter interface.
 func (s *ProofSubmitterOntake) AggregateProofsByType(ctx context.Context, proofType string) error {
-	return fmt.Errorf("tier is not implemented for Ontake submitter")
+	return fmt.Errorf("%s is not implemented for Pacaya submitter", "AggregateProofsByType")
 }

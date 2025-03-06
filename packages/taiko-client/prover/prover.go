@@ -70,10 +70,10 @@ type Prover struct {
 	proofContesterOntake  proofSubmitter.Contester
 	proofSubmitterPacaya  proofSubmitter.Submitter
 
-	assignmentExpiredCh     chan metadata.TaikoProposalMetaData
-	proveNotify             chan struct{}
-	aggregationNotify       chan uint16
-	aggregationPacayaNotify chan string
+	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
+	proveNotify              chan struct{}
+	aggregationNotify        chan uint16
+	batchesAggregationNotify chan string
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -148,6 +148,7 @@ func InitFromConfig(
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
 	p.aggregationNotify = make(chan uint16, 1)
+	p.batchesAggregationNotify = make(chan string, 1)
 
 	if err := p.initL1Current(cfg.StartingBlockID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
@@ -341,7 +342,7 @@ func (p *Prover) eventLoop() {
 			}
 		case tier := <-p.aggregationNotify:
 			p.withRetry(func() error { return p.aggregateOp(tier) })
-		case proofType := <-p.aggregationPacayaNotify:
+		case proofType := <-p.batchesAggregationNotify:
 			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
 		case e := <-blockVerifiedV2Ch:
 			p.eventHandlers.blockVerifiedHandler.Handle(e)

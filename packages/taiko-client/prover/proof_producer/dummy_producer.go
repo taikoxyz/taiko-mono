@@ -56,5 +56,4 @@ func (o *DummyProofProducer) RequestBatchProofs(
 			ProofType:      proofType,
 		}, nil
 	}
-
 }

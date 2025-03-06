@@ -11,7 +11,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
-// OptimisticProofProducer always returns an optimistic (dummy) proof.
+// OptimisticProofProducerPacaya always returns an optimistic (dummy) proof.
 type OptimisticProofProducer struct {
 	DummyProofProducer
 }

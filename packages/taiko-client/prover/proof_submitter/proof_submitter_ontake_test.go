@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -30,14 +31,15 @@ import (
 
 type ProofSubmitterTestSuite struct {
 	testutils.ClientTestSuite
-	submitterOntake        *ProofSubmitterOntake
-	submitterPacaya        *ProofSubmitterPacaya
-	contesterOntake        *ProofContesterOntake
-	blobSyncer             *blob.Syncer
-	proposer               *proposer.Proposer
-	proofCh                chan *producer.ProofResponse
-	batchProofGenerationCh chan *producer.BatchProofs
-	aggregationNotify      chan uint16
+	submitterOntake          *ProofSubmitterOntake
+	submitterPacaya          *ProofSubmitterPacaya
+	contesterOntake          *ProofContesterOntake
+	blobSyncer               *blob.Syncer
+	proposer                 *proposer.Proposer
+	proofCh                  chan *producer.ProofResponse
+	batchProofGenerationCh   chan *producer.BatchProofs
+	aggregationNotify        chan uint16
+	batchesAggregationNotify chan string
 }
 
 func (s *ProofSubmitterTestSuite) SetupTest() {
@@ -46,6 +48,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.proofCh = make(chan *producer.ProofResponse, 1024)
 	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
 	s.aggregationNotify = make(chan uint16, 1)
+	s.batchesAggregationNotify = make(chan string, 1)
 
 	var (
 		builder = transaction.NewProveBlockTxBuilder(
@@ -101,18 +104,34 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		30*time.Minute,
 	)
 	s.Nil(err)
+	pivotVerifier, err := s.RPCClient.GetPivotVerifierPacaya(&bind.CallOpts{Context: context.Background()})
+	s.Nil(err)
+	opVerifier, err := s.RPCClient.GetOPVerifierPacaya(&bind.CallOpts{Context: context.Background()})
+	s.Nil(err)
+	baseLevelProver := &producer.OptimisticProofProducerPacaya{
+		OpVerifier:    opVerifier,
+		PivotVerifier: pivotVerifier,
+	}
+	proofBuffers := map[string]*producer.ProofBuffer{
+		producer.ProofTypeOp: producer.NewProofBuffer(1),
+	}
+
 	s.submitterPacaya, err = NewProofSubmitterPacaya(
 		s.RPCClient,
-		&producer.OptimisticProofProducer{},
+		baseLevelProver,
+		nil,
 		s.proofCh,
 		s.batchProofGenerationCh,
 		s.aggregationNotify,
+		s.batchesAggregationNotify,
 		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		0,
 		txMgr,
 		nil,
 		builder,
+		proofBuffers,
+		30*time.Minute,
 	)
 	s.Nil(err)
 	s.contesterOntake = NewProofContester(
