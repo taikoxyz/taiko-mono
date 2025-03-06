@@ -2,7 +2,7 @@ name: "Taiko Client Hive Tests"
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [ opened, synchronize, reopened, ready_for_review ]
     paths:
       - "packages/taiko-client/**"
       - "go.mod"
@@ -18,7 +18,7 @@ jobs:
   hive_tests:
     if: ${{ github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test') }}
     name: hive tests
-    runs-on: [arc-runner-set]
+    runs-on: [ arc-runner-set ]
     timeout-minutes: 40
 
     steps:
@@ -49,8 +49,44 @@ jobs:
           make -C hiveproxy hiveproxy
           make -C simulators/taiko taiko
 
-      - name: Hive tests
+      - name: Hive test base/fullsync
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 ./integration_test -timeout=2400s
+          go test -v -p=1 -run TestHiveHandler/base/fullsync ./integration_test -timeout=600s
+
+      - name: Hive test reorg/reorg
+        working-directory: packages/taiko-client
+        run: |
+          export HIVE_DIR=/tmp/hive
+          go test -v -p=1 -run TestHiveHandler/reorg/reorg ./integration_test -timeout=600s
+
+      - name: Hive test preconf/preconf
+        working-directory: packages/taiko-client
+        run: |
+          export HIVE_DIR=/tmp/hive
+          go test -v -p=1 -run TestHiveHandler/preconf/preconf ./integration_test -timeout=600s
+
+      - name: Hive test preconf/reorg
+        working-directory: packages/taiko-client
+        run: |
+          export HIVE_DIR=/tmp/hive
+          go test -v -p=1 -run TestHiveHandler/preconf/reorg ./integration_test -timeout=600s
+
+      - name: Hive test preconf/forced-inclusion
+        working-directory: packages/taiko-client
+        run: |
+          export HIVE_DIR=/tmp/hive
+          go test -v -p=1 -run TestHiveHandler/preconf/forced-inclusion ./integration_test -timeout=600s
+
+      - name: Hive test blob/blob-server
+        working-directory: packages/taiko-client
+        run: |
+          export HIVE_DIR=/tmp/hive
+          go test -v -p=1 -run TestHiveHandler/blob/blob-server ./integration_test -timeout=600s
+
+      - name: Hive test blob/blob-l1-beacon
+        working-directory: packages/taiko-client
+        run: |
+          export HIVE_DIR=/tmp/hive
+          go test -v -p=1 -run TestHiveHandler/blob/blob-l1-beacon ./integration_test -timeout=600s

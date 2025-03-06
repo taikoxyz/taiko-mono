@@ -93,7 +93,6 @@ func TestHiveHandler(t *testing.T) {
 				"taiko/driver",
 				"taiko/proposer",
 				"taiko/prover",
-				"storage/redis",
 				"storage/postgres",
 				"blobscan/blobscan-api",
 				"blobscan/blobscan-indexer",
