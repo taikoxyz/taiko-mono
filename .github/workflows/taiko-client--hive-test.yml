@@ -53,40 +53,40 @@ jobs:
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 -run TestHiveHandler/base/fullsync ./integration_test -timeout=600s
+          go test -v -p=1 -run TestHiveHandler/base/fullsync ./integration_test -timeout=200s
 
       - name: Hive test reorg/reorg
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 -run TestHiveHandler/reorg/reorg ./integration_test -timeout=600s
+          go test -v -p=1 -run TestHiveHandler/reorg/reorg ./integration_test -timeout=200s
 
       - name: Hive test preconf/preconf
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 -run TestHiveHandler/preconf/preconf ./integration_test -timeout=600s
+          go test -v -p=1 -run TestHiveHandler/preconf/preconf ./integration_test -timeout=200s
 
       - name: Hive test preconf/reorg
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 -run TestHiveHandler/preconf/reorg ./integration_test -timeout=600s
+          go test -v -p=1 -run TestHiveHandler/preconf/reorg ./integration_test -timeout=200s
 
       - name: Hive test preconf/forced-inclusion
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 -run TestHiveHandler/preconf/forced-inclusion ./integration_test -timeout=600s
+          go test -v -p=1 -run TestHiveHandler/preconf/forced-inclusion ./integration_test -timeout=200s
 
       - name: Hive test blob/blob-server
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 -run TestHiveHandler/blob/blob-server ./integration_test -timeout=600s
+          go test -v -p=1 -run TestHiveHandler/blob/blob-server ./integration_test -timeout=200s
 
       - name: Hive test blob/blob-l1-beacon
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 -run TestHiveHandler/blob/blob-l1-beacon ./integration_test -timeout=600s
+          go test -v -p=1 -run TestHiveHandler/blob/blob-l1-beacon ./integration_test -timeout=200s
