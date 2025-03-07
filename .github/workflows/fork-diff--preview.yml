@@ -40,11 +40,15 @@ jobs:
         run: |
           echo "TAG_VERSION=$(jq -r '.tagVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
 
+      - name: Read taiko-geth version from JSON
+        run: |
+          echo "TAIKO_GETH_VERSION=$(jq -r '.gethVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
+
       - name: Clone forkdiff
         run: git clone https://github.com/protolambda/forkdiff.git
 
       - name: Clone taiko-geth
-        run: git clone https://github.com/taikoxyz/taiko-geth.git
+        run: git clone --branch ${{ env.TAIKO_GETH_VERSION }} https://github.com/taikoxyz/taiko-geth.git
 
       - name: Clone go-ethereum
         run: git clone --branch ${{ env.TAG_VERSION }} https://github.com/ethereum/go-ethereum.git

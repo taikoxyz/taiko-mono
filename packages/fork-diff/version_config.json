@@ -1,3 +1,4 @@
 {
-  "tagVersion": "v1.15.5"
+  "tagVersion": "v1.15.5",
+  "gethVersion": "1.15.4-merge"
 }
