@@ -179,7 +179,6 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	pivotProducer := proofProducer.PivotProofProducer{
 		Verifier:            pivotVerifier,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		ProofType:           proofProducer.ProofTypePivot,
 		JWT:                 p.cfg.RaikoJWT,
 		Dummy:               p.cfg.Dummy,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
@@ -189,25 +188,32 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		return err
 	} else if opVerifier != transaction.ZeroAddress {
 		proofTypes = append(proofTypes, proofProducer.ProofTypeOp)
-		baseLevelProver = &proofProducer.OptimisticProofProducerPacaya{
-			OpVerifier:    opVerifier,
-			PivotVerifier: pivotVerifier,
+		baseLevelProver = &proofProducer.ProofProducerPacaya{
+			PivotProducer: pivotProducer,
+			Verifiers: map[string]common.Address{
+				proofProducer.ProofTypeOp: opVerifier,
+			},
+			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+			ProofType:           proofProducer.ProofTypeOp,
+			JWT:                 p.cfg.RaikoJWT,
+			Dummy:               true,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		}
 	}
 	if sgxVerifier, err := p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return err
 	} else if sgxVerifier != transaction.ZeroAddress {
 		proofTypes = append(proofTypes, proofProducer.ProofTypeSgx)
-		baseLevelProver = &proofProducer.TEEProofProducerPacaya{
+		baseLevelProver = &proofProducer.ProofProducerPacaya{
 			PivotProducer: pivotProducer,
-			TeeProducer: proofProducer.PivotProofProducer{
-				Verifier:            sgxVerifier,
-				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-				ProofType:           proofProducer.ProofTypeSgx,
-				JWT:                 p.cfg.RaikoJWT,
-				Dummy:               p.cfg.Dummy,
-				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			Verifiers: map[string]common.Address{
+				proofProducer.ProofTypeSgx: sgxVerifier,
 			},
+			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+			ProofType:           proofProducer.ProofTypeSgx,
+			JWT:                 p.cfg.RaikoJWT,
+			Dummy:               p.cfg.Dummy,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		}
 	}
 
@@ -226,12 +232,13 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	}
 
 	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
-		zkvmProducer = &proofProducer.ZKvmProofProducerPacaya{
+		zkvmProducer = &proofProducer.ProofProducerPacaya{
 			Verifiers:           zkVerifiers,
 			PivotProducer:       pivotProducer,
 			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			ProofType:           proofProducer.ZKProofTypeAny,
 		}
 	}
 	// Init proof buffers for pacaya

@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -20,64 +22,112 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// PivotProofProducer generates a pivot proof for the given block.
-// TODO: Can be refactored like ProofProducerPacaya
-type PivotProofProducer struct {
-	Verifier            common.Address
-	RaikoHostEndpoint   string // a proverd RPC endpoint
-	JWT                 string // JWT provided by Raiko
-	Dummy               bool
+const (
+	ProofTypePivot = "pivot"
+	ProofTypeOp    = "op"
+)
+
+type RaikoBatches struct {
+	BatchID                *big.Int `json:"batch_id"`
+	L1InclusionBlockNumber *big.Int `json:"l1_inclusion_block_number"`
+}
+
+// RaikoRequestProofBodyV3Pacaya represents the JSON body for requesting the proof.
+type RaikoRequestProofBodyV3Pacaya struct {
+	Batches   []*RaikoBatches `json:"batches"`
+	Prover    string          `json:"prover"`
+	Aggregate bool            `json:"aggregate"`
+	Type      string          `json:"proof_type"`
+}
+
+// ProofProducerPacaya generates a proof for the given block.
+type ProofProducerPacaya struct {
+	Verifiers           map[string]common.Address
+	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
+	JWT                 string // JWT provided by Raiko
+	PivotProducer       PivotProofProducer
+	ProofType           string
+	Dummy               bool // Noticed: zk proof producer can't enable this field
 	DummyProofProducer
 }
 
-// RequestProof implements the ProofProducer interface.
-func (s *PivotProofProducer) RequestProof(
+func (z *ProofProducerPacaya) RequestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	batchID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
 ) (*ProofResponse, error) {
+	if !meta.IsPacaya() {
+		return nil, fmt.Errorf("current proposal is not Pacaya proposal")
+	}
+
 	log.Info(
 		"Request proof from raiko-host service",
-		"type", ProofTypePivot,
 		"batchID", batchID,
 		"coinbase", meta.Pacaya().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
 
-	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, batchID, meta, s.Tier(), requestAt)
+	var (
+		proof     []byte
+		proofType string
+		batches   = []*RaikoBatches{
+			{
+				BatchID:                batchID,
+				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
+			},
+		}
+	)
+
+	g := new(errgroup.Group)
+
+	g.Go(func() error {
+		if _, err := z.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+			return err
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if z.Dummy {
+			proofType = z.ProofType
+			resp, _ := z.DummyProofProducer.RequestProof(opts, batchID, meta, z.Tier(), requestAt)
+			proof = resp.Proof
+		} else {
+			if resp, err := z.requestBatchProof(
+				ctx,
+				batches,
+				opts.GetProverAddress(),
+				false,
+				z.ProofType,
+				requestAt,
+			); err != nil {
+				return err
+			} else {
+				proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
+				proofType = resp.ProofType
+			}
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
 	}
 
-	batches := []*RaikoBatches{
-		{
-			BatchID:                batchID,
-			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-		},
-	}
-	if resp, err := s.requestBatchProof(
-		ctx,
-		batches,
-		opts.GetProverAddress(),
-		false,
-		ProofTypePivot,
-		requestAt,
-	); err != nil {
-		return nil, err
-	} else {
-		return &ProofResponse{
-			BlockID: batchID,
-			Meta:    meta,
-			Proof:   common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
-			Opts:    opts,
-		}, nil
-	}
+	return &ProofResponse{
+		BlockID:   batchID,
+		Meta:      meta,
+		Proof:     proof,
+		Opts:      opts,
+		Tier:      z.Tier(),
+		ProofType: proofType,
+	}, nil
 }
 
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
-func (s *PivotProofProducer) Aggregate(
+func (z *ProofProducerPacaya) Aggregate(
 	ctx context.Context,
 	items []*ProofResponse,
 	requestAt time.Time,
@@ -85,49 +135,93 @@ func (s *PivotProofProducer) Aggregate(
 	if len(items) == 0 {
 		return nil, ErrInvalidLength
 	}
+	proofType := items[0].ProofType
+	verifier, exist := z.Verifiers[proofType]
+	if !exist {
+		return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
+	}
 	log.Info(
 		"Aggregate batch proofs from raiko-host service",
+		"proofType", proofType,
 		"batchSize", len(items),
-		"proofType", ProofTypePivot,
 		"firstID", items[0].BlockID,
 		"lastID", items[len(items)-1].BlockID,
 		"time", time.Since(requestAt),
 	)
-
-	if s.Dummy {
-		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), ProofTypePivot)
-		return &BatchProofs{
-			BatchProof: resp.BatchProof,
-			Verifier:   s.Verifier,
-		}, nil
-	}
-
-	batches := make([]*RaikoBatches, 0, len(items))
+	var (
+		g                = new(errgroup.Group)
+		pivotBatchProofs *BatchProofs
+		batchProofs      []byte
+		err              error
+		batches          = make([]*RaikoBatches, 0, len(items))
+		batchIDs         = make([]*big.Int, 0, len(items))
+	)
 	for _, item := range items {
 		batches = append(batches, &RaikoBatches{
 			BatchID:                item.Meta.Pacaya().GetBatchID(),
 			L1InclusionBlockNumber: item.Meta.GetRawBlockHeight(),
 		})
+		batchIDs = append(batchIDs, item.Meta.Pacaya().GetBatchID())
 	}
-	if resp, err := s.requestBatchProof(
-		ctx,
-		batches,
-		items[0].Opts.GetProverAddress(),
-		true,
-		ProofTypePivot,
-		requestAt,
-	); err != nil {
-		return nil, err
-	} else {
-		return &BatchProofs{
-			BatchProof: common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
-			Verifier:   s.Verifier,
-		}, nil
+	g.Go(func() error {
+		if pivotBatchProofs, err = z.PivotProducer.Aggregate(ctx, items, requestAt); err != nil {
+			return err
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if z.Dummy {
+			proofType = z.ProofType
+			resp, _ := z.DummyProofProducer.RequestBatchProofs(items, z.Tier(), z.ProofType)
+			batchProofs = resp.BatchProof
+		} else {
+			if resp, err := z.requestBatchProof(
+				ctx,
+				batches,
+				items[0].Opts.GetProverAddress(),
+				true,
+				proofType,
+				requestAt,
+			); err != nil {
+				return err
+			} else {
+				batchProofs = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
+			}
+		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
 	}
+
+	return &BatchProofs{
+		ProofResponses:     items,
+		BatchProof:         batchProofs,
+		Tier:               z.Tier(),
+		BlockIDs:           batchIDs,
+		ProofType:          proofType,
+		Verifier:           verifier,
+		PivotBatchProof:    pivotBatchProofs.BatchProof,
+		PivotProofVerifier: pivotBatchProofs.Verifier,
+		IsPacaya:           true,
+	}, nil
+}
+
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
+func (z *ProofProducerPacaya) RequestCancel(
+	_ context.Context,
+	_ ProofRequestOptions,
+) error {
+	return fmt.Errorf("RequestCancel is not implemented for Pacaya proof producer")
+}
+
+// Tier implements the ProofProducer interface.
+func (z *ProofProducerPacaya) Tier() uint16 {
+	return encoding.TierDeprecated
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
-func (s *PivotProofProducer) requestBatchProof(
+func (z *ProofProducerPacaya) requestBatchProof(
 	ctx context.Context,
 	batches []*RaikoBatches,
 	proverAddress common.Address,
@@ -135,7 +229,7 @@ func (s *PivotProofProducer) requestBatchProof(
 	proofType string,
 	requestAt time.Time,
 ) (*RaikoRequestProofBodyResponseV2, error) {
-	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, z.RaikoRequestTimeout)
 	defer cancel()
 
 	reqBody := RaikoRequestProofBodyV3Pacaya{
@@ -163,15 +257,15 @@ func (s *PivotProofProducer) requestBatchProof(
 	req, err := http.NewRequestWithContext(
 		ctx,
 		"POST",
-		s.RaikoHostEndpoint+"/v3/proof/batch",
+		z.RaikoHostEndpoint+"/v3/proof/batch",
 		bytes.NewBuffer(jsonValue),
 	)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	if len(z.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(z.JWT)))
 	}
 
 	res, err := client.Do(req)
@@ -270,17 +364,4 @@ func (s *PivotProofProducer) requestBatchProof(
 		}
 	}
 	return &output, nil
-}
-
-// Tier implements the ProofProducer interface.
-func (s *PivotProofProducer) Tier() uint16 {
-	return encoding.TierDeprecated
-}
-
-// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
-func (s *PivotProofProducer) RequestCancel(
-	_ context.Context,
-	_ ProofRequestOptions,
-) error {
-	return fmt.Errorf("RequestCancel is not implemented for Pacaya proof producer")
 }

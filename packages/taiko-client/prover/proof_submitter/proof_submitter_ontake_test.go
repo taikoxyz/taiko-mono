@@ -108,9 +108,17 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.Nil(err)
 	opVerifier, err := s.RPCClient.GetOPVerifierPacaya(&bind.CallOpts{Context: context.Background()})
 	s.Nil(err)
-	baseLevelProver := &producer.OptimisticProofProducerPacaya{
-		OpVerifier:    opVerifier,
-		PivotVerifier: pivotVerifier,
+	pivotProducer := producer.PivotProofProducer{
+		Verifier: pivotVerifier,
+		Dummy:    true,
+	}
+	baseLevelProver := &producer.ProofProducerPacaya{
+		PivotProducer: pivotProducer,
+		Verifiers: map[string]common.Address{
+			producer.ProofTypeOp: opVerifier,
+		},
+		ProofType: producer.ProofTypeOp,
+		Dummy:     true,
 	}
 	proofBuffers := map[string]*producer.ProofBuffer{
 		producer.ProofTypeOp: producer.NewProofBuffer(1),

@@ -66,9 +66,11 @@ type ProofProducer interface {
 		items []*ProofResponse,
 		requestAt time.Time,
 	) (*BatchProofs, error)
+	// RequestCancel @dev this function would be deprecated after Pacaya fork
 	RequestCancel(
 		ctx context.Context,
 		opts ProofRequestOptions,
 	) error
+	// Tier @dev this function would be deprecated after Pacaya fork
 	Tier() uint16
 }
