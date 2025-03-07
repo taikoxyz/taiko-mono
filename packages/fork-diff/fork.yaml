@@ -8,7 +8,7 @@ base:
 fork:
   name: taikoxyz/taiko-geth
   url: https://github.com/taikoxyz/taiko-geth
-  ref: refs/heads/taiko
+  ref: refs/heads/1.15.4-merge
 def:
   title: "taiko-geth"
   description: | # description in markdown
