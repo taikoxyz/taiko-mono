@@ -294,6 +294,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     // Invalidate the conflict transition
                     state.transitions[slot][tid].blockHash = 0;
+                    metasLength = i + 1;
                     break;
                 }
 
@@ -325,7 +326,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
 
         // Emit the event
-        if (!hasConflictingProof) {
+        {
             uint64[] memory batchIds = new uint64[](metasLength);
             for (uint256 i; i < metasLength; ++i) {
                 batchIds[i] = metas[i].batchId;
@@ -334,12 +335,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchesProved(verifier, batchIds, trans);
         }
 
+        IVerifier(verifier).verifyProof(ctxs, _proof);
+        _verifyBatches(config, stats2, metasLength);
+
         if (hasConflictingProof) {
             _pause();
             emit Paused(verifier);
-        } else {
-            IVerifier(verifier).verifyProof(ctxs, _proof);
-            _verifyBatches(config, stats2, metasLength);
         }
     }
 
