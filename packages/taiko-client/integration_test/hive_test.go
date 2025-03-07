@@ -123,7 +123,7 @@ func hiveFramework(t *testing.T, simPattern string, clientGroups [][]string) {
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  simPattern,
-		SimLogLevel:     2,
+		SimLogLevel:     3,
 		ClientGroups:    clientGroups,
 	})
 	assert.NoError(t, err)
