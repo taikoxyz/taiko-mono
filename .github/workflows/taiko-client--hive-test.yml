@@ -39,7 +39,7 @@ jobs:
           cache: true
 
       - name: Clone taikoxyz/hive
-        run: git clone --branch pacaya_fork https://github.com/taikoxyz/hive.git /tmp/hive
+        run: git clone https://github.com/taikoxyz/hive.git /tmp/hive
 
       - name: Build dependency and taiko images
         working-directory: /tmp/hive
