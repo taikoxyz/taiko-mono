@@ -294,6 +294,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     // Invalidate the conflict transition
                     state.transitions[slot][tid].blockHash = 0;
+                    break;
                 }
 
                 // Do not save this transition
