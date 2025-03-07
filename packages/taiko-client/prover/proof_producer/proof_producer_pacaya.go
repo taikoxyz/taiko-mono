@@ -48,7 +48,7 @@ type ProofProducerPacaya struct {
 	JWT                 string // JWT provided by Raiko
 	PivotProducer       PivotProofProducer
 	ProofType           string
-	Dummy               bool // Noticed: zk proof producer can't enable this field
+	Dummy               bool
 	DummyProofProducer
 }
 
