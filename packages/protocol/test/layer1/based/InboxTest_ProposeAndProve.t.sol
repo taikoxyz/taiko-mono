@@ -511,6 +511,44 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertTrue(EssentialContract(address(inbox)).paused());
     }
 
+    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_will_break_current_loop(
+    )
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 4)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(5, 6)
+        WhenLogAllBatchesAndTransitions
+    {
+        uint64[] memory batchIds = range(5, 7);
+
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
+
+        for (uint256 i; i < metas.length; ++i) {
+            (metas[i],) = _loadMetadataAndInfo(batchIds[i]);
+            transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
+            transitions[i].blockHash = correctBlockhash(batchIds[i]);
+            transitions[i].stateRoot = correctStateRoot(batchIds[i]);
+        }
+
+        // Let the five transition is a conflict one.
+        transitions[0].blockHash = bytes32(uint256(5));
+
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+
+        // Verify the tagged conflict transition.
+        ITaikoInbox.TransitionState memory ts = inbox.getTransitionById(5, uint24(1));
+        assertEq(ts.blockHash, bytes32(uint256(0)));
+
+        // Verify the next six transition is empty.
+        ITaikoInbox.Batch memory batch = inbox.getBatch(6);
+        assertEq(batch.nextTransitionId, uint24(1));
+
+        // Verify the inbox is paused.
+        assertTrue(EssentialContract(address(inbox)).paused());
+    }
+
     function test_proposeBatch_reverts_for_invalid_proposer_and_operator()
         external
         transactBy(Alice)

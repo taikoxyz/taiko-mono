@@ -325,6 +325,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
         }
 
+        IVerifier(verifier).verifyProof(ctxs, _proof);
+
         // Emit the event
         {
             uint64[] memory batchIds = new uint64[](metasLength);
@@ -335,12 +337,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchesProved(verifier, batchIds, trans);
         }
 
-        IVerifier(verifier).verifyProof(ctxs, _proof);
-        _verifyBatches(config, stats2, metasLength);
-
         if (hasConflictingProof) {
             _pause();
             emit Paused(verifier);
+        } else {
+            _verifyBatches(config, stats2, metasLength);
         }
     }
 
