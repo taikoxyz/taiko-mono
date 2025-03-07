@@ -27,7 +27,7 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Install Git and Make
+      - name: Install Git and Makefile
         run: sudo apt-get update && sudo apt-get install -y git make
 
       - uses: actions/checkout@v4
