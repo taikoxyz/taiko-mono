@@ -212,7 +212,6 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 			ProofType:           proofProducer.ProofTypeSgx,
 			JWT:                 p.cfg.RaikoJWT,
-			Dummy:               p.cfg.Dummy,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		}
 	}
