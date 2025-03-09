@@ -84,7 +84,11 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		return nil, err
 	}
 
-	log.Info("L1 beacon info", "secondsPerSlot", secondsPerSlot, "slotsPerEpoch", slotsPerEpoch, "genesisTime", genesisTime)
+	log.Info("L1 beacon info",
+		"secondsPerSlot", secondsPerSlot,
+		"slotsPerEpoch", slotsPerEpoch,
+		"genesisTime", genesisTime,
+	)
 
 	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot), uint64(slotsPerEpoch)}, nil
 }
