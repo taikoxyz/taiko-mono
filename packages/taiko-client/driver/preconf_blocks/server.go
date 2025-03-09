@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -45,9 +46,10 @@ type PreconfBlockAPIServer struct {
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
 	// P2P network for preconf block propagation
-	p2pNode   *p2p.NodeP2P
-	p2pSigner p2p.Signer
-	lookahead *Lookahead
+	p2pNode        *p2p.NodeP2P
+	p2pSigner      p2p.Signer
+	lookaheadMutex sync.Mutex
+	lookahead      *Lookahead
 }
 
 // New creates a new preconf blcok server instance, and starts the server.
@@ -70,8 +72,9 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:       cli,
-		lookahead: &Lookahead{},
+		rpc:            cli,
+		lookahead:      &Lookahead{},
+		lookaheadMutex: sync.Mutex{},
 	}
 
 	server.echo.HideBanner = true
@@ -212,6 +215,8 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 
 // P2PSequencerAddresses implements the p2p.PreconfGossipRuntimeConfig interface.
 func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
 	log.Info(
 		"Operator addresses as P2P sequencer",
 		"current", s.lookahead.CurrOperator.Hex(),
@@ -225,5 +230,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 }
 
 func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
+	s.lookaheadMutex.Lock()
 	s.lookahead = l
+	s.lookaheadMutex.Unlock()
 }
