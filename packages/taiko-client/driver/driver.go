@@ -383,6 +383,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 			if err != nil {
 				log.Error("lookahead error getting latestSeenBlockNumber", "error", err)
+
 				continue
 			}
 
@@ -391,7 +392,11 @@ func (d *Driver) cacheLookaheadLoop() {
 			if latestSeenBlockNumber == seenBlockNumber {
 				// leave some grace period for the block to arrive
 				if lastSlot != currentSlot && uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
-					log.Warn("lookahead possible missed slot detected", "currentSlot", currentSlot, "latestNumber", latestSeenBlockNumber)
+					log.Warn("lookahead possible missed slot detected",
+						"currentSlot", currentSlot,
+						"latestNumber", latestSeenBlockNumber,
+					)
+
 					lastSlot = currentSlot
 				}
 
