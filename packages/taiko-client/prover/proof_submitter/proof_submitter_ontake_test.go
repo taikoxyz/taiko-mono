@@ -309,8 +309,8 @@ func (s *ProofSubmitterTestSuite) TestSubmitProofs() {
 	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
 		if m.IsPacaya() {
 			s.Nil(s.submitterPacaya.RequestProof(context.Background(), m))
-			proofResponse := <-s.proofCh
-			s.Nil(s.submitterPacaya.SubmitProof(context.Background(), proofResponse))
+			s.Nil(s.submitterPacaya.AggregateProofsByType(context.Background(), <-s.batchesAggregationNotify))
+			s.Nil(s.submitterPacaya.BatchSubmitProofs(context.Background(), <-s.batchProofGenerationCh))
 			continue
 		}
 		s.Nil(s.submitterOntake.RequestProof(context.Background(), m))

@@ -162,7 +162,8 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	if m.IsPacaya() {
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 	} else {
 		s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 	}
@@ -245,17 +246,12 @@ func (s *ProverTestSuite) TestProveOp() {
 		}
 	}
 
-	for res := range s.p.proofGenerationCh {
-		if res.Meta.IsPacaya() {
-			s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
-		} else {
+	if m.IsPacaya() {
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	} else {
+		for res := range s.p.proofGenerationCh {
 			s.Nil(s.p.selectSubmitter(res.Tier).SubmitProof(context.Background(), res))
-		}
-		if m.IsPacaya() {
-			if res.Meta.IsPacaya() && res.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
-				break
-			}
-		} else {
 			if !res.Meta.IsPacaya() && res.Meta.Ontake().GetBlockID().Cmp(m.Ontake().GetBlockID()) == 0 {
 				break
 			}
@@ -339,17 +335,9 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			continue
 		}
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
-			break
-		}
-	}
-
-	for res := range s.p.proofGenerationCh {
-		if !res.Meta.IsPacaya() {
-			continue
-		}
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
-		if res.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
 			break
 		}
 	}
@@ -365,14 +353,9 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 
 	for req := range s.p.proofSubmissionCh {
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
-			break
-		}
-	}
-
-	for res := range s.p.proofGenerationCh {
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
-		if res.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
 			break
 		}
 	}
@@ -670,6 +653,8 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		BackOffMaxRetries:     12,
 		L1NodeVersion:         "1.0.0",
 		L2NodeVersion:         "0.1.0",
+		SGXProofBufferSize:    1,
+		ZKVMProofBufferSize:   1,
 	}, s.txmgr, s.txmgr))
 
 	p.guardianProverHeartbeater = guardianProverHeartbeater.New(

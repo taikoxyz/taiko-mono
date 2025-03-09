@@ -291,6 +291,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		invalidBatchIDs     []uint64
 		latestProvenBlockID = common.Big0
 		uint64BatchIDs      []uint64
+		latestVerifiedID    uint64
 	)
 	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
@@ -306,18 +307,24 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	if err != nil {
 		return err
 	}
-	blockInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
+	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		log.Warn(
-			"Failed to fetch state variables",
-			"error", err,
-		)
-		return err
+		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
+		if err != nil {
+			log.Warn(
+				"Failed to fetch state variables",
+				"error", err,
+			)
+			return err
+		}
+		latestVerifiedID = blockInfo.BlockId
+	} else {
+		latestVerifiedID = batchInfo.BatchId
 	}
 	for i, proof := range batchProof.ProofResponses {
 		uint64BatchIDs = append(uint64BatchIDs, proof.BlockID.Uint64())
 		// Check if this proof is still needed to be submitted.
-		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(blockInfo.BlockId))
+		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(latestVerifiedID))
 		if err != nil {
 			return err
 		}
