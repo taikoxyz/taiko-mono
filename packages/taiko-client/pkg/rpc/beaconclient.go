@@ -24,6 +24,7 @@ var (
 
 type ConfigSpec struct {
 	SecondsPerSlot string `json:"SECONDS_PER_SLOT"`
+	SlotsPerEpoch  string `json:"SLOTS_PER_EPOCH"`
 }
 
 type GenesisResponse struct {
@@ -37,7 +38,8 @@ type BeaconClient struct {
 
 	timeout        time.Duration
 	genesisTime    uint64
-	secondsPerSlot uint64
+	SecondsPerSlot uint64
+	SlotsPerEpoch  uint64
 }
 
 // NewBeaconClient returns a new beacon client.
@@ -66,8 +68,6 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		return nil, err
 	}
 
-	log.Info("L1 genesis time", "time", genesisTime)
-
 	// Get the seconds per slot.
 	spec, err := getConfigSpec(ctx, cli)
 	if err != nil {
@@ -79,9 +79,14 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		return nil, err
 	}
 
-	log.Info("L1 seconds per slot", "seconds", secondsPerSlot)
+	slotsPerEpoch, err := strconv.Atoi(spec.Data.(map[string]interface{})["SLOTS_PER_EPOCH"].(string))
+	if err != nil {
+		return nil, err
+	}
 
-	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot)}, nil
+	log.Info("L1 beacon info", "secondsPerSlot", secondsPerSlot, "slotsPerEpoch", slotsPerEpoch, "genesisTime", genesisTime)
+
+	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot), uint64(slotsPerEpoch)}, nil
 }
 
 // GetBlobs returns the sidecars for a given slot.
@@ -111,7 +116,27 @@ func (c *BeaconClient) timeToSlot(timestamp uint64) (uint64, error) {
 	if timestamp < c.genesisTime {
 		return 0, fmt.Errorf("provided timestamp (%v) precedes genesis time (%v)", timestamp, c.genesisTime)
 	}
-	return (timestamp - c.genesisTime) / c.secondsPerSlot, nil
+	return (timestamp - c.genesisTime) / c.SecondsPerSlot, nil
+}
+
+func (c *BeaconClient) CurrentSlot() uint64 {
+	return (uint64(time.Now().UTC().Unix()) - c.genesisTime) / c.SecondsPerSlot
+}
+
+func (c *BeaconClient) CurrentEpoch() uint64 {
+	return c.CurrentSlot() / c.SlotsPerEpoch
+}
+
+func (c *BeaconClient) SlotInEpoch() uint64 {
+	return c.CurrentSlot() % c.SlotsPerEpoch
+}
+
+func (c *BeaconClient) SlotEpochStart(epoch uint64) uint64 {
+	return epoch * c.SlotsPerEpoch
+}
+
+func (c *BeaconClient) TimestampOfSlot(slot uint64) uint64 {
+	return c.genesisTime + slot*c.SecondsPerSlot
 }
 
 // getConfigSpec retrieve the current configs of the network used by the beacon node.
