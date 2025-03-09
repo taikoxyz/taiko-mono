@@ -421,16 +421,16 @@ func (d *Driver) cacheLookaheadLoop() {
 				log.Warn("Failed to get next preconf whitelist operator address", "error", err)
 			}
 
-			if err != nil {
+			if currentOperatorAddress != (common.Address{}) && nextOperatorAddress != (common.Address{}) {
 				d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
-					CurrOperator: common.Address{},
-					NextOperator: common.Address{},
+					CurrOperator: currentOperatorAddress,
+					NextOperator: nextOperatorAddress,
 					UpdatedAt:    time.Now().UTC(),
 				})
 			} else {
 				d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
-					CurrOperator: currentOperatorAddress,
-					NextOperator: nextOperatorAddress,
+					CurrOperator: common.Address{},
+					NextOperator: common.Address{},
 					UpdatedAt:    time.Now().UTC(),
 				})
 			}
