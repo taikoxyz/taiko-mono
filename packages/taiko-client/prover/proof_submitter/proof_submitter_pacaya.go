@@ -211,11 +211,9 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					}
 					return fmt.Errorf("failed to request proof (id: %d): %w", meta.Pacaya().GetBatchID(), err)
 				}
-				log.Info("baseLevel proof", "result", result)
 			}
 			proofType = result.ProofType
 			proofBuffer, exist := s.proofBuffers[proofType]
-			log.Info("proofBuffer", "proofBuffer", proofBuffer)
 			if !exist {
 				return fmt.Errorf("get unexpected proof type from raiko %s", proofType)
 			}
