@@ -135,10 +135,6 @@ func (c *BeaconClient) SlotInEpoch() uint64 {
 	return c.CurrentSlot() % c.SlotsPerEpoch
 }
 
-func (c *BeaconClient) SlotEpochStart(epoch uint64) uint64 {
-	return epoch * c.SlotsPerEpoch
-}
-
 func (c *BeaconClient) TimestampOfSlot(slot uint64) uint64 {
 	return c.genesisTime + slot*c.SecondsPerSlot
 }
