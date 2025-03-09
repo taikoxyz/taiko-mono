@@ -31,7 +31,7 @@ import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
-contract UpgradeDevnetPacayaL1 is DeployCapability {
+contract UpgradeDevnetSGX is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
 
@@ -46,7 +46,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             IResolver(rollupResolver).resolve(uint64(block.chainid), LibStrings.B_TAIKO, false);
         address sgxVerifier =
             IResolver(rollupResolver).resolve(uint64(block.chainid), "sgx_verifier", false);
-        pivotVerifier = deployProxy({
+        address pivotVerifier = deployProxy({
             name: "pivot_verifier",
             impl: address(new OpVerifier(rollupResolver)),
             data: abi.encodeCall(OpVerifier.init, address(0)),
