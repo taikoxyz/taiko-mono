@@ -433,7 +433,6 @@ func (d *Driver) cacheLookaheadLoop() {
 				"currentOperator", currentOperatorAddress.Hex(),
 				"nextOperator", nextOperatorAddress.Hex(),
 			)
-
 		}
 	}
 }
