@@ -55,6 +55,7 @@ func (o *OptimisticProofProducer) Aggregate(
 		return nil, err
 	}
 	batchProof.BlockIDs = blockIDs
+	batchProof.ProofType = ProofTypeOp
 	return batchProof, nil
 }
 
