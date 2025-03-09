@@ -170,6 +170,7 @@ func (s *SGXProofProducer) Aggregate(
 		BatchProof:     batchProof,
 		Tier:           s.Tier(),
 		BlockIDs:       blockIDs,
+		ProofType:      ProofTypeSgx,
 	}, nil
 }
 
