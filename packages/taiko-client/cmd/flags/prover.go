@@ -24,6 +24,7 @@ var (
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
 		Usage:    "RPC endpoint of a Raiko host service",
+		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
