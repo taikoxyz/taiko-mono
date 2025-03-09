@@ -15,13 +15,13 @@ to configure the dcap verifier contract.
 
 Typical usages:
 1. For admin to init config all, run:
-    PRIVATE_KEY=admin_privkey ./script/config_dcap_sgx_verifier.sh --tcb /test/automata-attestation/assets/0923/tcbInfo_00606A000000.json --qeid /test/automata-attestation/assets/0923/identity.json --mrenclave 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef --mrsigner 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+    PRIVATE_KEY=admin_privkey ./script/layer1/provers/config_dcap_sgx_verifier.sh --tcb /test/layer1/automata-attestation/assets/0923/tcbInfo_00606A000000.json --qeid /test/layer1/automata-attestation/assets/0923/identity.json --mrenclave 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef --mrsigner 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 
 2. For admin to config tcb, run:
-    PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh --tcb file_path
+    PRIVATE_KEY=0x1234 ./script/layer1/provers/config_dcap_sgx_verifier.sh --tcb file_path
 
 3. For user to register sgx instance with quote, run:
-    PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh --quote string'
+    PRIVATE_KEY=0x1234 ./script/layer1/provers/config_dcap_sgx_verifier.sh --quote string'
 }
 
 if [ $# -eq 0 ]; then
@@ -152,7 +152,7 @@ MR_SIGNER=$MR_SIGNER \
 QEID_PATH=$QEID_PATH \
 TCB_INFO_PATH=$TCB_INFO_PATH \
 V3_QUOTE_BYTES=$V3_QUOTE_BYTES \
-forge script script/layer1/SetDcapParams.s.sol:SetDcapParams \
+forge script script/layer1/provers/SetDcapParams.s.sol:SetDcapParams \
     --fork-url $FORK_URL \
     --broadcast \
     --evm-version cancun \
