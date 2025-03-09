@@ -295,6 +295,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Invalidate the conflict transition
                     state.transitions[slot][tid].blockHash = 0;
                     metasLength = i + 1;
+                    assembly {
+                        mstore(ctxs, metasLength)
+                    }
                     break;
                 }
 
