@@ -207,15 +207,10 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
     }
 
-    function upgradeZKVerifiers(
-        address rollupResolver,
-        uint64 l2ChainId
-    )
-    internal
-    {
+    function upgradeZKVerifiers(address rollupResolver, uint64 l2ChainId) internal {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier risc0Groth16Verifier =
-                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupResolver, "risc0_groth16_verifier", address(risc0Groth16Verifier));
         UUPSUpgradeable(risc0Verifier).upgradeTo(
             address(new Risc0Verifier(l2ChainId, address(risc0Groth16Verifier)))
@@ -229,7 +224,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new SP1Verifier(l2ChainId, address(sp1RemoteVerifier)))
         );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
-
     }
 
     function upgradeBridgeContracts(address sharedResolver) internal {
