@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2025-03-09)
+
+
+### Features
+
+* **eventindexer:** pacaya event updates ([#18919](https://github.com/taikoxyz/taiko-mono/issues/18919)) ([e44ee25](https://github.com/taikoxyz/taiko-mono/commit/e44ee25fff0e8610c48c5e853e91a8ee16b1d54d))
+* **relayer:** confirmations before indexing for relayer should be configurable ([#18466](https://github.com/taikoxyz/taiko-mono/issues/18466)) ([1fee7bb](https://github.com/taikoxyz/taiko-mono/commit/1fee7bbd918dadc4eee68a0cf190f4de27dd6dd0))
+* **relayer:** pacaya fork protocol variable fetching ([#18918](https://github.com/taikoxyz/taiko-mono/issues/18918)) ([1396911](https://github.com/taikoxyz/taiko-mono/commit/13969114dd989f68de0befa61cc2ab5330bc74a7))
+
+
+### Bug Fixes
+
+* **relayer:** extra padding for contract messages, always pad non-contracts ([#18699](https://github.com/taikoxyz/taiko-mono/issues/18699)) ([a950b6c](https://github.com/taikoxyz/taiko-mono/commit/a950b6ce109ffaf4203561217672313b69be2f14))
+* **relayer:** temp fix if `txSender` is not available for `txIndex` when processing events ([#18513](https://github.com/taikoxyz/taiko-mono/issues/18513)) ([a0c622e](https://github.com/taikoxyz/taiko-mono/commit/a0c622ecbc7eea4907f8149f576db3ff0d09e031))
+
+
+### Chores
+
+* **relayer:** fix docs ([#18697](https://github.com/taikoxyz/taiko-mono/issues/18697)) ([58c6e31](https://github.com/taikoxyz/taiko-mono/commit/58c6e31874a6406563ea3f45d3e7a714ffef2c50))
+* **relayer:** relayer state var update for protocol compatibility ([#18861](https://github.com/taikoxyz/taiko-mono/issues/18861)) ([c7c50fd](https://github.com/taikoxyz/taiko-mono/commit/c7c50fdd182eeb83ea4c1598d32a15380cdb03bf))
+* **repo:** improve documentation and changelog ([#18489](https://github.com/taikoxyz/taiko-mono/issues/18489)) ([c7b9b4f](https://github.com/taikoxyz/taiko-mono/commit/c7b9b4f01098d4fab337b9ff456ce394cdaf3a79))
+
+
+### Documentation
+
+* **repo:** fix links to LICENSE file ([#18641](https://github.com/taikoxyz/taiko-mono/issues/18641)) ([cd2d918](https://github.com/taikoxyz/taiko-mono/commit/cd2d9180d313af6c858f7059b01851bd8e3290da))
+
+
+### Tests
+
+* **taiko-client:** introduce TestTxPoolContentWithMinTip test case ([#18285](https://github.com/taikoxyz/taiko-mono/issues/18285)) ([d572f4c](https://github.com/taikoxyz/taiko-mono/commit/d572f4c412e59094ea9a4c5ff0b0667c9c04bd66))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
+
+### Build
+
+* **deps:** bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#18539](https://github.com/taikoxyz/taiko-mono/issues/18539)) ([79f3fab](https://github.com/taikoxyz/taiko-mono/commit/79f3fab5f1d1ec1bb4ee18afb9268b622e894780))
+* **deps:** bump golang.org/x/sync from 0.9.0 to 0.10.0 ([#18560](https://github.com/taikoxyz/taiko-mono/issues/18560)) ([3d51970](https://github.com/taikoxyz/taiko-mono/commit/3d51970aa0953bbfecaeebf76ea7e664c875c0e4))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
