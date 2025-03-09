@@ -30,7 +30,6 @@ import (
 const (
 	protocolStatusReportInterval     = 30 * time.Second
 	exchangeTransitionConfigInterval = 1 * time.Minute
-	lookaheadInterval                = 5 * time.Second
 )
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoL1
