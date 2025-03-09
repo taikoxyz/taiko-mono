@@ -19,7 +19,6 @@ type BlobDataSource struct {
 	ctx                context.Context
 	client             *Client
 	blobServerEndpoint *url.URL
-	socialScanEndpoint *url.URL
 }
 
 type BlobData struct {
@@ -42,13 +41,11 @@ func NewBlobDataSource(
 	ctx context.Context,
 	client *Client,
 	blobServerEndpoint *url.URL,
-	socialScanEndpoint *url.URL,
 ) *BlobDataSource {
 	return &BlobDataSource{
 		ctx:                ctx,
 		client:             client,
 		blobServerEndpoint: blobServerEndpoint,
-		socialScanEndpoint: socialScanEndpoint,
 	}
 }
 
@@ -90,7 +87,7 @@ func (ds *BlobDataSource) GetBlobs(
 		if !errors.Is(err, pkg.ErrBeaconNotFound) {
 			log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
 		}
-		if ds.blobServerEndpoint == nil && ds.socialScanEndpoint == nil {
+		if ds.blobServerEndpoint == nil {
 			log.Info("No blob server endpoint set")
 			return nil, err
 		}
@@ -111,18 +108,7 @@ func (ds *BlobDataSource) GetBlobs(
 
 // getBlobFromServer get blob data from server path `/blob` or `/blobs`.
 func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common.Hash) (*BlobDataSeq, error) {
-	var (
-		route      string
-		requestURL string
-		err        error
-	)
-	if ds.socialScanEndpoint != nil {
-		route = "/blob/" + blobHash.String()
-		requestURL, err = url.JoinPath(ds.socialScanEndpoint.String(), route)
-	} else {
-		route = "/blobs/" + blobHash.String()
-		requestURL, err = url.JoinPath(ds.blobServerEndpoint.String(), route)
-	}
+	requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
 	if err != nil {
 		return nil, err
 	}

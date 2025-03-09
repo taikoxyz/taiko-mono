@@ -14,7 +14,7 @@ import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
-import "src/shared/tokenvault/ERC20Vault.sol";
+import { ERC20VaultOriginal as ERC20Vault } from "src/shared/tokenvault/ERC20VaultOriginal.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
@@ -97,16 +97,19 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         address proofVerifier = deployProxy({
             name: "proof_verifier",
             impl: address(
-                new DevnetVerifier(address(0), address(0), address(0), address(0), address(0))
+                new DevnetVerifier(
+                    address(0), address(0), address(0), address(0), address(0), address(0)
+                )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
 
         // OP verifier
+        address opImpl = address(new OpVerifier(rollupResolver));
         address opVerifier = deployProxy({
             name: "op_verifier",
-            impl: address(new OpVerifier(rollupResolver)),
+            impl: opImpl,
             data: abi.encodeCall(OpVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
@@ -154,12 +157,13 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(l2ChainId != block.chainid, "same chainid");
 
         // Other verifiers
-        upgradeVerifierContracts(rollupResolver, opVerifier, proofVerifier, l2ChainId);
+        upgradeVerifierContracts(rollupResolver, opVerifier, opImpl, proofVerifier, l2ChainId);
     }
 
     function upgradeVerifierContracts(
         address rollupResolver,
-        address opVerifier,
+        address opProxy,
+        address opImpl,
         address proofVerifier,
         uint64 l2ChainId
     )
@@ -179,11 +183,31 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             ),
             registerTo: rollupResolver
         });
-        UUPSUpgradeable(sgxVerifier).upgradeTo(
-            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy))
-        );
+        address sgxImpl =
+            address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy));
+        UUPSUpgradeable(sgxVerifier).upgradeTo(sgxImpl);
         register(rollupResolver, "sgx_verifier", sgxVerifier);
+        // In testing, use opVerifier impl as a pivotVerifier
+        address pivotVerifier = deployProxy({
+            name: "pivot_verifier",
+            impl: opImpl,
+            data: abi.encodeCall(OpVerifier.init, address(0)),
+            registerTo: rollupResolver
+        });
 
+        upgradeZKVerifiers(rollupResolver, l2ChainId);
+
+        // In testing, use address(0) as an sgxVerifier
+        UUPSUpgradeable(proofVerifier).upgradeTo(
+            address(
+                new DevnetVerifier(
+                    taikoInbox, pivotVerifier, opProxy, address(0), risc0Verifier, sp1Verifier
+                )
+            )
+        );
+    }
+
+    function upgradeZKVerifiers(address rollupResolver, uint64 l2ChainId) internal {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier risc0Groth16Verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
@@ -200,12 +224,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new SP1Verifier(l2ChainId, address(sp1RemoteVerifier)))
         );
         register(rollupResolver, "sp1_verifier", sp1Verifier);
-
-        UUPSUpgradeable(proofVerifier).upgradeTo(
-            address(
-                new DevnetVerifier(taikoInbox, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
-            )
-        );
     }
 
     function upgradeBridgeContracts(address sharedResolver) internal {

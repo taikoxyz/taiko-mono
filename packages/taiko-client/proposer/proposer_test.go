@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -47,9 +48,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		0,
 		s.BlobServer.URL(),
-		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -261,7 +260,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		s.Nil(err)
 	}
 
-	var preBuiltTxList rpc.PoolContent
+	var preBuiltTxList []*miner.PreBuiltTxList
 	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
