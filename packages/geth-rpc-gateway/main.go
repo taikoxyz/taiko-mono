@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -114,7 +113,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Handle HTTP requests
 
-	bodyBytes, err := ioutil.ReadAll(r.Body)
+	bodyBytes, err := io.ReadAll(r.Body)
 
 	log.Printf("Handle HTTP requests...")
 	if err != nil {
@@ -156,7 +155,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 // Function to forward the request to the target URL
 func forwardRequest(w http.ResponseWriter, r *http.Request, targetURL *url.URL, bodyBytes []byte) {
 
-	proxyReq, err := http.NewRequest(r.Method, targetURL.String()+r.RequestURI, ioutil.NopCloser(bytes.NewReader(bodyBytes)))
+	proxyReq, err := http.NewRequest(r.Method, targetURL.String()+r.RequestURI, io.NopCloser(bytes.NewReader(bodyBytes)))
 	if err != nil {
 		http.Error(w, "Failed to create request", http.StatusInternalServerError)
 		return
