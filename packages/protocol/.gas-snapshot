@@ -54,7 +54,7 @@ InboxTest_Params:test_validateParams_reverts_when_timestamp_too_large() (gas: 13
 InboxTest_Params:test_validateParams_when_anchorBlockId_is_not_zero() (gas: 265989)
 InboxTest_ProposeAndProve:test_inbox_exceed_max_batch_proposal_will_revert() (gas: 7878027)
 InboxTest_ProposeAndProve:test_inbox_max_batch_proposal() (gas: 8188509)
-InboxTest_ProposeAndProve:test_inbox_measure_gas_used() (gas: 15782516)
+InboxTest_ProposeAndProve:test_inbox_measure_gas_used() (gas: 15787300)
 InboxTest_ProposeAndProve:test_inbox_propose_1block_per_batch_and_prove_many_blocks_with_first_transition_being_correct() (gas: 8570872)
 InboxTest_ProposeAndProve:test_inbox_propose_7block_per_batch_and_prove_many_blocks_with_first_transition_being_correct() (gas: 11829952)
 InboxTest_ProposeAndProve:test_inbox_propose_and_prove_many_blocks_with_second_transition_being_correct() (gas: 9848261)
