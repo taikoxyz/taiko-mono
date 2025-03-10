@@ -7,6 +7,7 @@ import "src/shared/common/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../tiers/ITierRouter.sol";
 import "./TaikoData.sol";
+import "forge-std/src/console2.sol";
 
 /// @title LibUtils
 /// @notice A library that offers utility helper functions.

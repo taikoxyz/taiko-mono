@@ -6,6 +6,7 @@ import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
 import "./LibVerifying.sol";
+import "forge-std/src/console2.sol";
 
 /// @title LibProving
 /// @notice A library that offers helper functions for proving and contesting block transitions.

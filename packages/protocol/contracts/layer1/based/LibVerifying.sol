@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/signal/ISignalService.sol";
 import "./LibBonds.sol";
 import "./LibUtils.sol";
+import "forge-std/src/console2.sol";
 
 /// @title LibVerifying
 /// @notice A library that offers helper functions for verifying blocks.
