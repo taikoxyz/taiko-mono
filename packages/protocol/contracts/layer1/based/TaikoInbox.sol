@@ -545,23 +545,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         virtual
         returns (bytes32 hash_, bytes32[] memory blobHashes_)
     {
-        unchecked {
-            if (_blobParams.blobHashes.length != 0) {
-                blobHashes_ = _blobParams.blobHashes;
-            } else {
-                uint256 numBlobs = _blobParams.numBlobs;
-                blobHashes_ = new bytes32[](numBlobs);
-                for (uint256 i; i < numBlobs; ++i) {
+        if (_blobParams.blobHashes.length != 0) {
+            blobHashes_ = _blobParams.blobHashes;
+        } else {
+            uint256 numBlobs = _blobParams.numBlobs;
+            blobHashes_ = new bytes32[](numBlobs);
+            for (uint256 i; i < numBlobs; ++i) {
+                unchecked {
                     blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
                 }
             }
-
-            uint256 bloblHashesLength = blobHashes_.length;
-            for (uint256 i; i < bloblHashesLength; ++i) {
-                require(blobHashes_[i] != 0, BlobNotFound());
-            }
-            hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
         }
+
+        uint256 bloblHashesLength = blobHashes_.length;
+        for (uint256 i; i < bloblHashesLength; ++i) {
+            require(blobHashes_[i] != 0, BlobNotFound());
+        }
+        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
     }
 
     // Private functions -----------------------------------------------------------------------
