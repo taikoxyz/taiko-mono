@@ -375,7 +375,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
 	if !exist {
-		log.Warn("Tier is not implemented for Pacaya submitter")
 		return fmt.Errorf("when submit batches proofs, found unexpected proof type from raiko %s", batchProof.ProofType)
 	}
 	if len(invalidBatchIDs) > 0 {

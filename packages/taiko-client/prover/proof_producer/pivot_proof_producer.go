@@ -191,7 +191,6 @@ func (s *PivotProofProducer) requestBatchProof(
 
 	log.Debug(
 		"Batch proof generation output",
-		"batches", batches,
 		"proofType", proofType,
 		"isAggregation", isAggregation,
 		"output", string(resBytes),
