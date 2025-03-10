@@ -561,5 +561,19 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         console2.log("Gas per batch - total:", (gasProposeBatches + gasProveBatches) / count);
 
         _logAllBatchesAndTransitions();
+
+        string memory str = string(
+            abi.encodePacked(
+                "See `test_inbox_measure_gas_used` in InboxTest_ProposeAndProve.t.sol\n",
+                "\nGas per proposeBatches: ",
+                Strings.toString(gasProposeBatches / count),
+                "\nGas per proveBatches: ",
+                Strings.toString(gasProveBatches / count),
+                "\nTotal: ",
+                Strings.toString((gasProposeBatches + gasProveBatches) / count)
+            )
+        );
+
+        vm.writeFile("./deployments/test_inbox_measure_gas_used.txt", str);
     }
 }
