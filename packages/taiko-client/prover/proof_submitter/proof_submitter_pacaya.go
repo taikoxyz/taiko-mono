@@ -294,17 +294,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
 	}
-	// Check if the proof has already been submitted.
-	proofStatus, err := rpc.BatchGetBlocksProofStatus(
-		ctx,
-		s.rpc,
-		batchProof.BlockIDs,
-		batchProof.ProofResponses[0].Opts.GetProverAddress(),
-		s.proverSetAddress,
-	)
-	if err != nil {
-		return err
-	}
 	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
 		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
@@ -319,7 +308,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	} else {
 		latestVerifiedID = batchInfo.BatchId
 	}
-	for i, proof := range batchProof.ProofResponses {
+	for _, proof := range batchProof.ProofResponses {
 		uint64BatchIDs = append(uint64BatchIDs, proof.BlockID.Uint64())
 		// Check if this proof is still needed to be submitted.
 		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(latestVerifiedID))
@@ -328,12 +317,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		}
 		if !ok {
 			log.Error("A valid proof for block is already submitted", "batchID", proof.BlockID)
-			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-			continue
-		}
-
-		if proofStatus[i].IsSubmitted && !proofStatus[i].Invalid {
-			log.Error("A valid proof for block is already submitted", "blockId", proof.BlockID)
 			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
 			continue
 		}
