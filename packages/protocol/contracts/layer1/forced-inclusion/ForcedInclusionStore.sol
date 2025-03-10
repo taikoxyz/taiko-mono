@@ -60,6 +60,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         external
         payable
         nonReentrant
+        whenNotPaused
     {
         bytes32 blobHash = _blobHash(blobIndex);
         require(blobHash != bytes32(0), BlobNotFound());
