@@ -577,7 +577,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         bool canVerifyBlocks;
         unchecked {
-            uint64 pacayaForkHeight = pacayaConfig().forkHeights.pacaya;
+            uint64 pacayaForkHeight = _config.forkHeights.pacaya;
             canVerifyBlocks = pacayaForkHeight == 0 || batchId >= pacayaForkHeight - 1;
         }
 
