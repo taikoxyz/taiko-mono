@@ -238,7 +238,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.batchId >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
+            require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
