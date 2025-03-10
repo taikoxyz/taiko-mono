@@ -545,8 +545,10 @@ contract ERC20Vault is BaseVault {
         } else if (bridgedToCanonical[_op.token].addr != address(0)) {
             // Handle bridged token
             ctoken_ = bridgedToCanonical[_op.token];
-            IERC20(_op.token).safeTransferFrom(msg.sender, address(this), _op.amount);
-            IBridgedERC20(_op.token).burn(_op.amount);
+            uint256 amount = _op.amount + _op.solverFee;
+            IERC20(_op.token).safeTransferFrom(msg.sender, address(this), amount);
+            IBridgedERC20(_op.token).burn(amount);
+
             balanceChangeAmount_ = _op.amount;
             balanceChangeSolverFee_ = _op.solverFee;
         } else {

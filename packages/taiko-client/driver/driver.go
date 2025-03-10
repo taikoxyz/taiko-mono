@@ -180,6 +180,8 @@ func (d *Driver) Start() error {
 			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
 			d.p2pSetup.TargetPeers(),
 		)
+
+		go d.cacheLookaheadLoop()
 	}
 
 	return nil
@@ -353,6 +355,89 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 			} else {
 				log.Debug("Exchanged transition config", "transitionConfig", tc)
 			}
+		}
+	}
+}
+
+// cacheLookaheadLoop
+func (d *Driver) cacheLookaheadLoop() {
+	ticker := time.NewTicker(time.Duration(d.rpc.L1Beacon.SecondsPerSlot) / 3)
+	d.wg.Add(1)
+
+	defer func() {
+		ticker.Stop()
+		d.wg.Done()
+	}()
+
+	var seenBlockNumber uint64 = 0
+
+	var lastSlot uint64 = 0
+
+	for {
+		select {
+		case <-d.ctx.Done():
+			return
+		case <-ticker.C:
+			currentSlot := d.rpc.L1Beacon.CurrentSlot()
+
+			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
+			if err != nil {
+				log.Error("lookahead error getting latestSeenBlockNumber", "error", err)
+
+				continue
+			}
+
+			// avoid fetching on missed slots, otherwise the previous "current" can get tagged as
+			// the new "current" for this epoch
+			if latestSeenBlockNumber == seenBlockNumber {
+				// leave some grace period for the block to arrive
+				if lastSlot != currentSlot && uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
+					log.Warn("lookahead possible missed slot detected",
+						"currentSlot", currentSlot,
+						"latestNumber", latestSeenBlockNumber,
+					)
+
+					lastSlot = currentSlot
+				}
+
+				continue
+			}
+
+			seenBlockNumber = latestSeenBlockNumber
+
+			lastSlot = currentSlot
+
+			currentEpoch := d.rpc.L1Beacon.CurrentEpoch()
+
+			remainingSlots := d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
+
+			currentOperatorAddress, err := d.rpc.GetPreconfWhiteListOperator(nil)
+			if err != nil {
+				log.Warn("Failed to get current preconf whitelist operator address", "error", err)
+				return
+			}
+
+			nextOperatorAddress, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
+			if err != nil {
+				log.Warn("Failed to get next preconf whitelist operator address", "error", err)
+
+				nextOperatorAddress = common.BigToAddress(common.Big0)
+			}
+
+			l := &preconfBlocks.Lookahead{
+				CurrOperator: currentOperatorAddress,
+				NextOperator: nextOperatorAddress,
+				UpdatedAt:    time.Now().UTC(),
+			}
+
+			d.preconfBlockServer.UpdateLookahead(l)
+
+			log.Info("Lookahead info",
+				"remainingSlots", remainingSlots,
+				"currentEpoch", currentEpoch,
+				"currentOperator", currentOperatorAddress.Hex(),
+				"nextOperator", nextOperatorAddress.Hex(),
+			)
 		}
 	}
 }
