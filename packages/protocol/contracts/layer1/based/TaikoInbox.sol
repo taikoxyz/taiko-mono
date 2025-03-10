@@ -21,8 +21,8 @@ import "./IProposeBatch.sol";
 /// Key assumptions of this protocol:
 /// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
 ///   unlike Taiko Gwyneth, which assumes synchronous composability.
-/// - Proofs are presumed error-free and thoroughly validated, with proof type management
-///   delegated to IVerifier contracts.
+/// - Proofs are presumed error-free and thoroughly validated, with subproofs/multiproofs management
+/// delegated to IVerifier contracts.
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
@@ -62,10 +62,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded BlockParams.
-    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
-    /// for data availability.
-    /// @return info_ The info of the proposed batch.
-    /// @return meta_ The metadata of the proposed batch.
+    /// @param _txList Transaction list in calldata. If the txList is empty, blob will be used for
+    /// data availability.
+    /// @return info_ Information of the proposed batch, which is used for constructing blocks
+    /// offchain.
+    /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
@@ -76,9 +77,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
-        require(stats2.numBatches >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
-
         Config memory config = pacayaConfig();
+        require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
             require(
