@@ -582,7 +582,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	} else {
 		submitter = p.getSubmitterByTier(batchProof.Tier)
 	}
-	if submitter == nil {
+	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found %d & %s", batchProof.Tier, batchProof.ProofType)
 	}
 
