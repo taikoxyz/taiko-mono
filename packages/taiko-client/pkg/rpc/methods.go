@@ -1250,3 +1250,17 @@ func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, erro
 		&bind.CallOpts{Context: opts.Context},
 	)
 }
+
+// GetPivotVerifierPacaya resolves the Pacaya pivot verifier address.
+func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.PacayaClients.ComposeVerifier.PivotVerifier(
+		&bind.CallOpts{Context: opts.Context},
+	)
+}

@@ -1,23 +1,21 @@
-package submitter
+package producer
 
 import (
 	"errors"
 	"sync"
 	"time"
-
-	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 var (
-	errBufferOverflow = errors.New("proof buffer overflow")
-	errNotEnoughProof = errors.New("not enough proof")
+	ErrBufferOverflow = errors.New("proof buffer overflow")
+	ErrNotEnoughProof = errors.New("not enough proof")
 )
 
 // ProofBuffer caches all single proof with a fixed size.
 type ProofBuffer struct {
 	MaxLength     uint64
-	buffer        []*producer.ProofResponse
-	lastUpdatedAt time.Time
+	buffer        []*ProofResponse
+	firstItemAt   time.Time
 	isAggregating bool
 	mutex         sync.RWMutex
 }
@@ -25,41 +23,43 @@ type ProofBuffer struct {
 // NewProofBuffer creates a new ProofBuffer instance.
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
-		buffer:        make([]*producer.ProofResponse, 0, maxLength),
-		lastUpdatedAt: time.Now(),
-		MaxLength:     maxLength,
+		buffer:      make([]*ProofResponse, 0, maxLength),
+		firstItemAt: time.Now(),
+		MaxLength:   maxLength,
 	}
 }
 
 // Write adds new item to the buffer.
-func (pb *ProofBuffer) Write(item *producer.ProofResponse) (int, error) {
+func (pb *ProofBuffer) Write(item *ProofResponse) (int, error) {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
 
 	if len(pb.buffer)+1 > int(pb.MaxLength) {
-		return len(pb.buffer), errBufferOverflow
+		return len(pb.buffer), ErrBufferOverflow
 	}
 
+	if len(pb.buffer) == 0 {
+		pb.firstItemAt = time.Now()
+	}
 	pb.buffer = append(pb.buffer, item)
-	pb.lastUpdatedAt = time.Now()
 	return len(pb.buffer), nil
 }
 
 // Read returns the content with given length in the buffer.
-func (pb *ProofBuffer) Read(length int) ([]*producer.ProofResponse, error) {
+func (pb *ProofBuffer) Read(length int) ([]*ProofResponse, error) {
 	pb.mutex.RLock()
 	defer pb.mutex.RUnlock()
 	if length > len(pb.buffer) {
-		return nil, errNotEnoughProof
+		return nil, ErrNotEnoughProof
 	}
 
-	data := make([]*producer.ProofResponse, length)
+	data := make([]*ProofResponse, length)
 	copy(data, pb.buffer[:length])
 	return data, nil
 }
 
 // ReadAll returns all the content in the buffer.
-func (pb *ProofBuffer) ReadAll() ([]*producer.ProofResponse, error) {
+func (pb *ProofBuffer) ReadAll() ([]*ProofResponse, error) {
 	return pb.Read(pb.Len())
 }
 
@@ -70,14 +70,9 @@ func (pb *ProofBuffer) Len() int {
 	return len(pb.buffer)
 }
 
-// LastUpdatedAt returns the last updated time of the buffer.
-func (pb *ProofBuffer) LastUpdatedAt() time.Time {
-	return pb.lastUpdatedAt
-}
-
-// LastUpdatedAt returns the last updated time of the buffer.
-func (pb *ProofBuffer) UpdateLastUpdatedAt() {
-	pb.lastUpdatedAt = time.Now()
+// FirstItemAt returns the first item updated time of the buffer.
+func (pb *ProofBuffer) FirstItemAt() time.Time {
+	return pb.firstItemAt
 }
 
 // ClearItems clears items that has given block ids in the buffer.
@@ -90,11 +85,11 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 		clearMap[blockID] = true
 	}
 
-	newBuffer := make([]*producer.ProofResponse, 0, len(pb.buffer))
+	newBuffer := make([]*ProofResponse, 0, len(pb.buffer))
 	clearedCount := 0
 
 	for _, b := range pb.buffer {
-		if !clearMap[b.Meta.Ontake().GetBlockID().Uint64()] {
+		if !clearMap[b.BlockID.Uint64()] {
 			newBuffer = append(newBuffer, b)
 		} else {
 			clearedCount++
@@ -117,6 +112,7 @@ func (pb *ProofBuffer) IsAggregating() bool {
 }
 
 // Enabled returns if the buffer is enabled.
+// @dev this function would be deprecated after Pacaya fork
 func (pb *ProofBuffer) Enabled() bool {
 	return pb.MaxLength > 1
 }
