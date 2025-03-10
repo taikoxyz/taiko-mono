@@ -70,7 +70,7 @@ abstract contract Layer1Test is CommonTest {
                 name: "taiko",
                 impl: address(new ConfigurableInbox(address(0), _verifier, _bondToken, _signalService)),
                 data: abi.encodeCall(
-                    ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
+                    ConfigurableInbox.initWithConfig, (address(0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf), _genesisBlockHash, _config)
                 )
             })
         );
