@@ -250,6 +250,8 @@ func (z *ProofProducerPacaya) requestBatchProof(
 		"Send batch proof generation request",
 		"proofType", proofType,
 		"isAggregation", isAggregation,
+		"start", batches[0].BatchID,
+		"end", batches[len(batches)-1].BatchID,
 		"input", string(jsonValue),
 	)
 
@@ -286,6 +288,8 @@ func (z *ProofProducerPacaya) requestBatchProof(
 		"Batch proof generation output",
 		"proofType", proofType,
 		"isAggregation", isAggregation,
+		"start", batches[0].BatchID,
+		"end", batches[len(batches)-1].BatchID,
 		"output", string(resBytes),
 	)
 
@@ -320,9 +324,10 @@ func (z *ProofProducerPacaya) requestBatchProof(
 
 	log.Info(
 		"Batch proof generated",
-		"batches", batches,
 		"isAggregation", isAggregation,
 		"proofType", proofType,
+		"start", batches[0].BatchID,
+		"end", batches[len(batches)-1].BatchID,
 		"time", time.Since(requestAt),
 	)
 
