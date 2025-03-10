@@ -27,6 +27,7 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -592,6 +593,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 				"Proof submission reverted",
 				"blockIDs", batchProof.BlockIDs,
 				"tier", batchProof.Tier,
+				"proofType", batchProof.ProofType,
 				"error", err,
 			)
 			return nil
@@ -600,6 +602,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 				"Detected proven blocks",
 				"blockIDs", batchProof.BlockIDs,
 				"tier", batchProof.Tier,
+				"proofType", batchProof.ProofType,
 				"error", err,
 			)
 			return nil
@@ -608,6 +611,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 			"Submit proof error",
 			"blockIDs", batchProof.BlockIDs,
 			"tier", batchProof.Tier,
+			"proofType", batchProof.ProofType,
 			"error", err,
 		)
 		return err
