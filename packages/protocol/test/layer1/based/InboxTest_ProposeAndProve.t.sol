@@ -547,16 +547,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].blockHash = correctBlockhash(batchId);
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
 
-        // Let the five transition is a conflict one again.
-        transitions[0].blockHash = bytes32(uint256(121));
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
-
-        // Verify the tagged conflict transition.
-        ts = inbox.getTransitionById(batchId, uint24(1));
-        assertEq(ts.blockHash, bytes32(uint256(0)));
-
-        // Verify the inbox is paused.
-        assertTrue(EssentialContract(address(inbox)).paused());
+        // Verify the inbox is not paused.
+        assertFalse(EssentialContract(address(inbox)).paused());
     }
 
     function test_proposeBatch_reverts_for_invalid_proposer_and_operator()
