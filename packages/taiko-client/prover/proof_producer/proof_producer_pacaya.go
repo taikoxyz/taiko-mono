@@ -248,7 +248,6 @@ func (z *ProofProducerPacaya) requestBatchProof(
 
 	log.Debug(
 		"Send batch proof generation request",
-		"batches", batches,
 		"proofType", proofType,
 		"isAggregation", isAggregation,
 		"input", string(jsonValue),
@@ -285,7 +284,6 @@ func (z *ProofProducerPacaya) requestBatchProof(
 
 	log.Debug(
 		"Batch proof generation output",
-		"batches", batches,
 		"proofType", proofType,
 		"isAggregation", isAggregation,
 		"output", string(resBytes),
