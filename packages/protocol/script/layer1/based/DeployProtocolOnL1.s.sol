@@ -411,7 +411,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
         pivotVerifier = deployProxy({
-            name: "trusted_verifier",
+            name: "pivot_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
