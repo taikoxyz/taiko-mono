@@ -539,7 +539,9 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         // Verify the inbox is paused.
         assertTrue(EssentialContract(address(inbox)).paused());
 
+        vm.startPrank(deployer);
         EssentialContract(address(inbox)).unpause();
+        vm.stopPrank();
 
         // Correct the blockhash.
         transitions[0].blockHash = correctBlockhash(batchId);
