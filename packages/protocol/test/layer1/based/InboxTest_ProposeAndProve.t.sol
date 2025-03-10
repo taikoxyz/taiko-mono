@@ -513,21 +513,20 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
     function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_will_pause_inbox(
     )
-    external
-    transactBy(Alice)
-    WhenMultipleBatchesAreProposedWithDefaultParameters(9)
-    WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 4)
-    WhenMultipleBatchesAreProvedWithCorrectTransitions(5, 6)
-    WhenLogAllBatchesAndTransitions
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 4)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(5, 6)
+        WhenLogAllBatchesAndTransitions
     {
-
         uint64 batchId = 5;
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
 
         (metas[0],) = _loadMetadataAndInfo(batchId);
-        transitions[0].parentHash = correctBlockhash(batchId-1);
+        transitions[0].parentHash = correctBlockhash(batchId - 1);
         transitions[0].blockHash = bytes32(uint256(120));
         transitions[0].stateRoot = correctStateRoot(batchId);
 
