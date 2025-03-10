@@ -10,7 +10,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
-            batchRingBufferSize: 15,
+            batchRingBufferSize: 11,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
@@ -534,14 +534,14 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
         WhenLogAllBatchesAndTransitions
     {
-        uint64 count = 3;
+        uint64 count = 10;
 
         vm.startSnapshotGas("proposeBatch");
 
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(count);
 
         uint256 gasProposeBatches = vm.stopSnapshotGas("proposeBatch");
-        console2.log("Gas per block - proposing:", gasProposeBatches / count);
+        console2.log("Gas per batch - proposing:", gasProposeBatches / count);
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](count);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](count);
@@ -557,8 +557,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         vm.startSnapshotGas("proveBatches");
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
         uint256 gasProveBatches = vm.stopSnapshotGas("proveBatches");
-        console2.log("Gas per block - proving:", gasProveBatches / count);
-        console2.log("Gas per block - total:", (gasProposeBatches + gasProveBatches) / count);
+        console2.log("Gas per batch - proving:", gasProveBatches / count);
+        console2.log("Gas per batch - total:", (gasProposeBatches + gasProveBatches) / count);
 
         _logAllBatchesAndTransitions();
     }
