@@ -95,7 +95,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-
                     require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
                     params.blobParams.createdIn = uint64(block.number);
                 } else {
@@ -114,15 +113,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             bool calldataUsed = _txList.length != 0;
 
-            if (!calldataUsed) {
-                if (params.blobParams.blobHashes.length == 0) {
-                    require(params.blobParams.numBlobs != 0, BlobNotSpecified());
-                } else {
-                    require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                    require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                }
-            } else {
+            if (calldataUsed) {
                 params.blobParams.createdIn = 0;
+            } else if (params.blobParams.blobHashes.length == 0) {
+                require(params.blobParams.numBlobs != 0, BlobNotSpecified());
+            } else {
+                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
 
             // Keep track of last batch's information.
