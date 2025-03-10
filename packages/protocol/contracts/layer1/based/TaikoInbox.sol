@@ -299,7 +299,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                         emit ConflictingProof(meta.batchId, _ts, tran);
                     }
 
-                    // Preceed with other transitions.
+                    // Proceed with other transitions.
                     continue;
                 }
             }
