@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.2...docs-site-v1.25.3) (2025-03-10)
+
+
+### Chores
+
+* **docs-site:** link dune query for live zk-cov" ([#19045](https://github.com/taikoxyz/taiko-mono/issues/19045)) ([e6317f6](https://github.com/taikoxyz/taiko-mono/commit/e6317f65db4434db4026034d49cf185f715b559a))
+
 ## [1.25.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.1...docs-site-v1.25.2) (2025-03-04)
 
 
