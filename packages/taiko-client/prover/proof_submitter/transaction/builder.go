@@ -265,6 +265,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			}
 			to = a.taikoL1Address
 		}
+		log.Info("Proof data", "data", common.Bytes2Hex(data))
 
 		return &txmgr.TxCandidate{
 			TxData:   data,
