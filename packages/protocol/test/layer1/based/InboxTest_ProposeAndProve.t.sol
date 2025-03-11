@@ -10,7 +10,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             maxUnverifiedBatches: 10,
-            batchRingBufferSize: 15,
+            batchRingBufferSize: 11,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
@@ -511,6 +511,46 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertTrue(EssentialContract(address(inbox)).paused());
     }
 
+    function test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_will_pause_inbox(
+    )
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 4)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(5, 6)
+        WhenLogAllBatchesAndTransitions
+    {
+        uint64 batchId = 5;
+
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
+
+        (metas[0],) = _loadMetadataAndInfo(batchId);
+        transitions[0].parentHash = correctBlockhash(batchId - 1);
+        transitions[0].blockHash = bytes32(uint256(120));
+        transitions[0].stateRoot = correctStateRoot(batchId);
+
+        // Let the five transition is a conflict one.
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+
+        // Verify the tagged conflict transition.
+        ITaikoInbox.TransitionState memory ts = inbox.getTransitionById(batchId, uint24(1));
+        assertEq(ts.blockHash, bytes32(uint256(0)));
+        // Verify the inbox is paused.
+        assertTrue(EssentialContract(address(inbox)).paused());
+
+        vm.startPrank(deployer);
+        EssentialContract(address(inbox)).unpause();
+        vm.stopPrank();
+
+        // Correct the blockhash.
+        transitions[0].blockHash = correctBlockhash(batchId);
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+
+        // Verify the inbox is not paused.
+        assertFalse(EssentialContract(address(inbox)).paused());
+    }
+
     function test_proposeBatch_reverts_for_invalid_proposer_and_operator()
         external
         transactBy(Alice)
@@ -534,14 +574,14 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
         WhenLogAllBatchesAndTransitions
     {
-        uint64 count = 3;
+        uint64 count = 10;
 
         vm.startSnapshotGas("proposeBatch");
 
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(count);
 
         uint256 gasProposeBatches = vm.stopSnapshotGas("proposeBatch");
-        console2.log("Gas per block - proposing:", gasProposeBatches / count);
+        console2.log("Gas per batch - proposing:", gasProposeBatches / count);
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](count);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](count);
@@ -557,9 +597,23 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         vm.startSnapshotGas("proveBatches");
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
         uint256 gasProveBatches = vm.stopSnapshotGas("proveBatches");
-        console2.log("Gas per block - proving:", gasProveBatches / count);
-        console2.log("Gas per block - total:", (gasProposeBatches + gasProveBatches) / count);
+        console2.log("Gas per batch - proving:", gasProveBatches / count);
+        console2.log("Gas per batch - total:", (gasProposeBatches + gasProveBatches) / count);
 
         _logAllBatchesAndTransitions();
+
+        string memory str = string(
+            abi.encodePacked(
+                "See `test_inbox_measure_gas_used` in InboxTest_ProposeAndProve.t.sol\n",
+                "\nGas per proposeBatches: ",
+                Strings.toString(gasProposeBatches / count),
+                "\nGas per proveBatches: ",
+                Strings.toString(gasProveBatches / count),
+                "\nTotal: ",
+                Strings.toString((gasProposeBatches + gasProveBatches) / count)
+            )
+        );
+
+        vm.writeFile("./deployments/test_inbox_measure_gas_used.txt", str);
     }
 }
