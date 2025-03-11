@@ -36,12 +36,9 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Read tag version from JSON
+      - name: Read tag versions from JSON
         run: |
           echo "TAG_VERSION=$(jq -r '.tagVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
-
-      - name: Read taiko-geth version from JSON
-        run: |
           echo "TAIKO_GETH_VERSION=$(jq -r '.gethVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
 
       - name: Clone forkdiff
@@ -56,6 +53,7 @@ jobs:
       - name: Replace tag version in configuration file
         run: |
           sed -i "s/{{ TAG_VERSION }}/${{ env.TAG_VERSION }}/g" packages/fork-diff/fork.yaml
+          sed -i "s/{{ TAIKO_GETH_VERSION }}/${{ env.TAIKO_GETH_VERSION }}/g" packages/fork-diff/fork.yaml
 
       - name: Set up Go
         uses: actions/setup-go@v5
