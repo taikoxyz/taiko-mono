@@ -30,6 +30,25 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint256[48] private __gap;
 
+    // keccak256(abi.encode(uint256(keccak256("taiko.alethia.forcedinclusion.storage.TransactionGuard"))
+    // - 1)
+    // & ~bytes32(uint256(0xff));
+    bytes32 constant _TRANSACTION_GUARD =
+        0x5a1e3a5f720a5155ea49503410bd539c2a6a2a71c3684875803b191fd01b8100;
+
+    modifier onlyStandaloneTx() {
+        bytes32 guard;
+        assembly {
+            guard := tload(_TRANSACTION_GUARD)
+        }
+        require(guard == 0, MultipleCallsInOneTx());
+        assembly {
+            tstore(_TRANSACTION_GUARD, 1)
+        }
+        _;
+        // Will clean up at the end of the transaction
+    }
+
     constructor(
         uint8 _inclusionDelay,
         uint64 _feeInGwei,
@@ -59,7 +78,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     )
         external
         payable
-        nonReentrant
+        onlyStandaloneTx
         whenNotPaused
     {
         bytes32 blobHash = _blobHash(blobIndex);
