@@ -75,7 +75,7 @@ Retries processing a **failed message**.
 | Parameter        | Type      | Description                                                |
 | ---------------- | --------- | ---------------------------------------------------------- |
 | `_message`       | `Message` | The message to retry.                                      |
-| `_isLastAttempt` | `bool`    | If `true`, marks the message as **failed** if retry fails. |
+| `_isLastAttempt` | `bool`    | If `true`, marked the message as **failed** if retry fails.|
 
 **Mechanism**:
 
