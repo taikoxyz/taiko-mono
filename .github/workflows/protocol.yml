@@ -64,7 +64,7 @@ jobs:
 
       - name: L1-Unit tests
         working-directory: ./packages/protocol
-        run: pnpm compile:l1 && pnpm test:l1 && pnpm layout:l1
+        run: pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
 
       - name: Check for changes
         id: git_status

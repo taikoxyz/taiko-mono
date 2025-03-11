@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../../shared/based/ITaiko.sol";
 import "../../layer1/based/ITaikoInbox.sol";
-import "../bridge/IQuotaManager.sol";
 import "../libs/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "./IBridgedERC20.sol";
@@ -545,8 +544,10 @@ contract ERC20Vault is BaseVault {
         } else if (bridgedToCanonical[_op.token].addr != address(0)) {
             // Handle bridged token
             ctoken_ = bridgedToCanonical[_op.token];
-            IERC20(_op.token).safeTransferFrom(msg.sender, address(this), _op.amount);
-            IBridgedERC20(_op.token).burn(_op.amount);
+            uint256 amount = _op.amount + _op.solverFee;
+            IERC20(_op.token).safeTransferFrom(msg.sender, address(this), amount);
+            IBridgedERC20(_op.token).burn(amount);
+
             balanceChangeAmount_ = _op.amount;
             balanceChangeSolverFee_ = _op.solverFee;
         } else {
@@ -639,13 +640,6 @@ contract ERC20Vault is BaseVault {
             ctokenName: ctoken.name,
             ctokenDecimal: ctoken.decimals
         });
-    }
-
-    function _consumeTokenQuota(address _token, uint256 _amount) private {
-        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
-        if (quotaManager != address(0)) {
-            IQuotaManager(quotaManager).consumeQuota(_token, _amount);
-        }
     }
 
     function _safeDecimals(address _token) private view returns (uint8) {

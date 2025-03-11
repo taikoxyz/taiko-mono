@@ -65,6 +65,35 @@ contract TestERC20Vault_solver is CommonTest {
         vm.deal(Bob, 1 ether);
     }
 
+    function test_20vault_send_erc20_with_solver_fee() public {
+        vm.chainId(taikoChainId);
+
+        vm.startPrank(deployer);
+
+        vm.warp(block.timestamp + 91 days);
+        tVault.changeBridgedToken(erc20ToCanonicalERC20(ethereumChainId), address(tUSDC));
+        tUSDC.mint(Alice, 3);
+
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+
+        uint256 amount = 2;
+        uint256 solverFee = 1;
+
+        uint256 aliceBalanceBefore = tUSDC.balanceOf(Alice);
+
+        tUSDC.approve(address(tVault), 3);
+        tVault.sendToken(
+            ERC20Vault.BridgeTransferOp(
+                ethereumChainId, address(0), Bob, 0, address(tUSDC), 1_000_000, amount, solverFee
+            )
+        );
+
+        uint256 aliceBalanceAfter = tUSDC.balanceOf(Alice);
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount + solverFee);
+    }
+
     function test_20Vault_receive_erc20_solved() public {
         eERC20Token1.mint(address(eVault));
 
