@@ -31,8 +31,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     uint256[48] private __gap;
 
     // keccak256(abi.encode(uint256(keccak256("taiko.alethia.forcedinclusion.storage.TransactionGuard"))
-    // - 1)
-    // & ~bytes32(uint256(0xff));
+    // - 1) & ~bytes32(uint256(0xff));
     bytes32 constant _TRANSACTION_GUARD =
         0x5a1e3a5f720a5155ea49503410bd539c2a6a2a71c3684875803b191fd01b8100;
 
