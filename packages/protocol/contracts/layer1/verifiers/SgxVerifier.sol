@@ -194,6 +194,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
+        emit DebugPublicInput(0xFFFF, signatureHash);
         // Verify the blocks
         bytes memory signature = _proof[44:];
         require(oldInstance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
