@@ -649,7 +649,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
-	// BlockHash of the transition should not be zero now, and Inbox should be paused.
+	// BlockHash of the transition should be zero now, and Inbox should be paused.
 	transition, err = s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
 		nil,
 		req.Meta.Pacaya().GetBatchID().Uint64(),
@@ -692,7 +692,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
-	// BlockHash of the transition should not be zero now, and Inbox should be paused.
+	// BlockHash of the transition should not be zero now, and Inbox should be unpaused.
 	transition, err = s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
 		nil,
 		req.Meta.Pacaya().GetBatchID().Uint64(),
