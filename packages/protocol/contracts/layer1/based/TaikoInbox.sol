@@ -281,20 +281,27 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 }
             } else {
                 TransitionState memory _ts = state.transitions[slot][tid];
+                if (_ts.blockHash == 0) {
+                    // This transition has been invalidated due to a conflicting proof.
+                    // So we can reuse the transition ID.
+                } else {
+                    bool isSameTransition = _ts.blockHash == tran.blockHash
+                        && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
 
-                bool isSameTransition = _ts.blockHash == tran.blockHash
-                    && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
+                    if (isSameTransition) {
+                        // Re-approving the same transition is allowed, but we will not change the
+                        // existing one.
+                    } else {
+                        // A conflict is detected with the new transition. Pause the contract and
+                        // invalidate the existing transition by setting its blockHash to 0.
+                        hasConflictingProof = true;
+                        state.transitions[slot][tid].blockHash = 0;
+                        emit ConflictingProof(meta.batchId, _ts, tran);
+                    }
 
-                if (!isSameTransition) {
-                    hasConflictingProof = true;
-                    emit ConflictingProof(meta.batchId, _ts, tran);
-
-                    // Invalidate the conflict transition
-                    state.transitions[slot][tid].blockHash = 0;
+                    // Proceed with other transitions.
+                    continue;
                 }
-
-                // Do not save this transition
-                continue;
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
