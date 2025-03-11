@@ -358,6 +358,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new DevnetVerifier(taikoInboxAddr, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
         });
+        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
 
         // Prover set
         deployProxy({
@@ -367,7 +368,8 @@ contract DeployProtocolOnL1 is DeployCapability {
                     address(rollupResolver), taikoInboxAddr, taikoInbox.bondToken(), taikoInboxAddr
                 )
             ),
-            data: abi.encodeCall(ProverSetBase.init, (owner, vm.envAddress("PROVER_SET_ADMIN")))
+            data: abi.encodeCall(ProverSetBase.init, (address(0), vm.envAddress("PROVER_SET_ADMIN"))),
+            registerTo: rollupResolver
         });
     }
 
@@ -540,19 +542,25 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
         });
 
-        UUPSUpgradeable(taikoWrapper).upgradeTo({
-            newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
-        });
-
-        Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
-        console2.log("** taiko_wrapper ownership transferred to:", owner);
-
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
                     taikoInbox,
+                    taikoWrapper
+                )
+            )
+        );
+        // Prover set for preconfirmation
+        UUPSUpgradeable(
+            IResolver(rollupResolver).resolve(uint64(block.chainid), "prover_set", false)
+        ).upgradeTo(
+            address(
+                new ProverSet(
+                    address(rollupResolver),
+                    taikoInbox,
+                    IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     taikoWrapper
                 )
             )
@@ -567,6 +575,13 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: rollupResolver
         });
+
+        UUPSUpgradeable(taikoWrapper).upgradeTo({
+            newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
+        });
+
+        Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
+        console2.log("** taiko_wrapper ownership transferred to:", owner);
 
         return (whitelist, router, store, taikoWrapper);
     }

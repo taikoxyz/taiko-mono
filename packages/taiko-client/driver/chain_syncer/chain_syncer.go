@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -40,9 +41,7 @@ func New(
 	state *state.State,
 	p2pSync bool,
 	p2pSyncTimeout time.Duration,
-	maxRetrieveExponent uint64,
 	blobServerEndpoint *url.URL,
-	socialScanEndpoint *url.URL,
 ) (*L2ChainSyncer, error) {
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
@@ -53,9 +52,7 @@ func New(
 		rpc,
 		state,
 		tracker,
-		maxRetrieveExponent,
 		blobServerEndpoint,
-		socialScanEndpoint,
 	)
 	if err != nil {
 		return nil, err
@@ -183,17 +180,17 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 		return 0, false, nil
 	}
 
-	blockID, err := s.rpc.L2CheckPoint.BlockNumber(s.ctx)
+	head, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)
 	if err != nil {
 		return 0, false, err
 	}
 
 	// If the protocol's block head is zero, we simply return false.
-	if blockID == 0 {
+	if head.BlockID.Cmp(common.Big0) == 0 {
 		return 0, false, nil
 	}
 
-	return blockID, !s.AheadOfHeadToSync(blockID) &&
+	return head.BlockID.Uint64(), !s.AheadOfHeadToSync(head.BlockID.Uint64()) &&
 		!s.progressTracker.OutOfSync(), nil
 }
 

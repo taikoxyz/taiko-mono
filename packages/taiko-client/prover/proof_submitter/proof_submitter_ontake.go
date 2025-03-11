@@ -227,7 +227,13 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 		},
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
 	); err != nil {
-		log.Error("Request proof error", "error", err)
+		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
+			!errors.Is(err, proofProducer.ErrProofInProgress) &&
+			!errors.Is(err, proofProducer.ErrRetry) {
+			log.Error("Request proof error", "error", err)
+		} else {
+			log.Debug("Expected error code", "error", err)
+		}
 		return err
 	}
 

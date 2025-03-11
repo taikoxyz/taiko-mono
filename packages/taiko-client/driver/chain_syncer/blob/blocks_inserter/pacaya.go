@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -255,6 +256,23 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 ) (*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
+
+	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
+	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return nil, fmt.Errorf("failed to fetch head L1 origin: %w", err)
+	}
+
+	// When the chain only has the genesis block, we shall skip this check.
+	if headL1Origin != nil {
+		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+			return nil, fmt.Errorf(
+				"preconfirmation block number (%d) is less than or equal to the current head L1 origin block ID (%d)",
+				executableData.BlockNumber,
+				headL1Origin.BlockID,
+			)
+		}
+	}
 
 	if len(executableData.Transactions) == 0 {
 		return nil, fmt.Errorf("no transactions data in the payload")
