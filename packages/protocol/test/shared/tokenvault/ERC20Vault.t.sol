@@ -550,4 +550,76 @@ contract TestERC20Vault is CommonTest {
             0
         );
     }
+
+    function test_20Vault_by_Halborn_BridgedToken_SolverFee_NotTransferred() public {
+        vm.startPrank(Alice);
+        vm.chainId(ethereumChainId);
+
+        // Deploy a token on one chain that will be bridged
+        FreeMintERC20Token originalToken = new FreeMintERC20Token("ORIG", "Original");
+        originalToken.mint(Alice);
+
+        // Create a canonical representation for this token
+        ERC20Vault.CanonicalERC20 memory canonicalToken = ERC20Vault.CanonicalERC20({
+            chainId: 999, // Some other chain ID
+            addr: address(originalToken),
+            decimals: 18,
+            symbol: "ORIG",
+            name: "Original"
+        });
+
+        // Deploy a bridged token on this chain
+        // Note the owner is 0x0 without using a proxy
+        address bridgedTokenAddr = address(new BridgedERC20(address(eVault)));
+
+        // Set up the mappings in the vault
+        vm.stopPrank();
+
+        // Warp time to avoid migration issues
+        vm.warp(block.timestamp + 91 days);
+
+        vm.prank(deployer);
+        eVault.changeBridgedToken(canonicalToken, bridgedTokenAddr);
+
+        vm.prank(address(eVault)); // Only owner or ERC20Vault can mint
+        BridgedERC20(bridgedTokenAddr).mint(Alice, 10e18);
+
+        vm.startPrank(Alice);
+
+        uint256 aliceBalanceBefore = BridgedERC20(bridgedTokenAddr).balanceOf(Alice);
+        console.log("Alice amount before = %s", aliceBalanceBefore);
+
+        // Define the amounts
+        uint256 amount = 1e18;
+        uint256 solverFee = 2e18;
+
+        // Approve only the amount, not the solver fee
+        BridgedERC20(bridgedTokenAddr).approve(address(eVault), amount);
+
+        // Execute the bridge transfer
+        eVault.sendToken(
+            ERC20Vault.BridgeTransferOp(
+                taikoChainId,
+                address(0),
+                Bob,
+                0, // No processing fee
+                bridgedTokenAddr,
+                1_000_000,
+                uint256(amount),
+                uint256(solverFee)
+            )
+        );
+
+        // Check Alice's balance after the transaction
+        uint256 aliceBalanceAfter = BridgedERC20(bridgedTokenAddr).balanceOf(Alice);
+        console.log("Alice amount after = %s", aliceBalanceAfter);
+        console.log(
+            "Alice amount before - Alice amount after = %s", aliceBalanceBefore - aliceBalanceAfter
+        );
+        console.log("amount + solverFee = %s", amount + solverFee);
+
+        // Ensure that only the approved amount was deducted
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
+        vm.stopPrank();
+    }
 }
