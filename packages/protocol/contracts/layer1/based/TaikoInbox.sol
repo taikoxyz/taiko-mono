@@ -814,7 +814,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
     }
 
-    function _checkNextFork(uint64 _nextForkHeight, uint64 _batchId) internal view {
+    function _checkNextFork(uint64 _nextForkHeight, uint64 _batchId) private pure {
         require(_nextForkHeight == 0 || _batchId < _nextForkHeight, BeyondCorrentFork());
     }
 
