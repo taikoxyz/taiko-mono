@@ -15,7 +15,15 @@ contract AnyTwoVerifier is ComposeVerifier {
         address _risc0Verifier,
         address _sp1Verifier
     )
-        ComposeVerifier(_taikoInbox, address(0), _sgxVerifier, address(0), _risc0Verifier, _sp1Verifier)
+        ComposeVerifier(
+            _taikoInbox,
+            address(0),
+            address(0),
+            _sgxVerifier,
+            address(0),
+            _risc0Verifier,
+            _sp1Verifier
+        )
     { }
 
     function areVerifiersSufficient(address[] memory _verifiers)
