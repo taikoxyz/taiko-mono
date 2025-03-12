@@ -22,6 +22,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
+var (
+	MaxNumSupportedZkTypes    = 2
+	MaxNumSupportedProofTypes = 4
+)
+
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitterPacaya struct {

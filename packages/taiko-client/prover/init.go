@@ -168,8 +168,8 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	var (
 		baseLevelProver proofProducer.ProofProducer
 		zkvmProducer    proofProducer.ProofProducer
-		zkVerifiers     = make(map[string]common.Address, 2)
-		proofBuffers    = make(map[string]*proofProducer.ProofBuffer, 4)
+		zkVerifiers     = make(map[string]common.Address, proofSubmitter.MaxNumSupportedZkTypes)
+		proofBuffers    = make(map[string]*proofProducer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
 		proofTypes      = make([]string, 0, 4)
 	)
 	pivotVerifier, err := p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx})
