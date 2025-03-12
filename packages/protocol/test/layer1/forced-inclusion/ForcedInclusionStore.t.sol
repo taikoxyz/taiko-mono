@@ -61,33 +61,39 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
 }
 
 contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
-    function test_storeForcedInclusion_success() public transactBy(Alice) {
+    function test_storeForcedInclusion_only_once_per_tx() public transactBy(Alice) {
         vm.deal(Alice, 1 ether);
 
         uint64 _feeInGwei = store.feeInGwei();
 
-        for (uint8 i; i < 5; ++i) {
-            store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
-                blobIndex: i,
-                blobByteOffset: 0,
-                blobByteSize: 1024
-            });
-            (
-                bytes32 blobHash,
-                uint64 feeInGwei,
-                uint64 createdAt,
-                uint32 blobByteOffset,
-                uint32 blobByteSize,
-                uint64 blobCreatedIn
-            ) = store.queue(store.tail() - 1);
+        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
+            blobIndex: 0,
+            blobByteOffset: 0,
+            blobByteSize: 1024
+        });
 
-            assertEq(blobHash, bytes32(uint256(i + 1))); //  = blobIndex + 1
-            assertEq(createdAt, uint64(block.timestamp));
-            assertEq(feeInGwei, _feeInGwei);
-            assertEq(blobByteOffset, 0);
-            assertEq(blobByteSize, 1024);
-            assertEq(blobCreatedIn, uint64(block.number));
-        }
+        (
+            bytes32 blobHash,
+            uint64 feeInGwei,
+            uint64 createdAt,
+            uint32 blobByteOffset,
+            uint32 blobByteSize,
+            uint64 blobCreatedIn
+        ) = store.queue(store.tail() - 1);
+
+        assertEq(blobHash, bytes32(uint256(1))); //  = blobIndex + 1
+        assertEq(createdAt, uint64(block.timestamp));
+        assertEq(feeInGwei, _feeInGwei);
+        assertEq(blobByteOffset, 0);
+        assertEq(blobByteSize, 1024);
+        assertEq(blobCreatedIn, uint64(block.number));
+
+        vm.expectRevert(IForcedInclusionStore.MultipleCallsInOneTx.selector);
+        store.storeForcedInclusion{ value: 0 }({
+            blobIndex: 0,
+            blobByteOffset: 0,
+            blobByteSize: 1024
+        });
     }
 
     function test_storeForcedInclusion_incorrectFee() public transactBy(Alice) {

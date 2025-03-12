@@ -28,6 +28,8 @@ interface IForcedInclusionStore {
     error InvalidIndex();
     /// @dev Error thrown when a forced inclusion is not found.
     error NoForcedInclusionFound();
+    /// @dev Error thrown when a function is called more than once in one transaction.
+    error MultipleCallsInOneTx();
 
     /// @dev Retrieve a forced inclusion request by its index.
     /// @param index The index of the forced inclusion request in the queue.

@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../../shared/based/ITaiko.sol";
 import "../../layer1/based/ITaikoInbox.sol";
-import "../bridge/IQuotaManager.sol";
 import "../libs/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "./IBridgedERC20.sol";
@@ -641,13 +640,6 @@ contract ERC20Vault is BaseVault {
             ctokenName: ctoken.name,
             ctokenDecimal: ctoken.decimals
         });
-    }
-
-    function _consumeTokenQuota(address _token, uint256 _amount) private {
-        address quotaManager = resolve(LibStrings.B_QUOTA_MANAGER, true);
-        if (quotaManager != address(0)) {
-            IQuotaManager(quotaManager).consumeQuota(_token, _amount);
-        }
     }
 
     function _safeDecimals(address _token) private view returns (uint8) {
