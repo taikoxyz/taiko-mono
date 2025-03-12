@@ -1,5 +1,5 @@
 See `test_inbox_measure_gas_used` in InboxTest_ProposeAndProve.t.sol
 
-Gas per proposeBatches: 654449
-Gas per proveBatches: 48593
-Total: 703042
+Gas per proposeBatches: 654400
+Gas per proveBatches: 48492
+Total: 702892
