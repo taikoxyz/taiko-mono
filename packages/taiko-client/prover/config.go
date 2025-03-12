@@ -166,8 +166,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProverPrivKey,
 			c,
 		),
-		SGXProofBufferSize:        sgxBatchSize,
-		ZKVMProofBufferSize:       zkvmBatchSize,
+		SGXProofBufferSize:        c.Uint64(flags.SGXBatchSize.Name),
+		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 	}, nil
 }
