@@ -304,7 +304,8 @@ func (s *ProverTestSuite) TestOntakeToPacayaVerification() {
 	for req := range s.p.proofSubmissionCh {
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 		if req.Meta.IsPacaya() {
-			s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+			s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+			s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 			if req.Meta.Pacaya().GetLastBlockID() == head.Number.Uint64() {
 				break
 			}
@@ -742,13 +743,15 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 	// Submit a valid proof.
 	s.Nil(s.p.proofSubmitterPacaya.RequestProof(context.Background(), m))
-	res := <-s.p.proofGenerationCh
+	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	batchRes := <-s.p.batchProofGenerationCh
+	res := batchRes.ProofResponses[0]
 	s.Equal(m.Pacaya().GetBatchID().Uint64(), res.Meta.Pacaya().GetBatchID().Uint64())
 	s.NotEmpty(res.Opts.PacayaOptions().Headers)
 
 	// Submit two conflict proofs
 	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), batchRes))
 
 	// Transition should be created, and blockHash should not be zero.
 	transition, err := s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
@@ -823,7 +826,8 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	}
 
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
 	// BlockHash of the transition should not be zero now, and Inbox should be unpaused.
 	transition, err = s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
