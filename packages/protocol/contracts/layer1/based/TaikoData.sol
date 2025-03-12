@@ -29,6 +29,8 @@ library TaikoData {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notie The Ontake fork height on L2.
         uint64 ontakeForkHeight;
+        /// @notie The Pacaya fork height on L2.
+        uint64 pacayaForkHeight;
     }
 
     /// @notice DEPRECATED but used by node/client for syncing old blocks

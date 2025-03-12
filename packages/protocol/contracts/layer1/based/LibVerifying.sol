@@ -72,6 +72,7 @@ library LibVerifying {
 
             while (
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
+                    && local.blockId < _config.pacayaForkHeight
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
 
