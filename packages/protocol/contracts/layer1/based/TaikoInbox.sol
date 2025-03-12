@@ -102,6 +102,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
+                // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
+                // preconfer address. This will allow us to implement preconfirmation features in L2
+                // anchor transactions.
                 if (params.coinbase == address(0)) {
                     params.coinbase = params.proposer;
                 }
