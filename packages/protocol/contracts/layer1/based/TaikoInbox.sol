@@ -210,10 +210,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // SSTORE }}
 
             stats2.numBatches += 1;
-            require(
-                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
-                BeyondCorrentFork()
-            );
+            _checkNextFork(config.forkHeights.shasta, stats2.numBatches);
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -246,10 +243,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             BatchMetadata memory meta = metas[i];
 
             require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
-            require(
-                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
-                BeyondCorrentFork()
-            );
+            _checkNextFork(config.forkHeights.shasta, meta.batchId);
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -615,10 +609,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
 
             for (++batchId; batchId < stopBatchId; ++batchId) {
-                require(
-                    _config.forkHeights.shasta == 0 || batchId < _config.forkHeights.shasta,
-                    BeyondCorrentFork()
-                );
+                _checkNextFork(_config.forkHeights.shasta, batchId);
+
                 slot = batchId % _config.batchRingBufferSize;
                 batch = state.batches[slot];
                 uint24 nextTransitionId = batch.nextTransitionId;
@@ -820,6 +812,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         require(blocksLength != 0, BlockNotFound());
         require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
+    }
+
+    function _checkNextFork(uint64 _nextForkHeight, uint64 _batchId) internal view {
+        require(_nextForkHeight == 0 || _batchId < _nextForkHeight, BeyondCorrentFork());
     }
 
     // Memory-only structs ----------------------------------------------------------------------
