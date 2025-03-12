@@ -163,6 +163,7 @@ func (p *Prover) initProofSubmitters(
 	return p.initPacayaProofSubmitter(txBuilder)
 }
 
+// initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses in protocol.
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
 	// Init verifiers for Pacaya
 	var (
@@ -170,7 +171,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		zkvmProducer    proofProducer.ProofProducer
 		zkVerifiers     = make(map[string]common.Address, proofSubmitter.MaxNumSupportedZkTypes)
 		proofBuffers    = make(map[string]*proofProducer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
-		proofTypes      = make([]string, 0, 4)
+		proofTypes      = make([]string, 0, proofSubmitter.MaxNumSupportedProofTypes)
 	)
 	pivotVerifier, err := p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx})
 	if err != nil || pivotVerifier == transaction.ZeroAddress {
