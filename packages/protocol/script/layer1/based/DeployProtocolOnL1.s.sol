@@ -362,6 +362,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
         });
+        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
 
         // Prover set
         deployProxy({
@@ -553,13 +554,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
         });
 
-        UUPSUpgradeable(taikoWrapper).upgradeTo({
-            newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
-        });
-
-        Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
-        console2.log("** taiko_wrapper ownership transferred to:", owner);
-
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
@@ -593,6 +587,13 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: rollupResolver
         });
+
+        UUPSUpgradeable(taikoWrapper).upgradeTo({
+            newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
+        });
+
+        Ownable2StepUpgradeable(taikoWrapper).transferOwnership(owner);
+        console2.log("** taiko_wrapper ownership transferred to:", owner);
 
         return (whitelist, router, store, taikoWrapper);
     }

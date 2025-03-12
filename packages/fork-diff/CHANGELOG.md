@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.2...fork-diff-v0.6.3) (2025-03-12)
+
+
+### Chores
+
+* **fork-diff:** update fork-diff workflow and page ([#19051](https://github.com/taikoxyz/taiko-mono/issues/19051)) ([19abdc2](https://github.com/taikoxyz/taiko-mono/commit/19abdc2a4550594ad55110021828637832df16fd))
+
 ## [0.6.2](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.1...fork-diff-v0.6.2) (2025-03-06)
 
 
