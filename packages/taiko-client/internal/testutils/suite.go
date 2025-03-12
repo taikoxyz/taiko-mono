@@ -226,6 +226,12 @@ func (s *ClientTestSuite) IncreaseTime(time uint64) {
 	s.NotNil(result)
 }
 
+func (s *ClientTestSuite) SetNextBlockTimestamp(time uint64) {
+	var result uint64
+	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &result, "evm_setNextBlockTimestamp", time))
+	s.NotNil(result)
+}
+
 func (s *ClientTestSuite) SetL1Snapshot() string {
 	var snapshotID string
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &snapshotID, "evm_snapshot"))
