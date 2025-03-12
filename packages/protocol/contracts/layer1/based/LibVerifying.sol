@@ -72,7 +72,7 @@ library LibVerifying {
 
             while (
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
-                    && local.blockId < _config.pacayaForkHeight
+                    && local.blockId < TaikoData.PACAYA_FORK_HEIGHT
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
 
