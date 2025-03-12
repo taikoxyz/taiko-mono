@@ -164,7 +164,7 @@ func (p *Prover) initProofSubmitters(
 }
 
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
-	// Init verifiers for pacaya
+	// Init verifiers for Pacaya
 	var (
 		baseLevelProver proofProducer.ProofProducer
 		zkvmProducer    proofProducer.ProofProducer
@@ -240,7 +240,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 			ProofType:           proofProducer.ZKProofTypeAny,
 		}
 	}
-	// Init proof buffers for pacaya
+	// Init proof buffers for Pacaya
 	for _, proofType := range proofTypes {
 		switch proofType {
 		case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:

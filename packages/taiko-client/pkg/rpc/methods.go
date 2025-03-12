@@ -1061,7 +1061,7 @@ func (c *Client) calculateBaseFeeOntake(
 	return baseFeeInfo.Basefee, nil
 }
 
-// calculateBaseFeePacaya calculates the base fee after pacaya fork from the L2 protocol.
+// calculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
 func (c *Client) calculateBaseFeePacaya(
 	ctx context.Context,
 	l2Head *types.Header,
