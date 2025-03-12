@@ -606,11 +606,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 stopBatchId = (
                     _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
+
+                if (_config.forkHeights.shasta != 0) {
+                    stopBatchId = stopBatchId.min(_config.forkHeights.shasta);
+                }
             }
 
             for (++batchId; batchId < stopBatchId; ++batchId) {
-                _checkNextFork(_config.forkHeights.shasta, batchId);
-
                 slot = batchId % _config.batchRingBufferSize;
                 batch = state.batches[slot];
                 uint24 nextTransitionId = batch.nextTransitionId;
