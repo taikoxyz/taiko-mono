@@ -28,7 +28,8 @@ contract HeklaTaikoL1 is TaikoL1 {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             ontakeForkHeight: 840_512,
-            pacayaForkHeight: 1_283_041 // ~21 Mar 2025
+            pacayaForkHeight: 1_283_041 // TODO: update this value when Hekla Pacaya fork
+                // height is known
          });
     }
 }
