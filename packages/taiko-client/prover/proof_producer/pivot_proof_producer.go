@@ -24,7 +24,7 @@ import (
 // TODO: Can be refactored like ProofProducerPacaya
 type PivotProofProducer struct {
 	Verifier            common.Address
-	RaikoHostEndpoint   string // a proverd RPC endpoint
+	RaikoHostEndpoint   string // a prover RPC endpoint
 	JWT                 string // JWT provided by Raiko
 	Dummy               bool
 	RaikoRequestTimeout time.Duration

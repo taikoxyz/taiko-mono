@@ -27,6 +27,7 @@ const (
 	ProofTypeOp    = "op"
 )
 
+// RaikoBatches represents the JSON body of RaikoRequestProofBodyV3Pacaya's `Batches` field.
 type RaikoBatches struct {
 	BatchID                *big.Int `json:"batch_id"`
 	L1InclusionBlockNumber *big.Int `json:"l1_inclusion_block_number"`
@@ -52,6 +53,7 @@ type ProofProducerPacaya struct {
 	DummyProofProducer
 }
 
+// RequestProof implements the ProofProducer interface.
 func (z *ProofProducerPacaya) RequestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,

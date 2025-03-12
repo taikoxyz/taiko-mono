@@ -420,7 +420,7 @@ func (p *Prover) aggregateOp(tier uint16) error {
 	return g.Wait()
 }
 
-// aggregateOp aggregates all proofs in buffer.
+// aggregateOpPacaya aggregates all proofs in buffer for Pacaya.
 func (p *Prover) aggregateOpPacaya(proofType string) error {
 	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
 		log.Error(
