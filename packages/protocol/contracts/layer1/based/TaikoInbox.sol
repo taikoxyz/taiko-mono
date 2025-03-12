@@ -79,6 +79,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Stats2 memory stats2 = state.stats2;
         Config memory config = pacayaConfig();
         require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
+        
 
         unchecked {
             require(
@@ -210,6 +211,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // SSTORE }}
 
             stats2.numBatches += 1;
+            require(config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta, BeyondCorrentFork());
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -242,6 +244,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             BatchMetadata memory meta = metas[i];
 
             require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
+            require(config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta, BeyondCorrentFork());
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -607,6 +610,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
 
             for (++batchId; batchId < stopBatchId; ++batchId) {
+                require(_config.forkHeights.shasta == 0 ||batchId < _config.forkHeights.shasta, BeyondCorrentFork());
                 slot = batchId % _config.batchRingBufferSize;
                 batch = state.batches[slot];
                 uint24 nextTransitionId = batch.nextTransitionId;

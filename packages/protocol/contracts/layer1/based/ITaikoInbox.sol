@@ -259,6 +259,7 @@ interface ITaikoInbox {
     error ArraySizesMismatch();
     error BatchNotFound();
     error BatchVerified();
+    error BeyondCorrentFork();
     error BlobNotFound();
     error BlockNotFound();
     error BlobNotSpecified();
