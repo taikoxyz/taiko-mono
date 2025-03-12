@@ -421,7 +421,7 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 			if err != nil {
 				if errors.Is(err, proofProducer.ErrProofInProgress) ||
 					errors.Is(err, proofProducer.ErrRetry) {
-					log.Info(
+					log.Debug(
 						"Aggregating proofs",
 						"status", err,
 						"batchSize", len(buffer),

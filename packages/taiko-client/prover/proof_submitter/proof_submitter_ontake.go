@@ -499,7 +499,7 @@ func (s *ProofSubmitterOntake) AggregateProofs(ctx context.Context) error {
 			if err != nil {
 				if errors.Is(err, producer.ErrProofInProgress) ||
 					errors.Is(err, producer.ErrRetry) {
-					log.Info(
+					log.Debug(
 						"Aggregating proofs",
 						"status", err,
 						"batchSize", len(buffer),
