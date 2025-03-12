@@ -78,6 +78,7 @@ library LibProving {
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_PROVING_PAUSED();
+    error L1_FORK_HEIGHT_ERROR();
 
     /// @dev Pauses or unpauses the proving process.
     /// @param _state Pointer to the protocol's storage.
@@ -128,6 +129,7 @@ library LibProving {
         // This loop iterates over each block ID in the _blockIds array. For each block ID, it calls
         // the _proveBlock function to get the context and verifier.
         for (uint256 i; i < _blockIds.length; ++i) {
+            require(_blockIds[i] < TaikoData.PACAYA_FORK_HEIGHT, L1_FORK_HEIGHT_ERROR());
             bytes32 _verifierName;
             (ctxs[i], _verifierName) =
                 _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);

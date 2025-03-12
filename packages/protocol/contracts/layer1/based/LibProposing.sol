@@ -131,6 +131,7 @@ library LibProposing {
         // It's essential to ensure that the ring buffer for proposed blocks still has space for at
         // least one more block.
         require(local.b.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+        require(local.b.numBlocks < TaikoData.PACAYA_FORK_HEIGHT, L1_FORK_HEIGHT_ERROR());
 
         unchecked {
             require(
