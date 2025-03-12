@@ -102,6 +102,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
+                // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
+                // preconfer address. This will allow us to implement preconfirmation features in L2
+                // anchor transactions.
                 if (params.coinbase == address(0)) {
                     params.coinbase = params.proposer;
                 }
@@ -207,6 +210,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // SSTORE }}
 
             stats2.numBatches += 1;
+            require(
+                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
+                BeyondCurrentFork()
+            );
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -239,6 +246,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             BatchMetadata memory meta = metas[i];
 
             require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
+            require(
+                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
+                BeyondCurrentFork()
+            );
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -281,20 +292,27 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 }
             } else {
                 TransitionState memory _ts = state.transitions[slot][tid];
+                if (_ts.blockHash == 0) {
+                    // This transition has been invalidated due to a conflicting proof.
+                    // So we can reuse the transition ID.
+                } else {
+                    bool isSameTransition = _ts.blockHash == tran.blockHash
+                        && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
 
-                bool isSameTransition = _ts.blockHash == tran.blockHash
-                    && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
+                    if (isSameTransition) {
+                        // Re-approving the same transition is allowed, but we will not change the
+                        // existing one.
+                    } else {
+                        // A conflict is detected with the new transition. Pause the contract and
+                        // invalidate the existing transition by setting its blockHash to 0.
+                        hasConflictingProof = true;
+                        state.transitions[slot][tid].blockHash = 0;
+                        emit ConflictingProof(meta.batchId, _ts, tran);
+                    }
 
-                if (!isSameTransition) {
-                    hasConflictingProof = true;
-                    emit ConflictingProof(meta.batchId, _ts, tran);
-
-                    // Invalidate the conflict transition
-                    state.transitions[slot][tid].blockHash = 0;
+                    // Proceed with other transitions.
+                    continue;
                 }
-
-                // Do not save this transition
-                continue;
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
@@ -594,6 +612,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 stopBatchId = (
                     _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
+
+                if (_config.forkHeights.shasta != 0) {
+                    stopBatchId = stopBatchId.min(_config.forkHeights.shasta);
+                }
             }
 
             for (++batchId; batchId < stopBatchId; ++batchId) {
