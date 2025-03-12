@@ -341,7 +341,7 @@ func (s *ProverTestSuite) TestOntakeToPacayaVerification() {
 	s.IncreaseTime(uint64((1024 * time.Hour).Seconds()))
 
 	// Verify all Ontake blocks.
-	data, err := encoding.TaikoL1ABI.Pack("verifyBlocks", s.RPCClient.PacayaClients.ForkHeight)
+	data, err := encoding.TaikoL1ABI.Pack("verifyBlocks", s.RPCClient.PacayaClients.ForkHeight-1)
 	s.Nil(err)
 	receipt, err := s.p.txmgr.Send(context.Background(), txmgr.TxCandidate{
 		TxData: data,
