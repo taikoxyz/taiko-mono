@@ -210,7 +210,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // SSTORE }}
 
             stats2.numBatches += 1;
-            _checkNextFork(config.forkHeights.shasta, stats2.numBatches);
+            require(
+                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
+                BeyondCurrentFork()
+            );
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -243,7 +246,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             BatchMetadata memory meta = metas[i];
 
             require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
-            _checkNextFork(config.forkHeights.shasta, meta.batchId);
+            require(
+                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
+                BeyondCurrentFork()
+            );
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -814,10 +820,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         require(blocksLength != 0, BlockNotFound());
         require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
-    }
-
-    function _checkNextFork(uint64 _nextForkHeight, uint64 _batchId) private pure {
-        require(_nextForkHeight == 0 || _batchId < _nextForkHeight, BeyondCurrentFork());
     }
 
     // Memory-only structs ----------------------------------------------------------------------
