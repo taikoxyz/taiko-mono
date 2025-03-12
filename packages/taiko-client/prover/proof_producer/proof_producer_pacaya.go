@@ -49,7 +49,7 @@ type ProofProducerPacaya struct {
 	JWT                 string // JWT provided by Raiko
 	PivotProducer       PivotProofProducer
 	ProofType           string
-	Dummy               bool
+	IsOp                bool
 	DummyProofProducer
 }
 
@@ -92,10 +92,13 @@ func (z *ProofProducerPacaya) RequestProof(
 		return nil
 	})
 	g.Go(func() error {
-		if z.Dummy {
+		if z.IsOp {
 			proofType = z.ProofType
-			resp, _ := z.DummyProofProducer.RequestProof(opts, batchID, meta, z.Tier(), requestAt)
-			proof = resp.Proof
+			if resp, err := z.DummyProofProducer.RequestProof(opts, batchID, meta, z.Tier(), requestAt); err != nil {
+				return err
+			} else {
+				proof = resp.Proof
+			}
 		} else {
 			if resp, err := z.requestBatchProof(
 				ctx,
@@ -172,7 +175,7 @@ func (z *ProofProducerPacaya) Aggregate(
 		return nil
 	})
 	g.Go(func() error {
-		if z.Dummy {
+		if z.IsOp {
 			proofType = z.ProofType
 			resp, _ := z.DummyProofProducer.RequestBatchProofs(items, z.Tier(), z.ProofType)
 			batchProofs = resp.BatchProof
