@@ -43,7 +43,7 @@ jobs:
       - name: Clone go-ethereum
         run: git clone --branch ${{ env.TAG_VERSION }} https://github.com/ethereum/go-ethereum.git
 
-      - name: Replace tag version in configuration file
+      - name: Replace tag versions in configuration file
         run: |
           sed -i "s/{{ TAG_VERSION }}/${{ env.TAG_VERSION }}/g" packages/fork-diff/fork.yaml
           sed -i "s/{{ TAIKO_GETH_VERSION }}/${{ env.TAIKO_GETH_VERSION }}/g" packages/fork-diff/fork.yaml
