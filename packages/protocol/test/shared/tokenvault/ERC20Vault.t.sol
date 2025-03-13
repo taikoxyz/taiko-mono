@@ -593,7 +593,6 @@ contract TestERC20Vault is CommonTest {
         uint256 amount = 1e18;
         uint256 solverFee = 2e18;
 
-        // Approve only the amount, not the solver fee
         uint256 totalAmount = amount + solverFee;
         BridgedERC20(bridgedTokenAddr).approve(address(eVault), totalAmount);
 
