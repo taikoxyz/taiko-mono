@@ -29,22 +29,24 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Read tag version from JSON
+      - name: Read tag versions from JSON
         run: |
           echo "TAG_VERSION=$(jq -r '.tagVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
+          echo "TAIKO_GETH_VERSION=$(jq -r '.gethVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
 
       - name: Clone forkdiff
         run: git clone https://github.com/protolambda/forkdiff.git
 
       - name: Clone taiko-geth
-        run: git clone https://github.com/taikoxyz/taiko-geth.git
+        run: git clone --branch ${{ env.TAIKO_GETH_VERSION }} https://github.com/taikoxyz/taiko-geth.git
 
       - name: Clone go-ethereum
         run: git clone --branch ${{ env.TAG_VERSION }} https://github.com/ethereum/go-ethereum.git
 
-      - name: Replace tag version in configuration file
+      - name: Replace tag versions in configuration file
         run: |
           sed -i "s/{{ TAG_VERSION }}/${{ env.TAG_VERSION }}/g" packages/fork-diff/fork.yaml
+          sed -i "s/{{ TAIKO_GETH_VERSION }}/${{ env.TAIKO_GETH_VERSION }}/g" packages/fork-diff/fork.yaml
 
       - name: Set up Go
         uses: actions/setup-go@v5
