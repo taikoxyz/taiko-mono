@@ -326,6 +326,8 @@ func (s *ProofSubmitterOntake) SubmitProof(
 
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
 	var tier uint16
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
 	switch proofResponse.ProofType {
 	case producer.ProofTypeZKR0:
 		tier = encoding.TierZkVMRisc0ID

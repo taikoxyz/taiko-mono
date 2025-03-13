@@ -398,6 +398,8 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 		return fmt.Errorf("get unexpected proof type: %s", proofType)
 	}
 	var producer proofProducer.ProofProducer
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
 	switch proofType {
 	case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
 		producer = s.baseLevelProofProducer

@@ -234,6 +234,8 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 
 	// Init proof buffers for Pacaya.
 	var proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
 	for _, proofType := range proofTypes {
 		switch proofType {
 		case producer.ProofTypeOp, producer.ProofTypeSgx:
@@ -281,7 +283,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 		err                error
 	)
 
-	// If there is a SGX verifier, then initialize the SGX prover as the base level prover.
+	// If there is an SGX verifier, then initialize the SGX prover as the base level prover.
 	if sgxVerifierAddress, err = p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return "", nil, fmt.Errorf("failed to get sgx verifier: %w", err)
 	}

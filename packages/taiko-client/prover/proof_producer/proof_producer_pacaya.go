@@ -324,6 +324,8 @@ func (z *ProofProducerPacaya) requestBatchProof(
 	)
 
 	if isAggregation {
+		// nolint:exhaustive
+		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
 		case ProofTypePivot:
 			metrics.ProverPivotProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
@@ -341,6 +343,8 @@ func (z *ProofProducerPacaya) requestBatchProof(
 			return nil, fmt.Errorf("unknown proof type: %s", proofType)
 		}
 	} else {
+		// nolint:exhaustive
+		// We deliberately handle only known proof types and catch others in default case
 		switch output.ProofType {
 		case ProofTypePivot:
 			metrics.ProverPivotAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
