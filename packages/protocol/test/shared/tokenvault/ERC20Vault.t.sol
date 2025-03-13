@@ -587,14 +587,15 @@ contract TestERC20Vault is CommonTest {
         vm.startPrank(Alice);
 
         uint256 aliceBalanceBefore = BridgedERC20(bridgedTokenAddr).balanceOf(Alice);
-        console.log("Alice amount before = %s", aliceBalanceBefore);
+        // console.log("Alice amount before = %s", aliceBalanceBefore);
 
         // Define the amounts
         uint256 amount = 1e18;
         uint256 solverFee = 2e18;
 
         // Approve only the amount, not the solver fee
-        BridgedERC20(bridgedTokenAddr).approve(address(eVault), amount);
+        uint256 totalAmount = amount + solverFee;
+        BridgedERC20(bridgedTokenAddr).approve(address(eVault), totalAmount);
 
         // Execute the bridge transfer
         eVault.sendToken(
@@ -612,14 +613,14 @@ contract TestERC20Vault is CommonTest {
 
         // Check Alice's balance after the transaction
         uint256 aliceBalanceAfter = BridgedERC20(bridgedTokenAddr).balanceOf(Alice);
-        console.log("Alice amount after = %s", aliceBalanceAfter);
-        console.log(
-            "Alice amount before - Alice amount after = %s", aliceBalanceBefore - aliceBalanceAfter
-        );
-        console.log("amount + solverFee = %s", amount + solverFee);
+        // console.log("Alice amount after = %s", aliceBalanceAfter);
+        // console.log(
+        //     "Alice amount before - Alice amount after = %s", aliceBalanceBefore - aliceBalanceAfter
+        // );
+        // console.log("amount + solverFee = %s", totalAmount);
 
         // Ensure that only the approved amount was deducted
-        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, totalAmount);
         vm.stopPrank();
     }
 }
