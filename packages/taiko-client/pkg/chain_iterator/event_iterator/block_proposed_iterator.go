@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -117,6 +118,19 @@ func assembleBlockProposedIteratorCallback(
 		)
 
 		log.Debug("Iterating BlockProposed events", "start", start.Number, "end", endHeight)
+		if err := backoff.Retry(func() error {
+			head, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(endHeight))
+			if err != nil || head == nil {
+				log.Warn(
+					"Error while fetching the latest block header when iterating BlockProposed events, retrying",
+					"head", head,
+					"error", err,
+				)
+			}
+			return err
+		}, backoff.NewExponentialBackOff()); err != nil {
+			return err
+		}
 
 		iterOntake, err := taikoL1.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},

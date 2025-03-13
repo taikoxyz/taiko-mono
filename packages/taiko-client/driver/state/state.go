@@ -144,10 +144,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case e := <-blockProposedCh:
-			log.Debug("New head block ID", "l1_number", "l1_hash", e.Raw.BlockHash, e.Raw.BlockNumber, "ID", e.BlockId)
 			s.setHeadBlockID(e.BlockId)
 		case e := <-blockProposedV2Ch:
-			log.Debug("New head block ID", "l1_number", "l1_hash", e.Raw.BlockHash, e.Raw.BlockNumber, "ID", e.BlockId)
 			s.setHeadBlockID(e.BlockId)
 		case e := <-transitionProvedCh:
 			log.Info(
