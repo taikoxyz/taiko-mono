@@ -12,8 +12,8 @@ type ProofType string
 
 // ProofType constants.
 const (
-	ProofTypeOp     ProofType = "op"
 	ProofTypePivot  ProofType = "pivot"
+	ProofTypeOp     ProofType = "op"
 	ProofTypeSgx    ProofType = "sgx"
 	ProofTypeSgxCPU ProofType = "native"
 	ProofTypeZKR0   ProofType = "risc0"
