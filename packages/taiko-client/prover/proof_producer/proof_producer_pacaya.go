@@ -75,21 +75,13 @@ func (z *ProofProducerPacaya) RequestProof(
 	var (
 		proof     []byte
 		proofType string
-		batches   = []*RaikoBatches{
-			{
-				BatchID:                batchID,
-				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-			},
-		}
+		batches   = []*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}}
+		g         = new(errgroup.Group)
 	)
 
-	g := new(errgroup.Group)
-
 	g.Go(func() error {
-		if _, err := z.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
-			return err
-		}
-		return nil
+		_, err := z.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
+		return err
 	})
 	g.Go(func() error {
 		if z.IsOp {

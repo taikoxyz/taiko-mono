@@ -198,6 +198,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 	}
 
+	// Initialize the base level prover.
 	if baseLevelProofType, baseLevelProver, err = p.initBaseLevelProverPacaya(pivotProducer); err != nil {
 		return fmt.Errorf("failed to initialize base level prover: %w", err)
 	}
