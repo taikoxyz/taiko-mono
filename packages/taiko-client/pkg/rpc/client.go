@@ -161,8 +161,9 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		if strings.Contains(err.Error(), "execution reverted") {
 			log.Warn("Currently there are no contracts for Pacaya, use empty PacayaClients instead", "err", err)
 			c.PacayaClients = &PacayaClients{}
+		} else {
+			return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 		}
-		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
