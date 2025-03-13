@@ -16,7 +16,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
-	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
@@ -99,26 +99,26 @@ func (p *Prover) initProofSubmitters(
 	if len(tiers) > 0 {
 		for _, tier := range p.sharedState.GetTiers() {
 			var (
-				bufferSize = p.cfg.SGXProofBufferSize
-				producer   proofProducer.ProofProducer
-				submitter  proofSubmitter.Submitter
-				err        error
+				bufferSize    = p.cfg.SGXProofBufferSize
+				proofProducer producer.ProofProducer
+				submitter     proofSubmitter.Submitter
+				err           error
 			)
 			switch tier.ID {
 			case encoding.TierOptimisticID:
-				producer = &proofProducer.OptimisticProofProducer{}
+				proofProducer = &producer.OptimisticProofProducer{}
 			case encoding.TierSgxID:
-				producer = &proofProducer.SGXProofProducer{
+				proofProducer = &producer.SGXProofProducer{
 					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
-					ProofType:           proofProducer.ProofTypeSgx,
+					ProofType:           producer.ProofTypeSgx,
 					Dummy:               p.cfg.Dummy,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 				}
 			case encoding.TierZkVMRisc0ID:
 				continue
 			case encoding.TierZkVMSp1ID:
-				producer = &proofProducer.ZKvmProofProducer{
+				proofProducer = &producer.ZKvmProofProducer{
 					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
 					Dummy:               p.cfg.Dummy,
@@ -126,10 +126,10 @@ func (p *Prover) initProofSubmitters(
 				}
 				bufferSize = 0
 			case encoding.TierGuardianMinorityID:
-				producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
+				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 				bufferSize = 0
 			case encoding.TierGuardianMajorityID:
-				producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
+				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
 				bufferSize = 0
 			default:
 				return fmt.Errorf("unsupported tier: %d", tier.ID)
@@ -137,7 +137,7 @@ func (p *Prover) initProofSubmitters(
 
 			if submitter, err = proofSubmitter.NewProofSubmitterOntake(
 				p.rpc,
-				producer,
+				proofProducer,
 				p.proofGenerationCh,
 				p.batchProofGenerationCh,
 				p.aggregationNotify,
@@ -166,25 +166,20 @@ func (p *Prover) initProofSubmitters(
 // initPacayaProofSubmitter initializes the proof submitters from the non-zero verifier addresses set in protocol.
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
 	var (
-		// Proof producers
-		baseLevelProofType     proofProducer.ProofType
-		baseLevelProofProducer proofProducer.ProofProducer
-		zkvmProducer           proofProducer.ProofProducer
+		// Proof producers.
+		baseLevelProofType     producer.ProofType
+		baseLevelProofProducer producer.ProofProducer
 
-		// Proof verifiers addresses
+		// ZKVM proof producers.
+		zkvmProducer producer.ProofProducer
+
+		// Proof verifiers addresses.
 		pivotVerifierAddress common.Address
 		risc0VerifierAddress common.Address
 		sp1VerifierAddress   common.Address
 
-		zkVerifiers = make(
-			map[proofProducer.ProofType]common.Address,
-			proofSubmitter.MaxNumSupportedZkTypes,
-		)
-		proofBuffers = make(
-			map[proofProducer.ProofType]*proofProducer.ProofBuffer,
-			proofSubmitter.MaxNumSupportedProofTypes,
-		)
-		proofTypes = make([]proofProducer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
+		// All activated proof types in protocol.
+		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
 
 		err error
 	)
@@ -196,7 +191,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	if pivotVerifierAddress == transaction.ZeroAddress {
 		return fmt.Errorf("pivot verifier not found")
 	}
-	pivotProducer := &proofProducer.PivotProofProducer{
+	pivotProducer := &producer.PivotProofProducer{
 		Verifier:            pivotVerifierAddress,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		JWT:                 p.cfg.RaikoJWT,
@@ -211,38 +206,40 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	proofTypes = append(proofTypes, baseLevelProofType)
 
 	// Initialize the zk verifiers and zkvm proof producers.
+	var zkVerifiers = make(map[producer.ProofType]common.Address, proofSubmitter.MaxNumSupportedZkTypes)
 	if risc0VerifierAddress, err = p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get risc0 verifier: %w", err)
 	}
 	if risc0VerifierAddress != transaction.ZeroAddress {
-		proofTypes = append(proofTypes, proofProducer.ProofTypeZKR0)
-		zkVerifiers[proofProducer.ProofTypeZKR0] = risc0VerifierAddress
+		proofTypes = append(proofTypes, producer.ProofTypeZKR0)
+		zkVerifiers[producer.ProofTypeZKR0] = risc0VerifierAddress
 	}
 	if sp1VerifierAddress, err = p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get sp1 verifier: %w", err)
 	}
 	if sp1VerifierAddress != transaction.ZeroAddress {
-		proofTypes = append(proofTypes, proofProducer.ProofTypeZKSP1)
-		zkVerifiers[proofProducer.ProofTypeZKSP1] = sp1VerifierAddress
+		proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
+		zkVerifiers[producer.ProofTypeZKSP1] = sp1VerifierAddress
 	}
 	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
-		zkvmProducer = &proofProducer.ProofProducerPacaya{
+		zkvmProducer = &producer.ProofProducerPacaya{
 			Verifiers:           zkVerifiers,
 			PivotProducer:       pivotProducer,
 			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			ProofType:           proofProducer.ProofTypeZKAny,
+			ProofType:           producer.ProofTypeZKAny,
 		}
 	}
 
 	// Init proof buffers for Pacaya.
+	var proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
 	for _, proofType := range proofTypes {
 		switch proofType {
-		case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
-			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.SGXProofBufferSize)
-		case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
-			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
+		case producer.ProofTypeOp, producer.ProofTypeSgx:
+			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
+		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
+			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
 		default:
 			return fmt.Errorf("unexpected proof type: %s", proofType)
 		}
@@ -272,9 +269,9 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 
 // initBaseLevelProverPacaya fetches the SGX / OP verifier addresses from the protocol, if the verifier exists,
 // then initialize the corresponding base level proof producers.
-func (p *Prover) initBaseLevelProverPacaya(pivotProducer *proofProducer.PivotProofProducer) (
-	proofProducer.ProofType,
-	proofProducer.ProofProducer,
+func (p *Prover) initBaseLevelProverPacaya(pivotProducer *producer.PivotProofProducer) (
+	producer.ProofType,
+	producer.ProofProducer,
 	error,
 ) {
 	var (
@@ -289,13 +286,13 @@ func (p *Prover) initBaseLevelProverPacaya(pivotProducer *proofProducer.PivotPro
 		return "", nil, fmt.Errorf("failed to get sgx verifier: %w", err)
 	}
 	if sgxVerifierAddress != transaction.ZeroAddress {
-		log.Info("Initialize baseLevelProver", "type", proofProducer.ProofTypeSgx, "verifier", sgxVerifierAddress)
+		log.Info("Initialize baseLevelProver", "type", producer.ProofTypeSgx, "verifier", sgxVerifierAddress)
 
-		return proofProducer.ProofTypeSgx, &proofProducer.ProofProducerPacaya{
+		return producer.ProofTypeSgx, &producer.ProofProducerPacaya{
 			PivotProducer:       pivotProducer,
-			Verifiers:           map[proofProducer.ProofType]common.Address{proofProducer.ProofTypeSgx: sgxVerifierAddress},
+			Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeSgx: sgxVerifierAddress},
 			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-			ProofType:           proofProducer.ProofTypeSgx,
+			ProofType:           producer.ProofTypeSgx,
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		}, nil
@@ -306,13 +303,13 @@ func (p *Prover) initBaseLevelProverPacaya(pivotProducer *proofProducer.PivotPro
 			return "", nil, fmt.Errorf("failed to get op verifier address: %w", err)
 		}
 		if opVerifierAddress != transaction.ZeroAddress {
-			log.Info("Initialize baseLevelProver", "type", proofProducer.ProofTypeOp, "verifier", opVerifierAddress)
+			log.Info("Initialize baseLevelProver", "type", producer.ProofTypeOp, "verifier", opVerifierAddress)
 
-			return proofProducer.ProofTypeOp, &proofProducer.ProofProducerPacaya{
+			return producer.ProofTypeOp, &producer.ProofProducerPacaya{
 				PivotProducer:       pivotProducer,
-				Verifiers:           map[proofProducer.ProofType]common.Address{proofProducer.ProofTypeOp: opVerifierAddress},
+				Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeOp: opVerifierAddress},
 				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-				ProofType:           proofProducer.ProofTypeOp,
+				ProofType:           producer.ProofTypeOp,
 				JWT:                 p.cfg.RaikoJWT,
 				IsOp:                true,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
