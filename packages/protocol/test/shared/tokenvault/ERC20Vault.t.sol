@@ -615,7 +615,8 @@ contract TestERC20Vault is CommonTest {
         uint256 aliceBalanceAfter = BridgedERC20(bridgedTokenAddr).balanceOf(Alice);
         // console.log("Alice amount after = %s", aliceBalanceAfter);
         // console.log(
-        //     "Alice amount before - Alice amount after = %s", aliceBalanceBefore - aliceBalanceAfter
+        //     "Alice amount before - Alice amount after = %s", aliceBalanceBefore -
+        // aliceBalanceAfter
         // );
         // console.log("amount + solverFee = %s", totalAmount);
 
