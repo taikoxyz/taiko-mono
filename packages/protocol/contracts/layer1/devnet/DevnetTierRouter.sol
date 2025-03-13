@@ -14,14 +14,17 @@ contract DevnetTierRouter is TierProviderBase, ITierRouter {
 
     /// @inheritdoc ITierProvider
     function getTierIds() external pure returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](3);
+        tiers_ = new uint16[](6);
         tiers_[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[2] = LibTiers.TIER_GUARDIAN;
+        tiers_[1] = LibTiers.TIER_SGX;
+        tiers_[2] = LibTiers.TIER_ZKVM_RISC0;
+        tiers_[3] = LibTiers.TIER_ZKVM_SP1;
+        tiers_[4] = LibTiers.TIER_GUARDIAN_MINORITY;
+        tiers_[5] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address, uint256) public pure override returns (uint16) {
-        return LibTiers.TIER_OPTIMISTIC;
+        return LibTiers.TIER_SGX;
     }
 }
