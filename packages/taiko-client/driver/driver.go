@@ -173,7 +173,7 @@ func (d *Driver) Start() error {
 		}()
 	}
 
-	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
+	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil && d.rpc.L1Beacon != nil {
 		go d.p2pNode.DiscoveryProcess(
 			d.ctx,
 			log.Root(),
