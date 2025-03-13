@@ -137,7 +137,7 @@ contract InboxTest_Params is InboxTestBase {
 
         params.blocks[0].timeShift = 1;
         params.lastBlockTimestamp = uint64(block.timestamp);
-        vm.expectRevert(ITaikoInbox.LastBlockTimeShiftNotZero.selector);
+        vm.expectRevert(ITaikoInbox.FirstBlockTimeShiftNotZero.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
     }
 

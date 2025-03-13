@@ -781,7 +781,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 : _params.lastBlockTimestamp;
 
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
-            require(_params.blocks[blocksLength - 1].timeShift == 0, LastBlockTimeShiftNotZero());
+            require(_params.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
