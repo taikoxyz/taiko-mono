@@ -35,6 +35,7 @@ contract TestLibBytes is CommonTest {
         assertEq(result, "");
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function test_LibBytes_revertWithExtractedError_validRevertData() public {
         string memory expectedMessage = "Custom error message";
         bytes memory revertData = abi.encodeWithSignature("Error(string)", expectedMessage);
@@ -42,6 +43,7 @@ contract TestLibBytes is CommonTest {
         LibBytes.revertWithExtractedError(revertData);
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function test_LibBytes_revertWithExtractedError_malformedData() public {
         // Length < 68
         bytes memory malformedData = hex"1234";
@@ -49,6 +51,7 @@ contract TestLibBytes is CommonTest {
         LibBytes.revertWithExtractedError(malformedData);
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function test_LibBytes_revertWithExtractedError_noRevertMessage() public {
         bytes memory emptyRevertData = new bytes(68);
         vm.expectRevert(bytes(""));
