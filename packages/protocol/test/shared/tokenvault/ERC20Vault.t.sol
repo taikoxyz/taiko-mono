@@ -668,7 +668,7 @@ contract TestERC20Vault is CommonTest {
         bytes memory messageData = abi.encode(
             ctoken,
             from,
-            to,// The malicious contract that will revert the ETH.
+            to, // The malicious contract that will revert the ETH.
             amount,
             solverFee,
             solverCondition
@@ -678,7 +678,7 @@ contract TestERC20Vault is CommonTest {
         vm.prank(address(eBridge));
 
         vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
-        eVault.onMessageInvocation{value: etherAmount}(messageData);
+        eVault.onMessageInvocation{ value: etherAmount }(messageData);
     }
 }
 
@@ -689,6 +689,7 @@ contract MaliciousReceiver {
         revert("I refuse to accept ETH!");
     }
     // Optional fallback function that will revert when receiving ETH.
+
     fallback() external payable {
         revert("I refuse to accept ETH!");
     }
