@@ -15,6 +15,7 @@ import (
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 const (
@@ -336,7 +337,15 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
-	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
+	var (
+		protocolConfigs pacayaBindings.ITaikoInboxConfig
+		err             error
+	)
+	if utils.IsNil(c.PacayaClients.TaikoInbox) {
+		err = fmt.Errorf("taiko inbox address is nil")
+	} else {
+		protocolConfigs, err = c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
+	}
 	// If failed to get protocol configs, we assuming the current chain is still before the Pacaya fork,
 	// use pre-defined Pacaya fork height.
 	if err != nil {
