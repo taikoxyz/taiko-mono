@@ -163,7 +163,7 @@ func (p *Prover) initProofSubmitters(
 	return p.initPacayaProofSubmitter(txBuilder)
 }
 
-// initPacayaProofSubmitter initializes the proof submitters from the non-zero verifier addresses set in protocol.
+// initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
 	var (
 		// Proof producers.
