@@ -6,6 +6,7 @@ import "forge-std/src/console2.sol";
 import "src/shared/libs/LibBytes.sol";
 import "../CommonTest.sol";
 
+/// forge-config: default.allow_internal_expect_revert = true
 contract TestLibBytes is CommonTest {
     function test_LibBytes_toString_largeThan64ByteString() public pure {
         bytes memory abiEncodedString = abi.encode("Test String");
