@@ -633,7 +633,7 @@ contract TestERC20Vault is CommonTest {
         eERC20Token1.mint(address(eVault));
 
         uint64 amount = 1;
-        uint64 soverFee = 2;
+        uint64 solverFee = 2;
         address to = address(maliciousReceiver); // Use the malicious contract as the receiver.
         address solver = David; // The solver.
         bytes32 solverCondition = eVault.getSolverCondition(1, address(eERC20Token1), to, amount);
@@ -670,7 +670,7 @@ contract TestERC20Vault is CommonTest {
             from,
             to,// The malicious contract that will revert the ETH.
             amount,
-            soverFee,
+            solverFee,
             solverCondition
         );
 
