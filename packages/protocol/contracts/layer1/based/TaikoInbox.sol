@@ -173,14 +173,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             uint96 livenessBond;
             {
-                uint64 numBlocks = uint64(params.blocks.length);
+                uint64 blocksLength = uint64(params.blocks.length);
 
-                livenessBond = config.livenessBondBase + config.livenessBondPerBlock * numBlocks;
+                livenessBond = config.livenessBondBase + config.livenessBondPerBlock * blocksLength;
                 _debitBond(params.proposer, livenessBond);
 
                 info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                    ? stats2.numBatches + numBlocks - 1
-                    : lastBatch.lastBlockId + numBlocks;
+                    ? stats2.numBatches + blocksLength - 1
+                    : lastBatch.lastBlockId + blocksLength;
             }
 
             (info_.txsHash, info_.blobHashes) =
@@ -760,9 +760,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
-        uint256 numBlocks = _params.blocks.length;
-        require(numBlocks != 0, BlockNotFound());
-        require(numBlocks <= _maxBlocksPerBatch, TooManyBlocks());
+        uint256 blocksLength = _params.blocks.length;
+        require(blocksLength != 0, BlockNotFound());
+        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
 
         unchecked {
             if (_params.anchorBlockId == 0) {
@@ -785,11 +785,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 : _params.lastBlockTimestamp;
 
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
-            require(_params.blocks[numBlocks - 1].timeShift == 0, LastBlockTimeShiftNotZero());
+            require(_params.blocks[blocksLength - 1].timeShift == 0, LastBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
-            for (uint256 i; i < numBlocks; ++i) {
+            for (uint256 i; i < blocksLength; ++i) {
                 totalShift += _params.blocks[i].timeShift;
 
                 uint256 numSignals = _params.blocks[i].signalSlots.length;
