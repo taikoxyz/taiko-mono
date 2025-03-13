@@ -283,6 +283,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	opts := &bind.CallOpts{Context: context.Background()}
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
+	var composeVerifier *pacayaBindings.ComposeVerifier
 	composeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
 		if strings.Contains(err.Error(), "execution reverted") {
@@ -290,10 +291,11 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		} else {
 			return err
 		}
-	}
-	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
-	if err != nil {
-		return err
+	} else {
+		composeVerifier, err = pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+		if err != nil {
+			return err
+		}
 	}
 
 	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
