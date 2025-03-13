@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibTrieProof.sol";
 import "../CommonTest.sol";
 
+/// forge-config: default.allow_internal_expect_revert = true
 contract TestLibTrieProof is CommonTest {
-    /// forge-config: default.allow_internal_expect_revert = true
     function test_verifyMerkleProof() public {
         // Not needed for now, but leave it as is.
         //uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia
@@ -72,7 +72,6 @@ contract TestLibTrieProof is CommonTest {
         assertEq(storageRoot2, storageRoot);
     }
 
-    /// forge-config: default.allow_internal_expect_revert = true
     function test_verifyMerkleProof_w_multi_array_StorageProof() public {
         // This one is the "sender app" aka the source bridge but i mocked it for now to be an EOA
         // (for slot calculation)
