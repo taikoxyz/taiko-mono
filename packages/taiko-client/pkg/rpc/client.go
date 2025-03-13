@@ -15,7 +15,6 @@ import (
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 const (
@@ -159,12 +158,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		return nil, fmt.Errorf("failed to initialize Ontake clients: %w", err)
 	}
 	if err := c.initPacayaClients(cfg); err != nil {
-		if strings.Contains(err.Error(), "execution reverted") {
-			log.Warn("Currently there are no contracts for Pacaya, use empty PacayaClients instead", "err", err)
-			c.PacayaClients = &PacayaClients{}
-		} else {
-			return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
-		}
+		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
@@ -291,7 +285,11 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	defer cancel()
 	composeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
-		return err
+		if strings.Contains(err.Error(), "execution reverted") {
+			log.Warn("Currently there are no verifier function in TaikoInbox", "err", err)
+		} else {
+			return err
+		}
 	}
 	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
 	if err != nil {
@@ -337,16 +335,8 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
-	var (
-		protocolConfigs pacayaBindings.ITaikoInboxConfig
-		err             error
-	)
-	if utils.IsNil(c.PacayaClients.TaikoInbox) {
-		err = fmt.Errorf("taiko inbox address is nil")
-	} else {
-		protocolConfigs, err = c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
-	}
-	// If failed to get protocol configs, we assuming the current chain is still before the Pacaya fork,
+	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
+	// If failed to get protocol configs, we are assuming the current chain is still before the Pacaya fork,
 	// use pre-defined Pacaya fork height.
 	if err != nil {
 		log.Debug(
