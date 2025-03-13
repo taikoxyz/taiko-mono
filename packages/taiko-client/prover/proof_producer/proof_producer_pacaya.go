@@ -47,7 +47,7 @@ type ProofProducerPacaya struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	JWT                 string // JWT provided by Raiko
-	PivotProducer       PivotProofProducer
+	PivotProducer       *PivotProofProducer
 	ProofType           string
 	IsOp                bool
 	DummyProofProducer

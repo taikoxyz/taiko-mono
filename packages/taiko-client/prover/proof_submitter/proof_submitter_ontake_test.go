@@ -108,7 +108,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.Nil(err)
 	opVerifier, err := s.RPCClient.GetOPVerifierPacaya(&bind.CallOpts{Context: context.Background()})
 	s.Nil(err)
-	pivotProducer := producer.PivotProofProducer{
+	pivotProducer := &producer.PivotProofProducer{
 		Verifier: pivotVerifier,
 		Dummy:    true,
 	}
