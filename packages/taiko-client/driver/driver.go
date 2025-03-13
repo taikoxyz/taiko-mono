@@ -173,7 +173,7 @@ func (d *Driver) Start() error {
 		}()
 	}
 
-	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil && d.rpc.L1Beacon != nil {
+	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
 		go d.p2pNode.DiscoveryProcess(
 			d.ctx,
 			log.Root(),
@@ -181,7 +181,9 @@ func (d *Driver) Start() error {
 			d.p2pSetup.TargetPeers(),
 		)
 
-		go d.cacheLookaheadLoop()
+		if d.rpc.L1Beacon != nil {
+			go d.cacheLookaheadLoop()
+		}
 	}
 
 	return nil
