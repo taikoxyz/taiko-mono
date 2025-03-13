@@ -22,10 +22,9 @@ interface ITaikoInbox {
         // transactions in calldata or blobs, the block will contains as many transactions as
         // possible.
         uint16 numTransactions;
-        // For the first block in a batch,  the block timestamp is the batch params' `timestamp`
-        // plus this time shift value;
-        // For all other blocks in the same batch, the block timestamp is its parent block's
-        // timestamp plus this time shift value.
+        // The time difference (in seconds) between the timestamp of this block and
+        // the timestamp of the next block in the same batch. For the last block in a batch,
+        // there is not next block in the same batch, so the time shift must be 0.
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
@@ -276,6 +275,7 @@ interface ITaikoInbox {
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
+    error LastBlockTimeShiftNotZero();
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoBlocksToProve();

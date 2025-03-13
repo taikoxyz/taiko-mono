@@ -171,9 +171,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
-            info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                ? stats2.numBatches + uint64(params.blocks.length) - 1
-                : lastBatch.lastBlockId + uint64(params.blocks.length);
+            uint96 livenessBond;
+            {
+                uint64 numBlocks = uint64(params.blocks.length);
+
+                livenessBond = config.livenessBondBase + config.livenessBondPerBlock * numBlocks;
+                _debitBond(params.proposer, livenessBond);
+
+                info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
+                    ? stats2.numBatches + numBlocks - 1
+                    : lastBatch.lastBlockId + numBlocks;
+            }
 
             (info_.txsHash, info_.blobHashes) =
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
@@ -198,10 +206,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             batch.verifiedTransitionId = 0;
             batch.reserved4 = 0;
             // SSTORE }}
-
-            uint96 livenessBond =
-                config.livenessBondBase + config.livenessBondPerBlock * uint96(params.blocks.length);
-            _debitBond(params.proposer, livenessBond);
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
@@ -756,7 +760,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
-        uint256 blocksLength = _params.blocks.length;
+        uint256 numBlocks = _params.blocks.length;
+        require(numBlocks != 0, BlockNotFound());
+        require(numBlocks <= _maxBlocksPerBatch, TooManyBlocks());
+
         unchecked {
             if (_params.anchorBlockId == 0) {
                 anchorBlockId_ = uint64(block.number - 1);
@@ -778,10 +785,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 : _params.lastBlockTimestamp;
 
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
+            require(_params.blocks[numBlocks - 1].timeShift == 0, LastBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
-            for (uint256 i; i < blocksLength; ++i) {
+            for (uint256 i; i < numBlocks; ++i) {
                 totalShift += _params.blocks[i].timeShift;
 
                 uint256 numSignals = _params.blocks[i].signalSlots.length;
@@ -817,9 +825,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 ParentMetaHashMismatch()
             );
         }
-
-        require(blocksLength != 0, BlockNotFound());
-        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
     }
 
     // Memory-only structs ----------------------------------------------------------------------
