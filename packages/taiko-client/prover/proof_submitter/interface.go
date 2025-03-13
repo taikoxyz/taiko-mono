@@ -36,7 +36,7 @@ type Submitter interface {
 	BufferSize() uint64
 	// AggregationEnabled @dev this function would be deprecated after Pacaya fork
 	AggregationEnabled() bool
-	AggregateProofsByType(ctx context.Context, proofType string) error
+	AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error
 }
 
 // Contester is the interface for contesting proofs of the L2 blocks.

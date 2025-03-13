@@ -74,7 +74,7 @@ type Prover struct {
 	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
 	proveNotify              chan struct{}
 	aggregationNotify        chan uint16
-	batchesAggregationNotify chan string
+	batchesAggregationNotify chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -149,7 +149,7 @@ func InitFromConfig(
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
 	p.aggregationNotify = make(chan uint16, 1)
-	p.batchesAggregationNotify = make(chan string, 1)
+	p.batchesAggregationNotify = make(chan proofProducer.ProofType, 1)
 
 	if err := p.initL1Current(cfg.StartingBlockID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
@@ -421,7 +421,7 @@ func (p *Prover) aggregateOp(tier uint16) error {
 }
 
 // aggregateOpPacaya aggregates all proofs in buffer for Pacaya.
-func (p *Prover) aggregateOpPacaya(proofType string) error {
+func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
 	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
 		log.Error(
 			"Failed to aggregate proofs",

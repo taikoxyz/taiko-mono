@@ -20,16 +20,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-const (
-	ProofTypeSgx = "sgx"
-	ProofTypeCPU = "native"
-)
-
 // SGXProofProducer generates a SGX proof for the given block.
 type SGXProofProducer struct {
-	RaikoHostEndpoint   string // a prover RPC endpoint
-	ProofType           string // Proof type
-	JWT                 string // JWT provided by Raiko
+	RaikoHostEndpoint   string    // a prover RPC endpoint
+	ProofType           ProofType // Proof type
+	JWT                 string    // JWT provided by Raiko
 	Dummy               bool
 	RaikoRequestTimeout time.Duration
 	DummyProofProducer
@@ -40,7 +35,7 @@ type RaikoRequestProofBody struct {
 	Block    *big.Int                    `json:"block_number"`
 	Prover   string                      `json:"prover"`
 	Graffiti string                      `json:"graffiti"`
-	Type     string                      `json:"proof_type"`
+	Type     ProofType                   `json:"proof_type"`
 	SGX      *SGXRequestProofBodyParam   `json:"sgx"`
 	RISC0    *RISC0RequestProofBodyParam `json:"risc0"`
 	SP1      *SP1RequestProofBodyParam   `json:"sp1"`
@@ -52,7 +47,7 @@ type RaikoRequestProofBodyV3 struct {
 	Blocks   [][2]*big.Int               `json:"block_numbers"`
 	Prover   string                      `json:"prover"`
 	Graffiti string                      `json:"graffiti"`
-	Type     string                      `json:"proof_type"`
+	Type     ProofType                   `json:"proof_type"`
 	SGX      *SGXRequestProofBodyParam   `json:"sgx"`
 	RISC0    *RISC0RequestProofBodyParam `json:"risc0"`
 	SP1      *SP1RequestProofBodyParam   `json:"sp1"`
@@ -391,7 +386,7 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	// Raiko returns "" as proof when proof type is native,
 	// so we just convert "" to bytes
-	if s.ProofType == ProofTypeCPU {
+	if s.ProofType == ProofTypeSgxCPU {
 		proof = common.Hex2Bytes(output.Data.Proof.Proof)
 	} else {
 		if len(output.Data.Proof.Proof) == 0 {

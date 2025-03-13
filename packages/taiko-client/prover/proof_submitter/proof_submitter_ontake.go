@@ -326,10 +326,12 @@ func (s *ProofSubmitterOntake) SubmitProof(
 
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
 	var tier uint16
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
 	switch proofResponse.ProofType {
-	case producer.ZKProofTypeR0:
+	case producer.ProofTypeZKR0:
 		tier = encoding.TierZkVMRisc0ID
-	case producer.ZKProofTypeSP1:
+	case producer.ProofTypeZKSP1:
 		tier = encoding.TierZkVMSp1ID
 	default:
 		tier = proofResponse.Tier
@@ -567,6 +569,6 @@ func (s *ProofSubmitterOntake) AggregationEnabled() bool {
 }
 
 // AggregateProofsByType implements the Submitter interface.
-func (s *ProofSubmitterOntake) AggregateProofsByType(ctx context.Context, proofType string) error {
+func (s *ProofSubmitterOntake) AggregateProofsByType(ctx context.Context, proofType producer.ProofType) error {
 	return fmt.Errorf("%s is not implemented for Pacaya submitter", "AggregateProofsByType")
 }
