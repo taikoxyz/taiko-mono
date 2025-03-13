@@ -160,7 +160,11 @@ func (p *Prover) initProofSubmitters(
 			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 		}
 	}
-	return p.initPacayaProofSubmitter(txBuilder)
+	if utils.IsNil(p.rpc.PacayaClients.ComposeVerifier) {
+		return nil
+	} else {
+		return p.initPacayaProofSubmitter(txBuilder)
+	}
 }
 
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses in protocol.
