@@ -200,7 +200,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	}
 
 	// Initialize the base level prover.
-	if baseLevelProofType, baseLevelProofProducer, err = p.initBaseLevelProverPacaya(pivotProducer); err != nil {
+	if baseLevelProofType, baseLevelProofProducer, err = p.initBaseLevelProofProducerPacaya(pivotProducer); err != nil {
 		return fmt.Errorf("failed to initialize base level prover: %w", err)
 	}
 	proofTypes = append(proofTypes, baseLevelProofType)
@@ -267,9 +267,9 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	return nil
 }
 
-// initBaseLevelProverPacaya fetches the SGX / OP verifier addresses from the protocol, if the verifier exists,
+// initBaseLevelProofProducerPacaya fetches the SGX / OP verifier addresses from the protocol, if the verifier exists,
 // then initialize the corresponding base level proof producers.
-func (p *Prover) initBaseLevelProverPacaya(pivotProducer *producer.PivotProofProducer) (
+func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotProofProducer) (
 	producer.ProofType,
 	producer.ProofProducer,
 	error,
@@ -281,7 +281,7 @@ func (p *Prover) initBaseLevelProverPacaya(pivotProducer *producer.PivotProofPro
 		err                error
 	)
 
-	// If there is an SGX verifier, then initialize the SGX prover as the base level prover.
+	// If there is a SGX verifier, then initialize the SGX prover as the base level prover.
 	if sgxVerifierAddress, err = p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return "", nil, fmt.Errorf("failed to get sgx verifier: %w", err)
 	}
