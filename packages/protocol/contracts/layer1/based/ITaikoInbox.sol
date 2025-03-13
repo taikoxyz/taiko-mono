@@ -266,6 +266,7 @@ interface ITaikoInbox {
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
+    error FirstBlockTimeShiftNotZero();
     error ForkNotActivated();
     error InsufficientBond();
     error InvalidBlobCreatedIn();

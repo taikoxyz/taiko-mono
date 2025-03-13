@@ -171,7 +171,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        (address sgxVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier, l2ChainId);
+        deployTEEVerifiers(rollupResolver, proofVerifier, l2ChainId);
         (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver, l2ChainId);
 
         // In testing, use address(0) as an sgxVerifier
