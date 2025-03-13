@@ -147,6 +147,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return _addInstances(addresses, false)[0];
     }
 
+    event DebugPublicInputSource(
+        ITaikoInbox.Transition _transition,
+        address _verifierContract,
+        address _newInstance,
+        bytes32 _metaHash,
+        uint64 _chainId
+    );
+
+    event DebugPublicInput(uint256 id, bytes32 publicInputHash);
+
     /// @inheritdoc IVerifier
     function verifyProof(
         Context[] calldata _ctxs,
@@ -168,16 +178,23 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // First public input is the current instance public key
         publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
         publicInputs[1] = bytes32(uint256(uint160(newInstance)));
+        emit DebugPublicInput(0, publicInputs[0]);
+        emit DebugPublicInput(1, publicInputs[1]);
 
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < size; ++i) {
+            emit DebugPublicInputSource(
+                _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
+            );
             // TODO(Yue): For now this assumes the new instance public key to remain the same
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
                 _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
             );
+            emit DebugPublicInput(i + 2, publicInputs[i + 2]);
         }
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
+        emit DebugPublicInput(0xFFFF, signatureHash);
         // Verify the blocks
         bytes memory signature = _proof[44:];
         require(oldInstance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());

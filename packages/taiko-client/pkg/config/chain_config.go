@@ -65,12 +65,12 @@ func (c *ChainConfig) Description() string {
 	return banner
 }
 
-// IsOntake returns whether num is either equal to the ontake block or greater.
+// IsOntake returns whether num is either equal to the Ontake block or greater.
 func (c *ChainConfig) IsOntake(num *big.Int) bool {
 	return isBlockForked(c.OntakeForkHeight, num)
 }
 
-// IsPacaya returns whether num is either equal to the pacaya block or greater.
+// IsPacaya returns whether num is either equal to the Pacaya block or greater.
 func (c *ChainConfig) IsPacaya(num *big.Int) bool {
 	return isBlockForked(c.PacayaForkHeight, num)
 }

@@ -24,6 +24,7 @@ var (
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
 		Usage:    "RPC endpoint of a Raiko host service",
+		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
@@ -165,6 +166,7 @@ var (
 		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
 			"this flag only works post Ontake fork",
 		Value:    1,
+		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
 	}
@@ -173,6 +175,7 @@ var (
 		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
 			"this flag only works post Ontake fork",
 		Value:    1,
+		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
 	}

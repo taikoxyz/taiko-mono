@@ -1061,7 +1061,7 @@ func (c *Client) calculateBaseFeeOntake(
 	return baseFeeInfo.Basefee, nil
 }
 
-// calculateBaseFeePacaya calculates the base fee after pacaya fork from the L2 protocol.
+// calculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
 func (c *Client) calculateBaseFeePacaya(
 	ctx context.Context,
 	l2Head *types.Header,
@@ -1247,6 +1247,20 @@ func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, erro
 	defer cancel()
 
 	return c.PacayaClients.ComposeVerifier.Sp1Verifier(
+		&bind.CallOpts{Context: opts.Context},
+	)
+}
+
+// GetPivotVerifierPacaya resolves the Pacaya pivot verifier address.
+func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.PacayaClients.ComposeVerifier.PivotVerifier(
 		&bind.CallOpts{Context: opts.Context},
 	)
 }
