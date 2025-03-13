@@ -122,7 +122,7 @@ contract InboxTest_Params is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "txList");
     }
 
-    function test_validateParams_reverts_when_lastBlockTimeShift_not_zero()
+    function test_validateParams_reverts_when_first_block_time_shift_not_zero()
         external
         transactBy(Alice)
     {
@@ -154,7 +154,7 @@ contract InboxTest_Params is InboxTestBase {
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
 
-        params.blocks[0].timeShift = 1;
+        params.blocks[1].timeShift = 1;
         params.lastBlockTimestamp = uint64(block.timestamp);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
         inbox.proposeBatch(abi.encode(params), "txList");
