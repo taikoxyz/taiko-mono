@@ -38,7 +38,7 @@ type ProofResponse struct {
 	Proof     []byte
 	Opts      ProofRequestOptions
 	Tier      uint16
-	ProofType string
+	ProofType ProofType
 }
 
 type BatchProofs struct {
@@ -46,7 +46,7 @@ type BatchProofs struct {
 	BatchProof         []byte
 	Tier               uint16
 	BlockIDs           []*big.Int
-	ProofType          string
+	ProofType          ProofType
 	Verifier           common.Address
 	PivotBatchProof    []byte
 	PivotProofVerifier common.Address

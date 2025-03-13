@@ -22,11 +22,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-const (
-	ProofTypePivot = "pivot"
-	ProofTypeOp    = "op"
-)
-
 // RaikoBatches represents the JSON body of RaikoRequestProofBodyV3Pacaya's `Batches` field.
 type RaikoBatches struct {
 	BatchID                *big.Int `json:"batch_id"`
@@ -38,17 +33,17 @@ type RaikoRequestProofBodyV3Pacaya struct {
 	Batches   []*RaikoBatches `json:"batches"`
 	Prover    string          `json:"prover"`
 	Aggregate bool            `json:"aggregate"`
-	Type      string          `json:"proof_type"`
+	Type      ProofType       `json:"proof_type"`
 }
 
 // ProofProducerPacaya generates a proof for the given block.
 type ProofProducerPacaya struct {
-	Verifiers           map[string]common.Address
+	Verifiers           map[ProofType]common.Address
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	JWT                 string // JWT provided by Raiko
 	PivotProducer       *PivotProofProducer
-	ProofType           string
+	ProofType           ProofType
 	IsOp                bool
 	DummyProofProducer
 }
@@ -74,7 +69,7 @@ func (z *ProofProducerPacaya) RequestProof(
 
 	var (
 		proof     []byte
-		proofType string
+		proofType ProofType
 		batches   = []*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}}
 		g         = new(errgroup.Group)
 	)
@@ -223,7 +218,7 @@ func (z *ProofProducerPacaya) requestBatchProof(
 	batches []*RaikoBatches,
 	proverAddress common.Address,
 	isAggregation bool,
-	proofType string,
+	proofType ProofType,
 	requestAt time.Time,
 ) (*RaikoRequestProofBodyResponseV2, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, z.RaikoRequestTimeout)
@@ -336,10 +331,10 @@ func (z *ProofProducerPacaya) requestBatchProof(
 		case ProofTypeSgx:
 			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
-		case ZKProofTypeR0:
+		case ProofTypeZKR0:
 			metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
-		case ZKProofTypeSP1:
+		case ProofTypeZKSP1:
 			metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
 		default:
@@ -353,10 +348,10 @@ func (z *ProofProducerPacaya) requestBatchProof(
 		case ProofTypeSgx:
 			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofGeneratedCounter.Add(1)
-		case ZKProofTypeR0:
+		case ProofTypeZKR0:
 			metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverR0ProofGeneratedCounter.Add(1)
-		case ZKProofTypeSP1:
+		case ProofTypeZKSP1:
 			metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSp1ProofGeneratedCounter.Add(1)
 		default:

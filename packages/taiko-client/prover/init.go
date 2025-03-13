@@ -167,7 +167,7 @@ func (p *Prover) initProofSubmitters(
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
 	var (
 		// Proof producers
-		baseLevelProofType string
+		baseLevelProofType proofProducer.ProofType
 		baseLevelProver    proofProducer.ProofProducer
 		zkvmProducer       proofProducer.ProofProducer
 
@@ -176,9 +176,15 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		risc0VerifierAddress common.Address
 		sp1VerifierAddress   common.Address
 
-		zkVerifiers  = make(map[string]common.Address, proofSubmitter.MaxNumSupportedZkTypes)
-		proofBuffers = make(map[string]*proofProducer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
-		proofTypes   = make([]string, 0, proofSubmitter.MaxNumSupportedProofTypes)
+		zkVerifiers = make(
+			map[proofProducer.ProofType]common.Address,
+			proofSubmitter.MaxNumSupportedZkTypes,
+		)
+		proofBuffers = make(
+			map[proofProducer.ProofType]*proofProducer.ProofBuffer,
+			proofSubmitter.MaxNumSupportedProofTypes,
+		)
+		proofTypes = make([]proofProducer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
 
 		err error
 	)
@@ -209,15 +215,15 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		return fmt.Errorf("failed to get risc0 verifier: %w", err)
 	}
 	if risc0VerifierAddress != transaction.ZeroAddress {
-		proofTypes = append(proofTypes, proofProducer.ZKProofTypeR0)
-		zkVerifiers[proofProducer.ZKProofTypeR0] = risc0VerifierAddress
+		proofTypes = append(proofTypes, proofProducer.ProofTypeZKR0)
+		zkVerifiers[proofProducer.ProofTypeZKR0] = risc0VerifierAddress
 	}
 	if sp1VerifierAddress, err = p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get sp1 verifier: %w", err)
 	}
 	if sp1VerifierAddress != transaction.ZeroAddress {
-		proofTypes = append(proofTypes, proofProducer.ZKProofTypeSP1)
-		zkVerifiers[proofProducer.ZKProofTypeSP1] = sp1VerifierAddress
+		proofTypes = append(proofTypes, proofProducer.ProofTypeZKSP1)
+		zkVerifiers[proofProducer.ProofTypeZKSP1] = sp1VerifierAddress
 	}
 	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
 		zkvmProducer = &proofProducer.ProofProducerPacaya{
@@ -226,7 +232,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			ProofType:           proofProducer.ZKProofTypeAny,
+			ProofType:           proofProducer.ProofTypeZKAny,
 		}
 	}
 
@@ -235,7 +241,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		switch proofType {
 		case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
 			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.SGXProofBufferSize)
-		case proofProducer.ZKProofTypeR0, proofProducer.ZKProofTypeSP1:
+		case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
 			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
 		default:
 			return fmt.Errorf("unexpected proof type: %s", proofType)
@@ -267,7 +273,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 // initBaseLevelProverPacaya fetches the SGX / OP verifier addresses from the protocol, if the verifier exists,
 // then initialize the corresponding base level proof producers.
 func (p *Prover) initBaseLevelProverPacaya(pivotProducer *proofProducer.PivotProofProducer) (
-	string,
+	proofProducer.ProofType,
 	proofProducer.ProofProducer,
 	error,
 ) {
@@ -287,7 +293,7 @@ func (p *Prover) initBaseLevelProverPacaya(pivotProducer *proofProducer.PivotPro
 
 		return proofProducer.ProofTypeSgx, &proofProducer.ProofProducerPacaya{
 			PivotProducer:       pivotProducer,
-			Verifiers:           map[string]common.Address{proofProducer.ProofTypeSgx: sgxVerifierAddress},
+			Verifiers:           map[proofProducer.ProofType]common.Address{proofProducer.ProofTypeSgx: sgxVerifierAddress},
 			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 			ProofType:           proofProducer.ProofTypeSgx,
 			JWT:                 p.cfg.RaikoJWT,
@@ -304,7 +310,7 @@ func (p *Prover) initBaseLevelProverPacaya(pivotProducer *proofProducer.PivotPro
 
 			return proofProducer.ProofTypeOp, &proofProducer.ProofProducerPacaya{
 				PivotProducer:       pivotProducer,
-				Verifiers:           map[string]common.Address{proofProducer.ProofTypeOp: opVerifierAddress},
+				Verifiers:           map[proofProducer.ProofType]common.Address{proofProducer.ProofTypeOp: opVerifierAddress},
 				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 				ProofType:           proofProducer.ProofTypeOp,
 				JWT:                 p.cfg.RaikoJWT,

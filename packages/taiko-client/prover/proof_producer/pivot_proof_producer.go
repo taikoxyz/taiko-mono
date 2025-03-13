@@ -132,7 +132,7 @@ func (s *PivotProofProducer) requestBatchProof(
 	batches []*RaikoBatches,
 	proverAddress common.Address,
 	isAggregation bool,
-	proofType string,
+	proofType ProofType,
 	requestAt time.Time,
 ) (*RaikoRequestProofBodyResponseV2, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
@@ -241,10 +241,10 @@ func (s *PivotProofProducer) requestBatchProof(
 		case ProofTypeSgx:
 			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
-		case ZKProofTypeR0:
+		case ProofTypeZKR0:
 			metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
-		case ZKProofTypeSP1:
+		case ProofTypeZKSP1:
 			metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
 		default:
@@ -258,10 +258,10 @@ func (s *PivotProofProducer) requestBatchProof(
 		case ProofTypeSgx:
 			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofGeneratedCounter.Add(1)
-		case ZKProofTypeR0:
+		case ProofTypeZKR0:
 			metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverR0ProofGeneratedCounter.Add(1)
-		case ZKProofTypeSP1:
+		case ProofTypeZKSP1:
 			metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSp1ProofGeneratedCounter.Add(1)
 		default:
