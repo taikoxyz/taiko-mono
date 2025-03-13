@@ -160,22 +160,118 @@ func (p *Prover) initProofSubmitters(
 			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 		}
 	}
+	return p.initPacayaProofSubmitter(txBuilder)
+}
+
+// initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses in protocol.
+func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
+	// Init verifiers for Pacaya
+	var (
+		baseLevelProver proofProducer.ProofProducer
+		zkvmProducer    proofProducer.ProofProducer
+		zkVerifiers     = make(map[string]common.Address, proofSubmitter.MaxNumSupportedZkTypes)
+		proofBuffers    = make(map[string]*proofProducer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
+		proofTypes      = make([]string, 0, proofSubmitter.MaxNumSupportedProofTypes)
+	)
+	pivotVerifier, err := p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx})
+	if err != nil || pivotVerifier == transaction.ZeroAddress {
+		return fmt.Errorf("required pivot verifier not found: %w", err)
+	}
+	pivotProducer := proofProducer.PivotProofProducer{
+		Verifier:            pivotVerifier,
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		JWT:                 p.cfg.RaikoJWT,
+		Dummy:               p.cfg.Dummy,
+		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+	}
+
+	if opVerifier, err := p.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if opVerifier != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, proofProducer.ProofTypeOp)
+		baseLevelProver = &proofProducer.ProofProducerPacaya{
+			PivotProducer: pivotProducer,
+			Verifiers: map[string]common.Address{
+				proofProducer.ProofTypeOp: opVerifier,
+			},
+			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+			ProofType:           proofProducer.ProofTypeOp,
+			JWT:                 p.cfg.RaikoJWT,
+			IsOp:                true,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		}
+	}
+	if sgxVerifier, err := p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if sgxVerifier != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, proofProducer.ProofTypeSgx)
+		baseLevelProver = &proofProducer.ProofProducerPacaya{
+			PivotProducer: pivotProducer,
+			Verifiers: map[string]common.Address{
+				proofProducer.ProofTypeSgx: sgxVerifier,
+			},
+			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+			ProofType:           proofProducer.ProofTypeSgx,
+			JWT:                 p.cfg.RaikoJWT,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		}
+	}
+
+	if risc0Verifier, err := p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if risc0Verifier != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, proofProducer.ZKProofTypeR0)
+		zkVerifiers[proofProducer.ZKProofTypeR0] = risc0Verifier
+	}
+
+	if sp1Verifier, err := p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return err
+	} else if sp1Verifier != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, proofProducer.ZKProofTypeSP1)
+		zkVerifiers[proofProducer.ZKProofTypeSP1] = sp1Verifier
+	}
+
+	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
+		zkvmProducer = &proofProducer.ProofProducerPacaya{
+			Verifiers:           zkVerifiers,
+			PivotProducer:       pivotProducer,
+			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+			JWT:                 p.cfg.RaikoJWT,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			ProofType:           proofProducer.ZKProofTypeAny,
+		}
+	}
+	// Init proof buffers for Pacaya
+	for _, proofType := range proofTypes {
+		switch proofType {
+		case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
+			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.SGXProofBufferSize)
+		case proofProducer.ZKProofTypeR0, proofProducer.ZKProofTypeSP1:
+			proofBuffers[proofType] = proofProducer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
+		default:
+			return fmt.Errorf("unexpected proof type: %s", proofType)
+		}
+	}
+
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
-		&proofProducer.OptimisticProofProducer{},
+		baseLevelProver,
+		zkvmProducer,
 		p.proofGenerationCh,
 		p.batchProofGenerationCh,
 		p.aggregationNotify,
+		p.batchesAggregationNotify,
 		p.cfg.ProverSetAddress,
 		p.cfg.TaikoL2Address,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
 		p.privateTxmgr,
 		txBuilder,
+		proofBuffers,
+		p.cfg.ForceBatchProvingInterval,
 	); err != nil {
 		return err
 	}
-
 	return nil
 }
 

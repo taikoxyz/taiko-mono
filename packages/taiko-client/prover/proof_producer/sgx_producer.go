@@ -27,7 +27,7 @@ const (
 
 // SGXProofProducer generates a SGX proof for the given block.
 type SGXProofProducer struct {
-	RaikoHostEndpoint   string // a proverd RPC endpoint
+	RaikoHostEndpoint   string // a prover RPC endpoint
 	ProofType           string // Proof type
 	JWT                 string // JWT provided by Raiko
 	Dummy               bool
@@ -170,6 +170,7 @@ func (s *SGXProofProducer) Aggregate(
 		BatchProof:     batchProof,
 		Tier:           s.Tier(),
 		BlockIDs:       blockIDs,
+		ProofType:      ProofTypeSgx,
 	}, nil
 }
 

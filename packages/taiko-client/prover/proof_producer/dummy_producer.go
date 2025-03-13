@@ -32,10 +32,12 @@ func (o *DummyProofProducer) RequestProof(
 func (o *DummyProofProducer) RequestBatchProofs(
 	proofs []*ProofResponse,
 	tier uint16,
+	proofType string,
 ) (*BatchProofs, error) {
 	return &BatchProofs{
 		ProofResponses: proofs,
 		BatchProof:     bytes.Repeat([]byte{0xbb}, 100),
+		ProofType:      proofType,
 		Tier:           tier,
 	}, nil
 }
