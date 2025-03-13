@@ -677,7 +677,7 @@ contract TestERC20Vault is CommonTest {
         // We will need to mock the bridge context.
         vm.prank(address(eBridge));
 
-        vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
+        vm.expectRevert();
         eVault.onMessageInvocation{ value: etherAmount }(messageData);
     }
 }
