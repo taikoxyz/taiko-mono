@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -282,13 +283,19 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	opts := &bind.CallOpts{Context: context.Background()}
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
+	var composeVerifier *pacayaBindings.ComposeVerifier
 	composeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
-		return err
-	}
-	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
-	if err != nil {
-		return err
+		if strings.Contains(err.Error(), "execution reverted") {
+			log.Warn("Currently there are no verifier function in TaikoInbox", "err", err)
+		} else {
+			return err
+		}
+	} else {
+		composeVerifier, err = pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+		if err != nil {
+			return err
+		}
 	}
 
 	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
@@ -331,7 +338,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
-	// If failed to get protocol configs, we assuming the current chain is still before the Pacaya fork,
+	// If failed to get protocol configs, we are assuming the current chain is still before the Pacaya fork,
 	// use pre-defined Pacaya fork height.
 	if err != nil {
 		log.Debug(

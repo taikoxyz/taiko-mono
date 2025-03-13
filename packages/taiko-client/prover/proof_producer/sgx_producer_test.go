@@ -14,7 +14,7 @@ import (
 
 func TestSGXProducerRequestProof(t *testing.T) {
 	var (
-		producer = &SGXProofProducer{Dummy: true}
+		producer = &SGXProofProducer{}
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
