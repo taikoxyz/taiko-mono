@@ -167,9 +167,9 @@ func (p *Prover) initProofSubmitters(
 func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
 	var (
 		// Proof producers
-		baseLevelProofType proofProducer.ProofType
-		baseLevelProver    proofProducer.ProofProducer
-		zkvmProducer       proofProducer.ProofProducer
+		baseLevelProofType     proofProducer.ProofType
+		baseLevelProofProducer proofProducer.ProofProducer
+		zkvmProducer           proofProducer.ProofProducer
 
 		// Proof verifiers addresses
 		pivotVerifierAddress common.Address
@@ -205,7 +205,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	}
 
 	// Initialize the base level prover.
-	if baseLevelProofType, baseLevelProver, err = p.initBaseLevelProverPacaya(pivotProducer); err != nil {
+	if baseLevelProofType, baseLevelProofProducer, err = p.initBaseLevelProverPacaya(pivotProducer); err != nil {
 		return fmt.Errorf("failed to initialize base level prover: %w", err)
 	}
 	proofTypes = append(proofTypes, baseLevelProofType)
@@ -250,7 +250,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
-		baseLevelProver,
+		baseLevelProofProducer,
 		zkvmProducer,
 		p.proofGenerationCh,
 		p.batchProofGenerationCh,
