@@ -380,6 +380,10 @@ func (d *Driver) cacheLookaheadLoop() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
+			if d.rpc.L1Beacon == nil {
+				log.Warn("`--l1.beacon` flag value is empty, skipping lookahead cache")
+				return
+			}
 			currentSlot := d.rpc.L1Beacon.CurrentSlot()
 
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
