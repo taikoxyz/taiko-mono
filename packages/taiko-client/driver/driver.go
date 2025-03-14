@@ -414,7 +414,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			currentOperatorAddress, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Failed to get current preconf whitelist operator address", "error", err)
-				return
+				continue
 			}
 
 			nextOperatorAddress, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
@@ -432,7 +432,7 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			d.preconfBlockServer.UpdateLookahead(l)
 
-			log.Info("Lookahead info",
+			log.Debug("Lookahead info",
 				"remainingSlots", remainingSlots,
 				"currentEpoch", currentEpoch,
 				"currentOperator", currentOperatorAddress.Hex(),
