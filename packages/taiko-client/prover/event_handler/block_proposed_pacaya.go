@@ -30,7 +30,6 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 		end()
 		return nil
 	}
-
 	// Wait for the corresponding L2 block being mined in node.
 	if _, err := h.rpc.WaitL2Header(
 		ctx,
