@@ -439,8 +439,7 @@ func (d *Driver) cacheLookaheadLoop() {
 				UpdatedAt:    time.Now().UTC(),
 			})
 
-			log.Info(
-				"Lookahead information",
+			log.Debug("Lookahead information",
 				"remainingSlots", remainingSlots,
 				"currentEpoch", currentEpoch,
 				"currentOperator", currentOperatorAddress.Hex(),
