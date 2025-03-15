@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 const (
@@ -359,7 +360,7 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 	}
 }
 
-// cacheLookaheadLoop
+// cacheLookaheadLoop keeps updating the lookahead info for the preconf block server.
 func (d *Driver) cacheLookaheadLoop() {
 	ticker := time.NewTicker(time.Duration(d.rpc.L1Beacon.SecondsPerSlot) / 3)
 	d.wg.Add(1)
@@ -369,9 +370,15 @@ func (d *Driver) cacheLookaheadLoop() {
 		d.wg.Done()
 	}()
 
-	var seenBlockNumber uint64 = 0
+	if d.rpc.L1Beacon == nil {
+		log.Warn("`--l1.beacon` flag value is empty, skipping lookahead cache")
+		return
+	}
 
-	var lastSlot uint64 = 0
+	var (
+		seenBlockNumber uint64 = 0
+		lastSlot        uint64 = 0
+	)
 
 	for {
 		select {
@@ -382,19 +389,20 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 			if err != nil {
-				log.Error("lookahead error getting latestSeenBlockNumber", "error", err)
-
+				log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
 				continue
 			}
 
-			// avoid fetching on missed slots, otherwise the previous "current" can get tagged as
-			// the new "current" for this epoch
+			// Avoid fetching on missed slots, otherwise the previous "current" can get tagged as
+			// the new "current" for this epoch.
 			if latestSeenBlockNumber == seenBlockNumber {
-				// leave some grace period for the block to arrive
-				if lastSlot != currentSlot && uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
-					log.Warn("lookahead possible missed slot detected",
+				// Leave some grace period for the block to arrive.
+				if lastSlot != currentSlot &&
+					uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
+					log.Warn(
+						"Lookahead possible missed slot detected",
 						"currentSlot", currentSlot,
-						"latestNumber", latestSeenBlockNumber,
+						"latestSeenBlockNumber", latestSeenBlockNumber,
 					)
 
 					lastSlot = currentSlot
@@ -404,12 +412,12 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 
 			seenBlockNumber = latestSeenBlockNumber
-
 			lastSlot = currentSlot
 
-			currentEpoch := d.rpc.L1Beacon.CurrentEpoch()
-
-			remainingSlots := d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
+			var (
+				currentEpoch   = d.rpc.L1Beacon.CurrentEpoch()
+				remainingSlots = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
+			)
 
 			currentOperatorAddress, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
@@ -420,19 +428,18 @@ func (d *Driver) cacheLookaheadLoop() {
 			nextOperatorAddress, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Failed to get next preconf whitelist operator address", "error", err)
-
-				nextOperatorAddress = common.BigToAddress(common.Big0)
+				nextOperatorAddress = transaction.ZeroAddress
 			}
 
-			l := &preconfBlocks.Lookahead{
+			// Update the lookahead information for the preconfirmation
+			// block server.
+			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
 				CurrOperator: currentOperatorAddress,
 				NextOperator: nextOperatorAddress,
 				UpdatedAt:    time.Now().UTC(),
-			}
+			})
 
-			d.preconfBlockServer.UpdateLookahead(l)
-
-			log.Debug("Lookahead info",
+			log.Debug("Lookahead information",
 				"remainingSlots", remainingSlots,
 				"currentEpoch", currentEpoch,
 				"currentOperator", currentOperatorAddress.Hex(),
