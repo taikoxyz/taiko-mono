@@ -185,6 +185,7 @@ func (s *Syncer) onBlockProposed(
 		timestamp   uint64
 	)
 	if meta.IsPacaya() {
+		log.Info("LastBlockId in BatchProposed event", "lastBlockId", meta.Pacaya().GetLastBlockID())
 		lastBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
 		timestamp = meta.Pacaya().GetLastBlockTimestamp()
 	} else {
