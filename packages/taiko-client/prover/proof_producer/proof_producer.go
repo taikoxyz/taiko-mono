@@ -38,15 +38,19 @@ type ProofResponse struct {
 	Proof     []byte
 	Opts      ProofRequestOptions
 	Tier      uint16
-	ProofType string
+	ProofType ProofType
 }
 
 type BatchProofs struct {
-	ProofResponses []*ProofResponse
-	BatchProof     []byte
-	Tier           uint16
-	BlockIDs       []*big.Int
-	ProofType      string
+	ProofResponses     []*ProofResponse
+	BatchProof         []byte
+	Tier               uint16
+	BlockIDs           []*big.Int
+	ProofType          ProofType
+	Verifier           common.Address
+	PivotBatchProof    []byte
+	PivotProofVerifier common.Address
+	IsPacaya           bool
 }
 
 type ProofProducer interface {
@@ -62,9 +66,11 @@ type ProofProducer interface {
 		items []*ProofResponse,
 		requestAt time.Time,
 	) (*BatchProofs, error)
+	// RequestCancel @dev this function would be deprecated after Pacaya fork
 	RequestCancel(
 		ctx context.Context,
 		opts ProofRequestOptions,
 	) error
+	// Tier @dev this function would be deprecated after Pacaya fork
 	Tier() uint16
 }

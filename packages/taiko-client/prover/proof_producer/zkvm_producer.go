@@ -21,12 +21,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-const (
-	ZKProofTypeR0  = "risc0"
-	ZKProofTypeSP1 = "sp1"
-	ZKProofTypeAny = "zk_any"
-)
-
 var (
 	ErrProofInProgress = errors.New("work_in_progress")
 	ErrRetry           = errors.New("retry")
@@ -39,7 +33,7 @@ type RaikoRequestProofBodyResponseV2 struct {
 	Data         *RaikoProofDataV2 `json:"data"`
 	ErrorMessage string            `json:"message"`
 	Error        string            `json:"error"`
-	ProofType    string            `json:"proof_type"`
+	ProofType    ProofType         `json:"proof_type"`
 }
 
 type RaikoProofDataV2 struct {
@@ -157,7 +151,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	requestAt time.Time,
-) ([]byte, string, error) {
+) ([]byte, ProofType, error) {
 	var (
 		proof []byte
 	)
@@ -196,10 +190,10 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
-	if output.ProofType == ZKProofTypeR0 {
+	if output.ProofType == ProofTypeZKR0 {
 		metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 		metrics.ProverR0ProofGeneratedCounter.Add(1)
-	} else if output.ProofType == ZKProofTypeSP1 {
+	} else if output.ProofType == ProofTypeZKSP1 {
 		metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 		metrics.ProverSp1ProofGeneratedCounter.Add(1)
 	}
@@ -213,7 +207,7 @@ func (s *ZKvmProofProducer) requestProof(
 	opts ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
 	reqBody := RaikoRequestProofBody{
-		Type:     ZKProofTypeAny,
+		Type:     ProofTypeZKAny,
 		Block:    opts.OntakeOptions().BlockID,
 		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
 		Graffiti: opts.OntakeOptions().Graffiti,
@@ -241,7 +235,7 @@ func (s *ZKvmProofProducer) requestProof(
 	log.Debug(
 		"Send proof generation request",
 		"blockID", opts.OntakeOptions().BlockID,
-		"zkProofType", ZKProofTypeAny,
+		"zkProofType", ProofTypeZKAny,
 		"input", string(jsonValue),
 	)
 
@@ -267,7 +261,7 @@ func (s *ZKvmProofProducer) requestProof(
 	log.Debug(
 		"Proof generation output",
 		"blockID", opts.OntakeOptions().BlockID,
-		"zkProofType", ZKProofTypeAny,
+		"zkProofType", ProofTypeZKAny,
 		"output", string(resBytes),
 	)
 	var output RaikoRequestProofBodyResponseV2
@@ -279,7 +273,7 @@ func (s *ZKvmProofProducer) requestProof(
 		log.Error("Failed to get zk proof",
 			"err", output.Error,
 			"msg", output.ErrorMessage,
-			"zkType", ZKProofTypeAny,
+			"zkType", ProofTypeZKAny,
 		)
 		return nil, errors.New(output.Error)
 	}
@@ -296,7 +290,7 @@ func (s *ZKvmProofProducer) requestCancel(
 	}
 
 	reqBody := RaikoRequestProofBody{
-		Type:     ZKProofTypeAny,
+		Type:     ProofTypeZKAny,
 		Block:    opts.OntakeOptions().BlockID,
 		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
 		Graffiti: opts.OntakeOptions().Graffiti,
@@ -346,7 +340,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 	proverAddress common.Address,
 	graffiti string,
 	requestAt time.Time,
-	zkType string,
+	zkType ProofType,
 ) ([]byte, error) {
 	var (
 		proof []byte
@@ -454,10 +448,10 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		"producer", "ZKvmProofProducer",
 	)
 
-	if zkType == ZKProofTypeR0 {
+	if zkType == ProofTypeZKR0 {
 		metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 		metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
-	} else if zkType == ZKProofTypeSP1 {
+	} else if zkType == ProofTypeZKSP1 {
 		metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 		metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
 	}

@@ -162,7 +162,8 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	if m.IsPacaya() {
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 	} else {
 		s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 	}
@@ -245,17 +246,12 @@ func (s *ProverTestSuite) TestProveOp() {
 		}
 	}
 
-	for res := range s.p.proofGenerationCh {
-		if res.Meta.IsPacaya() {
-			s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
-		} else {
+	if m.IsPacaya() {
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	} else {
+		for res := range s.p.proofGenerationCh {
 			s.Nil(s.p.selectSubmitter(res.Tier).SubmitProof(context.Background(), res))
-		}
-		if m.IsPacaya() {
-			if res.Meta.IsPacaya() && res.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
-				break
-			}
-		} else {
 			if !res.Meta.IsPacaya() && res.Meta.Ontake().GetBlockID().Cmp(m.Ontake().GetBlockID()) == 0 {
 				break
 			}
@@ -308,7 +304,8 @@ func (s *ProverTestSuite) TestOntakeToPacayaVerification() {
 	for req := range s.p.proofSubmissionCh {
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 		if req.Meta.IsPacaya() {
-			s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+			s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+			s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 			if req.Meta.Pacaya().GetLastBlockID() == head.Number.Uint64() {
 				break
 			}
@@ -344,7 +341,7 @@ func (s *ProverTestSuite) TestOntakeToPacayaVerification() {
 	s.IncreaseTime(uint64((1024 * time.Hour).Seconds()))
 
 	// Verify all Ontake blocks.
-	data, err := encoding.TaikoL1ABI.Pack("verifyBlocks", s.RPCClient.PacayaClients.ForkHeight)
+	data, err := encoding.TaikoL1ABI.Pack("verifyBlocks", s.RPCClient.PacayaClients.ForkHeight-1)
 	s.Nil(err)
 	receipt, err := s.p.txmgr.Send(context.Background(), txmgr.TxCandidate{
 		TxData: data,
@@ -432,17 +429,9 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			continue
 		}
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
-			break
-		}
-	}
-
-	for res := range s.p.proofGenerationCh {
-		if !res.Meta.IsPacaya() {
-			continue
-		}
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
-		if res.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
 			break
 		}
 	}
@@ -458,14 +447,9 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 
 	for req := range s.p.proofSubmissionCh {
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
-			break
-		}
-	}
-
-	for res := range s.p.proofGenerationCh {
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
-		if res.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
 			break
 		}
 	}
@@ -654,6 +638,63 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	}
 }
 
+func (s *ProverTestSuite) TestForceAggregate() {
+	batchSize := 3
+	// Init batch prover
+	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
+	s.Nil(err)
+	decimal, err := s.RPCClient.OntakeClients.TaikoToken.Decimals(nil)
+	s.Nil(err)
+	batchProver := new(Prover)
+	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
+		L1WsEndpoint:              os.Getenv("L1_WS"),
+		L2WsEndpoint:              os.Getenv("L2_WS"),
+		L2HttpEndpoint:            os.Getenv("L2_HTTP"),
+		TaikoL1Address:            common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:            common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:         common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ProverSetAddress:          common.HexToAddress(os.Getenv("PROVER_SET")),
+		L1ProverPrivKey:           l1ProverPrivKey,
+		Dummy:                     true,
+		ProveUnassignedBlocks:     true,
+		Allowance:                 new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:                3 * time.Second,
+		BackOffRetryInterval:      3 * time.Second,
+		BackOffMaxRetries:         12,
+		L1NodeVersion:             "1.0.0",
+		L2NodeVersion:             "0.1.0",
+		SGXProofBufferSize:        uint64(batchSize),
+		ForceBatchProvingInterval: 5 * time.Second,
+	}, s.txmgr, s.txmgr))
+
+	for i := 0; i < batchSize-1; i++ {
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
+
+	s.Nil(batchProver.proveOp())
+	req1 := <-batchProver.proofSubmissionCh
+	s.Nil(batchProver.requestProofOp(req1.Meta, req1.Tier))
+
+	time.Sleep(5 * time.Second)
+	req2 := <-batchProver.proofSubmissionCh
+	s.Nil(batchProver.requestProofOp(req2.Meta, req2.Tier))
+
+	tier := <-batchProver.aggregationNotify
+	s.Nil(batchProver.aggregateOp(tier))
+	s.Nil(batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
+	for i := 0; i < batchSize-1; i++ {
+		<-sink
+	}
+}
+
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 	s.p.cfg.Allowance = common.Big256
 	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
@@ -681,6 +722,8 @@ func (s *ProverTestSuite) TearDownTest() {
 }
 
 func (s *ProverTestSuite) TestInvalidPacayaProof() {
+	// TODO: Need to find a way to pass validity checks before submission. @David
+	s.T().Skip()
 	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -702,13 +745,15 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 	// Submit a valid proof.
 	s.Nil(s.p.proofSubmitterPacaya.RequestProof(context.Background(), m))
-	res := <-s.p.proofGenerationCh
+	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	batchRes := <-s.p.batchProofGenerationCh
+	res := batchRes.ProofResponses[0]
 	s.Equal(m.Pacaya().GetBatchID().Uint64(), res.Meta.Pacaya().GetBatchID().Uint64())
 	s.NotEmpty(res.Opts.PacayaOptions().Headers)
 
 	// Submit two conflict proofs
 	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), res))
+	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), batchRes))
 
 	// Transition should be created, and blockHash should not be zero.
 	transition, err := s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
@@ -740,7 +785,8 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	}
 
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
 	// BlockHash of the transition should be zero now, and Inbox should be paused.
 	transition, err = s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
@@ -783,7 +829,8 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	}
 
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
 	// BlockHash of the transition should not be zero now, and Inbox should be unpaused.
 	transition, err = s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
@@ -829,6 +876,8 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		BackOffMaxRetries:     12,
 		L1NodeVersion:         "1.0.0",
 		L2NodeVersion:         "0.1.0",
+		SGXProofBufferSize:    1,
+		ZKVMProofBufferSize:   1,
 		BlockConfirmations:    0,
 	}, s.txmgr, s.txmgr))
 

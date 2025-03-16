@@ -16,7 +16,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
-	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
@@ -99,26 +99,26 @@ func (p *Prover) initProofSubmitters(
 	if len(tiers) > 0 {
 		for _, tier := range p.sharedState.GetTiers() {
 			var (
-				bufferSize = p.cfg.SGXProofBufferSize
-				producer   proofProducer.ProofProducer
-				submitter  proofSubmitter.Submitter
-				err        error
+				bufferSize    = p.cfg.SGXProofBufferSize
+				proofProducer producer.ProofProducer
+				submitter     proofSubmitter.Submitter
+				err           error
 			)
 			switch tier.ID {
 			case encoding.TierOptimisticID:
-				producer = &proofProducer.OptimisticProofProducer{}
+				proofProducer = &producer.OptimisticProofProducer{}
 			case encoding.TierSgxID:
-				producer = &proofProducer.SGXProofProducer{
+				proofProducer = &producer.SGXProofProducer{
 					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
-					ProofType:           proofProducer.ProofTypeSgx,
+					ProofType:           producer.ProofTypeSgx,
 					Dummy:               p.cfg.Dummy,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 				}
 			case encoding.TierZkVMRisc0ID:
 				continue
 			case encoding.TierZkVMSp1ID:
-				producer = &proofProducer.ZKvmProofProducer{
+				proofProducer = &producer.ZKvmProofProducer{
 					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
 					Dummy:               p.cfg.Dummy,
@@ -126,10 +126,10 @@ func (p *Prover) initProofSubmitters(
 				}
 				bufferSize = 0
 			case encoding.TierGuardianMinorityID:
-				producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
+				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 				bufferSize = 0
 			case encoding.TierGuardianMajorityID:
-				producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
+				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
 				bufferSize = 0
 			default:
 				return fmt.Errorf("unsupported tier: %d", tier.ID)
@@ -137,7 +137,7 @@ func (p *Prover) initProofSubmitters(
 
 			if submitter, err = proofSubmitter.NewProofSubmitterOntake(
 				p.rpc,
-				producer,
+				proofProducer,
 				p.proofGenerationCh,
 				p.batchProofGenerationCh,
 				p.aggregationNotify,
@@ -160,23 +160,166 @@ func (p *Prover) initProofSubmitters(
 			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 		}
 	}
+	return p.initPacayaProofSubmitter(txBuilder)
+}
+
+// initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
+func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
+	var (
+		// Proof producers.
+		baseLevelProofType     producer.ProofType
+		baseLevelProofProducer producer.ProofProducer
+
+		// ZKVM proof producers.
+		zkvmProducer producer.ProofProducer
+
+		// Proof verifiers addresses.
+		pivotVerifierAddress common.Address
+		risc0VerifierAddress common.Address
+		sp1VerifierAddress   common.Address
+
+		// All activated proof types in protocol.
+		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
+
+		err error
+	)
+
+	// Get the required pivot verifier address from the protocol, and initialize the pivot producer.
+	if pivotVerifierAddress, err = p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return fmt.Errorf("failed to get pivot verifier: %w", err)
+	}
+	if pivotVerifierAddress == transaction.ZeroAddress {
+		return fmt.Errorf("pivot verifier not found")
+	}
+	pivotProducer := &producer.PivotProofProducer{
+		Verifier:            pivotVerifierAddress,
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		JWT:                 p.cfg.RaikoJWT,
+		Dummy:               p.cfg.Dummy,
+		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+	}
+
+	// Initialize the base level prover.
+	if baseLevelProofType, baseLevelProofProducer, err = p.initBaseLevelProofProducerPacaya(pivotProducer); err != nil {
+		return fmt.Errorf("failed to initialize base level prover: %w", err)
+	}
+	proofTypes = append(proofTypes, baseLevelProofType)
+
+	// Initialize the zk verifiers and zkvm proof producers.
+	var zkVerifiers = make(map[producer.ProofType]common.Address, proofSubmitter.MaxNumSupportedZkTypes)
+	if risc0VerifierAddress, err = p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return fmt.Errorf("failed to get risc0 verifier: %w", err)
+	}
+	if risc0VerifierAddress != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, producer.ProofTypeZKR0)
+		zkVerifiers[producer.ProofTypeZKR0] = risc0VerifierAddress
+	}
+	if sp1VerifierAddress, err = p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return fmt.Errorf("failed to get sp1 verifier: %w", err)
+	}
+	if sp1VerifierAddress != transaction.ZeroAddress {
+		proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
+		zkVerifiers[producer.ProofTypeZKSP1] = sp1VerifierAddress
+	}
+	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
+		zkvmProducer = &producer.ProofProducerPacaya{
+			Verifiers:           zkVerifiers,
+			PivotProducer:       pivotProducer,
+			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+			JWT:                 p.cfg.RaikoJWT,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			ProofType:           producer.ProofTypeZKAny,
+		}
+	}
+
+	// Init proof buffers for Pacaya.
+	var proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
+	for _, proofType := range proofTypes {
+		switch proofType {
+		case producer.ProofTypeOp, producer.ProofTypeSgx:
+			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
+		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
+			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
+		default:
+			return fmt.Errorf("unexpected proof type: %s", proofType)
+		}
+	}
+
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
 		p.rpc,
-		&proofProducer.OptimisticProofProducer{},
+		baseLevelProofProducer,
+		zkvmProducer,
 		p.proofGenerationCh,
 		p.batchProofGenerationCh,
 		p.aggregationNotify,
+		p.batchesAggregationNotify,
 		p.cfg.ProverSetAddress,
 		p.cfg.TaikoL2Address,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
 		p.privateTxmgr,
 		txBuilder,
+		proofBuffers,
+		p.cfg.ForceBatchProvingInterval,
 	); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Pacaya proof submitter: %w", err)
 	}
-
 	return nil
+}
+
+// initBaseLevelProofProducerPacaya fetches the SGX / OP verifier addresses from the protocol, if the verifier exists,
+// then initialize the corresponding base level proof producers.
+func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotProofProducer) (
+	producer.ProofType,
+	producer.ProofProducer,
+	error,
+) {
+	var (
+		// Proof verifiers addresses
+		opVerifierAddress  common.Address
+		sgxVerifierAddress common.Address
+		err                error
+	)
+
+	// If there is an SGX verifier, then initialize the SGX prover as the base level prover.
+	if sgxVerifierAddress, err = p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		return "", nil, fmt.Errorf("failed to get sgx verifier: %w", err)
+	}
+	if sgxVerifierAddress != transaction.ZeroAddress {
+		log.Info("Initialize baseLevelProver", "type", producer.ProofTypeSgx, "verifier", sgxVerifierAddress)
+
+		return producer.ProofTypeSgx, &producer.ProofProducerPacaya{
+			PivotProducer:       pivotProducer,
+			Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeSgx: sgxVerifierAddress},
+			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+			ProofType:           producer.ProofTypeSgx,
+			JWT:                 p.cfg.RaikoJWT,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		}, nil
+	} else {
+		// If there is no SGX verifier, then try to get the OP verifier address, and initialize
+		// the OP prover as the base level prover.
+		if opVerifierAddress, err = p.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+			return "", nil, fmt.Errorf("failed to get op verifier address: %w", err)
+		}
+		if opVerifierAddress != transaction.ZeroAddress {
+			log.Info("Initialize baseLevelProver", "type", producer.ProofTypeOp, "verifier", opVerifierAddress)
+
+			return producer.ProofTypeOp, &producer.ProofProducerPacaya{
+				PivotProducer:       pivotProducer,
+				Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeOp: opVerifierAddress},
+				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+				ProofType:           producer.ProofTypeOp,
+				JWT:                 p.cfg.RaikoJWT,
+				IsOp:                true,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			}, nil
+		}
+	}
+	// If no base level prover found, return an error.
+	return "", nil, fmt.Errorf("no pivot proving base level prover found")
 }
 
 // initL1Current initializes prover's L1Current cursor.
