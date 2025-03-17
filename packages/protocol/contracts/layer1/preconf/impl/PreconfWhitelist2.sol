@@ -7,8 +7,6 @@ import "../libs/LibPreconfConstants.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/common/EssentialContract.sol";
 
-import "forge-std/src/console2.sol";
-
 /// @title PreconfWhitelist2
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
@@ -17,6 +15,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         uint64 inactiveSince; // Epoch when the operator is no longer active.
         uint8 index; // Index in operatorMapping.
     }
+
+    event Consolidated();
 
     mapping(address operator => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
@@ -37,20 +37,14 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
         uint8 _operatorCount = operatorCount;
         operators[_operator] = OperatorInfo({
-            activeSince: epochTimestamp(2),
-            inactiveSince: 0, // 0 indicates no removal scheduled.
+            activeSince: epochStartTimestamp(2),
+            inactiveSince: 0, // no removal scheduled.
             index: _operatorCount
         });
         operatorMapping[_operatorCount] = _operator;
         unchecked {
             operatorCount = _operatorCount + 1;
         }
-
-        console2.log("operator added: ", _operator);
-        console2.log("operator count: ", operatorCount);
-        console2.log("operator index: ", _operatorCount);
-        console2.log("active since: ", operators[_operator].activeSince);
-        console2.log("inactive since: ", operators[_operator].inactiveSince);
 
         emit OperatorAdded(_operator);
     }
@@ -70,7 +64,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     /// @notice Consolidates the operator mapping by removing operators whose removal epoch has
     /// passed, swapping removed operators with the last entry, and decrementing the operatorCount.
     function consolidate() external {
-        uint64 currentEpoch = epochTimestamp(0);
+        uint64 currentEpoch = epochStartTimestamp(0);
         uint8 i;
         uint8 _operatorCount = operatorCount;
 
@@ -97,45 +91,53 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         }
 
         operatorCount = _operatorCount;
+        emit Consolidated();
     }
 
     /// @inheritdoc IPreconfWhitelist
     function getOperatorForCurrentEpoch() external view returns (address) {
-        return _getOperatorForEpoch(epochTimestamp(0));
+        return _getOperatorForEpoch(epochStartTimestamp(0));
     }
 
     /// @inheritdoc IPreconfWhitelist
     function getOperatorForNextEpoch() external view returns (address) {
-        return _getOperatorForEpoch(epochTimestamp(1));
+        return _getOperatorForEpoch(epochStartTimestamp(1));
     }
 
     // Returns true if the operator is active in the given epoch.
-    function isOperatorActive(address _operator, uint64 _epoch) public view returns (bool) {
+    function isOperatorActive(
+        address _operator,
+        uint64 _epochTimestamp
+    )
+        public
+        view
+        returns (bool)
+    {
         if (_operator == address(0)) return false;
         OperatorInfo memory info = operators[_operator];
-        if (_epoch < info.activeSince) return false;
-        else if (info.inactiveSince != 0 && _epoch >= info.inactiveSince) return false;
-        else return true;
+        if (_epochTimestamp < info.activeSince) {
+            return false;
+        } else if (info.inactiveSince != 0 && _epochTimestamp >= info.inactiveSince) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
-    function epochTimestamp(uint256 offset) public view returns (uint64) {
+    function epochStartTimestamp(uint256 offset) public view returns (uint64) {
         return uint64(
             LibPreconfUtils.getEpochTimestamp() + offset * LibPreconfConstants.SECONDS_IN_EPOCH
         );
     }
 
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
-        console2.log("========== ", _epochTimestamp);
-
         if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
-            console2.log("epoch is too small");
             return address(0);
         }
+
         bytes32 root = LibPreconfUtils.getBeaconBlockRoot(
             _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
         );
-        console2.log("root: ");
-        console2.logBytes32(root);
 
         if (root == 0) return address(0);
 
@@ -144,20 +146,12 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         for (uint8 i; i < operatorCount; ++i) {
             address operator = operatorMapping[i];
             if (isOperatorActive(operator, _epochTimestamp)) {
-                console2.log("operator is active: ", operator, "@", _epochTimestamp);
                 activeOperators[count++] = operator;
-            } else {
-                console2.log("operator is not active: ", operator, "@", _epochTimestamp);
             }
         }
 
-        if (count == 0) {
-            console2.log("no active operators");
-            return address(0);
-        }
-
-        uint256 index = uint256(root) % count;
-        return activeOperators[index];
+        if (count == 0) return address(0);
+        return activeOperators[uint256(root) % count];
     }
 
     /// @notice Remove an operator.
@@ -166,18 +160,15 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     /// activeSince + 1 epoch.
     function _removeOperator(address operator) internal {
         require(operator != address(0), InvalidOperatorAddress());
-        OperatorInfo storage info = operators[operator];
+        OperatorInfo memory info = operators[operator];
         require(info.activeSince != 0, InvalidOperatorAddress());
+        require(info.inactiveSince == 0, OperatorAlreadyRemoved());
 
-        uint64 inactiveSince = epochTimestamp(2);
+        uint64 inactiveSince = epochStartTimestamp(2);
         if (inactiveSince <= info.activeSince) {
             inactiveSince = info.activeSince + uint64(LibPreconfConstants.SECONDS_IN_EPOCH);
         }
-        info.inactiveSince = inactiveSince;
-
-        console2.log("operator removed: ", operator);
-        console2.log("active since: ", info.activeSince);
-        console2.log("inactive since: ", info.inactiveSince);
+        operators[operator].inactiveSince = inactiveSince;
 
         emit OperatorRemoved(operator);
     }

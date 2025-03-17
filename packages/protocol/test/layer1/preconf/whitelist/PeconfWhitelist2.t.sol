@@ -36,7 +36,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Bob);
 
         (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Bob);
-        assertEq(activeSince, whitelist.epochTimestamp(2));
+        assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
 
@@ -61,7 +61,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         uint256 oldActiveSince = activeSince;
         (activeSince, inactiveSince, index) = whitelist.operators(Bob);
         assertEq(activeSince, oldActiveSince);
-        assertEq(inactiveSince, whitelist.epochTimestamp(2));
+        assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 0);
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
@@ -96,12 +96,12 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorMapping(1), Bob);
 
         (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Alice);
-        assertEq(activeSince, whitelist.epochTimestamp(2));
+        assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
 
         (activeSince, inactiveSince, index) = whitelist.operators(Bob);
-        assertEq(activeSince, whitelist.epochTimestamp(2));
+        assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 1);
 
@@ -128,12 +128,12 @@ contract TestPreconfWhitelist2 is Layer1Test {
 
         (activeSince, inactiveSince, index) = whitelist.operators(Alice);
         assertTrue(activeSince != 0);
-        assertEq(inactiveSince, whitelist.epochTimestamp(2));
+        assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 0);
 
         (activeSince, inactiveSince, index) = whitelist.operators(Bob);
         assertTrue(activeSince != 0);
-        assertEq(inactiveSince, whitelist.epochTimestamp(2));
+        assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 1);
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
@@ -151,6 +151,29 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorCount(), 0);
         assertEq(whitelist.operatorMapping(0), address(0));
         assertEq(whitelist.operatorMapping(1), address(0));
+    }
+
+    function test_whitelist2_addOrRemoveTheSameOperatorTwiceWillRevert() external {
+        vm.startPrank(whitelistOwner);
+        whitelist.addOperator(Alice);
+        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
+        whitelist.addOperator(Alice);
+
+        whitelist.removeOperator(Alice);
+        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyRemoved.selector);
+        whitelist.removeOperator(Alice);
+        vm.stopPrank();
+    }
+
+    function test_whitelist2_removeNonExistingOperatorWillRevert() external {
+        vm.startPrank(whitelistOwner);
+        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.removeOperator(Alice);
+        vm.stopPrank();
+    }
+
+    function test_whitelist2_consolidate_whenEmpty_not_revert() external {
+        whitelist.consolidate();
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
