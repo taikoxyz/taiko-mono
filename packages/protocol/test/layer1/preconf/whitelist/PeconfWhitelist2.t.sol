@@ -44,11 +44,11 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
 
-        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        _advanceOneEpoch();
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), Bob);
 
-        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        _advanceOneEpoch();
         assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
         assertEq(whitelist.getOperatorForNextEpoch(), Bob);
 
@@ -67,13 +67,17 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
         assertEq(whitelist.getOperatorForNextEpoch(), Bob);
 
-        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        _advanceOneEpoch();
         assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
 
-        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        _advanceOneEpoch();
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
+
+        whitelist.consolidate();
+        assertEq(whitelist.operatorCount(), 0);
+        assertEq(whitelist.operatorMapping(0), address(0));
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
@@ -81,6 +85,10 @@ contract TestPreconfWhitelist2 is Layer1Test {
             LibPreconfConstants.getBeaconBlockRootContract(),
             address(new BeaconBlockRootImpl(_root)).code
         );
+    }
+
+    function _advanceOneEpoch() internal {
+        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
     }
 }
 
