@@ -18,9 +18,14 @@ library LibPreconfUtils {
 
     function getBeaconBlockRoot(uint256 timestamp) internal view returns (bytes32) {
         uint256 targetTimestamp = timestamp + LibPreconfConstants.SECONDS_IN_SLOT;
-        for (uint256 i; i < MAX_NUM_QUERIES && targetTimestamp <= block.timestamp; ++i) {
+        if (targetTimestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
+            return bytes32(0);
+        }
+        uint256 currentTimestamp = block.timestamp;
+        for (uint256 i; i < MAX_NUM_QUERIES && targetTimestamp <= currentTimestamp; ++i) {
             (bool success, bytes memory result) = LibPreconfConstants.getBeaconBlockRootContract()
                 .staticcall(abi.encode(targetTimestamp));
+
             if (success && result.length > 0) {
                 return abi.decode(result, (bytes32));
             }
