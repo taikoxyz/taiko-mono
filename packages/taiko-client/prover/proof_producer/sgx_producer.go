@@ -415,60 +415,23 @@ func (s *SGXProofProducer) requestProof(
 		return nil, fmt.Errorf("sgx proof generation is not supported for Pacaya fork")
 	}
 
-	reqBody := RaikoRequestProofBody{
-		Type:     s.ProofType,
-		Block:    opts.OntakeOptions().BlockID,
-		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
-		Graffiti: opts.OntakeOptions().Graffiti,
-		SGX: &SGXRequestProofBodyParam{
-			Setup:     false,
-			Bootstrap: false,
-			Prove:     true,
+	output, err := requestHttpProof[RaikoRequestProofBody, RaikoRequestProofBodyResponseV2](
+		ctx,
+		s.RaikoHostEndpoint+"/v2/proof",
+		s.JWT,
+		RaikoRequestProofBody{
+			Type:     s.ProofType,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
+			SGX: &SGXRequestProofBodyParam{
+				Setup:     false,
+				Bootstrap: false,
+				Prove:     true,
+			},
 		},
-	}
-
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", s.RaikoHostEndpoint+"/v2/proof", bytes.NewBuffer(jsonValue))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(
-			"failed to request proof, id: %d, statusCode: %d", opts.OntakeOptions().BlockID, res.StatusCode,
-		)
-	}
-
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Proof generation output",
-		"blockID", opts.OntakeOptions().BlockID,
-		"proofType", "sgx",
-		"output", string(resBytes),
 	)
-
-	var output RaikoRequestProofBodyResponseV2
-	if err := json.Unmarshal(resBytes, &output); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -476,7 +439,7 @@ func (s *SGXProofProducer) requestProof(
 		return nil, fmt.Errorf("failed to get sgx proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
 	}
 
-	return &output, nil
+	return output, nil
 }
 
 // Tier implements the ProofProducer interface.

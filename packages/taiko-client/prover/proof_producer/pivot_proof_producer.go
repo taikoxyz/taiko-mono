@@ -1,14 +1,9 @@
 package producer
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -138,71 +133,24 @@ func (s *PivotProofProducer) requestBatchProof(
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
-	reqBody := RaikoRequestProofBodyV3Pacaya{
-		Type:      proofType,
-		Batches:   batches,
-		Prover:    proverAddress.Hex()[2:],
-		Aggregate: isAggregation,
-	}
-
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Send batch proof generation request",
-		"batches", batches,
-		"proofType", proofType,
-		"isAggregation", isAggregation,
-		"input", string(jsonValue),
-	)
-
-	req, err := http.NewRequestWithContext(
+	output, err := requestHttpProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
-		"POST",
 		s.RaikoHostEndpoint+"/v3/proof/batch",
-		bytes.NewBuffer(jsonValue),
+		s.JWT,
+		RaikoRequestProofBodyV3Pacaya{
+			Type:      proofType,
+			Batches:   batches,
+			Prover:    proverAddress.Hex()[2:],
+			Aggregate: isAggregation,
+		},
 	)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request batch proof, batches: %v, statusCode: %d", batches, res.StatusCode)
-	}
-
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Batch proof generation output",
-		"proofType", proofType,
-		"isAggregation", isAggregation,
-		"output", string(resBytes),
-	)
-
-	var output RaikoRequestProofBodyResponseV2
-	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get proof, err: %s, msg: %s, type: %s, batches: %v",
+		return nil, fmt.Errorf(
+			"failed to get proof, err: %s, msg: %s, type: %s, batches: %v",
 			output.Error,
 			output.ErrorMessage,
 			output.ProofType,
@@ -211,7 +159,7 @@ func (s *PivotProofProducer) requestBatchProof(
 	}
 
 	if output.Data == nil {
-		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
+		return nil, fmt.Errorf("unexpected structure error, type: %s", proofType)
 	}
 	if output.Data.Status == ErrProofInProgress.Error() {
 		return nil, ErrProofInProgress
@@ -272,7 +220,7 @@ func (s *PivotProofProducer) requestBatchProof(
 			return nil, fmt.Errorf("unknown proof type: %s", output.ProofType)
 		}
 	}
-	return &output, nil
+	return output, nil
 }
 
 // Tier implements the ProofProducer interface.

@@ -32,6 +32,7 @@ type ContestRequestBody struct {
 	Tier       uint16
 }
 
+// ProofResponse represents a response of a proof request.
 type ProofResponse struct {
 	BlockID   *big.Int
 	Meta      metadata.TaikoProposalMetaData
@@ -41,6 +42,7 @@ type ProofResponse struct {
 	ProofType ProofType
 }
 
+// BatchProofs represents a response of a batch proof request.
 type BatchProofs struct {
 	ProofResponses     []*ProofResponse
 	BatchProof         []byte
@@ -53,6 +55,7 @@ type BatchProofs struct {
 	IsPacaya           bool
 }
 
+// ProofProducer is an interface that contains all methods to generate a proof.
 type ProofProducer interface {
 	RequestProof(
 		ctx context.Context,

@@ -1,14 +1,9 @@
 package producer
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -57,7 +52,7 @@ func (z *ProofProducerPacaya) RequestProof(
 	requestAt time.Time,
 ) (*ProofResponse, error) {
 	if !meta.IsPacaya() {
-		return nil, fmt.Errorf("current proposal is not Pacaya proposal")
+		return nil, fmt.Errorf("current proposal (%d) is not a Pacaya proposal", batchID)
 	}
 
 	log.Info(
@@ -75,6 +70,7 @@ func (z *ProofProducerPacaya) RequestProof(
 	)
 
 	g.Go(func() error {
+		// NOTE: right now we don't use the pivot proof for Pacaya, since its still not ready.
 		_, err := z.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
 		return err
 	})
@@ -224,69 +220,18 @@ func (z *ProofProducerPacaya) requestBatchProof(
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, z.RaikoRequestTimeout)
 	defer cancel()
 
-	reqBody := RaikoRequestProofBodyV3Pacaya{
-		Type:      proofType,
-		Batches:   batches,
-		Prover:    proverAddress.Hex()[2:],
-		Aggregate: isAggregation,
-	}
-
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Send batch proof generation request",
-		"proofType", proofType,
-		"isAggregation", isAggregation,
-		"start", batches[0].BatchID,
-		"end", batches[len(batches)-1].BatchID,
-		"input", string(jsonValue),
-	)
-
-	req, err := http.NewRequestWithContext(
+	output, err := requestHttpProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
-		"POST",
 		z.RaikoHostEndpoint+"/v3/proof/batch",
-		bytes.NewBuffer(jsonValue),
+		z.JWT,
+		RaikoRequestProofBodyV3Pacaya{
+			Type:      proofType,
+			Batches:   batches,
+			Prover:    proverAddress.Hex()[2:],
+			Aggregate: isAggregation,
+		},
 	)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(z.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(z.JWT)))
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request batch proof, batches: %v, statusCode: %d", batches, res.StatusCode)
-	}
-
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Batch proof generation output",
-		"proofType", proofType,
-		"isAggregation", isAggregation,
-		"start", batches[0].BatchID,
-		"end", batches[len(batches)-1].BatchID,
-		"output", string(resBytes),
-	)
-
-	var output RaikoRequestProofBodyResponseV2
-	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
 
@@ -300,7 +245,7 @@ func (z *ProofProducerPacaya) requestBatchProof(
 	}
 
 	if output.Data == nil {
-		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
+		return nil, fmt.Errorf("unexpected structure error, proofType: %s", proofType)
 	}
 	if output.Data.Status == ErrProofInProgress.Error() {
 		return nil, ErrProofInProgress
@@ -362,5 +307,5 @@ func (z *ProofProducerPacaya) requestBatchProof(
 			return nil, fmt.Errorf("unknown proof type: %s", output.ProofType)
 		}
 	}
-	return &output, nil
+	return output, nil
 }
