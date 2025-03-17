@@ -12,6 +12,7 @@ library LibPreconfUtils {
     /// 1. If block N + 1 is a missed slot, it continues querying up to 32 subsequent blocks (N + 2,
     /// N + 3, etc.) until it finds a block that contains the root for the Nth block or the target
     /// timestamp exceeds the current block timestamp.
+    /// @dev Caller should verify the returned value is not 0.
     /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
     /// @return The beacon block root as a bytes32 value.
 
