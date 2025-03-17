@@ -23,7 +23,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
     }
 
-    function test_whitelist2_addOperator() external {
+    function test_whitelist2_addThenRemoveOneOperator() external {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
