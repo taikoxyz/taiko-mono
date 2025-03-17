@@ -35,6 +35,10 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Bob);
 
+        whitelist.consolidate();
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Bob);
+
         (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
@@ -55,6 +59,10 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.prank(whitelistOwner);
         whitelist.removeOperator(Bob);
 
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Bob);
+
+        whitelist.consolidate();
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Bob);
 
@@ -95,6 +103,11 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Alice);
         assertEq(whitelist.operatorMapping(1), Bob);
 
+        whitelist.consolidate();
+        assertEq(whitelist.operatorCount(), 2);
+        assertEq(whitelist.operatorMapping(0), Alice);
+        assertEq(whitelist.operatorMapping(1), Bob);
+
         (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Alice);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
@@ -122,6 +135,11 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.prank(whitelistOwner);
         whitelist.removeOperator(Bob);
 
+        assertEq(whitelist.operatorCount(), 2);
+        assertEq(whitelist.operatorMapping(0), Alice);
+        assertEq(whitelist.operatorMapping(1), Bob);
+
+        whitelist.consolidate();
         assertEq(whitelist.operatorCount(), 2);
         assertEq(whitelist.operatorMapping(0), Alice);
         assertEq(whitelist.operatorMapping(1), Bob);
