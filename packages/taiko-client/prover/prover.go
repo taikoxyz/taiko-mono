@@ -425,6 +425,9 @@ func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
 	// Try to aggregate Ontake proofs first.
 	for _, submitter := range p.proofSubmittersOntake {
 		if s, ok := submitter.(*proofSubmitter.ProofSubmitterOntake); ok {
+			if !s.AggregationEnabled() {
+				continue
+			}
 			if aggregated := s.TryAggregate(); aggregated {
 				log.Info("Aggregated Ontake proofs")
 			}
