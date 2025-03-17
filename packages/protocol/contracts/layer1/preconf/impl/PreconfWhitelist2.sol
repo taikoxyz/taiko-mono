@@ -46,6 +46,12 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             operatorCount = _operatorCount + 1;
         }
 
+        console2.log("operator added: ", _operator);
+        console2.log("operator count: ", operatorCount);
+        console2.log("operator index: ", _operatorCount);
+        console2.log("active since: ", operators[_operator].activeSince);
+        console2.log("inactive since: ", operators[_operator].inactiveSince);
+
         emit OperatorAdded(_operator);
     }
 
@@ -168,6 +174,10 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             inactiveSince = info.activeSince + uint64(LibPreconfConstants.SECONDS_IN_EPOCH);
         }
         info.inactiveSince = inactiveSince;
+
+        console2.log("operator removed: ", operator);
+        console2.log("active since: ", info.activeSince);
+        console2.log("inactive since: ", info.inactiveSince);
 
         emit OperatorRemoved(operator);
     }

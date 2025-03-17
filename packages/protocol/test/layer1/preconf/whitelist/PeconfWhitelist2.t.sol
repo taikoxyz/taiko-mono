@@ -22,6 +22,8 @@ contract TestPreconfWhitelist2 is Layer1Test {
     }
 
     function test_whitelist2_addOperator() external {
+        vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
+
         _setBeaconBlockRoot(bytes32(uint256(1)));
         vm.prank(whitelistOwner);
         whitelist.addOperator(Bob);
@@ -38,18 +40,13 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
 
-        uint256 timestamp = block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
-
-        vm.warp(timestamp);
+        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        whitelist.getOperatorForNextEpoch();
-        // assertEq(whitelist.getOperatorForNextEpoch(), Bob);
+        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
 
-        // timestamp += LibPreconfConstants.SECONDS_IN_EPOCH;
-        // vm.warp(timestamp);
-        // // address x = whitelist.getOperatorForCurrentEpoch();
-        // assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
-        // assertEq(whitelist.getOperatorForNextEpoch(), Bob);
+        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
+        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
