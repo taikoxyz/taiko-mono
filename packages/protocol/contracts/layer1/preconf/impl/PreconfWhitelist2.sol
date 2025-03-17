@@ -7,6 +7,8 @@ import "../libs/LibPreconfConstants.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/common/EssentialContract.sol";
 
+import "forge-std/src/console2.sol";
+
 /// @title PreconfWhitelist2
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
@@ -30,13 +32,13 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
     /// @notice Add a new operator who will become effective in two epochs.
     /// @param _operator The operator to add.
-    function addOperator(address _operator) external {
+    function addOperator(address _operator) external onlyOwner {
         require(_operator != address(0), InvalidOperatorAddress());
         require(operators[_operator].activeSince == 0, OperatorAlreadyExists());
 
         uint8 _operatorCount = operatorCount;
         operators[_operator] = OperatorInfo({
-            activeSince: _epochTimestamp(2),
+            activeSince: epochTimestamp(2),
             inactiveSince: 0, // 0 indicates no removal scheduled.
             index: _operatorCount
         });
@@ -44,17 +46,19 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         unchecked {
             operatorCount = _operatorCount + 1;
         }
+
+         emit OperatorAdded(_operator);
     }
 
     /// @notice Removes an operator by address who will become inactive in two epochs.
     /// @param _operator The address of the operator to remove.
-    function removeOperator(address _operator) external {
+    function removeOperator(address _operator) external onlyOwner {
         _removeOperator(_operator);
     }
 
     /// @notice Removes an operator by index.
     /// @param _operatorIndex The index of the operator to remove.
-    function removeOperator(uint256 _operatorIndex) external {
+    function removeOperator(uint256 _operatorIndex) external onlyOwner {
         require(_operatorIndex < operatorCount, InvalidOperatorIndex());
         _removeOperator(operatorMapping[_operatorIndex]);
     }
@@ -62,8 +66,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     // Consolidate cleans up the operator mapping by removing operators whose removal epoch has
     // passed.
     // It swaps removed operators with the last entry and decrements the operatorCount.
-    function consolidate() external {
-        uint64 currentEpoch = _epochTimestamp(0);
+    function consolidate() external  {
+        uint64 currentEpoch = epochTimestamp(0);
         uint8 i;
         uint8 _operatorCount = operatorCount;
 
@@ -82,7 +86,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
                 // Remove the operator from the mapping
                 delete operators[operator];
                 delete operatorMapping[lastIndex];
-                _operatorCount = lastIndex;
+                _operatorCount--;
                 // Do not increment i to check the swapped entry
             } else {
                 ++i;
@@ -94,24 +98,33 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
     // Returns the list of operators active in the current epoch.
     function getOperatorForCurrentEpoch() external view returns (address) {
-        return _getOperatorForEpoch(_epochTimestamp(0));
+        return _getOperatorForEpoch(epochTimestamp(0));
     }
 
     // Returns the list of operators active in the next epoch.
     function getOperatorForNextEpoch() external view returns (address) {
-        return _getOperatorForEpoch(_epochTimestamp(1));
+        return _getOperatorForEpoch(epochTimestamp(1));
     }
 
     // Returns true if the operator is active in the given epoch.
     function isOperatorActive(address _operator, uint64 _epoch) public view returns (bool) {
+        if (_operator == address(0)) return false;
         OperatorInfo memory info = operators[_operator];
         if (_epoch < info.activeSince) return false;
         if (info.inactiveSince != 0 && _epoch >= info.inactiveSince) return false;
         return true;
     }
 
+      function epochTimestamp(uint256 offset) public view returns (uint64) {
+        return uint64(
+            LibPreconfUtils.getEpochTimestamp() + offset * LibPreconfConstants.SECONDS_IN_EPOCH
+        );
+    }
+
     function _getOperatorForEpoch(uint64 _epoch) internal view returns (address) {
-        address[] memory activeOperators = new address[](type(uint8).max);
+         require(block.timestamp > _epoch, OperatorNotAvailableYet());
+        // Only allocate what we need - operatorCount is the maximum we could have
+        address[] memory activeOperators = new address[](operatorCount);
         uint8 count;
         for (uint8 i; i < operatorCount; ++i) {
             address operator = operatorMapping[i];
@@ -119,6 +132,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
                 activeOperators[count++] = operator;
             }
         }
+
+         require(count != 0, InvalidOperatorCount());
 
         bytes32 randomness = LibPreconfUtils.getBeaconBlockRoot(
             _epoch - uint64(LibPreconfConstants.SECONDS_IN_EPOCH)
@@ -132,19 +147,18 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     /// If the operator has not yet become active, it will be active for one epoch and removed in
     /// activeSince + 1 epoch.
     function _removeOperator(address operator) internal {
+        require(operator != address(0), InvalidOperatorAddress());
         OperatorInfo storage info = operators[operator];
         require(info.activeSince != 0, InvalidOperatorAddress());
 
-        uint64 inactiveSince = _epochTimestamp(2);
+        uint64 inactiveSince = epochTimestamp(2);
         if (inactiveSince <= info.activeSince) {
             inactiveSince = info.activeSince + uint64(LibPreconfConstants.SECONDS_IN_EPOCH);
         }
         info.inactiveSince = inactiveSince;
+
+        emit OperatorRemoved(operator);
     }
 
-    function _epochTimestamp(uint256 offset) internal view returns (uint64) {
-        return uint64(
-            LibPreconfUtils.getEpochTimestamp() + offset * LibPreconfConstants.SECONDS_IN_EPOCH
-        );
-    }
+  
 }
