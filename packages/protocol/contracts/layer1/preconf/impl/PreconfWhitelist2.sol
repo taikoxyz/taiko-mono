@@ -98,12 +98,12 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
     // Returns the list of operators active in the current epoch.
     function getOperatorForCurrentEpoch() external view returns (address) {
-        return _getOperatorForEpoch(epochTimestamp(0));
+        return _getOperatorForEpoch(epochTimestamp(0) - uint64(LibPreconfConstants.SECONDS_IN_EPOCH));
     }
 
     // Returns the list of operators active in the next epoch.
     function getOperatorForNextEpoch() external view returns (address) {
-        return _getOperatorForEpoch(epochTimestamp(1));
+        return _getOperatorForEpoch(epochTimestamp(0));
     }
 
     // Returns true if the operator is active in the given epoch.
