@@ -47,7 +47,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             operatorCount = _operatorCount + 1;
         }
 
-         emit OperatorAdded(_operator);
+        emit OperatorAdded(_operator);
     }
 
     /// @notice Removes an operator by address who will become inactive in two epochs.
@@ -66,7 +66,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     // Consolidate cleans up the operator mapping by removing operators whose removal epoch has
     // passed.
     // It swaps removed operators with the last entry and decrements the operatorCount.
-    function consolidate() external  {
+    function consolidate() external {
         uint64 currentEpoch = epochTimestamp(0);
         uint8 i;
         uint8 _operatorCount = operatorCount;
@@ -115,14 +115,15 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         return true;
     }
 
-      function epochTimestamp(uint256 offset) public view returns (uint64) {
+    function epochTimestamp(uint256 offset) public view returns (uint64) {
         return uint64(
             LibPreconfUtils.getEpochTimestamp() + offset * LibPreconfConstants.SECONDS_IN_EPOCH
         );
     }
 
     function _getOperatorForEpoch(uint64 _epoch) internal view returns (address) {
-         require(block.timestamp > _epoch, OperatorNotAvailableYet());
+        if (block.timestamp <= _epoch) return address(0);
+
         // Only allocate what we need - operatorCount is the maximum we could have
         address[] memory activeOperators = new address[](operatorCount);
         uint8 count;
@@ -133,7 +134,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             }
         }
 
-         require(count != 0, InvalidOperatorCount());
+        if (count == 0) return address(0);
 
         bytes32 randomness = LibPreconfUtils.getBeaconBlockRoot(
             _epoch - uint64(LibPreconfConstants.SECONDS_IN_EPOCH)
@@ -159,6 +160,4 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
         emit OperatorRemoved(operator);
     }
-
-  
 }
