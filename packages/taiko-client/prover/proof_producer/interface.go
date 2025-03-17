@@ -21,6 +21,8 @@ const (
 	ProofTypeZKAny  ProofType = "zk_any"
 )
 
+// ProofRequestOptions is an interface that contains all options that need to be passed to a backend proof producer
+// service.
 type ProofRequestOptions interface {
 	IsPacaya() bool
 	OntakeOptions() *ProofRequestOptionsOntake
