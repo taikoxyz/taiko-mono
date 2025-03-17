@@ -214,12 +214,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 					"bufferFirstItemAt", firstItemAt,
 				)
 				// Check if we need to aggregate proofs.
-				if !s.proofBuffer.IsAggregating() &&
-					(uint64(bufferSize) >= s.proofBuffer.MaxLength ||
-						(s.proofBuffer.Len() != 0 && time.Since(firstItemAt) > s.forceBatchProvingInterval)) {
-					s.aggregationNotify <- s.Tier()
-					s.proofBuffer.MarkAggregating()
-				}
+				s.TryAggregate()
 			} else {
 				s.resultCh <- result
 			}
@@ -239,6 +234,21 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 	}
 
 	return nil
+}
+
+// TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
+// or the forced aggregation interval has passed.
+func (s *ProofSubmitterOntake) TryAggregate() bool {
+	if !s.proofBuffer.IsAggregating() &&
+		(uint64(s.proofBuffer.Len()) >= s.proofBuffer.MaxLength ||
+			(s.proofBuffer.Len() != 0 && time.Since(s.proofBuffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
+		s.aggregationNotify <- s.Tier()
+		s.proofBuffer.MarkAggregating()
+
+		return true
+	}
+
+	return false
 }
 
 // SubmitProof implements the Submitter interface.
