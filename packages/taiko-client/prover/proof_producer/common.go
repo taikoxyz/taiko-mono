@@ -36,7 +36,7 @@ func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, req
 }
 
 // requestHTTPProofResponse sends a POST request to the given URL with the given JWT and request body,
-// and returns the raw HTTP response.
+// and returns the raw HTTP response, the caller is responsible for closing the response body.
 func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string, reqBody T) (*http.Response, error) {
 	client := &http.Client{}
 
