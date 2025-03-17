@@ -21,19 +21,12 @@ func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, req
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(
-			"failed to request proof,  statusCode: %d",
-			res.StatusCode,
-		)
-	}
-
 	resBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debug("Proof generation output", "output", string(resBytes))
+	log.Debug("Proof generation output", "url", url, "output", string(resBytes))
 	var output U
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
@@ -66,10 +59,10 @@ func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string
 		return nil, err
 	}
 
-	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf(
-			"failed to request proof,  statusCode: %d",
+			"failed to request proof, url: %s, statusCode: %d",
+			url,
 			res.StatusCode,
 		)
 	}
