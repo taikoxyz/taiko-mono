@@ -215,17 +215,6 @@ func (s *SGXProofProducer) requestBatchProof(
 	for i := range blockIDs {
 		blocks[i][0] = blockIDs[i]
 	}
-	reqBody := RaikoRequestProofBodyV3{
-		Type:     s.ProofType,
-		Blocks:   blocks,
-		Prover:   proverAddress.Hex()[2:],
-		Graffiti: graffiti,
-		SGX: &SGXRequestProofBodyParam{
-			Setup:     false,
-			Bootstrap: false,
-			Prove:     true,
-		},
-	}
 
 	output, err := requestHTTPProof[RaikoRequestProofBodyV3, RaikoRequestProofBodyResponseV2](
 		ctx,
@@ -255,7 +244,7 @@ func (s *SGXProofProducer) requestBatchProof(
 	}
 
 	if output.Data == nil {
-		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
+		return nil, fmt.Errorf("unexpected structure error, type: %s", ProofTypeSgx)
 	}
 	if output.Data.Status == ErrProofInProgress.Error() {
 		return nil, ErrProofInProgress
