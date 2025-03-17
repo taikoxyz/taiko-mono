@@ -31,8 +31,8 @@ type RaikoRequestProofBodyV3Pacaya struct {
 	Type      ProofType       `json:"proof_type"`
 }
 
-// ProofProducerPacaya generates a proof for the given block.
-type ProofProducerPacaya struct {
+// ComposeProofProducer generates a compose proof for the given block.
+type ComposeProofProducer struct {
 	Verifiers           map[ProofType]common.Address
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
@@ -44,7 +44,7 @@ type ProofProducerPacaya struct {
 }
 
 // RequestProof implements the ProofProducer interface.
-func (z *ProofProducerPacaya) RequestProof(
+func (s *ComposeProofProducer) RequestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	batchID *big.Int,
@@ -71,24 +71,24 @@ func (z *ProofProducerPacaya) RequestProof(
 
 	g.Go(func() error {
 		// NOTE: right now we don't use the pivot proof for Pacaya, since its still not ready.
-		_, err := z.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
+		_, err := s.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
 		return err
 	})
 	g.Go(func() error {
-		if z.IsOp {
-			proofType = z.ProofType
-			if resp, err := z.DummyProofProducer.RequestProof(opts, batchID, meta, z.Tier(), requestAt); err != nil {
+		if s.IsOp {
+			proofType = s.ProofType
+			if resp, err := s.DummyProofProducer.RequestProof(opts, batchID, meta, s.Tier(), requestAt); err != nil {
 				return err
 			} else {
 				proof = resp.Proof
 			}
 		} else {
-			if resp, err := z.requestBatchProof(
+			if resp, err := s.requestBatchProof(
 				ctx,
 				batches,
 				opts.GetProverAddress(),
 				false,
-				z.ProofType,
+				s.ProofType,
 				requestAt,
 			); err != nil {
 				return err
@@ -109,13 +109,13 @@ func (z *ProofProducerPacaya) RequestProof(
 		Meta:      meta,
 		Proof:     proof,
 		Opts:      opts,
-		Tier:      z.Tier(),
+		Tier:      s.Tier(),
 		ProofType: proofType,
 	}, nil
 }
 
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
-func (z *ProofProducerPacaya) Aggregate(
+func (s *ComposeProofProducer) Aggregate(
 	ctx context.Context,
 	items []*ProofResponse,
 	requestAt time.Time,
@@ -124,7 +124,7 @@ func (z *ProofProducerPacaya) Aggregate(
 		return nil, ErrInvalidLength
 	}
 	proofType := items[0].ProofType
-	verifier, exist := z.Verifiers[proofType]
+	verifier, exist := s.Verifiers[proofType]
 	if !exist {
 		return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
 	}
@@ -152,18 +152,18 @@ func (z *ProofProducerPacaya) Aggregate(
 		batchIDs = append(batchIDs, item.Meta.Pacaya().GetBatchID())
 	}
 	g.Go(func() error {
-		if pivotBatchProofs, err = z.PivotProducer.Aggregate(ctx, items, requestAt); err != nil {
+		if pivotBatchProofs, err = s.PivotProducer.Aggregate(ctx, items, requestAt); err != nil {
 			return err
 		}
 		return nil
 	})
 	g.Go(func() error {
-		if z.IsOp {
-			proofType = z.ProofType
-			resp, _ := z.DummyProofProducer.RequestBatchProofs(items, z.Tier(), z.ProofType)
+		if s.IsOp {
+			proofType = s.ProofType
+			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), s.ProofType)
 			batchProofs = resp.BatchProof
 		} else {
-			if resp, err := z.requestBatchProof(
+			if resp, err := s.requestBatchProof(
 				ctx,
 				batches,
 				items[0].Opts.GetProverAddress(),
@@ -185,7 +185,7 @@ func (z *ProofProducerPacaya) Aggregate(
 	return &BatchProofs{
 		ProofResponses:     items,
 		BatchProof:         batchProofs,
-		Tier:               z.Tier(),
+		Tier:               s.Tier(),
 		BlockIDs:           batchIDs,
 		ProofType:          proofType,
 		Verifier:           verifier,
@@ -196,7 +196,7 @@ func (z *ProofProducerPacaya) Aggregate(
 }
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
-func (z *ProofProducerPacaya) RequestCancel(
+func (s *ComposeProofProducer) RequestCancel(
 	_ context.Context,
 	_ ProofRequestOptions,
 ) error {
@@ -204,12 +204,12 @@ func (z *ProofProducerPacaya) RequestCancel(
 }
 
 // Tier implements the ProofProducer interface.
-func (z *ProofProducerPacaya) Tier() uint16 {
+func (z *ComposeProofProducer) Tier() uint16 {
 	return encoding.TierDeprecated
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
-func (z *ProofProducerPacaya) requestBatchProof(
+func (s *ComposeProofProducer) requestBatchProof(
 	ctx context.Context,
 	batches []*RaikoBatches,
 	proverAddress common.Address,
@@ -217,13 +217,13 @@ func (z *ProofProducerPacaya) requestBatchProof(
 	proofType ProofType,
 	requestAt time.Time,
 ) (*RaikoRequestProofBodyResponseV2, error) {
-	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, z.RaikoRequestTimeout)
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
 	output, err := requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
-		z.RaikoHostEndpoint+"/v3/proof/batch",
-		z.JWT,
+		s.RaikoHostEndpoint+"/v3/proof/batch",
+		s.JWT,
 		RaikoRequestProofBodyV3Pacaya{
 			Type:      proofType,
 			Batches:   batches,
