@@ -312,7 +312,7 @@ func (s *SGXProofProducer) callProverDaemon(
 	}
 
 	// Raiko returns "" as proof when proof type is native,
-	// so we just convert "" to bytes
+	// so we just convert "" to bytes.
 	if s.ProofType == ProofTypeSgxCPU {
 		proof = common.Hex2Bytes(output.Data.Proof.Proof)
 	} else {
