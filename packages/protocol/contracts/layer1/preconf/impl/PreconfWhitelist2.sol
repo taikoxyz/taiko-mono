@@ -135,6 +135,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             return address(0);
         }
 
+        // Use the previous epoch's start timestamp as the random number, if it is not available
+        // (zero), return address(0) directly.
         bytes32 root = LibPreconfUtils.getBeaconBlockRoot(
             _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
         );
