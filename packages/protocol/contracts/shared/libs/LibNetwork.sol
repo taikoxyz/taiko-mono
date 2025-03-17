@@ -11,6 +11,7 @@ library LibNetwork {
     uint256 internal constant ETHEREUM_HOLESKY = 17_000;
     uint256 internal constant ETHEREUM_SEPOLIA = 11_155_111;
     uint256 internal constant ETHEREUM_HELDER = 7_014_190_335;
+    uint256 internal constant ETHEREUM_HOODI = 560_048;
 
     uint64 internal constant TAIKO_MAINNET = 167_000;
     uint64 internal constant TAIKO_HEKLA = 167_009;
@@ -25,7 +26,7 @@ library LibNetwork {
         return _chainId == LibNetwork.ETHEREUM_ROPSTEN || _chainId == LibNetwork.ETHEREUM_RINKEBY
             || _chainId == LibNetwork.ETHEREUM_GOERLI || _chainId == LibNetwork.ETHEREUM_KOVAN
             || _chainId == LibNetwork.ETHEREUM_HOLESKY || _chainId == LibNetwork.ETHEREUM_SEPOLIA
-            || _chainId == LibNetwork.ETHEREUM_HELDER;
+            || _chainId == LibNetwork.ETHEREUM_HELDER || _chainId == LibNetwork.ETHEREUM_HOODI;
     }
 
     /// @dev Checks if the chain ID represents an Ethereum testnet or the Etheruem mainnet.
@@ -58,6 +59,6 @@ library LibNetwork {
     function isDencunSupported(uint256 _chainId) internal pure returns (bool) {
         return _chainId == LibNetwork.ETHEREUM_MAINNET || _chainId == LibNetwork.ETHEREUM_HOLESKY
             || _chainId == LibNetwork.ETHEREUM_SEPOLIA || _chainId == LibNetwork.ETHEREUM_HELDER
-            || isTaikoDevnet(_chainId);
+            || _chainId == LibNetwork.ETHEREUM_HOODI || isTaikoDevnet(_chainId);
     }
 }
