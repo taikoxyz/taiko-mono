@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./WhitelistTestBase.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 
-contract WhitelistTest is WhitelistTestBase {
+contract TestPreconfWhitelist is WhitelistTestBase {
     function test_addOperator() external {
         address operator = Bob;
 
