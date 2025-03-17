@@ -19,7 +19,7 @@ contract TestLibPreconfUtils is Test {
 
         vm.warp(block.timestamp + 48);
         assertEq(block.timestamp, 49);
-        
+
         root = LibPreconfUtils.getBeaconBlockRoot(20);
         assertEq(root, bytes32(uint256(20)));
 
