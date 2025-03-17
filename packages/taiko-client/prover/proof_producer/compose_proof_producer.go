@@ -204,7 +204,7 @@ func (s *ComposeProofProducer) RequestCancel(
 }
 
 // Tier implements the ProofProducer interface.
-func (z *ComposeProofProducer) Tier() uint16 {
+func (s *ComposeProofProducer) Tier() uint16 {
 	return encoding.TierDeprecated
 }
 
