@@ -7,6 +7,6 @@ import "src/layer1/based/IProposeBatch.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfRouter is IProposeBatch {
     error ForcedInclusionNotSupported();
-    error NotTheOperator();
-    error ProposerIsNotTheSender();
+    error NotPreconfer();
+    error ProposerIsNotPreconfer();
 }

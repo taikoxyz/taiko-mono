@@ -88,7 +88,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
-        vm.expectRevert(IPreconfRouter.NotTheOperator.selector);
+        vm.expectRevert(IPreconfRouter.NotPreconfer.selector);
         router.proposeBatch("", "");
     }
 
@@ -141,7 +141,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        vm.expectRevert(IPreconfRouter.ProposerIsNotTheSender.selector);
+        vm.expectRevert(IPreconfRouter.ProposerIsNotPreconfer.selector);
         router.proposeBatch(abi.encode(params), "");
     }
 }
