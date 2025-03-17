@@ -19,12 +19,16 @@ contract TestPreconfWhitelist2 is Layer1Test {
                 data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner))
             })
         );
+
+        vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
     }
 
     function test_whitelist2_addOperator() external {
-        vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
+        _setBeaconBlockRoot(bytes32(uint256(7)));
 
-        _setBeaconBlockRoot(bytes32(uint256(1)));
+        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
+        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
+
         vm.prank(whitelistOwner);
         whitelist.addOperator(Bob);
 
@@ -47,6 +51,29 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
         assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
         assertEq(whitelist.getOperatorForNextEpoch(), Bob);
+
+        vm.prank(whitelistOwner);
+        whitelist.removeOperator(Bob);
+
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Bob);
+
+        uint256 oldActiveSince = activeSince;
+        (activeSince, inactiveSince, index) = whitelist.operators(Bob);
+        assertEq(activeSince, oldActiveSince);
+        assertEq(inactiveSince, whitelist.epochTimestamp(2));
+        assertEq(index, 0);
+
+        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
+        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
+
+        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
+        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
+
+        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
+        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
