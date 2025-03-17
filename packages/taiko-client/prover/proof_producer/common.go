@@ -45,7 +45,7 @@ func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
 	}

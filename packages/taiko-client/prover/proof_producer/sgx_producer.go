@@ -1,14 +1,9 @@
 package producer
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -177,48 +172,26 @@ func (s *SGXProofProducer) RequestCancel(
 	if opts.IsPacaya() {
 		return fmt.Errorf("sgx proof cancellation is not supported for Pacaya fork")
 	}
-	reqBody := RaikoRequestProofBody{
-		Type:     s.ProofType,
-		Block:    opts.OntakeOptions().BlockID,
-		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
-		Graffiti: opts.OntakeOptions().Graffiti,
-		SGX: &SGXRequestProofBodyParam{
-			Setup:     false,
-			Bootstrap: false,
-			Prove:     true,
-		},
-	}
 
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(
+	res, err := requestHTTPProofResponse[RaikoRequestProofBody](
 		ctx,
-		"POST",
 		s.RaikoHostEndpoint+"/v2/proof/cancel",
-		bytes.NewBuffer(jsonValue),
-	)
+		s.JWT,
+		RaikoRequestProofBody{
+			Type:     s.ProofType,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
+			SGX: &SGXRequestProofBodyParam{
+				Setup:     false,
+				Bootstrap: false,
+				Prove:     true,
+			},
+		})
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to cancel requesting proof, statusCode: %d", res.StatusCode)
-	}
 
 	return nil
 }
@@ -254,58 +227,23 @@ func (s *SGXProofProducer) requestBatchProof(
 		},
 	}
 
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Send batch proof generation request",
-		"blockIDs", blockIDs,
-		"proofType", "sgx",
-		"input", string(jsonValue),
-	)
-
-	req, err := http.NewRequestWithContext(
+	output, err := requestHTTPProof[RaikoRequestProofBodyV3, RaikoRequestProofBodyResponseV2](
 		ctx,
-		"POST",
 		s.RaikoHostEndpoint+"/v3/proof",
-		bytes.NewBuffer(jsonValue),
+		s.JWT,
+		RaikoRequestProofBodyV3{
+			Type:     s.ProofType,
+			Blocks:   blocks,
+			Prover:   proverAddress.Hex()[2:],
+			Graffiti: graffiti,
+			SGX: &SGXRequestProofBodyParam{
+				Setup:     false,
+				Bootstrap: false,
+				Prove:     true,
+			},
+		},
 	)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request batch proof, ids: %v, statusCode: %d", blockIDs, res.StatusCode)
-	}
-
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Batch proof generation output",
-		"blockIDs", blockIDs,
-		"proofType", "sgx",
-		"output", string(resBytes),
-	)
-
-	var output RaikoRequestProofBodyResponseV2
-	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
 
