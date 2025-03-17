@@ -348,7 +348,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 				break
 			}
 
-			// Validate TaikoL2.anchor transaction inside the L2 block.
+			// Validate TaikoAnchor.anchoV3 transaction inside the L2 block.
 			anchorTx := block.Transactions()[0]
 			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
 				log.Error("Invalid anchor transaction", "error", err)
@@ -371,7 +371,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		return ErrInvalidProof
 	}
 
-	// Build the TaikoL1.proveBlocks transaction and send it to the L1 node.
+	// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
 		s.txBuilder.BuildProveBatchesPacaya(batchProof),
@@ -395,7 +395,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error {
 	proofBuffer, exist := s.proofBuffers[proofType]
 	if !exist {
-		return fmt.Errorf("get unexpected proof type: %s", proofType)
+		return fmt.Errorf("failed to get expected proof type: %s", proofType)
 	}
 	var producer proofProducer.ProofProducer
 	// nolint:exhaustive
@@ -454,7 +454,7 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 
 // AggregateProofs implements the Submitter interface.
 func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
-	return fmt.Errorf("%s is not implemented for Pacaya submitter", "AggregateProofs")
+	return fmt.Errorf("AggregateProofs is not implemented for Pacaya submitter")
 }
 
 // Producer implements the Submitter interface.
@@ -477,5 +477,6 @@ func (s *ProofSubmitterPacaya) BufferSize() uint64 {
 
 // AggregationEnabled implements the Submitter interface.
 func (s *ProofSubmitterPacaya) AggregationEnabled() bool {
+	// Aggregation is always enabled for Pacaya.
 	return true
 }
