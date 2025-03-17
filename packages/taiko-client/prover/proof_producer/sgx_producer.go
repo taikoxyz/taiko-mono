@@ -415,7 +415,7 @@ func (s *SGXProofProducer) requestProof(
 		return nil, fmt.Errorf("sgx proof generation is not supported for Pacaya fork")
 	}
 
-	output, err := requestHttpProof[RaikoRequestProofBody, RaikoRequestProofBodyResponseV2](
+	output, err := requestHTTPProof[RaikoRequestProofBody, RaikoRequestProofBodyResponseV2](
 		ctx,
 		s.RaikoHostEndpoint+"/v2/proof",
 		s.JWT,

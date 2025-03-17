@@ -133,7 +133,7 @@ func (s *PivotProofProducer) requestBatchProof(
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
-	output, err := requestHttpProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
+	output, err := requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
 		s.RaikoHostEndpoint+"/v3/proof/batch",
 		s.JWT,

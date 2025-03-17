@@ -220,7 +220,7 @@ func (z *ProofProducerPacaya) requestBatchProof(
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, z.RaikoRequestTimeout)
 	defer cancel()
 
-	output, err := requestHttpProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
+	output, err := requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
 		z.RaikoHostEndpoint+"/v3/proof/batch",
 		z.JWT,

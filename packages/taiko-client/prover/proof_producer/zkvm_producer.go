@@ -201,7 +201,7 @@ func (s *ZKvmProofProducer) requestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
-	output, err := requestHttpProof[RaikoRequestProofBody, RaikoRequestProofBodyResponseV2](
+	output, err := requestHTTPProof[RaikoRequestProofBody, RaikoRequestProofBodyResponseV2](
 		ctx,
 		s.RaikoHostEndpoint+"/v2/proof",
 		s.JWT,
@@ -240,7 +240,7 @@ func (s *ZKvmProofProducer) requestCancel(
 		return fmt.Errorf("proof cancellation is not supported for Pacaya fork")
 	}
 
-	_, err := requestHttpProofResponse[RaikoRequestProofBody](
+	res, err := requestHTTPProofResponse[RaikoRequestProofBody](
 		ctx,
 		s.RaikoHostEndpoint+"/v2/proof/cancel",
 		s.JWT,
@@ -254,8 +254,12 @@ func (s *ZKvmProofProducer) requestCancel(
 			},
 		},
 	)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
 
-	return err
+	return nil
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
@@ -279,7 +283,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		blocks[i][0] = blockIDs[i]
 	}
 
-	output, err := requestHttpProof[RaikoRequestProofBodyV3, RaikoRequestProofBodyResponseV2](
+	output, err := requestHTTPProof[RaikoRequestProofBodyV3, RaikoRequestProofBodyResponseV2](
 		ctx,
 		s.RaikoHostEndpoint+"/v3/proof",
 		s.JWT,

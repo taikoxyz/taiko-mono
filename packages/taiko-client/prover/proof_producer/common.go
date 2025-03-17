@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// requestHttpProof sends a POST request to the given URL with the given JWT and request body,
+// requestHTTPProof sends a POST request to the given URL with the given JWT and request body,
 // to get a proof of the given type.
-func requestHttpProof[T, U any](ctx context.Context, url string, jwt string, reqBody T) (*U, error) {
-	res, err := requestHttpProofResponse(ctx, url, jwt, reqBody)
+func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, reqBody T) (*U, error) {
+	res, err := requestHTTPProofResponse(ctx, url, jwt, reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +42,9 @@ func requestHttpProof[T, U any](ctx context.Context, url string, jwt string, req
 	return &output, nil
 }
 
-// requestHttpProofResponse sends a POST request to the given URL with the given JWT and request body,
+// requestHTTPProofResponse sends a POST request to the given URL with the given JWT and request body,
 // and returns the raw HTTP response.
-func requestHttpProofResponse[T any](ctx context.Context, url string, jwt string, reqBody T) (*http.Response, error) {
+func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string, reqBody T) (*http.Response, error) {
 	client := &http.Client{}
 
 	jsonValue, err := json.Marshal(reqBody)
