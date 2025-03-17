@@ -42,8 +42,8 @@ func requestHttpProof[T, U any](ctx context.Context, url string, jwt string, req
 	return &output, nil
 }
 
-// requestHttpProof sends a POST request to the given URL with the given JWT and request body,
-// to get a proof of the given type.
+// requestHttpProofResponse sends a POST request to the given URL with the given JWT and request body,
+// and returns the raw HTTP response.
 func requestHttpProofResponse[T any](ctx context.Context, url string, jwt string, reqBody T) (*http.Response, error) {
 	client := &http.Client{}
 
