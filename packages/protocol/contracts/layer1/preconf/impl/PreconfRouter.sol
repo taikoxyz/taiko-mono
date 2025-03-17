@@ -39,12 +39,12 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     {
         // Sender must be the selected operator for the epoch
         address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
-        require(preconfer == address(0) || preconfer == msg.sender, NotTheOperator());
+        require(preconfer == address(0) || preconfer == msg.sender, NotPreconfer());
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
         (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
-        require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
+        require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());
     }
 }
