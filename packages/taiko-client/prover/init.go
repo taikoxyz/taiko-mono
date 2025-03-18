@@ -111,7 +111,7 @@ func (p *Prover) initProofSubmitters(
 				proofProducer = &producer.SGXProofProducer{
 					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
-					ProofType:           proofProducer.ProofTypeSgx,
+					ProofType:           producer.ProofTypeSgx,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 				}
 			case encoding.TierZkVMRisc0ID:
@@ -158,11 +158,7 @@ func (p *Prover) initProofSubmitters(
 			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
 		}
 	}
-	if utils.IsNil(p.rpc.PacayaClients.ComposeVerifier) {
-		return nil
-	} else {
-		return p.initPacayaProofSubmitter(txBuilder)
-	}
+	return p.initPacayaProofSubmitter(txBuilder)
 }
 
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.

@@ -17,9 +17,9 @@ import (
 
 // SGXProofProducer generates a SGX proof for the given block.
 type SGXProofProducer struct {
-	RaikoHostEndpoint   string // a prover RPC endpoint
-	ProofType           string // Proof type
-	JWT                 string // JWT provided by Raiko
+	RaikoHostEndpoint   string    // a prover RPC endpoint
+	ProofType           ProofType // Proof type
+	JWT                 string    // JWT provided by Raiko
 	RaikoRequestTimeout time.Duration
 }
 

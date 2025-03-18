@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -81,6 +80,7 @@ type ClientConfig struct {
 	TaikoTokenAddress             common.Address
 	ForcedInclusionStoreAddress   common.Address
 	PreconfWhitelistAddress       common.Address
+	ComposeVerifierAddress        common.Address
 	GuardianProverMinorityAddress common.Address
 	GuardianProverMajorityAddress common.Address
 	ProverSetAddress              common.Address
@@ -268,6 +268,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		taikoWrapper         *pacayaBindings.TaikoWrapperClient
 		forcedInclusionStore *pacayaBindings.ForcedInclusionStore
 		preconfWhitelist     *pacayaBindings.PreconfWhitelist
+		composeVerifier      *pacayaBindings.ComposeVerifier
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -283,17 +284,8 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	opts := &bind.CallOpts{Context: context.Background()}
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
-	var composeVerifier *pacayaBindings.ComposeVerifier
-	composeVerifierAddress, err := taikoInbox.Verifier(opts)
-	if err != nil {
-		if strings.Contains(err.Error(), "execution reverted") {
-			log.Warn("Currently there are no verifier function in TaikoInbox", "err", err)
-		} else {
-			return err
-		}
-	} else {
-		composeVerifier, err = pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
-		if err != nil {
+	if cfg.ComposeVerifierAddress.Hex() != ZeroAddress.Hex() {
+		if composeVerifier, err = pacayaBindings.NewComposeVerifier(cfg.ComposeVerifierAddress, c.L1); err != nil {
 			return err
 		}
 	}
