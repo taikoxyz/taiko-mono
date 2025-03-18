@@ -155,24 +155,31 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			}
 			// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
 			if s.zkvmProofProducer != nil {
-				if proofResponse, err = s.requestZKProof(ctx, opts, meta, startAt); err != nil {
+				if proofResponse, err = s.zkvmProofProducer.RequestProof(
+					ctx,
+					opts,
+					meta.Pacaya().GetBatchID(),
+					meta,
+					startAt,
+				); err != nil {
 					if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
 						// If zk proof is not drawn, request SGX proof.
 						log.Debug("ZK proof was not chosen, attempting to request SGX proof", "batchID", opts.BatchID)
-					} else if errors.Is(err, proofProducer.ErrProofGeneartionTimeout) {
-						return nil // Skip the proof generation if it has timed out.
 					} else {
-						return err
+						return fmt.Errorf("failed to request zk proof, error: %w", err)
 					}
 				}
 			}
 			// If zk proof is not enabled or zk proof is not drawn, request the base level proof.
 			if proofResponse == nil {
-				if proofResponse, err = s.requestBaseLevelProof(ctx, opts, meta, startAt); err != nil {
-					if errors.Is(err, proofProducer.ErrProofGeneartionTimeout) {
-						return nil // Skip the proof generation if it has timed out.
-					}
-					return err
+				if proofResponse, err = s.baseLevelProofProducer.RequestProof(
+					ctx,
+					opts,
+					meta.Pacaya().GetBatchID(),
+					meta,
+					startAt,
+				); err != nil {
+					return fmt.Errorf("failed to request base proof, error: %w", err)
 				}
 			}
 			// Try to add the proof to the buffer.
@@ -382,62 +389,6 @@ func (s *ProofSubmitterPacaya) BufferSize() uint64 {
 func (s *ProofSubmitterPacaya) AggregationEnabled() bool {
 	// Aggregation is always enabled for Pacaya.
 	return true
-}
-
-// requestZKProof requests the ZK proof from the producer, if zk proof is not enabled,
-// it will return a nil response.
-func (s *ProofSubmitterPacaya) requestZKProof(
-	ctx context.Context,
-	opts proofProducer.ProofRequestOptions,
-	meta metadata.TaikoProposalMetaData,
-	startAt time.Time,
-) (*proofProducer.ProofResponse, error) {
-	response, err := s.zkvmProofProducer.RequestProof(ctx, opts, meta.Pacaya().GetBatchID(), meta, startAt)
-	if err != nil {
-		if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startAt) >= ProofTimeout {
-			log.Error(
-				"Request proof has timed out, start to cancel",
-				"batchID", meta.Pacaya().GetBatchID(),
-			)
-			if cancelErr := s.zkvmProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
-				log.Error("Failed to request cancellation of proof", "err", cancelErr)
-			}
-			return nil, proofProducer.ErrProofGeneartionTimeout
-		} else {
-			log.Error(
-				"Request new proof error",
-				"batchID", meta.Pacaya().GetBatchID(),
-				"proofType", "zkAny",
-				"error", err,
-			)
-			return nil, err
-		}
-	}
-
-	return response, nil
-}
-
-// requestBaseLevelProof requests the base level proof from the producer.
-func (s *ProofSubmitterPacaya) requestBaseLevelProof(
-	ctx context.Context,
-	opts proofProducer.ProofRequestOptions,
-	meta metadata.TaikoProposalMetaData,
-	startAt time.Time,
-) (*proofProducer.ProofResponse, error) {
-	response, err := s.baseLevelProofProducer.RequestProof(ctx, opts, meta.Pacaya().GetBatchID(), meta, startAt)
-	if err != nil {
-		// If request proof has timed out, let's cancel the proof generating and skip this proof.
-		if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startAt) >= ProofTimeout {
-			log.Error("Request proof has timed out, start to cancel", "batchID", opts.PacayaOptions().BatchID)
-			if cancelErr := s.baseLevelProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
-				log.Error("Failed to request cancellation of proof", "err", cancelErr)
-			}
-			return nil, proofProducer.ErrProofGeneartionTimeout
-		}
-		return nil, fmt.Errorf("failed to request proof (id: %d): %w", meta.Pacaya().GetBatchID(), err)
-	}
-
-	return response, nil
 }
 
 // validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
