@@ -21,14 +21,14 @@ import (
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataOnly() {
 	builder := s.newTestBuilderWithFallback(false, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}, {2}})
+	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}, {2}}, common.Hash{})
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataWithBlobAllowed() {
 	builder := s.newTestBuilderWithFallback(true, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}, {2}})
+	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}, {2}}, common.Hash{})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }
@@ -45,7 +45,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 	builder := s.newTestBuilderWithFallback(true, true, nil)
 	candidate, err := builder.BuildOntake(context.Background(), [][]byte{
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-	})
+	}, common.Hash{})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 
@@ -62,7 +62,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 
 	candidate, err = builder.BuildOntake(context.Background(), [][]byte{
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-	})
+	}, common.Hash{})
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 
@@ -79,7 +79,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 
 	candidate, err = builder.BuildOntake(context.Background(), [][]byte{
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-	})
+	}, common.Hash{})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }

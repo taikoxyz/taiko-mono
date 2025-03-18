@@ -81,14 +81,15 @@ func NewBuilderWithFallback(
 func (b *TxBuilderWithFallback) BuildOntake(
 	ctx context.Context,
 	txListBytesArray [][]byte,
+	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// If calldata is the only option, just use it.
 	if b.blobTransactionBuilder == nil {
-		return b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray)
+		return b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray, parentMetahash)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
 	if !b.fallback || len(txListBytesArray) > 1 {
-		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
+		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray, parentMetahash)
 	}
 
 	// Otherwise, compare the cost, and choose the cheaper option.
@@ -102,7 +103,9 @@ func (b *TxBuilderWithFallback) BuildOntake(
 	)
 
 	g.Go(func() error {
-		if txWithCalldata, err = b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
+		if txWithCalldata, err = b.calldataTransactionBuilder.BuildOntake(
+			ctx, txListBytesArray, parentMetahash,
+		); err != nil {
 			return fmt.Errorf("failed to build type-2 transaction: %w", err)
 		}
 		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
@@ -111,7 +114,7 @@ func (b *TxBuilderWithFallback) BuildOntake(
 		return nil
 	})
 	g.Go(func() error {
-		if txWithBlob, err = b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
+		if txWithBlob, err = b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray, parentMetahash); err != nil {
 			return fmt.Errorf("failed to build type-3 transaction: %w", err)
 		}
 		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
@@ -124,7 +127,7 @@ func (b *TxBuilderWithFallback) BuildOntake(
 		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
 		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
-		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
+		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray, parentMetahash)
 	}
 
 	var (

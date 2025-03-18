@@ -55,6 +55,7 @@ func NewCalldataTransactionBuilder(
 func (b *CalldataTransactionBuilder) BuildOntake(
 	ctx context.Context,
 	txListBytesArray [][]byte,
+	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// Check if the current L2 chain is after ontake fork.
 	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
@@ -81,17 +82,7 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 			Timestamp:      0,
 		}
 		if i == 0 && b.revertProtectionEnabled {
-			state, err := b.rpc.GetProtocolStateVariables(nil)
-			if err != nil {
-				return nil, err
-			}
-
-			blockInfo, err := b.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(state.B.NumBlocks-1))
-			if err != nil {
-				return nil, err
-			}
-
-			params.ParentMetaHash = blockInfo.MetaHash
+			params.ParentMetaHash = parentMetahash
 		}
 		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
 		if err != nil {
