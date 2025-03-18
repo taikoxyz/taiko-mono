@@ -104,10 +104,14 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         return _getOperatorForEpoch(epochStartTimestamp(1));
     }
 
+    /// @notice Returns the operator candidates for the current epoch.
+    /// @return An array of addresses representing the operator candidates.
     function getOperatorCandidatesForCurrentEpoch() external view returns (address[] memory) {
         return _getOperatorCandidatesForEpoch(epochStartTimestamp(0));
     }
 
+    /// @notice Returns the operator candidates for the next epoch.
+    /// @return An array of addresses representing the operator candidates.
     function getOperatorCandidatesForNextEpoch() external view returns (address[] memory) {
         return _getOperatorCandidatesForEpoch(epochStartTimestamp(1));
     }
