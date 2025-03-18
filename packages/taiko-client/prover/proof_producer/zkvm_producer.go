@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	ErrProofInProgress = errors.New("work_in_progress")
-	ErrRetry           = errors.New("retry")
-	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
-	StatusRegistered   = "registered"
+	ErrProofInProgress        = errors.New("work_in_progress")
+	ErrProofGeneartionTimeout = errors.New("proof_generation_timeout")
+	ErrRetry                  = errors.New("retry")
+	ErrZkAnyNotDrawn          = errors.New("zk_any_not_drawn")
+	StatusRegistered          = "registered"
 )
 
 // RaikoRequestProofBodyResponseV2 represents the JSON body of the response of the proof requests.
