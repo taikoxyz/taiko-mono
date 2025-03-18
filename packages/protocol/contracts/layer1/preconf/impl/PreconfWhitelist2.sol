@@ -61,7 +61,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     }
 
     /// @notice Consolidates the operator mapping by removing operators whose removal epoch has
-    /// passed, swapping removed operators with the last entry, and decrementing the operatorCount.
+    /// passed, maintaining the order of active operators, and decrementing the operatorCount.
     function consolidate() external {
         uint64 currentEpoch = epochStartTimestamp(0);
         uint8 i;
@@ -74,18 +74,17 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
             // Check if the operator is scheduled for removal and the removal epoch has passed
             if (info.inactiveSince != 0 && info.inactiveSince <= currentEpoch) {
-                uint8 lastIndex = _operatorCount - 1;
-                // Only perform swap if not the last element
-                if (i != lastIndex) {
-                    address lastOperator = operatorMapping[lastIndex];
-                    operators[lastOperator].index = i;
-                    operatorMapping[i] = lastOperator;
+                // Shift all subsequent operators one position to the left
+                for (uint8 j = i; j < _operatorCount - 1; j++) {
+                    address nextOperator = operatorMapping[j + 1];
+                    operators[nextOperator].index = j;
+                    operatorMapping[j] = nextOperator;
                 }
-                // Remove the operator from the mapping
+                // Remove the last operator as it has been shifted
                 delete operators[operator];
-                delete operatorMapping[lastIndex];
+                delete operatorMapping[_operatorCount - 1];
                 _operatorCount--;
-                // Do not increment i to check the swapped entry
+                // Do not increment i to check the new entry at position i
             } else {
                 ++i;
             }
@@ -97,12 +96,20 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
     /// @inheritdoc IPreconfWhitelist
     function getOperatorForCurrentEpoch() external view returns (address) {
-        return _getOperatorForEpoch(epochStartTimestamp(0));
+        return _selectOperatorForEpoch(epochStartTimestamp(0));
     }
 
     /// @inheritdoc IPreconfWhitelist
     function getOperatorForNextEpoch() external view returns (address) {
-        return _getOperatorForEpoch(epochStartTimestamp(1));
+        return _selectOperatorForEpoch(epochStartTimestamp(1));
+    }
+
+    function getOperatorsForCurrentEpoch() external view returns (address[] memory) {
+        return _getOperatorsForEpoch(epochStartTimestamp(0));
+    }
+
+    function getOperatorsForNextEpoch() external view returns (address[] memory) {
+        return _getOperatorsForEpoch(epochStartTimestamp(1));
     }
 
     // Returns true if the operator is active in the given epoch.
@@ -163,7 +170,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         emit OperatorRemoved(_operator, inactiveSince);
     }
 
-    function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
+    function _selectOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
         if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
             return address(0);
         }
@@ -186,5 +193,23 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         }
 
         return address(0);
+    }
+
+    function _getOperatorsForEpoch(uint64 _epochTimestamp)
+        internal
+        view
+        returns (address[] memory operators_)
+    {
+        operators_ = new address[](operatorCount);
+        uint256 count;
+        for (uint8 i; i < operatorCount; ++i) {
+            if (isOperatorActive(operatorMapping[i], _epochTimestamp)) {
+                operators_[count++] = operatorMapping[i];
+            }
+        }
+
+        assembly {
+            mstore(operators_, count)
+        }
     }
 }
