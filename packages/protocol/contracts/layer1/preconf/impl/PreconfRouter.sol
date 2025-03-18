@@ -10,19 +10,23 @@ import "../iface/IPreconfWhitelist.sol";
 contract PreconfRouter is EssentialContract, IPreconfRouter {
     IProposeBatch public immutable proposeBatchEntrypoint;
     IPreconfWhitelist public immutable preconfWhitelist;
+    address public immutable fallbackPreconfer;
 
     uint256[50] private __gap;
 
     constructor(
         address _proposeBatchEntrypoint, // TaikoInbox or TaikoWrapper
-        address _preconfWhitelist
+        address _preconfWhitelist,
+        address _fallbackPreconfer
     )
         nonZeroAddr(_proposeBatchEntrypoint)
         nonZeroAddr(_preconfWhitelist)
+        nonZeroAddr(_fallbackPreconfer)
         EssentialContract(address(0))
     {
         proposeBatchEntrypoint = IProposeBatch(_proposeBatchEntrypoint);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
+        fallbackPreconfer = _fallbackPreconfer;
     }
 
     function init(address _owner) external initializer {
@@ -39,7 +43,11 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     {
         // Sender must be the selected operator for the epoch
         address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
-        require(preconfer == address(0) || preconfer == msg.sender, NotPreconfer());
+        if (preconfer == address(0)) {
+            require(msg.sender == fallbackPreconfer, NotFallbackPreconfer());
+        } else {
+            require(msg.sender == preconfer, NotPreconfer());
+        }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
         (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);

@@ -23,6 +23,10 @@ contract DeployPreconfContracts is BaseScript {
         address preconfWhitelist = vm.envAddress("PRECONF_WHITELIST");
         require(preconfWhitelist != address(0), "invalid PRECONF_WHITELIST");
 
+
+          address fallbackPreconf = vm.envAddress("FALLBACK_PRECONF");
+        require(fallbackPreconf != address(0), "invalid FALLBACK_PRECONF");
+
         // Deploy PreconfWhitelist
         deploy(
             LibStrings.B_PRECONF_WHITELIST,
@@ -33,7 +37,7 @@ contract DeployPreconfContracts is BaseScript {
         // Deploy PreconfRouter
         deploy(
             "preconf_router",
-            address(new PreconfRouter(taikoWrapper, preconfWhitelist)),
+            address(new PreconfRouter(taikoWrapper, preconfWhitelist, fallbackPreconf)),
             abi.encodeCall(PreconfRouter.init, (contractOwner))
         );
     }
