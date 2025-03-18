@@ -89,8 +89,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
                 }
                 // Remove the last operator as it has been shifted
                 delete operators[operator];
-                delete operatorMapping[_operatorCount - 1];
-                _operatorCount--;
+                delete operatorMapping[--_operatorCount];
                 // Do not increment i to check the new entry at position i
             } else {
                 ++i;
