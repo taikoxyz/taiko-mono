@@ -144,14 +144,14 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         if (root == 0) return address(0);
         
         uint8 candidateindex = uint8(uint256(root) % operatorCount);
-        while (true) {
+        for (uint8 i; i < operatorCount; ++i) {
             address candidate = operatorMapping[candidateindex];
             if (isOperatorActive(candidate, _epochTimestamp)) {
                 return candidate;
             }
             candidateindex = (candidateindex + 1) % operatorCount;
         }
-
+        
         return address(0);
     }
 
