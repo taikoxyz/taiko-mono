@@ -150,19 +150,18 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
         );
 
-        if (root == 0) return address(0);
+        if (root == 0 || operatorCount == 0) return address(0);
 
-        address[] memory activeOperators = new address[](operatorCount);
-        uint8 count;
+        uint8 candidateindex = uint8(uint256(root) % operatorCount);
         for (uint8 i; i < operatorCount; ++i) {
-            address operator = operatorMapping[i];
-            if (isOperatorActive(operator, _epochTimestamp)) {
-                activeOperators[count++] = operator;
+            address candidate = operatorMapping[candidateindex];
+            if (isOperatorActive(candidate, _epochTimestamp)) {
+                return candidate;
             }
+            candidateindex = (candidateindex + 1) % operatorCount;
         }
 
-        if (count == 0) return address(0);
-        return activeOperators[uint256(root) % count];
+        return address(0);
     }
 
     /// @notice Remove an operator.
