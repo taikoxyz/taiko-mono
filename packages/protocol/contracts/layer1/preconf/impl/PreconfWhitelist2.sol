@@ -16,7 +16,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         uint8 index; // Index in operatorMapping.
     }
 
-    event Consolidated();
+    event Consolidated(uint8 previousCount, uint8 newCount);
     event OperatorChangeDelaySet(uint8 delay);
 
     mapping(address operator => OperatorInfo info) public operators;
@@ -65,7 +65,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     function consolidate() external {
         uint64 currentEpoch = epochStartTimestamp(0);
         uint8 i;
-        uint8 _operatorCount = operatorCount;
+        uint8 _previousCount = operatorCount;
+        uint8 _operatorCount = _previousCount;
 
         while (i < _operatorCount) {
             address operator = operatorMapping[i];
@@ -91,7 +92,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         }
 
         operatorCount = _operatorCount;
-        emit Consolidated();
+        emit Consolidated(_previousCount, _operatorCount);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -135,8 +136,9 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         require(operators[_operator].activeSince == 0, OperatorAlreadyExists());
 
         uint8 _operatorCount = operatorCount;
+        uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
         operators[_operator] = OperatorInfo({
-            activeSince: epochStartTimestamp(_operatorChangeDelay),
+            activeSince: activeSince,
             inactiveSince: 0, // no removal scheduled.
             index: _operatorCount
         });
@@ -145,7 +147,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             operatorCount = _operatorCount + 1;
         }
 
-        emit OperatorAdded(_operator);
+        emit OperatorAdded(_operator, activeSince);
     }
 
     function _removeOperator(address _operator, uint8 _operatorChangeDelay) internal {
@@ -154,9 +156,10 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         require(info.activeSince != 0, InvalidOperatorAddress());
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
 
-        operators[_operator].inactiveSince = epochStartTimestamp(_operatorChangeDelay);
+        uint64 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
+        operators[_operator].inactiveSince = inactiveSince;
 
-        emit OperatorRemoved(_operator);
+        emit OperatorRemoved(_operator, inactiveSince);
     }
 
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
