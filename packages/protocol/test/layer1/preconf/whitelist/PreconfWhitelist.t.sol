@@ -1,10 +1,32 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "./WhitelistTestBase.sol";
+import "../../Layer1Test.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 
-contract WhitelistTest is WhitelistTestBase {
+contract TestPreconfWhitelist is Layer1Test {
+    PreconfWhitelist internal whitelist;
+    address internal whitelistOwner;
+
+    function setUpOnEthereum() internal virtual override {
+        whitelistOwner = Alice;
+        whitelist = PreconfWhitelist(
+            deploy({
+                name: "preconf_whitelist",
+                impl: address(new PreconfWhitelist(address(resolver))),
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner))
+            })
+        );
+    }
+
+    function addOperators(address[] memory operators) internal {
+        for (uint256 i = 0; i < operators.length; i++) {
+            vm.prank(whitelistOwner);
+            whitelist.addOperator(operators[i]);
+        }
+    }
+
     function test_addOperator() external {
         address operator = Bob;
 

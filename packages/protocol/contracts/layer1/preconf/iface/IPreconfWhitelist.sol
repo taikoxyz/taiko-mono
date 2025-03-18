@@ -16,6 +16,7 @@ interface IPreconfWhitelist {
     error InvalidOperatorCount();
     error InvalidOperatorAddress();
     error OperatorAlreadyExists();
+    error OperatorAlreadyRemoved();
     error OperatorNotAvailableYet();
 
     /// @notice Adds a new operator to the whitelist.
