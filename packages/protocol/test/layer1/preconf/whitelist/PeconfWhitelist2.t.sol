@@ -75,9 +75,8 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Bob);
 
-        uint256 oldActiveSince = activeSince;
         (activeSince, inactiveSince, index) = whitelist.operators(Bob);
-        assertEq(activeSince, oldActiveSince);
+        assertEq(activeSince, 0);
         assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 0);
 
@@ -154,12 +153,12 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorMapping(1), Bob);
 
         (activeSince, inactiveSince, index) = whitelist.operators(Alice);
-        assertTrue(activeSince != 0);
+        assertEq(activeSince, 0);
         assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 0);
 
         (activeSince, inactiveSince, index) = whitelist.operators(Bob);
-        assertTrue(activeSince != 0);
+        assertEq(activeSince, 0);
         assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 1);
 
@@ -189,6 +188,16 @@ contract TestPreconfWhitelist2 is Layer1Test {
         whitelist.removeOperator(Alice);
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyRemoved.selector);
         whitelist.removeOperator(Alice);
+        vm.stopPrank();
+    }
+
+    function test_whitelist2_addBackRemovedOperator() external {
+        vm.startPrank(whitelistOwner);
+        whitelist.addOperator(Alice);
+
+        whitelist.removeOperator(Alice);
+
+        whitelist.addOperator(Alice);
         vm.stopPrank();
     }
 
@@ -229,10 +238,6 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelistNoDelay.operatorCount(), 1);
         assertEq(whitelistNoDelay.operatorMapping(0), Bob);
 
-        // whitelistNoDelay.consolidate();
-        // assertEq(whitelistNoDelay.operatorCount(), 1);
-        // assertEq(whitelistNoDelay.operatorMapping(0), Bob);
-
         (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelistNoDelay.operators(Bob);
         assertEq(activeSince, whitelistNoDelay.epochStartTimestamp(0));
         assertEq(inactiveSince, 0);
@@ -247,9 +252,8 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelistNoDelay.operatorCount(), 1);
         assertEq(whitelistNoDelay.operatorMapping(0), Bob);
 
-        uint256 oldActiveSince = activeSince;
         (activeSince, inactiveSince, index) = whitelistNoDelay.operators(Bob);
-        assertEq(activeSince, oldActiveSince);
+        assertEq(activeSince, 0);
         assertEq(inactiveSince, whitelistNoDelay.epochStartTimestamp(0));
         assertEq(index, 0);
 

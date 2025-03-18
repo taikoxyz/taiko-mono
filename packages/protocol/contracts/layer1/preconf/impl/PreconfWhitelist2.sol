@@ -153,11 +153,12 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     function _removeOperator(address _operator, uint8 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
         OperatorInfo memory info = operators[_operator];
-        require(info.activeSince != 0, InvalidOperatorAddress());
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
+        require(info.activeSince != 0, InvalidOperatorAddress());
 
         uint64 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
         operators[_operator].inactiveSince = inactiveSince;
+        operators[_operator].activeSince = 0;
 
         emit OperatorRemoved(_operator, inactiveSince);
     }
