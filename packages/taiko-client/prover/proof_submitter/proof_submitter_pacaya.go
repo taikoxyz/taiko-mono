@@ -283,6 +283,14 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		return ErrInvalidProof
 	}
 
+	// Extract all block IDs and the highest block ID in the batches.
+	for _, proof := range batchProof.ProofResponses {
+		uint64BatchIDs = append(uint64BatchIDs, proof.BlockID.Uint64())
+		if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
+			latestProvenBlockID = proof.BlockID
+		}
+	}
+
 	// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
