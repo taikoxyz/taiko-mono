@@ -180,7 +180,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorMapping(1), address(0));
     }
 
-    function test_whitelist2_delay2epoch_addOrRemoveTheSameOperatorTwiceWillRevert() external {
+    function test_whitelist2_addOrRemoveTheSameOperatorTwiceWillRevert() external {
         vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice);
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
@@ -192,15 +192,61 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.stopPrank();
     }
 
-    function test_whitelist2_delay2epoch_removeNonExistingOperatorWillRevert() external {
+    function test_whitelist2_removeNonExistingOperatorWillRevert() external {
         vm.startPrank(whitelistOwner);
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.removeOperator(Alice);
         vm.stopPrank();
     }
 
-    function test_whitelist2_delay2epoch_consolidate_whenEmpty_not_revert() external {
+    function test_whitelist2_consolidate_whenEmpty_not_revert() external {
         whitelist.consolidate();
+    }
+
+    function test_whitelist2_noDelay_addThenRemoveOneOperator() external {
+        _setBeaconBlockRoot(bytes32(uint256(7)));
+
+        vm.prank(whitelistOwner);
+        whitelistNoDelay.addOperator(Bob);
+
+        assertEq(whitelistNoDelay.operatorCount(), 1);
+        assertEq(whitelistNoDelay.operatorMapping(0), Bob);
+
+        // whitelistNoDelay.consolidate();
+        // assertEq(whitelistNoDelay.operatorCount(), 1);
+        // assertEq(whitelistNoDelay.operatorMapping(0), Bob);
+
+        (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelistNoDelay.operators(Bob);
+        assertEq(activeSince, whitelistNoDelay.epochStartTimestamp(0));
+        assertEq(inactiveSince, 0);
+        assertEq(index, 0);
+
+        assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), Bob);
+        assertEq(whitelistNoDelay.getOperatorForNextEpoch(), Bob);
+
+        vm.prank(whitelistOwner);
+        whitelistNoDelay.removeOperator(Bob);
+
+        assertEq(whitelistNoDelay.operatorCount(), 1);
+        assertEq(whitelistNoDelay.operatorMapping(0), Bob);
+
+        uint256 oldActiveSince = activeSince;
+        (activeSince, inactiveSince, index) = whitelistNoDelay.operators(Bob);
+        assertEq(activeSince, oldActiveSince);
+        assertEq(inactiveSince, whitelistNoDelay.epochStartTimestamp(0));
+        assertEq(index, 0);
+
+        whitelistNoDelay.consolidate();
+        assertEq(whitelistNoDelay.operatorCount(), 0);
+        assertEq(whitelistNoDelay.operatorMapping(0), address(0));
+
+        (activeSince, inactiveSince, index) = whitelistNoDelay.operators(Bob);
+        assertEq(activeSince, 0);
+        assertEq(inactiveSince, 0);
+        assertEq(index, 0);
+
+        assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), address(0));
+        assertEq(whitelistNoDelay.getOperatorForNextEpoch(), address(0));
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
