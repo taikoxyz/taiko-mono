@@ -309,7 +309,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 				log.Error(
 					"Failed to get L2 block with given hash",
 					"batchID", proof.BlockID,
-					"blockID", block.Number(),
+					"blockID", blockHeader.Number,
 					"hash", blockHeader.Hash(),
 					"error", err,
 				)
