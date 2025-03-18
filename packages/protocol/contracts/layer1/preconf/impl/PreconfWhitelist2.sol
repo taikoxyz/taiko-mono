@@ -17,25 +17,25 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     }
 
     event Consolidated();
-    event EffectivenessDelaySet(uint8 delay);
+    event OperatorChangeDelaySet(uint8 delay);
 
     mapping(address operator => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
     uint8 public operatorCount;
-    uint8 public effectivenessDelay; // in epochs
+    uint8 public operatorChangeDelay; // in epochs
 
     uint256[47] private __gap;
 
     constructor(address _resolver) EssentialContract(_resolver) { }
 
-    function init(address _owner, uint8 _effectivenessDelay) external initializer {
+    function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
-        effectivenessDelay = _effectivenessDelay;
+        operatorChangeDelay = _operatorChangeDelay;
     }
 
-    function setEffectivenessDelay(uint8 _effectivenessDelay) external onlyOwner {
-        effectivenessDelay = _effectivenessDelay;
-        emit EffectivenessDelaySet(_effectivenessDelay);
+    function setOperatorChangeDelay(uint8 _operatorChangeDelay) external onlyOwner {
+        operatorChangeDelay = _operatorChangeDelay;
+        emit OperatorChangeDelaySet(_operatorChangeDelay);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -45,7 +45,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
         uint8 _operatorCount = operatorCount;
         operators[_operator] = OperatorInfo({
-            activeSince: epochStartTimestamp(effectivenessDelay),
+            activeSince: epochStartTimestamp(operatorChangeDelay),
             inactiveSince: 0, // no removal scheduled.
             index: _operatorCount
         });
@@ -175,7 +175,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         require(info.activeSince != 0, InvalidOperatorAddress());
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
 
-        operators[operator].inactiveSince = epochStartTimestamp(effectivenessDelay);
+        operators[operator].inactiveSince = epochStartTimestamp(operatorChangeDelay);
 
         emit OperatorRemoved(operator);
     }
