@@ -41,6 +41,14 @@ contract DeployPacayaL1 is DeployCapability {
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
     address public quotaManager = vm.envAddress("QUOTA_MANAGER");
     uint64 public l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
+    address public bridgeL1 = vm.envAddress("BRIDGE_L1");
+    address public signalService = vm.envAddress("SIGNAL_SERVICE");
+    address public erc20Vault = vm.envAddress("ERC20_VAULT");
+    address public erc721Vault = vm.envAddress("ERC721_VAULT");
+    address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
+    address public risc0Groth16Verifier = vm.envAddress("RISC0_GROTH16_VERIFIER");
+    address public sp1RemoteVerifier = vm.envAddress("SP1_REMOTE_VERIFIER");
+    address public automata = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -69,20 +77,20 @@ contract DeployPacayaL1 is DeployCapability {
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
+        register(sharedResolver, "bridge", bridgeL1);
+        register(sharedResolver, "signal_service", signalService);
+        register(sharedResolver, "erc20_vault", erc20Vault);
+        register(sharedResolver, "erc721_vault", erc721Vault);
+        register(sharedResolver, "erc1155_vault", erc1155Vault);
+        register(rollupResolver, "risc0_groth16_verifier", risc0Groth16Verifier);
+        register(rollupResolver, "sp1_remote_verifier", sp1RemoteVerifier);
+        register(rollupResolver, "automata_dcap_attestation", automata);
 
         // register copy
-        copyRegister(sharedResolver, sharedAddressManager, "bridge");
-        copyRegister(sharedResolver, sharedAddressManager, "signal_service");
-        copyRegister(sharedResolver, sharedAddressManager, "erc20_vault");
-        copyRegister(sharedResolver, sharedAddressManager, "erc721_vault");
-        copyRegister(sharedResolver, sharedAddressManager, "erc1155_vault");
         copyRegister(rollupResolver, sharedResolver, "taiko_token");
         copyRegister(rollupResolver, sharedResolver, "bond_token");
         copyRegister(rollupResolver, sharedResolver, "signal_service");
         copyRegister(rollupResolver, sharedResolver, "bridge");
-        copyRegister(rollupResolver, rollupAddressManager, "risc0_groth16_verifier");
-        copyRegister(rollupResolver, rollupAddressManager, "sp1_remote_verifier");
-        copyRegister(rollupResolver, rollupAddressManager, "automata_dcap_attestation");
         // Bridge
         registerBridgedTokenContracts(sharedResolver);
 
@@ -160,6 +168,7 @@ contract DeployPacayaL1 is DeployCapability {
         (address sgxVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
         (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
 
+        // TODO: For hekla, we need to replace opProxy with address(0)
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
@@ -173,11 +182,6 @@ contract DeployPacayaL1 is DeployCapability {
         internal
         returns (address risc0Verifier, address sp1Verifier)
     {
-        // Deploy r0 verifier
-        address risc0Groth16Verifier = IResolver(rollupResolver).resolve(
-            uint64(block.chainid), "risc0_groth16_verifier", false
-        );
-
         risc0Verifier = deployProxy({
             name: "risc0_verifier",
             impl: address(new Risc0Verifier(l2ChainId, risc0Groth16Verifier)),
@@ -186,9 +190,6 @@ contract DeployPacayaL1 is DeployCapability {
         });
 
         // Deploy sp1 verifier
-        address sp1RemoteVerifier =
-            IResolver(rollupResolver).resolve(uint64(block.chainid), "sp1_remote_verifier", false);
-
         sp1Verifier = deployProxy({
             name: "sp1_verifier",
             impl: address(new SP1Verifier(l2ChainId, sp1RemoteVerifier)),
@@ -204,25 +205,16 @@ contract DeployPacayaL1 is DeployCapability {
         internal
         returns (address sgxVerifier)
     {
-        address automataProxy = IResolver(rollupResolver).resolve(
-            uint64(block.chainid), "automata_dcap_attestation", false
-        );
 
         sgxVerifier = deployProxy({
             name: "sgx_verifier",
-            impl: address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy)),
+            impl: address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automata)),
             data: abi.encodeCall(SgxVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
     }
 
     function registerBridgedTokenContracts(address sharedResolver) internal {
-        address erc20Vault =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc20_vault", false);
-        address erc721Vault =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc721_vault", false);
-        address erc1155Vault =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc1155_vault", false);
         // Bridged Token
         register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
         register(
