@@ -96,20 +96,20 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
     /// @inheritdoc IPreconfWhitelist
     function getOperatorForCurrentEpoch() external view returns (address) {
-        return _selectOperatorForEpoch(epochStartTimestamp(0));
+        return _getOperatorForEpoch(epochStartTimestamp(0));
     }
 
     /// @inheritdoc IPreconfWhitelist
     function getOperatorForNextEpoch() external view returns (address) {
-        return _selectOperatorForEpoch(epochStartTimestamp(1));
+        return _getOperatorForEpoch(epochStartTimestamp(1));
     }
 
-    function getOperatorsForCurrentEpoch() external view returns (address[] memory) {
-        return _getOperatorsForEpoch(epochStartTimestamp(0));
+    function getOperatorCandidatesForCurrentEpoch() external view returns (address[] memory) {
+        return _getOperatorCandidatesForEpoch(epochStartTimestamp(0));
     }
 
-    function getOperatorsForNextEpoch() external view returns (address[] memory) {
-        return _getOperatorsForEpoch(epochStartTimestamp(1));
+    function getOperatorCandidatesForNextEpoch() external view returns (address[] memory) {
+        return _getOperatorCandidatesForEpoch(epochStartTimestamp(1));
     }
 
     // Returns true if the operator is active in the given epoch.
@@ -170,7 +170,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         emit OperatorRemoved(_operator, inactiveSince);
     }
 
-    function _selectOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
+    function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
         if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
             return address(0);
         }
@@ -195,7 +195,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         return address(0);
     }
 
-    function _getOperatorsForEpoch(uint64 _epochTimestamp)
+    function _getOperatorCandidatesForEpoch(uint64 _epochTimestamp)
         internal
         view
         returns (address[] memory operators_)
