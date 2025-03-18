@@ -29,6 +29,10 @@ library LibPreconfConstants {
         return uint256(0);
     }
 
+    /// @notice Returns the address of the beacon block root contract.
+    /// @dev https://eips.ethereum.org/EIPS/eip-4788 enforce to use this address across different
+    /// EVM chains.
+    /// @return The address of the beacon block root contract.
     function getBeaconBlockRootContract() internal pure returns (address) {
         return 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
     }

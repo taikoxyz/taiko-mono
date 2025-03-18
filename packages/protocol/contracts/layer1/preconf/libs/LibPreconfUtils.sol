@@ -6,24 +6,33 @@ import "./LibPreconfConstants.sol";
 /// @title LibPreconfUtils
 /// @custom:security-contact security@taiko.xyz
 library LibPreconfUtils {
+    uint256 private constant _MAX_QUERIES = 32;
+
     /// @notice Retrieves the beacon block root for a given timestamp.
-    /// @dev At block N, this function gets the beacon block root for block N - 1.
-    ///      To obtain the block root of the Nth block, it queries the root at block N + 1.
-    ///      If N + 1 is a missed slot, it continues querying until it finds a block N + x
-    ///      that has the block root for the Nth block.
+    /// @dev To obtain the block root of the Nth block, this function queries the root at block N +
+    /// 1. If block N + 1 is a missed slot, it continues querying up to 32 subsequent blocks (N + 2,
+    /// N + 3, etc.) until it finds a block that contains the root for the Nth block or the target
+    /// timestamp exceeds the current block timestamp.
+    /// @dev Caller should verify the returned value is not 0.
     /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
     /// @return The beacon block root as a bytes32 value.
     function getBeaconBlockRoot(uint256 timestamp) internal view returns (bytes32) {
-        uint256 targetTimestamp = timestamp + LibPreconfConstants.SECONDS_IN_SLOT;
-        while (true) {
-            (bool success, bytes memory result) = LibPreconfConstants.getBeaconBlockRootContract()
-                .staticcall(abi.encode(targetTimestamp));
+        if (timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
+            return bytes32(0);
+        }
+        timestamp = timestamp + LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 currentTimestamp = block.timestamp;
+
+        for (uint256 i; i < _MAX_QUERIES && timestamp <= currentTimestamp; ++i) {
+            (bool success, bytes memory result) =
+                LibPreconfConstants.getBeaconBlockRootContract().staticcall(abi.encode(timestamp));
+
             if (success && result.length > 0) {
                 return abi.decode(result, (bytes32));
             }
 
             unchecked {
-                targetTimestamp += LibPreconfConstants.SECONDS_IN_SLOT;
+                timestamp += LibPreconfConstants.SECONDS_IN_SLOT;
             }
         }
         return bytes32(0);
