@@ -169,9 +169,7 @@ contract DeployPacayaL1 is DeployCapability {
         );
     }
 
-    function deployZKVerifiers(
-        address rollupResolver
-    )
+    function deployZKVerifiers(address rollupResolver)
         internal
         returns (address risc0Verifier, address sp1Verifier)
     {
@@ -223,7 +221,8 @@ contract DeployPacayaL1 is DeployCapability {
             IResolver(sharedResolver).resolve(uint64(block.chainid), "erc20_vault", false);
         address erc721Vault =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "erc721_vault", false);
-        address erc1155Vault = IResolver(sharedResolver).resolve(uint64(block.chainid), "erc1155_vault", false);
+        address erc1155Vault =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc1155_vault", false);
         // Bridged Token
         register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
         register(
