@@ -168,7 +168,7 @@ func (s *Sender) SendBatchProof(
 	}
 
 	log.Info(
-		fmt.Sprintf("🚚 Your %s batch proofs were accepted", batchProof.ProofType),
+		fmt.Sprintf("🚚 Your %s batch proofs have been accepted", batchProof.ProofType),
 		"txHash", receipt.TxHash,
 		"tier", batchProof.Tier,
 		"blockIDs", batchProof.BlockIDs,

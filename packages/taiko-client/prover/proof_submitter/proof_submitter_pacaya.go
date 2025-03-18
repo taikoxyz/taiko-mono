@@ -101,19 +101,10 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		g.Go(func() error {
 			header, err := s.rpc.WaitL2Header(
 				ctx,
-				new(big.Int).SetUint64(
-					meta.Pacaya().GetLastBlockID()-
-						uint64(len(meta.Pacaya().GetBlocks()))+
-						uint64(i)+
-						1,
-				),
+				new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()-uint64(len(meta.Pacaya().GetBlocks()))+uint64(i)+1),
 			)
 			if err != nil {
-				return fmt.Errorf(
-					"failed to fetch l2 Header, blockID: %d, error: %w",
-					meta.Pacaya().GetLastBlockID(),
-					err,
-				)
+				return fmt.Errorf("failed to fetch l2 Header, blockID: %d, error: %w", meta.Pacaya().GetLastBlockID(), err)
 			}
 
 			if header.TxHash == types.EmptyTxsHash {
@@ -262,90 +253,24 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		"proofType", batchProof.ProofType,
 	)
 	var (
-		invalidBatchIDs     []uint64
 		latestProvenBlockID = common.Big0
 		uint64BatchIDs      []uint64
-		latestVerifiedID    uint64
 	)
 	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
 	}
-
-	// Fetch the latest verified block ID.
-	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
-	if err != nil {
-		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			log.Warn(
-				"Failed to fetch state variables",
-				"error", err,
-			)
-			return err
-		}
-		latestVerifiedID = blockInfo.BlockId
-	} else {
-		latestVerifiedID = batchInfo.BatchId
-	}
-	// Check if any batch in this aggregation is already submitted and valid,
-	// if so, we skip this batch.
-	for _, proof := range batchProof.ProofResponses {
-		uint64BatchIDs = append(uint64BatchIDs, proof.BlockID.Uint64())
-		// Check if this proof is still needed to be submitted.
-		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(latestVerifiedID))
-		if err != nil {
-			return err
-		}
-		if !ok {
-			log.Error("A valid proof for this batch has already been submitted", "batchID", proof.BlockID)
-			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-			continue
-		}
-
-		// Validate each block in each batch.
-		for _, blockHeader := range proof.Opts.PacayaOptions().Headers {
-			// Get the corresponding L2 block.
-			block, err := s.rpc.L2.BlockByHash(ctx, blockHeader.Hash())
-			if err != nil {
-				log.Error(
-					"Failed to get L2 block with given hash",
-					"batchID", proof.BlockID,
-					"blockID", blockHeader.Number,
-					"hash", blockHeader.Hash(),
-					"error", err,
-				)
-				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-				break
-			}
-
-			if block.Transactions().Len() == 0 {
-				log.Error(
-					"Invalid block without anchor transaction",
-					"batchID", proof.BlockID,
-					"blockID", block.Number(),
-				)
-				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-				break
-			}
-
-			// Validate TaikoAnchor.anchoV3 transaction inside the L2 block.
-			anchorTx := block.Transactions()[0]
-			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
-				log.Error("Invalid anchor transaction", "error", err)
-				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
-				break
-			}
-			if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
-				latestProvenBlockID = proof.BlockID
-			}
-		}
-	}
-
 	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
 	if !exist {
 		return fmt.Errorf("unexpected proof type from raiko to submit: %s", batchProof.ProofType)
 	}
-	// If there are invalid batches in the aggregation, we ignore these batches.
+
+	// Check if there is any invalid batch proofs in the aggregation, if so, we ignore them.
+	invalidBatchIDs, err := s.validateBatchProofs(ctx, batchProof)
+	if err != nil {
+		return fmt.Errorf("failed to validate batch proofs: %w", err)
+	}
 	if len(invalidBatchIDs) > 0 {
+		// If there are invalid batches in the aggregation, we ignore these batches.
 		log.Warn("Invalid batches in an aggregation, ignore these batches", "batchIDs", invalidBatchIDs)
 		proofBuffer.ClearItems(invalidBatchIDs...)
 		return ErrInvalidProof
@@ -513,4 +438,87 @@ func (s *ProofSubmitterPacaya) requestBaseLevelProof(
 	}
 
 	return response, nil
+}
+
+// validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
+// returns the invalid batch IDs.
+func (s *ProofSubmitterPacaya) validateBatchProofs(
+	ctx context.Context,
+	batchProof *proofProducer.BatchProofs,
+) ([]uint64, error) {
+	var (
+		latestVerifiedID uint64
+		invalidBatchIDs  []uint64
+	)
+
+	if len(batchProof.ProofResponses) == 0 {
+		return nil, proofProducer.ErrInvalidLength
+	}
+
+	// Fetch the latest verified block ID.
+	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
+	if err != nil {
+		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
+		if err != nil {
+			log.Warn(
+				"Failed to fetch state variables",
+				"error", err,
+			)
+			return nil, err
+		}
+		latestVerifiedID = blockInfo.BlockId
+	} else {
+		latestVerifiedID = batchInfo.BatchId
+	}
+	// Check if any batch in this aggregation is already submitted and valid,
+	// if so, we skip this batch.
+	for _, proof := range batchProof.ProofResponses {
+		// Check if this proof is still needed to be submitted.
+		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(latestVerifiedID))
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			log.Error("A valid proof for this batch has already been submitted", "batchID", proof.BlockID)
+			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+			continue
+		}
+
+		// Validate each block in each batch.
+		for _, blockHeader := range proof.Opts.PacayaOptions().Headers {
+			// Get the corresponding L2 block.
+			block, err := s.rpc.L2.BlockByHash(ctx, blockHeader.Hash())
+			if err != nil {
+				log.Error(
+					"Failed to get L2 block with given hash",
+					"batchID", proof.BlockID,
+					"blockID", blockHeader.Number,
+					"hash", blockHeader.Hash(),
+					"error", err,
+				)
+				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				continue
+			}
+
+			if block.Transactions().Len() == 0 {
+				log.Error(
+					"Invalid block without anchor transaction",
+					"batchID", proof.BlockID,
+					"blockID", block.Number(),
+				)
+				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				continue
+			}
+
+			// Validate TaikoAnchor.anchoV3 transaction inside the L2 block.
+			anchorTx := block.Transactions()[0]
+			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
+				log.Error("Invalid anchor transaction", "error", err)
+				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				continue
+			}
+		}
+	}
+
+	return invalidBatchIDs, nil
 }
