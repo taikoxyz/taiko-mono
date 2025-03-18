@@ -287,7 +287,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	for _, proof := range batchProof.ProofResponses {
 		uint64BatchIDs = append(uint64BatchIDs, proof.BlockID.Uint64())
 		if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
-			latestProvenBlockID = proof.BlockID
+			latestProvenBlockID = new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID())
 		}
 	}
 

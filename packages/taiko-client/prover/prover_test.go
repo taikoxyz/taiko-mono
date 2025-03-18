@@ -302,16 +302,19 @@ func (s *ProverTestSuite) TestOntakeToPacayaVerification() {
 	s.GreaterOrEqual(head.Number.Uint64(), s.RPCClient.PacayaClients.ForkHeight)
 
 	// Prove all blocks.
-	for req := range s.p.proofSubmissionCh {
-		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-		if req.Meta.IsPacaya() {
-			s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-			s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-			if req.Meta.Pacaya().GetLastBlockID() == head.Number.Uint64() {
-				break
+provingLoop:
+	for {
+		select {
+		case req := <-s.p.proofSubmissionCh:
+			s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+			if req.Meta.IsPacaya() {
+				s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+				s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+			} else {
+				s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 			}
-		} else {
-			s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+		default:
+			break provingLoop
 		}
 	}
 
