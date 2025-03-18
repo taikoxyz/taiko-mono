@@ -96,6 +96,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		headers = make([]*types.Header, len(meta.Pacaya().GetBlocks()))
 		g       = new(errgroup.Group)
 	)
+	// Fetch all blocks headers for the given batch.
 	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
 		g.Go(func() error {
 			header, err := s.rpc.WaitL2Header(
@@ -136,9 +137,8 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			EventL1Hash:        meta.GetRawBlockHash(),
 			Headers:            headers,
 		}
-		startTime = time.Now()
-		result    *proofProducer.ProofResponse
-		proofType proofProducer.ProofType
+		startAt       = time.Now()
+		proofResponse *proofProducer.ProofResponse
 	)
 
 	// If the prover set address is provided, we use that address as the prover on chain.
@@ -153,77 +153,43 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				log.Error("Failed to request proof, context is canceled", "batchID", opts.BatchID, "error", ctx.Err())
 				return nil
 			}
-			// Check if there is a need to generate proof
-			proofStatus, err := rpc.GetBatchProofStatus(
-				ctx,
-				s.rpc,
-				meta.Pacaya().GetBatchID(),
-			)
+			// Check if there is a need to generate proof, if the proof is already submitted and valid, skip
+			// the proof submission.
+			proofStatus, err := rpc.GetBatchProofStatus(ctx, s.rpc, meta.Pacaya().GetBatchID())
 			if err != nil {
 				return err
 			}
 			if proofStatus.IsSubmitted && !proofStatus.Invalid {
 				return nil
 			}
+			// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
 			if s.zkvmProofProducer != nil {
-				result, err = s.zkvmProofProducer.RequestProof(
-					ctx,
-					opts,
-					meta.Pacaya().GetBatchID(),
-					meta,
-					startTime,
-				)
-				if err != nil {
+				if proofResponse, err = s.requestZKProof(ctx, opts, meta, startAt); err != nil {
 					if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-						log.Debug("ZK proof was not chosen, attempting to request SGX proof",
-							"batchID", meta.Pacaya().GetBatchID(),
-						)
-					} else if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
-						log.Error(
-							"Request proof has timed out, start to cancel",
-							"batchID", meta.Pacaya().GetBatchID(),
-						)
-						if cancelErr := s.zkvmProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
-							log.Error("Failed to request cancellation of proof", "err", cancelErr)
-						}
-						return nil
+						// If zk proof is not drawn, request SGX proof.
+						log.Debug("ZK proof was not chosen, attempting to request SGX proof", "batchID", opts.BatchID)
+					} else if errors.Is(err, proofProducer.ErrProofGeneartionTimeout) {
+						return nil // Skip the proof generation if it has timed out.
 					} else {
-						log.Error(
-							"Request new proof error",
-							"batchID", meta.Pacaya().GetBatchID(),
-							"proofType", "zkAny",
-							"error", err,
-						)
 						return err
 					}
 				}
 			}
-			if result == nil {
-				if result, err = s.baseLevelProofProducer.RequestProof(
-					ctx,
-					opts,
-					meta.Pacaya().GetBatchID(),
-					meta,
-					startTime,
-				); err != nil {
-					// If request proof has timed out in retry, let's cancel the proof generating and skip
-					if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
-						log.Error("Request proof has timed out, start to cancel", "batchID", opts.BatchID)
-						if cancelErr := s.baseLevelProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
-							log.Error("Failed to request cancellation of proof", "err", cancelErr)
-						}
-						return nil
+			// If zk proof is not enabled or zk proof is not drawn, request the base level proof.
+			if proofResponse == nil {
+				if proofResponse, err = s.requestBaseLevelProof(ctx, opts, meta, startAt); err != nil {
+					if errors.Is(err, proofProducer.ErrProofGeneartionTimeout) {
+						return nil // Skip the proof generation if it has timed out.
 					}
-					return fmt.Errorf("failed to request proof (id: %d): %w", meta.Pacaya().GetBatchID(), err)
+					return err
 				}
 			}
-			proofType = result.ProofType
-			proofBuffer, exist := s.proofBuffers[proofType]
+			// Try to add the proof to the buffer.
+			proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
 			if !exist {
-				return fmt.Errorf("get unexpected proof type from raiko %s", proofType)
+				return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
 			}
-			firstItemAt := proofBuffer.FirstItemAt()
-			bufferSize, err := proofBuffer.Write(result)
+			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(
 					"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
@@ -237,17 +203,13 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				"batchID", meta.Pacaya().GetBatchID(),
 				"bufferSize", bufferSize,
 				"maxBufferSize", proofBuffer.MaxLength,
-				"proofType", result.ProofType,
+				"proofType", proofResponse.ProofType,
 				"bufferIsAggregating", proofBuffer.IsAggregating(),
-				"bufferFirstItemAt", firstItemAt,
+				"bufferFirstItemAt", proofBuffer.FirstItemAt(),
 			)
-			// Check if we need to aggregate proofs.
-			if !proofBuffer.IsAggregating() &&
-				(uint64(bufferSize) >= proofBuffer.MaxLength ||
-					(proofBuffer.Len() != 0 && time.Since(firstItemAt) > s.forceBatchProvingInterval)) {
-				s.batchAggregationNotify <- proofType
-				proofBuffer.MarkAggregating()
-			}
+			// Try to aggregate the proofs in the buffer.
+			s.TryAggregate(proofBuffer)
+
 			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
 		},
@@ -256,20 +218,29 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
 			!errors.Is(err, proofProducer.ErrRetry) {
-			log.Error("Request proof error",
-				"batchID", meta.Pacaya().GetBatchID(),
-				"error", err,
-			)
+			log.Error("Failed to request a Pacaya proof", "batchID", meta.Pacaya().GetBatchID(), "error", err)
 		} else {
-			log.Debug("Expected error code",
-				"error", err,
-				"batchID", meta.Pacaya().GetBatchID(),
-			)
+			log.Debug("Expected Pacaya proof generation error", "error", err, "batchID", meta.Pacaya().GetBatchID())
 		}
 		return err
 	}
 
 	return nil
+}
+
+// TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
+// or the forced aggregation interval has passed.
+func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer) bool {
+	if !buffer.IsAggregating() &&
+		(uint64(buffer.Len()) >= buffer.MaxLength ||
+			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
+		s.aggregationNotify <- s.Tier()
+		buffer.MarkAggregating()
+
+		return true
+	}
+
+	return false
 }
 
 // SubmitProof implements the Submitter interface.
@@ -299,6 +270,8 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
 	}
+
+	// Fetch the latest verified block ID.
 	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
 		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
@@ -313,6 +286,8 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	} else {
 		latestVerifiedID = batchInfo.BatchId
 	}
+	// Check if any batch in this aggregation is already submitted and valid,
+	// if so, we skip this batch.
 	for _, proof := range batchProof.ProofResponses {
 		uint64BatchIDs = append(uint64BatchIDs, proof.BlockID.Uint64())
 		// Check if this proof is still needed to be submitted.
@@ -321,17 +296,20 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 			return err
 		}
 		if !ok {
-			log.Error("A valid proof for block is already submitted", "batchID", proof.BlockID)
+			log.Error("A valid proof for this batch has already been submitted", "batchID", proof.BlockID)
 			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
 			continue
 		}
 
+		// Validate each block in each batch.
 		for _, blockHeader := range proof.Opts.PacayaOptions().Headers {
 			// Get the corresponding L2 block.
 			block, err := s.rpc.L2.BlockByHash(ctx, blockHeader.Hash())
 			if err != nil {
 				log.Error(
 					"Failed to get L2 block with given hash",
+					"batchID", proof.BlockID,
+					"blockID", block.Number(),
 					"hash", blockHeader.Hash(),
 					"error", err,
 				)
@@ -340,7 +318,8 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 			}
 
 			if block.Transactions().Len() == 0 {
-				log.Error("Invalid block without anchor transaction",
+				log.Error(
+					"Invalid block without anchor transaction",
 					"batchID", proof.BlockID,
 					"blockID", block.Number(),
 				)
@@ -363,10 +342,11 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
 	if !exist {
-		return fmt.Errorf("when submit batches proofs, found unexpected proof type from raiko %s", batchProof.ProofType)
+		return fmt.Errorf("unexpected proof type from raiko to submit: %s", batchProof.ProofType)
 	}
+	// If there are invalid batches in the aggregation, we ignore these batches.
 	if len(invalidBatchIDs) > 0 {
-		log.Warn("Invalid proofs in batch", "batchIDs", invalidBatchIDs)
+		log.Warn("Invalid batches in an aggregation, ignore these batches", "batchIDs", invalidBatchIDs)
 		proofBuffer.ClearItems(invalidBatchIDs...)
 		return ErrInvalidProof
 	}
@@ -386,6 +366,8 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
+
+	// Clear the items in the buffer.
 	proofBuffer.ClearItems(uint64BatchIDs...)
 
 	return nil
@@ -408,26 +390,22 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
 	}
-	startTime := time.Now()
+	startAt := time.Now()
 	if err := backoff.Retry(
 		func() error {
 			buffer, err := proofBuffer.ReadAll()
 			if err != nil {
 				return fmt.Errorf("failed to read proof from buffer: %w", err)
 			}
+			// If the buffer is empty, skip the aggregation.
 			if len(buffer) == 0 {
 				log.Debug("Buffer is empty now, skip aggregating")
 				return nil
 			}
 
-			result, err := producer.Aggregate(
-				ctx,
-				buffer,
-				startTime,
-			)
+			result, err := producer.Aggregate(ctx, buffer, startAt)
 			if err != nil {
-				if errors.Is(err, proofProducer.ErrProofInProgress) ||
-					errors.Is(err, proofProducer.ErrRetry) {
+				if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
 					log.Debug(
 						"Aggregating proofs",
 						"status", err,
@@ -479,4 +457,60 @@ func (s *ProofSubmitterPacaya) BufferSize() uint64 {
 func (s *ProofSubmitterPacaya) AggregationEnabled() bool {
 	// Aggregation is always enabled for Pacaya.
 	return true
+}
+
+// requestZKProof requests the ZK proof from the producer, if zk proof is not enabled,
+// it will return a nil response.
+func (s *ProofSubmitterPacaya) requestZKProof(
+	ctx context.Context,
+	opts proofProducer.ProofRequestOptions,
+	meta metadata.TaikoProposalMetaData,
+	startAt time.Time,
+) (*proofProducer.ProofResponse, error) {
+	response, err := s.zkvmProofProducer.RequestProof(ctx, opts, meta.Pacaya().GetBatchID(), meta, startAt)
+	if err != nil {
+		if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startAt) >= ProofTimeout {
+			log.Error(
+				"Request proof has timed out, start to cancel",
+				"batchID", meta.Pacaya().GetBatchID(),
+			)
+			if cancelErr := s.zkvmProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
+				log.Error("Failed to request cancellation of proof", "err", cancelErr)
+			}
+			return nil, proofProducer.ErrProofGeneartionTimeout
+		} else {
+			log.Error(
+				"Request new proof error",
+				"batchID", meta.Pacaya().GetBatchID(),
+				"proofType", "zkAny",
+				"error", err,
+			)
+			return nil, err
+		}
+	}
+
+	return response, nil
+}
+
+// requestBaseLevelProof requests the base level proof from the producer.
+func (s *ProofSubmitterPacaya) requestBaseLevelProof(
+	ctx context.Context,
+	opts proofProducer.ProofRequestOptions,
+	meta metadata.TaikoProposalMetaData,
+	startAt time.Time,
+) (*proofProducer.ProofResponse, error) {
+	response, err := s.baseLevelProofProducer.RequestProof(ctx, opts, meta.Pacaya().GetBatchID(), meta, startAt)
+	if err != nil {
+		// If request proof has timed out, let's cancel the proof generating and skip this proof.
+		if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startAt) >= ProofTimeout {
+			log.Error("Request proof has timed out, start to cancel", "batchID", opts.PacayaOptions().BatchID)
+			if cancelErr := s.baseLevelProofProducer.RequestCancel(ctx, opts); cancelErr != nil {
+				log.Error("Failed to request cancellation of proof", "err", cancelErr)
+			}
+			return nil, proofProducer.ErrProofGeneartionTimeout
+		}
+		return nil, fmt.Errorf("failed to request proof (id: %d): %w", meta.Pacaya().GetBatchID(), err)
+	}
+
+	return response, nil
 }
