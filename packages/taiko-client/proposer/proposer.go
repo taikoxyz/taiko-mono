@@ -309,6 +309,7 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 	if err := p.ProposeTxListOntake(ctx, txLists, parentMetahash); err != nil {
 		return err
 	}
+
 	p.lastProposedAt = time.Now()
 	return nil
 }
