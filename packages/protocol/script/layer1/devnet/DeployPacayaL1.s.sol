@@ -205,7 +205,6 @@ contract DeployPacayaL1 is DeployCapability {
         internal
         returns (address sgxVerifier)
     {
-
         sgxVerifier = deployProxy({
             name: "sgx_verifier",
             impl: address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automata)),
