@@ -18,6 +18,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
     event Consolidated();
 
+    uint256 public immutable effectivenessDelay;
+
     mapping(address operator => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
     uint8 public operatorCount;
@@ -28,7 +30,9 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         __Essential_init(_owner);
     }
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _resolver, uint256 _effectivenessDelay) EssentialContract(_resolver) {
+        effectivenessDelay = _effectivenessDelay;
+    }
 
     /// @inheritdoc IPreconfWhitelist
     function addOperator(address _operator) external onlyOwner {
@@ -37,7 +41,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
         uint8 _operatorCount = operatorCount;
         operators[_operator] = OperatorInfo({
-            activeSince: epochStartTimestamp(2),
+            activeSince: epochStartTimestamp(effectivenessDelay),
             inactiveSince: 0, // no removal scheduled.
             index: _operatorCount
         });
@@ -166,7 +170,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         require(info.activeSince != 0, InvalidOperatorAddress());
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
 
-        uint64 inactiveSince = epochStartTimestamp(2);
+        uint64 inactiveSince = epochStartTimestamp(effectivenessDelay);
         if (inactiveSince <= info.activeSince) {
             inactiveSince = info.activeSince + uint64(LibPreconfConstants.SECONDS_IN_EPOCH);
         }
