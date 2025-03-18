@@ -17,21 +17,25 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     }
 
     event Consolidated();
-
-    uint256 public immutable effectivenessDelay;
+    event EffectivenessDelaySet(uint8 delay);
 
     mapping(address operator => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
     uint8 public operatorCount;
+    uint8 public effectivenessDelay; // in epochs
 
     uint256[47] private __gap;
 
-    function init(address _owner) external initializer {
+    constructor(address _resolver) EssentialContract(_resolver) { }
+
+    function init(address _owner, uint8 _effectivenessDelay) external initializer {
         __Essential_init(_owner);
+        effectivenessDelay = _effectivenessDelay;
     }
 
-    constructor(address _resolver, uint256 _effectivenessDelay) EssentialContract(_resolver) {
+    function setEffectivenessDelay(uint8 _effectivenessDelay) external onlyOwner {
         effectivenessDelay = _effectivenessDelay;
+        emit EffectivenessDelaySet(_effectivenessDelay);
     }
 
     /// @inheritdoc IPreconfWhitelist

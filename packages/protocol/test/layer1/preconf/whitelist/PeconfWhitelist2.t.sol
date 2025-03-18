@@ -16,16 +16,16 @@ contract TestPreconfWhitelist2 is Layer1Test {
         whitelist = PreconfWhitelist2(
             deploy({
                 name: "preconf_whitelist2",
-                impl: address(new PreconfWhitelist2(address(resolver), 2)),
-                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner))
+                impl: address(new PreconfWhitelist2(address(resolver))),
+                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner, 2))
             })
         );
 
         whitelistNoDelay = PreconfWhitelist2(
             deploy({
                 name: "preconf_whitelist2",
-                impl: address(new PreconfWhitelist2(address(resolver), 0)),
-                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner))
+                impl: address(new PreconfWhitelist2(address(resolver))),
+                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner, 0))
             })
         );
 
