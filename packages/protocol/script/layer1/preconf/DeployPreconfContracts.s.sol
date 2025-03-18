@@ -23,8 +23,7 @@ contract DeployPreconfContracts is BaseScript {
         address preconfWhitelist = vm.envAddress("PRECONF_WHITELIST");
         require(preconfWhitelist != address(0), "invalid PRECONF_WHITELIST");
 
-        address fallbackPreconf = vm.envAddress("FALLBACK_PRECONF");
-        require(fallbackPreconf != address(0), "invalid FALLBACK_PRECONF");
+        address fallbackPreconf = vm.envOr("FALLBACK_PRECONF", address(0));
 
         // Deploy PreconfWhitelist
         deploy(

@@ -56,7 +56,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         addressNotNull(vm.envAddress("TAIKO_ANCHOR_ADDRESS"), "TAIKO_ANCHOR_ADDRESS");
         addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
         addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
-        addressNotNull(vm.envAddress("FALLBACK_PRECONF"), "FALLBACK_PRECONF");
 
         require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
         address contractOwner = vm.envAddress("CONTRACT_OWNER");
@@ -584,7 +583,9 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         router = deployProxy({
             name: "preconf_router",
-            impl: address(new PreconfRouter(taikoWrapper, whitelist, vm.envAddress("FALLBACK_PRECONF"))),
+            impl: address(
+                new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
+            ),
             data: abi.encodeCall(PreconfRouter.init, (owner)),
             registerTo: rollupResolver
         });
