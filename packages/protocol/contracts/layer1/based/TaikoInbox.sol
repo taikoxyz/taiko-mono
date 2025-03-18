@@ -757,6 +757,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
         uint256 blocksLength = _params.blocks.length;
+        require(blocksLength != 0, BlockNotFound());
+        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
+
         unchecked {
             if (_params.anchorBlockId == 0) {
                 anchorBlockId_ = uint64(block.number - 1);
@@ -778,6 +781,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 : _params.lastBlockTimestamp;
 
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
+            require(_params.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
@@ -817,9 +821,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 ParentMetaHashMismatch()
             );
         }
-
-        require(blocksLength != 0, BlockNotFound());
-        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
     }
 
     // Memory-only structs ----------------------------------------------------------------------

@@ -28,6 +28,7 @@ type Config struct {
 	TaikoL2Address                          common.Address
 	TaikoTokenAddress                       common.Address
 	ProverSetAddress                        common.Address
+	ComposeVerifierAddress                  common.Address
 	L1ProverPrivKey                         *ecdsa.PrivateKey
 	StartingBlockID                         *big.Int
 	Dummy                                   bool
@@ -123,6 +124,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
 		}
 	}
+
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:                            c.String(flags.L2WSEndpoint.Name),
@@ -131,6 +133,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		TaikoL2Address:                          common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
 		TaikoTokenAddress:                       common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
+		ComposeVerifierAddress:                  common.HexToAddress(c.String(flags.ComposeVerifierAddress.Name)),
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:                   c.String(flags.RaikoZKVMHostEndpoint.Name),

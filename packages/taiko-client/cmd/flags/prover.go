@@ -17,10 +17,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
 	}
-)
-
-// Optional flags used by prover.
-var (
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
 		Usage:    "RPC endpoint of a Raiko host service",
@@ -28,6 +24,35 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
+	// Batch proof related flag
+	SGXBatchSize = &cli.Uint64Flag{
+		Name: "prover.sgx.batchSize",
+		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Required: true,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
+	}
+	ZKVMBatchSize = &cli.Uint64Flag{
+		Name: "prover.zkvm.batchSize",
+		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Required: true,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
+	}
+	ComposeVerifierAddress = &cli.StringFlag{
+		Name:     "composeVerifier",
+		Usage:    "ComposeVerifier contract `address`",
+		Required: true,
+		EnvVars:  []string{"COMPOSE_VERIFIER"},
+	}
+)
+
+// Optional flags used by prover.
+var (
 	RaikoZKVMHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host.zkvm",
 		Usage:    "RPC endpoint of a Raiko ZKVM host service",
@@ -160,25 +185,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_BLOCK_CONFIRMATIONS"},
 	}
-	// Batch proof related flag
-	SGXBatchSize = &cli.Uint64Flag{
-		Name: "prover.sgx.batchSize",
-		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
-			"this flag only works post Ontake fork",
-		Value:    1,
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
-	}
-	ZKVMBatchSize = &cli.Uint64Flag{
-		Name: "prover.zkvm.batchSize",
-		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
-			"this flag only works post Ontake fork",
-		Value:    1,
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
-	}
 	ForceBatchProvingInterval = &cli.DurationFlag{
 		Name: "prover.forceBatchProvingInterval",
 		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
@@ -217,4 +223,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
+	ComposeVerifierAddress,
 }, TxmgrFlags)

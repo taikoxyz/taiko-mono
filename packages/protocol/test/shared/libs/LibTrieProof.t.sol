@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibTrieProof.sol";
 import "../CommonTest.sol";
 
+/// forge-config: default.allow_internal_expect_revert = true
 contract TestLibTrieProof is CommonTest {
     function test_verifyMerkleProof() public {
         // Not needed for now, but leave it as is.

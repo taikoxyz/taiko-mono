@@ -587,14 +587,14 @@ contract TestERC20Vault is CommonTest {
         vm.startPrank(Alice);
 
         uint256 aliceBalanceBefore = BridgedERC20(bridgedTokenAddr).balanceOf(Alice);
-        console.log("Alice amount before = %s", aliceBalanceBefore);
+        // console.log("Alice amount before = %s", aliceBalanceBefore);
 
         // Define the amounts
         uint256 amount = 1e18;
         uint256 solverFee = 2e18;
 
-        // Approve only the amount, not the solver fee
-        BridgedERC20(bridgedTokenAddr).approve(address(eVault), amount);
+        uint256 totalAmount = amount + solverFee;
+        BridgedERC20(bridgedTokenAddr).approve(address(eVault), totalAmount);
 
         // Execute the bridge transfer
         eVault.sendToken(
@@ -612,14 +612,87 @@ contract TestERC20Vault is CommonTest {
 
         // Check Alice's balance after the transaction
         uint256 aliceBalanceAfter = BridgedERC20(bridgedTokenAddr).balanceOf(Alice);
-        console.log("Alice amount after = %s", aliceBalanceAfter);
-        console.log(
-            "Alice amount before - Alice amount after = %s", aliceBalanceBefore - aliceBalanceAfter
-        );
-        console.log("amount + solverFee = %s", amount + solverFee);
+        // console.log("Alice amount after = %s", aliceBalanceAfter);
+        // console.log(
+        //     "Alice amount before - Alice amount after = %s", aliceBalanceBefore -
+        // aliceBalanceAfter
+        // );
+        // console.log("amount + solverFee = %s", totalAmount);
 
         // Ensure that only the approved amount was deducted
-        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, totalAmount);
         vm.stopPrank();
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function test_20Vault_Halborn_solver_vulnerability() public {
+        vm.chainId(taikoChainId);
+
+        // Deploy the malicious contract.
+        MaliciousReceiver maliciousReceiver = new MaliciousReceiver();
+
+        // Mint some tokens to the vault.
+        eERC20Token1.mint(address(eVault));
+
+        uint64 amount = 1;
+        uint64 solverFee = 2;
+        address to = address(maliciousReceiver); // Use the malicious contract as the receiver.
+        address solver = David; // The solver.
+        bytes32 solverCondition = eVault.getSolverCondition(1, address(eERC20Token1), to, amount);
+
+        // Mint tokens to the solver so they can solve the bridging resolver.
+        eERC20Token1.mint(solver);
+
+        vm.startPrank(solver);
+
+        // Set up L2 batch for solve verification.
+        uint64 blockId = 1;
+        bytes32 blockMetaHash = bytes32("metahash");
+        ITaikoInbox.Batch memory batch;
+        batch.metaHash = blockMetaHash;
+        taikoInbox.setBatch(batch);
+
+        // Solver approves tokens and solves the transaction.
+        eERC20Token1.approve(address(eVault), amount);
+        eVault.solve(
+            ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+        );
+
+        vm.stopPrank();
+
+        // Verify the solver is registered as the solver for the condition.
+        assertEq(eVault.solverConditionToSolver(solverCondition), solver);
+
+        ERC20Vault.CanonicalERC20 memory ctoken = erc20ToCanonicalERC20(taikoChainId);
+        address from = Alice;
+        uint256 etherAmount = 0.1 ether; // Include some ether to bridge.
+
+        bytes memory messageData = abi.encode(
+            ctoken,
+            from,
+            to, // The malicious contract that will revert the ETH.
+            amount,
+            solverFee,
+            solverCondition
+        );
+
+        // We will need to mock the bridge context.
+        vm.prank(address(eBridge));
+
+        vm.expectRevert();
+        eVault.onMessageInvocation{ value: etherAmount }(messageData);
+    }
+}
+
+// Create a malicious contract that will receive tokens but revert the ETH.
+contract MaliciousReceiver {
+    // Will revert when receiving ETH.
+    receive() external payable {
+        revert("I refuse to accept ETH!");
+    }
+    // Optional fallback function that will revert when receiving ETH.
+
+    fallback() external payable {
+        revert("I refuse to accept ETH!");
     }
 }
