@@ -55,7 +55,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         _removeOperator(_operator, operatorChangeDelay);
     }
 
-    //// @notice Allows the caller to remove themselves as an operator immediately.
+    /// @notice Allows the caller to remove themselves as an operator immediately.
     function removeSelf() external {
         _removeOperator(msg.sender, 0);
     }
