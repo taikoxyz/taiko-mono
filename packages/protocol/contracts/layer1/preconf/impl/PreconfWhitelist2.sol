@@ -7,6 +7,9 @@ import "../libs/LibPreconfConstants.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/common/EssentialContract.sol";
 
+
+import "forge-std/src/console2.sol";
+
 /// @title PreconfWhitelist2
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
@@ -75,11 +78,19 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         while (i < _operatorCount) {
             address operator = operatorMapping[i];
             OperatorInfo memory info = operators[operator];
+
+            console2.log("operator: {}", operator);
+            console2.log("info.inactiveSince: {}", info.inactiveSince);
+            console2.log("currentEpoch: {}", currentEpoch);
             // Check if the operator is scheduled for removal and the removal epoch has passed
             if (info.inactiveSince != 0 && info.inactiveSince <= currentEpoch) {
+
                 uint8 lastIndex = _operatorCount - 1;
+                console2.log("lastIndex: {}", lastIndex);
                 // Only perform swap if not the last element
                 if (i != lastIndex) {
+                       console2.log("i != lastIndex)");
+
                     address lastOperator = operatorMapping[lastIndex];
                     operators[lastOperator].index = i;
                     operatorMapping[i] = lastOperator;
@@ -93,6 +104,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
                 ++i;
             }
         }
+
+        console2.log("_operatorCount: {}", _operatorCount);
 
         operatorCount = _operatorCount;
         emit Consolidated();
@@ -170,11 +183,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         require(info.activeSince != 0, InvalidOperatorAddress());
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
 
-        uint64 inactiveSince = epochStartTimestamp(effectivenessDelay);
-        if (inactiveSince <= info.activeSince) {
-            inactiveSince = info.activeSince + uint64(LibPreconfConstants.SECONDS_IN_EPOCH);
-        }
-        operators[operator].inactiveSince = inactiveSince;
+        operators[operator].inactiveSince = epochStartTimestamp(effectivenessDelay);
 
         emit OperatorRemoved(operator);
     }
