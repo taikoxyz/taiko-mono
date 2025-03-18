@@ -7,9 +7,6 @@ import "../libs/LibPreconfConstants.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/common/EssentialContract.sol";
 
-
-import "forge-std/src/console2.sol";
-
 /// @title PreconfWhitelist2
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
@@ -79,18 +76,11 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             address operator = operatorMapping[i];
             OperatorInfo memory info = operators[operator];
 
-            console2.log("operator: {}", operator);
-            console2.log("info.inactiveSince: {}", info.inactiveSince);
-            console2.log("currentEpoch: {}", currentEpoch);
             // Check if the operator is scheduled for removal and the removal epoch has passed
             if (info.inactiveSince != 0 && info.inactiveSince <= currentEpoch) {
-
                 uint8 lastIndex = _operatorCount - 1;
-                console2.log("lastIndex: {}", lastIndex);
                 // Only perform swap if not the last element
                 if (i != lastIndex) {
-                       console2.log("i != lastIndex)");
-
                     address lastOperator = operatorMapping[lastIndex];
                     operators[lastOperator].index = i;
                     operatorMapping[i] = lastOperator;
@@ -104,8 +94,6 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
                 ++i;
             }
         }
-
-        console2.log("_operatorCount: {}", _operatorCount);
 
         operatorCount = _operatorCount;
         emit Consolidated();
