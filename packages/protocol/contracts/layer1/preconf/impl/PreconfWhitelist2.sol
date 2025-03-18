@@ -180,6 +180,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         emit OperatorRemoved(_operator, inactiveSince);
     }
 
+    /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
         if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
             return address(0);
@@ -203,7 +204,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         }
 
         if (count == 0) return address(0);
-        
+
         return candidates[uint256(root) % count];
     }
 
