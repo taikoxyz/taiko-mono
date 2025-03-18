@@ -39,7 +39,7 @@ type ProofSubmitterTestSuite struct {
 	proofCh                  chan *producer.ProofResponse
 	batchProofGenerationCh   chan *producer.BatchProofs
 	aggregationNotify        chan uint16
-	batchesAggregationNotify chan string
+	batchesAggregationNotify chan producer.ProofType
 }
 
 func (s *ProofSubmitterTestSuite) SetupTest() {
@@ -48,7 +48,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.proofCh = make(chan *producer.ProofResponse, 1024)
 	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
 	s.aggregationNotify = make(chan uint16, 1)
-	s.batchesAggregationNotify = make(chan string, 1)
+	s.batchesAggregationNotify = make(chan producer.ProofType, 1)
 
 	var (
 		builder = transaction.NewProveBlockTxBuilder(
@@ -108,19 +108,19 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.Nil(err)
 	opVerifier, err := s.RPCClient.GetOPVerifierPacaya(&bind.CallOpts{Context: context.Background()})
 	s.Nil(err)
-	pivotProducer := producer.PivotProofProducer{
+	pivotProducer := &producer.PivotProofProducer{
 		Verifier: pivotVerifier,
 		Dummy:    true,
 	}
-	baseLevelProver := &producer.ProofProducerPacaya{
+	baseLevelProver := &producer.ComposeProofProducer{
 		PivotProducer: pivotProducer,
-		Verifiers: map[string]common.Address{
+		Verifiers: map[producer.ProofType]common.Address{
 			producer.ProofTypeOp: opVerifier,
 		},
 		ProofType: producer.ProofTypeOp,
 		IsOp:      true,
 	}
-	proofBuffers := map[string]*producer.ProofBuffer{
+	proofBuffers := map[producer.ProofType]*producer.ProofBuffer{
 		producer.ProofTypeOp: producer.NewProofBuffer(1),
 	}
 

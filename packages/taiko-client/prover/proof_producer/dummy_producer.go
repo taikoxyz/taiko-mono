@@ -32,7 +32,7 @@ func (o *DummyProofProducer) RequestProof(
 func (o *DummyProofProducer) RequestBatchProofs(
 	proofs []*ProofResponse,
 	tier uint16,
-	proofType string,
+	proofType ProofType,
 ) (*BatchProofs, error) {
 	return &BatchProofs{
 		ProofResponses: proofs,

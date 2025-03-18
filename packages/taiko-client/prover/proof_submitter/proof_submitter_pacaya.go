@@ -36,7 +36,7 @@ type ProofSubmitterPacaya struct {
 	resultCh               chan *proofProducer.ProofResponse
 	batchResultCh          chan *proofProducer.BatchProofs
 	aggregationNotify      chan uint16
-	batchAggregationNotify chan string
+	batchAggregationNotify chan proofProducer.ProofType
 	anchorValidator        *validator.AnchorTxValidator
 	txBuilder              *transaction.ProveBlockTxBuilder
 	sender                 *transaction.Sender
@@ -44,7 +44,7 @@ type ProofSubmitterPacaya struct {
 	proverSetAddress       common.Address
 	taikoAnchorAddress     common.Address
 	// Batch proof related
-	proofBuffers              map[string]*proofProducer.ProofBuffer
+	proofBuffers              map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	forceBatchProvingInterval time.Duration
 }
 
@@ -56,14 +56,14 @@ func NewProofSubmitterPacaya(
 	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
 	aggregationNotify chan uint16,
-	batchAggregationNotify chan string,
+	batchAggregationNotify chan proofProducer.ProofType,
 	proverSetAddress common.Address,
 	taikoAnchorAddress common.Address,
 	gasLimit uint64,
 	txmgr txmgr.TxManager,
 	privateTxmgr txmgr.TxManager,
 	builder *transaction.ProveBlockTxBuilder,
-	proofBuffers map[string]*proofProducer.ProofBuffer,
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, rpcClient.L2.ChainID, rpcClient)
@@ -138,7 +138,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		}
 		startTime = time.Now()
 		result    *proofProducer.ProofResponse
-		proofType string
+		proofType proofProducer.ProofType
 	)
 
 	// If the prover set address is provided, we use that address as the prover on chain.
@@ -348,7 +348,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 				break
 			}
 
-			// Validate TaikoL2.anchor transaction inside the L2 block.
+			// Validate TaikoAnchor.anchoV3 transaction inside the L2 block.
 			anchorTx := block.Transactions()[0]
 			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
 				log.Error("Invalid anchor transaction", "error", err)
@@ -371,7 +371,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		return ErrInvalidProof
 	}
 
-	// Build the TaikoL1.proveBlocks transaction and send it to the L1 node.
+	// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
 		s.txBuilder.BuildProveBatchesPacaya(batchProof),
@@ -392,16 +392,18 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 }
 
 // AggregateProofsByType read all data from buffer and aggregate them.
-func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofType string) error {
+func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error {
 	proofBuffer, exist := s.proofBuffers[proofType]
 	if !exist {
-		return fmt.Errorf("get unexpected proof type: %s", proofType)
+		return fmt.Errorf("failed to get expected proof type: %s", proofType)
 	}
 	var producer proofProducer.ProofProducer
+	// nolint:exhaustive
+	// We deliberately handle only known proof types and catch others in default case
 	switch proofType {
 	case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
 		producer = s.baseLevelProofProducer
-	case proofProducer.ZKProofTypeR0, proofProducer.ZKProofTypeSP1:
+	case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
 		producer = s.zkvmProofProducer
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
@@ -452,7 +454,7 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 
 // AggregateProofs implements the Submitter interface.
 func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
-	return fmt.Errorf("%s is not implemented for Pacaya submitter", "AggregateProofs")
+	return fmt.Errorf("AggregateProofs is not implemented for Pacaya submitter")
 }
 
 // Producer implements the Submitter interface.
@@ -475,5 +477,6 @@ func (s *ProofSubmitterPacaya) BufferSize() uint64 {
 
 // AggregationEnabled implements the Submitter interface.
 func (s *ProofSubmitterPacaya) AggregationEnabled() bool {
+	// Aggregation is always enabled for Pacaya.
 	return true
 }

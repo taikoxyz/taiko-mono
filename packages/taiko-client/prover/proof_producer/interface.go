@@ -7,6 +7,22 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
+// ProofType represents the type of the given proof.
+type ProofType string
+
+// ProofType constants.
+const (
+	ProofTypePivot  ProofType = "pivot"
+	ProofTypeOp     ProofType = "op"
+	ProofTypeSgx    ProofType = "sgx"
+	ProofTypeSgxCPU ProofType = "native"
+	ProofTypeZKR0   ProofType = "risc0"
+	ProofTypeZKSP1  ProofType = "sp1"
+	ProofTypeZKAny  ProofType = "zk_any"
+)
+
+// ProofRequestOptions is an interface that contains all options that need to be passed to a backend proof producer
+// service.
 type ProofRequestOptions interface {
 	IsPacaya() bool
 	OntakeOptions() *ProofRequestOptionsOntake

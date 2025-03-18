@@ -48,8 +48,8 @@ type PreconfBlockAPIServer struct {
 	// P2P network for preconf block propagation
 	p2pNode        *p2p.NodeP2P
 	p2pSigner      p2p.Signer
-	lookaheadMutex sync.Mutex
 	lookahead      *Lookahead
+	lookaheadMutex sync.Mutex
 }
 
 // New creates a new preconf blcok server instance, and starts the server.
@@ -72,9 +72,8 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:            cli,
-		lookahead:      &Lookahead{},
-		lookaheadMutex: sync.Mutex{},
+		rpc:       cli,
+		lookahead: &Lookahead{},
 	}
 
 	server.echo.HideBanner = true
@@ -229,8 +228,9 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 	}
 }
 
+// UpdateLookahead updates the lookahead information.
 func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
 	s.lookahead = l
-	s.lookaheadMutex.Unlock()
 }

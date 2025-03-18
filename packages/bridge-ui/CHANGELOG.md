@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.13.0...bridge-ui-v2.14.0) (2025-03-17)
+
+
+### Features
+
+* **bridge-ui:** add etherfi WeETH ([#19107](https://github.com/taikoxyz/taiko-mono/issues/19107)) ([f488a92](https://github.com/taikoxyz/taiko-mono/commit/f488a921c92a0cac54472c214fb13e4282fe830d))
+
 ## [2.13.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.12.0...bridge-ui-v2.13.0) (2024-12-17)
 
 
