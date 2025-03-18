@@ -192,6 +192,23 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.stopPrank();
     }
 
+    function test_whitelist2_selfRemoval() external {
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Alice);
+
+        vm.prank(Alice);
+        whitelist.removeSelf();
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Alice);
+
+        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
+        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
+
+        whitelist.consolidate();
+        assertEq(whitelist.operatorCount(), 0);
+        assertEq(whitelist.operatorMapping(0), address(0));
+    }
+
     function test_whitelist2_removeNonExistingOperatorWillRevert() external {
         vm.startPrank(whitelistOwner);
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);

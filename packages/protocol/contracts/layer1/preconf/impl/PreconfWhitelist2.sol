@@ -16,7 +16,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         uint8 index; // Index in operatorMapping.
     }
 
-    event Consolidated();
+    event Consolidated(uint8 previousCount, uint8 newCount);
     event OperatorChangeDelaySet(uint8 delay);
 
     mapping(address operator => OperatorInfo info) public operators;
@@ -40,33 +40,24 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
     /// @inheritdoc IPreconfWhitelist
     function addOperator(address _operator) external onlyOwner {
-        require(_operator != address(0), InvalidOperatorAddress());
-        require(operators[_operator].activeSince == 0, OperatorAlreadyExists());
-
-        uint8 _operatorCount = operatorCount;
-        operators[_operator] = OperatorInfo({
-            activeSince: epochStartTimestamp(operatorChangeDelay),
-            inactiveSince: 0, // no removal scheduled.
-            index: _operatorCount
-        });
-        operatorMapping[_operatorCount] = _operator;
-        unchecked {
-            operatorCount = _operatorCount + 1;
-        }
-
-        emit OperatorAdded(_operator);
+        _addOperator(_operator, operatorChangeDelay);
     }
 
     /// @inheritdoc IPreconfWhitelist
     function removeOperator(uint256 _operatorIndex) external onlyOwner {
         require(_operatorIndex < operatorCount, InvalidOperatorIndex());
-        _removeOperator(operatorMapping[_operatorIndex]);
+        _removeOperator(operatorMapping[_operatorIndex], operatorChangeDelay);
     }
 
     /// @notice Removes an operator by address who will become inactive in two epochs.
     /// @param _operator The address of the operator to remove.
     function removeOperator(address _operator) external onlyOwner {
-        _removeOperator(_operator);
+        _removeOperator(_operator, operatorChangeDelay);
+    }
+
+    //// @notice Allows the caller to remove themselves as an operator immediately.
+    function removeSelf() external {
+        _removeOperator(msg.sender, 0);
     }
 
     /// @notice Consolidates the operator mapping by removing operators whose removal epoch has
@@ -74,7 +65,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     function consolidate() external {
         uint64 currentEpoch = epochStartTimestamp(0);
         uint8 i;
-        uint8 _operatorCount = operatorCount;
+        uint8 _previousCount = operatorCount;
+        uint8 _operatorCount = _previousCount;
 
         while (i < _operatorCount) {
             address operator = operatorMapping[i];
@@ -100,7 +92,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         }
 
         operatorCount = _operatorCount;
-        emit Consolidated();
+        emit Consolidated(_previousCount, _operatorCount);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -133,10 +125,41 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         }
     }
 
-    function epochStartTimestamp(uint256 offset) public view returns (uint64) {
+    function epochStartTimestamp(uint256 _offset) public view returns (uint64) {
         return uint64(
-            LibPreconfUtils.getEpochTimestamp() + offset * LibPreconfConstants.SECONDS_IN_EPOCH
+            LibPreconfUtils.getEpochTimestamp() + _offset * LibPreconfConstants.SECONDS_IN_EPOCH
         );
+    }
+
+    function _addOperator(address _operator, uint8 _operatorChangeDelay) internal {
+        require(_operator != address(0), InvalidOperatorAddress());
+        require(operators[_operator].activeSince == 0, OperatorAlreadyExists());
+
+        uint8 _operatorCount = operatorCount;
+        uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
+        operators[_operator] = OperatorInfo({
+            activeSince: activeSince,
+            inactiveSince: 0, // no removal scheduled.
+            index: _operatorCount
+        });
+        operatorMapping[_operatorCount] = _operator;
+        unchecked {
+            operatorCount = _operatorCount + 1;
+        }
+
+        emit OperatorAdded(_operator, activeSince);
+    }
+
+    function _removeOperator(address _operator, uint8 _operatorChangeDelay) internal {
+        require(_operator != address(0), InvalidOperatorAddress());
+        OperatorInfo memory info = operators[_operator];
+        require(info.activeSince != 0, InvalidOperatorAddress());
+        require(info.inactiveSince == 0, OperatorAlreadyRemoved());
+
+        uint64 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
+        operators[_operator].inactiveSince = inactiveSince;
+
+        emit OperatorRemoved(_operator, inactiveSince);
     }
 
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
@@ -162,20 +185,5 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         }
 
         return address(0);
-    }
-
-    /// @notice Remove an operator.
-    /// @dev Normally, removal is scheduled for current + 2 epochs.
-    /// If the operator has not yet become active, it will be active for one epoch and removed in
-    /// activeSince + 1 epoch.
-    function _removeOperator(address operator) internal {
-        require(operator != address(0), InvalidOperatorAddress());
-        OperatorInfo memory info = operators[operator];
-        require(info.activeSince != 0, InvalidOperatorAddress());
-        require(info.inactiveSince == 0, OperatorAlreadyRemoved());
-
-        operators[operator].inactiveSince = epochStartTimestamp(operatorChangeDelay);
-
-        emit OperatorRemoved(operator);
     }
 }
