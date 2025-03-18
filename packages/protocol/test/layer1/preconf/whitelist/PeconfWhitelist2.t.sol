@@ -7,6 +7,7 @@ import "../mocks/MockBeaconBlockRoot.sol";
 
 contract TestPreconfWhitelist2 is Layer1Test {
     PreconfWhitelist2 internal whitelist;
+    PreconfWhitelist2 internal whitelistNoDelay;
     address internal whitelistOwner;
     BeaconBlockRootImpl internal beaconBlockRootImpl;
 
@@ -15,7 +16,15 @@ contract TestPreconfWhitelist2 is Layer1Test {
         whitelist = PreconfWhitelist2(
             deploy({
                 name: "preconf_whitelist2",
-                impl: address(new PreconfWhitelist2(address(resolver))),
+                impl: address(new PreconfWhitelist2(address(resolver), 2)),
+                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner))
+            })
+        );
+
+        whitelistNoDelay = PreconfWhitelist2(
+            deploy({
+                name: "preconf_whitelist2",
+                impl: address(new PreconfWhitelist2(address(resolver), 0)),
                 data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner))
             })
         );
@@ -23,7 +32,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
     }
 
-    function test_whitelist2_addThenRemoveOneOperator() external {
+    function test_whitelist2_delay2epoch_addThenRemoveOneOperator() external {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
@@ -88,7 +97,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorMapping(0), address(0));
     }
 
-    function test_whitelist2_addThenRemoveTwoOperators() external {
+    function test_whitelist2_delay2epoch_addThenRemoveTwoOperators() external {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
@@ -171,7 +180,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.operatorMapping(1), address(0));
     }
 
-    function test_whitelist2_addOrRemoveTheSameOperatorTwiceWillRevert() external {
+    function test_whitelist2_delay2epoch_addOrRemoveTheSameOperatorTwiceWillRevert() external {
         vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice);
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
@@ -183,14 +192,14 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.stopPrank();
     }
 
-    function test_whitelist2_removeNonExistingOperatorWillRevert() external {
+    function test_whitelist2_delay2epoch_removeNonExistingOperatorWillRevert() external {
         vm.startPrank(whitelistOwner);
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.removeOperator(Alice);
         vm.stopPrank();
     }
 
-    function test_whitelist2_consolidate_whenEmpty_not_revert() external {
+    function test_whitelist2_delay2epoch_consolidate_whenEmpty_not_revert() external {
         whitelist.consolidate();
     }
 
