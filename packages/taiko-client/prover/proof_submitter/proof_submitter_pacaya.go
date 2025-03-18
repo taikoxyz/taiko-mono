@@ -208,7 +208,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				"bufferFirstItemAt", proofBuffer.FirstItemAt(),
 			)
 			// Try to aggregate the proofs in the buffer.
-			s.TryAggregate(proofBuffer)
+			s.TryAggregate(proofBuffer, proofResponse.ProofType)
 
 			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
@@ -230,11 +230,11 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
-func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer) bool {
+func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
 	if !buffer.IsAggregating() &&
 		(uint64(buffer.Len()) >= buffer.MaxLength ||
 			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		s.aggregationNotify <- s.Tier()
+		s.batchAggregationNotify <- proofType
 		buffer.MarkAggregating()
 
 		return true
