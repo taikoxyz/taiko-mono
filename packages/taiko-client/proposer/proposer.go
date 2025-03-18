@@ -277,6 +277,17 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
+	// Fetch the parent metaHash from the latest block.
+	state, err := p.rpc.GetProtocolStateVariables(nil)
+	if err != nil {
+		return err
+	}
+
+	blockInfo, err := p.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(state.B.NumBlocks-1))
+	if err != nil {
+		return err
+	}
+
 	// Fetch pending L2 transactions from mempool.
 	txLists, err := p.fetchPoolContent(filterPoolContent)
 	if err != nil {
@@ -289,13 +300,13 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	// Propose the transactions lists.
-	return p.ProposeTxLists(ctx, txLists)
+	return p.ProposeTxLists(ctx, txLists, blockInfo.MetaHash)
 }
 
 // ProposeTxList proposes the given transactions lists to TaikoL1 smart contract.
-func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transactions) error {
+func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transactions, parentMetahash common.Hash) error {
 	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
-	if err := p.ProposeTxListOntake(ctx, txLists); err != nil {
+	if err := p.ProposeTxListOntake(ctx, txLists, parentMetahash); err != nil {
 		return err
 	}
 	p.lastProposedAt = time.Now()
@@ -306,6 +317,7 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 func (p *Proposer) ProposeTxListOntake(
 	ctx context.Context,
 	txLists []types.Transactions,
+	parentMetahash common.Hash,
 ) error {
 	var (
 		proverAddress     = p.proposerAddress
@@ -350,7 +362,7 @@ func (p *Proposer) ProposeTxListOntake(
 		return errors.New("insufficient prover balance")
 	}
 
-	txCandidate, err := p.txBuilder.BuildOntake(ctx, txListsBytesArray)
+	txCandidate, err := p.txBuilder.BuildOntake(ctx, txListsBytesArray, parentMetahash)
 	if err != nil {
 		log.Warn("Failed to build TaikoL1.proposeBlocksV2 transaction", "error", encoding.TryParsingCustomError(err))
 		return err
