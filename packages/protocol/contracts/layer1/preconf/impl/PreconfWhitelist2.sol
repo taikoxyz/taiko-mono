@@ -141,7 +141,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
         );
 
-        if (root == 0) return address(0);
+        if (root == 0 || operatorCount == 0) return address(0);
         
         uint8 candidateindex = uint8(uint256(root) % operatorCount);
         for (uint8 i; i < operatorCount; ++i) {
@@ -151,7 +151,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             }
             candidateindex = (candidateindex + 1) % operatorCount;
         }
-        
+
         return address(0);
     }
 
