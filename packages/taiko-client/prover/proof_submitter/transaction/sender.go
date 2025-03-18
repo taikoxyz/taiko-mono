@@ -141,7 +141,7 @@ func (s *Sender) SendBatchProof(
 	buildTx TxBuilder,
 	batchProof *producer.BatchProofs,
 ) error {
-	// Assemble the TaikoL1.proveBlocks transaction.
+	// Assemble the TaikoL1.proveBlocks / TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
 	if err != nil {
 		return err
