@@ -129,6 +129,7 @@ func InitFromConfig(
 		ProverSetAddress:              cfg.ProverSetAddress,
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
+		ComposeVerifierAddress:        cfg.ComposeVerifierAddress,
 		Timeout:                       cfg.RPCTimeout,
 	}); err != nil {
 		return err
@@ -422,6 +423,18 @@ func (p *Prover) aggregateOp(tier uint16) error {
 
 // aggregateOpPacaya aggregates all proofs in buffer for Pacaya.
 func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
+	// Try to aggregate Ontake proofs first.
+	for _, submitter := range p.proofSubmittersOntake {
+		if s, ok := submitter.(*proofSubmitter.ProofSubmitterOntake); ok {
+			if !s.AggregationEnabled() {
+				continue
+			}
+			if aggregated := s.TryAggregate(); aggregated {
+				log.Info("Aggregated Ontake proofs")
+			}
+		}
+	}
+
 	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
 		log.Error(
 			"Failed to aggregate proofs",

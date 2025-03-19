@@ -8,21 +8,24 @@ import "../iface/IPreconfWhitelist.sol";
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IPreconfRouter {
-    address public immutable proposeBlockEntrypoint;
-    address public immutable preconfWhitelist;
+    IProposeBatch public immutable proposeBatchEntrypoint;
+    IPreconfWhitelist public immutable preconfWhitelist;
+    address public immutable fallbackPreconfer;
 
     uint256[50] private __gap;
 
     constructor(
-        address _proposeBlockEntrypoint, // TaikoInbox or TaikoWrapper
-        address _preconfWhitelist
+        address _proposeBatchEntrypoint, // TaikoInbox or TaikoWrapper
+        address _preconfWhitelist,
+        address _fallbackPreconfer
     )
-        nonZeroAddr(_proposeBlockEntrypoint)
+        nonZeroAddr(_proposeBatchEntrypoint)
         nonZeroAddr(_preconfWhitelist)
         EssentialContract(address(0))
     {
-        proposeBlockEntrypoint = _proposeBlockEntrypoint;
-        preconfWhitelist = _preconfWhitelist;
+        proposeBatchEntrypoint = IProposeBatch(_proposeBatchEntrypoint);
+        preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
+        fallbackPreconfer = _fallbackPreconfer;
     }
 
     function init(address _owner) external initializer {
@@ -38,13 +41,17 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
-        address selectedOperator = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
-        require(msg.sender == selectedOperator, NotTheOperator());
+        address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
+        if (preconfer != address(0)) {
+            require(msg.sender == preconfer, NotPreconfer());
+        } else if (fallbackPreconfer != address(0)) {
+            require(msg.sender == fallbackPreconfer, NotFallbackPreconfer());
+        }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = IProposeBatch(proposeBlockEntrypoint).proposeBatch(_params, _txList);
+        (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
-        require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
+        require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());
     }
 }

@@ -1,15 +1,10 @@
 package producer
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,10 +17,11 @@ import (
 )
 
 var (
-	ErrProofInProgress = errors.New("work_in_progress")
-	ErrRetry           = errors.New("retry")
-	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
-	StatusRegistered   = "registered"
+	ErrProofInProgress        = errors.New("work_in_progress")
+	ErrProofGeneartionTimeout = errors.New("proof_generation_timeout")
+	ErrRetry                  = errors.New("retry")
+	ErrZkAnyNotDrawn          = errors.New("zk_any_not_drawn")
+	StatusRegistered          = "registered"
 )
 
 // RaikoRequestProofBodyResponseV2 represents the JSON body of the response of the proof requests.
@@ -52,8 +48,6 @@ type ZKvmProofProducer struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	JWT                 string // JWT provided by Raiko
-	Dummy               bool
-	DummyProofProducer
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -74,10 +68,6 @@ func (s *ZKvmProofProducer) RequestProof(
 		"coinbase", meta.Ontake().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
-
-	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, s.Tier(), requestAt)
-	}
 
 	proof, proofType, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {
@@ -206,71 +196,27 @@ func (s *ZKvmProofProducer) requestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
-	reqBody := RaikoRequestProofBody{
-		Type:     ProofTypeZKAny,
-		Block:    opts.OntakeOptions().BlockID,
-		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
-		Graffiti: opts.OntakeOptions().Graffiti,
-		ZkAny: &ZkAnyRequestProofBodyParam{
-			Aggregation: opts.OntakeOptions().Compressed,
+	output, err := requestHTTPProof[RaikoRequestProofBody, RaikoRequestProofBodyResponseV2](
+		ctx,
+		s.RaikoHostEndpoint+"/v2/proof",
+		s.JWT,
+		RaikoRequestProofBody{
+			Type:     ProofTypeZKAny,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
+			ZkAny: &ZkAnyRequestProofBodyParam{
+				Aggregation: opts.OntakeOptions().Compressed,
+			},
 		},
-	}
-
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", s.RaikoHostEndpoint+"/v2/proof", bytes.NewBuffer(jsonValue))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	}
-
-	log.Debug(
-		"Send proof generation request",
-		"blockID", opts.OntakeOptions().BlockID,
-		"zkProofType", ProofTypeZKAny,
-		"input", string(jsonValue),
 	)
-
-	res, err := client.Do(req)
 	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(
-			"failed to request proof, id: %d, statusCode: %d",
-			opts.OntakeOptions().BlockID,
-			res.StatusCode,
-		)
-	}
-
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Proof generation output",
-		"blockID", opts.OntakeOptions().BlockID,
-		"zkProofType", ProofTypeZKAny,
-		"output", string(resBytes),
-	)
-	var output RaikoRequestProofBodyResponseV2
-	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		log.Error("Failed to get zk proof",
+		log.Error(
+			"Failed to request zk proof",
 			"err", output.Error,
 			"msg", output.ErrorMessage,
 			"zkType", ProofTypeZKAny,
@@ -278,7 +224,7 @@ func (s *ZKvmProofProducer) requestProof(
 		return nil, errors.New(output.Error)
 	}
 
-	return &output, nil
+	return output, nil
 }
 
 func (s *ZKvmProofProducer) requestCancel(
@@ -289,46 +235,24 @@ func (s *ZKvmProofProducer) requestCancel(
 		return fmt.Errorf("proof cancellation is not supported for Pacaya fork")
 	}
 
-	reqBody := RaikoRequestProofBody{
-		Type:     ProofTypeZKAny,
-		Block:    opts.OntakeOptions().BlockID,
-		Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
-		Graffiti: opts.OntakeOptions().Graffiti,
-		ZkAny: &ZkAnyRequestProofBodyParam{
-			Aggregation: opts.OntakeOptions().Compressed,
-		},
-	}
-
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(
+	res, err := requestHTTPProofResponse[RaikoRequestProofBody](
 		ctx,
-		"POST",
 		s.RaikoHostEndpoint+"/v2/proof/cancel",
-		bytes.NewBuffer(jsonValue),
+		s.JWT,
+		RaikoRequestProofBody{
+			Type:     ProofTypeZKAny,
+			Block:    opts.OntakeOptions().BlockID,
+			Prover:   opts.OntakeOptions().ProverAddress.Hex()[2:],
+			Graffiti: opts.OntakeOptions().Graffiti,
+			ZkAny: &ZkAnyRequestProofBodyParam{
+				Aggregation: opts.OntakeOptions().Compressed,
+			},
+		},
 	)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to cancel requesting proof, statusCode: %d", res.StatusCode)
-	}
 
 	return nil
 }
@@ -354,65 +278,18 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		blocks[i][0] = blockIDs[i]
 	}
 
-	reqBody := RaikoRequestProofBodyV3{
-		Type:     zkType,
-		Blocks:   blocks,
-		Prover:   proverAddress.Hex()[2:],
-		Graffiti: graffiti,
-	}
-
-	client := &http.Client{}
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Send batch proof generation request",
-		"blockIDs", blockIDs,
-		"zkProofType", zkType,
-		"input", string(jsonValue),
-	)
-
-	req, err := http.NewRequestWithContext(
+	output, err := requestHTTPProof[RaikoRequestProofBodyV3, RaikoRequestProofBodyResponseV2](
 		ctx,
-		"POST",
 		s.RaikoHostEndpoint+"/v3/proof",
-		bytes.NewBuffer(jsonValue),
+		s.JWT,
+		RaikoRequestProofBodyV3{
+			Type:     zkType,
+			Blocks:   blocks,
+			Prover:   proverAddress.Hex()[2:],
+			Graffiti: graffiti,
+		},
 	)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if len(s.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request batch proof, ids: %v, statusCode: %d", blockIDs, res.StatusCode)
-	}
-
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug(
-		"Batch proof generation output",
-		"blockIDs", blockIDs,
-		"zkProofType", zkType,
-		"output", string(resBytes),
-	)
-
-	var output RaikoRequestProofBodyResponseV2
-	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
 
@@ -425,7 +302,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		return nil, errors.New(output.Error)
 	}
 	if output.Data == nil {
-		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
+		return nil, fmt.Errorf("unexpected structure error")
 	}
 
 	if output.Data.Status == ErrProofInProgress.Error() {

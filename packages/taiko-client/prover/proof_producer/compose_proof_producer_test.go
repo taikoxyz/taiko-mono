@@ -12,21 +12,25 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
-func TestSGXProducerRequestProof(t *testing.T) {
+func TestComposeProducerRequestProof(t *testing.T) {
 	var (
-		producer = &SGXProofProducer{Dummy: true}
-		blockID  = common.Big32
+		producer = &ComposeProofProducer{
+			IsOp:               true,
+			DummyProofProducer: DummyProofProducer{},
+			PivotProducer:      &PivotProofProducer{Dummy: true},
+		}
+		blockID = common.Big32
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
-		&ProofRequestOptionsOntake{},
+		&ProofRequestOptionsPacaya{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataOntake{},
+		&metadata.TaikoDataBlockMetadataPacaya{},
 		time.Now(),
 	)
 	require.Nil(t, err)
 
 	require.Equal(t, res.BlockID, blockID)
-	require.Equal(t, res.Tier, encoding.TierSgxID)
+	require.Equal(t, res.Tier, encoding.TierDeprecated)
 	require.NotEmpty(t, res.Proof)
 }

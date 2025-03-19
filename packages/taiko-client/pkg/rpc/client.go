@@ -80,6 +80,7 @@ type ClientConfig struct {
 	TaikoTokenAddress             common.Address
 	ForcedInclusionStoreAddress   common.Address
 	PreconfWhitelistAddress       common.Address
+	ComposeVerifierAddress        common.Address
 	GuardianProverMinorityAddress common.Address
 	GuardianProverMajorityAddress common.Address
 	ProverSetAddress              common.Address
@@ -267,6 +268,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		taikoWrapper         *pacayaBindings.TaikoWrapperClient
 		forcedInclusionStore *pacayaBindings.ForcedInclusionStore
 		preconfWhitelist     *pacayaBindings.PreconfWhitelist
+		composeVerifier      *pacayaBindings.ComposeVerifier
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -282,13 +284,10 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	opts := &bind.CallOpts{Context: context.Background()}
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
-	composeVerifierAddress, err := taikoInbox.Verifier(opts)
-	if err != nil {
-		return err
-	}
-	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
-	if err != nil {
-		return err
+	if cfg.ComposeVerifierAddress.Hex() != ZeroAddress.Hex() {
+		if composeVerifier, err = pacayaBindings.NewComposeVerifier(cfg.ComposeVerifierAddress, c.L1); err != nil {
+			return err
+		}
 	}
 
 	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
@@ -331,7 +330,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
-	// If failed to get protocol configs, we assuming the current chain is still before the Pacaya fork,
+	// If failed to get protocol configs, we are assuming the current chain is still before the Pacaya fork,
 	// use pre-defined Pacaya fork height.
 	if err != nil {
 		log.Debug(

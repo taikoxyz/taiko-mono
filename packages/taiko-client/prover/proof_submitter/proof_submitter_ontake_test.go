@@ -112,7 +112,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		Verifier: pivotVerifier,
 		Dummy:    true,
 	}
-	baseLevelProver := &producer.ProofProducerPacaya{
+	baseLevelProver := &producer.ComposeProofProducer{
 		PivotProducer: pivotProducer,
 		Verifiers: map[producer.ProofType]common.Address{
 			producer.ProofTypeOp: opVerifier,

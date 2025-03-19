@@ -112,7 +112,6 @@ func (p *Prover) initProofSubmitters(
 					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
 					ProofType:           producer.ProofTypeSgx,
-					Dummy:               p.cfg.Dummy,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 				}
 			case encoding.TierZkVMRisc0ID:
@@ -121,7 +120,6 @@ func (p *Prover) initProofSubmitters(
 				proofProducer = &producer.ZKvmProofProducer{
 					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
-					Dummy:               p.cfg.Dummy,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 				}
 				bufferSize = 0
@@ -222,7 +220,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		zkVerifiers[producer.ProofTypeZKSP1] = sp1VerifierAddress
 	}
 	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
-		zkvmProducer = &producer.ProofProducerPacaya{
+		zkvmProducer = &producer.ComposeProofProducer{
 			Verifiers:           zkVerifiers,
 			PivotProducer:       pivotProducer,
 			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
@@ -290,7 +288,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 	if sgxVerifierAddress != transaction.ZeroAddress {
 		log.Info("Initialize baseLevelProver", "type", producer.ProofTypeSgx, "verifier", sgxVerifierAddress)
 
-		return producer.ProofTypeSgx, &producer.ProofProducerPacaya{
+		return producer.ProofTypeSgx, &producer.ComposeProofProducer{
 			PivotProducer:       pivotProducer,
 			Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeSgx: sgxVerifierAddress},
 			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
@@ -307,7 +305,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 		if opVerifierAddress != transaction.ZeroAddress {
 			log.Info("Initialize baseLevelProver", "type", producer.ProofTypeOp, "verifier", opVerifierAddress)
 
-			return producer.ProofTypeOp, &producer.ProofProducerPacaya{
+			return producer.ProofTypeOp, &producer.ComposeProofProducer{
 				PivotProducer:       pivotProducer,
 				Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeOp: opVerifierAddress},
 				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
