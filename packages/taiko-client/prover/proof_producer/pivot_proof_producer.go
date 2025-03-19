@@ -45,29 +45,24 @@ func (s *PivotProofProducer) RequestProof(
 		return s.DummyProofProducer.RequestProof(opts, batchID, meta, s.Tier(), requestAt)
 	}
 
-	batches := []*RaikoBatches{
-		{
-			BatchID:                batchID,
-			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-		},
-	}
-	if resp, err := s.requestBatchProof(
+	resp, err := s.requestBatchProof(
 		ctx,
-		batches,
+		[]*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}},
 		opts.GetProverAddress(),
 		false,
 		ProofTypePivot,
 		requestAt,
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
-	} else {
-		return &ProofResponse{
-			BlockID: batchID,
-			Meta:    meta,
-			Proof:   common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
-			Opts:    opts,
-		}, nil
 	}
+
+	return &ProofResponse{
+		BlockID: batchID,
+		Meta:    meta,
+		Proof:   common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
+		Opts:    opts,
+	}, nil
 }
 
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
@@ -79,6 +74,7 @@ func (s *PivotProofProducer) Aggregate(
 	if len(items) == 0 {
 		return nil, ErrInvalidLength
 	}
+
 	log.Info(
 		"Aggregate batch proofs from raiko-host service",
 		"batchSize", len(items),
@@ -90,10 +86,7 @@ func (s *PivotProofProducer) Aggregate(
 
 	if s.Dummy {
 		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), ProofTypePivot)
-		return &BatchProofs{
-			BatchProof: resp.BatchProof,
-			Verifier:   s.Verifier,
-		}, nil
+		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier}, nil
 	}
 
 	batches := make([]*RaikoBatches, 0, len(items))
@@ -103,21 +96,20 @@ func (s *PivotProofProducer) Aggregate(
 			L1InclusionBlockNumber: item.Meta.GetRawBlockHeight(),
 		})
 	}
-	if resp, err := s.requestBatchProof(
+
+	resp, err := s.requestBatchProof(
 		ctx,
 		batches,
 		items[0].Opts.GetProverAddress(),
 		true,
 		ProofTypePivot,
 		requestAt,
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
-	} else {
-		return &BatchProofs{
-			BatchProof: common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
-			Verifier:   s.Verifier,
-		}, nil
 	}
+
+	return &BatchProofs{BatchProof: common.Hex2Bytes(resp.Data.Proof.Proof[2:]), Verifier: s.Verifier}, nil
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
@@ -147,29 +139,8 @@ func (s *PivotProofProducer) requestBatchProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf(
-			"failed to get proof, err: %s, msg: %s, type: %s, batches: %v",
-			output.Error,
-			output.ErrorMessage,
-			output.ProofType,
-			batches,
-		)
-	}
-
-	if output.Data == nil {
-		return nil, fmt.Errorf("unexpected structure error, type: %s", proofType)
-	}
-	if output.Data.Status == ErrProofInProgress.Error() {
-		return nil, ErrProofInProgress
-	}
-	if output.Data.Status == StatusRegistered {
-		return nil, ErrRetry
-	}
-
-	if output.Data.Proof == nil ||
-		len(output.Data.Proof.Proof) == 0 {
-		return nil, errEmptyProof
+	if err := output.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid Raiko response (batches: %#v): %w", batches, err)
 	}
 
 	log.Info(

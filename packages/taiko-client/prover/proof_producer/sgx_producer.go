@@ -2,6 +2,7 @@ package producer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -225,27 +226,10 @@ func (s *SGXProofProducer) requestBatchProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get sgx batch proof, err: %s, msg: %s",
-			output.Error,
-			output.ErrorMessage,
-		)
+	if err := output.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid Raiko response (blocks: %#v): %w", blocks, err)
 	}
 
-	if output.Data == nil {
-		return nil, fmt.Errorf("unexpected structure error, type: %s", ProofTypeSgx)
-	}
-	if output.Data.Status == ErrProofInProgress.Error() {
-		return nil, ErrProofInProgress
-	}
-	if output.Data.Status == StatusRegistered {
-		return nil, ErrRetry
-	}
-
-	if output.Data.Proof == nil ||
-		len(output.Data.Proof.Proof) == 0 {
-		return nil, errEmptyProof
-	}
 	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 
 	log.Info(
@@ -295,21 +279,15 @@ func (s *SGXProofProducer) callProverDaemon(
 		return nil, errProofGenerating
 	}
 
-	if output.Data.Status == ErrProofInProgress.Error() {
-		return nil, ErrProofInProgress
+	if err := output.Validate(); err != nil {
+		// When proofType is ProofTypeSgxCPU, empty proof response is expected.
+		if !(errors.Is(err, errEmptyProof) && s.ProofType == ProofTypeSgxCPU) {
+			return nil, fmt.Errorf("invalid Raiko response (blockID: %d): %w", opts.OntakeOptions().BlockID, err)
+		}
 	}
-	if output.Data.Status == StatusRegistered {
-		return nil, ErrRetry
-	}
-
-	// Raiko returns "" as proof when proof type is native,
-	// so we just convert "" to bytes.
 	if s.ProofType == ProofTypeSgxCPU {
 		proof = common.Hex2Bytes(output.Data.Proof.Proof)
 	} else {
-		if len(output.Data.Proof.Proof) == 0 {
-			return nil, errEmptyProof
-		}
 		proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	}
 
@@ -356,7 +334,7 @@ func (s *SGXProofProducer) requestProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get sgx proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
+		return nil, fmt.Errorf("failed to get sgx proof, error: %s, msg: %s", output.Error, output.ErrorMessage)
 	}
 
 	return output, nil
