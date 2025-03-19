@@ -295,6 +295,23 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.stopPrank();
     }
 
+    function test_whitelistNoDelay_consolidationWillNotChangeCurrentEpochOperator() external {
+        _setBeaconBlockRoot(bytes32(uint256(5)));
+
+        vm.startPrank(whitelistOwner);
+        whitelistNoDelay.addOperator(Alice);
+        whitelistNoDelay.addOperator(Bob);
+        whitelistNoDelay.addOperator(Carol);
+        whitelistNoDelay.addOperator(David);
+        whitelistNoDelay.removeOperator(Alice);
+
+        address operatorBeforeConsolidate = whitelistNoDelay.getOperatorForCurrentEpoch();
+        whitelistNoDelay.consolidate();
+        address operatorAfterConsolidate = whitelistNoDelay.getOperatorForCurrentEpoch();
+        assertEq(operatorBeforeConsolidate, operatorAfterConsolidate);
+
+        vm.stopPrank();
+    }
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.getBeaconBlockRootContract(),
