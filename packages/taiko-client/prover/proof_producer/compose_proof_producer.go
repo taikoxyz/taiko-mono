@@ -13,7 +13,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -268,44 +267,8 @@ func (s *ComposeProofProducer) requestBatchProof(
 		"time", time.Since(requestAt),
 	)
 
-	if isAggregation {
-		// nolint:exhaustive
-		// We deliberately handle only known proof types and catch others in default case
-		switch proofType {
-		case ProofTypePivot:
-			metrics.ProverPivotProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverPivotProofGeneratedCounter.Add(1)
-		case ProofTypeSgx:
-			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
-		case ProofTypeZKR0:
-			metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
-		case ProofTypeZKSP1:
-			metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
-		default:
-			return nil, fmt.Errorf("unknown proof type: %s", proofType)
-		}
-	} else {
-		// nolint:exhaustive
-		// We deliberately handle only known proof types and catch others in default case
-		switch output.ProofType {
-		case ProofTypePivot:
-			metrics.ProverPivotAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverPivotProofAggregationGeneratedCounter.Add(1)
-		case ProofTypeSgx:
-			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverSgxProofGeneratedCounter.Add(1)
-		case ProofTypeZKR0:
-			metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverR0ProofGeneratedCounter.Add(1)
-		case ProofTypeZKSP1:
-			metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverSp1ProofGeneratedCounter.Add(1)
-		default:
-			return nil, fmt.Errorf("unknown proof type: %s", output.ProofType)
-		}
-	}
+	// Update metrics.
+	updateProvingMetrics(proofType, requestAt, isAggregation)
+
 	return output, nil
 }
