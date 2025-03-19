@@ -234,28 +234,8 @@ func (s *ComposeProofProducer) requestBatchProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get proof, err: %s, msg: %s, type: %s, batches: %v",
-			output.Error,
-			output.ErrorMessage,
-			output.ProofType,
-			batches,
-		)
-	}
-
-	if output.Data == nil {
-		return nil, fmt.Errorf("unexpected structure error, proofType: %s", proofType)
-	}
-	if output.Data.Status == ErrProofInProgress.Error() {
-		return nil, ErrProofInProgress
-	}
-	if output.Data.Status == StatusRegistered {
-		return nil, ErrRetry
-	}
-
-	if output.Data.Proof == nil ||
-		len(output.Data.Proof.Proof) == 0 {
-		return nil, errEmptyProof
+	if err := output.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid Raiko response (batches: %#v): %w", err, batches)
 	}
 
 	log.Info(

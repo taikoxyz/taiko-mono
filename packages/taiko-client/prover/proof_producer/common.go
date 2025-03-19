@@ -15,6 +15,40 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
+// RaikoRequestProofBodyResponseV2 represents the JSON body of the response of the proof requests.
+type RaikoRequestProofBodyResponseV2 struct {
+	Data         *RaikoProofDataV2 `json:"data"`
+	ErrorMessage string            `json:"message"`
+	Error        string            `json:"error"`
+	ProofType    ProofType         `json:"proof_type"`
+}
+
+// Validate validates the response of the proof requests.
+func (res *RaikoRequestProofBodyResponseV2) Validate() error {
+	if len(res.ErrorMessage) > 0 || len(res.Error) > 0 {
+		return fmt.Errorf("failed to get proof, err: %s, msg: %s, type: %s",
+			res.Error,
+			res.ErrorMessage,
+			res.ProofType,
+		)
+	}
+
+	if res.Data == nil {
+		return fmt.Errorf("unexpected structure error, proofType: %s", res.ProofType)
+	}
+	if res.Data.Status == ErrProofInProgress.Error() {
+		return ErrProofInProgress
+	}
+	if res.Data.Status == StatusRegistered {
+		return ErrRetry
+	}
+	if res.Data.Proof == nil || len(res.Data.Proof.Proof) == 0 {
+		return errEmptyProof
+	}
+
+	return nil
+}
+
 // requestHTTPProof sends a POST request to the given URL with the given JWT and request body,
 // to get a proof of the given type.
 func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, reqBody T) (*U, error) {
