@@ -2,30 +2,30 @@
 pragma solidity ^0.8.24;
 
 import "../../Layer1Test.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist2.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 
-contract TestPreconfWhitelist2 is Layer1Test {
-    PreconfWhitelist2 internal whitelist;
-    PreconfWhitelist2 internal whitelistNoDelay;
+contract TestPreconfWhitelist is Layer1Test {
+    PreconfWhitelist internal whitelist;
+    PreconfWhitelist internal whitelistNoDelay;
     address internal whitelistOwner;
     BeaconBlockRootImpl internal beaconBlockRootImpl;
 
     function setUpOnEthereum() internal virtual override {
         whitelistOwner = Alice;
-        whitelist = PreconfWhitelist2(
+        whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist2",
-                impl: address(new PreconfWhitelist2(address(resolver))),
-                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner, 2))
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2))
             })
         );
 
-        whitelistNoDelay = PreconfWhitelist2(
+        whitelistNoDelay = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist2",
-                impl: address(new PreconfWhitelist2(address(resolver))),
-                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner, 0))
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0))
             })
         );
 

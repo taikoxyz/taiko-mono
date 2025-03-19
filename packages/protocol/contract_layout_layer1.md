@@ -1350,7 +1350,7 @@
 ╰-----------------------------+-----------------------------+------+--------+-------+---------------------------------------------------------------------╯
 
 
-## PreconfWhitelist2
+## PreconfWhitelist
 
 ╭-----------------------------+-----------------------------------------------------------+------+--------+-------+-----------------------------------------------------------------------╮
 | Name                        | Type                                                      | Slot | Offset | Bytes |
@@ -1377,7 +1377,7 @@
 |
 | __gap                       | uint256[49]                                               | 202  | 0      | 1568  |
 |
-| operators                   | mapping(address => struct PreconfWhitelist2.OperatorInfo) | 251  | 0      | 32    |
+| operators                   | mapping(address => struct PreconfWhitelist.OperatorInfo) | 251  | 0      | 32    |
 |
 | operatorMapping             | mapping(uint256 => address)                               | 252  | 0      | 32    |
 |
