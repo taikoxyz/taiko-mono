@@ -14,7 +14,7 @@ import (
 
 const (
 	maxBlocksPerBatch    = 768
-	livenessBondPerBlock = 5000000000000000000
+	livenessBondPerBlock = 5_000_000_000_000_000_000
 )
 
 // Configs is an interface that provides Taiko protocol specific configurations.

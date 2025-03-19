@@ -47,6 +47,7 @@ var (
 		Name:     "composeVerifier",
 		Usage:    "ComposeVerifier contract `address`",
 		Required: true,
+		Category: proverCategory,
 		EnvVars:  []string{"COMPOSE_VERIFIER"},
 	}
 )

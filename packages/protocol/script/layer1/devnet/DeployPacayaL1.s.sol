@@ -26,7 +26,9 @@ import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
+import "src/layer1/hekla/verifiers/HeklaVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/hekla/HeklaInbox.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
@@ -49,6 +51,8 @@ contract DeployPacayaL1 is DeployCapability {
     address public risc0Groth16Verifier = vm.envAddress("RISC0_GROTH16_VERIFIER");
     address public sp1RemoteVerifier = vm.envAddress("SP1_REMOTE_VERIFIER");
     address public automata = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
+    address public oldFork = vm.envAddress("OLD_FORK");
+    address public proverSet = vm.envAddress("PROVER_SET");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -56,6 +60,8 @@ contract DeployPacayaL1 is DeployCapability {
         require(rollupAddressManager != address(0), "invalid rollup address manager");
         require(sharedAddressManager != address(0), "invalid shared address manager");
         require(taikoToken != address(0), "invalid taiko token");
+        require(oldFork != address(0), "invalid old fork");
+        require(proverSet != address(0), "invalid prover set");
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
@@ -132,20 +138,7 @@ contract DeployPacayaL1 is DeployCapability {
             )
         );
 
-        // Register taiko
-        register(rollupResolver, "taiko", taikoInbox);
-
-        // Other verifiers
-        deployVerifierContracts(rollupResolver, opVerifier, opImpl);
-    }
-
-    function deployVerifierContracts(
-        address rollupResolver,
-        address opProxy,
-        address opImpl
-    )
-        internal
-    {
+        // NOTE: For hekla, we need to replace DevnetVerifier with HeklaVerifier
         // Proof verifier
         address proofVerifier = deployProxy({
             name: "proof_verifier",
@@ -157,6 +150,31 @@ contract DeployPacayaL1 is DeployCapability {
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
+
+        // Register taiko
+        // NOTE: For hekla, we need to replace DevnetInbox with HeklaInbox
+        address newFork =
+            address(new DevnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
+        register(rollupResolver, "taiko", taikoInbox);
+
+        // Prover set
+        UUPSUpgradeable(proverSet).upgradeTo(
+            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
+        );
+
+        // Other verifiers
+        deployVerifierContracts(rollupResolver, opVerifier, opImpl, proofVerifier);
+    }
+
+    function deployVerifierContracts(
+        address rollupResolver,
+        address opProxy,
+        address opImpl,
+        address proofVerifier
+    )
+        internal
+    {
         // In testing, use opVerifier impl as a pivotVerifier
         address pivotVerifier = deployProxy({
             name: "pivot_verifier",
@@ -168,7 +186,7 @@ contract DeployPacayaL1 is DeployCapability {
         (address sgxVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
         (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
 
-        // TODO: For hekla, we need to replace opProxy with address(0)
+        // NOTE: For hekla, we need to replace DevnetVerifier with HeklaVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
@@ -178,9 +196,7 @@ contract DeployPacayaL1 is DeployCapability {
         );
     }
 
-    function deployZKVerifiers(
-        address rollupResolver
-    )
+    function deployZKVerifiers(address rollupResolver)
         internal
         returns (address risc0Verifier, address sp1Verifier)
     {
@@ -207,7 +223,6 @@ contract DeployPacayaL1 is DeployCapability {
         internal
         returns (address sgxVerifier)
     {
-
         sgxVerifier = deployProxy({
             name: "sgx_verifier",
             impl: address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automata)),
