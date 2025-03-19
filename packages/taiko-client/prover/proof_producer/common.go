@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
