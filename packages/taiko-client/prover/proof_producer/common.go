@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
 // requestHTTPProof sends a POST request to the given URL with the given JWT and request body,
@@ -68,4 +71,48 @@ func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string
 	}
 
 	return res, nil
+}
+
+// updateProvingMetrics updates the metrics for the given proof type, including
+// the generation time and the number of proofs generated.
+func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregation bool) {
+	if isAggregation {
+		// nolint:exhaustive
+		// We deliberately handle only known proof types and catch others in default case
+		switch proofType {
+		case ProofTypePivot:
+			metrics.ProverPivotAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverPivotProofAggregationGeneratedCounter.Add(1)
+		case ProofTypeSgx:
+			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
+		case ProofTypeZKR0:
+			metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
+		case ProofTypeZKSP1:
+			metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
+		default:
+			log.Error("Unknown proof type", "proofType", proofType)
+		}
+	} else {
+		// nolint:exhaustive
+		// We deliberately handle only known proof types and catch others in default case
+		switch proofType {
+		case ProofTypePivot:
+			metrics.ProverPivotProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverPivotProofGeneratedCounter.Add(1)
+		case ProofTypeSgx:
+			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxProofGeneratedCounter.Add(1)
+		case ProofTypeZKR0:
+			metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverR0ProofGeneratedCounter.Add(1)
+		case ProofTypeZKSP1:
+			metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSp1ProofGeneratedCounter.Add(1)
+		default:
+			log.Error("Unknown proof type", "proofType", proofType)
+		}
+	}
 }

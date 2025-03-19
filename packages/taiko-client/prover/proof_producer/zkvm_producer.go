@@ -12,7 +12,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -180,13 +179,9 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
-	if output.ProofType == ProofTypeZKR0 {
-		metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-		metrics.ProverR0ProofGeneratedCounter.Add(1)
-	} else if output.ProofType == ProofTypeZKSP1 {
-		metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-		metrics.ProverSp1ProofGeneratedCounter.Add(1)
-	}
+
+	// Update metrics.
+	updateProvingMetrics(output.ProofType, requestAt, false)
 
 	return proof, output.ProofType, nil
 }
@@ -325,13 +320,8 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		"producer", "ZKvmProofProducer",
 	)
 
-	if zkType == ProofTypeZKR0 {
-		metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-		metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
-	} else if zkType == ProofTypeZKSP1 {
-		metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-		metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
-	}
+	// Update metrics.
+	updateProvingMetrics(output.ProofType, requestAt, true)
 
 	return proof, nil
 }

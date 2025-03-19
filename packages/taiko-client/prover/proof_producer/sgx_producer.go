@@ -11,7 +11,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -104,8 +103,6 @@ func (s *SGXProofProducer) RequestProof(
 		return nil, err
 	}
 
-	metrics.ProverSgxProofGeneratedCounter.Add(1)
-
 	return &ProofResponse{
 		BlockID: blockID,
 		Meta:    meta,
@@ -146,8 +143,6 @@ func (s *SGXProofProducer) Aggregate(
 	if err != nil {
 		return nil, err
 	}
-
-	metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
 
 	return &BatchProofs{
 		ProofResponses: items,
@@ -259,7 +254,9 @@ func (s *SGXProofProducer) requestBatchProof(
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
-	metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+
+	// Update metrics.
+	updateProvingMetrics(ProofTypeSgx, requestAt, true)
 
 	return proof, nil
 }
@@ -322,7 +319,9 @@ func (s *SGXProofProducer) callProverDaemon(
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
-	metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+
+	// Update metrics.
+	updateProvingMetrics(ProofTypeSgx, requestAt, false)
 
 	return proof, nil
 }
