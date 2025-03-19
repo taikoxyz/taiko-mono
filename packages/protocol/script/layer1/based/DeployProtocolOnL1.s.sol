@@ -477,8 +477,8 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(rollupResolver)),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner)),
+            impl: address(new PreconfWhitelist()),
+            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2)),
             registerTo: rollupResolver
         });
 
