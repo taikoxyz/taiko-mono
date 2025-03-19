@@ -49,6 +49,19 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 	return nil
 }
 
+// RaikoProofDataV2 represents the JSON body of the response of the proof requests.
+type RaikoProofDataV2 struct {
+	Proof  *ProofDataV2 `json:"proof"` //nolint:revive,stylecheck
+	Status string       `json:"status"`
+}
+
+// ProofDataV2 represents the JSON body of the response of the proof requests.
+type ProofDataV2 struct {
+	KzgProof string `json:"kzg_proof"`
+	Proof    string `json:"proof"`
+	Quote    string `json:"quote"`
+}
+
 // requestHTTPProof sends a POST request to the given URL with the given JWT and request body,
 // to get a proof of the given type.
 func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, reqBody T) (*U, error) {

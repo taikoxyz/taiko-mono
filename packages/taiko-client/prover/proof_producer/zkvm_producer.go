@@ -23,17 +23,6 @@ var (
 	StatusRegistered          = "registered"
 )
 
-type RaikoProofDataV2 struct {
-	Proof  *ProofDataV2 `json:"proof"` //nolint:revive,stylecheck
-	Status string       `json:"status"`
-}
-
-type ProofDataV2 struct {
-	KzgProof string `json:"kzg_proof"`
-	Proof    string `json:"proof"`
-	Quote    string `json:"quote"`
-}
-
 // ZKvmProofProducer generates a ZK proof for the given block.
 type ZKvmProofProducer struct {
 	RaikoHostEndpoint   string
