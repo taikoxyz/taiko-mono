@@ -23,15 +23,17 @@ In the interest of simplifying the protocol and removing the added security risk
 
 In it's place we are introducing **Multiproving**: every batch will be required to have multiple proofs, which will be verified by a single verifier contract. This verifier contract will handle sub-proof verifiers, and will be responsible for verifying the proofs. The required proofs will be a **pivot** and an **extra** proof; the pivot proof will be a TEE, and the extra proof will be a TEE/ZK proof. Proposers will have to register some new images to ensure a smooth transition, find out more [here](/taiko-alethia-protocol/pacaya-fork/#upcoming-changes-for-proposers).
 
+Please note that for the upcoming Taiko Hekla upgrade we have temporarily set the pivot proof to be an optimistic proof.
+
 We have also shortened the proving and cooldown windows to 2 hours, with further reductions planned to enable faster withdrawals.
 
 ### TLDR Protocol Changes
 
 The Pacaya fork will contain some major protocol contract changes. Here is a brief overview of the changes:
 
-- **TaikoL1 Contract:** The TaikoL1 contract has been replaced by the [TaikoInbox contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol). The proposeBlock, proveBlock and verifyBlock functions have been replaced in favor of their corresponding batch based functions; the rest of the functions remain the same as current TaikoL1.
+- **TaikoL1 Contract:** The TaikoL1 contract has been replaced by the [TaikoInbox contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol). The `proposeBlock`, `proveBlock` and `verifyBlock` functions have been replaced in favor of their corresponding batch based functions; the rest of the functions remain the same as current TaikoL1.
 
-- **TaikoL2 Contract:** The TaikoL2 contract has been replaced by the [TaikoAnchor contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol). The only new function is the anchorV3 function, which will be used post Pacaya fork. Everything else remains the same.
+- **TaikoL2 Contract:** The TaikoL2 contract has been replaced by the [TaikoAnchor contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol). The only new function is the `anchorV3` function, which will be used post Pacaya fork. Everything else remains the same.
 
 - **ForcedInclusionStore Contract:** The [ForcedInclusionStore contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer1/forced-inclusion/ForcedInclusionStore.sol) allows the protocol to remain censorship-resistant while in Stage 1 Preconfs. It allows users to submit transactions and force their inclusion irregardless of the preconfers, preventing targeted censorship from malicious.
 
