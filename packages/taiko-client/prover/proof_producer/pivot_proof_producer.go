@@ -140,7 +140,7 @@ func (s *PivotProofProducer) requestBatchProof(
 	}
 
 	if err := output.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid Raiko response (batches: %#v): %w", err, batches)
+		return nil, fmt.Errorf("invalid Raiko response (batches: %#v): %w", batches, err)
 	}
 
 	log.Info(

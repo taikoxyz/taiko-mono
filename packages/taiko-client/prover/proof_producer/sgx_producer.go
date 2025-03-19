@@ -227,7 +227,7 @@ func (s *SGXProofProducer) requestBatchProof(
 	}
 
 	if err := output.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid Raiko response (blocks: %#v): %w", err, blocks)
+		return nil, fmt.Errorf("invalid Raiko response (blocks: %#v): %w", blocks, err)
 	}
 
 	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
