@@ -26,7 +26,7 @@ import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist2.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/preconf/PreconfInbox.sol";
 import "src/layer1/provers/ProverSet.sol";
@@ -477,8 +477,8 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(rollupResolver)),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner)),
+            impl: address(new PreconfWhitelist2(rollupResolver)),
+            data: abi.encodeCall(PreconfWhitelist2.init, (owner, 2)),
             registerTo: rollupResolver
         });
 
