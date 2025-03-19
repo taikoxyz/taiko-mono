@@ -48,8 +48,6 @@ type ZKvmProofProducer struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	JWT                 string // JWT provided by Raiko
-	Dummy               bool
-	DummyProofProducer
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -70,10 +68,6 @@ func (s *ZKvmProofProducer) RequestProof(
 		"coinbase", meta.Ontake().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
-
-	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, s.Tier(), requestAt)
-	}
 
 	proof, proofType, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {

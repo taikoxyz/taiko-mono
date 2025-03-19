@@ -5,12 +5,16 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
+)
+
+const (
+	maxBlocksPerBatch    = 768
+	livenessBondPerBlock = 5_000_000_000_000_000_000
 )
 
 // Configs is an interface that provides Taiko protocol specific configurations.
@@ -88,7 +92,7 @@ func (c *OntakeProtocolConfigs) LivenessBond() *big.Int {
 
 // LivenessBondPerBlock implements the ProtocolConfigs interface.
 func (c *OntakeProtocolConfigs) LivenessBondPerBlock() *big.Int {
-	return common.Big0
+	return new(big.Int).SetUint64(livenessBondPerBlock)
 }
 
 // MaxProposals implements the ProtocolConfigs interface.
@@ -103,7 +107,7 @@ func (c *OntakeProtocolConfigs) ProvingWindow() (time.Duration, error) {
 
 // MaxBlocksPerBatch implements the ProtocolConfigs interface.
 func (c *OntakeProtocolConfigs) MaxBlocksPerBatch() int {
-	return 0
+	return maxBlocksPerBatch
 }
 
 // PacayaProtocolConfigs is the configuration for the Pacaya fork protocol.
@@ -143,7 +147,7 @@ func (c *PacayaProtocolConfigs) LivenessBond() *big.Int {
 
 // LivenessBondPerBlock implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) LivenessBondPerBlock() *big.Int {
-	return c.configs.LivenessBondBase
+	return c.configs.LivenessBondPerBlock
 }
 
 // MaxProposals implements the ProtocolConfigs interface.
