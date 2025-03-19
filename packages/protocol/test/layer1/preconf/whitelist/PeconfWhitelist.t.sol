@@ -2,37 +2,37 @@
 pragma solidity ^0.8.24;
 
 import "../../Layer1Test.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist2.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 
-contract TestPreconfWhitelist2 is Layer1Test {
-    PreconfWhitelist2 internal whitelist;
-    PreconfWhitelist2 internal whitelistNoDelay;
+contract TestPreconfWhitelist is Layer1Test {
+    PreconfWhitelist internal whitelist;
+    PreconfWhitelist internal whitelistNoDelay;
     address internal whitelistOwner;
     BeaconBlockRootImpl internal beaconBlockRootImpl;
 
     function setUpOnEthereum() internal virtual override {
         whitelistOwner = Alice;
-        whitelist = PreconfWhitelist2(
+        whitelist = PreconfWhitelist(
             deploy({
-                name: "preconf_whitelist2",
-                impl: address(new PreconfWhitelist2(address(resolver))),
-                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner, 2))
+                name: "preconf_whitelist",
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2))
             })
         );
 
-        whitelistNoDelay = PreconfWhitelist2(
+        whitelistNoDelay = PreconfWhitelist(
             deploy({
-                name: "preconf_whitelist2",
-                impl: address(new PreconfWhitelist2(address(resolver))),
-                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner, 0))
+                name: "preconf_whitelist_nodelay",
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0))
             })
         );
 
         vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
     }
 
-    function test_whitelist2_delay2epoch_addThenRemoveOneOperator() external {
+    function test_whitelist_delay2epoch_addThenRemoveOneOperator() external {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
@@ -104,7 +104,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.havingPerfectOperators(), true);
     }
 
-    function test_whitelist2_delay2epoch_addThenRemoveTwoOperators() external {
+    function test_whitelist_delay2epoch_addThenRemoveTwoOperators() external {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
@@ -192,7 +192,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.havingPerfectOperators(), true);
     }
 
-    function test_whitelist2_addOrRemoveTheSameOperatorTwiceWillRevert() external {
+    function test_whitelist_addOrRemoveTheSameOperatorTwiceWillRevert() external {
         vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice);
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
@@ -204,7 +204,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.stopPrank();
     }
 
-    function test_whitelist2_addBackRemovedOperator() external {
+    function test_whitelist_addBackRemovedOperator() external {
         vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice);
 
@@ -214,7 +214,7 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.stopPrank();
     }
 
-    function test_whitelist2_selfRemoval() external {
+    function test_whitelist_selfRemoval() external {
         vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice);
         whitelist.addOperator(Bob);
@@ -249,19 +249,19 @@ contract TestPreconfWhitelist2 is Layer1Test {
         assertEq(whitelist.havingPerfectOperators(), true);
     }
 
-    function test_whitelist2_removeNonExistingOperatorWillRevert() external {
+    function test_whitelist_removeNonExistingOperatorWillRevert() external {
         vm.startPrank(whitelistOwner);
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.removeOperator(Alice);
         vm.stopPrank();
     }
 
-    function test_whitelist2_consolidate_whenEmpty_not_revert() external {
+    function test_whitelist_consolidate_whenEmpty_not_revert() external {
         whitelist.consolidate();
         assertEq(whitelist.havingPerfectOperators(), true);
     }
 
-    function test_whitelist2_noDelay_addThenRemoveOneOperator() external {
+    function test_whitelist_noDelay_addThenRemoveOneOperator() external {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         vm.prank(whitelistOwner);
