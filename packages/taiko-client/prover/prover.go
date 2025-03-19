@@ -129,7 +129,6 @@ func InitFromConfig(
 		ProverSetAddress:              cfg.ProverSetAddress,
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
-		ComposeVerifierAddress:        cfg.ComposeVerifierAddress,
 		Timeout:                       cfg.RPCTimeout,
 	}); err != nil {
 		return err
