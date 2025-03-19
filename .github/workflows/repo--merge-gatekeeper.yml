@@ -21,6 +21,8 @@ jobs:
       - name: Run Merge Gatekeeper
         uses: upsidr/merge-gatekeeper@v1
         with:
-          timeout: 5400
-          interval: 30
+          timeout: 1800 
+          interval: 60
+          debug: true
+          strict: true
           token: ${{ secrets.GITHUB_TOKEN }}

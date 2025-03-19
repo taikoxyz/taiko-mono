@@ -39,7 +39,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
         isOperator[_operatorAddress] = true;
 
-        emit OperatorAdded(_operatorAddress);
+        emit OperatorAdded(_operatorAddress, block.timestamp);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -62,7 +62,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
         isOperator[removedOperator] = false;
 
-        emit OperatorRemoved(removedOperator);
+        emit OperatorRemoved(removedOperator, block.timestamp);
     }
 
     /// @inheritdoc IPreconfWhitelist
