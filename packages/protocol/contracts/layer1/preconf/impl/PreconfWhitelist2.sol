@@ -190,13 +190,21 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
         require(info.activeSince != 0, InvalidOperatorAddress());
 
-        uint64 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
-        operators[_operator].inactiveSince = inactiveSince;
-        operators[_operator].activeSince = 0;
+        uint8 _lastOperatorIndex = operatorCount - 1;
+        if (_operatorChangeDelay == 0 && operators[_operator].index == _lastOperatorIndex) {
+            // If delay is 0 and operator is the last one, remove directly
+            delete operators[_operator];
+            delete operatorMapping[_lastOperatorIndex];
+            operatorCount = _lastOperatorIndex;
+            emit OperatorRemoved(_operator, block.timestamp);
+        } else {
+            uint64 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
+            operators[_operator].inactiveSince = inactiveSince;
+            operators[_operator].activeSince = 0;
 
-        havingPerfectOperators = false;
-
-        emit OperatorRemoved(_operator, inactiveSince);
+            havingPerfectOperators = false;
+            emit OperatorRemoved(_operator, inactiveSince);
+        }
     }
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.

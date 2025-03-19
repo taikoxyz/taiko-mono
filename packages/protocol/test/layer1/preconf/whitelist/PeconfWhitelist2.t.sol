@@ -215,13 +215,30 @@ contract TestPreconfWhitelist2 is Layer1Test {
     }
 
     function test_whitelist2_selfRemoval() external {
-        vm.prank(whitelistOwner);
+        vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice);
+        whitelist.addOperator(Bob);
+        vm.stopPrank();
 
         vm.prank(Alice);
         whitelist.removeSelf();
-        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorCount(), 2);
         assertEq(whitelist.operatorMapping(0), Alice);
+        assertEq(whitelist.operatorMapping(1), Bob);
+
+        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
+        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
+        assertEq(whitelist.havingPerfectOperators(), false);
+
+        whitelist.consolidate();
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Bob);
+        assertEq(whitelist.havingPerfectOperators(), false);
+
+        vm.prank(Bob);
+        whitelist.removeSelf();
+
+        assertEq(whitelist.operatorCount(), 0);
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
@@ -229,7 +246,6 @@ contract TestPreconfWhitelist2 is Layer1Test {
 
         whitelist.consolidate();
         assertEq(whitelist.operatorCount(), 0);
-        assertEq(whitelist.operatorMapping(0), address(0));
         assertEq(whitelist.havingPerfectOperators(), true);
     }
 
@@ -266,24 +282,12 @@ contract TestPreconfWhitelist2 is Layer1Test {
         vm.prank(whitelistOwner);
         whitelistNoDelay.removeOperator(Bob);
 
-        assertEq(whitelistNoDelay.operatorCount(), 1);
-        assertEq(whitelistNoDelay.operatorMapping(0), Bob);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), false);
-
-        (activeSince, inactiveSince, index) = whitelistNoDelay.operators(Bob);
-        assertEq(activeSince, 0);
-        assertEq(inactiveSince, whitelistNoDelay.epochStartTimestamp(0));
-        assertEq(index, 0);
+        assertEq(whitelistNoDelay.operatorCount(), 0);
+        assertEq(whitelistNoDelay.havingPerfectOperators(), true);
 
         whitelistNoDelay.consolidate();
         assertEq(whitelistNoDelay.operatorCount(), 0);
-        assertEq(whitelistNoDelay.operatorMapping(0), address(0));
         assertEq(whitelistNoDelay.havingPerfectOperators(), true);
-
-        (activeSince, inactiveSince, index) = whitelistNoDelay.operators(Bob);
-        assertEq(activeSince, 0);
-        assertEq(inactiveSince, 0);
-        assertEq(index, 0);
 
         assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelistNoDelay.getOperatorForNextEpoch(), address(0));
