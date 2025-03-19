@@ -206,21 +206,23 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
         // Use the previous epoch's start timestamp as the random number, if it is not available
         // (zero), return address(0) directly.
-        bytes32 root = LibPreconfUtils.getBeaconBlockRoot(
-            _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+        uint256 rand = uint256(
+            LibPreconfUtils.getBeaconBlockRoot(
+                _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+            )
         );
 
-        if (root == 0) return address(0);
+        if (rand == 0) return address(0);
 
         uint256 _operatorCount = operatorCount;
         if (_operatorCount == 0) return address(0);
 
         if (havingPerfectOperators) {
-            return operatorMapping[uint256(root) % _operatorCount];
+            return operatorMapping[rand % _operatorCount];
         } else {
             address[] memory candidates = new address[](_operatorCount);
-            uint8 count;
-            for (uint8 i; i < _operatorCount; ++i) {
+            uint count;
+            for (uint i; i < _operatorCount; ++i) {
                 address operator = operatorMapping[i];
                 if (isOperatorActive(operator, _epochTimestamp)) {
                     candidates[count++] = operator;
@@ -229,7 +231,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
             if (count == 0) return address(0);
 
-            return candidates[uint256(root) % count];
+            return candidates[rand % count];
         }
     }
 
@@ -240,7 +242,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     {
         operators_ = new address[](operatorCount);
         uint256 count;
-        for (uint8 i; i < operatorCount; ++i) {
+        for (uint i; i < operatorCount; ++i) {
             if (isOperatorActive(operatorMapping[i], _epochTimestamp)) {
                 operators_[count++] = operatorMapping[i];
             }
