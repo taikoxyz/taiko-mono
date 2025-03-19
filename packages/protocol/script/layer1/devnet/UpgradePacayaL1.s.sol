@@ -34,21 +34,14 @@ import { Bridge } from "../../../contracts/shared/bridge/Bridge.sol";
 
 contract UpgradePacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    address public oldFork = vm.envAddress("OLD_FORK");
-    address public taikoInbox = vm.envAddress("TAIKO_INBOX");
-    address public proverSet = vm.envAddress("PROVER_SET");
     address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
     address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
     address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
-        require(taikoInbox != address(0), "invalid taiko inbox");
-        require(oldFork != address(0), "invalid old fork");
-        require(proverSet != address(0), "invalid prover set");
         require(rollupResolver != address(0), "invalid rollup resolver");
         require(sharedResolver != address(0), "invalid shared resolver");
-
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
@@ -57,24 +50,6 @@ contract UpgradePacayaL1 is DeployCapability {
     function run() external broadcast {
         address signalService =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
-        address taikoWrapper =
-            IResolver(rollupResolver).resolve(uint64(block.chainid), "taiko_wrapper", false);
-        address proofVerifier =
-            IResolver(rollupResolver).resolve(uint64(block.chainid), "proof_verifier", false);
-        address taikoToken =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "taiko_token", false);
-        // TaikoInbox
-        address newFork =
-            address(new DevnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        // Prover set
-        UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
-        );
-        upgradeBridgeContracts(signalService);
-    }
-
-    function upgradeBridgeContracts(address signalService) internal {
         address bridgeL1 = IResolver(sharedResolver).resolve(uint64(block.chainid), "bridge", false);
         address erc20Vault =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "erc20_vault", false);
