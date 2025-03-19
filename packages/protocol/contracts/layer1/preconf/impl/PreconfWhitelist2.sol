@@ -16,7 +16,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         uint8 index; // Index in operatorMapping.
     }
 
-    event Consolidated(uint8 previousCount, uint8 newCount);
+    event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
 
     mapping(address operator => OperatorInfo info) public operators;
@@ -78,7 +78,6 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
         uint8 _previousCount = operatorCount;
         uint8 _operatorCount = _previousCount;
 
-
         bool _havingPerfectOperators = true;
 
         while (i < _operatorCount) {
@@ -110,7 +109,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
 
         operatorCount = _operatorCount;
         havingPerfectOperators = _havingPerfectOperators;
-        emit Consolidated(_previousCount, _operatorCount);
+        emit Consolidated(_previousCount, _operatorCount, _havingPerfectOperators);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -177,7 +176,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             operatorCount = _operatorCount + 1;
         }
 
-        if (_operatorChangeDelay !=0) {
+        if (_operatorChangeDelay != 0) {
             havingPerfectOperators = false;
         }
 
