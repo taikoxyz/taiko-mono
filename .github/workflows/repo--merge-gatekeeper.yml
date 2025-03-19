@@ -23,6 +23,4 @@ jobs:
         with:
           timeout: 1800 
           interval: 60
-          debug: true
-          strict: true
           token: ${{ secrets.GITHUB_TOKEN }}
