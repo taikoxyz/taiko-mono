@@ -228,9 +228,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
                     candidates[count++] = operator;
                 }
             }
-
             if (count == 0) return address(0);
-
             return candidates[rand % count];
         }
     }
