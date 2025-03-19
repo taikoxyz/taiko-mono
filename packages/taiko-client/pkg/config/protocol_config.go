@@ -143,7 +143,7 @@ func (c *PacayaProtocolConfigs) LivenessBond() *big.Int {
 
 // LivenessBondPerBlock implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) LivenessBondPerBlock() *big.Int {
-	return c.configs.LivenessBondBase
+	return c.configs.LivenessBondPerBlock
 }
 
 // MaxProposals implements the ProtocolConfigs interface.
