@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	ErrProofInProgress = errors.New("work_in_progress")
-	ErrRetry           = errors.New("retry")
-	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
-	StatusRegistered   = "registered"
+	ErrProofInProgress        = errors.New("work_in_progress")
+	ErrProofGeneartionTimeout = errors.New("proof_generation_timeout")
+	ErrRetry                  = errors.New("retry")
+	ErrZkAnyNotDrawn          = errors.New("zk_any_not_drawn")
+	StatusRegistered          = "registered"
 )
 
 // RaikoRequestProofBodyResponseV2 represents the JSON body of the response of the proof requests.
@@ -47,8 +48,6 @@ type ZKvmProofProducer struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	JWT                 string // JWT provided by Raiko
-	Dummy               bool
-	DummyProofProducer
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -69,10 +68,6 @@ func (s *ZKvmProofProducer) RequestProof(
 		"coinbase", meta.Ontake().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
-
-	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, s.Tier(), requestAt)
-	}
 
 	proof, proofType, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {
