@@ -28,6 +28,7 @@ import (
 	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 type ProverTestSuite struct {
@@ -136,18 +137,19 @@ func (s *ProverTestSuite) TestInitError() {
 	)
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		L1ProverPrivKey:       l1ProverPrivKey,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		RPCTimeout:            10 * time.Minute,
-		BackOffRetryInterval:  3 * time.Second,
-		BackOffMaxRetries:     12,
+		L1WsEndpoint:           os.Getenv("L1_WS"),
+		L2WsEndpoint:           os.Getenv("L2_WS"),
+		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
+		TaikoL1Address:         common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:         common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:      common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ComposeVerifierAddress: common.HexToAddress(os.Getenv("COMPOSE_VERIFIER")),
+		L1ProverPrivKey:        l1ProverPrivKey,
+		Dummy:                  true,
+		ProveUnassignedBlocks:  true,
+		RPCTimeout:             10 * time.Minute,
+		BackOffRetryInterval:   3 * time.Second,
+		BackOffMaxRetries:      12,
 	}, s.txmgr, s.txmgr))
 }
 
@@ -301,16 +303,19 @@ func (s *ProverTestSuite) TestOntakeToPacayaVerification() {
 	s.GreaterOrEqual(head.Number.Uint64(), s.RPCClient.PacayaClients.ForkHeight)
 
 	// Prove all blocks.
-	for req := range s.p.proofSubmissionCh {
-		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-		if req.Meta.IsPacaya() {
-			s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-			s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-			if req.Meta.Pacaya().GetLastBlockID() == head.Number.Uint64() {
-				break
+provingLoop:
+	for {
+		select {
+		case req := <-s.p.proofSubmissionCh:
+			s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+			if req.Meta.IsPacaya() {
+				s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+				s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+			} else {
+				s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 			}
-		} else {
-			s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+		default:
+			break provingLoop
 		}
 	}
 
@@ -525,23 +530,24 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	s.Nil(err)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		L1ProverPrivKey:       l1ProverPrivKey,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
-		RPCTimeout:            3 * time.Second,
-		BackOffRetryInterval:  3 * time.Second,
-		BackOffMaxRetries:     12,
-		L1NodeVersion:         "1.0.0",
-		L2NodeVersion:         "0.1.0",
-		SGXProofBufferSize:    uint64(batchSize),
+		L1WsEndpoint:           os.Getenv("L1_WS"),
+		L2WsEndpoint:           os.Getenv("L2_WS"),
+		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
+		TaikoL1Address:         common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:         common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		ProverSetAddress:       common.HexToAddress(os.Getenv("PROVER_SET")),
+		TaikoTokenAddress:      common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ComposeVerifierAddress: common.HexToAddress(os.Getenv("COMPOSE_VERIFIER")),
+		L1ProverPrivKey:        l1ProverPrivKey,
+		Dummy:                  true,
+		ProveUnassignedBlocks:  true,
+		Allowance:              new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:             3 * time.Second,
+		BackOffRetryInterval:   3 * time.Second,
+		BackOffMaxRetries:      12,
+		L1NodeVersion:          "1.0.0",
+		L2NodeVersion:          "0.1.0",
+		SGXProofBufferSize:     uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -594,23 +600,24 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	s.Nil(err)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		L1ProverPrivKey:       l1ProverPrivKey,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
-		RPCTimeout:            3 * time.Second,
-		BackOffRetryInterval:  3 * time.Second,
-		BackOffMaxRetries:     12,
-		L1NodeVersion:         "1.0.0",
-		L2NodeVersion:         "0.1.0",
-		SGXProofBufferSize:    uint64(batchSize),
+		L1WsEndpoint:           os.Getenv("L1_WS"),
+		L2WsEndpoint:           os.Getenv("L2_WS"),
+		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
+		TaikoL1Address:         common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:         common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		ProverSetAddress:       common.HexToAddress(os.Getenv("PROVER_SET")),
+		TaikoTokenAddress:      common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ComposeVerifierAddress: common.HexToAddress(os.Getenv("COMPOSE_VERIFIER")),
+		L1ProverPrivKey:        l1ProverPrivKey,
+		Dummy:                  true,
+		ProveUnassignedBlocks:  true,
+		Allowance:              new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:             3 * time.Second,
+		BackOffRetryInterval:   3 * time.Second,
+		BackOffMaxRetries:      12,
+		L1NodeVersion:          "1.0.0",
+		L2NodeVersion:          "0.1.0",
+		SGXProofBufferSize:     uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -654,6 +661,7 @@ func (s *ProverTestSuite) TestForceAggregate() {
 		TaikoL2Address:            common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:         common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:          common.HexToAddress(os.Getenv("PROVER_SET")),
+		ComposeVerifierAddress:    common.HexToAddress(os.Getenv("COMPOSE_VERIFIER")),
 		L1ProverPrivKey:           l1ProverPrivKey,
 		Dummy:                     true,
 		ProveUnassignedBlocks:     true,
@@ -722,8 +730,6 @@ func (s *ProverTestSuite) TearDownTest() {
 }
 
 func (s *ProverTestSuite) TestInvalidPacayaProof() {
-	// TODO: Need to find a way to pass validity checks before submission. @David
-	s.T().Skip()
 	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -752,8 +758,27 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.NotEmpty(res.Opts.PacayaOptions().Headers)
 
 	// Submit two conflict proofs
+	sender := transaction.NewSender(
+		s.p.rpc,
+		s.txmgr,
+		s.p.privateTxmgr,
+		s.d.ProverSetAddress,
+		s.proposer.ProposeBlockTxGasLimit,
+	)
+	builder := transaction.NewProveBlockTxBuilder(
+		s.RPCClient,
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.Address{},
+		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
+		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
+	)
+	originalRoot := res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root
 	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()
-	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), batchRes))
+	s.Nil(sender.SendBatchProof(
+		context.Background(),
+		builder.BuildProveBatchesPacaya(batchRes),
+		batchRes,
+	))
 
 	// Transition should be created, and blockHash should not be zero.
 	transition, err := s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
@@ -784,9 +809,12 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 		}
 	}
 
-	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = originalRoot
+	s.Nil(sender.SendBatchProof(
+		context.Background(),
+		builder.BuildProveBatchesPacaya(batchRes),
+		batchRes,
+	))
 
 	// BlockHash of the transition should be zero now, and Inbox should be paused.
 	transition, err = s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
@@ -828,9 +856,11 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 		}
 	}
 
-	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	s.Nil(sender.SendBatchProof(
+		context.Background(),
+		builder.BuildProveBatchesPacaya(batchRes),
+		batchRes,
+	))
 
 	// BlockHash of the transition should not be zero now, and Inbox should be unpaused.
 	transition, err = s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(
@@ -860,25 +890,26 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
-		L1ProverPrivKey:       key,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
-		RPCTimeout:            3 * time.Second,
-		BackOffRetryInterval:  3 * time.Second,
-		BackOffMaxRetries:     12,
-		L1NodeVersion:         "1.0.0",
-		L2NodeVersion:         "0.1.0",
-		SGXProofBufferSize:    1,
-		ZKVMProofBufferSize:   1,
-		BlockConfirmations:    0,
+		L1WsEndpoint:           os.Getenv("L1_WS"),
+		L2WsEndpoint:           os.Getenv("L2_WS"),
+		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
+		TaikoL1Address:         common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoL2Address:         common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:      common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ProverSetAddress:       common.HexToAddress(os.Getenv("PROVER_SET")),
+		ComposeVerifierAddress: common.HexToAddress(os.Getenv("COMPOSE_VERIFIER")),
+		L1ProverPrivKey:        key,
+		Dummy:                  true,
+		ProveUnassignedBlocks:  true,
+		Allowance:              new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:             3 * time.Second,
+		BackOffRetryInterval:   3 * time.Second,
+		BackOffMaxRetries:      12,
+		L1NodeVersion:          "1.0.0",
+		L2NodeVersion:          "0.1.0",
+		SGXProofBufferSize:     1,
+		ZKVMProofBufferSize:    1,
+		BlockConfirmations:     0,
 	}, s.txmgr, s.txmgr))
 
 	p.guardianProverHeartbeater = guardianProverHeartbeater.New(

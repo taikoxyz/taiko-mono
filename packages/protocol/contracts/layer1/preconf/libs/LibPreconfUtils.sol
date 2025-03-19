@@ -8,7 +8,8 @@ import "./LibPreconfConstants.sol";
 library LibPreconfUtils {
     uint256 private constant _MAX_QUERIES = 32;
 
-    /// @notice Retrieves the beacon block root for a given timestamp.
+    /// @notice Retrieves the beacon block root that was posted to the execution layer at or after a
+    /// given timestamp.
     /// @dev To obtain the block root of the Nth block, this function queries the root at block N +
     /// 1. If block N + 1 is a missed slot, it continues querying up to 32 subsequent blocks (N + 2,
     /// N + 3, etc.) until it finds a block that contains the root for the Nth block or the target
