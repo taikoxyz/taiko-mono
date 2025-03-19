@@ -34,6 +34,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
         operatorChangeDelay = _operatorChangeDelay;
+        havingPerfectOperators = true;
     }
 
     function setOperatorChangeDelay(uint8 _operatorChangeDelay) external onlyOwner {
@@ -84,12 +85,6 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             address operator = operatorMapping[i];
             OperatorInfo memory info = operators[operator];
 
-            if (_havingPerfectOperators) {
-                if (info.activeSince == 0 || info.activeSince > currentEpoch) {
-                    _havingPerfectOperators = false;
-                }
-            }
-
             // Check if the operator is scheduled for removal and the removal epoch has passed
             if (info.inactiveSince != 0 && info.inactiveSince <= currentEpoch) {
                 // Shift all subsequent operators one position to the left
@@ -103,6 +98,12 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
                 delete operatorMapping[--_operatorCount];
                 // Do not increment i to check the new entry at position i
             } else {
+                if (_havingPerfectOperators) {
+                    if (info.activeSince == 0 || info.activeSince > currentEpoch) {
+                        _havingPerfectOperators = false;
+                    }
+                }
+
                 ++i;
             }
         }
@@ -221,8 +222,8 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
             return operatorMapping[rand % _operatorCount];
         } else {
             address[] memory candidates = new address[](_operatorCount);
-            uint count;
-            for (uint i; i < _operatorCount; ++i) {
+            uint256 count;
+            for (uint256 i; i < _operatorCount; ++i) {
                 address operator = operatorMapping[i];
                 if (isOperatorActive(operator, _epochTimestamp)) {
                     candidates[count++] = operator;
@@ -240,7 +241,7 @@ contract PreconfWhitelist2 is EssentialContract, IPreconfWhitelist {
     {
         operators_ = new address[](operatorCount);
         uint256 count;
-        for (uint i; i < operatorCount; ++i) {
+        for (uint256 i; i < operatorCount; ++i) {
             if (isOperatorActive(operatorMapping[i], _epochTimestamp)) {
                 operators_[count++] = operatorMapping[i];
             }
