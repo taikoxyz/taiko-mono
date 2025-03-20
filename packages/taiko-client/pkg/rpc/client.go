@@ -19,7 +19,7 @@ import (
 const (
 	defaultTimeout                = 1 * time.Minute
 	pacayaForkHeightDevnet        = 10
-	pacayaForkHeightHekla         = 0
+	pacayaForkHeightHekla         = 1_299_888
 	pacayaForkHeklaMainnet        = 0
 	pacayaForkHeightPreconfDevnet = 0
 )
