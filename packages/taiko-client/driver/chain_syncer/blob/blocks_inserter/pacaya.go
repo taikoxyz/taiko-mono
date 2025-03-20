@@ -21,6 +21,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -244,6 +245,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		)
 
 		txListCursor += int(blockInfo.NumTransactions)
+
+		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
 	return nil
@@ -304,6 +307,8 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
 	}
+
+	metrics.DriverL2PreconfHeadHeightGauge.Set(float64(executableData.BlockNumber))
 
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
