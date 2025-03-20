@@ -416,7 +416,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			}
 		}
 
-		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch))
+		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
 		s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 	}
 

@@ -68,7 +68,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldata() {
-	_, err := s.calldataTxBuilder.BuildOntake(context.Background(), [][]byte{{1}, {2}})
+	_, err := s.calldataTxBuilder.BuildOntake(context.Background(), [][]byte{{1}, {2}}, common.Hash{})
 	s.Nil(err)
 }
 

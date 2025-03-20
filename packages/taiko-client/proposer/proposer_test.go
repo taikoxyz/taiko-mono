@@ -396,7 +396,7 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 		}
 	}
 
-	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch))
+	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
