@@ -75,7 +75,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		"--" + flags.L1NodeVersion.Name, l1NodeVersion,
 		"--" + flags.L2NodeVersion.Name, l2NodeVersion,
 		"--" + flags.RaikoHostEndpoint.Name, "https://dummy.raiko.xyz",
-		"--" + flags.ComposeVerifierAddress.Name, os.Getenv("COMPOSE_VERIFIER"),
 	}))
 }
 
@@ -109,7 +108,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L1NodeVersion.Name},
 		&cli.StringFlag{Name: flags.L2NodeVersion.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
-		&cli.StringFlag{Name: flags.ComposeVerifierAddress.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)
 	app.Action = func(ctx *cli.Context) error {
