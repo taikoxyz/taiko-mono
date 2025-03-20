@@ -26,7 +26,7 @@ var (
 	DriverL1CurrentHeightGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Current_height"})
 	DriverL2HeadIDGauge             = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_id"})
 	DriverL2VerifiedHeightGauge     = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Verified_id"})
-	DriverPreconfP2PEnvelopeCounter = factory.NewCounter(prometheus.CounterOpts{Name: "driver_l2Verified_id"})
+	DriverPreconfP2PEnvelopeCounter = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
 
 	// Proposer
 	ProposerProposeEpochCounter    = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_epoch"})
