@@ -61,6 +61,7 @@ func NewCalldataTransactionBuilder(
 func (b *CalldataTransactionBuilder) BuildOntake(
 	ctx context.Context,
 	txListBytesArray [][]byte,
+	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// Check if the current L2 chain is after ontake fork.
 	l2Head, err := b.rpc.L2.BlockNumber(ctx)
@@ -88,17 +89,7 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 		}
 
 		if i == 0 && b.revertProtectionEnabled {
-			_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(nil)
-			if err != nil {
-				return nil, err
-			}
-
-			blockInfo, err := b.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(slotB.NumBlocks-1))
-			if err != nil {
-				return nil, err
-			}
-
-			params.ParentMetaHash = blockInfo.MetaHash
+			params.ParentMetaHash = parentMetahash
 		}
 
 		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
@@ -139,6 +130,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	txBatch []types.Transactions,
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
+	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
@@ -181,18 +173,22 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
-	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(
-		forcedInclusionParams,
-		&encoding.BatchParams{
-			Proposer:                 proposer,
-			Coinbase:                 b.l2SuggestedFeeRecipient,
-			RevertIfNotFirstProposal: b.revertProtectionEnabled,
-			BlobParams: encoding.BlobParams{
-				ByteOffset: 0,
-				ByteSize:   uint32(len(txListsBytes)),
-			},
-			Blocks: blockParams,
-		}); err != nil {
+	params := &encoding.BatchParams{
+		Proposer:                 proposer,
+		Coinbase:                 b.l2SuggestedFeeRecipient,
+		RevertIfNotFirstProposal: b.revertProtectionEnabled,
+		BlobParams: encoding.BlobParams{
+			ByteOffset: 0,
+			ByteSize:   uint32(len(txListsBytes)),
+		},
+		Blocks: blockParams,
+	}
+
+	if b.revertProtectionEnabled {
+		params.ParentMetaHash = parentMetahash
+	}
+
+	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(forcedInclusionParams, params); err != nil {
 		return nil, err
 	}
 
