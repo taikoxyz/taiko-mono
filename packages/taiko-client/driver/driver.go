@@ -362,6 +362,11 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 
 // cacheLookaheadLoop keeps updating the lookahead info for the preconf block server.
 func (d *Driver) cacheLookaheadLoop() {
+	if d.rpc.L1Beacon == nil {
+		log.Warn("`--l1.beacon` flag value is empty, skipping lookahead cache")
+		return
+	}
+
 	ticker := time.NewTicker(time.Duration(d.rpc.L1Beacon.SecondsPerSlot) / 3)
 	d.wg.Add(1)
 
@@ -369,11 +374,6 @@ func (d *Driver) cacheLookaheadLoop() {
 		ticker.Stop()
 		d.wg.Done()
 	}()
-
-	if d.rpc.L1Beacon == nil {
-		log.Warn("`--l1.beacon` flag value is empty, skipping lookahead cache")
-		return
-	}
 
 	var (
 		seenBlockNumber uint64 = 0
