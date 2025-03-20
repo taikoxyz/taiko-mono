@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -14,12 +15,13 @@ import (
 // ProposeBlocksTransactionBuilder is an interface for building a TaikoL1.proposeBlock / TaikoInbox.proposeBatch
 // transaction.
 type ProposeBlocksTransactionBuilder interface {
-	BuildOntake(ctx context.Context, txListBytesArray [][]byte) (*txmgr.TxCandidate, error)
+	BuildOntake(ctx context.Context, txListBytesArray [][]byte, parentMetahash common.Hash) (*txmgr.TxCandidate, error)
 	BuildPacaya(
 		ctx context.Context,
 		txBatch []types.Transactions,
 		forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 		minTxsPerForcedInclusion *big.Int,
+		parentMetahash common.Hash,
 	) (*txmgr.TxCandidate, error)
 }
 
