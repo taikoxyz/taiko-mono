@@ -65,7 +65,6 @@ func (s *ClientTestSuite) SetupTest() {
 		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-		ComposeVerifierAddress:      common.HexToAddress(os.Getenv("COMPOSE_VERIFIER")),
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   string(jwtSecret),
 	})
