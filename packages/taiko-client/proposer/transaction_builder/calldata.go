@@ -185,7 +185,11 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	}
 
 	if b.revertProtectionEnabled {
-		params.ParentMetaHash = parentMetahash
+		if forcedInclusionParams != nil {
+			forcedInclusionParams.ParentMetaHash = parentMetahash
+		} else {
+			params.ParentMetaHash = parentMetahash
+		}
 	}
 
 	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(forcedInclusionParams, params); err != nil {

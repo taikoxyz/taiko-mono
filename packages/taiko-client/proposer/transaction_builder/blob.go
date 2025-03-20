@@ -189,6 +189,10 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
+	if blobs, err = b.splitToBlobs(txListsBytes); err != nil {
+		return nil, err
+	}
+
 	params := &encoding.BatchParams{
 		Proposer:                 proposer,
 		Coinbase:                 b.l2SuggestedFeeRecipient,
@@ -204,11 +208,11 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	}
 
 	if b.revertProtectionEnabled {
-		params.ParentMetaHash = parentMetahash
-	}
-
-	if blobs, err = b.splitToBlobs(txListsBytes); err != nil {
-		return nil, err
+		if forcedInclusionParams != nil {
+			forcedInclusionParams.ParentMetaHash = parentMetahash
+		} else {
+			params.ParentMetaHash = parentMetahash
+		}
 	}
 
 	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(forcedInclusionParams, params); err != nil {
