@@ -7,7 +7,7 @@ import "src/shared/data/LibSharedData.sol";
 /// @notice This library defines various data structures used in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
-    uint256 public constant PACAYA_FORK_HEIGHT = 999_999_999; // TODO: update this value when Hekla
+    uint256 public constant PACAYA_FORK_HEIGHT = 1_299_888;
         // / Mainnet Pacaya fork height is known
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
