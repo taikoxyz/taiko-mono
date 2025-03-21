@@ -195,7 +195,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		Verifier:            pivotVerifierAddress,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		JWT:                 p.cfg.RaikoJWT,
-		Dummy:               p.cfg.PivotProofDummy,
+		Dummy:               true, // Note: since the pivot proof is not ready, so we use p proof instead
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 	}
 
