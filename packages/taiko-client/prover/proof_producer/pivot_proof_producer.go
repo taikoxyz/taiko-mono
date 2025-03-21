@@ -15,7 +15,6 @@ import (
 )
 
 // PivotProofProducer generates a pivot proof for the given block.
-// TODO: Can be refactored like ProofProducerPacaya
 type PivotProofProducer struct {
 	Verifier            common.Address
 	RaikoHostEndpoint   string // a prover RPC endpoint

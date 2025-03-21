@@ -12,25 +12,21 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
-func TestComposeProducerRequestProof(t *testing.T) {
+func TestZKVMProducerRequestProof(t *testing.T) {
 	var (
-		producer = &ComposeProofProducer{
-			Dummy:              true,
-			DummyProofProducer: DummyProofProducer{},
-			PivotProducer:      &PivotProofProducer{Dummy: true},
-		}
-		blockID = common.Big32
+		producer = &ZKvmProofProducer{Dummy: true, DummyProofProducer: DummyProofProducer{}}
+		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
-		&ProofRequestOptionsPacaya{},
+		&ProofRequestOptionsOntake{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataPacaya{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		time.Now(),
 	)
 	require.Nil(t, err)
 
 	require.Equal(t, res.BlockID, blockID)
-	require.Equal(t, res.Tier, encoding.TierDeprecated)
+	require.Equal(t, res.Tier, encoding.TierZkVMSp1ID)
 	require.NotEmpty(t, res.Proof)
 }
