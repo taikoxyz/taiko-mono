@@ -43,13 +43,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
 	}
-	ComposeVerifierAddress = &cli.StringFlag{
-		Name:     "composeVerifier",
-		Usage:    "ComposeVerifier contract `address`",
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"COMPOSE_VERIFIER"},
-	}
 )
 
 // Optional flags used by prover.
@@ -224,5 +217,4 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
-	ComposeVerifierAddress,
 }, TxmgrFlags)
