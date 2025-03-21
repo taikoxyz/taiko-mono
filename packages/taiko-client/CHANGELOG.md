@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.2.0...taiko-alethia-client-v1.3.0) (2025-03-21)
+
+
+### Features
+
+* **taiko-client:** introduce `DecompressPacaya` ([#19137](https://github.com/taikoxyz/taiko-mono/issues/19137)) ([c266637](https://github.com/taikoxyz/taiko-mono/commit/c266637c04d6531288f53971b1dc95f452c75c51))
+
 ## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.1.0...taiko-alethia-client-v1.2.0) (2025-03-21)
 
 
