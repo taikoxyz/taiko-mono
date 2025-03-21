@@ -24,25 +24,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
-	// Batch proof related flag
-	SGXBatchSize = &cli.Uint64Flag{
-		Name: "prover.sgx.batchSize",
-		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
-			"this flag only works post Ontake fork",
-		Value:    1,
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
-	}
-	ZKVMBatchSize = &cli.Uint64Flag{
-		Name: "prover.zkvm.batchSize",
-		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
-			"this flag only works post Ontake fork",
-		Value:    1,
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
-	}
 )
 
 // Optional flags used by prover.
@@ -186,6 +167,23 @@ var (
 		Category: proverCategory,
 		Value:    30 * time.Minute,
 		EnvVars:  []string{"PROVER_FORCE_BATCH_PROVING_INTERVAL"},
+	}
+	// Batch proof related flag
+	SGXBatchSize = &cli.Uint64Flag{
+		Name: "prover.sgx.batchSize",
+		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
+	}
+	ZKVMBatchSize = &cli.Uint64Flag{
+		Name: "prover.zkvm.batchSize",
+		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
 	}
 )
 
