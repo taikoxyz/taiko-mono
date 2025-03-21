@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.1.0...taiko-alethia-client-v1.2.0) (2025-03-21)
+
+
+### Features
+
+* **taiko-client:** make `prover.dummy` available for producer again ([#19135](https://github.com/taikoxyz/taiko-mono/issues/19135)) ([39cc71b](https://github.com/taikoxyz/taiko-mono/commit/39cc71bd5af022de6d168d79c220f256775d478b))
+
 ## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.0.1...taiko-alethia-client-v1.1.0) (2025-03-20)
 
 
