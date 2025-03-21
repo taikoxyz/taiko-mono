@@ -118,6 +118,13 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_DUMMY"},
 	}
+	PivotProofDummy = &cli.BoolFlag{
+		Name:     "prover.pivot.dummy",
+		Usage:    "Produce dummy pivot proofs, testing purposes only",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_PIVOT_DUMMY"},
+	}
 	// Max amount of L1 blocks that can pass before block is invalid
 	Allowance = &cli.Float64Flag{
 		Name:     "prover.allowance",
@@ -217,4 +224,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
+	PivotProofDummy,
 }, TxmgrFlags)

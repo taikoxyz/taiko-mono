@@ -113,6 +113,7 @@ func (p *Prover) initProofSubmitters(
 					JWT:                 p.cfg.RaikoJWT,
 					ProofType:           producer.ProofTypeSgx,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+					Dummy:               p.cfg.Dummy,
 				}
 			case encoding.TierZkVMRisc0ID:
 				continue
@@ -121,6 +122,7 @@ func (p *Prover) initProofSubmitters(
 					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+					Dummy:               p.cfg.Dummy,
 				}
 				bufferSize = 0
 			case encoding.TierGuardianMinorityID:
@@ -193,7 +195,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		Verifier:            pivotVerifierAddress,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		JWT:                 p.cfg.RaikoJWT,
-		Dummy:               p.cfg.Dummy,
+		Dummy:               p.cfg.PivotProofDummy,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 	}
 
@@ -227,6 +229,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			ProofType:           producer.ProofTypeZKAny,
+			Dummy:               p.cfg.Dummy,
 		}
 	}
 
@@ -295,6 +298,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 			ProofType:           producer.ProofTypeSgx,
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			Dummy:               p.cfg.Dummy,
 		}, nil
 	} else {
 		// If there is no SGX verifier, then try to get the OP verifier address, and initialize
@@ -311,7 +315,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 				ProofType:           producer.ProofTypeOp,
 				JWT:                 p.cfg.RaikoJWT,
-				IsOp:                true,
+				Dummy:               true,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}, nil
 		}
