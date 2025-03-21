@@ -118,7 +118,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 			producer.ProofTypeOp: opVerifier,
 		},
 		ProofType: producer.ProofTypeOp,
-		IsOp:      true,
+		Dummy:     true,
 	}
 	proofBuffers := map[producer.ProofType]*producer.ProofBuffer{
 		producer.ProofTypeOp: producer.NewProofBuffer(1),

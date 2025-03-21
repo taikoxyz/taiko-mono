@@ -21,6 +21,8 @@ type SGXProofProducer struct {
 	ProofType           ProofType // Proof type
 	JWT                 string    // JWT provided by Raiko
 	RaikoRequestTimeout time.Duration
+	Dummy               bool
+	DummyProofProducer
 }
 
 // RaikoRequestProofBody represents the JSON body for requesting the proof.
@@ -98,6 +100,10 @@ func (s *SGXProofProducer) RequestProof(
 		"coinbase", meta.Ontake().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
+
+	if s.Dummy {
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, s.Tier(), requestAt)
+	}
 
 	proof, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {
