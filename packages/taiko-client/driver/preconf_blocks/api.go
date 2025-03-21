@@ -114,7 +114,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	// Decompress the transactions list.
-	decompressed, err := utils.Decompress(reqBody.ExecutableData.Transactions)
+	decompressed, err := utils.DecompressPacaya(reqBody.ExecutableData.Transactions)
 	if err != nil {
 		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
