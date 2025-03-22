@@ -20,11 +20,13 @@ var (
 	factory  = opMetrics.With(registry)
 
 	// Driver
-	DriverL1HeadHeightGauge     = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Head_height"})
-	DriverL2HeadHeightGauge     = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_height"})
-	DriverL1CurrentHeightGauge  = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Current_height"})
-	DriverL2HeadIDGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_id"})
-	DriverL2VerifiedHeightGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Verified_id"})
+	DriverL1HeadHeightGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Head_height"})
+	DriverL2HeadHeightGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_height"})
+	DriverL2PreconfHeadHeightGauge  = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_preconf_l2Head_height"})
+	DriverL1CurrentHeightGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Current_height"})
+	DriverL2HeadIDGauge             = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_id"})
+	DriverL2VerifiedHeightGauge     = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Verified_id"})
+	DriverPreconfP2PEnvelopeCounter = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
 
 	// Proposer
 	ProposerProposeEpochCounter    = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_epoch"})
@@ -67,6 +69,18 @@ var (
 	})
 	ProverSgxProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sgx_aggregation_generated",
+	})
+	ProverPivotAggregationGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
+		Name: "prover_proof_pivot_aggregation_generation_time",
+	})
+	ProverPivotProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_pivot_generated",
+	})
+	ProverPivotProofGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
+		Name: "prover_proof_pivot_generation_time",
+	})
+	ProverPivotProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_pivot_aggregation_generated",
 	})
 	ProverR0AggregationGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_r0_aggregation_generation_time",

@@ -19,7 +19,7 @@ import (
 const (
 	defaultTimeout                = 1 * time.Minute
 	pacayaForkHeightDevnet        = 10
-	pacayaForkHeightHekla         = 0
+	pacayaForkHeightHekla         = 1_299_888
 	pacayaForkHeklaMainnet        = 0
 	pacayaForkHeightPreconfDevnet = 0
 )
@@ -331,7 +331,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
-	// If failed to get protocol configs, we assuming the current chain is still before the Pacaya fork,
+	// If failed to get protocol configs, we are assuming the current chain is still before the Pacaya fork,
 	// use pre-defined Pacaya fork height.
 	if err != nil {
 		log.Debug(

@@ -122,7 +122,7 @@ contract InboxTest_Params is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "txList");
     }
 
-    function test_validateParams_reverts_when_timestamp_smaller_than_parent()
+    function test_validateParams_reverts_when_first_block_time_shift_not_zero()
         external
         transactBy(Alice)
     {
@@ -136,6 +136,25 @@ contract InboxTest_Params is InboxTestBase {
         inbox.proposeBatch(abi.encode(params), "txList");
 
         params.blocks[0].timeShift = 1;
+        params.lastBlockTimestamp = uint64(block.timestamp);
+        vm.expectRevert(ITaikoInbox.FirstBlockTimeShiftNotZero.selector);
+        inbox.proposeBatch(abi.encode(params), "txList");
+    }
+
+    function test_validateParams_reverts_when_timestamp_smaller_than_parent()
+        external
+        transactBy(Alice)
+    {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](2);
+        params.lastBlockTimestamp = uint64(block.timestamp);
+        inbox.proposeBatch(abi.encode(params), "txList");
+
+        params.lastBlockTimestamp = uint64(block.timestamp - 1);
+        vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
+        inbox.proposeBatch(abi.encode(params), "txList");
+
+        params.blocks[1].timeShift = 1;
         params.lastBlockTimestamp = uint64(block.timestamp);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
         inbox.proposeBatch(abi.encode(params), "txList");

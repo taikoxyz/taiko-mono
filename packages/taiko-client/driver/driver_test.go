@@ -362,7 +362,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Nil(err)
 
 	// Propose an empty batch, should with another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head1.Number.Uint64(), common.Hash{}))
 	s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -379,7 +379,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head2.Number().Uint64(), common.Hash{}))
 	s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -807,10 +807,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	payload, err := rlp.EncodeToBytes(reqBody)
 	s.Nil(err)
 	s.NotEmpty(payload)
-
-	sig, err := crypto.Sign(crypto.Keccak256(payload), preconferPrivKey)
-	s.Nil(err)
-	reqBody.Signature = common.Bytes2Hex(sig)
 
 	// Try to propose a preconfirmation block
 	res, err := resty.New().

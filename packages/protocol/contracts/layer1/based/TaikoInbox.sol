@@ -21,8 +21,8 @@ import "./IProposeBatch.sol";
 /// Key assumptions of this protocol:
 /// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
 ///   unlike Taiko Gwyneth, which assumes synchronous composability.
-/// - Proofs are presumed error-free and thoroughly validated, with proof type management
-///   delegated to IVerifier contracts.
+/// - Proofs are presumed error-free and thoroughly validated, with subproofs/multiproofs management
+/// delegated to IVerifier contracts.
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
@@ -62,10 +62,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded BlockParams.
-    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
-    /// for data availability.
-    /// @return info_ The info of the proposed batch.
-    /// @return meta_ The metadata of the proposed batch.
+    /// @param _txList Transaction list in calldata. If the txList is empty, blob will be used for
+    /// data availability.
+    /// @return info_ Information of the proposed batch, which is used for constructing blocks
+    /// offchain.
+    /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
@@ -76,9 +77,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
-        require(stats2.numBatches >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
-
         Config memory config = pacayaConfig();
+        require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
             require(
@@ -95,7 +95,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-
                     require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
                     params.blobParams.createdIn = uint64(block.number);
                 } else {
@@ -103,6 +102,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     require(params.proposer != address(0), CustomProposerMissing());
                 }
 
+                // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
+                // preconfer address. This will allow us to implement preconfirmation features in L2
+                // anchor transactions.
                 if (params.coinbase == address(0)) {
                     params.coinbase = params.proposer;
                 }
@@ -114,15 +116,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             bool calldataUsed = _txList.length != 0;
 
-            if (!calldataUsed) {
-                if (params.blobParams.blobHashes.length == 0) {
-                    require(params.blobParams.numBlobs != 0, BlobNotSpecified());
-                } else {
-                    require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                    require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                }
-            } else {
+            if (calldataUsed) {
                 params.blobParams.createdIn = 0;
+            } else if (params.blobParams.blobHashes.length == 0) {
+                require(params.blobParams.numBlobs != 0, BlobNotSpecified());
+            } else {
+                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
 
             // Keep track of last batch's information.
@@ -210,6 +210,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // SSTORE }}
 
             stats2.numBatches += 1;
+            require(
+                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
+                BeyondCurrentFork()
+            );
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -241,7 +245,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.batchId >= pacayaConfig().forkHeights.pacaya, ForkNotActivated());
+            require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
+            require(
+                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
+                BeyondCurrentFork()
+            );
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -284,13 +292,27 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 }
             } else {
                 TransitionState memory _ts = state.transitions[slot][tid];
+                if (_ts.blockHash == 0) {
+                    // This transition has been invalidated due to a conflicting proof.
+                    // So we can reuse the transition ID.
+                } else {
+                    bool isSameTransition = _ts.blockHash == tran.blockHash
+                        && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
 
-                bool isSameTransition = _ts.blockHash == tran.blockHash
-                    && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
-                require(!isSameTransition, SameTransition());
+                    if (isSameTransition) {
+                        // Re-approving the same transition is allowed, but we will not change the
+                        // existing one.
+                    } else {
+                        // A conflict is detected with the new transition. Pause the contract and
+                        // invalidate the existing transition by setting its blockHash to 0.
+                        hasConflictingProof = true;
+                        state.transitions[slot][tid].blockHash = 0;
+                        emit ConflictingProof(meta.batchId, _ts, tran);
+                    }
 
-                hasConflictingProof = true;
-                emit ConflictingProof(meta.batchId, _ts, tran);
+                    // Proceed with other transitions.
+                    continue;
+                }
             }
 
             TransitionState storage ts = state.transitions[slot][tid];
@@ -347,62 +369,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         whenNotPaused
     {
         _verifyBatches(pacayaConfig(), state.stats2, _length);
-    }
-
-    /// @notice Manually write a transition for a batch.
-    /// @dev This function is supposed to be used by the owner to force prove a transition for a
-    /// block that has not been verified.
-    function writeTransition(
-        uint64 _batchId,
-        bytes32 _parentHash,
-        bytes32 _blockHash,
-        bytes32 _stateRoot,
-        address _prover,
-        bool _inProvingWindow
-    )
-        external
-        onlyOwner
-    {
-        require(_blockHash != 0, InvalidParams());
-        require(_parentHash != 0, InvalidParams());
-        require(_stateRoot != 0, InvalidParams());
-        require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
-
-        Config memory config = pacayaConfig();
-        uint256 slot = _batchId % config.batchRingBufferSize;
-        Batch storage batch = state.batches[slot];
-        require(batch.batchId == _batchId, BatchNotFound());
-
-        uint24 tid = state.transitionIds[_batchId][_parentHash];
-        if (tid == 0) {
-            tid = batch.nextTransitionId++;
-        }
-
-        TransitionState storage ts = state.transitions[slot][tid];
-        ts.stateRoot = _batchId % config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
-        ts.blockHash = _blockHash;
-        ts.prover = _prover;
-        ts.inProvingWindow = _inProvingWindow;
-        ts.createdAt = uint48(block.timestamp);
-
-        if (tid == 1) {
-            ts.parentHash = _parentHash;
-        } else {
-            state.transitionIds[_batchId][_parentHash] = tid;
-        }
-
-        emit TransitionWritten(
-            _batchId,
-            tid,
-            TransitionState(
-                _parentHash,
-                _blockHash,
-                _stateRoot,
-                _prover,
-                _inProvingWindow,
-                uint48(block.timestamp)
-            )
-        );
     }
 
     /// @inheritdoc ITaikoInbox
@@ -597,23 +563,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         virtual
         returns (bytes32 hash_, bytes32[] memory blobHashes_)
     {
-        unchecked {
-            if (_blobParams.blobHashes.length != 0) {
-                blobHashes_ = _blobParams.blobHashes;
-            } else {
-                uint256 numBlobs = _blobParams.numBlobs;
-                blobHashes_ = new bytes32[](numBlobs);
-                for (uint256 i; i < numBlobs; ++i) {
+        if (_blobParams.blobHashes.length != 0) {
+            blobHashes_ = _blobParams.blobHashes;
+        } else {
+            uint256 numBlobs = _blobParams.numBlobs;
+            blobHashes_ = new bytes32[](numBlobs);
+            for (uint256 i; i < numBlobs; ++i) {
+                unchecked {
                     blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
                 }
             }
-
-            uint256 bloblHashesLength = blobHashes_.length;
-            for (uint256 i; i < bloblHashesLength; ++i) {
-                require(blobHashes_[i] != 0, BlobNotFound());
-            }
-            hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
         }
+
+        uint256 bloblHashesLength = blobHashes_.length;
+        for (uint256 i; i < bloblHashesLength; ++i) {
+            require(blobHashes_[i] != 0, BlobNotFound());
+        }
+        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
     }
 
     // Private functions -----------------------------------------------------------------------
@@ -629,7 +595,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         bool canVerifyBlocks;
         unchecked {
-            uint64 pacayaForkHeight = pacayaConfig().forkHeights.pacaya;
+            uint64 pacayaForkHeight = _config.forkHeights.pacaya;
             canVerifyBlocks = pacayaForkHeight == 0 || batchId >= pacayaForkHeight - 1;
         }
 
@@ -646,6 +612,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 stopBatchId = (
                     _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
+
+                if (_config.forkHeights.shasta != 0) {
+                    stopBatchId = stopBatchId.min(_config.forkHeights.shasta);
+                }
             }
 
             for (++batchId; batchId < stopBatchId; ++batchId) {
@@ -668,13 +638,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     break;
                 }
 
+                bytes32 _blockHash = ts.blockHash;
+                // This transition has been invalidated due to conflicting proof
+                if (_blockHash == 0) break;
+
                 unchecked {
                     if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
                         break;
                     }
                 }
 
-                blockHash = ts.blockHash;
+                blockHash = _blockHash;
 
                 uint96 bondToReturn =
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
@@ -733,9 +707,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             unchecked {
                 state.bondBalance[_user] = balance - _amount;
             }
-        } else {
+        } else if (bondToken != address(0)) {
             uint256 amountDeposited = _handleDeposit(_user, _amount);
             require(amountDeposited == _amount, InsufficientBond());
+        } else {
+            // Ether as bond must be deposited before proposing a batch
+            revert InsufficientBond();
         }
         emit BondDebited(_user, _amount);
     }
@@ -780,6 +757,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
         uint256 blocksLength = _params.blocks.length;
+        require(blocksLength != 0, BlockNotFound());
+        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
+
         unchecked {
             if (_params.anchorBlockId == 0) {
                 anchorBlockId_ = uint64(block.number - 1);
@@ -801,6 +781,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 : _params.lastBlockTimestamp;
 
             require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
+            require(_params.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
@@ -840,9 +821,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 ParentMetaHashMismatch()
             );
         }
-
-        require(blocksLength != 0, BlockNotFound());
-        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
     }
 
     // Memory-only structs ----------------------------------------------------------------------

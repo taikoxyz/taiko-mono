@@ -17,16 +17,17 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
 	}
+	RaikoHostEndpoint = &cli.StringFlag{
+		Name:     "raiko.host",
+		Usage:    "RPC endpoint of a Raiko host service",
+		Required: true,
+		Category: proverCategory,
+		EnvVars:  []string{"RAIKO_HOST"},
+	}
 )
 
 // Optional flags used by prover.
 var (
-	RaikoHostEndpoint = &cli.StringFlag{
-		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service",
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_HOST"},
-	}
 	RaikoZKVMHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host.zkvm",
 		Usage:    "RPC endpoint of a Raiko ZKVM host service",
@@ -159,6 +160,14 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_BLOCK_CONFIRMATIONS"},
 	}
+	ForceBatchProvingInterval = &cli.DurationFlag{
+		Name: "prover.forceBatchProvingInterval",
+		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
+			"this flag only works post Ontake fork",
+		Category: proverCategory,
+		Value:    30 * time.Minute,
+		EnvVars:  []string{"PROVER_FORCE_BATCH_PROVING_INTERVAL"},
+	}
 	// Batch proof related flag
 	SGXBatchSize = &cli.Uint64Flag{
 		Name: "prover.sgx.batchSize",
@@ -175,14 +184,6 @@ var (
 		Value:    1,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
-	}
-	ForceBatchProvingInterval = &cli.DurationFlag{
-		Name: "prover.forceBatchProvingInterval",
-		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
-			"this flag only works post Ontake fork",
-		Category: proverCategory,
-		Value:    30 * time.Minute,
-		EnvVars:  []string{"PROVER_FORCE_BATCH_PROVING_INTERVAL"},
 	}
 )
 

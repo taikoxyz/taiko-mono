@@ -122,6 +122,24 @@ func Decompress(compressedTxList []byte) ([]byte, error) {
 	return b, nil
 }
 
+// DecompressPacaya decompresses the given txList bytes using zlib, it checks the ErrUnexpectedEOF error.
+func DecompressPacaya(compressedTxList []byte) ([]byte, error) {
+	r, err := zlib.NewReader(bytes.NewBuffer(compressedTxList))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	b, err := io.ReadAll(r)
+	if err != nil {
+		if !errors.Is(err, io.EOF) {
+			return nil, err
+		}
+	}
+
+	return b, nil
+}
+
 // GWeiToWei converts gwei value to wei value.
 func GWeiToWei(gwei float64) (*big.Int, error) {
 	if math.IsNaN(gwei) || math.IsInf(gwei, 0) {

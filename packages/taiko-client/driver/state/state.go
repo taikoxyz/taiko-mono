@@ -196,7 +196,6 @@ func (s *State) setL2Head(l2Head *types.Header) {
 	}
 
 	log.Trace("New L2 head", "blockID", l2Head.Number, "hash", l2Head.Hash(), "timestamp", l2Head.Time)
-	metrics.DriverL2HeadHeightGauge.Set(float64(l2Head.Number.Uint64()))
 
 	s.l2Head.Store(l2Head)
 }
@@ -219,7 +218,7 @@ func (s *State) IsOnTake(num *big.Int) bool {
 	return s.OnTakeForkHeight.Cmp(num) <= 0
 }
 
-// IsPacaya returns whether num is either equal to the pacaya block or greater.
+// IsPacaya returns whether num is either equal to the Pacaya block or greater.
 func (s *State) IsPacaya(num *big.Int) bool {
 	if s.PacayaForkHeight == nil || num == nil {
 		return false

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -20,6 +21,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -243,6 +245,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		)
 
 		txListCursor += int(blockInfo.NumTransactions)
+
+		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
 	return nil
@@ -255,6 +259,23 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 ) (*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
+
+	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
+	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return nil, fmt.Errorf("failed to fetch head L1 origin: %w", err)
+	}
+
+	// When the chain only has the genesis block, we shall skip this check.
+	if headL1Origin != nil {
+		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+			return nil, fmt.Errorf(
+				"preconfirmation block number (%d) is less than or equal to the current head L1 origin block ID (%d)",
+				executableData.BlockNumber,
+				headL1Origin.BlockID,
+			)
+		}
+	}
 
 	if len(executableData.Transactions) == 0 {
 		return nil, fmt.Errorf("no transactions data in the payload")
@@ -286,6 +307,8 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
 	}
+
+	metrics.DriverL2PreconfHeadHeightGauge.Set(float64(executableData.BlockNumber))
 
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }

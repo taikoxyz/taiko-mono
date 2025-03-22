@@ -1,5 +1,5 @@
 title: "Taiko-Geth Fork Diff" # Define the HTML page title
-footer: | # define the footer with markdown
+footer: |
   [taiko-geth](https://github.com/taikoxyz/taiko-geth) fork overview created with [Forkdiff](https://github.com/protolambda/forkdiff)
 base:
   name: ethereum/go-ethereum
@@ -8,11 +8,11 @@ base:
 fork:
   name: taikoxyz/taiko-geth
   url: https://github.com/taikoxyz/taiko-geth
-  ref: refs/heads/taiko
+  ref: refs/heads/{{ TAIKO_GETH_VERSION }}
 def:
   title: "taiko-geth"
   description: | # description in markdown
-    This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) (`taiko` branch) and [`go-ethereum`](https://github.com/ethereum/go-ethereum) (`{{ TAG_VERSION }}` tag).
+    This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) (`{{ TAIKO_GETH_VERSION }}` branch) and [`go-ethereum`](https://github.com/ethereum/go-ethereum) (`{{ TAG_VERSION }}` tag).
 
   sub:
     # - title: "Changes in accounts"
@@ -94,10 +94,11 @@ def:
           globs:
             - "core/*/*"
 
-    # - title: "Changes in crypto"
+    # - title: "crypto"
     #   description: This shows modifications to crypto files
     #   sub:
-    #     - title: "first layer"
+    #     - title: "Files"
+    #       description: "This cherry-picks the !isOnCurve() bugfix from 1.15.4."
     #       globs:
     #         - "crypto/*"
     #     - title: "second layer"

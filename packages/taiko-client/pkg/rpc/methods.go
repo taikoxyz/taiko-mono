@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -394,7 +395,7 @@ func (c *Client) GetPoolContent(
 	minTip uint64,
 	chainConfig *config.ChainConfig,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-) (PoolContent, error) {
+) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -1060,7 +1061,7 @@ func (c *Client) calculateBaseFeeOntake(
 	return baseFeeInfo.Basefee, nil
 }
 
-// calculateBaseFeePacaya calculates the base fee after pacaya fork from the L2 protocol.
+// calculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
 func (c *Client) calculateBaseFeePacaya(
 	ctx context.Context,
 	l2Head *types.Header,
@@ -1122,6 +1123,22 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
 }
 
+// GetNextPreconfWhiteListOperator resolves the next preconf whitelist operator address.
+func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return common.Address{}, errors.New("preconf whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+}
+
 // GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
 func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
@@ -1180,48 +1197,39 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 // GetOPVerifierPacaya resolves the Pacaya op verifier address.
 func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
-	defer cancel()
-
-	return c.PacayaClients.ComposeVerifier.OpVerifier(
-		&bind.CallOpts{Context: opts.Context},
-	)
+	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
 }
 
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
-	defer cancel()
-
-	return c.PacayaClients.ComposeVerifier.SgxVerifier(
-		&bind.CallOpts{Context: opts.Context},
-	)
+	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxVerifier)
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
 func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
-	defer cancel()
-
-	return c.PacayaClients.ComposeVerifier.Risc0Verifier(
-		&bind.CallOpts{Context: opts.Context},
-	)
+	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0Verifier)
 }
 
 // GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
 func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1Verifier)
+}
+
+// GetPivotVerifierPacaya resolves the Pacaya pivot verifier address.
+func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.PivotVerifier)
+}
+
+// getVerifierAddressPacaya resolves the Pacaya verifier address.
+func getVerifierAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
+	c *Client,
+	opts *bind.CallOpts,
+	resolveFunc T,
+) (common.Address, error) {
+	if c.PacayaClients.TaikoInbox == nil {
+		return common.Address{}, errors.New("taiko inbox contract is not set")
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1229,7 +1237,5 @@ func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, erro
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	return c.PacayaClients.ComposeVerifier.Sp1Verifier(
-		&bind.CallOpts{Context: opts.Context},
-	)
+	return resolveFunc(opts)
 }

@@ -22,10 +22,9 @@ interface ITaikoInbox {
         // transactions in calldata or blobs, the block will contains as many transactions as
         // possible.
         uint16 numTransactions;
-        // For the first block in a batch,  the block timestamp is the batch params' `timestamp`
-        // plus this time shift value;
-        // For all other blocks in the same batch, the block timestamp is its parent block's
-        // timestamp plus this time shift value.
+        // The time difference (in seconds) between the timestamp of this block and
+        // the timestamp of the parent block in the same batch. For the first block in a batch,
+        // there is not parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
@@ -144,10 +143,10 @@ interface ITaikoInbox {
     }
 
     struct ForkHeights {
-        uint64 ontake;
-        uint64 pacaya;
-        uint64 shasta;
-        uint64 unzen;
+        uint64 ontake; // measured with block number.
+        uint64 pacaya; // measured with the batch Id, not block number.
+        uint64 shasta; // measured with the batch Id, not block number.
+        uint64 unzen; // measured with the batch Id, not block number.
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
@@ -253,18 +252,13 @@ interface ITaikoInbox {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
-    /// @notice Emitted when a transition is written to the state by the owner.
-    /// @param batchId The ID of the batch containing the transition.
-    /// @param tid The ID of the transition within the batch.
-    /// @param ts The transition state written.
-    event TransitionWritten(uint64 batchId, uint24 tid, TransitionState ts);
-
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
     error AnchorBlockIdTooSmall();
     error ArraySizesMismatch();
     error BatchNotFound();
     error BatchVerified();
+    error BeyondCurrentFork();
     error BlobNotFound();
     error BlockNotFound();
     error BlobNotSpecified();
@@ -272,6 +266,7 @@ interface ITaikoInbox {
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
+    error FirstBlockTimeShiftNotZero();
     error ForkNotActivated();
     error InsufficientBond();
     error InvalidBlobCreatedIn();

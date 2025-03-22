@@ -37,13 +37,15 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
 
-    error NoBlocks();
     error InvalidBlockTxs();
     error InvalidBlobHashesSize();
     error InvalidBlobHash();
     error InvalidBlobByteOffset();
     error InvalidBlobByteSize();
     error InvalidBlobCreatedIn();
+    error InvalidBlockSize();
+    error InvalidTimeShift();
+    error InvalidSignalSlots();
     error OldestForcedInclusionDue();
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
@@ -105,13 +107,13 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
 
-        uint256 numBlocks = p.blocks.length;
-        require(numBlocks != 0, NoBlocks());
+        // Only one block can be built from the request
+        require(p.blocks.length == 1, InvalidBlockSize());
 
-        for (uint256 i; i < numBlocks; ++i) {
-            // Need to make sure enough transactions in the forced inclusion request are included.
-            require(p.blocks[i].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
-        }
+        // Need to make sure enough transactions in the forced inclusion request are included.
+        require(p.blocks[0].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
+        require(p.blocks[0].timeShift == 0, InvalidTimeShift());
+        require(p.blocks[0].signalSlots.length == 0, InvalidSignalSlots());
 
         require(p.blobParams.blobHashes.length == 1, InvalidBlobHashesSize());
         require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());

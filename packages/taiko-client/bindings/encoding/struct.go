@@ -13,6 +13,11 @@ import (
 
 // Tier IDs defined in protocol.
 var (
+	// TierDeprecated represents a special identifier for tiers that are no longer in use.
+	// It uses an ID that doesn't exist in the contract to maintain interface compatibility.
+	// This will be removed after verified L2 blocks on mainnet exceed the Pacaya fork height.
+	TierDeprecated = uint16(0xffff)
+
 	TierOptimisticID       uint16 = 100
 	TierSgxID              uint16 = 200
 	TierZkVMRisc0ID        uint16 = 250

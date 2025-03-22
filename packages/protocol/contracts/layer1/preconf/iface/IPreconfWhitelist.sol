@@ -6,16 +6,19 @@ pragma solidity ^0.8.24;
 interface IPreconfWhitelist {
     /// @notice Emitted when a new operator is added to the whitelist.
     /// @param operator The address of the operator that was added.
-    event OperatorAdded(address indexed operator);
+    /// @param activeSince The timestamp when the operator became active.
+    event OperatorAdded(address indexed operator, uint256 activeSince);
 
     /// @notice Emitted when an operator is removed from the whitelist.
     /// @param operator The address of the operator that was removed.
-    event OperatorRemoved(address indexed operator);
+    /// @param inactiveSince The timestamp when the operator became inactive.
+    event OperatorRemoved(address indexed operator, uint256 inactiveSince);
 
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
     error InvalidOperatorAddress();
     error OperatorAlreadyExists();
+    error OperatorAlreadyRemoved();
     error OperatorNotAvailableYet();
 
     /// @notice Adds a new operator to the whitelist.

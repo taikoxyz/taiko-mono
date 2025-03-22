@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -18,6 +19,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -44,10 +46,11 @@ type PreconfBlockAPIServer struct {
 	chainSyncer        preconfBlockChainSyncer
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
-	checkSig           bool
 	// P2P network for preconf block propagation
-	p2pNode   *p2p.NodeP2P
-	p2pSigner p2p.Signer
+	p2pNode        *p2p.NodeP2P
+	p2pSigner      p2p.Signer
+	lookahead      *Lookahead
+	lookaheadMutex sync.Mutex
 }
 
 // New creates a new preconf blcok server instance, and starts the server.
@@ -56,7 +59,6 @@ func New(
 	jwtSecret []byte,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
-	checkSig bool,
 ) (*PreconfBlockAPIServer, error) {
 	protocolConfigs, err := cli.GetProtocolConfigs(nil)
 	if err != nil {
@@ -71,8 +73,8 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:      cli,
-		checkSig: checkSig,
+		rpc:       cli,
+		lookahead: &Lookahead{},
 	}
 
 	server.echo.HideBanner = true
@@ -167,6 +169,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
+	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
+
 	if len(msg.ExecutionPayload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
 	}
@@ -187,7 +191,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
-	if msg.ExecutionPayload.Transactions[0], err = utils.Decompress(msg.ExecutionPayload.Transactions[0]); err != nil {
+	if msg.ExecutionPayload.Transactions[0], err = utils.DecompressPacaya(
+		msg.ExecutionPayload.Transactions[0],
+	); err != nil {
 		return fmt.Errorf("failed to decompress tx list bytes: %w", err)
 	}
 
@@ -209,4 +215,27 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	log.Info("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
 
 	return operatorAddress
+}
+
+// P2PSequencerAddresses implements the p2p.PreconfGossipRuntimeConfig interface.
+func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+	log.Info(
+		"Operator addresses as P2P sequencer",
+		"current", s.lookahead.CurrOperator.Hex(),
+		"next", s.lookahead.NextOperator.Hex(),
+	)
+
+	return []common.Address{
+		s.lookahead.CurrOperator,
+		s.lookahead.NextOperator,
+	}
+}
+
+// UpdateLookahead updates the lookahead information.
+func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+	s.lookahead = l
 }

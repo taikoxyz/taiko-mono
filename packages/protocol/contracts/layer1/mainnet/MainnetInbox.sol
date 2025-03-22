@@ -23,8 +23,7 @@ contract MainnetInbox is TaikoInbox {
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
-        // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
-        // after 256 L2 blocks)
+        // - anchorGasLimit: 1_000_000
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
@@ -35,7 +34,7 @@ contract MainnetInbox is TaikoInbox {
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
             livenessBondPerBlock: 5e18, // 5 Taiko token per block
-            stateRootSyncInternal: 16,
+            stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
