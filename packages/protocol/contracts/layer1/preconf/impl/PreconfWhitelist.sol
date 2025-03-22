@@ -27,9 +27,18 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     // all operators in operatorMapping are active and none of them is to be deactivated.
     bool public havingPerfectOperators;
 
+    address public manager;
+
     uint256[47] private __gap;
 
-    constructor() EssentialContract(address(0)) { }
+    constructor(address _manager) EssentialContract(address(0)) {
+        manager = _manager;
+     }
+
+    modifier onlyOwnerOrManager {
+        require(msg.sender == owner || msg.sender == manager, "PreconfWhitelist: caller is not the owner or manager");
+        _;
+    }
 
     function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
@@ -48,7 +57,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function removeOperator(uint256 _operatorIndex) external onlyOwner {
+    function removeOperator(uint256 _operatorIndex) external onlyOwnerOrManager() {
         require(_operatorIndex < operatorCount, InvalidOperatorIndex());
         _removeOperator(operatorMapping[_operatorIndex], operatorChangeDelay);
     }
@@ -56,7 +65,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     /// @notice Removes an operator by address who will become inactive in two epochs.
     /// @param _operator The address of the operator to remove.
     /// @param _effectiveImmediately True if the removal should be effective immediately.
-    function removeOperator(address _operator, bool _effectiveImmediately) external onlyOwner {
+    function removeOperator(address _operator, bool _effectiveImmediately) external onlyOwnerOrManager() {
         _removeOperator(_operator, _effectiveImmediately ? 0 : operatorChangeDelay);
     }
 
