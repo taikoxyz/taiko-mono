@@ -191,7 +191,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
-	if msg.ExecutionPayload.Transactions[0], err = utils.Decompress(msg.ExecutionPayload.Transactions[0]); err != nil {
+	if msg.ExecutionPayload.Transactions[0], err = utils.DecompressPacaya(
+		msg.ExecutionPayload.Transactions[0],
+	); err != nil {
 		return fmt.Errorf("failed to decompress tx list bytes: %w", err)
 	}
 

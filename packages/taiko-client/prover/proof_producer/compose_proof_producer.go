@@ -38,7 +38,7 @@ type ComposeProofProducer struct {
 	JWT                 string // JWT provided by Raiko
 	PivotProducer       *PivotProofProducer
 	ProofType           ProofType
-	IsOp                bool
+	Dummy               bool
 	DummyProofProducer
 }
 
@@ -74,7 +74,7 @@ func (s *ComposeProofProducer) RequestProof(
 		return err
 	})
 	g.Go(func() error {
-		if s.IsOp {
+		if s.Dummy {
 			proofType = s.ProofType
 			if resp, err := s.DummyProofProducer.RequestProof(opts, batchID, meta, s.Tier(), requestAt); err != nil {
 				return err
@@ -157,7 +157,7 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil
 	})
 	g.Go(func() error {
-		if s.IsOp {
+		if s.Dummy {
 			proofType = s.ProofType
 			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), s.ProofType)
 			batchProofs = resp.BatchProof
