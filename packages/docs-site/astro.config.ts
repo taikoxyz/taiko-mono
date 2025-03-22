@@ -100,6 +100,7 @@ export default defineConfig({
               ],
             },
             { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
+            { label: "Pacaya Fork", link: "/taiko-alethia-protocol/pacaya-fork/" },
           ]
         },
         {
