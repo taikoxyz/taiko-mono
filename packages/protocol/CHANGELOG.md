@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.2.0...taiko-alethia-protocol-v2.3.0) (2025-03-22)
+
+
+### Features
+
+* **protocol:** add an IPreconfWhitelist implementation with delayed activation & deactivation ([#19101](https://github.com/taikoxyz/taiko-mono/issues/19101)) ([8d8d5b8](https://github.com/taikoxyz/taiko-mono/commit/8d8d5b89b71e58ceb92f94ae077b519093987c7b))
+* **protocol:** allow operators to remove themselves from the whitelist ([9e02dce](https://github.com/taikoxyz/taiko-mono/commit/9e02dce64ee8b1774bf87ac4546e03b7ebdd897d))
+* **protocol:** allow owner to change "operator change delay" (even to zero) ([9e02dce](https://github.com/taikoxyz/taiko-mono/commit/9e02dce64ee8b1774bf87ac4546e03b7ebdd897d))
+* **protocol:** scripts for Pacaya upgrade ([#19112](https://github.com/taikoxyz/taiko-mono/issues/19112)) ([045fd19](https://github.com/taikoxyz/taiko-mono/commit/045fd19b13aa1b954c6729f1a287db793e047abe))
+* **protocol:** support fallback preconfer when whitelist returns address(0) ([#19111](https://github.com/taikoxyz/taiko-mono/issues/19111)) ([d9047f2](https://github.com/taikoxyz/taiko-mono/commit/d9047f2828d72541f2ebcf7800b26a8ce67ffb1a))
+
+
+### Chores
+
+* **protocol:** add Ethereum Hoodi network configs ([#19102](https://github.com/taikoxyz/taiko-mono/issues/19102)) ([6267b5f](https://github.com/taikoxyz/taiko-mono/commit/6267b5f9a42008da8f3c67fba1721211b1e31684))
+* **protocol:** allow IPreconfWhitelist to return address(0) ([#19103](https://github.com/taikoxyz/taiko-mono/issues/19103)) ([8184d42](https://github.com/taikoxyz/taiko-mono/commit/8184d422d3a28a65248aba14c98d649177967804))
+* **protocol:** change mainnet stateRootSyncInternal from 12 to 4 ([#19060](https://github.com/taikoxyz/taiko-mono/issues/19060)) ([1fd282f](https://github.com/taikoxyz/taiko-mono/commit/1fd282f5d5804881946fed90dad28bde106f513b))
+* **protocol:** update Hekla Pacaya fork height ([#19131](https://github.com/taikoxyz/taiko-mono/issues/19131)) ([1135ed4](https://github.com/taikoxyz/taiko-mono/commit/1135ed41aa662a0b179d5b6240057f4d0dec3747))
+
+
+### Code Refactoring
+
+* **protocol:** deploy PreconfWhitelist2 in DeployProtocolOnL1.s.sol ([#19121](https://github.com/taikoxyz/taiko-mono/issues/19121)) ([097135d](https://github.com/taikoxyz/taiko-mono/commit/097135dc1b95e85092b55df88c9247717204db44))
+* **protocol:** improve LibPreconfUtils.getBeaconBlockRoot() ([#19100](https://github.com/taikoxyz/taiko-mono/issues/19100)) ([36c7c1d](https://github.com/taikoxyz/taiko-mono/commit/36c7c1d041533bb7936c376ba10f330e9668fa81))
+* **protocol:** optimize getOperatorForCurrentEpoch gas cost ([9e02dce](https://github.com/taikoxyz/taiko-mono/commit/9e02dce64ee8b1774bf87ac4546e03b7ebdd897d))
+* **protocol:** replace PreconfWhitelist with PreconfWhitelist2 ([#19122](https://github.com/taikoxyz/taiko-mono/issues/19122)) ([294334c](https://github.com/taikoxyz/taiko-mono/commit/294334cc81980dd08274d3100d3b187bed95f383))
+
 ## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.1.0...taiko-alethia-protocol-v2.2.0) (2025-03-17)
 
 
