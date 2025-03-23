@@ -34,10 +34,15 @@ fi
 # export ATTESTATION_ADDRESS=0xCFd1a900c9C0aB14443460b8F011d8076db636c2
 # export PEM_CERTCHAIN_ADDRESS=0xaa22e95F5Bf27E07c02e6cc41A700597832FA30d
 
-# Hekla addresses of the verifier/attester/pemCertChain.
+# Hekla addresses of the verifier/attester/pemCertChain for ontake fork
 export SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
 export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
 export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
+
+# Hekla addresses of the verifier/attester/pemCertChain for pacaya fork
+# export SGX_VERIFIER_ADDRESS=0xa8cD459E3588D6edE42177193284d40332c3bcd4
+# export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
+# export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
 
 # Mainnet addresses of the verifier/attester/pemCertChain. Uncomment this and comment out the above if running for mainnet!
 # export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
