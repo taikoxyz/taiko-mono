@@ -69,11 +69,11 @@ The preconfirmation process follows seven key steps:
 
 1. **Registration**
 
-    L1 validators opt-in to become preconfirmers by staking collateral and registering with the PreconfServiceManager contract, which interacts with EigenLayer middleware.
+    L1 validators opt-in to become preconfirmers by staking collateral and registering with the PreconfServiceManager contract.
 
 2. **Election**
 
-    A single preconfer is elected from the registered validators for each slot. If the current proposer is registered as a preconfer, they will be chosen. Otherwise, the next preconfer in the lookahead will provide preconfirmations.
+    A single preconfer is elected from the registered validators for each slot. If the current proposer is registered as a preconfer, they will be chosen. Otherwise, a fallabck preconfer will be chosen, who can still submit their on-chain proposals via the L1 mempool.
 
 3. **Request Submission**
 
@@ -93,7 +93,7 @@ The preconfirmation process follows seven key steps:
 
 7. **Slashing**
 
-    If a preconfer fails to honor their commitments—either by not including preconfirmed transactions or by submitting an incorrect lookahead—they face slashing penalties, which are enforced through the EigenLayer slashing mechanism.
+    If a preconfer fails to honor their commitments—either by not including preconfirmed transactions or by submitting an incorrect lookahead—they face slashing penalties.
 
 ## Benefits of Based Preconfirmations
 
