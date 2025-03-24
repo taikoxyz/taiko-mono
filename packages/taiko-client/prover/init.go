@@ -124,7 +124,9 @@ func (p *Prover) initProofSubmitters(
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 					Dummy:               p.cfg.Dummy,
 				}
-				bufferSize = p.cfg.ZKVMProofBufferSize
+				// Since the proof aggregation in Ontake fork is selected by request tier, and
+				// sp1 & risc0 can't be aggregated together, we disabled the proof aggregation until the Pacaya fork
+				bufferSize = 1
 			case encoding.TierGuardianMinorityID:
 				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 				// For guardian, we need to prove the unsigned block as soon as possible
