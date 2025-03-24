@@ -158,7 +158,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 		s.Nil(
 			s.p.ProposeTxLists(
 				context.Background(),
-				[]types.Transactions{},
+				[]types.Transactions{types.Transactions{}},
 				head.Number.Uint64(),
 				metaHash,
 			),
