@@ -42,6 +42,9 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 	if res.Data.Status == StatusRegistered {
 		return ErrRetry
 	}
+	if res.Data.Status == ErrZkAnyNotDrawn.Error() {
+		return ErrZkAnyNotDrawn
+	}
 	if res.Data.Proof == nil || len(res.Data.Proof.Proof) == 0 {
 		return errEmptyProof
 	}

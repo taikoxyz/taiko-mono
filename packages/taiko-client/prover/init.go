@@ -124,13 +124,15 @@ func (p *Prover) initProofSubmitters(
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 					Dummy:               p.cfg.Dummy,
 				}
-				bufferSize = 0
+				bufferSize = p.cfg.ZKVMProofBufferSize
 			case encoding.TierGuardianMinorityID:
 				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
-				bufferSize = 0
+				// For guardian, we need to prove the unsigned block as soon as possible
+				bufferSize = 1
 			case encoding.TierGuardianMajorityID:
 				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
-				bufferSize = 0
+				// For guardian, we need to prove the unsigned block as soon as possible
+				bufferSize = 1
 			default:
 				return fmt.Errorf("unsupported tier: %d", tier.ID)
 			}
