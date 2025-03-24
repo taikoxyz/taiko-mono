@@ -112,10 +112,10 @@
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
-### taikoL1
+### taikoInbox
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x7CD0b27dad6718b54Cf6d12Bf912eD9BE69cd2af`
+- impl: `0x013CDdBD3Be242337C3124834335Cd8b72c97324`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -135,6 +135,7 @@
   - upgraded on Nov 3, 2024 at commit `ea0158f`
   - upgraded on Feb 1, 2025 at commit `75359cc`
   - upgraded on Feb 2, 2025 at commit `e294023`
+  - upgraded on Mar 21, 2025 at commit `80baf41`
 
 ### assignmentHook
 
@@ -173,13 +174,14 @@
 ### prover_set
 
 - proxy: `0xD3f681bD6B49887A48cC9C9953720903967E9DC0`
-- impl: `0x7840556da7E6E74C01a8334a9e6a6d3F4Ae094A0.`
+- impl: `0x3C8D6D4F6fDda77c1d86b4C5F0712C07B150A87c.`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Jun 17, 2024 at commit `b7e12e3`
   - upgraded on Jul 11, 2024 at commit `30631a9`
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
+  - upgraded on Mar 21, 2025 at commit `80baf41`
 
 ### prover_set_contester
 
@@ -260,6 +262,78 @@
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
   - upgraded on Nov 6, 2024 at commit `0706f0a`
+
+### shared_resolver
+
+- proxy : 0xD8e341467b4a1f83B868a6c279ad7d8660ad861c
+- impl : 0xA8bE5B49Bf5f1877Cd985A39E62D6899b0aaDd74
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### rollup_address_resolver
+
+- proxy : 0x3C82907B5895DB9713A0BB874379eF8A37aA2A68
+- impl : 0xf887fA8ffFBb289860a6ec6788B787A2E0000Ed4
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### forced_inclusion_store
+
+- proxy : 0x54231533B8d8Ac2f4F9B05377B617EFA9be080Fd
+- impl : 0xbd80216694f84dcabF342BA1A2304601d57A321a
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### taiko_wrapper
+
+- proxy : 0x8698690dEeDB923fA0A674D3f65896B0031BF7c9
+- impl : 0x40D9cE1C32b27e65e5FbEc0ddAf69c852e9282Ae
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### proof_verifier
+
+- proxy : 0x9A919115127ed338C3bFBcdfBE72D4F167Fa9E1D
+- impl : 0xA5B542eEaA24036E0De2Ced405CD8061E6e8DB38
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### sgx_verifier(Pacaya)
+
+- proxy : 0xa8cD459E3588D6edE42177193284d40332c3bcd4
+- impl : 0x7EB7DCd5f7053dD270c85B2388F555FCDFd6e55f
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### risc0_verifier(Pacaya)
+
+- proxy : 0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2
+- impl : 0x06B789A83db6cB785e5c2a99eedE7A3033576024
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### sp1_verifier(Pacaya)
+
+- proxy : 0x1138aA994477f0880001aa1E8106D749035b6250
+- impl : 0xC472632288b233fadca875821dE173b641bE9fB1
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
+
+### pivot_verifier
+
+- proxy : 0x4361B85093720bD50d25236693CA58FD6e1b3a53
+- impl : 0xd0318A6841E11CCcb580c02276e29632eFeBE0FE
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on March 21, 2025 at commit `80baf41`
 
 ## L2 Contracts
 

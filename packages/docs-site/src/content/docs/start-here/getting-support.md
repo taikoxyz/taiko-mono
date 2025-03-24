@@ -25,4 +25,4 @@ In the future, Taiko Gwyneth documentation will also be hosted here!
 
 ### Grant support
 
-To support developers on Taiko we have a Grants program which you can read about in our blog post [here](https://taiko.mirror.xyz/7Xr2sbMEF8IDoNj03bJflb7z-ErmyCMTAb3L5ef2hfE).
+To support developers on Taiko we have a Grants program which you can read about in our Grants page [here](https://taiko.xyz/grant-program).

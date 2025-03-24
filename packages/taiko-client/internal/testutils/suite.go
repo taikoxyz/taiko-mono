@@ -220,6 +220,10 @@ func (s *ClientTestSuite) SetL1Automine(automine bool) {
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), nil, "evm_setAutomine", automine))
 }
 
+func (s *ClientTestSuite) SetIntervalMining(time uint64) {
+	s.Nil(s.RPCClient.L1.CallContext(context.Background(), nil, "evm_setIntervalMining", time))
+}
+
 func (s *ClientTestSuite) IncreaseTime(time uint64) {
 	var result uint64
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &result, "evm_increaseTime", time))

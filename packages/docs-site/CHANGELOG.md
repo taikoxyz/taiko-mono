@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.26.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.2...docs-site-v1.26.0) (2025-03-24)
+
+
+### Features
+
+* **docs-site:** pacaya docs ([#19125](https://github.com/taikoxyz/taiko-mono/issues/19125)) ([700bb2f](https://github.com/taikoxyz/taiko-mono/commit/700bb2f36b93aee513a6b33bf29412b6c67777dd))
+
+
+### Bug Fixes
+
+* **docs-site:** update the links and explorer ([#19144](https://github.com/taikoxyz/taiko-mono/issues/19144)) ([ba87d4b](https://github.com/taikoxyz/taiko-mono/commit/ba87d4b44027781bf00d79a83c5af9e11d72a52f))
+
+
+### Chores
+
+* **docs-site:** link dune query for live zk-cov" ([#19045](https://github.com/taikoxyz/taiko-mono/issues/19045)) ([e6317f6](https://github.com/taikoxyz/taiko-mono/commit/e6317f65db4434db4026034d49cf185f715b559a))
+
 ## [1.25.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.1...docs-site-v1.25.2) (2025-03-04)
 
 

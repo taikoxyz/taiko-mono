@@ -240,8 +240,8 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 // splitToBlobs splits the txListBytes into multiple blobs.
 func (b *BlobTransactionBuilder) splitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	var blobs []*eth.Blob
-	for start := 0; start < len(txListBytes); start += rpc.BlobBytes {
-		end := start + rpc.BlobBytes
+	for start := 0; start < len(txListBytes); start += eth.MaxBlobDataSize {
+		end := start + eth.MaxBlobDataSize
 		if end > len(txListBytes) {
 			end = len(txListBytes)
 		}

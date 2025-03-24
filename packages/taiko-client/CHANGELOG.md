@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.1...taiko-alethia-client-v1.3.2) (2025-03-24)
+
+
+### Bug Fixes
+
+* **taiko-client:** buffer size & error check ([#19148](https://github.com/taikoxyz/taiko-mono/issues/19148)) ([f7eaea9](https://github.com/taikoxyz/taiko-mono/commit/f7eaea981888c0baae278fc448f12c9c90ec2833))
+* **taiko-client:** disable zk proof aggregation for Ontake ([#19149](https://github.com/taikoxyz/taiko-mono/issues/19149)) ([51003fe](https://github.com/taikoxyz/taiko-mono/commit/51003fea5fe394fced61ff9c006da9c67a3dd42d))
+
+
+### Tests
+
+* **taiko-client:** add revert protection tests ([#19145](https://github.com/taikoxyz/taiko-mono/issues/19145)) ([71f3a82](https://github.com/taikoxyz/taiko-mono/commit/71f3a82fdd0bf56c6579ee089396e4591d83bf4c))
+
+## [1.3.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.0...taiko-alethia-client-v1.3.1) (2025-03-24)
+
+
+### Bug Fixes
+
+* **taiko-client:** make `prover.sgx.batchSize` & `prover.zkvm.batchSize` not required ([#19139](https://github.com/taikoxyz/taiko-mono/issues/19139)) ([f714cf4](https://github.com/taikoxyz/taiko-mono/commit/f714cf429979b0829f8cbe721c08b30662c1af72))
+
 ## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.2.0...taiko-alethia-client-v1.3.0) (2025-03-21)
 
 

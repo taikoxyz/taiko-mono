@@ -124,13 +124,17 @@ func (p *Prover) initProofSubmitters(
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 					Dummy:               p.cfg.Dummy,
 				}
-				bufferSize = 0
+				// Since the proof aggregation in Ontake fork is selected by request tier, and
+				// sp1 & risc0 can't be aggregated together, we disabled the proof aggregation until the Pacaya fork
+				bufferSize = 1
 			case encoding.TierGuardianMinorityID:
 				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
-				bufferSize = 0
+				// For guardian, we need to prove the unsigned block as soon as possible
+				bufferSize = 1
 			case encoding.TierGuardianMajorityID:
 				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
-				bufferSize = 0
+				// For guardian, we need to prove the unsigned block as soon as possible
+				bufferSize = 1
 			default:
 				return fmt.Errorf("unsupported tier: %d", tier.ID)
 			}
