@@ -25,9 +25,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
@@ -125,6 +127,30 @@ func (s *ProposerTestSuite) SetupTest() {
 }
 
 func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
+	config := txmgr.CLIConfig{
+		L1RPCURL:                  os.Getenv("L1_WS"),
+		NumConfirmations:          0,
+		SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+		PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(s.p.L1ProposerPrivKey)),
+		FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+		FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+		MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+		MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+		ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+		ReceiptQueryInterval:      1 * time.Second,
+		NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+		TxSendTimeout:             5 * time.Second,
+		TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+	}
+	config.TxSendTimeout = 5 * time.Second
+	txMgr, err := txmgr.NewSimpleTxManager(
+		"proposer",
+		log.Root(),
+		&metrics.TxMgrMetrics,
+		config,
+	)
+	s.Nil(err)
+	txmgrSelector := utils.NewTxMgrSelector(txMgr, nil, nil)
 	s.p.txBuilder = builder.NewBuilderWithFallback(
 		s.p.rpc,
 		s.p.L1ProposerPrivKey,
@@ -134,7 +160,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 		common.HexToAddress(os.Getenv("PROVER_SET")),
 		10_000_000,
 		s.p.chainConfig,
-		s.p.txmgrSelector,
+		txmgrSelector,
 		true,
 		true,
 		true,
