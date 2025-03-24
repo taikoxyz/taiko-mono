@@ -298,7 +298,7 @@
 ### proof_verifier
 
 - proxy : 0x9A919115127ed338C3bFBcdfBE72D4F167Fa9E1D
-- impl : 0x2d1eEA069268476Af68ddBcaa68227010905034A
+- impl : 0xA5B542eEaA24036E0De2Ced405CD8061E6e8DB38
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
