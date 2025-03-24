@@ -84,4 +84,4 @@ The owner has the ability to upgrade the contracts.
 
 ## Taiko Labs' bootnode addresses
 
-Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/v1.7.0/.env.sample.hekla).
+Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/v1.12.0/.env.sample.hekla).
