@@ -28,6 +28,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
 type ProposerTestSuite struct {
@@ -121,6 +122,53 @@ func (s *ProposerTestSuite) SetupTest() {
 	s.p = p
 	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 	s.cancel = cancel
+}
+
+func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
+	s.p.txBuilder = builder.NewBuilderWithFallback(
+		s.p.rpc,
+		s.p.L1ProposerPrivKey,
+		s.TestAddr,
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+		common.HexToAddress(os.Getenv("PROVER_SET")),
+		10_000_000,
+		s.p.chainConfig,
+		s.p.txmgrSelector,
+		true,
+		true,
+		true,
+	)
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	s.SetL1Automine(false)
+	defer s.SetL1Automine(true)
+	head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Less(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
+
+	s.SetIntervalMining(1)
+	for i := 0; i < int(s.p.rpc.PacayaClients.ForkHeight); i++ {
+		head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
+		metaHash, err := s.p.GetParentMetaHash(context.Background(), head.Number.Uint64())
+		s.Nil(err)
+
+		s.Nil(
+			s.p.ProposeTxLists(
+				context.Background(),
+				[]types.Transactions{types.Transactions{}},
+				head.Number.Uint64(),
+				metaHash,
+			),
+		)
+		s.Nil(s.s.ProcessL1Blocks(context.Background()))
+	}
+
+	head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.GreaterOrEqual(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
@@ -249,18 +297,19 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
-	p := s.p
+	var (
+		p              = s.p
+		batchSize      = 100
+		preBuiltTxList []*miner.PreBuiltTxList
+		err            error
+	)
 
-	batchSize := 100
-
-	var err error
 	for i := 0; i < batchSize; i++ {
 		to := common.BytesToAddress(testutils.RandomBytes(32))
 		_, err = testutils.SendDynamicFeeTx(s.RPCClient.L2, s.TestAddrPrivKey, &to, nil, nil)
 		s.Nil(err)
 	}
 
-	var preBuiltTxList []*miner.PreBuiltTxList
 	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
