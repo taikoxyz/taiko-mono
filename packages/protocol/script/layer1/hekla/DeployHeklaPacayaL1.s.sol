@@ -46,6 +46,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     address public quotaManager = vm.envAddress("QUOTA_MANAGER");
     uint64 public l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
     address public bridgeL1 = vm.envAddress("BRIDGE_L1");
+    address public bridgeL2 = vm.envAddress("BRIDGE_L2");
     address public signalService = vm.envAddress("SIGNAL_SERVICE");
     address public erc20Vault = vm.envAddress("ERC20_VAULT");
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
@@ -86,6 +87,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
         register(sharedResolver, "bridge", bridgeL1);
+        register(sharedResolver, "bridge", bridgeL2, l2ChainId);
         register(sharedResolver, "signal_service", signalService);
         register(sharedResolver, "erc20_vault", erc20Vault);
         register(sharedResolver, "erc721_vault", erc721Vault);
