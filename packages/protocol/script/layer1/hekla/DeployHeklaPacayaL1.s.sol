@@ -51,6 +51,9 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     address public erc20Vault = vm.envAddress("ERC20_VAULT");
     address public erc721Vault = vm.envAddress("ERC721_VAULT");
     address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
+    address public erc20VaultL2 = vm.envAddress("ERC20_VAULT_L2");
+    address public erc721VaultL2 = vm.envAddress("ERC721_VAULT_L2");
+    address public erc1155VaultL2 = vm.envAddress("ERC1155_VAULT_L2");
     address public risc0Groth16Verifier = vm.envAddress("RISC0_GROTH16_VERIFIER");
     address public sp1RemoteVerifier = vm.envAddress("SP1_REMOTE_VERIFIER");
     address public automata = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
@@ -92,6 +95,9 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         register(sharedResolver, "erc20_vault", erc20Vault);
         register(sharedResolver, "erc721_vault", erc721Vault);
         register(sharedResolver, "erc1155_vault", erc1155Vault);
+        register(sharedResolver, "erc20_vault", erc20VaultL2, l2ChainId);
+        register(sharedResolver, "erc721_vault", erc721VaultL2, l2ChainId);
+        register(sharedResolver, "erc1155_vault", erc1155VaultL2, l2ChainId);
         register(rollupResolver, "risc0_groth16_verifier", risc0Groth16Verifier);
         register(rollupResolver, "sp1_remote_verifier", sp1RemoteVerifier);
         register(rollupResolver, "automata_dcap_attestation", automata);
