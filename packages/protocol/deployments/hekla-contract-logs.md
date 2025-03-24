@@ -32,18 +32,17 @@
 ### signal_service
 
 - proxy: `0x6Fc2fe9D9dd0251ec5E0727e826Afbb0Db2CBe0D`
-- impl: `0xEbadBBc8932eAB04Ff39B007Eb1d0fd9b54f1821`
+- impl: `0xE6371B30e500ff38ec809a652fdFE98174011B2D`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
-  - upgraded on Mar 24, 2025 at commit `80baf41`
 
 ### bridge
 
 - proxy: `0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807`
-- impl: `0xc2EEFF8FA1772F9Cb3E87EBFE855268f36bB221E`
+- impl: `0xE3d424D6D752dBcc6e19Dfd6755D518118f3d93b`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -51,62 +50,55 @@
   - transferred ownership on Jul 8, 2024
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
-  - upgraded on Mar 24, 2025 at commit `80baf41`
 
 ### erc20_vault
 
 - proxy: `0x2259662ed5dE0E09943Abe701bc5f5a108eABBAa`
-- impl: `0x7585bd815F866E68E441EE6c4610f285D5d6e910`
+- impl: `0x1bf437b2f6e5959fe167210Ee2221ADa09a66846`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
-  - upgraded on Mar 24, 2025 at commit `80baf41`
 
 ### erc721_vault
 
 - proxy: `0x046b82D9010b534c716742BE98ac3FEf3f2EC99f`
-- impl: `0x8b22aF85E1f0900daFEF0addd0070b7a3Ab0D6Bf`
+- impl: `0x06467bab46598b887240044309A6ffE261A0E2e3`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
-  - upgraded on Mar 24, 2025 at commit `80baf41`
 
 ### erc1155_vault
 
 - proxy: `0x9Ae5945Ab34f6182F75E16B73e037421F341fEe3`
-- impl: `0xe4E9c5229FB2561207cA7DE1ADB577269991A3E5`
+- impl: `0xBFCff65554d6e89A1aC280eE1E9f87764124B833`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
-  - upgraded on Mar 24, 2025 at commit `80baf41`
 
 ### bridged_erc20
 
-- impl: `0x0Cc865f09432a599F40700D2559D794C8A973E1A`
+- impl: `0xe3661857941E4A711fa6b4Fc080bC5c5948a70f1`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
   - deployed on Jul 25, 2024 at commit `3d89d24`
-  - deployed on Mar 21, 2025 at commit `80baf41`
 
 ### bridged_erc721
 
-- impl: `0x4aE239C32B76D9a85EdEC51339231A0e8b90Bbee`
+- impl: `0xbD832CAf65c8a73609EFd62E2A4FCB1292e4c9C1`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
-  - deployed on Mar 21, 2025 at commit `80baf41`
 
 ### bridged_erc1155
 
-- impl: `0x6D663EBDDa2AbBDE8CaD9FD4bA46e3D5e6579c8A`
+- impl: `0x0B5B063dc89EcfCedf8aF570d82598F72a7dfF35`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
-  - deployed on Mar 21, 2025 at commit `80baf41`
 
 ### rollup_address_manager
 
