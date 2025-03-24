@@ -152,6 +152,9 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	if output.Data.Status == StatusRegistered {
 		return nil, "", ErrRetry
 	}
+	if output.Data.Status == ErrZkAnyNotDrawn.Error() {
+		return nil, "", ErrZkAnyNotDrawn
+	}
 
 	if !opts.OntakeOptions().Compressed {
 		if len(output.Data.Proof.Proof) == 0 {
