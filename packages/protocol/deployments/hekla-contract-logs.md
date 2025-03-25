@@ -117,6 +117,8 @@
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
 - impl: `0x013CDdBD3Be242337C3124834335Cd8b72c97324`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- oldFork: `0x6e15d2049480C7E339C6B398774166e1ddbCd43e` at commit `a634150`
+- newFork: `0x93684C898950013850dE100b0Aed0a8E457dC825` at commit `80baf41`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
@@ -390,35 +392,38 @@
 ### shared_address_manager
 
 - proxy: `0x1670090000000000000000000000000000000006`
-- impl: `0x1063F4cF9eaAA67B5dc9750d96eC0BD885D10AeE`
+- impl: `0xF8D314cAA6923f1cE997B8E5516771CBd2f9F73B`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
+  - upgraded on Mar 24, 2025 at commit `80baf41`
 
-### taikoL2
+### taikoAnchor
 
 - proxy: `0x1670090000000000000000000000000000010001`
-- impl: `0x637B1e6E71007d033B5d4385179037C90665A203`
+- impl: `0x71fb266CE71E11D73ccE9bE057401825E076F704`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
+  - upgraded on Mar 24, 2025 at commit `80baf41`
 
 ### rollup_address_manager
 
 - proxy: `0x1670090000000000000000000000000000010002`
-- impl: `0x1063F4cF9eaAA67B5dc9750d96eC0BD885D10AeE`
+- impl: `0xF8D314cAA6923f1cE997B8E5516771CBd2f9F73B`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
+  - upgraded on Mar 24, 2025 at commit `80baf41`
 
 ### bridged_erc20
 
@@ -443,8 +448,9 @@
 ### delegate_owner
 
 - proxy: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
-- impl: `0x36dD2d50C08Ee22553ef34583B367D86c3D44fBd`
+- impl: `0xcdf48A1326542F647A8250356506c0a75AB34CE2`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - admin: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Aug 15, 2024 at commit `46a3e00`
+  - upgraded on Mar 24, 2025 at commit `80baf41`
