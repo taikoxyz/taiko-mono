@@ -101,8 +101,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         copyRegister(rollupResolver, sharedResolver, "bond_token");
         copyRegister(rollupResolver, sharedResolver, "signal_service");
         copyRegister(rollupResolver, sharedResolver, "bridge");
-        // Bridge
-        registerBridgedTokenContracts(sharedResolver);
 
         // OP verifier
         address opImpl = address(new OpVerifier(rollupResolver));
@@ -220,16 +218,5 @@ contract DeployHeklaPacayaL1 is DeployCapability {
             data: abi.encodeCall(SgxVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
-    }
-
-    function registerBridgedTokenContracts(address sharedResolver) internal {
-        // Bridged Token
-        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
-        register(
-            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
-        );
-        register(
-            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
-        );
     }
 }
