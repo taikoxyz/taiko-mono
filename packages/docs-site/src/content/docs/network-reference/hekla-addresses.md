@@ -59,9 +59,9 @@ description: Network reference page describing various important addresses on Ta
 | TaikoL2/TaikoAnchor (Pacaya)  | `0x1670090000000000000000000000000000010001` |
 | RollupAddressManager          | `0x1670090000000000000000000000000000010002` |
 | BridgedTaikoToken             | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
-| BridgedERC20                  | `0xCd25b05653DEa73deF46f981a604AccBDfaA9472` |
-| BridgedERC721                 | `0x45E80cd83A6007BF3Eba3F6dC85E3650b5EEA463` |
-| BridgedERC1155                | `0x58295Fcb7f3f39AA01AFfd72189028cE88804416` |
+| BridgedERC20                  | `0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF` |
+| BridgedERC721                 | `0x45327BDbe23c1a3F0b437C78a19E813f9b11E566` |
+| BridgedERC1155                | `0xb190786090Fc4308c4C40808f3bEB55c4463c152` |
 
 ## Contract owners
 
