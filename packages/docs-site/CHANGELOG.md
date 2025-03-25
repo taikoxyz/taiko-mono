@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.27.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.26.0...docs-site-v1.27.0) (2025-03-25)
+
+
+### Features
+
+* **docs-site:** add preconf page ([#18973](https://github.com/taikoxyz/taiko-mono/issues/18973)) ([afe8d90](https://github.com/taikoxyz/taiko-mono/commit/afe8d901d4f6e243e035cf03add85ebac2c69e94))
+
+
+### Chores
+
+* **docs-site:** update bridge token addresses for hekla ([#19155](https://github.com/taikoxyz/taiko-mono/issues/19155)) ([09edc77](https://github.com/taikoxyz/taiko-mono/commit/09edc7717fb854134944516d9f4edab5feef47fc))
+
 ## [1.26.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.2...docs-site-v1.26.0) (2025-03-24)
 
 
