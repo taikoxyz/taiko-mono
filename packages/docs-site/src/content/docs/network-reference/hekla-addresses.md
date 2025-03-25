@@ -59,6 +59,9 @@ description: Network reference page describing various important addresses on Ta
 | TaikoL2/TaikoAnchor (Pacaya)  | `0x1670090000000000000000000000000000010001` |
 | RollupAddressManager          | `0x1670090000000000000000000000000000010002` |
 | BridgedTaikoToken             | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
+| BridgedERC20                  | `0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF` |
+| BridgedERC721                 | `0x45327BDbe23c1a3F0b437C78a19E813f9b11E566` |
+| BridgedERC1155                | `0xb190786090Fc4308c4C40808f3bEB55c4463c152` |
 
 ## Contract owners
 
@@ -81,4 +84,4 @@ The owner has the ability to upgrade the contracts.
 
 ## Taiko Labs' bootnode addresses
 
-Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/v1.7.0/.env.sample.hekla).
+Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/v1.12.0/.env.sample.hekla).

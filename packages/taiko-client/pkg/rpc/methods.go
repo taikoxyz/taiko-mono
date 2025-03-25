@@ -1197,37 +1197,42 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 // GetOPVerifierPacaya resolves the Pacaya op verifier address.
 func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
 }
 
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxVerifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxVerifier)
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
 func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0Verifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0Verifier)
 }
 
 // GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
 func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1Verifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1Verifier)
 }
 
 // GetPivotVerifierPacaya resolves the Pacaya pivot verifier address.
 func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.PivotVerifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.PivotVerifier)
 }
 
-// getVerifierAddressPacaya resolves the Pacaya verifier address.
-func getVerifierAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
+// GetPreconfRouterPacaya resolves the preconf router address.
+func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
+}
+
+// getImmutableAddressPacaya resolves the Pacaya contract address.
+func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
 	c *Client,
 	opts *bind.CallOpts,
 	resolveFunc T,
 ) (common.Address, error) {
 	if c.PacayaClients.TaikoInbox == nil {
-		return common.Address{}, errors.New("taiko inbox contract is not set")
+		return common.Address{}, errors.New("taikoInbox contract is not set")
 	}
 
 	var cancel context.CancelFunc
