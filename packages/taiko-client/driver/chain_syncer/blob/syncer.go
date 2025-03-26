@@ -331,66 +331,65 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 	// If the L2 chain is on Pacaya fork.
 	for lastVerifiedBlockID >= s.rpc.PacayaClients.ForkHeight {
-			// If the current batch is the first Pacaya batch, we start checking the Ontake blocks.
-			if lastVerifiedBatchID == s.rpc.PacayaClients.ForkHeight {
-				lastVerifiedBlockID = s.rpc.PacayaClients.ForkHeight - 1
-				break
-			}
+		// If the current batch is the first Pacaya batch, we start checking the Ontake blocks.
+		if lastVerifiedBatchID == s.rpc.PacayaClients.ForkHeight {
+			lastVerifiedBlockID = s.rpc.PacayaClients.ForkHeight - 1
+			break
+		}
 
-			batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID))
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
-			}
-			previousBatch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID-1))
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch previous batch by ID: %w", err)
-			}
+		batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+		}
+		previousBatch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID-1))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch previous batch by ID: %w", err)
+		}
 
-			if batch.VerifiedTransitionId.Cmp(common.Big0) == 0 {
-				lastVerifiedBatchID = previousBatch.BatchId
-				lastVerifiedBlockID = previousBatch.LastBlockId
-				continue
-			}
-			ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(&bind.CallOpts{Context: ctx}, batch.BatchId)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
-			}
-			header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId))
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
-			}
+		if batch.VerifiedTransitionId.Cmp(common.Big0) == 0 {
+			lastVerifiedBatchID = previousBatch.BatchId
+			lastVerifiedBlockID = previousBatch.LastBlockId
+			continue
+		}
+		ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(&bind.CallOpts{Context: ctx}, batch.BatchId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
+		}
+		header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
+		}
 
-			if header.Hash() == ts.BlockHash {
-				log.Info(
-					"Verified block matched, start reorging",
-					"currentHeightToCheck", batch.LastBlockId,
-					"chainBlockHash", header.Hash(),
-					"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
-					"postPacaya", true,
-				)
-				reorgCheckResult.IsReorged = true
-				if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
-					ctx,
-					new(big.Int).SetUint64(batch.AnchorBlockId),
-				); err != nil {
-					return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
-				}
-				reorgCheckResult.LastHandledBlockIDToReset = header.Number
-				return reorgCheckResult, nil
-			}
-
+		if header.Hash() == ts.BlockHash {
 			log.Info(
-				"Verified block mismatch",
+				"Verified block matched, start reorging",
 				"currentHeightToCheck", batch.LastBlockId,
 				"chainBlockHash", header.Hash(),
 				"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
 				"postPacaya", true,
 			)
-
-			lastVerifiedBatchID = previousBatch.BatchId
-			lastVerifiedBlockID = previousBatch.LastBlockId
-			continue
+			reorgCheckResult.IsReorged = true
+			if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
+				ctx,
+				new(big.Int).SetUint64(batch.AnchorBlockId),
+			); err != nil {
+				return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
+			}
+			reorgCheckResult.LastHandledBlockIDToReset = header.Number
+			return reorgCheckResult, nil
 		}
+
+		log.Info(
+			"Verified block mismatch",
+			"currentHeightToCheck", batch.LastBlockId,
+			"chainBlockHash", header.Hash(),
+			"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
+			"postPacaya", true,
+		)
+
+		lastVerifiedBatchID = previousBatch.BatchId
+		lastVerifiedBlockID = previousBatch.LastBlockId
+		continue
 	}
 
 	// Otherwise, we fetch the transition from Ontake protocol.
