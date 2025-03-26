@@ -394,7 +394,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		}
 
 		if blockInfo.VerifiedTransitionId.Cmp(common.Big0) == 0 {
-			return nil, fmt.Errorf("failed to fetch verified transition ID")
+			continue
 		}
 
 		ts, err := s.rpc.GetTransition(
