@@ -394,6 +394,11 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		}
 
 		if blockInfo.VerifiedTransitionId.Cmp(common.Big0) == 0 {
+			if lastVerifiedBlockID > 10 {
+				lastVerifiedBlockID -= 10
+			} else {
+				lastVerifiedBlockID = 0
+			}
 			continue
 		}
 
