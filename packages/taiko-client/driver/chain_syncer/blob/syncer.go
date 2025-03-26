@@ -389,7 +389,6 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 		lastVerifiedBatchID = previousBatch.BatchId
 		lastVerifiedBlockID = previousBatch.LastBlockId
-		continue
 	}
 
 	// Otherwise, we fetch the transition from Ontake protocol.
