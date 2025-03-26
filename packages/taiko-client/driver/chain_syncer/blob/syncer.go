@@ -407,6 +407,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			reorgCheckResult.IsReorged = true
 			reorgCheckResult.LastHandledBlockIDToReset = common.Big0
 			reorgCheckResult.L1CurrentToReset = genesisL1Header
+			return reorgCheckResult, nil
 		}
 
 		currentHeightToCheck := new(big.Int).SetUint64(lastVerifiedBlockID)
