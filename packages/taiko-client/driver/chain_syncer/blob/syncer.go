@@ -332,6 +332,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 				return nil, fmt.Errorf("failed to fetch genesis L1 header: %w", err)
 			}
 			reorgCheckResult.IsReorged = true
+			reorgCheckResult.LastHandledBlockIDToReset = common.Big0
 			reorgCheckResult.L1CurrentToReset = genesisL1Header
 		}
 
@@ -370,6 +371,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 				); err != nil {
 					return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
 				}
+				reorgCheckResult.LastHandledBlockIDToReset = header.Number
 				return reorgCheckResult, nil
 			}
 
@@ -431,6 +433,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			); err != nil {
 				return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
 			}
+			reorgCheckResult.LastHandledBlockIDToReset = header.Number
 			return reorgCheckResult, nil
 		}
 
