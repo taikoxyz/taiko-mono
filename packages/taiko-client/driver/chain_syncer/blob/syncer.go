@@ -319,14 +319,129 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		return reorgCheckResult, nil
 	}
 
-	genesisL1Header, err := s.rpc.GetGenesisL1Header(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch genesis L1 header: %w", err)
+	if lastVerifiedBlockID > 10 {
+		lastVerifiedBlockID -= 10
+	} else {
+		lastVerifiedBlockID = 0
 	}
-	reorgCheckResult.IsReorged = true
-	reorgCheckResult.L1CurrentToReset = genesisL1Header
+	for {
+		if lastVerifiedBlockID == 0 {
+			genesisL1Header, err := s.rpc.GetGenesisL1Header(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch genesis L1 header: %w", err)
+			}
+			reorgCheckResult.IsReorged = true
+			reorgCheckResult.L1CurrentToReset = genesisL1Header
+		}
 
-	return reorgCheckResult, nil
+		currentHeightToCheck := new(big.Int).SetUint64(lastVerifiedBlockID)
+		log.Info("Checking verified block mismatch", "currentHeightToCheck", currentHeightToCheck)
+
+		if currentHeightToCheck.Uint64() >= s.rpc.PacayaClients.ForkHeight {
+			ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(
+				&bind.CallOpts{Context: ctx},
+				currentHeightToCheck.Uint64(),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
+			}
+			header, err = s.rpc.L2.HeaderByNumber(ctx, currentHeightToCheck)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
+			}
+
+			if header.Hash() == ts.BlockHash {
+				log.Info(
+					"Verified block matched, start reorging",
+					"currentHeightToCheck", currentHeightToCheck,
+					"chainBlockHash", header.Hash(),
+					"transitionBlockHash", ts.BlockHash,
+					"postPacaya", true,
+				)
+				reorgCheckResult.IsReorged = true
+				batch, err := s.rpc.GetBatchByID(ctx, currentHeightToCheck)
+				if err != nil {
+					return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+				}
+				if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
+					ctx,
+					new(big.Int).SetUint64(batch.AnchorBlockId),
+				); err != nil {
+					return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
+				}
+				return reorgCheckResult, nil
+			}
+
+			log.Info(
+				"Verified block mismatch",
+				"currentHeightToCheck", currentHeightToCheck,
+				"chainBlockHash", header.Hash(),
+				"transitionBlockHash", ts.BlockHash,
+				"postPacaya", true,
+			)
+
+			if lastVerifiedBlockID > 10 {
+				lastVerifiedBlockID -= 10
+			} else {
+				lastVerifiedBlockID = 0
+			}
+			continue
+		}
+
+		blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, currentHeightToCheck)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch L2 block info: %w", err)
+		}
+
+		if blockInfo.VerifiedTransitionId.Cmp(common.Big0) == 0 {
+			return nil, fmt.Errorf("failed to fetch verified transition ID")
+		}
+
+		ts, err := s.rpc.GetTransition(
+			ctx,
+			currentHeightToCheck,
+			uint32(blockInfo.VerifiedTransitionId.Uint64()),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch transition: %w", err)
+		}
+		header, err = s.rpc.L2.HeaderByNumber(ctx, currentHeightToCheck)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
+		}
+
+		if ts.BlockHash == header.Hash() {
+			log.Info(
+				"Verified block matched, start reorging",
+				"currentHeightToCheck", currentHeightToCheck,
+				"chainBlockHash", header.Hash(),
+				"transitionBlockHash", ts.BlockHash,
+				"postPacaya", true,
+			)
+			reorgCheckResult.IsReorged = true
+			if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
+				ctx,
+				new(big.Int).SetUint64(blockInfo.ProposedIn),
+			); err != nil {
+				return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
+			}
+			return reorgCheckResult, nil
+		}
+
+		log.Info(
+			"Verified block mismatch",
+			"currentHeightToCheck", currentHeightToCheck,
+			"chainBlockHash", header.Hash(),
+			"transitionBlockHash", ts.BlockHash,
+			"postPacaya", true,
+		)
+
+		if lastVerifiedBlockID > 10 {
+			lastVerifiedBlockID -= 10
+		} else {
+			lastVerifiedBlockID = 0
+		}
+	}
 }
 
 // checkReorg checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
