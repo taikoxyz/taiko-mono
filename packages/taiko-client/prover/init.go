@@ -371,17 +371,32 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, startingBlockID)
 	if err != nil {
 		if err.Error() == ethereum.NotFound.Error() {
-			log.Warn(
-				"Failed to find L1Origin for blockID, use latest L1 head instead",
-				"blockID", startingBlockID,
-			)
-			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, nil)
-			if err != nil {
-				return err
-			}
+			if startingBlockID.Uint64() < p.rpc.PacayaClients.ForkHeight {
+				blockInfo, err := p.rpc.GetL2BlockInfoV2(p.ctx, startingBlockID)
+				if err != nil {
+					return fmt.Errorf("failed to get block info for blockID: %d", startingBlockID)
+				}
 
-			p.sharedState.SetL1Current(l1Head)
-			return nil
+				l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(blockInfo.ProposedIn))
+				if err != nil {
+					return fmt.Errorf("failed to get L1 head for blockID: %d", blockInfo.ProposedIn)
+				}
+				p.sharedState.SetL1Current(l1Head)
+			} else {
+				log.Warn("Failed to find L1Origin for blockID, use latest L1 head instead", "blockID", startingBlockID)
+				batch, err := p.rpc.GetBatchByID(p.ctx, startingBlockID)
+				if err != nil {
+					return fmt.Errorf("failed to get batch by ID: %d", startingBlockID)
+				}
+
+				l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
+				if err != nil {
+					return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
+				}
+
+				p.sharedState.SetL1Current(l1Head)
+				return nil
+			}
 		}
 		return err
 	}
