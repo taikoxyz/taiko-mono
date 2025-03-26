@@ -382,6 +382,7 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 					return fmt.Errorf("failed to get L1 head for blockID: %d", blockInfo.ProposedIn)
 				}
 				p.sharedState.SetL1Current(l1Head)
+				return nil
 			} else {
 				log.Warn("Failed to find L1Origin for blockID, use latest L1 head instead", "blockID", startingBlockID)
 				batch, err := p.rpc.GetBatchByID(p.ctx, startingBlockID)
