@@ -306,7 +306,9 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		lastVerifiedBlockHash = ts.Ts.BlockHash
 	}
 
-	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID || s.lastInsertedBlockID.Uint64() < lastVerifiedBlockID {
+	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID ||
+		s.lastInsertedBlockID == nil ||
+		s.lastInsertedBlockID.Uint64() < lastVerifiedBlockID {
 		return reorgCheckResult, nil
 	}
 
