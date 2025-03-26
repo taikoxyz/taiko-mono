@@ -393,7 +393,6 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 				if err != nil {
 					return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
 				}
-
 				p.sharedState.SetL1Current(l1Head)
 				return nil
 			}

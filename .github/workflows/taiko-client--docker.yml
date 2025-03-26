@@ -2,7 +2,7 @@ name: "Build and Push Multi-Arch Docker Image"
 
 on:
   push:
-    branches: [main, initL1Current]
+    branches: [main, improve-initL1Current]
     tags:
       - "taiko-alethia-client-v*"
     paths:
