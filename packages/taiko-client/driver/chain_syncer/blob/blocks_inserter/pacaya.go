@@ -98,6 +98,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		lastPayloadData *engine.ExecutableData
 		txListCursor    = 0
 	)
+	log.Info(
+		"Decompressing batch tx list",
+		"len", len(allTxs),
+		"batchID", meta.GetBatchID(),
+	)
 
 	for j, blockInfo := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
@@ -195,6 +200,12 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		} else if txListCursor < len(allTxs) {
 			txs = allTxs[txListCursor:]
 		}
+		log.Info(
+			"Split block tx list",
+			"len", len(txs),
+			"batchID", meta.GetBatchID(),
+			"blockID", blockID,
+		)
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
 		if lastPayloadData, err = createPayloadAndSetHead(
