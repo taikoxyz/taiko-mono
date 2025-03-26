@@ -99,11 +99,7 @@ func (h *BlockProposedEventHandler) Handle(
 
 	// Wait for the corresponding L2 block being mined in node.
 	if _, err := h.rpc.WaitL2Header(ctx, meta.Ontake().GetBlockID()); err != nil {
-		return fmt.Errorf(
-			"failed to wait L2 header (eventID %d): %w",
-			meta.Ontake().GetBlockID(),
-			err,
-		)
+		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", meta.Ontake().GetBlockID(), err)
 	}
 
 	// Check if the L1 chain has reorged at first.
@@ -178,6 +174,16 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 	meta metadata.TaikoProposalMetaData,
 ) error {
 	log.Debug("Check L1 reorg", "blockID", blockID)
+
+	// Ensure the L1 header in canonical chain is the same as the one in the event.
+	l1Header, err := h.rpc.L1.HeaderByNumber(ctx, meta.GetRawBlockHeight())
+	if err != nil {
+		return fmt.Errorf("failed to get L1 header, height %d: %w", meta.GetRawBlockHeight(), err)
+	}
+	if l1Header.Hash() != meta.GetRawBlockHash() {
+		return fmt.Errorf("L1 block hash mismatch: %s != %s", l1Header.Hash(), meta.GetRawBlockHash())
+	}
+
 	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
 	reorgCheckResult, err := h.rpc.CheckL1Reorg(
 		ctx,
