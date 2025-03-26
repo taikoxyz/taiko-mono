@@ -99,11 +99,7 @@ func (h *BlockProposedEventHandler) Handle(
 
 	// Wait for the corresponding L2 block being mined in node.
 	if _, err := h.rpc.WaitL2Header(ctx, meta.Ontake().GetBlockID()); err != nil {
-		return fmt.Errorf(
-			"failed to wait L2 header (eventID %d): %w",
-			meta.Ontake().GetBlockID(),
-			err,
-		)
+		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", meta.Ontake().GetBlockID(), err)
 	}
 
 	// Check if the L1 chain has reorged at first.
@@ -178,17 +174,26 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 	meta metadata.TaikoProposalMetaData,
 ) error {
 	log.Debug("Check L1 reorg", "blockID", blockID)
-	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
-	reorgCheckResult, err := h.rpc.CheckL1Reorg(
-		ctx,
-		new(big.Int).Sub(blockID, common.Big1),
-	)
+
+	// Ensure the L1 header in canonical chain is the same as the one in the event.
+	l1Header, err := h.rpc.L1.HeaderByNumber(ctx, meta.GetRawBlockHeight())
 	if err != nil {
-		return fmt.Errorf(
-			"failed to check whether L1 chain was reorged from L2EE (eventID %d): %w",
-			blockID,
-			err,
+		return fmt.Errorf("failed to get L1 header, height %d: %w", meta.GetRawBlockHeight(), err)
+	}
+	if l1Header.Hash() != meta.GetRawBlockHash() {
+		log.Warn(
+			"L1 block hash mismatch, will retry",
+			"height", meta.GetRawBlockHeight(),
+			"l1HashInChain", l1Header.Hash(),
+			"l1HashInEvent", meta.GetRawBlockHash(),
 		)
+		return fmt.Errorf("L1 block hash mismatch: %s != %s", l1Header.Hash(), meta.GetRawBlockHash())
+	}
+
+	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
+	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(blockID, common.Big1))
+	if err != nil {
+		return fmt.Errorf("failed to check whether L1 chain was reorged from L2EE (eventID %d): %w", blockID, err)
 	}
 
 	if reorgCheckResult.IsReorged {
@@ -206,30 +211,6 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 			h.sharedState.SetLastHandledBlockID(reorgCheckResult.LastHandledBlockIDToReset.Uint64())
 		}
 		return errL1Reorged
-	}
-
-	lastL1OriginHeader, err := h.rpc.L1.HeaderByNumber(ctx, meta.GetRawBlockHeight())
-	if err != nil {
-		return fmt.Errorf(
-			"failed to get L1 header, height %d: %w",
-			meta.GetRawBlockHeight(),
-			err,
-		)
-	}
-
-	if lastL1OriginHeader.Hash() != meta.GetRawBlockHash() {
-		log.Warn(
-			"L1 block hash mismatch due to L1 reorg",
-			"height", meta.GetRawBlockHeight(),
-			"lastL1OriginHeader", lastL1OriginHeader.Hash(),
-			"l1HashInEvent", meta.GetRawBlockHash(),
-		)
-
-		return fmt.Errorf(
-			"L1 block hash mismatch due to L1 reorg: %s != %s",
-			lastL1OriginHeader.Hash(),
-			meta.GetRawBlockHash(),
-		)
 	}
 
 	return nil
@@ -406,14 +387,8 @@ func (h *BlockProposedGuaridanEventHandler) Handle(
 		if h.GuardianProverHeartbeater == nil || meta.IsPacaya() {
 			return
 		}
-		if err := h.GuardianProverHeartbeater.SignAndSendBlock(
-			ctx, meta.Ontake().GetBlockID(),
-		); err != nil {
-			log.Error(
-				"Guardian prover unable to sign block",
-				"blockID", meta.Ontake().GetBlockID(),
-				"error", err,
-			)
+		if err := h.GuardianProverHeartbeater.SignAndSendBlock(ctx, meta.Ontake().GetBlockID()); err != nil {
+			log.Error("Guardian prover unable to sign block", "blockID", meta.Ontake().GetBlockID(), "error", err)
 		}
 	}()
 
