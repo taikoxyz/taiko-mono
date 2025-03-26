@@ -330,8 +330,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 	}
 
 	// If the L2 chain is on Pacaya fork.
-	for {
-		if lastVerifiedBlockID >= s.rpc.PacayaClients.ForkHeight {
+	for lastVerifiedBlockID >= s.rpc.PacayaClients.ForkHeight {
 			// If the current batch is the first Pacaya batch, we start checking the Ontake blocks.
 			if lastVerifiedBatchID == s.rpc.PacayaClients.ForkHeight {
 				lastVerifiedBlockID = s.rpc.PacayaClients.ForkHeight - 1
@@ -391,8 +390,6 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			lastVerifiedBatchID = previousBatch.BatchId
 			lastVerifiedBlockID = previousBatch.LastBlockId
 			continue
-		} else {
-			break
 		}
 	}
 
