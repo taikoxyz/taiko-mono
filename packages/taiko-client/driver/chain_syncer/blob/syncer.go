@@ -306,7 +306,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		lastVerifiedBlockHash = ts.Ts.BlockHash
 	}
 
-	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID {
+	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID || s.lastInsertedBlockID.Uint64() < lastVerifiedBlockID {
 		return reorgCheckResult, nil
 	}
 
@@ -355,7 +355,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 					"Verified block matched, start reorging",
 					"currentHeightToCheck", currentHeightToCheck,
 					"chainBlockHash", header.Hash(),
-					"transitionBlockHash", ts.BlockHash,
+					"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
 					"postPacaya", true,
 				)
 				reorgCheckResult.IsReorged = true
@@ -376,7 +376,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 				"Verified block mismatch",
 				"currentHeightToCheck", currentHeightToCheck,
 				"chainBlockHash", header.Hash(),
-				"transitionBlockHash", ts.BlockHash,
+				"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
 				"postPacaya", true,
 			)
 
@@ -420,8 +420,8 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 				"Verified block matched, start reorging",
 				"currentHeightToCheck", currentHeightToCheck,
 				"chainBlockHash", header.Hash(),
-				"transitionBlockHash", ts.BlockHash,
-				"postPacaya", true,
+				"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
+				"postPacaya", false,
 			)
 			reorgCheckResult.IsReorged = true
 			if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
@@ -437,8 +437,8 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			"Verified block mismatch",
 			"currentHeightToCheck", currentHeightToCheck,
 			"chainBlockHash", header.Hash(),
-			"transitionBlockHash", ts.BlockHash,
-			"postPacaya", true,
+			"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
+			"postPacaya", false,
 		)
 
 		if lastVerifiedBlockID > 10 {
@@ -450,10 +450,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 }
 
 // checkReorg checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
-func (s *Syncer) checkReorg(
-	ctx context.Context,
-	blockID *big.Int,
-) (*rpc.ReorgCheckResult, error) {
+func (s *Syncer) checkReorg(ctx context.Context, blockID *big.Int) (*rpc.ReorgCheckResult, error) {
 	// If the L2 chain is at genesis, we don't need to check L1 reorg.
 	if s.state.GetL1Current().Number == s.state.GenesisL1Height {
 		return new(rpc.ReorgCheckResult), nil
