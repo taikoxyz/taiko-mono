@@ -181,6 +181,12 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 		return fmt.Errorf("failed to get L1 header, height %d: %w", meta.GetRawBlockHeight(), err)
 	}
 	if l1Header.Hash() != meta.GetRawBlockHash() {
+		log.Warn(
+			"L1 block hash mismatch, will retry",
+			"height", meta.GetRawBlockHeight(),
+			"l1HashInChain", l1Header.Hash(),
+			"l1HashInEvent", meta.GetRawBlockHash(),
+		)
 		return fmt.Errorf("L1 block hash mismatch: %s != %s", l1Header.Hash(), meta.GetRawBlockHash())
 	}
 
