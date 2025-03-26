@@ -265,9 +265,16 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofOntake(
 			return nil
 		}
 
+		// In guardian prover, we submit a proof directly.
 		if h.isGuardian {
-			// In guardian prover, we submit a proof directly.
-			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: encoding.TierGuardianMinorityID, Meta: meta}
+			// If the current proof has been contested, and the tier is guardian minority already, we should submit a proof
+			// with tier guardian majority.
+			if proofStatus.CurrentTransitionState.Contester != rpc.ZeroAddress &&
+				proofStatus.CurrentTransitionState.Tier == encoding.TierGuardianMinorityID {
+				h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: encoding.TierGuardianMajorityID, Meta: meta}
+			} else {
+				h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: encoding.TierGuardianMinorityID, Meta: meta}
+			}
 		} else {
 			// If the current proof has not been contested, we should contest it at first.
 			if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress {
