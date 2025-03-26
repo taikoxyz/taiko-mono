@@ -24,6 +24,10 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
+const (
+	reorgCheckRewindBlocks = 10 // Number of blocks to rewind when checking reorg by comparing the verified block hash
+)
+
 // Syncer responsible for letting the L2 execution engine catching up with protocol's latest
 // pending block through deriving L1 calldata.
 type Syncer struct {
@@ -292,6 +296,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		err                   error
 	)
 
+	// Fetch the latest verified block hash.
 	ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
 		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
@@ -306,6 +311,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		lastVerifiedBlockHash = ts.Ts.BlockHash
 	}
 
+	// If the current L2 chain is behind of the last verified block, we skip the check.
 	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID ||
 		(s.lastInsertedBlockID != nil && s.lastInsertedBlockID.Uint64() < lastVerifiedBlockID) {
 		return reorgCheckResult, nil
@@ -316,16 +322,20 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
 	}
 
+	// If the last verified block hash matches the L2 EE block hash, we skip the check.
 	if header.Hash() == lastVerifiedBlockHash {
 		return reorgCheckResult, nil
 	}
 
-	if lastVerifiedBlockID > 10 {
-		lastVerifiedBlockID -= 10
+	// Otherwise, we rewind the verified block ID and check the mismatch again,
+	// until we find a match or reach the genesis block.
+	if lastVerifiedBlockID > reorgCheckRewindBlocks {
+		lastVerifiedBlockID -= reorgCheckRewindBlocks
 	} else {
 		lastVerifiedBlockID = 0
 	}
 	for {
+		// If the L2 chain is at genesis, we return the genesis L1 header to reset the L1Current cursor.
 		if lastVerifiedBlockID == 0 {
 			genesisL1Header, err := s.rpc.GetGenesisL1Header(ctx)
 			if err != nil {
@@ -339,15 +349,24 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		currentHeightToCheck := new(big.Int).SetUint64(lastVerifiedBlockID)
 		log.Info("Checking verified block mismatch", "currentHeightToCheck", currentHeightToCheck)
 
+		// If the current height is greater than the Pacaya fork height, we fetch the batch transition.
 		if currentHeightToCheck.Uint64() >= s.rpc.PacayaClients.ForkHeight {
+			batch, err := s.state.FindBatchForBlockID(ctx, currentHeightToCheck.Uint64())
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+			}
+			if batch.VerifiedTransitionId.Cmp(common.Big0) == 0 {
+				lastVerifiedBlockID -= 1
+				continue
+			}
 			ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(
 				&bind.CallOpts{Context: ctx},
-				currentHeightToCheck.Uint64(),
+				batch.BatchId,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
 			}
-			header, err = s.rpc.L2.HeaderByNumber(ctx, currentHeightToCheck)
+			header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId))
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
 			}
@@ -361,10 +380,6 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 					"postPacaya", true,
 				)
 				reorgCheckResult.IsReorged = true
-				batch, err := s.rpc.GetBatchByID(ctx, currentHeightToCheck)
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
-				}
 				if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
 					ctx,
 					new(big.Int).SetUint64(batch.AnchorBlockId),
@@ -383,25 +398,22 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 				"postPacaya", true,
 			)
 
-			if lastVerifiedBlockID > 10 {
-				lastVerifiedBlockID -= 10
+			if lastVerifiedBlockID > reorgCheckRewindBlocks {
+				lastVerifiedBlockID -= reorgCheckRewindBlocks
 			} else {
 				lastVerifiedBlockID = 0
 			}
 			continue
 		}
 
+		// Otherwise, we fetch the transition from Ontake protocol.
 		blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, currentHeightToCheck)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch L2 block info: %w", err)
 		}
 
 		if blockInfo.VerifiedTransitionId.Cmp(common.Big0) == 0 {
-			if lastVerifiedBlockID > 1 {
-				lastVerifiedBlockID -= 1
-			} else {
-				lastVerifiedBlockID = 0
-			}
+			lastVerifiedBlockID -= 1
 			continue
 		}
 
@@ -445,8 +457,8 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			"postPacaya", false,
 		)
 
-		if lastVerifiedBlockID > 10 {
-			lastVerifiedBlockID -= 10
+		if lastVerifiedBlockID > reorgCheckRewindBlocks {
+			lastVerifiedBlockID -= reorgCheckRewindBlocks
 		} else {
 			lastVerifiedBlockID = 0
 		}
