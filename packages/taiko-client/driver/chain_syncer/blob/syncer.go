@@ -291,6 +291,7 @@ func (s *Syncer) onBlockProposed(
 func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.ReorgCheckResult, error) {
 	var (
 		reorgCheckResult      = new(rpc.ReorgCheckResult)
+		lastVerifiedBatchID   uint64
 		lastVerifiedBlockID   uint64
 		lastVerifiedBlockHash common.Hash
 		err                   error
@@ -307,6 +308,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		lastVerifiedBlockID = blockInfo.BlockId
 		lastVerifiedBlockHash = blockInfo.BlockHash
 	} else {
+		lastVerifiedBatchID = ts.BatchId
 		lastVerifiedBlockID = ts.BlockId
 		lastVerifiedBlockHash = ts.Ts.BlockHash
 	}
@@ -327,42 +329,30 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		return reorgCheckResult, nil
 	}
 
-	// Otherwise, we rewind the verified block ID and check the mismatch again,
-	// until we find a match or reach the genesis block.
-	if lastVerifiedBlockID > reorgCheckRewindBlocks {
-		lastVerifiedBlockID -= reorgCheckRewindBlocks
-	} else {
-		lastVerifiedBlockID = 0
-	}
+	// If the L2 chain is on Pacaya fork.
 	for {
-		// If the L2 chain is at genesis, we return the genesis L1 header to reset the L1Current cursor.
-		if lastVerifiedBlockID == 0 {
-			genesisL1Header, err := s.rpc.GetGenesisL1Header(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch genesis L1 header: %w", err)
+		if lastVerifiedBlockID >= s.rpc.PacayaClients.ForkHeight {
+			// If the current batch is the first Pacaya batch, we start checking the Ontake blocks.
+			if lastVerifiedBatchID == s.rpc.PacayaClients.ForkHeight {
+				lastVerifiedBlockID = s.rpc.PacayaClients.ForkHeight - 1
+				break
 			}
-			reorgCheckResult.IsReorged = true
-			reorgCheckResult.LastHandledBlockIDToReset = common.Big0
-			reorgCheckResult.L1CurrentToReset = genesisL1Header
-		}
 
-		currentHeightToCheck := new(big.Int).SetUint64(lastVerifiedBlockID)
-		log.Info("Checking verified block mismatch", "currentHeightToCheck", currentHeightToCheck)
-
-		// If the current height is greater than the Pacaya fork height, we fetch the batch transition.
-		if currentHeightToCheck.Uint64() >= s.rpc.PacayaClients.ForkHeight {
-			batch, err := s.state.FindBatchForBlockID(ctx, currentHeightToCheck.Uint64())
+			batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID))
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
 			}
+			previousBatch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID-1))
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch previous batch by ID: %w", err)
+			}
+
 			if batch.VerifiedTransitionId.Cmp(common.Big0) == 0 {
-				lastVerifiedBlockID -= 1
+				lastVerifiedBatchID = previousBatch.BatchId
+				lastVerifiedBlockID = previousBatch.LastBlockId
 				continue
 			}
-			ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(
-				&bind.CallOpts{Context: ctx},
-				batch.BatchId,
-			)
+			ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(&bind.CallOpts{Context: ctx}, batch.BatchId)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
 			}
@@ -374,7 +364,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			if header.Hash() == ts.BlockHash {
 				log.Info(
 					"Verified block matched, start reorging",
-					"currentHeightToCheck", currentHeightToCheck,
+					"currentHeightToCheck", batch.LastBlockId,
 					"chainBlockHash", header.Hash(),
 					"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
 					"postPacaya", true,
@@ -392,21 +382,36 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 			log.Info(
 				"Verified block mismatch",
-				"currentHeightToCheck", currentHeightToCheck,
+				"currentHeightToCheck", batch.LastBlockId,
 				"chainBlockHash", header.Hash(),
 				"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
 				"postPacaya", true,
 			)
 
-			if lastVerifiedBlockID > reorgCheckRewindBlocks {
-				lastVerifiedBlockID -= reorgCheckRewindBlocks
-			} else {
-				lastVerifiedBlockID = 0
-			}
+			lastVerifiedBatchID = previousBatch.BatchId
+			lastVerifiedBlockID = previousBatch.LastBlockId
 			continue
+		} else {
+			break
+		}
+	}
+
+	// Otherwise, we fetch the transition from Ontake protocol.
+	for {
+		// If the L2 chain is at genesis, we return the genesis L1 header to reset the L1Current cursor.
+		if lastVerifiedBlockID == 0 {
+			genesisL1Header, err := s.rpc.GetGenesisL1Header(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch genesis L1 header: %w", err)
+			}
+			reorgCheckResult.IsReorged = true
+			reorgCheckResult.LastHandledBlockIDToReset = common.Big0
+			reorgCheckResult.L1CurrentToReset = genesisL1Header
 		}
 
-		// Otherwise, we fetch the transition from Ontake protocol.
+		currentHeightToCheck := new(big.Int).SetUint64(lastVerifiedBlockID)
+		log.Info("Checking verified block mismatch", "currentHeightToCheck", currentHeightToCheck)
+
 		blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, currentHeightToCheck)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch L2 block info: %w", err)
@@ -417,11 +422,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			continue
 		}
 
-		ts, err := s.rpc.GetTransition(
-			ctx,
-			currentHeightToCheck,
-			uint32(blockInfo.VerifiedTransitionId.Uint64()),
-		)
+		ts, err := s.rpc.GetTransition(ctx, currentHeightToCheck, uint32(blockInfo.VerifiedTransitionId.Uint64()))
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch transition: %w", err)
 		}
