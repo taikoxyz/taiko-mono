@@ -92,7 +92,7 @@ func (ds *BlobDataSource) GetBlobs(
 			log.Info("No blob server endpoint set")
 			return nil, err
 		}
-		blobs, err := ds.getBlobFromServer(ctx, blobHash)
+		blobs, err := ds.getBlobFromServer(ctx, blobHashes)
 		if err != nil {
 			return nil, err
 		}
