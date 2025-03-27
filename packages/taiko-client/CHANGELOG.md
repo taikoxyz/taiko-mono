@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.2...taiko-alethia-client-v1.4.0) (2025-03-27)
+
+
+### Features
+
+* **taiko-client:** improve `checkLastVerifiedBlockMismatch` ([#19162](https://github.com/taikoxyz/taiko-mono/issues/19162)) ([e6bd2d3](https://github.com/taikoxyz/taiko-mono/commit/e6bd2d3bee1585c1b651c21af14bd8f2844d40af))
+* **taiko-client:** improve `initL1Current` && guardian prover ([#19163](https://github.com/taikoxyz/taiko-mono/issues/19163)) ([acac81b](https://github.com/taikoxyz/taiko-mono/commit/acac81bd2167e0aef08c51c049e989ca39d5fb16))
+* **taiko-client:** stop proposing when `taikoWrapper.preconfRouter` is set ([#19158](https://github.com/taikoxyz/taiko-mono/issues/19158)) ([c8afa87](https://github.com/taikoxyz/taiko-mono/commit/c8afa875029d52b94ecd8d0d40eb9b3bc0da7a7d))
+
+
+### Bug Fixes
+
+* **taiko-client:** fix a `firstBlockID` calculation issue ([#19168](https://github.com/taikoxyz/taiko-mono/issues/19168)) ([a24896f](https://github.com/taikoxyz/taiko-mono/commit/a24896fd30bacaa64e53adc2503d92a28cd42cd6))
+* **taiko-client:** fix a bug in `syncer.checkReorg()` ([#19166](https://github.com/taikoxyz/taiko-mono/issues/19166)) ([f62e9d5](https://github.com/taikoxyz/taiko-mono/commit/f62e9d567b8894039b923a5d7167f5e5e059bb87))
+* **taiko-client:** improve `checkL1Reorg` method ([#19161](https://github.com/taikoxyz/taiko-mono/issues/19161)) ([dedd3d0](https://github.com/taikoxyz/taiko-mono/commit/dedd3d08391ac78009c5d72d7d1b51e7dc372488))
+* **taiko-client:** update splitToBlobs to use MaxBlobDataSize constant for proper data segmentation ([#19150](https://github.com/taikoxyz/taiko-mono/issues/19150)) ([97edb45](https://github.com/taikoxyz/taiko-mono/commit/97edb456942cde3acfbc81ee62594c3222a455a6))
+* **taiko-client:** use blobHashes to get blobs from BlobDataSource & introduce `MaxBlobNums` ([#19167](https://github.com/taikoxyz/taiko-mono/issues/19167)) ([cdc9452](https://github.com/taikoxyz/taiko-mono/commit/cdc9452e29b04c2b6b273521b719a33a8a96be76))
+
+
+### Chores
+
+* **taiko-client:** update Go contract bindings ([#19157](https://github.com/taikoxyz/taiko-mono/issues/19157)) ([cb055bd](https://github.com/taikoxyz/taiko-mono/commit/cb055bd913476212061a8abce225a1018730e7e2))
+
 ## [1.3.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.1...taiko-alethia-client-v1.3.2) (2025-03-24)
 
 
