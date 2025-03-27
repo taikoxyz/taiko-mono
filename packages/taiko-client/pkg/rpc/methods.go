@@ -673,6 +673,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 	)
 	defer cancel()
 
+	// blockID is zero already, no need to check reorg.
 	if blockID.Cmp(common.Big0) == 0 {
 		return result, nil
 	}
