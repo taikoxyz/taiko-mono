@@ -190,7 +190,7 @@ func (s *Syncer) onBlockProposed(
 		timestamp    uint64
 	)
 	if meta.IsPacaya() {
-		firstBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())-1))
+		firstBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())+1))
 		lastBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
 		timestamp = meta.Pacaya().GetLastBlockTimestamp()
 	} else {
