@@ -74,8 +74,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	maxProposedTxListsPerEpoch := c.Uint64(flags.MaxProposedTxListsPerEpoch.Name)
-	if maxProposedTxListsPerEpoch > 2 {
-		return nil, fmt.Errorf("max proposed tx lists per epoch should not exceed 2, got: %d", maxProposedTxListsPerEpoch)
+	if maxProposedTxListsPerEpoch > rpc.MaxBlobNums {
+		return nil, fmt.Errorf("max proposed tx lists per epoch should not exceed %d, got: %d",
+			rpc.MaxBlobNums,
+			maxProposedTxListsPerEpoch,
+		)
 	}
 
 	return &Config{

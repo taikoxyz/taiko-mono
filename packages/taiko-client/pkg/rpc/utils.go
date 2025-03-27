@@ -27,6 +27,7 @@ var (
 	ZeroAddress         common.Address
 	BlobBytes                  = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
 	BlockMaxTxListBytes uint64 = (params.BlobTxBytesPerFieldElement - 1) * params.BlobTxFieldElementsPerBlob
+	MaxBlobNums         uint64 = 6
 	// DefaultInterruptSignals is a set of default interrupt signals.
 	DefaultInterruptSignals = []os.Signal{
 		os.Interrupt,
