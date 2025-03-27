@@ -185,13 +185,16 @@ func (s *Syncer) onBlockProposed(
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	var (
-		lastBlockID *big.Int
-		timestamp   uint64
+		firstBlockID *big.Int
+		lastBlockID  *big.Int
+		timestamp    uint64
 	)
 	if meta.IsPacaya() {
+		firstBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())-1))
 		lastBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
 		timestamp = meta.Pacaya().GetLastBlockTimestamp()
 	} else {
+		firstBlockID = meta.Ontake().GetBlockID()
 		lastBlockID = meta.Ontake().GetBlockID()
 		timestamp = meta.Ontake().GetTimestamp()
 	}
@@ -204,7 +207,7 @@ func (s *Syncer) onBlockProposed(
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorg(ctx, lastBlockID)
+		reorgCheckResult, err := s.checkReorg(ctx, firstBlockID)
 		if err != nil {
 			return err
 		}
@@ -469,16 +472,15 @@ func (s *Syncer) checkReorg(ctx context.Context, blockID *big.Int) (*rpc.ReorgCh
 		return new(rpc.ReorgCheckResult), nil
 	}
 
-	// 1. The latest verified block
+	// 1. Check if the verified blocks in L2 EE have been reorged.
 	reorgCheckResult, err := s.checkLastVerifiedBlockMismatch(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check if last verified block in L2 EE has been reorged: %w", err)
+		return nil, fmt.Errorf("failed to check if the verified blocks in L2 EE have been reorged: %w", err)
 	}
 
-	// 2. If the verified block check is passed, we check the parent block.
+	// 2. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(blockID, common.Big1))
-		if err != nil {
+		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(blockID, common.Big1)); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
 	}
