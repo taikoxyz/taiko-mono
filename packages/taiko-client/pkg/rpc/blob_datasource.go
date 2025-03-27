@@ -73,7 +73,7 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
 	timestamp uint64,
-	blobHash []common.Hash,
+	blobHashes []common.Hash,
 ) ([]*structs.Sidecar, error) {
 	var (
 		sidecars []*structs.Sidecar
