@@ -207,7 +207,6 @@ func (s *Syncer) onBlockProposed(
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		log.Info("firstBlockID", firstBlockID, "lastBlockID", lastBlockID, "getBlocks", uint64(len(meta.Pacaya().GetBlocks())))
 		reorgCheckResult, err := s.checkReorg(ctx, firstBlockID)
 		if err != nil {
 			return err
