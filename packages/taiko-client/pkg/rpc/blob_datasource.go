@@ -110,7 +110,7 @@ func (ds *BlobDataSource) GetBlobs(
 // getBlobFromServer get blob data from server path `/blob` or `/blobs`.
 func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHashes []common.Hash) (*BlobDataSeq, error) {
 	blobDataSeq := make([]*BlobData, 0, len(blobHashes))
-	for i, blobHash := range blobHashes {
+	for _, blobHash := range blobHashes {
 		requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
 		if err != nil {
 			return nil, err
@@ -131,11 +131,11 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHashes []co
 			)
 		}
 		response := resp.Result().(*BlobServerResponse)
-		blobDataSeq[i] = &BlobData{
+		blobDataSeq = append(blobDataSeq, &BlobData{
 			BlobHash:      response.VersionedHash,
 			KzgCommitment: response.Commitment,
 			Blob:          response.Data,
-		}
+		})
 	}
 	return &BlobDataSeq{
 		Data: blobDataSeq,
