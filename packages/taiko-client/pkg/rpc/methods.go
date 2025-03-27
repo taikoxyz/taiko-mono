@@ -682,6 +682,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 				return nil, err
 			}
 
+			result.IsReorged = true
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight); err != nil {
 				return nil, err
 			}

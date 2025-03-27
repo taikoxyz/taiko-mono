@@ -479,7 +479,7 @@ func (s *Syncer) checkReorg(ctx context.Context, blockID *big.Int) (*rpc.ReorgCh
 	}
 
 	// 2. If the verified blocks check is passed, we check the unverified blocks.
-	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
+	if reorgCheckResult == nil || !reorgCheckResult.IsReorged || blockID.Cmp(common.Big1) > 0 {
 		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(blockID, common.Big1)); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
