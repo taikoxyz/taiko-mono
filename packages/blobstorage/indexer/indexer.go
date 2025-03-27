@@ -191,7 +191,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += defaultBlockBatchSize + 1 {
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
-		end := utils.Min(j+defaultBlockBatchSize, endBlockID)
+		end := min(j+defaultBlockBatchSize, endBlockID)
 
 		slog.Info("block batch", "start", j, "end", end)
 
