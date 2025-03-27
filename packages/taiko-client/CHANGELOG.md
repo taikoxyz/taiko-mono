@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.4.0...taiko-alethia-client-v1.4.1) (2025-03-27)
+
+
+### Bug Fixes
+
+* **taiko-client:** fix firstBlockID ([#19170](https://github.com/taikoxyz/taiko-mono/issues/19170)) ([d0feff0](https://github.com/taikoxyz/taiko-mono/commit/d0feff026f857944ab0bca0db6cdcd4d22371e8b))
+
 ## [1.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.2...taiko-alethia-client-v1.4.0) (2025-03-27)
 
 
