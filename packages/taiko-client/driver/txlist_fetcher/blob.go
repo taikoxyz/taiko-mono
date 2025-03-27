@@ -39,7 +39,7 @@ func (d *BlobFetcher) FetchOntake(
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
 		meta.GetProposedAt(),
-		meta.GetBlobHash(),
+		[]common.Hash{meta.GetBlobHash()},
 	)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (d *BlobFetcher) FetchPacaya(
 	sidecars, err := d.dataSource.GetBlobs(
 		ctx,
 		l1Header.Time,
-		meta.GetBlobHashes()[0],
+		meta.GetBlobHashes(),
 	)
 	if err != nil {
 		return nil, err
