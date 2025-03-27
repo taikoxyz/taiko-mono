@@ -49,13 +49,14 @@ func (v *TxListDecompressor) TryDecompress(
 		return v.tryDecompressHekla(txListBytes, blobUsed)
 	}
 
-	return v.tryDecompress(txListBytes, blobUsed)
+	return v.tryDecompress(txListBytes, blobUsed, postPacaya)
 }
 
 // tryDecompress is the inner implementation of TryDecompress.
 func (v *TxListDecompressor) tryDecompress(
 	txListBytes []byte,
 	blobUsed bool,
+	postPacaya bool,
 ) types.Transactions {
 	// If the transaction list is empty, it's valid.
 	if len(txListBytes) == 0 {
@@ -78,9 +79,16 @@ func (v *TxListDecompressor) tryDecompress(
 	)
 
 	// Decompress the transaction list bytes.
-	if txListBytes, err = utils.Decompress(txListBytes); err != nil {
-		log.Info("Failed to decompress tx list bytes", "error", err)
-		return types.Transactions{}
+	if postPacaya {
+		if txListBytes, err = utils.DecompressPacaya(txListBytes); err != nil {
+			log.Info("Failed to decompress tx list bytes", "error", err)
+			return types.Transactions{}
+		}
+	} else {
+		if txListBytes, err = utils.Decompress(txListBytes); err != nil {
+			log.Info("Failed to decompress tx list bytes", "error", err)
+			return types.Transactions{}
+		}
 	}
 
 	// Try to RLP decode the transaction list bytes.

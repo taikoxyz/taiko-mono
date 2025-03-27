@@ -25,7 +25,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 1. **Clone the Taiko Alethia monorepo**
 
-    The [Taiko Alethia monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`. Checkout the latest stable release. (Use `taiko-alethia-protocol-v1.11.0` for Taiko Hekla!)
+    The [Taiko Alethia monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`. Checkout the latest stable release. (Use `taiko-alethia-protocol-v2.2.0` for Taiko Hekla, )
 
     <Tabs>
         <TabItem label="Mac/Linux">
@@ -46,24 +46,43 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 2. **Deploy the ProverSet**
 
-    Set `ROLLUP_ADDRESS_MANAGER` to the address of the RollupAddressManager contract on the network you are deploying to. You can find these values in our network reference docs.
+    Set `PROVER_SET_ADMIN` or `ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
 
-    Set `PROVER_SET_ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
+    Run the `DeployProverSet.s.sol` script with your **proposer's private key**.
 
-    Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.12.0/packages/protocol/script/layer1/DeployProverSet.s.sol).
+    <Tabs>
+      <TabItem label="Taiko Alethia">
+      ```bash
+      PROVER_SET_ADMIN={ADDRESS} ROLLUP_ADDRESS_MANAGER=0x579f40D0BE111b823962043702cabe6Aaa290780 forge script --chain-id 1 --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/layer1/DeployProverSet.s.sol:DeployProverSet
+      ```
 
-    ```bash
-    ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/layer1/DeployProverSet.s.sol:DeployProverSet
-    ```
+      The script should print your implementation and proxy address with the log:
 
-    The script should print your implementation and proxy address with the log:
+      ```
+      Deployed ProverSet impl at address: 0x....
+      Deployed ProverSet proxy at address: 0x....
+      ```
 
-    ```
-    Deployed ProverSet impl at address: 0x....
-    Deployed ProverSet proxy at address: 0x....
-    ```
+      Use proxy address for the following steps.
+      </TabItem>
+      <TabItem label="Taiko Hekla">
+      ```bash
+      ADMIN={ADDRESS} TAIKO_TOKEN=0x6490E12d480549D333499236fF2Ba6676C296011 ENTRYPOINT=0x8698690dEeDB923fA0A674D3f65896B0031BF7c9 INBOX=0x79C9109b764609df928d16fC4a91e9081F7e87DB forge script --evm-version cancun --chain-id 17000 --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/layer1/mainnet/DeployProverSet.s.sol
+      ```
 
-    Use proxy address for the following steps.
+      The script if run correctly will print the following logs:
+
+      ```
+      == Logs ==
+         proxy   : 0x.....
+         impl    : 0x.....
+         owner   : 0x.....
+         chain id: 17000
+      ```
+
+      Use proxy address for the following steps.
+      </TabItem>
+    </Tabs>
 
 3. **Verify the contract as a proxy on Etherscan**
 
@@ -128,9 +147,18 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     Execute the following command, filling in the values in the curly braces appropriately.
 
+    <Tabs>
+    <TabItem label="Taiko Alethia">
     ```bash
-    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet
+    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id 1 --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet
     ```
+    </TabItem>
+    <TabItem label="Taiko Hekla">
+    ```bash
+    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id 17000 --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet --broadcast --constructor-args 0x3C82907B5895DB9713A0BB874379eF8A37aA2A68 0x79C9109b764609df928d16fC4a91e9081F7e87DB 0x6490E12d480549D333499236fF2Ba6676C296011 0x8698690dEeDB923fA0A674D3f65896B0031BF7c9
+    ```
+    </TabItem>
+    </Tabs>
 
     <Aside>
     If you are getting EvmErrors, your private key may be formatted incorrectly; try prefixing it with `0x` and rerunning the script.

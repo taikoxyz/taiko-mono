@@ -15,7 +15,7 @@ import (
 func TestComposeProducerRequestProof(t *testing.T) {
 	var (
 		producer = &ComposeProofProducer{
-			IsOp:               true,
+			Dummy:              true,
 			DummyProofProducer: DummyProofProducer{},
 			PivotProducer:      &PivotProofProducer{Dummy: true},
 		}

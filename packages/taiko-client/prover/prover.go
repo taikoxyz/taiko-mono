@@ -517,7 +517,8 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 		if submitter := p.selectSubmitter(encoding.TierZkVMSp1ID); submitter != nil {
 			if err := submitter.RequestProof(p.ctx, meta); err != nil {
 				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-					log.Debug("ZK proof was not chosen, attempting to request SGX proof",
+					log.Debug(
+						"ZK proof was not chosen, attempting to request SGX proof",
 						"blockID", meta.Ontake().GetBlockID(),
 					)
 					if sgxSubmitter := p.selectSubmitter(encoding.TierSgxID); sgxSubmitter != nil {

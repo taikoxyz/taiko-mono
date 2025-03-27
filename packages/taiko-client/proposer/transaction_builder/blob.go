@@ -63,6 +63,7 @@ func NewBlobTransactionBuilder(
 func (b *BlobTransactionBuilder) BuildOntake(
 	ctx context.Context,
 	txListBytesArray [][]byte,
+	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// Check if the current L2 chain is after ontake fork.
 	_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
@@ -103,17 +104,7 @@ func (b *BlobTransactionBuilder) BuildOntake(
 		}
 
 		if i == 0 && b.revertProtectionEnabled {
-			_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(nil)
-			if err != nil {
-				return nil, err
-			}
-
-			blockInfo, err := b.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(slotB.NumBlocks-1))
-			if err != nil {
-				return nil, err
-			}
-
-			params.ParentMetaHash = blockInfo.MetaHash
+			params.ParentMetaHash = parentMetahash
 		}
 
 		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
@@ -154,6 +145,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	txBatch []types.Transactions,
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
+	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
@@ -201,21 +193,29 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
-	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(
-		forcedInclusionParams,
-		&encoding.BatchParams{
-			Proposer:                 proposer,
-			Coinbase:                 b.l2SuggestedFeeRecipient,
-			RevertIfNotFirstProposal: b.revertProtectionEnabled,
-			BlobParams: encoding.BlobParams{
-				BlobHashes:     [][32]byte{},
-				FirstBlobIndex: 0,
-				NumBlobs:       uint8(len(blobs)),
-				ByteOffset:     0,
-				ByteSize:       uint32(len(txListsBytes)),
-			},
-			Blocks: blockParams,
-		}); err != nil {
+	params := &encoding.BatchParams{
+		Proposer:                 proposer,
+		Coinbase:                 b.l2SuggestedFeeRecipient,
+		RevertIfNotFirstProposal: b.revertProtectionEnabled,
+		BlobParams: encoding.BlobParams{
+			BlobHashes:     [][32]byte{},
+			FirstBlobIndex: 0,
+			NumBlobs:       uint8(len(blobs)),
+			ByteOffset:     0,
+			ByteSize:       uint32(len(txListsBytes)),
+		},
+		Blocks: blockParams,
+	}
+
+	if b.revertProtectionEnabled {
+		if forcedInclusionParams != nil {
+			forcedInclusionParams.ParentMetaHash = parentMetahash
+		} else {
+			params.ParentMetaHash = parentMetahash
+		}
+	}
+
+	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(forcedInclusionParams, params); err != nil {
 		return nil, err
 	}
 
@@ -240,8 +240,8 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 // splitToBlobs splits the txListBytes into multiple blobs.
 func (b *BlobTransactionBuilder) splitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	var blobs []*eth.Blob
-	for start := 0; start < len(txListBytes); start += rpc.BlobBytes {
-		end := start + rpc.BlobBytes
+	for start := 0; start < len(txListBytes); start += eth.MaxBlobDataSize {
+		end := start + eth.MaxBlobDataSize
 		if end > len(txListBytes) {
 			end = len(txListBytes)
 		}

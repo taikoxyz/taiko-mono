@@ -196,7 +196,6 @@ func (s *State) setL2Head(l2Head *types.Header) {
 	}
 
 	log.Trace("New L2 head", "blockID", l2Head.Number, "hash", l2Head.Hash(), "timestamp", l2Head.Time)
-	metrics.DriverL2HeadHeightGauge.Set(float64(l2Head.Number.Uint64()))
 
 	s.l2Head.Store(l2Head)
 }

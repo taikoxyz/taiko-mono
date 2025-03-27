@@ -39,11 +39,7 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 	}
 
 	// Check if the L1 chain has reorged at first.
-	if err := h.checkL1Reorg(
-		ctx,
-		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
-		meta,
-	); err != nil {
+	if err := h.checkL1Reorg(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()), meta); err != nil {
 		if err.Error() == errL1Reorged.Error() {
 			end()
 			return nil

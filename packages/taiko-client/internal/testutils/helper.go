@@ -40,7 +40,10 @@ func (s *ClientTestSuite) ForkIntoPacaya(proposer Proposer, syncer ChainSyncer) 
 }
 
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
-	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}))
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}, head.Number.Uint64(), common.Hash{}))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
@@ -74,8 +77,11 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 		close(sink2)
 	}()
 
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
 	// RLP encoded empty list
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head.Number.Uint64(), common.Hash{}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
