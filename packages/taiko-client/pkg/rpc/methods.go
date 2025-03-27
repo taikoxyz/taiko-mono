@@ -686,6 +686,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		if blockID.Cmp(common.Big0) == 0 {
 			genesisHeight, err := c.getGenesisHeight(ctxWithTimeout)
 			if err != nil {
+				log.Error("CheckL1Reorg genesisHeight error")
 				return nil, err
 			}
 
@@ -699,6 +700,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 			return result, nil
 		}
 
+		log.Info("CheckL1Reorg blockID before L1OriginByID", "blockID", blockID)
 		// 1. Check whether the L2 block's corresponding L1 block which in L1Origin has been reorged.
 		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, blockID)
 		if err != nil {
@@ -708,6 +710,8 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "blockID", blockID)
 				return result, nil
 			}
+
+			log.Error("CheckL1Reorg c.L2.L1OriginByID", "blockID", blockID.Uint64())
 
 			return nil, err
 		}
