@@ -73,7 +73,7 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
 	timestamp uint64,
-	blobHash common.Hash,
+	blobHashes []common.Hash,
 ) ([]*structs.Sidecar, error) {
 	var (
 		sidecars []*structs.Sidecar
@@ -92,7 +92,7 @@ func (ds *BlobDataSource) GetBlobs(
 			log.Info("No blob server endpoint set")
 			return nil, err
 		}
-		blobs, err := ds.getBlobFromServer(ctx, blobHash)
+		blobs, err := ds.getBlobFromServer(ctx, blobHashes)
 		if err != nil {
 			return nil, err
 		}
@@ -108,34 +108,36 @@ func (ds *BlobDataSource) GetBlobs(
 }
 
 // getBlobFromServer get blob data from server path `/blob` or `/blobs`.
-func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common.Hash) (*BlobDataSeq, error) {
-	requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
-	if err != nil {
-		return nil, err
+func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHashes []common.Hash) (*BlobDataSeq, error) {
+	blobDataSeq := make([]*BlobData, 0, len(blobHashes))
+	for _, blobHash := range blobHashes {
+		requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
+		if err != nil {
+			return nil, err
+		}
+		resp, err := resty.New().R().
+			SetResult(BlobServerResponse{}).
+			SetContext(ctx).
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Accept", "application/json").
+			Get(requestURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, err)
+		}
+		if !resp.IsSuccess() {
+			return nil, fmt.Errorf(
+				"unable to connect blobscan endpoint, status code: %v",
+				resp.StatusCode(),
+			)
+		}
+		response := resp.Result().(*BlobServerResponse)
+		blobDataSeq = append(blobDataSeq, &BlobData{
+			BlobHash:      response.VersionedHash,
+			KzgCommitment: response.Commitment,
+			Blob:          response.Data,
+		})
 	}
-	resp, err := resty.New().R().
-		SetResult(BlobServerResponse{}).
-		SetContext(ctx).
-		SetHeader("Content-Type", "application/json").
-		SetHeader("Accept", "application/json").
-		Get(requestURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, err)
-	}
-	if !resp.IsSuccess() {
-		return nil, fmt.Errorf(
-			"unable to connect blobscan endpoint, status code: %v",
-			resp.StatusCode(),
-		)
-	}
-	response := resp.Result().(*BlobServerResponse)
-
 	return &BlobDataSeq{
-		Data: []*BlobData{
-			{
-				BlobHash:      response.VersionedHash,
-				KzgCommitment: response.Commitment,
-				Blob:          response.Data,
-			},
-		}}, nil
+		Data: blobDataSeq,
+	}, nil
 }
