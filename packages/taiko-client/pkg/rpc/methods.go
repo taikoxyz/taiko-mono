@@ -673,6 +673,8 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 	)
 	defer cancel()
 
+	log.Info("CheckL1Reorg blockID", "blockID", blockID.Uint64())
+
 	// blockID is zero already, no need to check reorg.
 	if blockID.Cmp(common.Big0) == 0 {
 		return result, nil
@@ -688,6 +690,8 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 			}
 
 			result.IsReorged = true
+
+			log.Info("CheckL1Reorg genesisHeight", "genesisHeight", genesisHeight.Uint64())
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight); err != nil {
 				return nil, err
 			}
@@ -707,6 +711,8 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 
 			return nil, err
 		}
+
+		log.Info("CheckL1Reorg L1Origin", "l1BlockHeight", l1Origin.L1BlockHeight)
 
 		// Compare the L1 header hash in the L1Origin with the current L1 header hash in the L1 chain.
 		l1Header, err := c.L1.HeaderByNumber(ctxWithTimeout, l1Origin.L1BlockHeight)
