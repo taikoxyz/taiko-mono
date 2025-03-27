@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.0...docs-site-v1.27.1) (2025-03-27)
+
+
+### Chores
+
+* **docs-site:** proverset docs & fix software releases badges ([#19164](https://github.com/taikoxyz/taiko-mono/issues/19164)) ([b7309d4](https://github.com/taikoxyz/taiko-mono/commit/b7309d4cb87aa9fb6a18719619c51a41a8f0cf8d))
+
 ## [1.27.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.26.0...docs-site-v1.27.0) (2025-03-25)
 
 
