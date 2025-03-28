@@ -235,7 +235,11 @@ func (s *ComposeProofProducer) requestBatchProof(
 	}
 
 	if err := output.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid Raiko response(start: %d, end: %d): %w", batches[0].BatchID, batches[len(batches)-1].BatchID, err)
+		return nil, fmt.Errorf("invalid Raiko response(start: %d, end: %d): %w",
+			batches[0].BatchID,
+			batches[len(batches)-1].BatchID,
+			err,
+		)
 	}
 
 	log.Info(
