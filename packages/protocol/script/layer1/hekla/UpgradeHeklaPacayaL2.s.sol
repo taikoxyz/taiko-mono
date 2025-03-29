@@ -15,6 +15,7 @@ contract UpgradeHeklaPacayaL2 is DeployCapability {
     address public newTaikoAnchor = vm.envAddress("NEW_TAIKO_ANCHOR");
     address public newDelegateOwner = vm.envAddress("NEW_DELEGATE_OWNER");
     address public newResolver = vm.envAddress("NEW_RESOLVER");
+    address public newSignalService = vm.envAddress("NEW_SIGNAL_SERVICE");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -24,7 +25,7 @@ contract UpgradeHeklaPacayaL2 is DeployCapability {
     }
 
     function run() external broadcast {
-        Multicall3.Call3[] memory calls = new Multicall3.Call3[](5);
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](6);
         // DelegateOwner
         calls[0].target = delegateOwner;
         calls[0].allowFailure = false;
@@ -48,6 +49,10 @@ contract UpgradeHeklaPacayaL2 is DeployCapability {
             DefaultResolver.registerAddress,
             (167_009, bytes32(bytes("taiko")), 0x1670090000000000000000000000000000010001)
         );
+        // SignalService
+        calls[5].target = 0x1670090000000000000000000000000000000005;
+        calls[5].allowFailure = false;
+        calls[5].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newSignalService));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
             txId: 0,

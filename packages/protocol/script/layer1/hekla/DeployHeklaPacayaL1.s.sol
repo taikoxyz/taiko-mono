@@ -159,6 +159,9 @@ contract DeployHeklaPacayaL1 is DeployCapability {
             address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
         );
 
+        // SignalService
+        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
+
         // Other verifiers
         deployVerifierContracts(rollupResolver, opImpl, proofVerifier);
     }
@@ -181,7 +184,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         (address sgxVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
         (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
 
-        // NOTE: For hekla, we need to replace DevnetVerifier with HeklaVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new HeklaVerifier(
