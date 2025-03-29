@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.4.1...taiko-alethia-client-v1.4.2) (2025-03-29)
+
+
+### Bug Fixes
+
+* **taiko-client:** check `--prover.proveUnassignedBlocks` flag value before proving expired blocks ([#19172](https://github.com/taikoxyz/taiko-mono/issues/19172)) ([2803954](https://github.com/taikoxyz/taiko-mono/commit/280395485fce6b783f7e96b4c74d8ce587cec065))
+
 ## [1.4.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.4.0...taiko-alethia-client-v1.4.1) (2025-03-27)
 
 
