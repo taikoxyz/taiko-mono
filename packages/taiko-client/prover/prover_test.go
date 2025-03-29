@@ -403,7 +403,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			for j := 0; j < txNumInBatch; j++ {
 				to := common.BytesToAddress(testutils.RandomBytes(32))
 
-				tx, err := testutils.AssembleTestTx(
+				tx, err := testutils.AssembleAndSendTestTx(
 					s.RPCClient.L2,
 					s.TestAddrPrivKey,
 					uint64(i*txNumInBatch+int(testAddrNonce)+j),
