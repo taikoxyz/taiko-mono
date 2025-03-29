@@ -15,7 +15,7 @@ import (
 var (
 	_                              Submitter = (*ProofSubmitterOntake)(nil)
 	submissionDelayRandomBumpRange float64   = 20
-	proofPollingInterval                     = 10 * time.Second
+	proofPollingInterval                     = 2 * time.Minute
 	ProofTimeout                             = 3 * time.Hour
 	ErrInvalidProof                          = errors.New("invalid proof found")
 )
