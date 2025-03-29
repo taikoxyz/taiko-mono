@@ -32,12 +32,13 @@
 ### signal_service
 
 - proxy: `0x6Fc2fe9D9dd0251ec5E0727e826Afbb0Db2CBe0D`
-- impl: `0xE6371B30e500ff38ec809a652fdFE98174011B2D`
+- impl: `0xE99029aAd6606fF540763d570F5b10b169eEE121`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Mar 21, 2025 at commit `80baf41`
 
 ### bridge
 
@@ -383,11 +384,12 @@
 ### signal_service
 
 - proxy: `0x1670090000000000000000000000000000000005`
-- impl: `0x4c70b7F5E153D497faFa0476575903F9299ed811`
+- impl: `0x6D624a1F05628d0D6EAa013D24a8543E35a0A04f`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Mar 21, 2025 at commit `80baf41`
 
 ### shared_address_manager
 
