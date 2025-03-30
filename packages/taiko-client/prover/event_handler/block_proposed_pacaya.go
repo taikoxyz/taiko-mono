@@ -191,6 +191,21 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		}
 	}
 
+	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
+	// we should skip proving this batch.
+	if !h.proveUnassignedBlocks &&
+		meta.GetProposer() != h.proverAddress &&
+		meta.GetProposer() != h.proverSetAddress {
+		log.Info(
+			"Expired batch is not provable by current prover",
+			"batchID", meta.Pacaya().GetBatchID(),
+			"currentProver", h.proverAddress,
+			"currentProverSet", h.proverSetAddress,
+			"assignProver", meta.GetProposer(),
+		)
+		return nil
+	}
+
 	log.Info(
 		"Proposed batch is provable",
 		"batchID", meta.Pacaya().GetBatchID(),

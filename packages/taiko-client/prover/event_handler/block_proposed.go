@@ -340,6 +340,21 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofOntake(
 		tier = encoding.TierGuardianMinorityID
 	}
 
+	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
+	// we should skip proving this block.
+	if !h.proveUnassignedBlocks &&
+		meta.GetProposer() != h.proverAddress &&
+		meta.GetProposer() != h.proverSetAddress {
+		log.Info(
+			"Expired block is not provable by current prover",
+			"blockID", meta.Ontake().GetBlockID(),
+			"currentProver", h.proverAddress,
+			"currentProverSet", h.proverSetAddress,
+			"assignProver", meta.Ontake().GetAssignedProver(),
+		)
+		return nil
+	}
+
 	log.Info(
 		"Proposed block is provable",
 		"blockID", meta.Ontake().GetBlockID(),
