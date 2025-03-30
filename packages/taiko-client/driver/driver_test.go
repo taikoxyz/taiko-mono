@@ -321,7 +321,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
-	forcedInclusionTx, err := testutils.AssembleTestTx(
+	forcedInclusionTx, err := testutils.AssembleAndSendTestTx(
 		s.RPCClient.L2,
 		s.TestAddrPrivKey,
 		nonce,
