@@ -176,14 +176,14 @@ func (p *Proposer) Close(_ context.Context) {
 }
 
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
-func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transactions, error) {
+func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transactions, error) {
 	var (
 		minTip  = p.MinTip
 		startAt = time.Now()
 	)
-	// If `--epoch.allowZeroInterval` flag is set, allow proposing zero tip transactions once when
+	// If `--epoch.allowZeroTipInterval` flag is set, allow proposing zero tip transactions once when
 	// the total epochs number is divisible by the flag value.
-	if p.AllowZeroInterval > 0 && p.totalEpochs%p.AllowZeroInterval == 0 {
+	if p.AllowZeroTipInterval > 0 && p.totalEpochs%p.AllowZeroTipInterval == 0 {
 		minTip = 0
 	}
 
@@ -203,26 +203,17 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
 	}
 
-	metrics.ProposerPoolContentFetchTime.Set(time.Since(startAt).Seconds())
+	poolContentFetchTime := time.Since(startAt)
+	metrics.ProposerPoolContentFetchTime.Set(poolContentFetchTime.Seconds())
 
+	// Extract the transaction lists from the pre-built transaction lists information.
 	txLists := []types.Transactions{}
-	for i, txs := range preBuiltTxList {
-		// Filter the pool content if the filterPoolContent flag is set.
-		if txs.EstimatedGasUsed < p.MinGasUsed && txs.BytesLength < p.MinTxListBytes && filterPoolContent {
-			log.Info(
-				"Pool content skipped",
-				"index", i,
-				"estimatedGasUsed", txs.EstimatedGasUsed,
-				"minGasUsed", p.MinGasUsed,
-				"bytesLength", txs.BytesLength,
-				"minBytesLength", p.MinTxListBytes,
-			)
-			break
-		}
+	for _, txs := range preBuiltTxList {
 		txLists = append(txLists, txs.TxList)
 	}
-	// If the pool content is empty and the checkPoolContent flag is not set, return an empty list.
-	if !filterPoolContent && len(txLists) == 0 {
+	// If the pool content is empty and the `--epoch.minProposingInterval` flag is set, we check
+	// whether the proposer should propose an empty block.
+	if allowEmptyPoolContent && len(txLists) == 0 {
 		log.Info(
 			"Pool content is empty, proposing an empty block",
 			"lastProposedAt", p.lastProposedAt,
@@ -259,7 +250,13 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 		txLists = localTxsLists
 	}
 
-	log.Info("Transactions lists count", "count", len(txLists))
+	log.Info(
+		"Transactions lists count",
+		"proposer", p.proposerAddress.Hex(),
+		"count", len(txLists),
+		"minTip", utils.WeiToEther(new(big.Int).SetUint64(minTip)),
+		"poolContentFetchTime", poolContentFetchTime,
+	)
 
 	return txLists, nil
 }
@@ -278,17 +275,19 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		return nil
 	}
 
-	// Check if it's time to propose unfiltered pool content.
-	filterPoolContent := time.Now().Before(p.lastProposedAt.Add(p.MinProposingInternal))
-
 	// Wait until L2 execution engine is synced at first.
 	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
+	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
+	allowEmptyPoolContent := time.Now().After(p.lastProposedAt.Add(p.MinProposingInternal))
+
 	log.Info(
 		"Start fetching L2 execution engine's transaction pool content",
-		"filterPoolContent", filterPoolContent,
+		"proposer", p.proposerAddress.Hex(),
+		"minProposingInternal", p.MinProposingInternal,
+		"allowEmpty", allowEmptyPoolContent,
 		"lastProposedAt", p.lastProposedAt,
 	)
 
@@ -297,18 +296,20 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		return fmt.Errorf("failed to get L2 chain head number: %w", err)
 	}
 
+	// Fetch the parent meta hash of current the L2 head, which will be used
+	// by revert protection.
 	parentMetaHash, err := p.GetParentMetaHash(ctx, l2Head)
 	if err != nil {
 		return fmt.Errorf("failed to get parent meta hash: %w", err)
 	}
 
 	// Fetch pending L2 transactions from mempool.
-	txLists, err := p.fetchPoolContent(filterPoolContent)
+	txLists, err := p.fetchPoolContent(allowEmptyPoolContent)
 	if err != nil {
 		return err
 	}
 
-	// If the pool content is empty, return.
+	// If there is an empty transaction list, just return without proposing.
 	if len(txLists) == 0 {
 		return nil
 	}
