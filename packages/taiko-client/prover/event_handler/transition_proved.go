@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -124,13 +125,43 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 	ctx context.Context,
 	e *pacayaBindings.TaikoInboxClientBatchesProved,
 ) error {
-	lastBatchID := e.BatchIds[len(e.BatchIds)-1]
-
-	batch, err := h.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))
-	if err != nil {
-		return err
+	if len(e.BatchIds) == 0 {
+		return nil
 	}
-	metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId))
+	if len(e.Transitions) == len(e.BatchIds) {
+		log.Error("Invalid BatchesProved number of transitions and batch IDs do not match", "batchIDs", e.BatchIds)
+		return nil
+	}
+
+	for _, batchID := range e.BatchIds {
+		metrics.ProverReceivedProvenBlockGauge.Set(float64(batchID))
+
+		// Check if transition is valid.
+		block, err := h.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batchID))
+		if err != nil {
+			return fmt.Errorf("failed to get block by number: %w", err)
+		}
+		if block.Hash() != common.BytesToHash(e.Transitions[len(e.BatchIds)-1].BlockHash[:]) {
+			log.Error(
+				"Invalid transition proof, will try submitting a new proof",
+				"batchID", batchID,
+				"expectedHash", block.Hash(),
+				"actualHash", common.BytesToHash(e.Transitions[len(e.BatchIds)-1].BlockHash[:]),
+			)
+
+			batch, err := h.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batchID))
+			if err != nil {
+				return fmt.Errorf("failed to get batch by ID: %w", err)
+			}
+
+			meta, err := getMetadataFromBatchPacaya(ctx, h.rpc, batch)
+			if err != nil {
+				return fmt.Errorf("failed to get metadata from batch (%d): %w", batchID, err)
+			}
+
+			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
+		}
+	}
 
 	return nil
 }
