@@ -148,6 +148,63 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
     /// @param _signalSlots The signal slots to mark as received.
+    function anchorV4(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint256 _parentBaseFee,
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        bytes32[] calldata _signalSlots
+    )
+        external
+        nonZeroBytes32(_anchorStateRoot)
+        nonZeroValue(_anchorBlockId)
+        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
+        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
+        onlyGoldenTouch
+        nonReentrant
+    {
+        require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
+
+        uint256 parentId = block.number - 1;
+        _verifyAndUpdatePublicInputHash(parentId);
+        _verifyBaseFee(_parentBaseFee, _parentGasUsed, _baseFeeConfig);
+        _syncChainData(_anchorBlockId, _anchorStateRoot);
+        _updateParentHashAndTimestamp(parentId);
+
+        signalService.receiveSignals(_signalSlots);
+    }
+
+    function getBasefeeV4(
+        uint256 _parentBaseFee,
+        uint32 _parentGasUsed,
+        uint64 _blockTimestamp,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        public
+        view
+        returns (uint256 basefee_)
+    {
+        return LibEIP1559Classic.calculateClassicBaseFee(
+            _parentBaseFee,
+            _parentGasUsed,
+            _baseFeeConfig.adjustmentQuotient,
+            _baseFeeConfig.gasIssuancePerSecond,
+            _blockTimestamp - parentTimestamp
+        );
+    }
+
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message verification.
+    /// @dev The gas limit for this transaction must be set to 1,000,000 gas.
+    /// @dev This function can be called freely as the golden touch private key is publicly known,
+    /// but the Taiko node guarantees the first transaction of each block is always this anchor
+    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
+    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _parentGasUsed The gas used in the parent block.
+    /// @param _baseFeeConfig The base fee configuration.
+    /// @param _signalSlots The signal slots to mark as received.
     function anchorV3(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -320,6 +377,23 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
         parentGasTarget = newGasTarget;
         parentGasExcess = newGasExcess;
+    }
+
+    function _verifyBaseFee(
+        uint256 _parentBaseFee,
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        private
+        view
+    {
+        uint256 basefee = getBasefeeV4(
+            _parentBaseFee,
+            _parentGasUsed,
+            uint64(block.timestamp) - parentTimestamp,
+            _baseFeeConfig
+        );
+        require(block.basefee == basefee || skipFeeCheck(), L2_BASEFEE_MISMATCH());
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the given block ID.
