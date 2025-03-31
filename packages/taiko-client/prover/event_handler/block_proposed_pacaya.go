@@ -131,11 +131,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		return nil
 	}
 
-	proofStatus, err := rpc.GetBatchProofStatus(
-		ctx,
-		h.rpc,
-		meta.Pacaya().GetBatchID(),
-	)
+	proofStatus, err := rpc.GetBatchProofStatus(ctx, h.rpc, meta.Pacaya().GetBatchID())
 	if err != nil {
 		return fmt.Errorf("failed to check whether the L2 batch needs a new proof: %w", err)
 	}
