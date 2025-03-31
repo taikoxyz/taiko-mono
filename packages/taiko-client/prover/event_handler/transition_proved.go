@@ -144,11 +144,6 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 		if err != nil {
 			return fmt.Errorf("failed to get batch proof status: %w", err)
 		}
-		// If the batch proof has not been submitted yet, we skip it, should never happen.
-		if !status.IsSubmitted {
-			log.Warn("Batch proof not submitted yet", "batchID", batchID, "lastBatchID", batch.LastBlockId)
-			continue
-		}
 		// If the batch proof is valid, we skip it.
 		if !status.Invalid {
 			log.Info("New valid proven batch received", "batchID", batchID, "lastBatchID", batch.LastBlockId)
