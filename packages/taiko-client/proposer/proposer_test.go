@@ -376,8 +376,6 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 
 	// Start proposer
 	p.LocalAddressesOnly = false
-	p.MinGasUsed = blockMinGasLimit
-	p.MinTxListBytes = blockMinTxListBytes
 	p.ProposeInterval = time.Second
 	p.MinProposingInternal = time.Minute
 	s.Nil(p.ProposeOp(context.Background()))
