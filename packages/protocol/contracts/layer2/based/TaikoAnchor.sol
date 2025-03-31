@@ -148,7 +148,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
     /// @param _signalSlots The signal slots to mark as received.
-    function anchorV4(
+    function shastaAnchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint256 _parentBaseFee,
@@ -175,7 +175,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         signalService.receiveSignals(_signalSlots);
     }
 
-    function getBasefeeV4(
+    function shastaGetBaseFee(
         uint256 _parentBaseFee,
         uint32 _parentGasUsed,
         uint64 _blockTimestamp,
