@@ -145,10 +145,12 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 }
 
 func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
+	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody)
+
 	handler := NewTransitionProvedEventHandler(
 		s.RPCClient,
 		make(chan *proofProducer.ContestRequestBody),
-		make(chan *proofProducer.ProofRequestBody),
+		proofRequestBodyCh,
 		true,
 		false,
 	)
@@ -164,14 +166,6 @@ func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	block, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId))
 	s.Nil(err)
 
-	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
-	sub, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
-
 	s.Nil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesProved{
 		BatchIds: []uint64{m.Pacaya().GetBatchID().Uint64()},
 		Transitions: []pacayaBindings.ITaikoInboxTransition{{
@@ -181,13 +175,7 @@ func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 		}},
 	}))
 
-	e := <-sink
-	s.Equal(1, len(e.BatchIds))
-	s.Equal(1, len(e.Transitions))
-	s.Equal(m.Pacaya().GetBatchID().Uint64(), e.BatchIds[0])
-	s.Equal(block.ParentHash, e.Transitions[0].ParentHash)
-	s.Equal(block.Hash(), e.Transitions[0].BlockHash)
-	s.Equal(block.Root, e.Transitions[0].StateRoot)
+	s.Equal(m, (<-proofRequestBodyCh).Meta)
 }
 
 func TestTransitionProvedEventHandlerTestSuite(t *testing.T) {
