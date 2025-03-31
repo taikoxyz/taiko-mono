@@ -12,7 +12,6 @@ library LibEIP1559Classic {
     /// @param _gasPerSeconds The gas issuance rate per second.
     /// @param _blockTime The time duration of the block.
     /// @return The calculated classic base fee.
-
     function calculateClassicBaseFee(
         uint256 _parentBasefee,
         uint256 _parentGasUsed,
