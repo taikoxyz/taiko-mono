@@ -25,6 +25,7 @@ type TransitionContestedHandler interface {
 // TransitionProvedHandler is the interface for handling `TaikoL1.TransitionProvedV2` events.
 type TransitionProvedHandler interface {
 	Handle(ctx context.Context, event *ontakeBindings.TaikoL1ClientTransitionProvedV2) error
+	HandlePacaya(ctx context.Context, e *pacayaBindings.TaikoInboxClientBatchesProved) error
 }
 
 // BlockVerifiedHandler is the interface for handling `TaikoL1.BlockVerifiedV2` events.

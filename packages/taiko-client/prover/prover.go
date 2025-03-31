@@ -359,6 +359,10 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error {
 				return p.eventHandlers.transitionContestedHandler.Handle(p.ctx, e)
 			})
+		case e := <-batchesProvedCh:
+			p.withRetry(func() error {
+				return p.eventHandlers.transitionProvedHandler.HandlePacaya(p.ctx, e)
+			})
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-blockProposedV2Ch:

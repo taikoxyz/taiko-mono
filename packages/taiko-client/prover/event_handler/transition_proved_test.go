@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
@@ -140,6 +142,52 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 			ProposedIn: m.Ontake().GetRawBlockHeight().Uint64(),
 		}))
 	}
+}
+
+func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
+	handler := NewTransitionProvedEventHandler(
+		s.RPCClient,
+		make(chan *proofProducer.ContestRequestBody),
+		make(chan *proofProducer.ProofRequestBody),
+		true,
+		false,
+	)
+
+	s.ForkIntoPacaya(s.proposer, s.blobSyncer)
+
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
+	s.True(m.IsPacaya())
+
+	batch, err := s.RPCClient.GetBatchByID(context.Background(), m.Pacaya().GetBatchID())
+	s.Nil(err)
+
+	block, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId))
+	s.Nil(err)
+
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
+	sub, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
+
+	s.Nil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesProved{
+		BatchIds: []uint64{m.Pacaya().GetBatchID().Uint64()},
+		Transitions: []pacayaBindings.ITaikoInboxTransition{{
+			ParentHash: block.ParentHash,
+			BlockHash:  block.Hash(),
+			StateRoot:  testutils.RandomHash(),
+		}},
+	}))
+
+	e := <-sink
+	s.Equal(1, len(e.BatchIds))
+	s.Equal(1, len(e.Transitions))
+	s.Equal(m.Pacaya().GetBatchID().Uint64(), e.BatchIds[0])
+	s.Equal(block.ParentHash, e.Transitions[0].ParentHash)
+	s.Equal(block.Hash(), e.Transitions[0].BlockHash)
+	s.Equal(block.Root, e.Transitions[0].StateRoot)
 }
 
 func TestTransitionProvedEventHandlerTestSuite(t *testing.T) {
