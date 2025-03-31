@@ -133,34 +133,46 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 		return nil
 	}
 
-	for _, batchID := range e.BatchIds {
-		metrics.ProverReceivedProvenBlockGauge.Set(float64(batchID))
+	for i, batchID := range e.BatchIds {
+		batch, err := h.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batchID))
+		if err != nil {
+			return fmt.Errorf("failed to get batch by ID: %w", err)
+		}
+		metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId))
 
 		// Check if transition is valid.
-		block, err := h.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batchID))
+		block, err := h.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId))
 		if err != nil {
 			return fmt.Errorf("failed to get block by number: %w", err)
 		}
-		if block.Hash() != common.BytesToHash(e.Transitions[len(e.BatchIds)-1].BlockHash[:]) {
+
+		ts := e.Transitions[i]
+		if block.Hash() != common.BytesToHash(ts.BlockHash[:]) &&
+			(ts.StateRoot != (common.Hash{}) && common.BytesToHash(ts.StateRoot[:]) != block.Root) {
 			log.Error(
 				"Invalid transition proof, will try submitting a new proof",
 				"batchID", batchID,
-				"expectedHash", block.Hash(),
-				"actualHash", common.BytesToHash(e.Transitions[len(e.BatchIds)-1].BlockHash[:]),
+				"expectedBlockHash", block.Hash(),
+				"actualBlockHash", common.BytesToHash(ts.BlockHash[:]),
+				"expectedStateRoot", block.Root,
+				"actualStateRoot", common.BytesToHash(ts.StateRoot[:]),
 			)
-
-			batch, err := h.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batchID))
-			if err != nil {
-				return fmt.Errorf("failed to get batch by ID: %w", err)
-			}
 
 			meta, err := getMetadataFromBatchPacaya(ctx, h.rpc, batch)
 			if err != nil {
-				return fmt.Errorf("failed to get metadata from batch (%d): %w", batchID, err)
+				return fmt.Errorf("failed to fetch metadata for batch (%d): %w", batchID, err)
 			}
 
 			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 		}
+
+		log.Info(
+			"New valid proven batch received",
+			"batchID", batchID,
+			"lastBatchID", batch.LastBlockId,
+			"blockHash", block.Hash(),
+			"stateRoot", block.Root,
+		)
 	}
 
 	return nil
