@@ -147,7 +147,7 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 		}
 
 		ts := e.Transitions[i]
-		if block.Hash() != common.BytesToHash(ts.BlockHash[:]) &&
+		if block.Hash() != common.BytesToHash(ts.BlockHash[:]) ||
 			(ts.StateRoot != (common.Hash{}) && common.BytesToHash(ts.StateRoot[:]) != block.Root) {
 			log.Error(
 				"Invalid transition proof, will try submitting a new proof",
@@ -164,6 +164,7 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 			}
 
 			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
+			continue
 		}
 
 		log.Info(
