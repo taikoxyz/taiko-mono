@@ -145,7 +145,7 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 			return fmt.Errorf("failed to get batch proof status: %w", err)
 		}
 		// If the batch proof is valid, we skip it.
-		if !status.Invalid {
+		if staus.IsSubmitted && !status.Invalid {
 			log.Info("New valid proven batch received", "batchID", batchID, "lastBatchID", batch.LastBlockId)
 			continue
 		}
