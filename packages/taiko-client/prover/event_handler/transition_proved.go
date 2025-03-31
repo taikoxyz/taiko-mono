@@ -128,7 +128,7 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 	if len(e.BatchIds) == 0 {
 		return nil
 	}
-	if len(e.Transitions) == len(e.BatchIds) {
+	if len(e.Transitions) != len(e.BatchIds) {
 		log.Error("Invalid BatchesProved number of transitions and batch IDs do not match", "batchIDs", e.BatchIds)
 		return nil
 	}
