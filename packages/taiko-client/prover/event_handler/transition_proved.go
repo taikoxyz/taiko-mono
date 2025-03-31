@@ -149,7 +149,7 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 			log.Info("New valid proven batch received", "batchID", batchID, "lastBatchID", batch.LastBlockId)
 			continue
 		}
-		// Otherwise, we need to submit a new proof.
+		// Otherwise, the proof onchain is either invalid or missed, we need to submit a new proof.
 		meta, err := getMetadataFromBatchPacaya(ctx, h.rpc, batch)
 		if err != nil {
 			return fmt.Errorf("failed to fetch metadata for batch (%d): %w", batchID, err)
