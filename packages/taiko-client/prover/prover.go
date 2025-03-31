@@ -347,6 +347,10 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
 		case e := <-blockVerifiedV2Ch:
 			p.eventHandlers.blockVerifiedHandler.Handle(e)
+		case e := <-batchesVerifiedCh:
+			if err := p.eventHandlers.blockVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
+				log.Error("Failed to Handle new BatchesVerified event", "error", err)
+			}
 		case e := <-transitionProvedV2Ch:
 			p.withRetry(func() error {
 				return p.eventHandlers.transitionProvedHandler.Handle(p.ctx, e)

@@ -466,10 +466,10 @@ func (p *Prover) initEventHandlers() error {
 	guardianProverAddress, err := p.rpc.GetGuardianProverAddress(p.ctx)
 	if err != nil {
 		log.Debug("Failed to get guardian prover address", "error", encoding.TryParsingCustomError(err))
-		p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(common.Address{})
+		p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(p.rpc, common.Address{})
 		return nil
 	}
-	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(guardianProverAddress)
+	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(p.rpc, guardianProverAddress)
 
 	return nil
 }
