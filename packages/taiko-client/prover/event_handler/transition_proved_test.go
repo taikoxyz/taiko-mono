@@ -145,11 +145,11 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 }
 
 func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
-	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody)
+	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
 
 	handler := NewTransitionProvedEventHandler(
 		s.RPCClient,
-		make(chan *proofProducer.ContestRequestBody),
+		make(chan *proofProducer.ContestRequestBody, 1),
 		proofRequestBodyCh,
 		true,
 		false,

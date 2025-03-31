@@ -149,16 +149,26 @@ func getMetadataFromBatchPacaya(
 		return nil, fmt.Errorf("failed to get Pacaya protocol configs: %w", err)
 	}
 
+	// Ensure we don't go beyond the current L1 head.
+	l1Head, err := rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L1 head: %w", err)
+	}
+	endHeight := new(big.Int).Add(
+		new(big.Int).SetUint64(batch.AnchorBlockId),
+		new(big.Int).SetUint64(config.MaxAnchorHeightOffset()),
+	)
+	if endHeight.Cmp(l1Head.Number) > 0 {
+		endHeight = l1Head.Number
+	}
+
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
-		Client:           rpc.L1,
-		TaikoL1:          rpc.OntakeClients.TaikoL1,
-		TaikoInbox:       rpc.PacayaClients.TaikoInbox,
-		PacayaForkHeight: rpc.PacayaClients.ForkHeight,
-		StartHeight:      new(big.Int).SetUint64(batch.AnchorBlockId),
-		EndHeight: new(big.Int).Add(
-			new(big.Int).SetUint64(batch.AnchorBlockId),
-			new(big.Int).SetUint64(config.MaxAnchorHeightOffset()),
-		),
+		Client:               rpc.L1,
+		TaikoL1:              rpc.OntakeClients.TaikoL1,
+		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
+		PacayaForkHeight:     rpc.PacayaClients.ForkHeight,
+		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId),
+		EndHeight:            endHeight,
 		OnBlockProposedEvent: callback,
 	})
 	if err != nil {
