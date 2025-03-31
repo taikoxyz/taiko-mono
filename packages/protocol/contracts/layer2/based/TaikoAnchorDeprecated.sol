@@ -57,4 +57,13 @@ abstract contract TaikoAnchorDeprecated {
         deprecated
         returns (uint256 basefee_, uint64 parentGasExcess_)
     { }
+
+    function anchorV2(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        external
+    { }
 }
