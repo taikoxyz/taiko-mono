@@ -11,7 +11,6 @@ import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
 import "./LibEIP1559.sol";
-import "./LibL2Config.sol";
 import "./IBlockHashProvider.sol";
 import "./TaikoAnchorOntake.sol";
 
