@@ -168,7 +168,18 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
-        _verifyBaseFee(_parentBaseFee, _parentGasUsed, _baseFeeConfig);
+
+        require(
+            shastaGetBaseFee(
+                _parentBaseFee,
+                _parentGasUsed,
+                block.timestamp,
+                _baseFeeConfig.adjustmentQuotient,
+                _baseFeeConfig.gasIssuancePerSecond
+            ) == block.basefee || skipFeeCheck(),
+            L2_BASEFEE_MISMATCH()
+        );
+
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
@@ -177,9 +188,10 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     function shastaGetBaseFee(
         uint256 _parentBaseFee,
-        uint32 _parentGasUsed,
-        uint64 _blockTimestamp,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        uint256 _parentGasUsed,
+        uint256 _blockTimestamp,
+        uint256 _adjustmentQuotient,
+        uint256 _gasIssuancePerSecond
     )
         public
         view
@@ -188,8 +200,8 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         return LibEIP1559Classic.calculateClassicBaseFee(
             _parentBaseFee,
             _parentGasUsed,
-            _baseFeeConfig.adjustmentQuotient,
-            _baseFeeConfig.gasIssuancePerSecond,
+            _adjustmentQuotient,
+            _gasIssuancePerSecond,
             _blockTimestamp - parentTimestamp
         );
     }
@@ -377,23 +389,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
         parentGasTarget = newGasTarget;
         parentGasExcess = newGasExcess;
-    }
-
-    function _verifyBaseFee(
-        uint256 _parentBaseFee,
-        uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
-    )
-        private
-        view
-    {
-        uint256 basefee = getBasefeeV4(
-            _parentBaseFee,
-            _parentGasUsed,
-            uint64(block.timestamp) - parentTimestamp,
-            _baseFeeConfig
-        );
-        require(block.basefee == basefee || skipFeeCheck(), L2_BASEFEE_MISMATCH());
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the given block ID.
