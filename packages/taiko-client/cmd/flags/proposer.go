@@ -45,20 +45,6 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_INTERVAL"},
 	}
-	MinGasUsed = &cli.Uint64Flag{
-		Name:     "epoch.minGasUsed",
-		Usage:    "Minimum gas used for a transactions list to propose",
-		Category: proposerCategory,
-		Value:    0,
-		EnvVars:  []string{"EPOCH_MIN_GAS_USED"},
-	}
-	MinTxListBytes = &cli.Uint64Flag{
-		Name:     "epoch.minTxListBytes",
-		Usage:    "Minimum bytes for a transactions list to propose",
-		Category: proposerCategory,
-		Value:    0,
-		EnvVars:  []string{"EPOCH_MIN_TX_LIST_BYTES"},
-	}
 	MinTip = &cli.Float64Flag{
 		Name:     "epoch.minTip",
 		Usage:    "Minimum tip (in GWei) for a transaction to propose",
@@ -73,12 +59,12 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_PROPOSING_INTERNAL"},
 	}
-	AllowZeroInterval = &cli.Uint64Flag{
-		Name:     "epoch.allowZeroInterval",
-		Usage:    "If set, after this many epochs, proposer will allow propose zero tip transactions once",
+	AllowZeroTipInterval = &cli.Uint64Flag{
+		Name:     "epoch.allowZeroTipInterval",
+		Usage:    "If set, after this many epochs, proposer will be allowed to propose zero tip transactions once",
 		Category: proposerCategory,
 		Value:    0,
-		EnvVars:  []string{"EPOCH_ALLOW_ZERO_INTERVAL"},
+		EnvVars:  []string{"EPOCH_ALLOW_ZERO_TIP_INTERVAL"},
 	}
 	// Transactions pool related.
 	TxPoolLocals = &cli.StringSliceFlag{
@@ -138,11 +124,9 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProposeInterval,
 	TxPoolLocals,
 	TxPoolLocalsOnly,
-	MinGasUsed,
-	MinTxListBytes,
 	MinTip,
 	MinProposingInternal,
-	AllowZeroInterval,
+	AllowZeroTipInterval,
 	MaxProposedTxListsPerEpoch,
 	BlobAllowed,
 	FallbackToCalldata,

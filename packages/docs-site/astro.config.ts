@@ -76,6 +76,7 @@ export default defineConfig({
                 { label: "Contestable rollups (BCR)", link: "/taiko-alethia-protocol/protocol-design/contestable-rollup/" },
                 { label: "Multi-proofs", link: "/taiko-alethia-protocol/protocol-design/multi-proofs/" },
                 { label: "Inception layers", link: "/taiko-alethia-protocol/protocol-design/inception-layers/" },
+                {label: "Based Preconfirmations", link: "/taiko-alethia-protocol/protocol-design/based-preconfirmation/" },
               ]
             },
             {
@@ -100,6 +101,7 @@ export default defineConfig({
               ],
             },
             { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
+            { label: "Pacaya Fork", link: "/taiko-alethia-protocol/pacaya-fork/" },
           ]
         },
         {

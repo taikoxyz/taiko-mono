@@ -298,16 +298,16 @@ func SignatureFromRSV(r, s string, v byte) []byte {
 	return append(append(hexutil.MustDecode(r), hexutil.MustDecode(s)...), v)
 }
 
-// AssembleTestTx assembles a test transaction.
-func AssembleTestTx(
+// AssembleAndSendTestTx assembles a test transaction, and sends it to the given node.
+func AssembleAndSendTestTx(
 	client *rpc.EthClient,
-	priv *ecdsa.PrivateKey,
+	key *ecdsa.PrivateKey,
 	nonce uint64,
 	to *common.Address,
 	value *big.Int,
 	data []byte,
 ) (*types.Transaction, error) {
-	auth, err := bind.NewKeyedTransactorWithChainID(priv, client.ChainID)
+	auth, err := bind.NewKeyedTransactorWithChainID(key, client.ChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -316,8 +316,8 @@ func AssembleTestTx(
 		To:        to,
 		Nonce:     nonce,
 		Value:     value,
-		GasTipCap: new(big.Int).SetUint64(10 * params.GWei),
-		GasFeeCap: new(big.Int).SetUint64(20 * params.GWei),
+		GasTipCap: new(big.Int).SetUint64(1 * params.GWei),
+		GasFeeCap: new(big.Int).SetUint64(2 * params.GWei),
 		Gas:       2_100_000,
 		Data:      data,
 	}))

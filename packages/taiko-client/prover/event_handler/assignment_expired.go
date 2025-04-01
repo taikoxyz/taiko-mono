@@ -60,11 +60,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 			"batchID", meta.Pacaya().GetBatchID(),
 			"assignedProver", meta.GetProposer(),
 		)
-		if proofStatus, err = rpc.GetBatchProofStatus(
-			ctx,
-			h.rpc,
-			meta.Pacaya().GetBatchID(),
-		); err != nil {
+		if proofStatus, err = rpc.GetBatchProofStatus(ctx, h.rpc, meta.Pacaya().GetBatchID()); err != nil {
 			return err
 		}
 	} else {

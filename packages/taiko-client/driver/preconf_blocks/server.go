@@ -163,12 +163,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"txs", len(msg.ExecutionPayload.Transactions),
 	)
 
-	// Ignore the message if it is from the current P2P node.
-	if s.p2pNode.Host().ID() == from {
-		log.Info("Ignore the message from the current P2P node", "peer", from)
-		return nil
-	}
-
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
 
 	if len(msg.ExecutionPayload.Transactions) != 1 {
@@ -191,7 +185,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
-	if msg.ExecutionPayload.Transactions[0], err = utils.Decompress(msg.ExecutionPayload.Transactions[0]); err != nil {
+	if msg.ExecutionPayload.Transactions[0], err = utils.DecompressPacaya(
+		msg.ExecutionPayload.Transactions[0],
+	); err != nil {
 		return fmt.Errorf("failed to decompress tx list bytes: %w", err)
 	}
 

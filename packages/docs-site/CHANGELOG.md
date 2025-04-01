@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.27.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.0...docs-site-v1.27.1) (2025-03-27)
+
+
+### Chores
+
+* **docs-site:** proverset docs & fix software releases badges ([#19164](https://github.com/taikoxyz/taiko-mono/issues/19164)) ([b7309d4](https://github.com/taikoxyz/taiko-mono/commit/b7309d4cb87aa9fb6a18719619c51a41a8f0cf8d))
+
+## [1.27.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.26.0...docs-site-v1.27.0) (2025-03-25)
+
+
+### Features
+
+* **docs-site:** add preconf page ([#18973](https://github.com/taikoxyz/taiko-mono/issues/18973)) ([afe8d90](https://github.com/taikoxyz/taiko-mono/commit/afe8d901d4f6e243e035cf03add85ebac2c69e94))
+
+
+### Chores
+
+* **docs-site:** update bridge token addresses for hekla ([#19155](https://github.com/taikoxyz/taiko-mono/issues/19155)) ([09edc77](https://github.com/taikoxyz/taiko-mono/commit/09edc7717fb854134944516d9f4edab5feef47fc))
+
+## [1.26.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.2...docs-site-v1.26.0) (2025-03-24)
+
+
+### Features
+
+* **docs-site:** pacaya docs ([#19125](https://github.com/taikoxyz/taiko-mono/issues/19125)) ([700bb2f](https://github.com/taikoxyz/taiko-mono/commit/700bb2f36b93aee513a6b33bf29412b6c67777dd))
+
+
+### Bug Fixes
+
+* **docs-site:** update the links and explorer ([#19144](https://github.com/taikoxyz/taiko-mono/issues/19144)) ([ba87d4b](https://github.com/taikoxyz/taiko-mono/commit/ba87d4b44027781bf00d79a83c5af9e11d72a52f))
+
+
+### Chores
+
+* **docs-site:** link dune query for live zk-cov" ([#19045](https://github.com/taikoxyz/taiko-mono/issues/19045)) ([e6317f6](https://github.com/taikoxyz/taiko-mono/commit/e6317f65db4434db4026034d49cf185f715b559a))
+
 ## [1.25.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.25.1...docs-site-v1.25.2) (2025-03-04)
 
 

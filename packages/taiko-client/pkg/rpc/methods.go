@@ -673,6 +673,11 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 	)
 	defer cancel()
 
+	// blockID is zero already, no need to check reorg.
+	if blockID.Cmp(common.Big0) == 0 {
+		return result, nil
+	}
+
 	for {
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
@@ -682,6 +687,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 				return nil, err
 			}
 
+			result.IsReorged = true
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight); err != nil {
 				return nil, err
 			}
@@ -1197,37 +1203,42 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 // GetOPVerifierPacaya resolves the Pacaya op verifier address.
 func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
 }
 
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxVerifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxVerifier)
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
 func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0Verifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0Verifier)
 }
 
 // GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
 func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1Verifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1Verifier)
 }
 
 // GetPivotVerifierPacaya resolves the Pacaya pivot verifier address.
 func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getVerifierAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.PivotVerifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.PivotVerifier)
 }
 
-// getVerifierAddressPacaya resolves the Pacaya verifier address.
-func getVerifierAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
+// GetPreconfRouterPacaya resolves the preconf router address.
+func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
+}
+
+// getImmutableAddressPacaya resolves the Pacaya contract address.
+func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
 	c *Client,
 	opts *bind.CallOpts,
 	resolveFunc T,
 ) (common.Address, error) {
 	if c.PacayaClients.TaikoInbox == nil {
-		return common.Address{}, errors.New("taiko inbox contract is not set")
+		return common.Address{}, errors.New("taikoInbox contract is not set")
 	}
 
 	var cancel context.CancelFunc

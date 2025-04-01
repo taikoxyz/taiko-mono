@@ -113,6 +113,7 @@ func (p *Prover) initProofSubmitters(
 					JWT:                 p.cfg.RaikoJWT,
 					ProofType:           producer.ProofTypeSgx,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+					Dummy:               p.cfg.Dummy,
 				}
 			case encoding.TierZkVMRisc0ID:
 				continue
@@ -121,14 +122,19 @@ func (p *Prover) initProofSubmitters(
 					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 					JWT:                 p.cfg.RaikoJWT,
 					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+					Dummy:               p.cfg.Dummy,
 				}
-				bufferSize = 0
+				// Since the proof aggregation in Ontake fork is selected by request tier, and
+				// sp1 & risc0 can't be aggregated together, we disabled the proof aggregation until the Pacaya fork
+				bufferSize = 1
 			case encoding.TierGuardianMinorityID:
 				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
-				bufferSize = 0
+				// For guardian, we need to prove the unsigned block as soon as possible
+				bufferSize = 1
 			case encoding.TierGuardianMajorityID:
 				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
-				bufferSize = 0
+				// For guardian, we need to prove the unsigned block as soon as possible
+				bufferSize = 1
 			default:
 				return fmt.Errorf("unsupported tier: %d", tier.ID)
 			}
@@ -193,8 +199,8 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		Verifier:            pivotVerifierAddress,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		JWT:                 p.cfg.RaikoJWT,
-		Dummy:               p.cfg.Dummy,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		Dummy:               p.cfg.Dummy,
 	}
 
 	// Initialize the base level prover.
@@ -227,6 +233,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			ProofType:           producer.ProofTypeZKAny,
+			Dummy:               p.cfg.Dummy,
 		}
 	}
 
@@ -295,6 +302,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 			ProofType:           producer.ProofTypeSgx,
 			JWT:                 p.cfg.RaikoJWT,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			Dummy:               p.cfg.Dummy,
 		}, nil
 	} else {
 		// If there is no SGX verifier, then try to get the OP verifier address, and initialize
@@ -311,7 +319,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 				ProofType:           producer.ProofTypeOp,
 				JWT:                 p.cfg.RaikoJWT,
-				IsOp:                true,
+				Dummy:               true,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}, nil
 		}
@@ -363,17 +371,31 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, startingBlockID)
 	if err != nil {
 		if err.Error() == ethereum.NotFound.Error() {
-			log.Warn(
-				"Failed to find L1Origin for blockID, use latest L1 head instead",
-				"blockID", startingBlockID,
-			)
-			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, nil)
-			if err != nil {
-				return err
-			}
+			if startingBlockID.Uint64() < p.rpc.PacayaClients.ForkHeight {
+				blockInfo, err := p.rpc.GetL2BlockInfoV2(p.ctx, startingBlockID)
+				if err != nil {
+					return fmt.Errorf("failed to get block info for blockID: %d", startingBlockID)
+				}
 
-			p.sharedState.SetL1Current(l1Head)
-			return nil
+				l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(blockInfo.ProposedIn))
+				if err != nil {
+					return fmt.Errorf("failed to get L1 head for blockID: %d", blockInfo.ProposedIn)
+				}
+				p.sharedState.SetL1Current(l1Head)
+				return nil
+			} else {
+				batch, err := p.rpc.GetBatchByID(p.ctx, startingBlockID)
+				if err != nil {
+					return fmt.Errorf("failed to get batch by ID: %d", startingBlockID)
+				}
+
+				l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
+				if err != nil {
+					return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
+				}
+				p.sharedState.SetL1Current(l1Head)
+				return nil
+			}
 		}
 		return err
 	}
@@ -444,10 +466,10 @@ func (p *Prover) initEventHandlers() error {
 	guardianProverAddress, err := p.rpc.GetGuardianProverAddress(p.ctx)
 	if err != nil {
 		log.Debug("Failed to get guardian prover address", "error", encoding.TryParsingCustomError(err))
-		p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(common.Address{})
+		p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(p.rpc, common.Address{})
 		return nil
 	}
-	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(guardianProverAddress)
+	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(p.rpc, guardianProverAddress)
 
 	return nil
 }

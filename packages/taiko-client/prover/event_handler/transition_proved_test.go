@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
@@ -140,6 +142,40 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 			ProposedIn: m.Ontake().GetRawBlockHeight().Uint64(),
 		}))
 	}
+}
+
+func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
+	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
+
+	handler := NewTransitionProvedEventHandler(
+		s.RPCClient,
+		make(chan *proofProducer.ContestRequestBody, 1),
+		proofRequestBodyCh,
+		true,
+		false,
+	)
+
+	s.ForkIntoPacaya(s.proposer, s.blobSyncer)
+
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
+	s.True(m.IsPacaya())
+
+	batch, err := s.RPCClient.GetBatchByID(context.Background(), m.Pacaya().GetBatchID())
+	s.Nil(err)
+
+	block, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId))
+	s.Nil(err)
+
+	s.Nil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesProved{
+		BatchIds: []uint64{m.Pacaya().GetBatchID().Uint64()},
+		Transitions: []pacayaBindings.ITaikoInboxTransition{{
+			ParentHash: block.ParentHash,
+			BlockHash:  block.Hash(),
+			StateRoot:  testutils.RandomHash(),
+		}},
+	}))
+
+	s.Equal(m, (<-proofRequestBodyCh).Meta)
 }
 
 func TestTransitionProvedEventHandlerTestSuite(t *testing.T) {

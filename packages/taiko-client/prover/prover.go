@@ -347,6 +347,10 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
 		case e := <-blockVerifiedV2Ch:
 			p.eventHandlers.blockVerifiedHandler.Handle(e)
+		case e := <-batchesVerifiedCh:
+			if err := p.eventHandlers.blockVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
+				log.Error("Failed to handle new BatchesVerified event", "error", err)
+			}
 		case e := <-transitionProvedV2Ch:
 			p.withRetry(func() error {
 				return p.eventHandlers.transitionProvedHandler.Handle(p.ctx, e)
@@ -354,6 +358,10 @@ func (p *Prover) eventLoop() {
 		case e := <-transitionContestedV2Ch:
 			p.withRetry(func() error {
 				return p.eventHandlers.transitionContestedHandler.Handle(p.ctx, e)
+			})
+		case e := <-batchesProvedCh:
+			p.withRetry(func() error {
+				return p.eventHandlers.transitionProvedHandler.HandlePacaya(p.ctx, e)
 			})
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
@@ -517,7 +525,8 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uin
 		if submitter := p.selectSubmitter(encoding.TierZkVMSp1ID); submitter != nil {
 			if err := submitter.RequestProof(p.ctx, meta); err != nil {
 				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-					log.Debug("ZK proof was not chosen, attempting to request SGX proof",
+					log.Debug(
+						"ZK proof was not chosen, attempting to request SGX proof",
 						"blockID", meta.Ontake().GetBlockID(),
 					)
 					if sgxSubmitter := p.selectSubmitter(encoding.TierSgxID); sgxSubmitter != nil {

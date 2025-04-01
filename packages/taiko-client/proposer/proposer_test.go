@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -28,6 +30,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
 type ProposerTestSuite struct {
@@ -123,9 +126,88 @@ func (s *ProposerTestSuite) SetupTest() {
 	s.cancel = cancel
 }
 
+func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
+	s.p.txBuilder = builder.NewBuilderWithFallback(
+		s.p.rpc,
+		s.p.L1ProposerPrivKey,
+		s.TestAddr,
+		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+		common.HexToAddress(os.Getenv("PROVER_SET")),
+		10_000_000,
+		s.p.chainConfig,
+		s.p.txmgrSelector,
+		true,
+		true,
+		true,
+	)
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	s.SetL1Automine(false)
+	defer s.SetL1Automine(true)
+	head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Less(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
+
+	s.SetIntervalMining(1)
+	for i := 0; i < int(s.p.rpc.PacayaClients.ForkHeight); i++ {
+		head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
+		metaHash, err := s.p.GetParentMetaHash(context.Background(), head.Number.Uint64())
+		s.Nil(err)
+
+		s.Nil(
+			s.p.ProposeTxLists(
+				context.Background(),
+				[]types.Transactions{{}},
+				head.Number.Uint64(),
+				metaHash,
+			),
+		)
+		s.Nil(s.s.ProcessL1Blocks(context.Background()))
+	}
+
+	head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.GreaterOrEqual(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
+}
+
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	if os.Getenv("L2_NODE") == "l2_reth" {
 		s.T().Skip()
+	}
+
+	var (
+		txsCountForEachSender = 300
+		sendersCount          = 5
+		originalNonceMap      = make(map[common.Address]uint64)
+		privateKeys           []*ecdsa.PrivateKey
+		testAddresses         []common.Address
+	)
+	for i := 0; i < sendersCount; i++ {
+		key, err := crypto.GenerateKey()
+		s.Nil(err)
+		privateKeys = append(privateKeys, key)
+
+		address := crypto.PubkeyToAddress(key.PublicKey)
+		testAddresses = append(testAddresses, address)
+		nonce, err := s.RPCClient.L2.NonceAt(
+			context.Background(),
+			crypto.PubkeyToAddress(s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY").PublicKey),
+			nil,
+		)
+		s.Nil(err)
+		// Send ETHs to the new sender address
+		_, err = testutils.AssembleAndSendTestTx(
+			s.RPCClient.L2,
+			s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"),
+			nonce+uint64(i),
+			&address,
+			new(big.Int).SetUint64(10*params.Ether),
+			nil,
+		)
+		s.Nil(err)
 	}
 
 	// Empty mempool at first.
@@ -151,34 +233,29 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		break
 	}
 
-	privetKeyHexList := []string{
-		"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-		"0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a", // 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
-		"0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6", // 0x90F79bf6EB2c4f870365E785982E1f101E93b906
-		"0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", // 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
-		"0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba", // 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
-	}
-
-	var privateKeys []*ecdsa.PrivateKey
-	for _, privateKeyHex := range privetKeyHexList {
-		priv, err := crypto.ToECDSA(common.FromHex(privateKeyHex))
+	for _, address := range testAddresses {
+		balance, err := s.RPCClient.L2.BalanceAt(context.Background(), address, nil)
 		s.Nil(err)
-		privateKeys = append(privateKeys, priv)
+		s.GreaterOrEqual(balance.Uint64(), uint64(10*params.Ether))
 	}
 
-	originalNonceMap := make(map[common.Address]uint64)
-	for _, priv := range privateKeys {
-		transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, s.RPCClient.L2.ChainID)
+	allTxs := make([]*types.Transaction, 0)
+	for _, key := range privateKeys {
+		transactOpts, err := bind.NewKeyedTransactorWithChainID(key, s.RPCClient.L2.ChainID)
 		s.Nil(err)
 		nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), transactOpts.From)
 		s.Nil(err)
 		originalNonceMap[transactOpts.From] = nonce
-		// Send 1500 transactions to mempool
-		for i := 0; i < 300; i++ {
-			_, err = testutils.AssembleTestTx(s.RPCClient.L2, priv, nonce+uint64(i), &transactOpts.From, common.Big1, nil)
+		// Send txsCountForEachSender * len(privateKeys) transactions to mempool
+		for i := 0; i < txsCountForEachSender; i++ {
+			tx, err := testutils.AssembleAndSendTestTx(
+				s.RPCClient.L2, key, nonce+uint64(i), &transactOpts.From, common.Big0, nil,
+			)
 			s.Nil(err)
+			allTxs = append(allTxs, tx)
 		}
 	}
+	s.Equal(txsCountForEachSender*len(privateKeys), len(allTxs))
 
 	for _, testCase := range []struct {
 		blockMaxGasLimit     uint32
@@ -190,13 +267,13 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxProposedTxListsPerEpoch,
-			[]int{1500},
+			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
 			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
-			s.p.MaxProposedTxListsPerEpoch * 5,
-			[]int{1500},
+			s.p.MaxProposedTxListsPerEpoch * uint64(len(privateKeys)),
+			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
 			s.p.protocolConfigs.BlockMaxGasLimit() / 50,
@@ -225,7 +302,8 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 				sender, err := types.Sender(types.LatestSignerForChainID(s.RPCClient.L2.ChainID), tx)
 				s.Nil(err)
 				s.Equalf(nonceMap[sender], tx.Nonce(),
-					fmt.Sprintf("incorrect nonce of %s, expect: %d, actual: %d",
+					fmt.Sprintf(
+						"incorrect nonce of %s, expect: %d, actual: %d",
 						sender.String(),
 						nonceMap[sender],
 						tx.Nonce(),
@@ -249,18 +327,19 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
-	p := s.p
+	var (
+		p              = s.p
+		batchSize      = 100
+		preBuiltTxList []*miner.PreBuiltTxList
+		err            error
+	)
 
-	batchSize := 100
-
-	var err error
 	for i := 0; i < batchSize; i++ {
 		to := common.BytesToAddress(testutils.RandomBytes(32))
 		_, err = testutils.SendDynamicFeeTx(s.RPCClient.L2, s.TestAddrPrivKey, &to, nil, nil)
 		s.Nil(err)
 	}
 
-	var preBuiltTxList []*miner.PreBuiltTxList
 	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
@@ -297,8 +376,6 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 
 	// Start proposer
 	p.LocalAddressesOnly = false
-	p.MinGasUsed = blockMinGasLimit
-	p.MinTxListBytes = blockMinTxListBytes
 	p.ProposeInterval = time.Second
 	p.MinProposingInternal = time.Minute
 	s.Nil(p.ProposeOp(context.Background()))
@@ -383,7 +460,7 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 		for j := 0; j < txNumInBatch; j++ {
 			to := common.BytesToAddress(testutils.RandomBytes(32))
 
-			tx, err := testutils.AssembleTestTx(
+			tx, err := testutils.AssembleAndSendTestTx(
 				s.RPCClient.L2,
 				s.TestAddrPrivKey,
 				uint64(i*txNumInBatch+int(testAddrNonce)+j),

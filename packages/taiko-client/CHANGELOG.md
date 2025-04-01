@@ -1,5 +1,69 @@
 # Changelog
 
+## [1.4.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.4.0...taiko-alethia-client-v1.4.1) (2025-03-27)
+
+
+### Bug Fixes
+
+* **taiko-client:** fix firstBlockID ([#19170](https://github.com/taikoxyz/taiko-mono/issues/19170)) ([d0feff0](https://github.com/taikoxyz/taiko-mono/commit/d0feff026f857944ab0bca0db6cdcd4d22371e8b))
+
+## [1.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.2...taiko-alethia-client-v1.4.0) (2025-03-27)
+
+
+### Features
+
+* **taiko-client:** improve `checkLastVerifiedBlockMismatch` ([#19162](https://github.com/taikoxyz/taiko-mono/issues/19162)) ([e6bd2d3](https://github.com/taikoxyz/taiko-mono/commit/e6bd2d3bee1585c1b651c21af14bd8f2844d40af))
+* **taiko-client:** improve `initL1Current` && guardian prover ([#19163](https://github.com/taikoxyz/taiko-mono/issues/19163)) ([acac81b](https://github.com/taikoxyz/taiko-mono/commit/acac81bd2167e0aef08c51c049e989ca39d5fb16))
+* **taiko-client:** stop proposing when `taikoWrapper.preconfRouter` is set ([#19158](https://github.com/taikoxyz/taiko-mono/issues/19158)) ([c8afa87](https://github.com/taikoxyz/taiko-mono/commit/c8afa875029d52b94ecd8d0d40eb9b3bc0da7a7d))
+
+
+### Bug Fixes
+
+* **taiko-client:** fix a `firstBlockID` calculation issue ([#19168](https://github.com/taikoxyz/taiko-mono/issues/19168)) ([a24896f](https://github.com/taikoxyz/taiko-mono/commit/a24896fd30bacaa64e53adc2503d92a28cd42cd6))
+* **taiko-client:** fix a bug in `syncer.checkReorg()` ([#19166](https://github.com/taikoxyz/taiko-mono/issues/19166)) ([f62e9d5](https://github.com/taikoxyz/taiko-mono/commit/f62e9d567b8894039b923a5d7167f5e5e059bb87))
+* **taiko-client:** improve `checkL1Reorg` method ([#19161](https://github.com/taikoxyz/taiko-mono/issues/19161)) ([dedd3d0](https://github.com/taikoxyz/taiko-mono/commit/dedd3d08391ac78009c5d72d7d1b51e7dc372488))
+* **taiko-client:** update splitToBlobs to use MaxBlobDataSize constant for proper data segmentation ([#19150](https://github.com/taikoxyz/taiko-mono/issues/19150)) ([97edb45](https://github.com/taikoxyz/taiko-mono/commit/97edb456942cde3acfbc81ee62594c3222a455a6))
+* **taiko-client:** use blobHashes to get blobs from BlobDataSource & introduce `MaxBlobNums` ([#19167](https://github.com/taikoxyz/taiko-mono/issues/19167)) ([cdc9452](https://github.com/taikoxyz/taiko-mono/commit/cdc9452e29b04c2b6b273521b719a33a8a96be76))
+
+
+### Chores
+
+* **taiko-client:** update Go contract bindings ([#19157](https://github.com/taikoxyz/taiko-mono/issues/19157)) ([cb055bd](https://github.com/taikoxyz/taiko-mono/commit/cb055bd913476212061a8abce225a1018730e7e2))
+
+## [1.3.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.1...taiko-alethia-client-v1.3.2) (2025-03-24)
+
+
+### Bug Fixes
+
+* **taiko-client:** buffer size & error check ([#19148](https://github.com/taikoxyz/taiko-mono/issues/19148)) ([f7eaea9](https://github.com/taikoxyz/taiko-mono/commit/f7eaea981888c0baae278fc448f12c9c90ec2833))
+* **taiko-client:** disable zk proof aggregation for Ontake ([#19149](https://github.com/taikoxyz/taiko-mono/issues/19149)) ([51003fe](https://github.com/taikoxyz/taiko-mono/commit/51003fea5fe394fced61ff9c006da9c67a3dd42d))
+
+
+### Tests
+
+* **taiko-client:** add revert protection tests ([#19145](https://github.com/taikoxyz/taiko-mono/issues/19145)) ([71f3a82](https://github.com/taikoxyz/taiko-mono/commit/71f3a82fdd0bf56c6579ee089396e4591d83bf4c))
+
+## [1.3.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.3.0...taiko-alethia-client-v1.3.1) (2025-03-24)
+
+
+### Bug Fixes
+
+* **taiko-client:** make `prover.sgx.batchSize` & `prover.zkvm.batchSize` not required ([#19139](https://github.com/taikoxyz/taiko-mono/issues/19139)) ([f714cf4](https://github.com/taikoxyz/taiko-mono/commit/f714cf429979b0829f8cbe721c08b30662c1af72))
+
+## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.2.0...taiko-alethia-client-v1.3.0) (2025-03-21)
+
+
+### Features
+
+* **taiko-client:** introduce `DecompressPacaya` ([#19137](https://github.com/taikoxyz/taiko-mono/issues/19137)) ([c266637](https://github.com/taikoxyz/taiko-mono/commit/c266637c04d6531288f53971b1dc95f452c75c51))
+
+## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.1.0...taiko-alethia-client-v1.2.0) (2025-03-21)
+
+
+### Features
+
+* **taiko-client:** make `prover.dummy` available for producer again ([#19135](https://github.com/taikoxyz/taiko-mono/issues/19135)) ([39cc71b](https://github.com/taikoxyz/taiko-mono/commit/39cc71bd5af022de6d168d79c220f256775d478b))
+
 ## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.0.1...taiko-alethia-client-v1.1.0) (2025-03-20)
 
 

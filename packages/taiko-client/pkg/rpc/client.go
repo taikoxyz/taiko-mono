@@ -182,7 +182,7 @@ func (c *Client) initOntakeClients(cfg *ClientConfig) error {
 		return err
 	}
 
-	forkManager, err := ontakeBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
+	forkRouter, err := ontakeBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func (c *Client) initOntakeClients(cfg *ClientConfig) error {
 		GuardianProverMajority: guardianProverMajority,
 		GuardianProverMinority: guardianProverMinority,
 		ProverSet:              proverSet,
-		ForkRouter:             forkManager,
+		ForkRouter:             forkRouter,
 	}
 
 	return nil
@@ -251,7 +251,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		return err
 	}
 
-	forkManager, err := pacayaBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
+	forkRouter, err := pacayaBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
 	if err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		TaikoAnchor:          taikoAnchor,
 		TaikoToken:           taikoToken,
 		ProverSet:            proverSet,
-		ForkRouter:           forkManager,
+		ForkRouter:           forkRouter,
 		TaikoWrapper:         taikoWrapper,
 		ForcedInclusionStore: forcedInclusionStore,
 		ComposeVerifier:      composeVerifier,

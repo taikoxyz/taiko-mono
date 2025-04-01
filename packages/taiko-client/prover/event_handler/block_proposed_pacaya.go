@@ -40,11 +40,7 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 	}
 
 	// Check if the L1 chain has reorged at first.
-	if err := h.checkL1Reorg(
-		ctx,
-		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
-		meta,
-	); err != nil {
+	if err := h.checkL1Reorg(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()), meta); err != nil {
 		if err.Error() == errL1Reorged.Error() {
 			end()
 			return nil
@@ -135,11 +131,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		return nil
 	}
 
-	proofStatus, err := rpc.GetBatchProofStatus(
-		ctx,
-		h.rpc,
-		meta.Pacaya().GetBatchID(),
-	)
+	proofStatus, err := rpc.GetBatchProofStatus(ctx, h.rpc, meta.Pacaya().GetBatchID())
 	if err != nil {
 		return fmt.Errorf("failed to check whether the L2 batch needs a new proof: %w", err)
 	}
@@ -193,6 +185,21 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 
 			return nil
 		}
+	}
+
+	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
+	// we should skip proving this batch.
+	if !h.proveUnassignedBlocks &&
+		meta.GetProposer() != h.proverAddress &&
+		meta.GetProposer() != h.proverSetAddress {
+		log.Info(
+			"Expired batch is not provable by current prover",
+			"batchID", meta.Pacaya().GetBatchID(),
+			"currentProver", h.proverAddress,
+			"currentProverSet", h.proverSetAddress,
+			"assignProver", meta.GetProposer(),
+		)
+		return nil
 	}
 
 	log.Info(
