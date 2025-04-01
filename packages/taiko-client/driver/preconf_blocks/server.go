@@ -182,6 +182,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		if err != nil && !errors.Is(err, ethereum.NotFound) {
 			return fmt.Errorf("failed to fetch parent header: %w", err)
 		}
+		if parent == nil {
+			return fmt.Errorf("parent block not found: %d", msg.ExecutionPayload.BlockNumber-1)
+		}
 		if parent.Hash() != msg.ExecutionPayload.ParentHash {
 			return fmt.Errorf(
 				"parent block not in canonical chain: %s != %s",
