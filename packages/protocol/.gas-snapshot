@@ -106,7 +106,7 @@ TestPreconfWhitelist:test_whitelist_delay2epoch_addThenRemoveOneOperator() (gas:
 TestPreconfWhitelist:test_whitelist_delay2epoch_addThenRemoveTwoOperators() (gas: 305557)
 TestPreconfWhitelist:test_whitelist_noDelay_addThenRemoveOneOperator() (gas: 154524)
 TestPreconfWhitelist:test_whitelist_removeNonExistingOperatorWillRevert() (gas: 25210)
-TestPreconfWhitelist:test_whitelist_selfRemoval() (gas: 174701)
+TestPreconfWhitelist:test_whitelist_selfRemoval() (gas: 174736)
 TestTokenUnlock:test_tokenunlock_delegate() (gas: 192919)
 TestTokenUnlock:test_tokenunlock_multiple_vest_withdrawal() (gas: 200996)
 TestTokenUnlock:test_tokenunlock_multiple_vest_withdrawing() (gas: 444309)
