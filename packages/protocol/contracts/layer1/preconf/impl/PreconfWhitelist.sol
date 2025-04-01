@@ -36,7 +36,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
      }
 
     modifier onlyOwnerOrManager {
-        require(msg.sender == owner || msg.sender == manager, "PreconfWhitelist: caller is not the owner or manager");
+        require(msg.sender == owner() || msg.sender == manager, "PreconfWhitelist: caller is not the owner or manager");
         _;
     }
 
