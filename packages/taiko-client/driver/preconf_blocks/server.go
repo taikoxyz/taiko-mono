@@ -184,7 +184,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		g      = new(errgroup.Group)
 	)
 	g.Go(func() error {
-		parent, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
+		parent, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)))
 		if err != nil && !errors.Is(err, ethereum.NotFound) {
 			return fmt.Errorf("failed to fetch parent header: %w", err)
 		}
