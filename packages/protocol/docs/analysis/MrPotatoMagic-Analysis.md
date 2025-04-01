@@ -72,7 +72,7 @@ There are more roles in the codebase but these are the foremost and most central
 
 3. Protocol Documentation
 
-- [Website Docs](https://docs.taiko.xyz/core-concepts/what-is-taiko/)
+- [Website Docs](https://docs.taiko.xyz/taiko-alethia-protocol/what-is-taiko-alethia/)
 - [Markdown concept-specific docs](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/docs)
 
 ## Mechanism Review
