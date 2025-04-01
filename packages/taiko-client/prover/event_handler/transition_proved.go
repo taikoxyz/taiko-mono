@@ -133,47 +133,29 @@ func (h *TransitionProvedEventHandler) HandlePacaya(
 		return nil
 	}
 
-	for i, batchID := range e.BatchIds {
+	for _, batchID := range e.BatchIds {
 		batch, err := h.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batchID))
 		if err != nil {
 			return fmt.Errorf("failed to get batch by ID: %w", err)
 		}
 		metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId))
 
-		// Check if transition is valid.
-		block, err := h.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId))
+		status, err := rpc.GetBatchProofStatus(ctx, h.rpc, new(big.Int).SetUint64(batchID))
 		if err != nil {
-			return fmt.Errorf("failed to get block by number: %w", err)
+			return fmt.Errorf("failed to get batch proof status: %w", err)
 		}
-
-		ts := e.Transitions[i]
-		if block.Hash() != common.BytesToHash(ts.BlockHash[:]) ||
-			(ts.StateRoot != (common.Hash{}) && common.BytesToHash(ts.StateRoot[:]) != block.Root) {
-			log.Error(
-				"Invalid transition proof, will try submitting a new proof",
-				"batchID", batchID,
-				"expectedBlockHash", block.Hash(),
-				"actualBlockHash", common.BytesToHash(ts.BlockHash[:]),
-				"expectedStateRoot", block.Root,
-				"actualStateRoot", common.BytesToHash(ts.StateRoot[:]),
-			)
-
-			meta, err := getMetadataFromBatchPacaya(ctx, h.rpc, batch)
-			if err != nil {
-				return fmt.Errorf("failed to fetch metadata for batch (%d): %w", batchID, err)
-			}
-
-			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
+		// If the batch proof is valid, we skip it.
+		if status.IsSubmitted && !status.Invalid {
+			log.Info("New valid proven batch received", "batchID", batchID, "lastBatchID", batch.LastBlockId)
 			continue
 		}
+		// Otherwise, the proof onchain is either invalid or missed, we need to submit a new proof.
+		meta, err := getMetadataFromBatchPacaya(ctx, h.rpc, batch)
+		if err != nil {
+			return fmt.Errorf("failed to fetch metadata for batch (%d): %w", batchID, err)
+		}
 
-		log.Info(
-			"New valid proven batch received",
-			"batchID", batchID,
-			"lastBatchID", batch.LastBlockId,
-			"blockHash", block.Hash(),
-			"stateRoot", block.Root,
-		)
+		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 	}
 
 	return nil
