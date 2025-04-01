@@ -8,7 +8,7 @@ contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
         address _resolver,
         address _signalService
     )
-        TaikoAnchor(_resolver, _signalService, 0)
+        TaikoAnchor(_resolver, _signalService, 0, 0)
     { }
 
     function skipFeeCheck() public pure override returns (bool) {

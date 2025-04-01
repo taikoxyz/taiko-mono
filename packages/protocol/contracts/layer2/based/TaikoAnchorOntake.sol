@@ -65,5 +65,6 @@ abstract contract TaikoAnchorDeprecated {
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         external
+        deprecated
     { }
 }
