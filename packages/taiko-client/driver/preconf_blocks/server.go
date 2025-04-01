@@ -165,12 +165,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"txs", len(msg.ExecutionPayload.Transactions),
 	)
 
-	// Ignore the message if it is from the current P2P node.
-	if s.p2pNode.Host().ID() == from {
-		log.Info("Ignore the message from the current P2P node", "peer", from)
-		return nil
-	}
-
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
 
 	if len(msg.ExecutionPayload.Transactions) != 1 {
