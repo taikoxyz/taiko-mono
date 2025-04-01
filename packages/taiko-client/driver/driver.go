@@ -444,6 +444,7 @@ func (d *Driver) cacheLookaheadLoop() {
 				"currentEpoch", currentEpoch,
 				"currentOperator", currentOperatorAddress.Hex(),
 				"nextOperator", nextOperatorAddress.Hex(),
+				"updatedAt", time.Now().UTC(),
 			)
 		}
 	}
