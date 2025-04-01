@@ -58,6 +58,7 @@ abstract contract TaikoAnchorPacaya is
     uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
+    /// @dev Slot 4.
     uint64 public l1ChainId;
 
     uint256[46] private __gap;
