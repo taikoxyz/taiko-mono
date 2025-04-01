@@ -17,6 +17,7 @@ import "src/layer2/based/TaikoAnchor.sol";
 contract UpgradeDevnetPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     uint64 public pacayaForkHeight = uint64(vm.envUint("PACAYA_FORK_HEIGHT"));
+    uint64 public shastaForkHeight = uint64(vm.envUint("SHASTA_FORK_HEIGHT"));
     address public taikoAnchor = vm.envAddress("TAIKO_ANCHOR");
     address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
     address public bridgeL2 = vm.envAddress("BRIDGE_L2");
@@ -68,7 +69,9 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
 
         // Taiko Anchor
         UUPSUpgradeable(taikoAnchor).upgradeTo(
-            address(new TaikoAnchor(sharedResolver, signalService, pacayaForkHeight))
+            address(
+                new TaikoAnchor(sharedResolver, signalService, pacayaForkHeight, shastaForkHeight)
+            )
         );
     }
 }
