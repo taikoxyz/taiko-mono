@@ -262,7 +262,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 
 	headers := make([]*types.Header, 0)
 	for _, executableData := range executionPayloads {
-		header, err := i.InsertPreconfBlockFromExecutionPayload(ctx, executableData)
+		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert preconf block: %w", err)
 		}
@@ -272,14 +272,11 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	return headers, nil
 }
 
-// InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
-func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
+// insertPreconfBlockFromExecutionPayload the inner method to insert a preconf block from the given execution payload.
+func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
