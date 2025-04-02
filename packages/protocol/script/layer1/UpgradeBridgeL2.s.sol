@@ -12,7 +12,7 @@ import "src/shared/tokenvault/Init3BridgedERC20.sol";
 import "src/shared/tokenvault/Init3BridgedERC721.sol";
 import "src/shared/tokenvault/Init3BridgedERC1155.sol";
 
-contract UpgradeHeklaPacayaL2 is DeployCapability {
+contract UpgradeBridgeL2 is DeployCapability {
     address public delegateOwner = 0x95F6077C7786a58FA070D98043b16DF2B1593D2b;
     address public multicall3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
 
