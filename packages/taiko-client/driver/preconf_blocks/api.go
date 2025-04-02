@@ -78,24 +78,29 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 	)
 
-	if reqBody.ExecutableData.Timestamp == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero timestamp is required"))
-	}
-	if reqBody.ExecutableData.FeeRecipient == (common.Address{}) {
-		return s.returnError(c, http.StatusBadRequest, errors.New("empty L2 fee recipient"))
-	}
-	if reqBody.ExecutableData.GasLimit == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero gas limit is required"))
-	}
-	if reqBody.ExecutableData.BaseFeePerGas == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero base fee per gas is required"))
+	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
 	if overflow {
 		return s.returnError(c, http.StatusBadRequest, errors.New("base fee per gas is too large"))
 	}
-	if len(reqBody.ExecutableData.ExtraData) == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("empty extra data"))
+
+	executablePayload := &eth.ExecutionPayload{
+		ParentHash:    reqBody.ExecutableData.ParentHash,
+		FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
+		PrevRandao:    eth.Bytes32(difficulty[:]),
+		BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
+		GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
+		Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
+		ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
+		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+		Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+	}
+
+	if err := s.ValidateExecutionPayload(executablePayload); err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
@@ -107,27 +112,10 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
 	}
 
-	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
 	// Insert the preconf block.
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		c.Request().Context(),
-		[]*eth.ExecutionPayload{
-			{
-				ParentHash:    reqBody.ExecutableData.ParentHash,
-				FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
-				PrevRandao:    eth.Bytes32(difficulty[:]),
-				BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
-				GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
-				Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
-				ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
-				BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-				Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
-			},
-		},
+		[]*eth.ExecutionPayload{executablePayload},
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)

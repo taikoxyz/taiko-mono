@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -168,8 +169,16 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
 
-	if len(msg.ExecutionPayload.Transactions) != 1 {
-		return fmt.Errorf("only one transaction list is allowed")
+	// Check if the payload is valid.
+	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
+		log.Warn(
+			"Invalid preconfirmation block payload",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"error", err,
+		)
+		return nil
 	}
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
@@ -337,6 +346,33 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 
+	return nil
+}
+
+// ValidateExecutionPayload validates the execution payload.
+func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionPayload) error {
+	if payload.Timestamp == 0 {
+		return errors.New("non-zero timestamp is required")
+	}
+	if payload.FeeRecipient == (common.Address{}) {
+		return errors.New("empty L2 fee recipient")
+	}
+	if payload.GasLimit == 0 {
+		return errors.New("non-zero gas limit is required")
+	}
+	var u256BaseFee = uint256.Int(payload.BaseFeePerGas)
+	if u256BaseFee.ToBig().Cmp(common.Big0) == 0 {
+		return errors.New("non-zero base fee per gas is required")
+	}
+	if len(payload.ExtraData) == 0 {
+		return errors.New("empty extra data")
+	}
+	if len(payload.Transactions) != 1 {
+		return fmt.Errorf("only one transaction list is allowed")
+	}
+	if len(payload.Transactions[0]) > eth.MaxBlobDataSize {
+		return errors.New("compressed transactions size exceeds max blob data size")
+	}
 	return nil
 }
 
