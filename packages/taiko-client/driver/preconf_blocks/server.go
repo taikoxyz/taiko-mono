@@ -201,7 +201,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			"parentHash", msg.ExecutionPayload.ParentHash,
 		)
 		// Try to find all the missing ancients from the cache and import them.
-		if err := s.ImportMissingAncientsCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
+		if err := s.ImportMissingAncientsFromCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
 			log.Info(
 				"Unable to find all the missing ancients from the cache, cache the current payload",
 				"peer", from,
@@ -247,18 +247,26 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
+	// Try to import the child blocks from the cache, if any.
+	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
+		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
+	}
+
 	return nil
 }
 
-// ImportMissingAncientsCache tries to import cached payloads from the cached payload queue, if we can't
+// ImportMissingAncientsFromCache tries to import cached payloads from the cached payload queue, if we can't
 // find all the missing ancients and import them, an error will be returned.
-func (s *PreconfBlockAPIServer) ImportMissingAncientsCache(
+func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	ctx context.Context,
 	currentPayload *eth.ExecutionPayload,
 	headL1Origin *rawdb.L1Origin,
 ) error {
 	// Try searching the missing ancientsd in the cache.
-	payloadsToImport := make([]*eth.ExecutionPayload, 0)
+	var (
+		payloadsToImport = make([]*eth.ExecutionPayload, 0)
+		err              error
+	)
 	for {
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
@@ -296,7 +304,61 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsCache(
 		break
 	}
 
+	log.Info(
+		"Found all missing parent payloads in the cache, start importing",
+		"count", len(payloadsToImport),
+	)
+
 	// If all parent payloads are found, try to import them.
+	for _, payload := range payloadsToImport {
+		// Decompress the transactions list.
+		if payload.Transactions[0], err = utils.DecompressPacaya(payload.Transactions[0]); err != nil {
+			return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
+		}
+	}
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport); err != nil {
+		return fmt.Errorf("failed to insert preconfirmation blocks from cache: %w", err)
+	}
+
+	return nil
+}
+
+// ImportChildBlocksFromCache tries to import cached child payloads from the cached payload queue.
+func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
+	ctx context.Context,
+	currentPayload *eth.ExecutionPayload,
+) error {
+	// Try searching if there is any available child block in the cache.
+	var (
+		payloadsToImport = make([]*eth.ExecutionPayload, 0)
+		err              error
+	)
+
+	for {
+		child := s.payloadsCache.getChild(uint64(currentPayload.BlockNumber), currentPayload.BlockHash)
+		if child == nil {
+			break
+		}
+		payloadsToImport = append(payloadsToImport, child)
+		currentPayload = child
+	}
+
+	if len(payloadsToImport) == 0 {
+		return nil
+	}
+
+	log.Info(
+		"Found available child payloads in the cache, start importing",
+		"count", len(payloadsToImport),
+	)
+
+	// Try to import all available child payloads.
+	for _, payload := range payloadsToImport {
+		// Decompress the transactions list.
+		if payload.Transactions[0], err = utils.DecompressPacaya(payload.Transactions[0]); err != nil {
+			return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
+		}
+	}
 	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation blocks from cache: %w", err)
 	}

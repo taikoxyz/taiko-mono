@@ -8,8 +8,7 @@ import (
 )
 
 // maxTrackedPayloads is the maximum number of prepared payloads the execution
-// engine tracks before evicting old ones. Ideally we should only ever track the
-// latest one; but have a slight wiggle room for non-ideal conditions.
+// engine tracks before evicting old ones.
 const maxTrackedPayloads = 768
 
 // payloadQueueItem represents an id->payload tuple to store until it's retrieved
@@ -19,8 +18,7 @@ type payloadQueueItem struct {
 	payload *eth.ExecutionPayload
 }
 
-// payloadQueue tracks the latest handful of constructed payloads to be retrieved
-// by the beacon chain if block production is requested.
+// payloadQueue tracks the latest payloads from the P2P gossip messages.
 type payloadQueue struct {
 	payloads []*payloadQueueItem
 	lock     sync.RWMutex
@@ -56,6 +54,22 @@ func (q *payloadQueue) get(id uint64, hash common.Hash) *eth.ExecutionPayload {
 			return nil // no more items
 		}
 		if item.id == id && item.payload.BlockHash == hash {
+			return item.payload
+		}
+	}
+	return nil
+}
+
+// get retrieves a previously stored payload item or nil if it does not exist.
+func (q *payloadQueue) getChild(id uint64, hash common.Hash) *eth.ExecutionPayload {
+	q.lock.RLock()
+	defer q.lock.RUnlock()
+
+	for _, item := range q.payloads {
+		if item == nil {
+			return nil // no more items
+		}
+		if item.id == id+1 && item.payload.ParentHash == hash {
 			return item.payload
 		}
 	}
