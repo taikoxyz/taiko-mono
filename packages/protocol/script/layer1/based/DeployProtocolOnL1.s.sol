@@ -362,7 +362,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
         });
-        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
+//        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
 
         // Prover set
         deployProxy({
@@ -403,6 +403,15 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
+        address pivotAutomataProxy = deployProxy({
+            name: "pivot_automata_dcap_attestation",
+            impl: automataDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
+
         address sgxImpl =
             address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
         sgxVerifier = deployProxy({
@@ -411,6 +420,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
+        address pivotSgxImpl =
+            address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, pivotAutomataProxy));
         pivotVerifier = deployProxy({
             name: "pivot_verifier",
             impl: sgxImpl,
