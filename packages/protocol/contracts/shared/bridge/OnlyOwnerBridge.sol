@@ -13,6 +13,7 @@ import "./IQuotaManager.sol";
 
 /// @title OnlyOwnerBridge
 /// @notice See the documentation for {IBridge}.
+/// @notice Only changed the modifier for init() from `initializer` to `onlyOwner`, compared with {Bridge}.
 /// @dev Labeled in AddressResolver as "bridge". Additionally, the code hash for the same address on
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
