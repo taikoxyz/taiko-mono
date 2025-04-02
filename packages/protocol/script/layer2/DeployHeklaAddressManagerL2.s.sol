@@ -36,30 +36,24 @@ contract DeployHeklaAddressManagerL2 is DeployCapability {
             data: abi.encodeCall(AddressManager.init, (address(0)))
         });
         // register copy
-        copyRegister(sharedAddressManager, sharedResolver, "taiko_token");
-        copyRegister(sharedAddressManager, sharedResolver, "bond_token");
-        copyRegister(sharedAddressManager, sharedResolver, "bridge");
-        copyRegister(sharedAddressManager, sharedResolver, "signal_service");
-        copyRegister(sharedAddressManager, sharedResolver, "erc20_vault");
-        copyRegister(sharedAddressManager, sharedResolver, "erc721_vault");
-        copyRegister(sharedAddressManager, sharedResolver, "erc1155_vault");
-        copyRegister(sharedAddressManager, sharedResolver, "bridged_erc20");
-        copyRegister(sharedAddressManager, sharedResolver, "bridged_erc721");
-        copyRegister(sharedAddressManager, sharedResolver, "bridged_erc1155");
-        copyRegister(sharedAddressManager, sharedResolver, "taiko");
-        copyRegister(sharedAddressManager, sharedResolver, "quota_manager");
-        copyRegister(rollupAddressManager, sharedResolver, "taiko_token");
-        copyRegister(rollupAddressManager, sharedResolver, "bond_token");
-        copyRegister(rollupAddressManager, sharedResolver, "bridge");
-        copyRegister(rollupAddressManager, sharedResolver, "signal_service");
-        copyRegister(rollupAddressManager, sharedResolver, "erc20_vault");
-        copyRegister(rollupAddressManager, sharedResolver, "erc721_vault");
-        copyRegister(rollupAddressManager, sharedResolver, "erc1155_vault");
-        copyRegister(rollupAddressManager, sharedResolver, "bridged_erc20");
-        copyRegister(rollupAddressManager, sharedResolver, "bridged_erc721");
-        copyRegister(rollupAddressManager, sharedResolver, "bridged_erc1155");
-        copyRegister(rollupAddressManager, sharedResolver, "taiko");
-        copyRegister(rollupAddressManager, sharedResolver, "quota_manager");
+        register(sharedAddressManager, "bridge", 0x1670090000000000000000000000000000000001);
+        register(sharedAddressManager, "signal_service", 0x1670090000000000000000000000000000000005);
+        register(sharedAddressManager, "erc20_vault", 0x1670090000000000000000000000000000000002);
+        register(sharedAddressManager, "erc721_vault", 0x1670090000000000000000000000000000000003);
+        register(sharedAddressManager, "erc1155_vault", 0x1670090000000000000000000000000000000004);
+        register(sharedAddressManager, "bridged_erc20", 0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF);
+        register(sharedAddressManager, "bridged_erc721", 0x45327BDbe23c1a3F0b437C78a19E813f9b11E566);
+        register(sharedAddressManager, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152);
+        register(sharedAddressManager, "taiko", 0x1670090000000000000000000000000000010001);
+        register(rollupAddressManager, "bridge", 0x1670090000000000000000000000000000000001);
+        register(rollupAddressManager, "signal_service", 0x1670090000000000000000000000000000000005);
+        register(rollupAddressManager, "erc20_vault", 0x1670090000000000000000000000000000000002);
+        register(rollupAddressManager, "erc721_vault", 0x1670090000000000000000000000000000000003);
+        register(rollupAddressManager, "erc1155_vault", 0x1670090000000000000000000000000000000004);
+        register(rollupAddressManager, "bridged_erc20", 0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF);
+        register(rollupAddressManager, "bridged_erc721", 0x45327BDbe23c1a3F0b437C78a19E813f9b11E566);
+        register(rollupAddressManager, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152);
+        register(rollupAddressManager, "taiko", 0x1670090000000000000000000000000000010001);
         // transfer ownership
         Ownable2StepUpgradeable(sharedAddressManager).transferOwnership(delegateOwner);
         Ownable2StepUpgradeable(rollupAddressManager).transferOwnership(delegateOwner);
