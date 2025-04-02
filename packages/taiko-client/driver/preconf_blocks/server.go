@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"sync"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"golang.org/x/sync/errgroup"
 
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -163,38 +165,66 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"txs", len(msg.ExecutionPayload.Transactions),
 	)
 
-	// Ignore the message if it is from the current P2P node.
-	if s.p2pNode.Host().ID() == from {
-		log.Info("Ignore the message from the current P2P node", "peer", from)
-		return nil
-	}
-
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
 
 	if len(msg.ExecutionPayload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
 	}
 
-	header, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch header by hash: %w", err)
-	}
+	var (
+		parent *types.Header
+		header *types.Header
+		err    error
+		g      = new(errgroup.Group)
+	)
+	g.Go(func() error {
+		parent, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)))
+		if err != nil && !errors.Is(err, ethereum.NotFound) {
+			return fmt.Errorf("failed to fetch parent header: %w", err)
+		}
+		if parent == nil {
+			return fmt.Errorf("parent block not found: %d", msg.ExecutionPayload.BlockNumber-1)
+		}
+		if parent.Hash() != msg.ExecutionPayload.ParentHash {
+			return fmt.Errorf(
+				"parent block not in canonical chain: %s != %s",
+				parent.Hash().Hex(),
+				msg.ExecutionPayload.ParentHash.Hex(),
+			)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
+		if err != nil && !errors.Is(err, ethereum.NotFound) {
+			return fmt.Errorf("failed to fetch header by hash: %w", err)
+		}
+		if header != nil {
+			log.Debug(
+				"Preconfirmation block already exists",
+				"peer", from,
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"hash", msg.ExecutionPayload.BlockHash.Hex(),
+				"txs", len(msg.ExecutionPayload.Transactions),
+			)
+			return fmt.Errorf(
+				"preconfirmation block (%d) already exists, hash %s",
+				uint64(msg.ExecutionPayload.BlockNumber),
+				msg.ExecutionPayload.BlockHash.Hex(),
+			)
+		}
+		return nil
+	})
 
-	if header != nil {
-		log.Debug(
-			"Preconfirmation block already exists",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"txs", len(msg.ExecutionPayload.Transactions),
-		)
+	if err := g.Wait(); err != nil {
+		log.Warn("Preconfirmation message check error", "error", err)
 		return nil
 	}
 
 	if msg.ExecutionPayload.Transactions[0], err = utils.DecompressPacaya(
 		msg.ExecutionPayload.Transactions[0],
 	); err != nil {
-		return fmt.Errorf("failed to decompress tx list bytes: %w", err)
+		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 
 	if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, msg.ExecutionPayload); err != nil {
