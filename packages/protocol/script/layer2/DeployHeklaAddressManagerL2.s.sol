@@ -43,7 +43,9 @@ contract DeployHeklaAddressManagerL2 is DeployCapability {
         register(sharedAddressManager, "erc1155_vault", 0x1670090000000000000000000000000000000004);
         register(sharedAddressManager, "bridged_erc20", 0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF);
         register(sharedAddressManager, "bridged_erc721", 0x45327BDbe23c1a3F0b437C78a19E813f9b11E566);
-        register(sharedAddressManager, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152);
+        register(
+            sharedAddressManager, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152
+        );
         register(sharedAddressManager, "taiko", 0x1670090000000000000000000000000000010001);
         register(rollupAddressManager, "bridge", 0x1670090000000000000000000000000000000001);
         register(rollupAddressManager, "signal_service", 0x1670090000000000000000000000000000000005);
@@ -52,7 +54,9 @@ contract DeployHeklaAddressManagerL2 is DeployCapability {
         register(rollupAddressManager, "erc1155_vault", 0x1670090000000000000000000000000000000004);
         register(rollupAddressManager, "bridged_erc20", 0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF);
         register(rollupAddressManager, "bridged_erc721", 0x45327BDbe23c1a3F0b437C78a19E813f9b11E566);
-        register(rollupAddressManager, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152);
+        register(
+            rollupAddressManager, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152
+        );
         register(rollupAddressManager, "taiko", 0x1670090000000000000000000000000000010001);
         // transfer ownership
         Ownable2StepUpgradeable(sharedAddressManager).transferOwnership(delegateOwner);
