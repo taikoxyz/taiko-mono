@@ -18,7 +18,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"golang.org/x/sync/errgroup"
 
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -51,6 +50,7 @@ type PreconfBlockAPIServer struct {
 	// P2P network for preconf block propagation
 	p2pNode        *p2p.NodeP2P
 	p2pSigner      p2p.Signer
+	payloadsCache  *payloadQueue
 	lookahead      *Lookahead
 	lookaheadMutex sync.Mutex
 }
@@ -75,8 +75,9 @@ func New(
 			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
-		rpc:       cli,
-		lookahead: &Lookahead{},
+		rpc:           cli,
+		payloadsCache: newPayloadQueue(),
+		lookahead:     &Lookahead{},
 	}
 
 	server.echo.HideBanner = true
@@ -171,64 +172,95 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("only one transaction list is allowed")
 	}
 
-	var (
-		parent *types.Header
-		header *types.Header
-		err    error
-		g      = new(errgroup.Group)
-	)
-	g.Go(func() error {
-		parent, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)))
-		if err != nil && !errors.Is(err, ethereum.NotFound) {
-			return fmt.Errorf("failed to fetch parent header: %w", err)
-		}
-		if parent == nil {
-			return fmt.Errorf("parent block not found: %d", msg.ExecutionPayload.BlockNumber-1)
-		}
-		if parent.Hash() != msg.ExecutionPayload.ParentHash {
-			return fmt.Errorf(
-				"parent block not in canonical chain: %s != %s",
-				parent.Hash().Hex(),
-				msg.ExecutionPayload.ParentHash.Hex(),
-			)
-		}
-		return nil
-	})
-	g.Go(func() error {
-		header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
-		if err != nil && !errors.Is(err, ethereum.NotFound) {
-			return fmt.Errorf("failed to fetch header by hash: %w", err)
-		}
-		if header != nil {
-			log.Debug(
-				"Preconfirmation block already exists",
+	// Check if the parent block is in the canonical chain, if not, we try to
+	// find all the missing ancients from the cache and import them, if we can't, then we cache the message.
+	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)))
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return fmt.Errorf("failed to fetch parent header: %w", err)
+	}
+	if parent == nil || parent.Hash() != msg.ExecutionPayload.ParentHash {
+		// Try to find all the missing ancients from the cache and import them.
+		if err := s.ImportCachedPayloads(ctx, msg.ExecutionPayload); err != nil {
+			log.Info(
+				"Parent block not in L2 canonical chain, cache the message for later use",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"txs", len(msg.ExecutionPayload.Transactions),
+				"parentHash", msg.ExecutionPayload.ParentHash,
+				"error", err,
 			)
-			return fmt.Errorf(
-				"preconfirmation block (%d) already exists, hash %s",
-				uint64(msg.ExecutionPayload.BlockNumber),
-				msg.ExecutionPayload.BlockHash.Hex(),
-			)
+			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
+			}
+			return nil
 		}
-		return nil
-	})
+	}
 
-	if err := g.Wait(); err != nil {
-		log.Warn("Preconfirmation message check error", "error", err)
+	// Check if the block already exists in the canonical chain, if it does, we ignore the message.
+	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return fmt.Errorf("failed to fetch header by hash: %w", err)
+	}
+	if header != nil {
+		log.Debug(
+			"Preconfirmation block already exists",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"txs", len(msg.ExecutionPayload.Transactions),
+		)
 		return nil
 	}
 
+	// Decompress the transactions list.
 	if msg.ExecutionPayload.Transactions[0], err = utils.DecompressPacaya(
 		msg.ExecutionPayload.Transactions[0],
 	); err != nil {
 		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 
+	// Insert the preconfirmation block into the L2 EE chain.
 	if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, msg.ExecutionPayload); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
+	}
+
+	return nil
+}
+
+// ImportCachedPayloads tries to import cached payloads from the cached payload queue.
+func (s *PreconfBlockAPIServer) ImportCachedPayloads(ctx context.Context, headPayload *eth.ExecutionPayload) error {
+	// Try find the missing parent payload in the cache.
+	payloadsToImport := make([]*eth.ExecutionPayload, 0)
+	for {
+		parentPayload := s.payloadsCache.get(uint64(headPayload.BlockNumber)-1, headPayload.ParentHash)
+		if parentPayload == nil {
+			return fmt.Errorf(
+				"failed to find parent payload in the cache, number %d, hash %s",
+				headPayload.BlockNumber-1,
+				headPayload.ParentHash.Hex(),
+			)
+		}
+		payloadsToImport = append([]*eth.ExecutionPayload{parentPayload}, payloadsToImport...)
+
+		// Check if the found parent payload is in the canonical chain,
+		// if it is not, continue to find the parent payload.
+		parentHeader, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(parentPayload.BlockNumber)))
+		if err != nil && !errors.Is(err, ethereum.NotFound) {
+			return fmt.Errorf("failed to fetch parent header: %w", err)
+		}
+		if parentHeader == nil || parentHeader.Hash() != parentPayload.BlockHash {
+			log.Debug("Parent block not in L2 canonical chain, continue to import cached payloads")
+			continue
+		}
+
+		break
+	}
+
+	// If all parent payloads are found, try to import them.
+	for _, payload := range payloadsToImport {
+		if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, payload); err != nil {
+			return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
+		}
 	}
 
 	return nil
