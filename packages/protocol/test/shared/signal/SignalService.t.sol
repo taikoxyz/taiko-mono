@@ -133,7 +133,7 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_malformat_proof() public {
-        // "undecodable proof" is not decodeable into SignalService.HopProof[] memory
+        // "undecodable proof" is not decodable into SignalService.HopProof[] memory
         vm.expectRevert();
         signalService.proveSignalReceived({
             _chainId: 0,
