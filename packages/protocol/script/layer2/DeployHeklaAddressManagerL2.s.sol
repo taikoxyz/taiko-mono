@@ -4,8 +4,13 @@ pragma solidity ^0.8.24;
 import "src/shared/common/AddressManager.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/bridge/OnlyOwnerBridge.sol";
-import { Bridge } from "../../contracts/shared/bridge/Bridge.sol";
+import "src/shared/bridge/Init3Bridge.sol";
+import "src/shared/tokenvault/Init3ERC20Vault.sol";
+import "src/shared/tokenvault/Init3ERC721Vault.sol";
+import "src/shared/tokenvault/Init3ERC1155Vault.sol";
+import "src/shared/tokenvault/Init3BridgedERC20.sol";
+import "src/shared/tokenvault/Init3BridgedERC721.sol";
+import "src/shared/tokenvault/Init3BridgedERC1155.sol";
 
 contract DeployHeklaAddressManagerL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -42,6 +47,7 @@ contract DeployHeklaAddressManagerL2 is DeployCapability {
         copyRegister(sharedAddressManager, sharedResolver, "bridged_erc721");
         copyRegister(sharedAddressManager, sharedResolver, "bridged_erc1155");
         copyRegister(sharedAddressManager, sharedResolver, "taiko");
+        copyRegister(sharedAddressManager, sharedResolver, "quota_manager");
         copyRegister(rollupAddressManager, sharedResolver, "taiko_token");
         copyRegister(rollupAddressManager, sharedResolver, "bond_token");
         copyRegister(rollupAddressManager, sharedResolver, "bridge");
@@ -53,13 +59,26 @@ contract DeployHeklaAddressManagerL2 is DeployCapability {
         copyRegister(rollupAddressManager, sharedResolver, "bridged_erc721");
         copyRegister(rollupAddressManager, sharedResolver, "bridged_erc1155");
         copyRegister(rollupAddressManager, sharedResolver, "taiko");
+        copyRegister(rollupAddressManager, sharedResolver, "quota_manager");
         // transfer ownership
         Ownable2StepUpgradeable(sharedAddressManager).transferOwnership(delegateOwner);
         Ownable2StepUpgradeable(rollupAddressManager).transferOwnership(delegateOwner);
         // Bridge
-        address onlyOwnerBridgeImpl = address(new OnlyOwnerBridge());
-        console2.log("only_owner_bridge", onlyOwnerBridgeImpl);
-        address bridgeImpl = address(new Bridge());
-        console2.log("bridge", bridgeImpl);
+        address init3BridgeImpl = address(new Init3Bridge());
+        console2.log("init3_bridge", init3BridgeImpl);
+        // Vault token
+        address init3ERC20Vault = address(new Init3ERC20Vault());
+        console2.log("init3_erc20_vault", init3ERC20Vault);
+        address init3ERC721Vault = address(new Init3ERC721Vault());
+        console2.log("init3_erc721_vault", init3ERC721Vault);
+        address init3ERC1155Vault = address(new Init3ERC1155Vault());
+        console2.log("init3_erc1155_vault", init3ERC1155Vault);
+        // Bridged token
+        address init3BridgedERC20 = address(new Init3BridgedERC20());
+        console2.log("init3_bridged_erc20", init3BridgedERC20);
+        address init3BridgedERC721 = address(new Init3BridgedERC721());
+        console2.log("init3_bridged_erc721", init3BridgedERC721);
+        address init3BridgedERC1155 = address(new Init3BridgedERC1155());
+        console2.log("init3_bridged_erc1155", init3BridgedERC1155);
     }
 }

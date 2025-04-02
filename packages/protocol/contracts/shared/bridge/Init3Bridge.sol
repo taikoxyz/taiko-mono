@@ -11,13 +11,13 @@ import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IQuotaManager.sol";
 
-/// @title OnlyOwnerBridge
+/// @title Init3Bridge.sol
 /// @notice See the documentation for {IBridge}.
-/// @notice Only changed the modifier for init() from `initializer` to `onlyOwner`, compared with {Bridge}.
+/// @notice Add the `init3` function.
 /// @dev Labeled in AddressResolver as "bridge". Additionally, the code hash for the same address on
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
-contract OnlyOwnerBridge is EssentialContract, IBridge {
+contract Init3Bridge is EssentialContract, IBridge {
     using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
@@ -105,7 +105,7 @@ contract OnlyOwnerBridge is EssentialContract, IBridge {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external onlyOwner {
+    function init(address _owner, address _sharedAddressManager) external initializer {
         __Essential_init(_owner, _sharedAddressManager);
     }
 
@@ -115,6 +115,11 @@ contract OnlyOwnerBridge is EssentialContract, IBridge {
         __reserved1 = 0;
         __reserved2 = 0;
         __reserved3 = 0;
+    }
+
+    /// @notice This function shall be called by previously deployed contracts.
+    function init3(address _sharedAddressManager) external onlyOwner {
+        addressManager = _sharedAddressManager;
     }
 
     /// @notice Delegates a given token's voting power to the bridge itself.
