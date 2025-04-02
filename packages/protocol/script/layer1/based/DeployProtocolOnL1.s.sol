@@ -78,7 +78,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address taikoInboxAddr =
             IResolver(rollupResolver).resolve(uint64(block.chainid), LibStrings.B_TAIKO, false);
-        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+        TaikoInbox taikoInboxImpl = TaikoInbox(payable(taikoInboxAddr));
 
         if (vm.envAddress("SHARED_RESOLVER") == address(0)) {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
@@ -342,7 +342,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+        TaikoInbox taikoInboxImpl = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.init(msg.sender, vm.envBytes32("L2_GENESIS_HASH"));
         uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
