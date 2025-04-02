@@ -344,7 +344,7 @@
 - impl : 0x9bbd836a3b1901cdc561e22f2bE0c808352BF10E
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
-  - deployed on March 21, 2025 at commit `25af05a`
+  - deployed on April 2, 2025 at commit `25af05a`
 
 ## L2 Contracts
 
