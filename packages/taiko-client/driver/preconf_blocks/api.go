@@ -120,23 +120,30 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	// Insert the preconf block.
-	header, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(
+	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		c.Request().Context(),
-		&eth.ExecutionPayload{
-			ParentHash:    reqBody.ExecutableData.ParentHash,
-			FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
-			PrevRandao:    eth.Bytes32(difficulty[:]),
-			BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
-			GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
-			Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
-			ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
-			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-			Transactions:  []eth.Data{decompressed},
+		[]*eth.ExecutionPayload{
+			{
+				ParentHash:    reqBody.ExecutableData.ParentHash,
+				FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
+				PrevRandao:    eth.Bytes32(difficulty[:]),
+				BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
+				GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
+				Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
+				ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
+				BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+				Transactions:  []eth.Data{decompressed},
+			},
 		},
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
+	if len(headers) == 0 {
+		return s.returnError(c, http.StatusInternalServerError, errors.New("no inserted header returned"))
+	}
+
+	header := headers[0]
 
 	log.Info(
 		"⏰ New preconfirmation L2 block inserted",

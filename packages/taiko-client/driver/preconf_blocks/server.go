@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -27,7 +28,7 @@ import (
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
 type preconfBlockChainSyncer interface {
-	InsertPreconfBlockFromExecutionPayload(context.Context, *eth.ExecutionPayload) (*types.Header, error)
+	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload) ([]*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
@@ -172,6 +173,19 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("only one transaction list is allowed")
 	}
 
+	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
+	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
+	}
+	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+		return fmt.Errorf(
+			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
+			msg.ExecutionPayload.BlockNumber,
+			headL1Origin.BlockID,
+		)
+	}
+
 	// Check if the parent block is in the canonical chain, if not, we try to
 	// find all the missing ancients from the cache and import them, if we can't, then we cache the message.
 	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)))
@@ -179,15 +193,21 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to fetch parent header: %w", err)
 	}
 	if parent == nil || parent.Hash() != msg.ExecutionPayload.ParentHash {
+		log.Info(
+			"Parent block not in L2 canonical chain",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash,
+		)
 		// Try to find all the missing ancients from the cache and import them.
-		if err := s.ImportCachedPayloads(ctx, msg.ExecutionPayload); err != nil {
+		if err := s.ImportMissingAncientsCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
 			log.Info(
-				"Parent block not in L2 canonical chain, cache the message for later use",
+				"Unable to find all the missing ancients from the cache, cache the current payload",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash,
-				"error", err,
+				"reason", err,
 			)
 			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
@@ -220,24 +240,32 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, msg.ExecutionPayload); err != nil {
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
+		ctx,
+		[]*eth.ExecutionPayload{msg.ExecutionPayload},
+	); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
 	return nil
 }
 
-// ImportCachedPayloads tries to import cached payloads from the cached payload queue.
-func (s *PreconfBlockAPIServer) ImportCachedPayloads(ctx context.Context, headPayload *eth.ExecutionPayload) error {
-	// Try find the missing parent payload in the cache.
+// ImportMissingAncientsCache tries to import cached payloads from the cached payload queue, if we can't
+// find all the missing ancients and import them, an error will be returned.
+func (s *PreconfBlockAPIServer) ImportMissingAncientsCache(
+	ctx context.Context,
+	currentPayload *eth.ExecutionPayload,
+	headL1Origin *rawdb.L1Origin,
+) error {
+	// Try searching the missing ancientsd in the cache.
 	payloadsToImport := make([]*eth.ExecutionPayload, 0)
 	for {
-		parentPayload := s.payloadsCache.get(uint64(headPayload.BlockNumber)-1, headPayload.ParentHash)
+		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
 			return fmt.Errorf(
 				"failed to find parent payload in the cache, number %d, hash %s",
-				headPayload.BlockNumber-1,
-				headPayload.ParentHash.Hex(),
+				currentPayload.BlockNumber-1,
+				currentPayload.ParentHash.Hex(),
 			)
 		}
 		payloadsToImport = append([]*eth.ExecutionPayload{parentPayload}, payloadsToImport...)
@@ -249,7 +277,19 @@ func (s *PreconfBlockAPIServer) ImportCachedPayloads(ctx context.Context, headPa
 			return fmt.Errorf("failed to fetch parent header: %w", err)
 		}
 		if parentHeader == nil || parentHeader.Hash() != parentPayload.BlockHash {
-			log.Debug("Parent block not in L2 canonical chain, continue to import cached payloads")
+			log.Debug(
+				"Parent block not in L2 canonical chain, continue to search cached payloads",
+				"blockID", parentPayload.BlockNumber,
+				"hash", parentPayload.BlockHash.Hex(),
+			)
+			if headL1Origin != nil && uint64(parentPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+				return fmt.Errorf(
+					"missing parent block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
+					parentPayload.BlockNumber,
+					headL1Origin.BlockID,
+				)
+			}
+			currentPayload = parentPayload
 			continue
 		}
 
@@ -257,10 +297,8 @@ func (s *PreconfBlockAPIServer) ImportCachedPayloads(ctx context.Context, headPa
 	}
 
 	// If all parent payloads are found, try to import them.
-	for _, payload := range payloadsToImport {
-		if _, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(ctx, payload); err != nil {
-			return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
-		}
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport); err != nil {
+		return fmt.Errorf("failed to insert preconfirmation blocks from cache: %w", err)
 	}
 
 	return nil

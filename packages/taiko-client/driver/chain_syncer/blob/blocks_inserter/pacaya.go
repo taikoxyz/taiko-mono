@@ -252,6 +252,26 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	return nil
 }
 
+// InsertPreconfBlocksFromExecutionPayloads inserts preconf blocks from the given execution payloads.
+func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
+	ctx context.Context,
+	executionPayloads []*eth.ExecutionPayload,
+) ([]*types.Header, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
+	headers := make([]*types.Header, 0)
+	for _, executableData := range executionPayloads {
+		header, err := i.InsertPreconfBlockFromExecutionPayload(ctx, executableData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert preconf block: %w", err)
+		}
+		headers = append(headers, header)
+	}
+
+	return headers, nil
+}
+
 // InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
 func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
@@ -270,7 +290,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	if headL1Origin != nil {
 		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 			return nil, fmt.Errorf(
-				"preconfirmation block number (%d) is less than or equal to the current head L1 origin block ID (%d)",
+				"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
 				executableData.BlockNumber,
 				headL1Origin.BlockID,
 			)
