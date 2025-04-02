@@ -170,7 +170,7 @@ while [[ $# -gt 0 ]]; do
         ;;
     --env)
         config_env="$2"
-        echo "Runngin env $config_env."
+        echo "Running env $config_env."
         load_env $config_env
         shift
         shift
