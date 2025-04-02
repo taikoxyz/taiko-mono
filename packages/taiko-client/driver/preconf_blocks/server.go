@@ -23,7 +23,6 @@ import (
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
@@ -232,13 +231,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
-	// Decompress the transactions list.
-	if msg.ExecutionPayload.Transactions[0], err = utils.DecompressPacaya(
-		msg.ExecutionPayload.Transactions[0],
-	); err != nil {
-		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
-	}
-
 	// Insert the preconfirmation block into the L2 EE chain.
 	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		ctx,
@@ -262,11 +254,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	currentPayload *eth.ExecutionPayload,
 	headL1Origin *rawdb.L1Origin,
 ) error {
-	// Try searching the missing ancientsd in the cache.
-	var (
-		payloadsToImport = make([]*eth.ExecutionPayload, 0)
-		err              error
-	)
+	// Try searching the missing ancients in the cache.
+	payloadsToImport := make([]*eth.ExecutionPayload, 0)
 	for {
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
@@ -305,19 +294,13 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	}
 
 	log.Info(
-		"Found all missing parent payloads in the cache, start importing",
+		"Found all missing ancient payloads in the cache, start importing",
 		"count", len(payloadsToImport),
 	)
 
-	// If all parent payloads are found, try to import them.
-	for _, payload := range payloadsToImport {
-		// Decompress the transactions list.
-		if payload.Transactions[0], err = utils.DecompressPacaya(payload.Transactions[0]); err != nil {
-			return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
-		}
-	}
+	// If all ancient payloads are found, try to import them.
 	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport); err != nil {
-		return fmt.Errorf("failed to insert preconfirmation blocks from cache: %w", err)
+		return fmt.Errorf("failed to insert ancient preconfirmation blocks from cache: %w", err)
 	}
 
 	return nil
@@ -329,10 +312,7 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	currentPayload *eth.ExecutionPayload,
 ) error {
 	// Try searching if there is any available child block in the cache.
-	var (
-		payloadsToImport = make([]*eth.ExecutionPayload, 0)
-		err              error
-	)
+	payloadsToImport := make([]*eth.ExecutionPayload, 0)
 
 	for {
 		child := s.payloadsCache.getChild(uint64(currentPayload.BlockNumber), currentPayload.BlockHash)
@@ -353,14 +333,8 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	)
 
 	// Try to import all available child payloads.
-	for _, payload := range payloadsToImport {
-		// Decompress the transactions list.
-		if payload.Transactions[0], err = utils.DecompressPacaya(payload.Transactions[0]); err != nil {
-			return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
-		}
-	}
 	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport); err != nil {
-		return fmt.Errorf("failed to insert preconfirmation blocks from cache: %w", err)
+		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 
 	return nil

@@ -298,6 +298,11 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 		return nil, fmt.Errorf("no transactions data in the payload")
 	}
 
+	// Decompress the transactions list.
+	if executableData.Transactions[0], err = utils.DecompressPacaya(executableData.Transactions[0]); err != nil {
+		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
+	}
+
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,

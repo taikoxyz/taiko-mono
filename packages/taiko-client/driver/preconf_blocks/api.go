@@ -2,7 +2,6 @@ package preconfblocks
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"net/http"
 
@@ -113,12 +112,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Decompress the transactions list.
-	decompressed, err := utils.DecompressPacaya(reqBody.ExecutableData.Transactions)
-	if err != nil {
-		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
-	}
-
 	// Insert the preconf block.
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		c.Request().Context(),
@@ -132,7 +125,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
 				ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
 				BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-				Transactions:  []eth.Data{decompressed},
+				Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 			},
 		},
 	)
