@@ -26,8 +26,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// preconfBlockChainSyncer is an interface for preconf block chain syncer.
-type preconfBlockChainSyncer interface {
+// PreconfBlockChainSyncer is an interface for preconf block chain syncer.
+type PreconfBlockChainSyncer interface {
 	InsertPreconfBlockFromExecutionPayload(context.Context, *eth.ExecutionPayload) (*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
@@ -45,7 +45,7 @@ type preconfBlockChainSyncer interface {
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
 	echo               *echo.Echo
-	chainSyncer        preconfBlockChainSyncer
+	chainSyncer        PreconfBlockChainSyncer
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
 	// P2P network for preconf block propagation
@@ -59,7 +59,7 @@ type PreconfBlockAPIServer struct {
 func New(
 	cors string,
 	jwtSecret []byte,
-	chainSyncer preconfBlockChainSyncer,
+	chainSyncer PreconfBlockChainSyncer,
 	cli *rpc.Client,
 ) (*PreconfBlockAPIServer, error) {
 	protocolConfigs, err := cli.GetProtocolConfigs(nil)
