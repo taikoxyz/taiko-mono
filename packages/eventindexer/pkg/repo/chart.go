@@ -39,7 +39,7 @@ func (r *ChartRepository) Find(
 
 	var tx *gorm.DB
 
-	var q string = `SELECT * FROM time_series_data
+	var q = `SELECT * FROM time_series_data
 	WHERE task = ? AND date BETWEEN ? AND ?
 	ORDER BY date;`
 

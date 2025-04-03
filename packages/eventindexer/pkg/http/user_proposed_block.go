@@ -18,7 +18,7 @@ func (srv *Server) UserProposedBlock(c echo.Context) error {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	var found bool = false
+	var found = false
 
 	if event != nil {
 		found = true
