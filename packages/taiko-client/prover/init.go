@@ -145,6 +145,7 @@ func (p *Prover) initProofSubmitters(
 				p.proofGenerationCh,
 				p.batchProofGenerationCh,
 				p.aggregationNotify,
+				p.proofSubmissionCh,
 				p.cfg.ProverSetAddress,
 				p.cfg.TaikoL2Address,
 				p.cfg.Graffiti,
@@ -157,6 +158,7 @@ func (p *Prover) initProofSubmitters(
 				p.cfg.GuardianProofSubmissionDelay,
 				bufferSize,
 				p.cfg.ForceBatchProvingInterval,
+				p.cfg.ProofPollingInterval,
 			); err != nil {
 				return err
 			}
@@ -260,6 +262,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		p.batchProofGenerationCh,
 		p.aggregationNotify,
 		p.batchesAggregationNotify,
+		p.proofSubmissionCh,
 		p.cfg.ProverSetAddress,
 		p.cfg.TaikoL2Address,
 		p.cfg.ProveBlockGasLimit,
@@ -268,6 +271,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		txBuilder,
 		proofBuffers,
 		p.cfg.ForceBatchProvingInterval,
+		p.cfg.ProofPollingInterval,
 	); err != nil {
 		return fmt.Errorf("failed to initialize Pacaya proof submitter: %w", err)
 	}
