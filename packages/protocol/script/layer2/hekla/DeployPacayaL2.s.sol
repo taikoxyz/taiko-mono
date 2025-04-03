@@ -17,12 +17,10 @@ import "src/layer2/based/TaikoAnchor.sol";
 contract DeployPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     uint64 public pacayaForkHeight = uint64(vm.envUint("PACAYA_FORK_HEIGHT"));
-    address public taikoAnchor = vm.envAddress("TAIKO_ANCHOR");
     address public signalService = vm.envAddress("SIGNAL_SERVICE");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
-        require(taikoAnchor != address(0), "invalid taiko anchor");
         require(signalService != address(0), "invalid signal service");
         vm.startBroadcast(privateKey);
         _;
