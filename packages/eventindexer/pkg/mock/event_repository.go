@@ -52,7 +52,7 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 	address string,
 	event string,
 ) (int, error) {
-	var count int = 0
+	var count = 0
 
 	for _, e := range r.events {
 		if e.Address == address && e.Event == event {

@@ -333,10 +333,18 @@
 ### pivot_verifier
 
 - proxy : 0x4361B85093720bD50d25236693CA58FD6e1b3a53
-- impl : 0xd0318A6841E11CCcb580c02276e29632eFeBE0FE
+- impl : 0x9890f2B69D5D9c217093aCb63e47B47A9070b54e
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
+
+### pivot_automata_dcap_attestation
+
+- proxy : 0x84af08F56AeA1f847c75bE08c96cDC4811694595
+- impl : 0x9bbd836a3b1901cdc561e22f2bE0c808352BF10E
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on April 2, 2025 at commit `25af05a`
 
 ## L2 Contracts
 
