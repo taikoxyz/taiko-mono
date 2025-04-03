@@ -115,10 +115,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Deletes SGX instances from the registry.
     /// @param _ids The ids array of SGX instances.
-    function deleteInstances(uint256[] calldata _ids)
-        external
-        onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
-    {
+    function deleteInstances(uint256[] calldata _ids) external onlyOwner {
         uint256 size = _ids.length;
         for (uint256 i; i < size; ++i) {
             uint256 idx = _ids[i];
