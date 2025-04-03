@@ -111,7 +111,7 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		"contractAddress", vLog.Address.Hex(),
 	)
 
-	var pk int = 0
+	var pk = 0
 
 	i.contractToMetadataMutex.Lock()
 
