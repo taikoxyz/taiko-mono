@@ -152,6 +152,13 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_L2_NODE_VERSION"},
 	}
+	ProofPollingInterval = &cli.DurationFlag{
+		Name:     "prover.proofPollingInterval",
+		Usage:    "Time interval to poll proofs from raiko host",
+		Category: proverCategory,
+		Value:    10 * time.Second,
+		EnvVars:  []string{"PROVER_PROOF_POLLING_INTERVAL"},
+	}
 	// Confirmations specific flag
 	BlockConfirmations = &cli.Uint64Flag{
 		Name:     "prover.blockConfirmations",
@@ -209,6 +216,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	Allowance,
 	L1NodeVersion,
 	L2NodeVersion,
+	ProofPollingInterval,
 	BlockConfirmations,
 	RaikoRequestTimeout,
 	RaikoZKVMHostEndpoint,
