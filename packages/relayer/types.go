@@ -322,7 +322,7 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 
 	var canonicalToken CanonicalToken
 
-	var amount *big.Int = value
+	var amount = value
 
 	onMessageInvocationFunctionSig := "7f07c947"
 
