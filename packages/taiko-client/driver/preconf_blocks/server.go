@@ -371,6 +371,9 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if len(payload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
 	}
+	if len(payload.Transactions[0]) > (eth.MaxBlobDataSize * 6) {
+		return errors.New("compressed transactions size exceeds max blob data size")
+	}
 
 	var txs types.Transactions
 	b, err := utils.DecompressPacaya(payload.Transactions[0])
