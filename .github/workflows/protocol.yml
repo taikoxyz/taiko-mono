@@ -69,7 +69,7 @@ jobs:
       - name: Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "forge fmt & update contract layout tables"
+          commit_message: "forge fmt & update contract layouts and gas snapshots"
           skip_empty_commits: true
           file_pattern: "packages/protocol/.gas-snapshot packages/protocol/contract_layout_*.md"
 
