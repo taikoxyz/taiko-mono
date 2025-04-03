@@ -59,6 +59,7 @@ type Config struct {
 	SGXProofBufferSize                      uint64
 	ZKVMProofBufferSize                     uint64
 	ForceBatchProvingInterval               time.Duration
+	ProofPollingInterval                    time.Duration
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
