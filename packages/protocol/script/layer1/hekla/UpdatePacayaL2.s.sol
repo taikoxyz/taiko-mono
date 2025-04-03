@@ -15,8 +15,6 @@ contract UpdatePacayaL2 is DeployCapability {
     address public newTaikoAnchor = vm.envAddress("NEW_TAIKO_ANCHOR");
     address public newSignalService = vm.envAddress("NEW_SIGNAL_SERVICE");
     address public newAddressManager = vm.envAddress("NEW_ADDRESS_MANAGER");
-    address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
-    address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -26,7 +24,7 @@ contract UpdatePacayaL2 is DeployCapability {
     }
 
     function run() external broadcast {
-        Multicall3.Call3[] memory calls = new Multicall3.Call3[](6);
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
         // Upgrade Taiko Anchor
         calls[0].target = 0x1670090000000000000000000000000000010001;
         calls[0].allowFailure = false;
@@ -42,13 +40,6 @@ contract UpdatePacayaL2 is DeployCapability {
         calls[3].target = 0x1670090000000000000000000000000000010002;
         calls[3].allowFailure = false;
         calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newAddressManager));
-        // Transfer ownership
-        calls[4].target = sharedResolver;
-        calls[4].allowFailure = false;
-        calls[4].callData = abi.encodeCall(Ownable2StepUpgradeable.transferOwnership, (delegateOwner));
-        calls[5].target = rollupResolver;
-        calls[5].allowFailure = false;
-        calls[5].callData = abi.encodeCall(Ownable2StepUpgradeable.transferOwnership, (delegateOwner));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
             txId: 0,
