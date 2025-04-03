@@ -36,6 +36,12 @@ contract DeployPacayaL2 is DeployCapability {
             impl: address(new DefaultResolver()),
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
+        // Rollup resolver
+        address rollupResolver = deployProxy({
+            name: "rollup_resolver",
+            impl: address(new DefaultResolver()),
+            data: abi.encodeCall(DefaultResolver.init, (address(0)))
+        });
         // Copy register
         register(sharedResolver, "bridge", 0x1670090000000000000000000000000000000001);
         register(sharedResolver, "signal_service", 0x1670090000000000000000000000000000000005);
@@ -47,7 +53,18 @@ contract DeployPacayaL2 is DeployCapability {
         register(
             sharedResolver, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152
         );
-        register(sharedResolver, "taiko", 0x1670090000000000000000000000000000010001);
+        register(rollupResolver, "taiko", 0x1670090000000000000000000000000000010001);
+        register(rollupResolver, "bridge", 0x1670090000000000000000000000000000000001);
+        register(rollupResolver, "signal_service", 0x1670090000000000000000000000000000000005);
+        register(rollupResolver, "erc20_vault", 0x1670090000000000000000000000000000000002);
+        register(rollupResolver, "erc721_vault", 0x1670090000000000000000000000000000000003);
+        register(rollupResolver, "erc1155_vault", 0x1670090000000000000000000000000000000004);
+        register(rollupResolver, "bridged_erc20", 0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF);
+        register(rollupResolver, "bridged_erc721", 0x45327BDbe23c1a3F0b437C78a19E813f9b11E566);
+        register(
+            rollupResolver, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152
+        );
+        register(rollupResolver, "taiko", 0x1670090000000000000000000000000000010001);
         // SignalService
         address signalServiceImpl = address(new SignalService(sharedResolver));
         console2.log("signalService", signalServiceImpl);
