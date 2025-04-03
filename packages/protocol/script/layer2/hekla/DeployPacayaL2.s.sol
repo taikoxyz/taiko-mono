@@ -53,7 +53,7 @@ contract DeployPacayaL2 is DeployCapability {
         register(
             sharedResolver, "bridged_erc1155", 0xb190786090Fc4308c4C40808f3bEB55c4463c152
         );
-        register(rollupResolver, "taiko", 0x1670090000000000000000000000000000010001);
+        register(sharedResolver, "taiko", 0x1670090000000000000000000000000000010001);
         register(rollupResolver, "bridge", 0x1670090000000000000000000000000000000001);
         register(rollupResolver, "signal_service", 0x1670090000000000000000000000000000000005);
         register(rollupResolver, "erc20_vault", 0x1670090000000000000000000000000000000002);
