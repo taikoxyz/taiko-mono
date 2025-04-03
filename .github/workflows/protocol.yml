@@ -66,7 +66,7 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
 
-      - name: Commit contract layout table
+      - name: Commit workflow-triggered changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "forge fmt & update contract layouts and gas snapshots"
