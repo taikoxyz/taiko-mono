@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -301,6 +302,17 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	// Decompress the transactions list.
 	if executableData.Transactions[0], err = utils.DecompressPacaya(executableData.Transactions[0]); err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
+	}
+	// Try to RLP decode the transaction list bytes, if it fails, we will set the transactions list to empty.
+	if err := rlp.DecodeBytes(executableData.Transactions[0], new(types.Transactions)); err != nil {
+		log.Info(
+			"Failed to RLP decode preconfirmation block transactions list bytes, will set it to empty",
+			"blockID", executableData.BlockNumber,
+			"error", err,
+		)
+		if executableData.Transactions[0], err = rlp.EncodeToBytes(types.Transactions{}); err != nil {
+			return nil, fmt.Errorf("failed RLP encode transactions list bytes: %w", err)
+		}
 	}
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
