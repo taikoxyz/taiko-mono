@@ -170,9 +170,9 @@ func (p *Processor) processMessage(
 		// dont check quota for NFTs
 		if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
 			// default to ETH (zero address) and msg value, overwrite if ERC20
-			var tokenAddress common.Address = zeroAddress
+			var tokenAddress = zeroAddress
 
-			var value *big.Int = msgBody.Event.Message.Value
+			var value = msgBody.Event.Message.Value
 
 			if eventType == relayer.EventTypeSendERC20 {
 				tokenAddress = canonicalToken.Address()
@@ -247,12 +247,12 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 	var err error
 
-	var blockNum uint64 = event.Raw.BlockNumber
+	var blockNum = event.Raw.BlockNumber
 
 	// wait for srcChain => destChain header to sync if no hops,
 	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
 	if len(p.hops) > 0 {
-		var hopEthClient ethClient = p.srcEthClient
+		var hopEthClient = p.srcEthClient
 
 		var hopChainID *big.Int
 
