@@ -117,7 +117,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param _ids The ids array of SGX instances.
     function deleteInstances(uint256[] calldata _ids)
         external
-        onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
+        onlyOwner
     {
         uint256 size = _ids.length;
         for (uint256 i; i < size; ++i) {
