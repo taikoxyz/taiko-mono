@@ -37,6 +37,7 @@ jobs:
             geth-rpc-gateway
             guardian-prover-health-check
             guardian-prover-health-check-ui
+            preconf-monitor
             protocol
             relayer
             nfts

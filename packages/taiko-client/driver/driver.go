@@ -376,8 +376,8 @@ func (d *Driver) cacheLookaheadLoop() {
 	}()
 
 	var (
-		seenBlockNumber uint64 = 0
-		lastSlot        uint64 = 0
+		seenBlockNumber uint64
+		lastSlot        uint64
 	)
 
 	for {
