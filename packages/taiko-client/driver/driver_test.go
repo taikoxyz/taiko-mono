@@ -564,7 +564,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	b, err := utils.EncodeAndCompressTxList(types.Transactions{anchorTx})
 	s.Nil(err)
 
-	// failed to decode txList: rlp: expected input list for types.Transactions
 	payload := &eth.ExecutionPayload{
 		ParentHash:    l2Head1.Hash(),
 		FeeRecipient:  s.TestAddr,
@@ -595,6 +594,45 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	s.Zero(anchorTx.GasFeeCap().Cmp(l2Head2.BaseFee()))
 	s.Equal(1, len(l2Head2.Transactions()))
 	s.Equal(anchorTx.Hash(), l2Head2.Transactions()[0].Hash())
+}
+
+func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
+	// Propose some valid L2 blocks
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	b, err := utils.Compress(testutils.RandomBytes(32))
+	s.Nil(err)
+
+	baseFee, overflow := uint256.FromBig(common.Big256)
+	s.False(overflow)
+
+	payload := &eth.ExecutionPayload{
+		ParentHash:    l2Head1.Hash(),
+		FeeRecipient:  s.TestAddr,
+		PrevRandao:    eth.Bytes32(testutils.RandomHash()),
+		BlockNumber:   eth.Uint64Quantity(l2Head1.Number.Uint64() + 1),
+		GasLimit:      eth.Uint64Quantity(l2Head1.GasLimit),
+		Timestamp:     eth.Uint64Quantity(time.Now().Unix()),
+		ExtraData:     l2Head1.Extra,
+		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+		Transactions:  []eth.Data{b},
+		Withdrawals:   &types.Withdrawals{},
+	}
+
+	s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
+		context.Background(),
+		peer.ID(testutils.RandomBytes(32)),
+		&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload},
+	))
+
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head1.Number.Uint64(), l2Head2.Number().Uint64())
+	s.Equal(l2Head1.Hash(), l2Head2.Hash())
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {

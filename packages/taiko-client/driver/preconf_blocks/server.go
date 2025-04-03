@@ -15,15 +15,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
+	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 )
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
@@ -44,10 +46,10 @@ type preconfBlockChainSyncer interface {
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
-	echo               *echo.Echo
-	chainSyncer        preconfBlockChainSyncer
-	rpc                *rpc.Client
-	txListDecompressor *txListDecompressor.TxListDecompressor
+	echo            *echo.Echo
+	chainSyncer     preconfBlockChainSyncer
+	rpc             *rpc.Client
+	anchorValidator *validator.AnchorTxValidator
 	// P2P network for preconf block propagation
 	p2pNode        *p2p.NodeP2P
 	p2pSigner      p2p.Signer
@@ -60,25 +62,22 @@ type PreconfBlockAPIServer struct {
 func New(
 	cors string,
 	jwtSecret []byte,
+	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 ) (*PreconfBlockAPIServer, error) {
-	protocolConfigs, err := cli.GetProtocolConfigs(nil)
+	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch protocol configs: %w", err)
+		return nil, err
 	}
 
 	server := &PreconfBlockAPIServer{
-		echo:        echo.New(),
-		chainSyncer: chainSyncer,
-		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(protocolConfigs.BlockMaxGasLimit()),
-			uint64(rpc.BlobBytes),
-			cli.L2.ChainID,
-		),
-		rpc:           cli,
-		payloadsCache: newPayloadQueue(),
-		lookahead:     &Lookahead{},
+		echo:            echo.New(),
+		anchorValidator: anchorValidator,
+		chainSyncer:     chainSyncer,
+		rpc:             cli,
+		payloadsCache:   newPayloadQueue(),
+		lookahead:       &Lookahead{},
 	}
 
 	server.echo.HideBanner = true
@@ -375,6 +374,22 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if len(payload.Transactions[0]) > eth.MaxBlobDataSize {
 		return errors.New("compressed transactions size exceeds max blob data size")
 	}
+
+	var txs types.Transactions
+	b, err := utils.DecompressPacaya(payload.Transactions[0])
+	if err != nil {
+		return fmt.Errorf("invalid zlib bytes for transactions: %w", err)
+	}
+	if err := rlp.DecodeBytes(b, &txs); err != nil {
+		return fmt.Errorf("invalid RLP bytes for transactions: %w", err)
+	}
+	if len(txs) == 0 {
+		return errors.New("empty transactions list, missing anchor transaction")
+	}
+	if err := s.anchorValidator.ValidateAnchorTx(txs[0]); err != nil {
+		return fmt.Errorf("invalid anchor transaction: %w", err)
+	}
+
 	return nil
 }
 
