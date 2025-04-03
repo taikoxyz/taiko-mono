@@ -392,29 +392,36 @@
 ### signal_service
 
 - proxy: `0x1670090000000000000000000000000000000005`
-- impl: `0x6D624a1F05628d0D6EAa013D24a8543E35a0A04f`
+- impl: `0x8b3b59d3e9d15f01cbB24c08140E17854dB1e66d`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Mar 21, 2025 at commit `80baf41`
+  - upgraded on Apr 3, 2025 at commit `2879728`
 
 ### shared_address_manager
 
 - proxy: `0x1670090000000000000000000000000000000006`
-- impl: `0xF8D314cAA6923f1cE997B8E5516771CBd2f9F73B`
+- impl: `0x1063F4cF9eaAA67B5dc9750d96eC0BD885D10AeE`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
-  - upgraded on Mar 24, 2025 at commit `80baf41`
+
+### shared_resolver
+- proxy: `0xF2880d5F0dF947Ab5A08B43D0b6B2841757CB25e`
+- impl: `0x823904Ab163192661e9f9e95b43351cD38319F28`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Apr 3, 2025 at commit `2879728`
 
 ### taikoAnchor
 
 - proxy: `0x1670090000000000000000000000000000010001`
-- impl: `0x71fb266CE71E11D73ccE9bE057401825E076F704`
+- impl: `0x9BB991379a558bB9C24Da18586275Ad09eD6a883`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -422,18 +429,25 @@
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
   - upgraded on Mar 24, 2025 at commit `80baf41`
+  - upgraded on Apr 3, 2025 at commit `2879728`
 
 ### rollup_address_manager
 
 - proxy: `0x1670090000000000000000000000000000010002`
-- impl: `0xF8D314cAA6923f1cE997B8E5516771CBd2f9F73B`
+- impl: `0x1063F4cF9eaAA67B5dc9750d96eC0BD885D10AeE`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
-  - upgraded on Mar 24, 2025 at commit `80baf41`
+
+### rollup_resolver
+- proxy: `0x4a10e91F528F1EeA44C6E5744607BB5F3904d539`
+- impl: `0x76a5bfbfe60DBdDBeaB5048efeaADcfACD66f621`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Apr 3, 2025 at commit `2879728`
 
 ### bridged_erc20
 
