@@ -242,13 +242,15 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
+	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		ctx,
 		[]*eth.ExecutionPayload{msg.ExecutionPayload},
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
+	msg.ExecutionPayload.BlockHash = headers[0].Hash()
 	// Try to import the child blocks from the cache, if any.
 	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
 		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
