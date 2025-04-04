@@ -7,10 +7,11 @@ import "src/shared/libs/LibMath.sol";
 /// @notice Implements classic EIP-1559 base fee calculation.
 /// @custom:security-contact security@taiko.xyz
 library LibEIP1559Classic {
+    using LibMath for uint256;
+
     uint256 public constant MIN_BASE_FEE = 0.005 gwei;
     uint256 public constant BLOCK_TIME_CAP = 12 seconds;
 
-    using LibMath for uint256;
     /// @notice Calculates the classic base fee using the given parameters.
     /// @param _parentBasefee The base fee of the parent block.
     /// @param _parentGasUsed The gas used in the parent block.
@@ -18,7 +19,6 @@ library LibEIP1559Classic {
     /// @param _gasPerSeconds The gas issuance rate per second.
     /// @param _blockTime The time duration of the block.
     /// @return The calculated classic base fee.
-
     function calculateClassicBaseFee(
         uint256 _parentBasefee,
         uint256 _parentGasUsed,
@@ -34,18 +34,12 @@ library LibEIP1559Classic {
         if (gasIssuance == 0) {
             return _parentBasefee;
         }
-        return calculateClassicBaseFee(
+        return _calculateClassicBaseFee(
             _parentBasefee, _parentGasUsed, _adjustmentQuotient, gasIssuance
         ).max(MIN_BASE_FEE);
     }
 
-    /// @notice Calculates the classic base fee using the given parameters.
-    /// @param _parentBasefee The base fee of the parent block.
-    /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _adjustmentQuotient The denominator for base fee change calculation.
-    /// @param _gasIssuance The gas issuance for the block.
-    /// @return The calculated classic base fee.
-    function calculateClassicBaseFee(
+    function _calculateClassicBaseFee(
         uint256 _parentBasefee,
         uint256 _parentGasUsed,
         uint256 _adjustmentQuotient,
