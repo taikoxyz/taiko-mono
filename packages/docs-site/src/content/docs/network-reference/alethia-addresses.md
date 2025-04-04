@@ -18,6 +18,7 @@ description: Network reference page describing various important addresses on Ta
 | BridgedERC20           | `0x65666141a541423606365123Ed280AB16a09A2e1` | N/A                     |
 | BridgedERC721          | `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7` | N/A                     |
 | BridgedERC1155         | `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40` | N/A                     |
+| EntryPoint (ERC-4337)  | `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` | N/A                     |
 
 | Contract Name (Rollup-Specific) | Address                                      | ENS                        |
 | ------------------------------- | -------------------------------------------- | -------------------------- |
