@@ -24,7 +24,7 @@ func (p *Processor) isProfitable(
 	destChainBaseFee uint64,
 	gasTipCap uint64,
 ) (bool, error) {
-	var shouldProcess bool = false
+	var shouldProcess = false
 
 	if fee == 0 || gasLimit == 0 {
 		slog.Info("unprofitable: no gasLimit or processingFee",
