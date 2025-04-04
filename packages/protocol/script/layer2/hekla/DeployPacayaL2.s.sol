@@ -17,6 +17,7 @@ import "src/layer2/based/anchor/TaikoAnchor.sol";
 contract DeployPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     uint64 public pacayaForkHeight = uint64(vm.envUint("PACAYA_FORK_HEIGHT"));
+    uint64 public shastaForkHeight = uint64(vm.envUint("SHASTA_FORK_HEIGHT"));
     address public signalService = vm.envAddress("SIGNAL_SERVICE");
 
     modifier broadcast() {
@@ -100,7 +101,7 @@ contract DeployPacayaL2 is DeployCapability {
         console2.log("signalService", signalServiceImpl);
         // Taiko Anchor
         address taikoAnchorImpl =
-            address(new TaikoAnchor(sharedResolver, signalService, pacayaForkHeight));
+            address(new TaikoAnchor(sharedResolver, signalService, pacayaForkHeight, shastaForkHeight));
         console2.log("taikoAnchor", taikoAnchorImpl);
     }
 }
