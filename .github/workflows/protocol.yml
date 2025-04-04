@@ -24,13 +24,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Add permissions block at the workflow level
+permissions:
+  contents: write # This allows the workflow to push commits
+  pull-requests: write # This allows the workflow to comment on PRs
+
 jobs:
   build-protocol:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     runs-on: [arc-runner-set]
-    permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -86,9 +88,6 @@ jobs:
   genesis-docker:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     runs-on: [taiko-runner]
-    permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
