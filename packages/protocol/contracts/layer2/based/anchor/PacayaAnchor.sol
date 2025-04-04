@@ -10,22 +10,14 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
-import "./LibEIP1559.sol";
-import "./IBlockHashProvider.sol";
-import "./TaikoAnchorOntake.sol";
+import "../eip1559/LibEIP1559.sol";
+import "../IBlockHashProvider.sol";
+import "./OntakeAnchor.sol";
 
-/// @title TaikoAnchorPacaya
-/// @notice Taiko L2 is a smart contract that handles cross-layer message
-/// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
-/// It is used to anchor the latest L1 block details to L2 for cross-layer
-/// communication, manage EIP-1559 parameters for gas pricing, and store
-/// verified L1 block information.
+/// @title PacayaAnchor
+/// @notice Anchoring functions for the Pacaya fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoAnchorPacaya is
-    EssentialContract,
-    IBlockHashProvider,
-    TaikoAnchorDeprecated
-{
+abstract contract PacayaAnchor is EssentialContract, IBlockHashProvider, OntakeAnchor {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;

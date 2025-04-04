@@ -9,8 +9,8 @@ import "src/shared/libs/LibMath.sol";
 library LibEIP1559Classic {
     using LibMath for uint256;
 
-    uint256 public constant MIN_BASE_FEE = 0.005 gwei;
-    uint256 public constant BLOCK_TIME_CAP = 12 seconds;
+    uint256 public constant MIN_BASE_FEE = 0.001 gwei;
+    uint256 public constant GAS_ISSUANCE_TIME_CAP = 12 seconds;
 
     /// @notice Calculates the classic base fee using the given parameters.
     /// @param _parentBasefee The base fee of the parent block.
@@ -30,7 +30,7 @@ library LibEIP1559Classic {
         pure
         returns (uint256)
     {
-        uint256 gasIssuance = _gasPerSeconds * _blockTime.min(BLOCK_TIME_CAP);
+        uint256 gasIssuance = _gasPerSeconds * _blockTime.min(GAS_ISSUANCE_TIME_CAP);
         if (gasIssuance == 0) {
             return _parentBasefee;
         }

@@ -3,11 +3,10 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-/// @title TaikoAnchorDeprecated
-/// @notice This contract includes deprecated functions whose ABI are still used by client for old
-/// blocks.
+/// @title OntakeAnchor
+/// @notice Anchoring functions for the Ontake and pre-Ontake fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoAnchorDeprecated {
+abstract contract OntakeAnchor {
     error L2_DEPRECATED_METHOD();
 
     modifier deprecated() {
