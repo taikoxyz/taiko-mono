@@ -217,7 +217,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				"reason", err,
 			)
 			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-				log.Info("Payload is cached", "peer", from, "blockID", uint64(msg.ExecutionPayload.BlockNumber), "blockHash", msg.ExecutionPayload.BlockHash.Hex())
+				log.Info("Payload is cached",
+					"peer", from,
+					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
+				)
 
 				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
 			}
