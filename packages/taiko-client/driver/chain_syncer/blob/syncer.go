@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -70,7 +71,7 @@ func NewSyncer(
 
 	txListDecompressor := txListDecompressor.NewTxListDecompressor(
 		uint64(protocolConfigs.BlockMaxGasLimit()),
-		rpc.BlockMaxTxListBytes,
+		eth.MaxBlobDataSize,
 		client.L2.ChainID,
 	)
 

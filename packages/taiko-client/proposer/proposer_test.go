@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -216,7 +217,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			context.Background(),
 			s.p.proposerAddress,
 			s.p.protocolConfigs.BlockMaxGasLimit(),
-			rpc.BlockMaxTxListBytes,
+			eth.MaxBlobDataSize,
 			s.p.LocalAddresses,
 			10,
 			0,
@@ -265,19 +266,19 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	}{
 		{
 			s.p.protocolConfigs.BlockMaxGasLimit(),
-			rpc.BlockMaxTxListBytes,
+			eth.MaxBlobDataSize,
 			s.p.MaxProposedTxListsPerEpoch,
 			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
 			s.p.protocolConfigs.BlockMaxGasLimit(),
-			rpc.BlockMaxTxListBytes,
+			eth.MaxBlobDataSize,
 			s.p.MaxProposedTxListsPerEpoch * uint64(len(privateKeys)),
 			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
 			s.p.protocolConfigs.BlockMaxGasLimit() / 50,
-			rpc.BlockMaxTxListBytes,
+			eth.MaxBlobDataSize,
 			200,
 			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
 		},
@@ -345,7 +346,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			context.Background(),
 			p.proposerAddress,
 			p.protocolConfigs.BlockMaxGasLimit(),
-			rpc.BlockMaxTxListBytes,
+			eth.MaxBlobDataSize,
 			p.LocalAddresses,
 			p.MaxProposedTxListsPerEpoch,
 			0,
