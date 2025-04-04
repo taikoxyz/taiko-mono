@@ -66,7 +66,7 @@
 ### erc721_vault
 
 - proxy: `0x046b82D9010b534c716742BE98ac3FEf3f2EC99f`
-- impl: `0xECF523E5A17eBBf332dfBeE50a353a4b371f1A3d.`
+- impl: `0xECF523E5A17eBBf332dfBeE50a353a4b371f1A3d`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
