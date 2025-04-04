@@ -77,7 +77,7 @@
 ### erc1155_vault
 
 - proxy: `0x9Ae5945Ab34f6182F75E16B73e037421F341fEe3`
-- impl: `0x27cED0cc5e5C659aD5170378a4ec1D036F0ccc4C.`
+- impl: `0x27cED0cc5e5C659aD5170378a4ec1D036F0ccc4C`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
