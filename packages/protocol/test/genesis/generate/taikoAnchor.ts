@@ -45,6 +45,7 @@ export async function deployTaikoAnchor(
         config.contractAddresses,
         config.param1559,
         config.pacayaForkHeight,
+        config.shastaForkHeight,
     );
 
     const storageLayouts: any = {};
@@ -116,7 +117,8 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    pacayaForkHeight: number, // TODO: fix this value
+    pacayaForkHeight: number,
+    shastaForkHeight: number,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
