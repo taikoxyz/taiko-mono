@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -73,9 +72,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	maxProposedTxListsPerEpoch := c.Uint64(flags.MaxProposedTxListsPerEpoch.Name)
-	if maxProposedTxListsPerEpoch > eth.MaxBlobsPerBlobTx {
+	if maxProposedTxListsPerEpoch > rpc.MaxBlobNums {
 		return nil, fmt.Errorf("max proposed tx lists per epoch should not exceed %d, got: %d",
-			eth.MaxBlobsPerBlobTx,
+			rpc.MaxBlobNums,
 			maxProposedTxListsPerEpoch,
 		)
 	}

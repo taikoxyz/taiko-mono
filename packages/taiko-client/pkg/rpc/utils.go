@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -23,7 +24,10 @@ import (
 )
 
 var (
-	ZeroAddress common.Address
+	ZeroAddress         common.Address
+	BlobBytes                  = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
+	BlockMaxTxListBytes uint64 = (params.BlobTxBytesPerFieldElement - 1) * params.BlobTxFieldElementsPerBlob
+	MaxBlobNums         uint64 = 6
 	// DefaultInterruptSignals is a set of default interrupt signals.
 	DefaultInterruptSignals = []os.Signal{
 		os.Interrupt,

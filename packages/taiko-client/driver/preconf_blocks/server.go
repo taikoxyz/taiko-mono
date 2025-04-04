@@ -72,7 +72,7 @@ func New(
 		chainSyncer: chainSyncer,
 		txListDecompressor: txListDecompressor.NewTxListDecompressor(
 			uint64(protocolConfigs.BlockMaxGasLimit()),
-			uint64(eth.MaxBlobDataSize),
+			uint64(rpc.BlobBytes),
 			cli.L2.ChainID,
 		),
 		rpc:       cli,

@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -33,7 +33,7 @@ func (s *TxListDecompressorTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 	s.d = NewTxListDecompressor(
 		params.MaxGasLimit,
-		eth.MaxBlobDataSize,
+		rpc.BlockMaxTxListBytes,
 		chainID,
 	)
 }
@@ -43,8 +43,8 @@ func (s *TxListDecompressorTestSuite) TestZeroBytes() {
 }
 
 func (s *TxListDecompressorTestSuite) TestCalldataSize() {
-	s.Empty(s.d.TryDecompress(chainID, randBytes(eth.MaxBlobDataSize+1), false, false))
-	s.Empty(s.d.TryDecompress(chainID, randBytes(eth.MaxBlobDataSize-1), false, false))
+	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes+1), false, false))
+	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes-1), false, false))
 }
 
 func (s *TxListDecompressorTestSuite) TestValidTxList() {
