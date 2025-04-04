@@ -159,7 +159,7 @@ func (s *ComposeProofProducer) Aggregate(
 	g.Go(func() error {
 		if s.Dummy {
 			proofType = s.ProofType
-			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), s.ProofType)
+			resp, _ := s.RequestBatchProofs(items, s.Tier(), s.ProofType)
 			batchProofs = resp.BatchProof
 		} else {
 			if resp, err := s.requestBatchProof(

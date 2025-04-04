@@ -1,78 +1,66 @@
-# This file configures github.com/golangci/golangci-lint.
-
+version: "2"
 run:
-  timeout: 20m
   tests: true
-
-issues:
-  exclude-dirs:
-    - bindings
-
 linters:
-  disable-all: true
+  default: none
   enable:
     - bidichk
     - bodyclose
-    - durationcheck
     - copyloopvar
+    - durationcheck
     - errcheck
     - errchkjson
     - errname
     - errorlint
     - exhaustive
     - goconst
-    - goimports
-    - gosimple
     - govet
-    - gofmt
-    - ineffassign
     - importas
+    - ineffassign
     - lll
     - makezero
     - misspell
-    - misspell
-    - gosimple
-    - staticcheck
-    - staticcheck
     - sqlclosecheck
     - staticcheck
-    - stylecheck
     - unconvert
     - unused
     - whitespace
-
-linters-settings:
-  gofmt:
-    simplify: true
-  goconst:
-    min-len: 3
-    min-occurrences: 6
-  goimports:
-    local-prefixes: github.com/taikoxyz/taiko-mono/packages/taiko-client
-
+  settings:
+    goconst:
+      min-len: 3
+      min-occurrences: 6
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - bindings
+      - third_party$
+      - builtin$
+      - examples$
 severity:
-  # Set the default severity for issues.
-  #
-  # If severity rules are defined and the issues do not match or no severity is provided to the rule
-  # this will be the default severity applied.
-  # Severities should match the supported severity names of the selected out format.
-  # - Code climate: https://docs.codeclimate.com/docs/issues#issue-severity
-  # - Checkstyle: https://checkstyle.sourceforge.io/property_types.html#SeverityLevel
-  # - GitHub: https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
-  # - TeamCity: https://www.jetbrains.com/help/teamcity/service-messages.html#Inspection+Instance
-  #
-  # Default: ""
-  default-severity: error
-  # If set to true `severity-rules` regular expressions become case-sensitive.
-  # Default: false
-  case-sensitive: true
-  # When a list of severity rules are provided, severity information will be added to lint issues.
-  # Severity rules have the same filtering capability as exclude rules
-  # except you are allowed to specify one matcher per severity rule.
-  # Only affects out formats that support setting severity information.
-  #
-  # Default: []
+  default: error
   rules:
     - linters:
         - dupl
       severity: info
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/taikoxyz/taiko-mono/packages/taiko-client
+  exclusions:
+    generated: lax
+    paths:
+      - bindings
+      - third_party$
+      - builtin$
+      - examples$

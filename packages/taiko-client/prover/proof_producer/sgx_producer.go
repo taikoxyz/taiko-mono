@@ -287,7 +287,7 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	if err := output.Validate(); err != nil {
 		// When proofType is ProofTypeSgxCPU, empty proof response is expected.
-		if !(errors.Is(err, errEmptyProof) && s.ProofType == ProofTypeSgxCPU) {
+		if !errors.Is(err, errEmptyProof) || s.ProofType != ProofTypeSgxCPU {
 			return nil, fmt.Errorf("invalid Raiko response (blockID: %d): %w", opts.OntakeOptions().BlockID, err)
 		}
 	}

@@ -369,8 +369,8 @@ func (p *Proposer) ProposeTxListOntake(
 		totalTxs += len(txs)
 	}
 
-	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proverAddress = p.Config.ClientConfig.ProverSetAddress
+	if p.ProverSetAddress != rpc.ZeroAddress {
+		proverAddress = p.ProverSetAddress
 	}
 
 	ok, err := rpc.CheckProverBalance(
@@ -432,8 +432,8 @@ func (p *Proposer) ProposeTxListPacaya(
 	}
 
 	// Check balance.
-	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proposerAddress = p.Config.ClientConfig.ProverSetAddress
+	if p.ProverSetAddress != rpc.ZeroAddress {
+		proposerAddress = p.ProverSetAddress
 	}
 
 	ok, err := rpc.CheckProverBalance(

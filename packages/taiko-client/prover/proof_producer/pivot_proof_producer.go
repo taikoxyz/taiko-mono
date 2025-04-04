@@ -84,7 +84,7 @@ func (s *PivotProofProducer) Aggregate(
 	)
 
 	if s.Dummy {
-		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), ProofTypePivot)
+		resp, _ := s.RequestBatchProofs(items, s.Tier(), ProofTypePivot)
 		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier}, nil
 	}
 
