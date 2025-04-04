@@ -26,6 +26,7 @@ contract TestGenerateGenesis is Test {
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
     uint256 private pacayaForkHeight = configJSON.readUint(".pacayaForkHeight");
+    uint256 private shastaForkHeight = configJSON.readUint(".shastaForkHeight");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -126,7 +127,8 @@ contract TestGenerateGenesis is Test {
                 new TaikoAnchor(
                     getPredeployedContractAddress("RollupResolver"),
                     getPredeployedContractAddress("SignalService"),
-                    uint64(pacayaForkHeight)
+                    uint64(pacayaForkHeight),
+                    uint64(shastaForkHeight)
                 )
             )
         );
