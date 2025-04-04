@@ -794,22 +794,44 @@ function getImmutableReference(
     immutableValueNames: Array<string>,
 ) {
     const references: any = {};
-    const artifact = require(
-        path.join(ARTIFACTS_PATH, `./${contractName}.sol/${contractName}.json`),
+    const artifactPath = path.join(
+        ARTIFACTS_PATH,
+        `./${contractName}.sol/${contractName}.json`,
     );
 
-    for (const node of artifact.ast.nodes) {
-        if (node.nodeType !== "ContractDefinition") continue;
+    console.log(`Loading artifact from: ${artifactPath}`);
+    const artifact = require(artifactPath);
 
-        for (const immutableValueName of immutableValueNames) {
+    if (!artifact.ast || !artifact.ast.nodes) {
+        console.error(`No AST found in artifact for ${contractName}`);
+        throw new Error(`No AST found in artifact for ${contractName}`);
+    }
+
+    for (const immutableValueName of immutableValueNames) {
+        let found = false;
+        for (const node of artifact.ast.nodes) {
+            if (node.nodeType !== "ContractDefinition") continue;
+
             for (const subNode of node.nodes) {
                 if (subNode.name !== immutableValueName) continue;
                 references[immutableValueName] = {
                     name: immutableValueName,
                     id: subNode.id,
                 };
+                found = true;
+                console.log(
+                    `Found immutable reference for ${immutableValueName} with id ${subNode.id}`,
+                );
                 break;
             }
+        }
+        if (!found) {
+            console.error(
+                `Could not find immutable reference for ${immutableValueName} in ${contractName}`,
+            );
+            throw new Error(
+                `Could not find immutable reference for ${immutableValueName} in ${contractName}`,
+            );
         }
     }
 
