@@ -32,5 +32,6 @@
   },
   "param1559": { "gasExcess": 1 },
   "predeployERC20": true,
-  "pacayaForkHeight": 0
+  "pacayaForkHeight": 0,
+  "shastaForkHeight": 0
 }
