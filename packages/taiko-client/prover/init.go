@@ -194,7 +194,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	if pivotVerifierAddress, err = p.rpc.GetPivotVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get pivot verifier: %w", err)
 	}
-	if pivotVerifierAddress == transaction.ZeroAddress {
+	if pivotVerifierAddress == rpc.ZeroAddress {
 		return fmt.Errorf("pivot verifier not found")
 	}
 	pivotProducer := &producer.PivotProofProducer{
@@ -216,14 +216,14 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	if risc0VerifierAddress, err = p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get risc0 verifier: %w", err)
 	}
-	if risc0VerifierAddress != transaction.ZeroAddress {
+	if risc0VerifierAddress != rpc.ZeroAddress {
 		proofTypes = append(proofTypes, producer.ProofTypeZKR0)
 		zkVerifiers[producer.ProofTypeZKR0] = risc0VerifierAddress
 	}
 	if sp1VerifierAddress, err = p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get sp1 verifier: %w", err)
 	}
-	if sp1VerifierAddress != transaction.ZeroAddress {
+	if sp1VerifierAddress != rpc.ZeroAddress {
 		proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
 		zkVerifiers[producer.ProofTypeZKSP1] = sp1VerifierAddress
 	}
@@ -296,7 +296,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 	if sgxVerifierAddress, err = p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return "", nil, fmt.Errorf("failed to get sgx verifier: %w", err)
 	}
-	if sgxVerifierAddress != transaction.ZeroAddress {
+	if sgxVerifierAddress != rpc.ZeroAddress {
 		log.Info("Initialize baseLevelProver", "type", producer.ProofTypeSgx, "verifier", sgxVerifierAddress)
 
 		return producer.ProofTypeSgx, &producer.ComposeProofProducer{
@@ -314,7 +314,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(pivotProducer *producer.PivotP
 		if opVerifierAddress, err = p.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 			return "", nil, fmt.Errorf("failed to get op verifier address: %w", err)
 		}
-		if opVerifierAddress != transaction.ZeroAddress {
+		if opVerifierAddress != rpc.ZeroAddress {
 			log.Info("Initialize baseLevelProver", "type", producer.ProofTypeOp, "verifier", opVerifierAddress)
 
 			return producer.ProofTypeOp, &producer.ComposeProofProducer{
