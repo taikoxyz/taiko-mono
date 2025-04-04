@@ -55,7 +55,7 @@
 ### erc20_vault
 
 - proxy: `0x2259662ed5dE0E09943Abe701bc5f5a108eABBAa`
-- impl: `0xE0b39cda35237b5D7cD92786c374E3F33eB32fB5.`
+- impl: `0xE0b39cda35237b5D7cD92786c374E3F33eB32fB5`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
