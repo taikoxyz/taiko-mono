@@ -46,7 +46,7 @@ func (c *EngineClient) ForkchoiceUpdate(
 	defer cancel()
 
 	var result *engine.ForkChoiceResponse
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +62,7 @@ func (c *EngineClient) NewPayload(
 	defer cancel()
 
 	var result *engine.PayloadStatusV1
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload); err != nil {
 		return nil, err
 	}
 
@@ -78,7 +78,7 @@ func (c *EngineClient) GetPayload(
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	defer cancel()
 
 	var result *engine.TransitionConfigurationV1
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
 		return nil, err
 	}
 

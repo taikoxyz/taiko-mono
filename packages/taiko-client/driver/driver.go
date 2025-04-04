@@ -145,7 +145,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 			log.Info("P2PNode", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
-			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
+			if !reflect2.IsNil(d.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 					return err
 				}

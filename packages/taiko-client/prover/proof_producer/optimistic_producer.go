@@ -50,7 +50,7 @@ func (o *OptimisticProofProducer) Aggregate(
 		blockIDs[i] = item.Meta.Ontake().GetBlockID()
 	}
 	proofType := items[0].ProofType
-	batchProof, err := o.DummyProofProducer.RequestBatchProofs(items, o.Tier(), proofType)
+	batchProof, err := o.RequestBatchProofs(items, o.Tier(), proofType)
 	if err != nil {
 		return nil, err
 	}
