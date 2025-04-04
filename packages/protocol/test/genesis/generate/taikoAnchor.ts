@@ -200,6 +200,7 @@ async function generateContractConfigs(
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
         getImmutableReference("PacayaAnchor", ["pacayaForkHeight"]),
+        getImmutableReference("ShastaAnchor", ["shastaForkHeight"]),
         getImmutableReference("TaikoAnchor", ["signalService"]),
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
