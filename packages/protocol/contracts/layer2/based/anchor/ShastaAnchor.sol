@@ -2,10 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
-import "./LibEIP1559Classic.sol";
-import "./TaikoAnchorPacaya.sol";
+import "../eip1559/LibEIP1559Classic.sol";
+import "./PacayaAnchor.sol";
 
-abstract contract TaikoAnchorShasta is TaikoAnchorPacaya {
+/// @title ShastaAnchor
+/// @notice Anchoring functions for the Shasta fork.
+/// @custom:security-contact security@taiko.xyz
+abstract contract ShastaAnchor is PacayaAnchor {
     uint64 public immutable shastaForkHeight;
 
     error InvalidForkHeight();
@@ -18,7 +21,7 @@ abstract contract TaikoAnchorShasta is TaikoAnchorPacaya {
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight
     )
-        TaikoAnchorPacaya(_resolver, _signalService, _pacayaForkHeight)
+        PacayaAnchor(_resolver, _signalService, _pacayaForkHeight)
     {
         require(shastaForkHeight == 0 || shastaForkHeight > _pacayaForkHeight, InvalidForkHeight());
         shastaForkHeight = _shastaForkHeight;
