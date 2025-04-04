@@ -25,7 +25,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
@@ -270,7 +269,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
 	}
-	if preconfRouter != transaction.ZeroAddress {
+	if preconfRouter != rpc.ZeroAddress {
 		log.Info("Preconfirmation router is set, skip proposing", "address", preconfRouter, "time", time.Now())
 		return nil
 	}
