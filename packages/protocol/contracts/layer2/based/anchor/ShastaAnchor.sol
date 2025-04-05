@@ -64,6 +64,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _verifyAndUpdatePublicInputHash(parentId);
 
         uint256 blockTime = block.timestamp - parentTimestamp;
+
         require(
             shastaGetBaseFee(
                 _parentBaseFee,
@@ -91,8 +92,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint256 _parentBaseFee,
         uint64 _parentGasUsed,
         uint256 _blockTime,
-        uint256 _adjustmentQuotient,
-        uint256 _gasIssuancePerSecond
+        uint8 _adjustmentQuotient,
+        uint32 _gasIssuancePerSecond
     )
         public
         view
@@ -100,7 +101,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     {
         return _blockTime == 0
             ? _parentBaseFee
-            : LibEIP1559Classic.calculateClassicBaseFee(
+            : LibEIP1559Classic.calculateBaseFee(
                 _parentBaseFee,
                 _parentGasUsed + accumulatedAncestorGasUsed,
                 _adjustmentQuotient,
