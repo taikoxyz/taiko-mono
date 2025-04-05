@@ -68,14 +68,12 @@ library LibEIP1559Classic {
         pure
         returns (uint256)
     {
-        if (_parentGasUsed >= _gasIssuance) {
-            return _parentBasefee
+        return _parentGasUsed >= _gasIssuance
+            ? _parentBasefee
                 + _parentBasefee * (_parentGasUsed - _gasIssuance) / _gasIssuance * _changeNumerator
-                    / _changeDenominator;
-        } else {
-            return _parentBasefee
+                    / _changeDenominator
+            : _parentBasefee
                 - _parentBasefee * (_gasIssuance - _parentGasUsed) / _gasIssuance * _changeNumerator
                     / _changeDenominator;
-        }
     }
 }
