@@ -28,11 +28,11 @@ contract ForkRouter_RouteToOldFork is ForkRouter {
     }
 }
 
-contract TestForkManager is Layer1Test {
+contract TestForkRouter is Layer1Test {
     address fork1 = address(new Fork("fork1"));
     address fork2 = address(new Fork("fork2"));
 
-    function test_ForkManager_default_routing() public transactBy(deployer) {
+    function test_ForkRouter_default_routing() public transactBy(deployer) {
         address proxy = deploy({
             name: "main_proxy",
             impl: address(new ForkRouter(address(0), fork1)),
@@ -48,7 +48,7 @@ contract TestForkManager is Layer1Test {
         assertEq(Fork(proxy).name(), "fork1");
     }
 
-    function test_ForkManager_routing_to_old_fork() public transactBy(deployer) {
+    function test_ForkRouter_routing_to_old_fork() public transactBy(deployer) {
         address proxy = deploy({
             name: "main_proxy",
             impl: address(new ForkRouter_RouteToOldFork(fork1, fork2)),

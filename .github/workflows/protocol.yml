@@ -24,13 +24,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Add permissions block at the workflow level
+permissions:
+  contents: write # This allows the workflow to push commits
+  pull-requests: write # This allows the workflow to comment on PRs
+
 jobs:
   build-protocol:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     runs-on: [arc-runner-set]
-    permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -66,21 +68,12 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
 
-      - name: Check for changes
-        id: git_status
-        run: |
-          git add -N .  # Simulate staging to detect untracked files
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "changes=true" >> $GITHUB_ENV
-          else
-            echo "changes=false" >> $GITHUB_ENV
-          fi
-
-      - name: Commit contract layout table
-        if: env.changes == 'true'
+      - name: Commit workflow-triggered changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "forge fmt & update contract layout tables"
+          commit_message: "forge fmt & update contract layouts and gas snapshots"
+          skip_empty_commits: true
+          file_pattern: "packages/protocol/.gas-snapshot packages/protocol/contract_layout_*.md"
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
@@ -95,9 +88,6 @@ jobs:
   genesis-docker:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     runs-on: [taiko-runner]
-    permissions:
-      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
-      contents: write
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
