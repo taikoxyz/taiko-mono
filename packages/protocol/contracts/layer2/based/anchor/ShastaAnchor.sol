@@ -59,7 +59,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
 
-        uint64 blockTime = uint64(block.timestamp - parentTimestamp);
+        uint256 blockTime = block.timestamp - parentTimestamp;
         require(
             shastaGetBaseFee(
                 _parentBaseFee,
