@@ -39,10 +39,10 @@ library LibEIP1559Classic {
         pure
         returns (uint256)
     {
-        // TODO(daniel): how to make sure the following calculation never overflow or underflow?
         require(_blockTime != 0, ZeroBlockTime());
         require(_gasPerSeconds != 0, ZeroGasPerSecond());
 
+        // The following calculation will shall never overflow or underflow.
         uint256 changePerSecondDenominator =
             uint256(_adjustmentQuotient) * LibNetwork.ETHEREUM_BLOCK_TIME;
         uint256 effectiveBlockTime = _blockTime.min(BLOCK_TIME_CALCULATION_CAP);
