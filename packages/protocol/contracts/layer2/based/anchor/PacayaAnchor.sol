@@ -53,9 +53,15 @@ abstract contract PacayaAnchor is EssentialContract, IBlockHashProvider, OntakeA
     /// @dev Slot 4.
     uint64 public l1ChainId;
 
-    /// @notice The accoumulated gas from ancester blocks that have not been used to adjust the base
-    /// fee due the 0 block time.
-    uint64 internal accumulatedGasUsed;
+    /// @notice The accumulated gas from ancestor blocks that have not been used to adjust the base
+    /// fee due to 0 block time. For example, in the block sequence [A] ──10s──▶ [B]
+    /// ──0s──▶ [C] ──2s──▶ [D],
+    /// when calculating the base fee for block D, the combined gas used by both blocks B and C is
+    /// considered
+    /// as the "parent gas used" instead of just using block C’s gas usage. This ensures that the
+    /// gas used by
+    /// block B is correctly included in the base fee calculation.
+    uint64 internal accumulatedAncestorGasUsed;
 
     uint256[46] private __gap;
 

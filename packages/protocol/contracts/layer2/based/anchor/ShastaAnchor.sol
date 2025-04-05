@@ -42,7 +42,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint256 _parentBaseFee,
-        uint32 _parentGasUsed,
+        uint64 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
     )
@@ -72,9 +72,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
         );
 
         if (blockTime == 0) {
-            accumulatedGasUsed += _parentGasUsed;
+            accumulatedAncestorGasUsed += _parentGasUsed;
         } else {
-            accumulatedGasUsed = 0;
+            accumulatedAncestorGasUsed = 0;
         }
 
         _syncChainData(_anchorBlockId, _anchorStateRoot);
@@ -98,7 +98,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             ? _parentBaseFee
             : LibEIP1559Classic.calculateClassicBaseFee(
                 _parentBaseFee,
-                _parentGasUsed + accumulatedGasUsed,
+                _parentGasUsed + accumulatedAncestorGasUsed,
                 _adjustmentQuotient,
                 _gasIssuancePerSecond,
                 _blockTime
