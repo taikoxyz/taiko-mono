@@ -13,9 +13,9 @@ library LibEIP1559Classic {
     error ZeroBlockTime();
     error ZeroGasPerSecond();
 
-    /// @dev This value is the minimum base fee for Ontake.
-    uint256 public constant MIN_BASE_FEE = 0.008847185 gwei;
-    uint256 public constant MAX_BASE_FEE = 100 gwei;
+    // The minimum base fee for Ontake fork is 008847185 gwei;
+    uint256 public constant MIN_BASE_FEE = 0.008 gwei;
+    uint256 public constant MAX_BASE_FEE = 80 gwei;
 
     /// @dev Max value for block time calculation.
     /// @dev This value is set to 13 to ensure calculation never overflow or underflow.
