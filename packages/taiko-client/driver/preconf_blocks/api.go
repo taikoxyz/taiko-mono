@@ -259,7 +259,7 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		"currentHead", currentHead.Number.Uint64(),
 	)
 
-	if reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
+	if reqBody.NewLastBlockID <= canonicalHeadL1Origin.BlockID.Uint64() {
 		return s.returnError(
 			c,
 			http.StatusBadRequest,
