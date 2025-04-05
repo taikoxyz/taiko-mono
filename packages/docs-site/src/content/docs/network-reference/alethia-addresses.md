@@ -61,6 +61,7 @@ description: Network reference page describing various important addresses on Ta
 | WETH                   | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
 | Safe Singleton Factory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` |
 | Multicall3             | `0xca11bde05977b3631167028862be2a173976ca11` |
+| EntryPoint (ERC-4337)  | `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` |
 
 ## Contract owners
 
