@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
@@ -35,7 +36,7 @@ func (s *TransactionTestSuite) SetupTest() {
 	s.builder = NewProveBlockTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		ZeroAddress,
+		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 	)
@@ -62,7 +63,7 @@ func (s *TransactionTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
-	s.sender = NewSender(s.RPCClient, txmgr, txmgr, ZeroAddress, 0)
+	s.sender = NewSender(s.RPCClient, txmgr, txmgr, rpc.ZeroAddress, 0)
 }
 
 func (s *TransactionTestSuite) TestIsSubmitProofTxErrorRetryable() {
