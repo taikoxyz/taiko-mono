@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.1...docs-site-v1.27.2) (2025-04-05)
+
+
+### Chores
+
+* **docs-site:** update proverset guide, alethia and hekla addresses, include surge in devtools ([#19215](https://github.com/taikoxyz/taiko-mono/issues/19215)) ([1d831cb](https://github.com/taikoxyz/taiko-mono/commit/1d831cbea77ea61dc63d60b067fe447d1e4a08c5))
+
 ## [1.27.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.0...docs-site-v1.27.1) (2025-03-27)
 
 
