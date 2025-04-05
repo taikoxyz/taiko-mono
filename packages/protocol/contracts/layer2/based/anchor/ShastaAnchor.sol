@@ -23,7 +23,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
     )
         PacayaAnchor(_resolver, _signalService, _pacayaForkHeight)
     {
-        require(shastaForkHeight == 0 || shastaForkHeight > _pacayaForkHeight, InvalidForkHeight());
+        require(
+            _pacayaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
+        );
         shastaForkHeight = _shastaForkHeight;
     }
 
@@ -54,7 +56,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         onlyGoldenTouch
         nonReentrant
     {
-        require(shastaForkHeight != 0 && block.number >= shastaForkHeight, L2_FORK_ERROR());
+        require(pacayaForkHeight == 0 || block.number >= shastaForkHeight, L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
