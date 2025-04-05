@@ -136,7 +136,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"gasUsed", header.GasUsed,
 		"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
 		"extraData", common.Bytes2Hex(header.Extra),
-		"baseFee", utils.WeiToEther(header.BaseFee),
+		"baseFee", utils.WeiToGWei(header.BaseFee),
 	)
 
 	// Propagate the preconfirmation block to the P2P network, if the current server

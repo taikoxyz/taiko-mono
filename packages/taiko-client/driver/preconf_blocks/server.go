@@ -234,15 +234,27 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
-	if header != nil && header.Hash() == msg.ExecutionPayload.BlockHash {
-		log.Debug(
-			"Preconfirmation block already exists",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"txs", len(msg.ExecutionPayload.Transactions),
-		)
-		return nil
+	if header != nil {
+		if header.Hash() == msg.ExecutionPayload.BlockHash && header.ParentHash == msg.ExecutionPayload.ParentHash {
+			log.Info(
+				"Preconfirmation block already exists",
+				"peer", from,
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"hash", msg.ExecutionPayload.BlockHash.Hex(),
+				"txs", len(msg.ExecutionPayload.Transactions),
+			)
+			return nil
+		} else {
+			log.Info("Preconfirmation block already exists with different hash / parent hash",
+				"peer", from,
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"hash", msg.ExecutionPayload.BlockHash.Hex(),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+				"headerHash", header.Hash().Hex(),
+				"headerParentHash", header.ParentHash.Hex(),
+				"txs", len(msg.ExecutionPayload.Transactions),
+			)
+		}
 	}
 
 	// Insert the preconfirmation block into the L2 EE chain.
