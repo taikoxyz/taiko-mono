@@ -53,6 +53,10 @@ abstract contract PacayaAnchor is EssentialContract, IBlockHashProvider, OntakeA
     /// @dev Slot 4.
     uint64 public l1ChainId;
 
+    /// @notice The accoumulated gas from ancester blocks that have not been used to adjust the base
+    /// fee due the 0 block time.
+    uint64 internal accumulatedGasUsed;
+
     uint256[46] private __gap;
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.

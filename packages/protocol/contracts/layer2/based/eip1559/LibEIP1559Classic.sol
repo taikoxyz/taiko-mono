@@ -9,6 +9,9 @@ import "src/shared/libs/LibMath.sol";
 library LibEIP1559Classic {
     using LibMath for uint256;
 
+    error ZeroBlockTime();
+    error ZeroGasPerSecond();
+
     /// @dev This value is the minimum base fee for Ontake.
     uint256 public constant MIN_BASE_FEE = 0.008847185 gwei;
 
@@ -33,12 +36,14 @@ library LibEIP1559Classic {
         pure
         returns (uint256)
     {
-        uint256 gasIssuance = _gasPerSeconds * _blockTime.min(GAS_ISSUANCE_TIME_CAP);
-        if (gasIssuance == 0) {
-            return _parentBasefee;
-        }
+        require(_blockTime != 0, ZeroBlockTime());
+        require(_gasPerSeconds != 0, ZeroGasPerSecond());
+
         return _calculateClassicBaseFee(
-            _parentBasefee, _parentGasUsed, _adjustmentQuotient, gasIssuance
+            _parentBasefee,
+            _parentGasUsed,
+            _adjustmentQuotient,
+            _gasPerSeconds * _blockTime.min(GAS_ISSUANCE_TIME_CAP)
         ).max(MIN_BASE_FEE);
     }
 
