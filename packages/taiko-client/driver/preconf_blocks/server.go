@@ -234,7 +234,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
-	if header != nil {
+	if header != nil && header.Hash() == msg.ExecutionPayload.BlockHash {
 		log.Debug(
 			"Preconfirmation block already exists",
 			"peer", from,
