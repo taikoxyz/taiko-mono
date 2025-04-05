@@ -58,7 +58,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     {
         // If shastaForkHeight is 0, the shasta fork is not scheduled to be active. Set it to 1 to
         // activate shasta immediately after genesis.
-        require(shastaForkHeight != 0 || block.number >= shastaForkHeight, L2_FORK_ERROR());
+        require(shastaForkHeight != 0 && block.number >= shastaForkHeight, L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
