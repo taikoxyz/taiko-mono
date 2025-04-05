@@ -150,7 +150,8 @@ func TransitionContestedEventToV2(
 	}
 }
 
-// BlockVerifiedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerified to *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerifiedV2.
+// BlockVerifiedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerified
+// to *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerifiedV2.
 func BlockVerifiedEventToV2(e *ontakeBindings.TaikoL1ClientBlockVerified) *ontakeBindings.TaikoL1ClientBlockVerifiedV2 {
 	return &ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 		BlockId:   e.BlockId,

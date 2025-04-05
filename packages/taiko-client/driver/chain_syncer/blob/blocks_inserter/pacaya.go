@@ -252,14 +252,31 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	return nil
 }
 
-// InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
-func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
+// InsertPreconfBlocksFromExecutionPayloads inserts preconf blocks from the given execution payloads.
+func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	ctx context.Context,
-	executableData *eth.ExecutionPayload,
-) (*types.Header, error) {
+	executionPayloads []*eth.ExecutionPayload,
+) ([]*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	headers := make([]*types.Header, len(executionPayloads))
+	for j, executableData := range executionPayloads {
+		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert preconf block: %w", err)
+		}
+		headers[j] = header
+	}
+
+	return headers, nil
+}
+
+// insertPreconfBlockFromExecutionPayload the inner method to insert a preconf block from the given execution payload.
+func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
+	ctx context.Context,
+	executableData *eth.ExecutionPayload,
+) (*types.Header, error) {
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
@@ -270,7 +287,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	if headL1Origin != nil {
 		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 			return nil, fmt.Errorf(
-				"preconfirmation block number (%d) is less than or equal to the current head L1 origin block ID (%d)",
+				"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
 				executableData.BlockNumber,
 				headL1Origin.BlockID,
 			)
@@ -279,6 +296,11 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 
 	if len(executableData.Transactions) == 0 {
 		return nil, fmt.Errorf("no transactions data in the payload")
+	}
+
+	// Decompress the transactions list.
+	if executableData.Transactions[0], err = utils.DecompressPacaya(executableData.Transactions[0]); err != nil {
+		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)

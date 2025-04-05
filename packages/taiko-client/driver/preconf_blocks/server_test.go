@@ -2,8 +2,10 @@ package preconfblocks
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
@@ -17,7 +19,7 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*", nil, nil, s.RPCClient)
+	server, err := New("*", nil, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), nil, s.RPCClient)
 	s.Nil(err)
 	s.s = server
 	go func() {
