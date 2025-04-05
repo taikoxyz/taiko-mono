@@ -41,6 +41,7 @@ description: Network reference page describing various important addresses on Ta
 | SP1Verifier (Pacaya)            | `0x1138aA994477f0880001aa1E8106D749035b6250` |
 | PlonkVerifier                   | `0x7110bd8909CFC4C31204BA8597882CBFa1F77dC9` |
 | PivotVerifier (Pacaya)          | `0x4361B85093720bD50d25236693CA58FD6e1b3a53` |
+| PivotAutomataDcapAttestation    | `0x84af08F56AeA1f847c75bE08c96cDC4811694595` |
 | AutomataDcapAttestation         | `0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398` |
 | PemCertChainLib                 | `0x08d7865e7F534d743Aba5874A9AD04bcB223a92E` |
 | ProverSet                       | `0xD3f681bD6B49887A48cC9C9953720903967E9DC0` |
@@ -56,8 +57,10 @@ description: Network reference page describing various important addresses on Ta
 | ERC1155Vault                  | `0x1670090000000000000000000000000000000004` |
 | SignalService                 | `0x1670090000000000000000000000000000000005` |
 | SharedAddressManager          | `0x1670090000000000000000000000000000000006` |
+| SharedResolver                | `0xF2880d5F0dF947Ab5A08B43D0b6B2841757CB25e` |
 | TaikoL2/TaikoAnchor (Pacaya)  | `0x1670090000000000000000000000000000010001` |
 | RollupAddressManager          | `0x1670090000000000000000000000000000010002` |
+| RollupResolver                | `0x4a10e91F528F1EeA44C6E5744607BB5F3904d539` |
 | BridgedTaikoToken             | `0xebf1f662bf092ff0d913a9fe9d7179b0efef1611` |
 | BridgedERC20                  | `0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF` |
 | BridgedERC721                 | `0x45327BDbe23c1a3F0b437C78a19E813f9b11E566` |
