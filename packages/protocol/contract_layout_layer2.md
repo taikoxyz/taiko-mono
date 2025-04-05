@@ -710,7 +710,7 @@
 |
 | l1ChainId                   | uint64                      | 254  | 0      | 8     |
 |
-| accumulatedGasUsed          | uint64                      | 254  | 8      | 8     |
+| accumulatedAncestorGasUsed  | uint64                      | 254  | 8      | 8     |
 |
 | __gap                       | uint256[46]                 | 255  | 0      | 1472  |
 |
