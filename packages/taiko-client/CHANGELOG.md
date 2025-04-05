@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.5.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.4.1...taiko-alethia-client-v1.5.0) (2025-04-05)
+
+
+### Features
+
+* **taiko-client:** check proof status in `BatchesProved` event handler ([#19184](https://github.com/taikoxyz/taiko-mono/issues/19184)) ([836aaf3](https://github.com/taikoxyz/taiko-mono/commit/836aaf3a21362d540f701f02be61b89943fb4a06))
+* **taiko-client:** clear buffer & make `proofPollingInterval` configurable ([#19202](https://github.com/taikoxyz/taiko-mono/issues/19202)) ([8ec1dbd](https://github.com/taikoxyz/taiko-mono/commit/8ec1dbd03af87f5a8431a752fcce1705c8eadedb))
+* **taiko-client:** enable pivot proof & refactor logging ([#19173](https://github.com/taikoxyz/taiko-mono/issues/19173)) ([4a6d079](https://github.com/taikoxyz/taiko-mono/commit/4a6d079622f7bfbfcf2a28dff3386d51fe308b1e))
+* **taiko-client:** improve `BatchesProved` event handler in prover ([#19182](https://github.com/taikoxyz/taiko-mono/issues/19182)) ([ed94969](https://github.com/taikoxyz/taiko-mono/commit/ed9496991cf4455d15cdd096d4a494f14e31ed01))
+* **taiko-client:** improve P2P message checks in `OnUnsafeL2Payload` ([#19187](https://github.com/taikoxyz/taiko-mono/issues/19187)) ([a33062e](https://github.com/taikoxyz/taiko-mono/commit/a33062e0c42d3e6dfb54d79f205f0a84858a44b6))
+* **taiko-client:** remove some unused proposer flags ([#19180](https://github.com/taikoxyz/taiko-mono/issues/19180)) ([e17b57a](https://github.com/taikoxyz/taiko-mono/commit/e17b57af40f4d6165c2f09dbda86594d13380582))
+* **taiko-client:** remove some unused variables in `rpc` package ([#19213](https://github.com/taikoxyz/taiko-mono/issues/19213)) ([b62731c](https://github.com/taikoxyz/taiko-mono/commit/b62731c4df09701c1d8a0a4449d3cd5001e08c48))
+
+
+### Bug Fixes
+
+* **taiko-client:** check `--prover.proveUnassignedBlocks` flag value before proving expired blocks ([#19172](https://github.com/taikoxyz/taiko-mono/issues/19172)) ([2803954](https://github.com/taikoxyz/taiko-mono/commit/280395485fce6b783f7e96b4c74d8ce587cec065))
+
+
+### Chores
+
+* **taiko-client:** improve `BatchesVerified` event handler ([#19178](https://github.com/taikoxyz/taiko-mono/issues/19178)) ([938256b](https://github.com/taikoxyz/taiko-mono/commit/938256bd11438b91220d5607a29d5ac054978c63))
+* **taiko-client:** remove a duplicated check for P2P message ([#19189](https://github.com/taikoxyz/taiko-mono/issues/19189)) ([4a793f5](https://github.com/taikoxyz/taiko-mono/commit/4a793f5c993132185c3cf8283df3393499b8e5b0))
+* **taiko-client:** rename some variables ([#19179](https://github.com/taikoxyz/taiko-mono/issues/19179)) ([d2904d1](https://github.com/taikoxyz/taiko-mono/commit/d2904d1210a71a0d8b09b0bc5bb966c1d4ce899c))
+* **taiko-client:** use `golang:1.24-alpine` in Dockerfile ([#19181](https://github.com/taikoxyz/taiko-mono/issues/19181)) ([8d786f0](https://github.com/taikoxyz/taiko-mono/commit/8d786f0399d0ee77af32a25a886d12920103f77f))
+
+
+### Tests
+
+* **taiko-client:** improve `TestTxPoolContentWithMinTip` ([#19175](https://github.com/taikoxyz/taiko-mono/issues/19175)) ([df605ec](https://github.com/taikoxyz/taiko-mono/commit/df605ec2a917c1b806aec0bf7ee80b838f66a9c6))
+
 ## [1.4.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.4.0...taiko-alethia-client-v1.4.1) (2025-03-27)
 
 
