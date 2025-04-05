@@ -42,7 +42,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint256 _parentBaseFee,
-        uint32 _parentGasUsed,
+        uint64 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
     )
@@ -59,16 +59,23 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
 
+        uint256 blockTime = block.timestamp - parentTimestamp;
         require(
             shastaGetBaseFee(
                 _parentBaseFee,
                 _parentGasUsed,
-                block.timestamp,
+                blockTime,
                 _baseFeeConfig.adjustmentQuotient,
                 _baseFeeConfig.gasIssuancePerSecond
             ) == block.basefee || skipFeeCheck(),
             L2_BASEFEE_MISMATCH()
         );
+
+        if (blockTime == 0) {
+            accumulatedAncestorGasUsed += _parentGasUsed;
+        } else {
+            accumulatedAncestorGasUsed = 0;
+        }
 
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
@@ -78,21 +85,23 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     function shastaGetBaseFee(
         uint256 _parentBaseFee,
-        uint256 _parentGasUsed,
-        uint256 _blockTimestamp,
+        uint64 _parentGasUsed,
+        uint256 _blockTime,
         uint256 _adjustmentQuotient,
         uint256 _gasIssuancePerSecond
     )
         public
         view
-        returns (uint256 basefee_)
+        returns (uint256)
     {
-        return LibEIP1559Classic.calculateClassicBaseFee(
-            _parentBaseFee,
-            _parentGasUsed,
-            _adjustmentQuotient,
-            _gasIssuancePerSecond,
-            _blockTimestamp - parentTimestamp
-        );
+        return _blockTime == 0
+            ? _parentBaseFee
+            : LibEIP1559Classic.calculateClassicBaseFee(
+                _parentBaseFee,
+                _parentGasUsed + accumulatedAncestorGasUsed,
+                _adjustmentQuotient,
+                _gasIssuancePerSecond,
+                _blockTime
+            );
     }
 }
