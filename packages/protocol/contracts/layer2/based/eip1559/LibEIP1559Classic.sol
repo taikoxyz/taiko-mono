@@ -52,28 +52,14 @@ library LibEIP1559Classic {
 
         uint256 gasIssuance = effectiveBlockTime * _gasPerSeconds;
 
-        return _calculateBaseFee(
-            _parentBasefee, _parentGasUsed, gasIssuance, changeNumerator, changeDenominator
-        ).max(MIN_BASE_FEE).min(MAX_BASE_FEE);
-    }
-
-    function _calculateBaseFee(
-        uint256 _parentBasefee,
-        uint256 _parentGasUsed,
-        uint256 _gasIssuance,
-        uint256 _changeNumerator,
-        uint256 _changeDenominator
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        return _parentGasUsed >= _gasIssuance
+        uint256 baseFee = _parentGasUsed >= gasIssuance
             ? _parentBasefee
-                + _parentBasefee * (_parentGasUsed - _gasIssuance) / _gasIssuance * _changeNumerator
-                    / _changeDenominator
+                + _parentBasefee * (_parentGasUsed - gasIssuance) / gasIssuance * changeNumerator
+                    / changeDenominator
             : _parentBasefee
-                - _parentBasefee * (_gasIssuance - _parentGasUsed) / _gasIssuance * _changeNumerator
-                    / _changeDenominator;
+                - _parentBasefee * (gasIssuance - _parentGasUsed) / gasIssuance * changeNumerator
+                    / changeDenominator;
+
+        return baseFee.max(MIN_BASE_FEE).min(MAX_BASE_FEE);
     }
 }
