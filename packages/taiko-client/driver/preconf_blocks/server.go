@@ -235,7 +235,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
 	if header != nil {
-		if header.Hash() == msg.ExecutionPayload.BlockHash && header.ParentHash == msg.ExecutionPayload.ParentHash {
+		if header.Hash() == msg.ExecutionPayload.BlockHash {
 			log.Info(
 				"Preconfirmation block already exists",
 				"peer", from,
@@ -245,7 +245,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			)
 			return nil
 		} else {
-			log.Info("Preconfirmation block already exists with different hash / parent hash",
+			log.Info("Preconfirmation block already exists with different hash",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
