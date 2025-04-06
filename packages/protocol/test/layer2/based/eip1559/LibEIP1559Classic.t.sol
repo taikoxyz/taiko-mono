@@ -171,25 +171,27 @@ contract LibEIP1559ClassicTest is Layer2Test {
         assertGe(newBaseFee, LibEIP1559Classic.MIN_BASE_FEE);
     }
 
-    function test_1559classic_calculateBaseFee_ZeroValues_ShouldRevert() public {
+    function test_1559classic_calculateBaseFee_ZeroBlockTime_ShouldRevert() public {
         // Test that zero block time reverts
         vm.expectRevert(LibEIP1559Classic.ZeroBlockTime.selector);
         LibEIP1559Classic.calculateBaseFee(
-            1 gwei, // normal parent base fee
-            0, // gas used
-            8, // adjustment quotient
-            15_000_000, // gas per second
-            0 // zero block time - should revert
+            1 gwei,         // parent base fee
+            15_000_000,     // gas used
+            8,              // adjustment quotient
+            15_000_000,     // gas per second
+            0               // zero block time - should revert
         );
+    }
 
+    function test_1559classic_calculateBaseFee_ZeroGasPerSecond_ShouldRevert() public {
         // Test that zero gas per second reverts
         vm.expectRevert(LibEIP1559Classic.ZeroGasPerSecond.selector);
         LibEIP1559Classic.calculateBaseFee(
-            1 gwei, // normal parent base fee
-            0, // gas used
-            8, // adjustment quotient
-            0, // zero gas per second - should revert
-            12 // normal block time
+            1 gwei,         // parent base fee
+            15_000_000,     // gas used
+            8,              // adjustment quotient
+            0,              // zero gas per second - should revert
+            12              // block time
         );
     }
 }
