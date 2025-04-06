@@ -30,7 +30,7 @@ library LibEIP1559Classic {
     /// @return The calculated classic base fee.
     function calculateBaseFee(
         uint256 _parentBasefee,
-        uint256 _parentGasUsed,
+        uint64 _parentGasUsed,
         uint8 _adjustmentQuotient,
         uint32 _gasPerSeconds,
         uint256 _blockTime
