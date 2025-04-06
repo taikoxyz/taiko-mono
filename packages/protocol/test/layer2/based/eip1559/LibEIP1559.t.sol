@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./Layer2Test.sol";
+import "test/layer2/Layer2Test.sol";
 
 contract TestLibEIP1559 is Layer2Test {
     using LibMath for uint256;
