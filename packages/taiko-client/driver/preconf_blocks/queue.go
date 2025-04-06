@@ -68,7 +68,7 @@ func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*e
 
 	longestChildren := []*eth.ExecutionPayload{}
 
-	var searchLongestChildren func(currentpayload *eth.ExecutionPayload, chain []*eth.ExecutionPayload)
+	var searchLongestChildren func(currentPayload *eth.ExecutionPayload, chain []*eth.ExecutionPayload)
 	searchLongestChildren = func(currentpayload *eth.ExecutionPayload, chain []*eth.ExecutionPayload) {
 		children := []*eth.ExecutionPayload{}
 		for _, item := range q.payloads {
