@@ -693,7 +693,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 		return nil
 	}
 
-	insertPayloadFromBlock := func(block *types.Block, gossipRamdon bool) {
+	insertPayloadFromBlock := func(block *types.Block, gossipRandom bool) {
 		baseFee, overflow := uint256.FromBig(block.BaseFee())
 		s.False(overflow)
 
