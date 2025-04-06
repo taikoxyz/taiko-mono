@@ -20,7 +20,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"golang.org/x/sync/errgroup"
 
-	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -44,10 +43,9 @@ type preconfBlockChainSyncer interface {
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
-	echo               *echo.Echo
-	chainSyncer        preconfBlockChainSyncer
-	rpc                *rpc.Client
-	txListDecompressor *txListDecompressor.TxListDecompressor
+	echo        *echo.Echo
+	chainSyncer preconfBlockChainSyncer
+	rpc         *rpc.Client
 	// P2P network for preconf block propagation
 	p2pNode        *p2p.NodeP2P
 	p2pSigner      p2p.Signer
@@ -62,21 +60,11 @@ func New(
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 ) (*PreconfBlockAPIServer, error) {
-	protocolConfigs, err := cli.GetProtocolConfigs(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch protocol configs: %w", err)
-	}
-
 	server := &PreconfBlockAPIServer{
 		echo:        echo.New(),
 		chainSyncer: chainSyncer,
-		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(protocolConfigs.BlockMaxGasLimit()),
-			uint64(rpc.BlobBytes),
-			cli.L2.ChainID,
-		),
-		rpc:       cli,
-		lookahead: &Lookahead{},
+		rpc:         cli,
+		lookahead:   &Lookahead{},
 	}
 
 	server.echo.HideBanner = true
