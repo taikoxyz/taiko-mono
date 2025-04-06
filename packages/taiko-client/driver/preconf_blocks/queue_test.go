@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 

@@ -719,7 +719,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 			}},
 		))
 
-		if gossipRamdon {
+		if gossipRandom {
 			// Also gossip some random blocks
 			s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
 				context.Background(),
