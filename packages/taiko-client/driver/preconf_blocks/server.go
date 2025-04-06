@@ -241,18 +241,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"txs", len(msg.ExecutionPayload.Transactions),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			)
 			return nil
 		} else {
-			log.Info("Preconfirmation block already exists with different hash",
+			log.Info(
+				"Preconfirmation block already exists with different hash",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 				"headerHash", header.Hash().Hex(),
 				"headerParentHash", header.ParentHash.Hex(),
-				"txs", len(msg.ExecutionPayload.Transactions),
 			)
 		}
 	}
@@ -332,34 +332,24 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	return nil
 }
 
-// ImportChildBlocksFromCache tries to import cached child payloads from the cached payload queue.
+// ImportChildBlocksFromCache tries to import the longest cached child payloads from the cached payload queue.
 func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	ctx context.Context,
 	currentPayload *eth.ExecutionPayload,
 ) error {
 	// Try searching if there is any available child block in the cache.
-	payloadsToImport := make([]*eth.ExecutionPayload, 0)
-
-	for {
-		child := s.payloadsCache.getChild(uint64(currentPayload.BlockNumber), currentPayload.BlockHash)
-		if child == nil {
-			break
-		}
-		payloadsToImport = append(payloadsToImport, child)
-		currentPayload = child
-	}
-
-	if len(payloadsToImport) == 0 {
+	childPayloads := s.payloadsCache.getChildren(uint64(currentPayload.BlockNumber), currentPayload.BlockHash)
+	if len(childPayloads) == 0 {
 		return nil
 	}
 
 	log.Info(
 		"Found available child payloads in the cache, start importing",
-		"count", len(payloadsToImport),
+		"count", len(childPayloads),
 	)
 
 	// Try to import all available child payloads.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport); err != nil {
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, childPayloads); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 

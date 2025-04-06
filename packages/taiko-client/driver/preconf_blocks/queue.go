@@ -5,11 +5,12 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // maxTrackedPayloads is the maximum number of prepared payloads the execution
 // engine tracks before evicting old ones.
-const maxTrackedPayloads = 768 // equal to `maxBlocksPerBatch` in protocol
+const maxTrackedPayloads = 768 * 6 * 32 // equal to `maxBlocksPerBatch` * `maxBlobsPerBlock` * `slotsPerEpoch`
 
 // payloadQueueItem represents an id->payload tuple to store until it's retrieved
 // or evicted.
@@ -60,20 +61,44 @@ func (q *payloadQueue) get(id uint64, hash common.Hash) *eth.ExecutionPayload {
 	return nil
 }
 
-// get retrieves a previously stored payload item or nil if it does not exist.
-func (q *payloadQueue) getChild(id uint64, hash common.Hash) *eth.ExecutionPayload {
+// getChildren retrieves the longest previously stored payload items that are children of the
+// given parent payload.
+func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*eth.ExecutionPayload {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
-	for _, item := range q.payloads {
-		if item == nil {
-			return nil // no more items
+	longestChildren := []*eth.ExecutionPayload{}
+
+	var searchLongestChildren func(currentpayload *eth.ExecutionPayload, chain []*eth.ExecutionPayload)
+	searchLongestChildren = func(currentpayload *eth.ExecutionPayload, chain []*eth.ExecutionPayload) {
+		children := []*eth.ExecutionPayload{}
+		for _, item := range q.payloads {
+			if item == nil {
+				break // no more items
+			}
+			if item.id == uint64(currentpayload.BlockNumber)+1 && item.payload.ParentHash == currentpayload.BlockHash {
+				children = append(children, item.payload)
+			}
 		}
-		if item.id == id+1 && item.payload.ParentHash == hash {
-			return item.payload
+		if len(children) == 0 {
+			if len(chain) > len(longestChildren) {
+				longestChildren = append([]*eth.ExecutionPayload{}, chain...)
+			}
+			return
+		}
+
+		for _, child := range children {
+			searchLongestChildren(child, append(chain, child))
 		}
 	}
-	return nil
+
+	searchLongestChildren(&eth.ExecutionPayload{
+		BlockNumber: eth.Uint64Quantity(parentID),
+		BlockHash:   parentHash,
+	}, []*eth.ExecutionPayload{})
+
+	log.Warn("found longest children", "parentID", parentID, "parentHash", parentHash, "children", len(longestChildren))
+	return longestChildren
 }
 
 // has checks if a particular payload is already tracked.

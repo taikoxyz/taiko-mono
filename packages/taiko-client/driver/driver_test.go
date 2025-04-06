@@ -693,7 +693,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 		return nil
 	}
 
-	insertPayloadFromBlock := func(block *types.Block) {
+	insertPayloadFromBlock := func(block *types.Block, gossipRamdon bool) {
 		baseFee, overflow := uint256.FromBig(block.BaseFee())
 		s.False(overflow)
 
@@ -718,6 +718,45 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 				Withdrawals:   &types.Withdrawals{},
 			}},
 		))
+
+		if gossipRamdon {
+			// Also gossip some random blocks
+			s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
+				context.Background(),
+				peer.ID(testutils.RandomBytes(32)),
+				&eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
+					BlockHash:     common.BytesToHash(testutils.RandomBytes(32)),
+					ParentHash:    common.BytesToHash(testutils.RandomBytes(32)),
+					FeeRecipient:  block.Coinbase(),
+					PrevRandao:    eth.Bytes32(common.BytesToHash(testutils.RandomBytes(32))),
+					BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+					GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+					Timestamp:     eth.Uint64Quantity(block.Time()),
+					ExtraData:     block.Extra(),
+					BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+					Transactions:  []eth.Data{b},
+					Withdrawals:   &types.Withdrawals{},
+				}},
+			))
+
+			s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
+				context.Background(),
+				peer.ID(testutils.RandomBytes(32)),
+				&eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
+					BlockHash:     common.BytesToHash(testutils.RandomBytes(32)),
+					ParentHash:    block.ParentHash(),
+					FeeRecipient:  block.Coinbase(),
+					PrevRandao:    eth.Bytes32(common.BytesToHash(testutils.RandomBytes(32))),
+					BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+					GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+					Timestamp:     eth.Uint64Quantity(block.Time()),
+					ExtraData:     block.Extra(),
+					BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+					Transactions:  []eth.Data{b},
+					Withdrawals:   &types.Withdrawals{},
+				}},
+			))
+		}
 	}
 
 	// Insert all blocks except the first one
@@ -729,7 +768,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 		block := getBlock(uint64(blockNum))
 		s.NotNil(block)
 
-		insertPayloadFromBlock(block)
+		insertPayloadFromBlock(block, true)
 	}
 
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -739,7 +778,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	// Insert the only missing ancient block
 	block := getBlock(l2Head1.Number.Uint64() + 1)
 	s.NotNil(block)
-	insertPayloadFromBlock(block)
+	insertPayloadFromBlock(block, false)
 
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
