@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // maxTrackedPayloads is the maximum number of prepared payloads the execution
@@ -63,6 +62,7 @@ func (q *payloadQueue) get(id uint64, hash common.Hash) *eth.ExecutionPayload {
 
 // getChildren retrieves the longest previously stored payload items that are children of the
 // given parent payload.
+// TODO(David): change to use a map for this cache implementation instead of a slice to avoid O(n) lookups.
 func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*eth.ExecutionPayload {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
@@ -97,7 +97,6 @@ func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*e
 		BlockHash:   parentHash,
 	}, []*eth.ExecutionPayload{})
 
-	log.Warn("found longest children", "parentID", parentID, "parentHash", parentHash, "children", len(longestChildren))
 	return longestChildren
 }
 
