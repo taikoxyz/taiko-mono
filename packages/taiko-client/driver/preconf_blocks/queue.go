@@ -62,7 +62,6 @@ func (q *payloadQueue) get(id uint64, hash common.Hash) *eth.ExecutionPayload {
 
 // getChildren retrieves the longest previously stored payload items that are children of the
 // given parent payload.
-// TODO(David): change to use a map for this cache implementation instead of a slice to avoid O(n) lookups.
 func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*eth.ExecutionPayload {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
