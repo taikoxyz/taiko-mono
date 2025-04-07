@@ -25,7 +25,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 const (
@@ -428,7 +427,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			nextOperatorAddress, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Failed to get next preconf whitelist operator address", "error", err)
-				nextOperatorAddress = transaction.ZeroAddress
+				nextOperatorAddress = rpc.ZeroAddress
 			}
 
 			// Update the lookahead information for the preconfirmation
