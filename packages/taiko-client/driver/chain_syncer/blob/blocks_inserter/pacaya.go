@@ -31,10 +31,21 @@ type insertionResult struct {
 	err    error
 }
 
+type taskType string
+
+const (
+	// TaskTypeInsertBlocks is the task type for inserting blocks.
+	taskTypeInsertBlocks taskType = "insert_blocks"
+	// TaskTypeInsertPreconfBlock is the task type for inserting preconf blocks.
+	taskTypeInsertPreconfBlock taskType = "insert_preconf_block"
+)
+
 type insertionTask struct {
-	name     string
-	f        func() (interface{}, error)
-	resultCh chan insertionResult
+	name        string
+	taskType    taskType
+	blockNumber uint64
+	f           func() (interface{}, error)
+	resultCh    chan insertionResult
 }
 
 // BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
@@ -77,15 +88,68 @@ func NewBlocksInserterPacaya(
 }
 
 func (i *BlocksInserterPacaya) insertionWorker(ctx context.Context) {
+	// Cache for preconfirmation tasks, keyed by block number.
+	pendingPreconf := make(map[uint64]insertionTask)
 	for {
 		select {
 		case <-ctx.Done():
 			return
+
 		case task := <-i.insertionQueue:
-			log.Info("BlocksInsert Processing task", "name", task.name)
-			res, err := task.f()
-			task.resultCh <- insertionResult{result: res, err: err}
+			switch task.taskType {
+			case taskTypeInsertBlocks:
+				// Process batch tasks immediately.
+				res, err := task.f()
+				task.resultCh <- insertionResult{result: res, err: err}
+				// After processing, check if any pending preconf tasks are now ready.
+				i.processPendingPreconf(pendingPreconf)
+			case taskTypeInsertPreconfBlock:
+				// Get the next expected block number.
+				expected, err := i.getNextExpectedBlockNumber()
+				if err != nil {
+					task.resultCh <- insertionResult{err: err}
+					continue
+				}
+				if task.blockNumber == expected {
+					// Expected block: process it.
+					res, err := task.f()
+					task.resultCh <- insertionResult{result: res, err: err}
+					i.processPendingPreconf(pendingPreconf)
+				} else if task.blockNumber > expected {
+					// Not yet the expected block – cache it.
+					pendingPreconf[task.blockNumber] = task
+				} else {
+					// If task.blockNumber < expected, it's stale.
+					task.resultCh <- insertionResult{err: fmt.Errorf("stale preconf block: %d", task.blockNumber)}
+				}
+			}
 		}
+	}
+}
+
+// Helper function to determine the next expected preconfirmation block number.
+func (i *BlocksInserterPacaya) getNextExpectedBlockNumber() (uint64, error) {
+	head, err := i.rpc.L2.BlockNumber(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	return head + 1, nil
+}
+
+func (i *BlocksInserterPacaya) processPendingPreconf(pending map[uint64]insertionTask) {
+	for {
+		expected, err := i.getNextExpectedBlockNumber()
+		if err != nil {
+			break
+		}
+		task, ok := pending[expected]
+		if !ok {
+			break
+		}
+		// Remove from pending and process.
+		delete(pending, expected)
+		res, err := task.f()
+		task.resultCh <- insertionResult{result: res, err: err}
 	}
 }
 
@@ -96,7 +160,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) (err error) {
 	task := insertionTask{
-		name: fmt.Sprintf("task-insertBlocks-%s", metadata.Pacaya().GetBatchID()),
+		name:     fmt.Sprintf("task-insertBlocks-%s", metadata.Pacaya().GetBatchID()),
+		taskType: taskTypeInsertBlocks,
 		f: func() (interface{}, error) {
 			if !metadata.IsPacaya() {
 				return nil, fmt.Errorf("metadata is not for Pacaya fork")
@@ -297,7 +362,9 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
 	task := insertionTask{
-		name: fmt.Sprintf("task-insertPreconfBlock-%s", executableData.BlockNumber.String()),
+		name:        fmt.Sprintf("task-insertPreconfBlock-%v", uint64(executableData.BlockNumber)),
+		taskType:    taskTypeInsertPreconfBlock,
+		blockNumber: uint64(executableData.BlockNumber),
 		f: func() (interface{}, error) {
 			headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
 			if err != nil && err.Error() != ethereum.NotFound.Error() {
