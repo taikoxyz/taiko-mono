@@ -1,6 +1,7 @@
 package preconfblocks
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
