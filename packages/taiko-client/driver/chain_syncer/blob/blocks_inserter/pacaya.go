@@ -96,6 +96,7 @@ func (i *BlocksInserterPacaya) insertionWorker(ctx context.Context) {
 			return
 
 		case task := <-i.insertionQueue:
+			log.Info("Insertion task", "task", task.name)
 			switch task.taskType {
 			case taskTypeInsertBlocks:
 				// Process batch tasks immediately.
@@ -137,6 +138,7 @@ func (i *BlocksInserterPacaya) getNextExpectedBlockNumber() (uint64, error) {
 }
 
 func (i *BlocksInserterPacaya) processPendingPreconf(pending map[uint64]insertionTask) {
+	log.Info("Processing pending preconf", "count", len(pending))
 	for {
 		expected, err := i.getNextExpectedBlockNumber()
 		if err != nil {
