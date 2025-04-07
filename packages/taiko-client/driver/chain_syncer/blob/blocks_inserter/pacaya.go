@@ -118,6 +118,9 @@ func (i *BlocksInserterPacaya) insertionWorker(ctx context.Context) {
 
 					continue
 				}
+
+				log.Info("Preconf block", "blockNumber", task.blockNumber, "expected", expected)
+
 				if task.blockNumber == expected {
 					// Expected block: process it.
 					res, err := task.f()
@@ -130,7 +133,7 @@ func (i *BlocksInserterPacaya) insertionWorker(ctx context.Context) {
 					pendingPreconf[task.blockNumber] = task
 				} else {
 					// If task.blockNumber < expected, it's stale.
-					task.resultCh <- insertionResult{err: fmt.Errorf("stale preconf block: %d", task.blockNumber)}
+					task.resultCh <- insertionResult{err: fmt.Errorf("stale preconf block: %d, expceted: %d", task.blockNumber, expected)}
 				}
 			}
 		}
