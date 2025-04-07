@@ -138,6 +138,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
 		"extraData", common.Bytes2Hex(header.Extra),
 		"baseFee", utils.WeiToGWei(header.BaseFee),
+		"parentHash", header.ParentHash.Hex(),
 	)
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
