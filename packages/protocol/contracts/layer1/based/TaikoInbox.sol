@@ -120,11 +120,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // calldata is used for data availability
                 params.blobParams.createdIn = 0;
             } else if (params.blobParams.blobHashes.length == 0) {
-                // this is a forced-inclusion batch, blobs were created in early blocks and are used
-                // in the current batches
+                // this is a normal batch, blobs are created and used in the current batches.
+                // firstBlobIndex can be non-zero.
                 require(params.blobParams.numBlobs != 0, BlobNotSpecified());
             } else {
-                // this is a normal batch, blobs are created and used in the current batches
+                // this is a forced-inclusion batch, blobs were created in early blocks and are used
+                // in the current batches
                 require(params.blobParams.numBlobs == 0, InvalidBlobParams());
                 require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
