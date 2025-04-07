@@ -208,7 +208,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 	if parentInFork == nil && parentInCanonical == nil {
 		log.Info(
-			"Parent block not in L2 canonical chain",
+			"Parent block not in L2 canonical / fork chain",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -224,7 +224,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				"reason", err,
 			)
 			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-				log.Info("Payload is cached",
+				log.Info(
+					"Payload is cached",
 					"peer", from,
 					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
