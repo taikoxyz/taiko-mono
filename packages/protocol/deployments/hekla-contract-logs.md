@@ -55,51 +55,57 @@
 ### erc20_vault
 
 - proxy: `0x2259662ed5dE0E09943Abe701bc5f5a108eABBAa`
-- impl: `0x1bf437b2f6e5959fe167210Ee2221ADa09a66846`
+- impl: `0xE0b39cda35237b5D7cD92786c374E3F33eB32fB5`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### erc721_vault
 
 - proxy: `0x046b82D9010b534c716742BE98ac3FEf3f2EC99f`
-- impl: `0x06467bab46598b887240044309A6ffE261A0E2e3`
+- impl: `0xECF523E5A17eBBf332dfBeE50a353a4b371f1A3d`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### erc1155_vault
 
 - proxy: `0x9Ae5945Ab34f6182F75E16B73e037421F341fEe3`
-- impl: `0xBFCff65554d6e89A1aC280eE1E9f87764124B833`
+- impl: `0x27cED0cc5e5C659aD5170378a4ec1D036F0ccc4C`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### bridged_erc20
 
-- impl: `0xe3661857941E4A711fa6b4Fc080bC5c5948a70f1`
+- impl: `0xec8f0a6DEb662db8B81E849efACF5bA4a7C182a0`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
   - deployed on Jul 25, 2024 at commit `3d89d24`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### bridged_erc721
 
-- impl: `0xbD832CAf65c8a73609EFd62E2A4FCB1292e4c9C1`
+- impl: `0x44b9E23b905186674dc520CcB3dEE06E44747089`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### bridged_erc1155
 
-- impl: `0x0B5B063dc89EcfCedf8aF570d82598F72a7dfF35`
+- impl: `0x2E31E02cdA034283dcF35c8c60DaC119833C1a86`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### rollup_address_manager
 
@@ -362,32 +368,35 @@
 ### erc20_vault
 
 - proxy: `0x1670090000000000000000000000000000000002`
-- impl: `0x4A5AE0837cfb6C40c7DaF0885ac6c35e2EE644f1`
+- impl: `0x84DeF8dCb9436dF8042e10a850dF5CdDe96Db07e`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Aug 26, 2024 at commit `4e08881`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### erc721_vault
 
 - proxy: `0x1670090000000000000000000000000000000003`
-- impl: `0x2DdAad1110F2F69238Eb834851437fc05DAb62b9`
+- impl: `0xd1d48448c3F798981C2FC19D0CeFA45C18a477Ba`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Aug 26, 2024 at commit `4e08881`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### erc1155_vault
 
 - proxy: `0x1670090000000000000000000000000000000004`
-- impl: `0x58366150b4E1B18dd0D3F043Ba45a9BECb53cd85`
+- impl: `0xE74f1B5a672797938eA20cb1cD8ec499Ee8edd98`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Aug 26, 2024 at commit `4e08881`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### signal_service
 
@@ -451,23 +460,26 @@
 
 ### bridged_erc20
 
-- impl: `0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF`
+- impl: `0x73e77C3BE2AB8761a17D4c1D0c26515a0E1ad0fC`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
   - deployed on Jul 25, 2024 at commit `3d89d24`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### bridged_erc721
 
-- impl: `0x45327BDbe23c1a3F0b437C78a19E813f9b11E566`
+- impl: `0x93a5964F94fb7Cb50604cA5661F9F1536f2C29d4`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### bridged_erc1155
 
-- impl: `0xb190786090Fc4308c4C40808f3bEB55c4463c152`
+- impl: `0xB7651CAB188DB35Ac7A774fef1608b0Ae28a970E`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+  - upgraded on Apr 7, 2025 at commit `aa82224`
 
 ### delegate_owner
 
