@@ -81,7 +81,7 @@ func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*e
 		}
 		if len(children) == 0 {
 			if len(chain) > len(longestChildren) {
-				longestChildren = append([]*eth.ExecutionPayload{}, chain...)
+				longestChildren = slices.Clone(chain)
 			}
 			return
 		}
