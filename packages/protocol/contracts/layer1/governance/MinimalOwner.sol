@@ -2,7 +2,11 @@
 pragma solidity ^0.8.24;
 
 /// @title MinimalOwner
-/// @notice A minimal contract that can own other contracts and forward arbitrary calls
+/// @notice
+///   A minimal contract that can:
+///   1) Own other contracts (receive ownership transfers),
+///   2) Transfer ownership (for exmaple, Taiko DAO),
+///   3) Forward arbitrary calls (execute) to any address, restricted by onlyOwner.
 /// @custom:security-contact security@taiko.xyz
 contract MinimalOwner {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
