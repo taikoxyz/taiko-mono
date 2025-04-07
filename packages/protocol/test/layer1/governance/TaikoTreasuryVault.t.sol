@@ -30,24 +30,21 @@ contract TestTaikoTreasuryVault is Test {
 
     function testTreasuryVaultTransferERC20() public {
         vm.startPrank(owner);
-        
+
         // First transfer tokens to the vault
         token.transfer(address(vault), initialBalance);
         assertEq(token.balanceOf(address(vault)), initialBalance, "Vault should have tokens");
         assertEq(token.balanceOf(owner), 0, "Owner should have no tokens left");
 
         // Now use vault to transfer tokens to recipient
-        bytes memory data = abi.encodeWithSelector(
-            token.transfer.selector,
-            recipient,
-            initialBalance
-        );
+        bytes memory data =
+            abi.encodeWithSelector(token.transfer.selector, recipient, initialBalance);
         vault.forwardCall(address(token), 0, data);
 
         // Verify final balances
         assertEq(token.balanceOf(recipient), initialBalance, "Recipient should have all tokens");
         assertEq(token.balanceOf(address(vault)), 0, "Vault should have no tokens left");
-        
+
         vm.stopPrank();
     }
 
