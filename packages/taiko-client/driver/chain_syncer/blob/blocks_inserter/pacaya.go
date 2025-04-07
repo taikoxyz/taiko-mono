@@ -97,24 +97,28 @@ func (i *BlocksInserterPacaya) insertionWorker(ctx context.Context) {
 
 		case task := <-i.insertionQueue:
 			log.Info("Insertion task", "task", task.name)
+
 			switch task.taskType {
 			case taskTypeInsertBlocks:
-				// Process batch tasks immediately.
 				res, err := task.f()
+
 				task.resultCh <- insertionResult{result: res, err: err}
-				// After processing, check if any pending preconf tasks are now ready.
+
 				i.processPendingPreconf(pendingPreconf)
 			case taskTypeInsertPreconfBlock:
 				// Get the next expected block number.
 				expected, err := i.getNextExpectedBlockNumber()
 				if err != nil {
 					task.resultCh <- insertionResult{err: err}
+
 					continue
 				}
 				if task.blockNumber == expected {
 					// Expected block: process it.
 					res, err := task.f()
+
 					task.resultCh <- insertionResult{result: res, err: err}
+
 					i.processPendingPreconf(pendingPreconf)
 				} else if task.blockNumber > expected {
 					// Not yet the expected block – cache it.
@@ -134,11 +138,13 @@ func (i *BlocksInserterPacaya) getNextExpectedBlockNumber() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return head + 1, nil
 }
 
 func (i *BlocksInserterPacaya) processPendingPreconf(pending map[uint64]insertionTask) {
 	log.Info("Processing pending preconf", "count", len(pending))
+
 	for {
 		expected, err := i.getNextExpectedBlockNumber()
 		if err != nil {
