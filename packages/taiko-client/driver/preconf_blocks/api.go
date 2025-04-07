@@ -76,6 +76,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"gasLimit", reqBody.ExecutableData.GasLimit,
 		"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas)),
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
+		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
 	)
 
 	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
