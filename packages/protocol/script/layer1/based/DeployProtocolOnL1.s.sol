@@ -67,8 +67,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        (address rollupResolver, address proofVerifier) =
-            deployRollupContracts(sharedResolver);
+        (address rollupResolver, address proofVerifier) = deployRollupContracts(sharedResolver);
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
@@ -134,7 +133,6 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function deploySharedContracts() internal returns (address sharedResolver) {
-
         sharedResolver = vm.envAddress("SHARED_RESOLVER");
         if (sharedResolver == address(0)) {
             sharedResolver = deployProxy({
@@ -229,17 +227,13 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy Bridged token implementations
         register(sharedResolver, "bridged_erc20", address(new BridgedERC20(erc20Vault)));
-        register(
-            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(erc721Vault)))
-        );
+        register(sharedResolver, "bridged_erc721", address(new BridgedERC721(address(erc721Vault))));
         register(
             sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(erc1155Vault)))
         );
     }
 
-    function deployRollupContracts(
-        address _sharedResolver
-    )
+    function deployRollupContracts(address _sharedResolver)
         internal
         returns (address rollupResolver, address proofVerifier)
     {
@@ -347,11 +341,11 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Other verifiers
         // Initializable the proxy for proofVerifier to get the contract address at first.
-        (address sgxVerifier, address pivotVerifier) =
+        address sgxVerifier =
             deploySgxVerifier(rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
-
-        (address risc0Verifier, address sp1Verifier) =
-            deployZKVerifiers(rollupResolver, l2ChainId);
+        address pivotVerifier =
+            deployPivotVerifier(rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
+        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver, l2ChainId);
 
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
@@ -360,7 +354,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
         });
-//        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
+        //        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
 
         // Prover set
         deployProxy({
@@ -382,7 +376,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoProofVerifier
     )
         private
-        returns (address sgxVerifier, address pivotVerifier)
+        returns (address sgxVerifier)
     {
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
@@ -395,16 +389,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init, (contractOwner, address(sigVerifyLib), address(pemCertChainLib))
-            ),
-            registerTo: rollupResolver
-        });
-
-        address pivotAutomataProxy = deployProxy({
-            name: "pivot_automata_dcap_attestation",
-            impl: automataDcapV3AttestationImpl,
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init, (contractOwner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init,
+                (contractOwner, address(sigVerifyLib), address(pemCertChainLib))
             ),
             registerTo: rollupResolver
         });
@@ -417,9 +403,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(SgxVerifier.init, contractOwner),
             registerTo: rollupResolver
         });
-        address pivotSgxImpl =
-            address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, pivotAutomataProxy));
-
 
         // Log addresses for the user to register sgx instance
         console2.log("SigVerifyLib", address(sigVerifyLib));
@@ -429,11 +412,31 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function deployPivotVerifier(
         address rollupResolver,
-        address pivotSgxImpl
+        uint64 l2ChainId,
+        address taikoInbox,
+        address taikoProofVerifier
     )
-    private
-    returns
+        private
+        returns (address pivotVerifier)
     {
+        // No need to proxy these, because they are 3rd party. If we want to modify, we simply
+        // change the registerAddress("automata_dcap_attestation", address(attestation));
+        P256Verifier p256Verifier = new P256Verifier();
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+
+        address pivotAutomataProxy = deployProxy({
+            name: "pivot_automata_dcap_attestation",
+            impl: automataDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init,
+                (contractOwner, address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
+        address pivotSgxImpl =
+            address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, pivotAutomataProxy));
         pivotVerifier = deployProxy({
             name: "pivot_verifier",
             impl: pivotSgxImpl,
