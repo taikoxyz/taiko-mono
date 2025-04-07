@@ -94,6 +94,7 @@ func NewSyncer(
 			txListFetcherBlob,
 		),
 		blocksInserterPacaya: blocksInserter.NewBlocksInserterPacaya(
+			ctx,
 			client,
 			progressTracker,
 			blobDataSource,
