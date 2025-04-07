@@ -28,19 +28,21 @@ import (
 // ProofSubmitterOntake is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitterOntake struct {
-	rpc               *rpc.Client
-	proofProducer     producer.ProofProducer
-	resultCh          chan *producer.ProofResponse
-	batchResultCh     chan *producer.BatchProofs
-	aggregationNotify chan uint16
-	anchorValidator   *validator.AnchorTxValidator
-	txBuilder         *transaction.ProveBlockTxBuilder
-	sender            *transaction.Sender
-	proverAddress     common.Address
-	proverSetAddress  common.Address
-	taikoL2Address    common.Address
-	graffiti          [32]byte
-	tiers             []*rpc.TierProviderTierWithID
+	rpc                  *rpc.Client
+	proofProducer        producer.ProofProducer
+	resultCh             chan *producer.ProofResponse
+	batchResultCh        chan *producer.BatchProofs
+	aggregationNotify    chan uint16
+	proofSubmissionCh    chan *producer.ProofRequestBody
+	anchorValidator      *validator.AnchorTxValidator
+	txBuilder            *transaction.ProveBlockTxBuilder
+	sender               *transaction.Sender
+	proverAddress        common.Address
+	proverSetAddress     common.Address
+	taikoL2Address       common.Address
+	graffiti             [32]byte
+	tiers                []*rpc.TierProviderTierWithID
+	proofPollingInterval time.Duration
 	// Guardian prover related.
 	isGuardian      bool
 	submissionDelay time.Duration
@@ -56,6 +58,7 @@ func NewProofSubmitterOntake(
 	resultCh chan *producer.ProofResponse,
 	batchResultCh chan *producer.BatchProofs,
 	aggregationNotify chan uint16,
+	proofSubmissionCh chan *producer.ProofRequestBody,
 	proverSetAddress common.Address,
 	taikoL2Address common.Address,
 	graffiti string,
@@ -68,6 +71,7 @@ func NewProofSubmitterOntake(
 	submissionDelay time.Duration,
 	proofBufferSize uint64,
 	forceBatchProvingInterval time.Duration,
+	proofPollingInterval time.Duration,
 ) (*ProofSubmitterOntake, error) {
 	anchorValidator, err := validator.New(taikoL2Address, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
@@ -80,6 +84,7 @@ func NewProofSubmitterOntake(
 		resultCh:                  resultCh,
 		batchResultCh:             batchResultCh,
 		aggregationNotify:         aggregationNotify,
+		proofSubmissionCh:         proofSubmissionCh,
 		anchorValidator:           anchorValidator,
 		txBuilder:                 builder,
 		sender:                    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
@@ -88,6 +93,7 @@ func NewProofSubmitterOntake(
 		taikoL2Address:            taikoL2Address,
 		graffiti:                  rpc.StringToBytes32(graffiti),
 		tiers:                     tiers,
+		proofPollingInterval:      proofPollingInterval,
 		isGuardian:                isGuardian,
 		submissionDelay:           submissionDelay,
 		proofBuffer:               producer.NewProofBuffer(proofBufferSize),
@@ -221,7 +227,7 @@ func (s *ProofSubmitterOntake) RequestProof(ctx context.Context, meta metadata.T
 			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
 		},
-		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
+		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		if !errors.Is(err, producer.ErrZkAnyNotDrawn) &&
 			!errors.Is(err, producer.ErrProofInProgress) &&
@@ -475,6 +481,14 @@ func (s *ProofSubmitterOntake) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBlocks(batchProof, s.graffiti),
 		batchProof,
 	); err != nil {
+		s.proofBuffer.ClearItems(uint64BlockIDs...)
+		// Resend the proof request
+		for _, proofResp := range batchProof.ProofResponses {
+			s.proofSubmissionCh <- &producer.ProofRequestBody{
+				Tier: proofResp.Tier,
+				Meta: proofResp.Meta,
+			}
+		}
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil
 		}
@@ -527,7 +541,7 @@ func (s *ProofSubmitterOntake) AggregateProofs(ctx context.Context) error {
 			s.batchResultCh <- result
 			return nil
 		},
-		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
+		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		log.Error("Aggregate proof error", "error", err)
 		return err
