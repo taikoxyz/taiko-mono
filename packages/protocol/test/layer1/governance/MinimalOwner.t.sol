@@ -26,14 +26,14 @@ contract TestMinimalOwner is Test {
         vm.stopPrank();
     }
 
-    function test_minimalOwner_TransferOwnershipToZeroAddress() public  {
+    function test_minimalOwner_TransferOwnershipToZeroAddress() public {
         vm.startPrank(owner);
         vm.expectRevert(MinimalOwner.ZeroAddress.selector);
         minimalOwner.transferOwnership(address(0));
         vm.stopPrank();
     }
 
-    function test_minimalOwner_TransferOwnershipToSameAddress() public  {
+    function test_minimalOwner_TransferOwnershipToSameAddress() public {
         vm.startPrank(owner);
         vm.expectRevert(MinimalOwner.SameAddress.selector);
         minimalOwner.transferOwnership(owner);
