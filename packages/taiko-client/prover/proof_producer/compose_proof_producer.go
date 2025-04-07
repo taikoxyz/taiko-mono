@@ -57,6 +57,7 @@ func (s *ComposeProofProducer) RequestProof(
 	log.Info(
 		"Request proof from raiko-host service",
 		"batchID", batchID,
+		"proofType", s.ProofType,
 		"coinbase", meta.Pacaya().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
@@ -242,6 +243,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 		)
 	}
 
+	proofType = output.ProofType
 	log.Info(
 		"Batch proof generated",
 		"isAggregation", isAggregation,
