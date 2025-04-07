@@ -7,7 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @title TokenLocker
 /// @notice A contract for locking and unlocking tokens with a linear release schedule.
 /// @dev This contract regulates the spending rate of TAIKO tokens to prevent the DAO from being
-/// exploited by malicious key opinion leaders (KOLs) who might rapidly deplete the TAIKO token treasury.
+/// exploited by malicious key opinion leaders (KOLs) who might rapidly deplete the TAIKO token
+/// treasury.
 /// The contract is intentionally designed to be non-upgradable.
 /// @custom:security-contact security@taiko.xyz
 contract TokenLocker is Ownable {
