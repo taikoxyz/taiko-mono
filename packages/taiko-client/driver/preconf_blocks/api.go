@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
 	"github.com/modern-go/reflect2"
@@ -79,18 +80,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 	)
 
-	if reqBody.ExecutableData.Timestamp == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero timestamp is required"))
-	}
-	if reqBody.ExecutableData.FeeRecipient == (common.Address{}) {
-		return s.returnError(c, http.StatusBadRequest, errors.New("empty L2 fee recipient"))
-	}
-	if reqBody.ExecutableData.GasLimit == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero gas limit is required"))
-	}
-	if reqBody.ExecutableData.BaseFeePerGas == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero base fee per gas is required"))
-	}
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
 	if overflow {
 		return s.returnError(c, http.StatusBadRequest, errors.New("base fee per gas is too large"))
@@ -113,26 +102,29 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Decompress the transactions list.
-	decompressed, err := utils.DecompressPacaya(reqBody.ExecutableData.Transactions)
-	if err != nil {
-		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
+	payload := &eth.ExecutionPayload{
+		ParentHash:    reqBody.ExecutableData.ParentHash,
+		FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
+		PrevRandao:    eth.Bytes32(difficulty[:]),
+		BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
+		GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
+		Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
+		ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
+		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+		Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 	}
+
+	decompressed, err := s.ValidateExecutionPayload(payload)
+	if err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
+
+	payload.Transactions = []eth.Data{decompressed}
 
 	// Insert the preconf block.
 	header, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(
 		c.Request().Context(),
-		&eth.ExecutionPayload{
-			ParentHash:    reqBody.ExecutableData.ParentHash,
-			FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
-			PrevRandao:    eth.Bytes32(difficulty[:]),
-			BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
-			GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
-			Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
-			ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
-			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-			Transactions:  []eth.Data{decompressed},
-		},
+		payload,
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
@@ -298,4 +290,47 @@ func (s *PreconfBlockAPIServer) HealthCheck(c echo.Context) error {
 // returnError is a helper function to return an error response.
 func (s *PreconfBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
 	return c.JSON(statusCode, map[string]string{"error": err.Error()})
+}
+
+// ValidateExecutionPayload validates the execution payload.
+func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionPayload) ([]byte, error) {
+	if payload.Timestamp == 0 {
+		return nil, errors.New("non-zero timestamp is required")
+	}
+	if payload.FeeRecipient == (common.Address{}) {
+		return nil, errors.New("empty L2 fee recipient")
+	}
+	if payload.GasLimit == 0 {
+		return nil, errors.New("non-zero gas limit is required")
+	}
+	var u256BaseFee = uint256.Int(payload.BaseFeePerGas)
+	if u256BaseFee.ToBig().Cmp(common.Big0) == 0 {
+		return nil, errors.New("non-zero base fee per gas is required")
+	}
+	if len(payload.ExtraData) == 0 {
+		return nil, errors.New("empty extra data")
+	}
+	if len(payload.Transactions) != 1 {
+		return nil, fmt.Errorf("only one transaction list is allowed")
+	}
+	if len(payload.Transactions[0]) > (eth.MaxBlobDataSize * eth.MaxBlobsPerBlobTx) {
+		return nil, errors.New("compressed transactions size exceeds max blob data size")
+	}
+
+	var txs types.Transactions
+	b, err := utils.DecompressPacaya(payload.Transactions[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid zlib bytes for transactions: %w", err)
+	}
+	if err := rlp.DecodeBytes(b, &txs); err != nil {
+		return nil, fmt.Errorf("invalid RLP bytes for transactions: %w", err)
+	}
+	if len(txs) == 0 {
+		return nil, errors.New("empty transactions list, missing anchor transaction")
+	}
+	if err := s.anchorValidator.ValidateAnchorTx(txs[0]); err != nil {
+		return nil, fmt.Errorf("invalid anchor transaction: %w", err)
+	}
+
+	return b, nil
 }

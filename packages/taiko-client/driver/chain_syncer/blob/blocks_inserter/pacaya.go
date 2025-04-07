@@ -2,6 +2,7 @@ package blocksinserter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -44,6 +45,8 @@ type insertionTask struct {
 	name        string
 	taskType    taskType
 	blockNumber uint64
+	blockHash   common.Hash
+	parentHash  common.Hash
 	f           func() (interface{}, error)
 	resultCh    chan insertionResult
 }
@@ -109,6 +112,8 @@ func (i *BlocksInserterPacaya) insertionWorker(ctx context.Context) {
 				// Get the next expected block number.
 				expected, err := i.getNextExpectedBlockNumber()
 				if err != nil {
+					log.Error("Error getting next expected block number", "error", err)
+
 					task.resultCh <- insertionResult{err: err}
 
 					continue
@@ -168,7 +173,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) (err error) {
 	task := insertionTask{
-		name:     fmt.Sprintf("task-insertBlocks-%s", metadata.Pacaya().GetBatchID()),
+		name:     fmt.Sprintf("task-insertBlocks-%s", metadata.Pacaya().GetBatchID()), // TODO: will break if the block is not pacaya
 		taskType: taskTypeInsertBlocks,
 		f: func() (interface{}, error) {
 			if !metadata.IsPacaya() {
@@ -373,6 +378,8 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 		name:        fmt.Sprintf("task-insertPreconfBlock-%v", uint64(executableData.BlockNumber)),
 		taskType:    taskTypeInsertPreconfBlock,
 		blockNumber: uint64(executableData.BlockNumber),
+		blockHash:   executableData.BlockHash,
+		parentHash:  executableData.ParentHash,
 		f: func() (interface{}, error) {
 			headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
 			if err != nil && err.Error() != ethereum.NotFound.Error() {
@@ -387,6 +394,20 @@ func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 						headL1Origin.BlockID,
 					)
 				}
+			}
+
+			// compare parent hash
+			parent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber)-1))
+			if err != nil && !errors.Is(err, ethereum.NotFound) {
+				return nil, fmt.Errorf("failed to fetch parent header: %w", err)
+			}
+
+			if executableData.ParentHash != parent.Hash() {
+				return nil, fmt.Errorf(
+					"parent hash mismatch: %s != %s",
+					executableData.ParentHash.Hex(),
+					parent.Hash().Hex(),
+				)
 			}
 
 			if len(executableData.Transactions) == 0 {

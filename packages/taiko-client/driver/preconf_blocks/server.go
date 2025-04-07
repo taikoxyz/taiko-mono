@@ -23,6 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
+	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 )
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
@@ -43,9 +44,10 @@ type preconfBlockChainSyncer interface {
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
-	echo        *echo.Echo
-	chainSyncer preconfBlockChainSyncer
-	rpc         *rpc.Client
+	echo            *echo.Echo
+	chainSyncer     preconfBlockChainSyncer
+	rpc             *rpc.Client
+	anchorValidator *validator.AnchorTxValidator
 	// P2P network for preconf block propagation
 	p2pNode        *p2p.NodeP2P
 	p2pSigner      p2p.Signer
@@ -57,14 +59,21 @@ type PreconfBlockAPIServer struct {
 func New(
 	cors string,
 	jwtSecret []byte,
+	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 ) (*PreconfBlockAPIServer, error) {
+	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
+	if err != nil {
+		return nil, err
+	}
+
 	server := &PreconfBlockAPIServer{
-		echo:        echo.New(),
-		chainSyncer: chainSyncer,
-		rpc:         cli,
-		lookahead:   &Lookahead{},
+		anchorValidator: anchorValidator,
+		echo:            echo.New(),
+		chainSyncer:     chainSyncer,
+		rpc:             cli,
+		lookahead:       &Lookahead{},
 	}
 
 	server.echo.HideBanner = true
