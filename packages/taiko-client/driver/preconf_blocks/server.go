@@ -195,11 +195,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 	// Check if the parent block is in the canonical chain, if not, we try to
 	// find all the missing ancients from the cache and import them, if we can't, then we cache the message.
-	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)))
+	parentInCanonical, err := s.rpc.L2.HeaderByNumber(
+		ctx,
+		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
+	)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch parent header: %w", err)
+		return fmt.Errorf("failed to fetch parent header by number: %w", err)
 	}
-	if parent == nil || parent.Hash() != msg.ExecutionPayload.ParentHash {
+	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return fmt.Errorf("failed to fetch parent header by hash: %w", err)
+	}
+	if parentInFork == nil && parentInCanonical == nil {
 		log.Info(
 			"Parent block not in L2 canonical chain",
 			"peer", from,
