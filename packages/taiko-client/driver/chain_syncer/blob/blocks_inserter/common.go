@@ -206,11 +206,12 @@ func isBatchPreconfirmed(
 ) (*types.Header, error) {
 	// Get the parent block of the last block in this batch.
 	parent, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(metadata.Pacaya().GetLastBlockID()-1))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, fmt.Errorf("failed to get parent block: %w", err)
 	}
 	// If we can't find the parent block, then its not preconfirmed.
 	if parent == nil {
+		log.Debug("Parent block not found, batch is not preconfirmed", "batchID", metadata.Pacaya().GetBatchID())
 		return nil, nil
 	}
 
@@ -228,6 +229,11 @@ func isBatchPreconfirmed(
 		return nil, fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
 	}
 
+	b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+	if err != nil {
+		return nil, fmt.Errorf("failed to RLP encode tx list: %w", err)
+	}
+
 	return isBlockPreconfirmed(
 		ctx,
 		rpc,
@@ -238,7 +244,7 @@ func isBatchPreconfirmed(
 			BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
 			Parent:                          parent,
 		},
-		txListBytes,
+		b,
 		anchorTx,
 	)
 }
@@ -365,7 +371,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 
 	var (
 		meta         = metadata.Pacaya()
-		blockID      = new(big.Int).SetUint64(parent.Number.Uint64() + 1)
+		blockID      = new(big.Int).Add(parent.Number, common.Big1)
 		blockInfo    = meta.GetBlocks()[blockIndex]
 		txListCursor = 0
 	)
@@ -404,7 +410,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 		parent.GasUsed,
 		meta.GetBaseFeeConfig(),
 		meta.GetBlocks()[blockIndex].SignalSlots,
-		new(big.Int).Add(parent.Number, common.Big1),
+		blockID,
 		baseFee,
 	)
 	if err != nil {
