@@ -206,7 +206,7 @@ func isBatchPreconfirmed(
 ) (*types.Header, error) {
 	// Get the parent block of the last block in this batch.
 	parent, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(metadata.Pacaya().GetLastBlockID()-1))
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, fmt.Errorf("failed to get parent block: %w", err)
 	}
 	// If we can't find the parent block, then its not preconfirmed.

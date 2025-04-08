@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -166,7 +167,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	)
 	g.Go(func() error {
 		parent, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)))
-		if err != nil && err.Error() != ethereum.NotFound.Error() {
+		if err != nil && !errors.Is(err, ethereum.NotFound) {
 			return fmt.Errorf("failed to fetch parent header: %w", err)
 		}
 		if parent == nil {
@@ -183,7 +184,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	})
 	g.Go(func() error {
 		header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
-		if err != nil && err.Error() != ethereum.NotFound.Error() {
+		if err != nil && !errors.Is(err, ethereum.NotFound) {
 			return fmt.Errorf("failed to fetch header by hash: %w", err)
 		}
 		if header != nil {
