@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -97,10 +96,9 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		)
 		parent          *types.Header
 		lastPayloadData *engine.ExecutableData
-		txListCursor    = 0
 	)
 
-	for j, blockInfo := range meta.GetBlocks() {
+	for j := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 		// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
 		if i.progressTracker.Triggered() {
@@ -139,62 +137,44 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		blockID := new(big.Int).SetUint64(parent.Number.Uint64() + 1)
-		difficulty, err := encoding.CalculatePacayaDifficulty(blockID)
-		if err != nil {
-			return fmt.Errorf("failed to calculate difficulty: %w", err)
-		}
-		timestamp := meta.GetLastBlockTimestamp()
-		for i := len(meta.GetBlocks()) - 1; i > j; i-- {
-			timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
+		// If this is the first block in the batch, we check if the whole batch has been preconfirmed by
+		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
+		// and only update the L1Origin in L2 EE for each block.
+		if j == 0 {
+			lastBlockHeader, err := isBatchPreconfirmed(ctx, i.rpc, i.anchorConstructor, metadata, allTxs, txListBytes)
+			if err != nil {
+				log.Debug("Failed to check if batch is preconfirmed", "batchID", meta.GetBatchID(), "err", err)
+			} else if lastBlockHeader != nil {
+				log.Info(
+					"🧬 The batch is preconfirmed",
+					"batchID", meta.GetBatchID(),
+					"lastBlockID", meta.GetLastBlockID(),
+					"lastBlockHash", lastBlockHeader.Hash(),
+					"assignedProver", meta.GetProposer(),
+					"lastTimestamp", meta.GetLastBlockTimestamp(),
+					"coinbase", meta.GetCoinbase(),
+					"numBlobs", len(meta.GetBlobHashes()),
+					"blocks", len(meta.GetBlocks()),
+					"parentNumber", parent.Number,
+					"parentHash", parent.Hash(),
+				)
+
+				return updateL1OriginForBatch(ctx, i.rpc, metadata)
+			}
 		}
 
-		baseFee, err := i.rpc.CalculateBaseFee(
+		// Otherwise, we need to create a new execution payload and set it as the head block in L2 EE.
+		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
 			ctx,
+			i.rpc,
+			i.anchorConstructor,
+			metadata,
+			allTxs,
 			parent,
-			true,
-			meta.GetBaseFeeConfig(),
-			timestamp,
+			j,
 		)
 		if err != nil {
-			return err
-		}
-
-		log.Info(
-			"L2 baseFee",
-			"blockID", blockID,
-			"baseFee", utils.WeiToGWei(baseFee),
-			"parentGasUsed", parent.GasUsed,
-			"batchID", meta.GetBatchID(),
-			"indexInBatch", j,
-		)
-
-		// Assemble a TaikoAnchor.anchorV3 transaction
-		anchorBlockHeader, err := i.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
-		if err != nil {
-			return fmt.Errorf("failed to fetch anchor block: %w", err)
-		}
-
-		anchorTx, err := i.anchorConstructor.AssembleAnchorV3Tx(
-			ctx,
-			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-			anchorBlockHeader.Root,
-			parent.GasUsed,
-			meta.GetBaseFeeConfig(),
-			meta.GetBlocks()[j].SignalSlots,
-			new(big.Int).Add(parent.Number, common.Big1),
-			baseFee,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
-		}
-
-		// Get transactions in the block.
-		txs := types.Transactions{}
-		if txListCursor+int(blockInfo.NumTransactions) <= len(allTxs) {
-			txs = allTxs[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
-		} else if txListCursor < len(allTxs) {
-			txs = allTxs[txListCursor:]
+			return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
@@ -202,28 +182,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			ctx,
 			i.rpc,
 			&createPayloadAndSetHeadMetaData{
-				createExecutionPayloadsMetaData: &createExecutionPayloadsMetaData{
-					BlockID:               blockID,
-					ExtraData:             meta.GetExtraData(),
-					SuggestedFeeRecipient: meta.GetCoinbase(),
-					GasLimit:              uint64(meta.GetGasLimit()),
-					Difficulty:            common.BytesToHash(difficulty),
-					Timestamp:             timestamp,
-					ParentHash:            parent.Hash(),
-					L1Origin: &rawdb.L1Origin{
-						BlockID:       blockID,
-						L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-						L1BlockHeight: meta.GetRawBlockHeight(),
-						L1BlockHash:   meta.GetRawBlockHash(),
-					},
-					Txs:         txs,
-					Withdrawals: make([]*types.Withdrawal, 0),
-					BaseFee:     baseFee,
-				},
-				AnchorBlockID:   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-				AnchorBlockHash: meta.GetAnchorBlockHash(),
-				BaseFeeConfig:   meta.GetBaseFeeConfig(),
-				Parent:          parent,
+				createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
+				AnchorBlockID:                   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+				AnchorBlockHash:                 meta.GetAnchorBlockHash(),
+				BaseFeeConfig:                   meta.GetBaseFeeConfig(),
+				Parent:                          parent,
 			},
 			anchorTx,
 		); err != nil {
@@ -234,7 +197,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 		log.Info(
 			"🔗 New L2 block inserted",
-			"blockID", blockID,
+			"blockID", lastPayloadData.Number,
 			"hash", lastPayloadData.BlockHash,
 			"coinbase", lastPayloadData.FeeRecipient.Hex(),
 			"transactions", len(lastPayloadData.Transactions),
@@ -247,8 +210,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"parentHash", lastPayloadData.ParentHash,
 			"indexInBatch", j,
 		)
-
-		txListCursor += int(blockInfo.NumTransactions)
 
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
