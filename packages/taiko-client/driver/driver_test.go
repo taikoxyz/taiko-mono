@@ -659,6 +659,7 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 			return s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background())
 		}, backoff.NewExponentialBackOff()))
 }
+
 func (s *DriverTestSuite) TestNotFound() {
 	_, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(5000))
 	s.NotNil(err)
