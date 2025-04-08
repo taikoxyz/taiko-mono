@@ -6,7 +6,6 @@ import "forge-std/src/console2.sol";
 /// @title BaseFeeContract
 /// @notice A simple contract with Taiko L2 base fee calculation logic.
 /// @dev The implementation in this contract shall be the same as the one in ShastaAnchor.sol
-
 contract BaseFeeContract {
     uint8 public immutable adjustmentQuotient;
 
