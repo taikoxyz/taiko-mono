@@ -459,7 +459,6 @@ func updateL1OriginForBatch(
 	)
 
 	for i := 0; i < len(meta.GetBlocks()); i++ {
-		i := i
 		g.Go(func() error {
 			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(i))
 			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
