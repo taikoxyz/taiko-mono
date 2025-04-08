@@ -34,7 +34,7 @@ jobs:
 
       - name: Lint
         working-directory: packages/taiko-client
-        run: golangci-lint run --path-prefix=./ --config=.golangci.yml
+        run: make lint
 
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
