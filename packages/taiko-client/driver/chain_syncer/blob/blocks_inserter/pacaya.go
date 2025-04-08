@@ -137,8 +137,9 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// If this is the first block in the batch, we check if the whole batch has been preconfirmed,
-		// and if so, we only need to update the L1Origin in L2 EE for each block.
+		// If this is the first block in the batch, we check if the whole batch has been preconfirmed by
+		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
+		// and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
 			lastBlockHeader, err := isBatchPreconfirmed(ctx, i.rpc, i.anchorConstructor, metadata, allTxs, txListBytes)
 			if err != nil {
@@ -196,7 +197,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 		log.Info(
 			"🔗 New L2 block inserted",
-			"blockID", createExecutionPayloadsMetaData.BlockID,
+			"blockID", lastPayloadData.Number,
 			"hash", lastPayloadData.BlockHash,
 			"transactions", len(lastPayloadData.Transactions),
 			"timestamp", lastPayloadData.Timestamp,
