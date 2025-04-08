@@ -417,7 +417,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 		return nil, nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
 	}
 
-	for i := 0; i < blockIndex-1; i++ {
+	for i := 0; i < blockIndex; i++ {
 		txListCursor += int(meta.GetBlocks()[i].NumTransactions)
 	}
 
