@@ -7,6 +7,9 @@ import os
 
 # === Config ===
 NODE_URL = "https://rpc.mainnet.taiko.xyz"  # Replace with your node URL
+NODE_URL = "https://taiko-rpc.publicnode.com" 
+NODE_URL = "https://taiko-mainnet.gateway.tenderly.co" 
+NODE_URL = "https://https://rpc.taiko.tools" 
 BLOCK_COUNT = 10000
 
 # === Connect ===
@@ -49,7 +52,7 @@ with open(output_file, mode="w", newline="") as csvfile:
                 block.gasUsed,
                 base_fee
             ])
-            # time.sleep(0.01)  # Wait for 10 ms before the next call
+            time.sleep(0.05)  # Wait for 10 ms before the next call
         else:
             writer.writerow([
                 block_number,
