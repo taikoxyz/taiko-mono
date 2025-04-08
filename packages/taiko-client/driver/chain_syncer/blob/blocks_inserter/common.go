@@ -466,6 +466,8 @@ func updateL1OriginForBatch(
 
 	for i := 0; i < len(meta.GetBlocks()); i++ {
 		g.Go(func() error {
+			// capture the current value of i
+			i := i
 			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(i))
 			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
 			if err != nil {
@@ -481,7 +483,10 @@ func updateL1OriginForBatch(
 			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
 				return fmt.Errorf("failed to update L1 origin: %w", err)
 			}
+
 			if i == len(meta.GetBlocks())-1 {
+				log.Info("updateL1OriginForBatch setting HeadL1Origin", "blockID", blockID, "l1Origin", l1Origin.BlockID)
+
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
