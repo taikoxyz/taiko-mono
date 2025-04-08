@@ -54,14 +54,10 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
         UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
         UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
         // Bridged Token
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
+        register(sharedResolver, "bridged_erc721", address(new BridgedERC721(address(erc721Vault))));
         register(
-            sharedResolver, "bridged_erc20", address(new BridgedERC20(address(sharedResolver)))
-        );
-        register(
-            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
-        );
-        register(
-            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
+            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(erc1155Vault)))
         );
         // Register B_TAIKO
         register(sharedResolver, "taiko", taikoAnchor);
