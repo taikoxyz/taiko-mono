@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.2...docs-site-v1.27.3) (2025-04-08)
+
+
+### Bug Fixes
+
+* **docs-site:** fix proverset doc ([#19234](https://github.com/taikoxyz/taiko-mono/issues/19234)) ([3a475b6](https://github.com/taikoxyz/taiko-mono/commit/3a475b632d277c748d904210fa2fcc716966f869))
+
 ## [1.27.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.1...docs-site-v1.27.2) (2025-04-05)
 
 
