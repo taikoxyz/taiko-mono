@@ -94,7 +94,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
     If the above step was completed correctly, you should be able to see the `Write as Proxy` option in the `Contract` tab.
 
-    Connect to Etherscan with the EOA you used to deploy the ProverSet and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers. Set `isProver` as `true` for both transactions. You can set these as `false` if you want to disable these provers in the future.
+    Connect to Etherscan with the prover EOA (that you set as `ADMIN` in the previous step) and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers. Set `isProver` as `true` for both transactions. You can set these as `false` if you want to disable these provers in the future.
 
     <Aside type="caution">
         Enable both your proposer and prover addresses here! If you don't, your proposeBlock transactions may fail.
@@ -143,7 +143,9 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     git checkout tags/{PROTOCOL_RELEASE_TAG}
     ```
 
-3. **Deploy the ProverSet contract from your prover EOA and call upgradeTo with the new implementation address on your original Proxy**
+3. **Deploy the ProverSet contract from your proposer EOA and call upgradeTo with the new implementation address on your original Proxy**
+
+    Check that the proxy contract's `owner` is the proposer EOA. If it is not, you will have to call `upgradeTo` from the `owner` address.
 
     Execute the following command, filling in the values in the curly braces appropriately.
 
