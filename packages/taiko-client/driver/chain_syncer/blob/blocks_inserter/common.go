@@ -481,7 +481,7 @@ func updateL1OriginForBatch(
 			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
 				return fmt.Errorf("failed to update L1 origin: %w", err)
 			}
-			if i == 0 {
+			if i == len(meta.GetBlocks())-1 {
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
