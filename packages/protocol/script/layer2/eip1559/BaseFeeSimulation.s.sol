@@ -10,18 +10,13 @@ import "forge-std/src/Script.sol";
 contract BaseFeeSimulation is Script {
     BaseFeeContract baseFeeContract;
     uint256 public constant MAX_BLOCKS_TO_PROCESS = 1000;
-    uint256 public constant initialBaseFee = 1 gwei;
-    
-    // We must use a dynamic gas issuance per second otherwise the base fee will either reach the
-    // uppper limit or the lower limit.
-    uint32 gasIssuancePerSecond = 1_900_000; // from MainnetInbox.sol
+    uint256 public constant INITIAL_BASE_FEE = 1 gwei;
+    uint8 public constant ADJUSTMENT_QUOTIENT = 8; // from MainnetInbox.sol
 
     function setUp() public {
         // Initialize the BaseFeeContract with some default values
-        uint8 adjustmentQuotient = 8; // from MainnetInbox.sol
 
-        baseFeeContract =
-            new BaseFeeContract(initialBaseFee, adjustmentQuotient, gasIssuancePerSecond);
+        baseFeeContract = new BaseFeeContract(INITIAL_BASE_FEE, ADJUSTMENT_QUOTIENT);
     }
 
     function run() public {
@@ -52,19 +47,27 @@ contract BaseFeeSimulation is Script {
 
         // Process each line
         // Print the header row
-        console2.log("index,timestamp,gas_used,base_fee_per_gas,percentage");
+        console2.log(
+            "index,timestamp,block_time,gas_used,gas_issuance_per_second,base_fee_per_gas,percentage"
+        );
+
+        string[] memory firstBlockColumns = vm.split(lines[1], ",");
+        uint256 parentTimestamp = vm.parseUint(firstBlockColumns[1]);
+
         for (uint256 i = 1; i < lines.length; i++) {
             string[] memory columns = vm.split(lines[i], ",");
 
             // block_number,timestamp,gas_limit,gas_used,base_fee_per_gas
             uint64 parentGasUsed = uint64(vm.parseUint(columns[3]));
-            uint256 blockTime = vm.parseUint(columns[1]);
+            uint256 blockTimetamp = vm.parseUint(columns[1]);
+            uint256 blockTime = blockTimetamp - parentTimestamp;
 
             // Call calculateAndUpdateBaseFee
-            uint256 baseFee = baseFeeContract.calculateAndUpdateBaseFee(parentGasUsed, blockTime);
+            (uint256 baseFee, uint32 gasIssuancePerSecond) =
+                baseFeeContract.calculateAndUpdateBaseFee(parentGasUsed, blockTime);
 
             // Calculate the percentage change
-            uint256 percentageChange = (baseFee * 10_000) / initialBaseFee;
+            uint256 percentageChange = (baseFee * 10_000) / INITIAL_BASE_FEE;
             uint256 integerPart = percentageChange / 100;
             uint256 fractionalPart = percentageChange % 100;
 
@@ -83,18 +86,23 @@ contract BaseFeeSimulation is Script {
             outputLines[i] = string(
                 abi.encodePacked(
                     vm.toString(i),
-                    ",",
+                    ",\t",
                     columns[1],
-                    ",", // timestamp
+                    ",\t", // timestamp
+                    vm.toString(blockTime),
+                    "s,\t", // blockTime
                     columns[3],
-                    ",", // gas_used
+                    ",\t", // gas_used
+                    vm.toString(gasIssuancePerSecond),
+                    ",\t", // gas_issuance_per_second
                     vm.toString(baseFee),
-                    ",", // Calculated Base Fee
+                    ",\t", // Calculated Base Fee
                     percentageChangeStr
                 )
             );
 
             console2.log(outputLines[i]);
+            parentTimestamp = blockTimetamp;
         }
     }
 }
