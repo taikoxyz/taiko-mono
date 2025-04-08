@@ -30,9 +30,6 @@ jobs:
           go-version: 1.24
           cache: true
 
-      - name: Install golangci-lint
-        run: go install -v github.com/golangci/golangci-lint/cmd/golangci-lint@@v1.60.0
-
       - name: Lint
         working-directory: packages/taiko-client
         run: make lint
