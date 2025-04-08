@@ -37,8 +37,8 @@ contract BaseFeeContract {
             gasIssuancePerSecond = uint32(gasUsed / _blockTime);
         } else {
             gasIssuancePerSecond = uint32(
-                (uint256(gasIssuancePerSecond) * (adjustmentQuotient - 1) + gasUsed / _blockTime)
-                    / adjustmentQuotient
+                (uint256(gasIssuancePerSecond) * (24 - 1) + gasUsed / _blockTime)
+                    / 24
             );
         }
 

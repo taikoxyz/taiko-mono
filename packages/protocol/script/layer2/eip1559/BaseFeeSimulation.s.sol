@@ -45,12 +45,6 @@ contract BaseFeeSimulation is Script {
 
         string[] memory outputLines = new string[](lines.length);
 
-        // Process each line
-        // Print the header row
-        console2.log(
-            "index,timestamp,block_time,gas_used,gas_issuance_per_second,base_fee_per_gas,percentage"
-        );
-
         string[] memory firstBlockColumns = vm.split(lines[1], ",");
         uint256 parentTimestamp = vm.parseUint(firstBlockColumns[1]);
 
@@ -86,17 +80,17 @@ contract BaseFeeSimulation is Script {
             outputLines[i] = string(
                 abi.encodePacked(
                     vm.toString(i),
-                    ",\t",
+                    ":\t timestamp= ",
                     columns[1],
-                    ",\t", // timestamp
+                    ",\t block_time= ",
                     vm.toString(blockTime),
-                    "s,\t", // blockTime
+                    "s,\t gas_used= ",
                     columns[3],
-                    ",\t", // gas_used
+                    ",\t gipc= ",
                     vm.toString(gasIssuancePerSecond),
-                    ",\t", // gas_issuance_per_second
+                    ",\t basefee= ",
                     vm.toString(baseFee),
-                    ",\t", // Calculated Base Fee
+                    ",\t pctg= ",
                     percentageChangeStr
                 )
             );
