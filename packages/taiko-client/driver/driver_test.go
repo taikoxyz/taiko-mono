@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -656,6 +658,12 @@ func (s *DriverTestSuite) proposePreconfBatch(blocks []*types.Block, anchoredL1B
 		backoff.Retry(func() error {
 			return s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background())
 		}, backoff.NewExponentialBackOff()))
+}
+func (s *DriverTestSuite) TestNotFound() {
+	_, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(5000))
+	s.NotNil(err)
+	s.ErrorIs(err, ethereum.NotFound)
+	s.True(errors.Is(err, ethereum.NotFound))
 }
 
 func (s *DriverTestSuite) InitProposer() {
