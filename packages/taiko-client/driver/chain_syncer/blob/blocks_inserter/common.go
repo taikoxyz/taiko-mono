@@ -359,7 +359,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	if !metadata.IsPacaya() {
 		return nil, nil, fmt.Errorf("metadata is not for Pacaya fork")
 	}
-	if blockIndex > len(metadata.Pacaya().GetBlocks()) {
+	if blockIndex >= len(metadata.Pacaya().GetBlocks()) {
 		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
 	}
 
