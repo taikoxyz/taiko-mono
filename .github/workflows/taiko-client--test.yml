@@ -20,6 +20,7 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     name: Lint
     runs-on: [ubuntu-latest]
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
