@@ -20,34 +20,37 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     address public immutable taikoInbox;
-    /// The pivotVerifier is the core verifier required in every proof.
-    /// All other proofs share its status root, despite differing public inputs.
-    /// despite varying public inputs due to differing verification types.
-    address public immutable pivotVerifier;
+    /// The sgx/tdx-GethVerifier is the core verifier required in every proof.
+    /// All other proofs share its status root, despite different public inputs
+    /// due to different verification types.
+    /// proofs come from geth client
+    address public immutable sgxGethVerifier;
+    address public immutable tdxGethVerifier;
+    /// op for test purpose
     address public immutable opVerifier;
-    address public immutable sgxVerifier;
-    address public immutable tdxVerifier;
-    address public immutable risc0Verifier;
-    address public immutable sp1Verifier;
+    /// proofs come from reth client
+    address public immutable sgxRethVerifier;
+    address public immutable risc0RethVerifier;
+    address public immutable sp1RethVerifier;
 
     constructor(
         address _taikoInbox,
-        address _pivotVerifier,
+        address _sgxGethVerifier,
+        address _tdxGethVerifier,
         address _opVerifier,
-        address _sgxVerifier,
-        address _tdxVerifier,
-        address _risc0Verifier,
-        address _sp1Verifier
+        address _sgxRethVerifier,
+        address _risc0RethVerifier,
+        address _sp1RethVerifier
     )
         EssentialContract(address(0))
     {
         taikoInbox = _taikoInbox;
-        pivotVerifier = _pivotVerifier;
+        sgxGethVerifier = _sgxGethVerifier;
+        tdxGethVerifier = _tdxGethVerifier;
         opVerifier = _opVerifier;
-        sgxVerifier = _sgxVerifier;
-        tdxVerifier = _tdxVerifier;
-        risc0Verifier = _risc0Verifier;
-        sp1Verifier = _sp1Verifier;
+        sgxRethVerifier = _sgxRethVerifier;
+        risc0RethVerifier = _risc0RethVerifier;
+        sp1RethVerifier = _sp1RethVerifier;
     }
 
     error CV_INVALID_SUB_VERIFIER();
