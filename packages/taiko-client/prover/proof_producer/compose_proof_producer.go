@@ -239,7 +239,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 
 	if err := output.Validate(); err != nil {
 		log.Debug(
-			"Validation result",
+			"Proof output validation result",
 			"start", batches[0].BatchID,
 			"end", batches[len(batches)-1].BatchID,
 			"proofType", output.ProofType,
