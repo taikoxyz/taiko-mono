@@ -501,7 +501,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
-	// Try to insert one preconfirmation block
+	// Try to insert two preconfirmation blocks
 	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -515,25 +515,32 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
-	// Propose a same L2 block batch
-	s.proposePreconfBatch([]*types.Block{l2Head3}, []*types.Header{l1Head1})
-
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
+	s.Equal(l2Head3.Number().Uint64()+1, l2Head4.Number().Uint64())
 	s.Equal(2, len(l2Head4.Transactions()))
 
-	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	// Propose two same L2 blocks in a batch
+	s.proposePreconfBatch([]*types.Block{l2Head3, l2Head4}, []*types.Header{l1Head1, l1Head1})
+
+	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head4.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head4.Number().Uint64(), l2Head5.Number().Uint64())
+	s.Equal(2, len(l2Head5.Transactions()))
+
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big2))
+	s.Nil(err)
+	s.Equal(l2Head5.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head5.Hash(), l1Origin2.L2BlockHash)
 	s.Equal(l2Head4.Hash(), l1Origin2.L2BlockHash)
-	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
 	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
 	s.False(l1Origin2.IsPreconfBlock())
 
 	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l1Origin2, canonicalL1Origin)
+	s.Equal(l2Head5.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
