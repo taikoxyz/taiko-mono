@@ -241,7 +241,11 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 func (b *BlobTransactionBuilder) splitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	var blobs []*eth.Blob
 	for start := 0; start < len(txListBytes); start += eth.MaxBlobDataSize {
-		end := min(start+eth.MaxBlobDataSize, len(txListBytes))
+		end := start + eth.MaxBlobDataSize
+		if end > len(txListBytes) {
+			end = len(txListBytes)
+		}
+
 		var blob = &eth.Blob{}
 		if err := blob.FromData(txListBytes[start:end]); err != nil {
 			return nil, err
