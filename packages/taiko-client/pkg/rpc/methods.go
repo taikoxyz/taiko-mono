@@ -1221,8 +1221,8 @@ func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, erro
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1Verifier)
 }
 
-// GetPivotVerifierPacaya resolves the Pacaya pivot verifier address.
-func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+// GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
+func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.PivotVerifier)
 }
 
