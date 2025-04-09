@@ -172,13 +172,13 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         });
 
         deployTEEVerifiers(rollupResolver, proofVerifier, l2ChainId);
-        (address risc0RethVerifier, address sp1Verifier) = deployZKVerifiers(rollupResolver, l2ChainId);
+        (address risc0RethVerifier, address sp1RethVerifier) = deployZKVerifiers(rollupResolver, l2ChainId);
 
         // In testing, use address(0) as an sgxVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox, sgxGethVerifier, opProxy, address(0), risc0RethVerifier, sp1Verifier
+                    taikoInbox, sgxGethVerifier, opProxy, address(0), risc0RethVerifier, sp1RethVerifier
                 )
             )
         );

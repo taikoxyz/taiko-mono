@@ -28,7 +28,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     address public immutable sgxRethVerifier;
     address public immutable tdxVerifier;
     address public immutable risc0RethVerifier;
-    address public immutable sp1Verifier;
+    address public immutable sp1RethVerifier;
 
     constructor(
         address _taikoInbox,
@@ -37,7 +37,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         address _sgxRethVerifier,
         address _tdxVerifier,
         address _risc0RethVerifier,
-        address _sp1Verifier
+        address _sp1RethVerifier
     )
         EssentialContract(address(0))
     {
@@ -47,7 +47,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         sgxRethVerifier = _sgxRethVerifier;
         tdxVerifier = _tdxVerifier;
         risc0RethVerifier = _risc0RethVerifier;
-        sp1Verifier = _sp1Verifier;
+        sp1RethVerifier = _sp1RethVerifier;
     }
 
     error CV_INVALID_SUB_VERIFIER();

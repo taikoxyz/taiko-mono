@@ -15,7 +15,7 @@ contract DevnetVerifier is ComposeVerifier {
         address _opVerifier,
         address _sgxRethVerifier,
         address _risc0RethVerifier,
-        address _sp1Verifier
+        address _sp1RethVerifier
     )
         ComposeVerifier(
             _taikoInbox,
@@ -24,7 +24,7 @@ contract DevnetVerifier is ComposeVerifier {
             _sgxRethVerifier,
             address(0),
             _risc0RethVerifier,
-            _sp1Verifier
+            _sp1RethVerifier
         )
     { }
 
@@ -42,7 +42,7 @@ contract DevnetVerifier is ComposeVerifier {
         return (
             _verifiers[refVerifierIdx] == opVerifier || _verifiers[refVerifierIdx] == sgxRethVerifier
                 || _verifiers[refVerifierIdx] == risc0RethVerifier
-                || _verifiers[refVerifierIdx] == sp1Verifier
+                || _verifiers[refVerifierIdx] == sp1RethVerifier
         );
     }
 }
