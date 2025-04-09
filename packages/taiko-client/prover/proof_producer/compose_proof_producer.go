@@ -94,6 +94,7 @@ func (s *ComposeProofProducer) RequestProof(
 				return err
 			} else {
 				proofType = resp.ProofType
+				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 				if ProofTypeZKSP1 != proofType {
 					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 				}

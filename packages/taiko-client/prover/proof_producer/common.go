@@ -45,6 +45,7 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 	if res.Data.Status == ErrZkAnyNotDrawn.Error() {
 		return ErrZkAnyNotDrawn
 	}
+	// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 	if ProofTypeZKSP1 != res.ProofType &&
 		(res.Data.Proof == nil || len(res.Data.Proof.Proof) == 0) {
 		return errEmptyProof
