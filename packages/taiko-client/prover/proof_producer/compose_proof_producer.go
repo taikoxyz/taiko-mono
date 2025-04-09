@@ -93,8 +93,10 @@ func (s *ComposeProofProducer) RequestProof(
 			); err != nil {
 				return err
 			} else {
-				proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 				proofType = resp.ProofType
+				if ProofTypeZKSP1 != proofType {
+					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
+				}
 			}
 		}
 		return nil
