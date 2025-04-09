@@ -157,6 +157,11 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				return err
 			}
 			if proofStatus.IsSubmitted && !proofStatus.Invalid {
+				log.Info(
+					"A valid proof has been submitted, skip requesting proof",
+					"batchID", meta.Pacaya().GetBatchID(),
+					"parent", proofStatus.ParentHeader.Hash(),
+				)
 				return nil
 			}
 			// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
