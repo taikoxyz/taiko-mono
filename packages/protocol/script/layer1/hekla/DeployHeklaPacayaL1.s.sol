@@ -186,9 +186,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
 
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
-                new HeklaVerifier(
-                    taikoInbox, gethVerifier, sgxVerifier, risc0Verifier, sp1Verifier
-                )
+                new HeklaVerifier(taikoInbox, gethVerifier, sgxVerifier, risc0Verifier, sp1Verifier)
             )
         );
     }
