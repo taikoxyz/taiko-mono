@@ -347,7 +347,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Other verifiers
         // Initializable the proxy for proofVerifier to get the contract address at first.
-        (address sgxVerifier, address pivotVerifier) =
+        (address sgxRethVerifier, address sgxGethVerifier) =
             deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
         (address risc0Verifier, address sp1Verifier) =
@@ -356,7 +356,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
                 new DevnetVerifier(
-                    taikoInboxAddr, pivotVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInboxAddr, sgxGethVerifier, opVerifier, sgxRethVerifier, risc0Verifier, sp1Verifier
                 )
             )
         });
@@ -383,7 +383,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoProofVerifier
     )
         private
-        returns (address sgxVerifier, address pivotVerifier)
+        returns (address sgxRethVerifier, address sgxGethVerifier)
     {
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
@@ -403,14 +403,14 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address sgxImpl =
             address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
-        sgxVerifier = deployProxy({
+        sgxRethVerifier = deployProxy({
             name: "sgx_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
-        pivotVerifier = deployProxy({
-            name: "pivot_verifier",
+        sgxGethVerifier = deployProxy({
+            name: "sgxGeth_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver

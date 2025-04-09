@@ -11,7 +11,7 @@ contract AnyVerifier is ComposeVerifier {
 
     constructor(
         address _taikoInbox,
-        address _sgxVerifier,
+        address _sgxRethVerifier,
         address _risc0Verifier,
         address _sp1Verifier
     )
@@ -19,7 +19,7 @@ contract AnyVerifier is ComposeVerifier {
             _taikoInbox,
             address(0),
             address(0),
-            _sgxVerifier,
+            _sgxRethVerifier,
             address(0),
             _risc0Verifier,
             _sp1Verifier
@@ -34,7 +34,7 @@ contract AnyVerifier is ComposeVerifier {
     {
         if (_verifiers.length != 1) return false;
 
-        return _verifiers[0] == sgxVerifier || _verifiers[0] == risc0Verifier
+        return _verifiers[0] == sgxRethVerifier || _verifiers[0] == risc0Verifier
             || _verifiers[0] == sp1Verifier;
     }
 }
