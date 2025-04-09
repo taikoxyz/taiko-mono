@@ -131,6 +131,8 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		l1End          = s.state.GetL1Head()
 		startL1Current = s.state.GetL1Current()
 	)
+
+	log.Info("Processing L1 blocks", "l1Start", startL1Current, "l1End", l1End.Number)
 	// If there is a L1 reorg, sometimes this will happen.
 	if startL1Current.Number.Uint64() >= l1End.Number.Uint64() && startL1Current.Hash() != l1End.Hash() {
 		newL1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).Sub(l1End.Number, common.Big1))
@@ -189,6 +191,19 @@ func (s *Syncer) onBlockProposed(
 		lastBlockID  *big.Int
 		timestamp    uint64
 	)
+
+	log.Info(
+		"New BlockProposed event DEBUG",
+		"l1Height", meta.GetRawBlockHeight(),
+		"l1Hash", meta.GetRawBlockHash(),
+		"batchID", meta.Pacaya().GetBatchID(),
+		"lastBlockID", lastBlockID,
+		"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
+		"blocks", len(meta.Pacaya().GetBlocks()),
+		"l1Current", s.state.GetL1Current().Number,
+		"l2End", s.state.GetL1Head(),
+	)
+
 	if meta.IsPacaya() {
 		firstBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + 1)
 		lastBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
