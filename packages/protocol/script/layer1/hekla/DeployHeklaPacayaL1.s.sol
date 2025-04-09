@@ -173,9 +173,9 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     )
         internal
     {
-        // In testing, use opVerifier impl as a pivotVerifier
-        address pivotVerifier = deployProxy({
-            name: "pivot_verifier",
+        // In testing, use opVerifier impl as a gethVerifier
+        address gethVerifier = deployProxy({
+            name: "geth_verifier",
             impl: opImpl,
             data: abi.encodeCall(OpVerifier.init, address(0)),
             registerTo: rollupResolver
@@ -187,7 +187,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new HeklaVerifier(
-                    taikoInbox, pivotVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInbox, gethVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             )
         );

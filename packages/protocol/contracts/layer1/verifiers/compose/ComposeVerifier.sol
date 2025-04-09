@@ -20,10 +20,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     address public immutable taikoInbox;
-    /// The pivotVerifier is the core verifier required in every proof.
+    /// The gethVerifier is the core verifier required in every proof.
     /// All other proofs share its status root, despite differing public inputs.
     /// despite varying public inputs due to differing verification types.
-    address public immutable pivotVerifier;
+    address public immutable gethVerifier;
     address public immutable opVerifier;
     address public immutable sgxVerifier;
     address public immutable tdxVerifier;
@@ -32,7 +32,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     constructor(
         address _taikoInbox,
-        address _pivotVerifier,
+        address _gethVerifier,
         address _opVerifier,
         address _sgxVerifier,
         address _tdxVerifier,
@@ -42,7 +42,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         EssentialContract(address(0))
     {
         taikoInbox = _taikoInbox;
-        pivotVerifier = _pivotVerifier;
+        gethVerifier = _gethVerifier;
         opVerifier = _opVerifier;
         sgxVerifier = _sgxVerifier;
         tdxVerifier = _tdxVerifier;
