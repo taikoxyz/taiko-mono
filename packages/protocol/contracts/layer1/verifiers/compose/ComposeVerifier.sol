@@ -27,7 +27,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     address public immutable opVerifier;
     address public immutable sgxRethVerifier;
     address public immutable tdxVerifier;
-    address public immutable risc0Verifier;
+    address public immutable risc0RethVerifier;
     address public immutable sp1Verifier;
 
     constructor(
@@ -36,7 +36,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         address _opVerifier,
         address _sgxRethVerifier,
         address _tdxVerifier,
-        address _risc0Verifier,
+        address _risc0RethVerifier,
         address _sp1Verifier
     )
         EssentialContract(address(0))
@@ -46,7 +46,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         opVerifier = _opVerifier;
         sgxRethVerifier = _sgxRethVerifier;
         tdxVerifier = _tdxVerifier;
-        risc0Verifier = _risc0Verifier;
+        risc0RethVerifier = _risc0RethVerifier;
         sp1Verifier = _sp1Verifier;
     }
 

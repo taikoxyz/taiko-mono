@@ -350,13 +350,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         (address sgxRethVerifier, address sgxGethVerifier) =
             deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
-        (address risc0Verifier, address sp1Verifier) =
+        (address risc0RethVerifier, address sp1Verifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
                 new DevnetVerifier(
-                    taikoInboxAddr, sgxGethVerifier, opVerifier, sgxRethVerifier, risc0Verifier, sp1Verifier
+                    taikoInboxAddr, sgxGethVerifier, opVerifier, sgxRethVerifier, risc0RethVerifier, sp1Verifier
                 )
             )
         });

@@ -184,13 +184,13 @@ contract DeployPacayaL1 is DeployCapability {
         });
 
         (address sgxRethVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
-        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
+        (address risc0RethVerifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
 
         // NOTE: For hekla, we need to replace DevnetVerifier with HeklaVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox, sgxGethVerifier, opProxy, sgxRethVerifier, risc0Verifier, sp1Verifier
+                    taikoInbox, sgxGethVerifier, opProxy, sgxRethVerifier, risc0RethVerifier, sp1Verifier
                 )
             )
         );

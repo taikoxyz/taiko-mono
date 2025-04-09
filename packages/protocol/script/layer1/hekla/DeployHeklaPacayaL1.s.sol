@@ -182,12 +182,12 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         });
 
         (address sgxRethVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
-        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
+        (address risc0RethVerifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
 
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new HeklaVerifier(
-                    taikoInbox, sgxGethVerifier, sgxRethVerifier, risc0Verifier, sp1Verifier
+                    taikoInbox, sgxGethVerifier, sgxRethVerifier, risc0RethVerifier, sp1Verifier
                 )
             )
         );

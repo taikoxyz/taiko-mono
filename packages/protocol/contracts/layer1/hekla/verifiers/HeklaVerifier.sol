@@ -13,7 +13,7 @@ contract HeklaVerifier is ComposeVerifier {
         address _taikoInbox,
         address _sgxGethVerifier,
         address _sgxRethVerifier,
-        address _risc0Verifier,
+        address _risc0RethVerifier,
         address _sp1Verifier
     )
         ComposeVerifier(
@@ -22,7 +22,7 @@ contract HeklaVerifier is ComposeVerifier {
             address(0),
             _sgxRethVerifier,
             address(0),
-            _risc0Verifier,
+            _risc0RethVerifier,
             _sp1Verifier
         )
     { }
@@ -39,7 +39,7 @@ contract HeklaVerifier is ComposeVerifier {
         require(_verifiers[sgxGethVerifierIdx] == sgxGethVerifier, "CV_INVALID_TRUSTED_VERIFIER");
 
         return (
-            _verifiers[refVerifierIdx] == sgxRethVerifier || _verifiers[refVerifierIdx] == risc0Verifier
+            _verifiers[refVerifierIdx] == sgxRethVerifier || _verifiers[refVerifierIdx] == risc0RethVerifier
                 || _verifiers[refVerifierIdx] == sp1Verifier
         );
     }

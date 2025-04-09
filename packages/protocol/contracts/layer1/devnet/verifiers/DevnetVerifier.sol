@@ -14,7 +14,7 @@ contract DevnetVerifier is ComposeVerifier {
         address _sgxGethVerifier,
         address _opVerifier,
         address _sgxRethVerifier,
-        address _risc0Verifier,
+        address _risc0RethVerifier,
         address _sp1Verifier
     )
         ComposeVerifier(
@@ -23,7 +23,7 @@ contract DevnetVerifier is ComposeVerifier {
             _sgxGethVerifier,
             _sgxRethVerifier,
             address(0),
-            _risc0Verifier,
+            _risc0RethVerifier,
             _sp1Verifier
         )
     { }
@@ -41,7 +41,7 @@ contract DevnetVerifier is ComposeVerifier {
 
         return (
             _verifiers[refVerifierIdx] == opVerifier || _verifiers[refVerifierIdx] == sgxRethVerifier
-                || _verifiers[refVerifierIdx] == risc0Verifier
+                || _verifiers[refVerifierIdx] == risc0RethVerifier
                 || _verifiers[refVerifierIdx] == sp1Verifier
         );
     }

@@ -12,7 +12,7 @@ contract SgxAndZkVerifier is ComposeVerifier {
     constructor(
         address _taikoInbox,
         address _sgxRethVerifier,
-        address _risc0Verifier,
+        address _risc0RethVerifier,
         address _sp1Verifier
     )
         ComposeVerifier(
@@ -21,7 +21,7 @@ contract SgxAndZkVerifier is ComposeVerifier {
             address(0),
             _sgxRethVerifier,
             address(0),
-            _risc0Verifier,
+            _risc0RethVerifier,
             _sp1Verifier
         )
     { }
@@ -35,11 +35,11 @@ contract SgxAndZkVerifier is ComposeVerifier {
         if (_verifiers.length != 2) return false;
 
         if (_verifiers[0] == sgxRethVerifier) {
-            return _verifiers[1] == risc0Verifier || _verifiers[1] == sp1Verifier;
+            return _verifiers[1] == risc0RethVerifier || _verifiers[1] == sp1Verifier;
         }
 
         if (_verifiers[1] == sgxRethVerifier) {
-            return _verifiers[0] == risc0Verifier || _verifiers[0] == sp1Verifier;
+            return _verifiers[0] == risc0RethVerifier || _verifiers[0] == sp1Verifier;
         }
 
         return false;
