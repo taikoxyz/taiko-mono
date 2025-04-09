@@ -40,7 +40,8 @@ contract DevnetVerifier is ComposeVerifier {
         require(_verifiers[sgxGethVerifierIdx] == sgxGethVerifier, "CV_INVALID_TRUSTED_VERIFIER");
 
         return (
-            _verifiers[refVerifierIdx] == opVerifier || _verifiers[refVerifierIdx] == sgxRethVerifier
+            _verifiers[refVerifierIdx] == opVerifier
+                || _verifiers[refVerifierIdx] == sgxRethVerifier
                 || _verifiers[refVerifierIdx] == risc0RethVerifier
                 || _verifiers[refVerifierIdx] == sp1RethVerifier
         );
