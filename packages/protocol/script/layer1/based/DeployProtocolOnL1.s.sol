@@ -347,7 +347,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Other verifiers
         // Initializable the proxy for proofVerifier to get the contract address at first.
-        (address sgxVerifier, address gethVerifier) =
+        (address sgxVerifier, address pivotVerifier) =
             deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
         (address risc0Verifier, address sp1Verifier) =
@@ -356,7 +356,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
                 new DevnetVerifier(
-                    taikoInboxAddr, gethVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInboxAddr, pivotVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
                 )
             )
         });
@@ -383,7 +383,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoProofVerifier
     )
         private
-        returns (address sgxVerifier, address gethVerifier)
+        returns (address sgxVerifier, address pivotVerifier)
     {
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
@@ -409,8 +409,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
-        gethVerifier = deployProxy({
-            name: "geth_verifier",
+        pivotVerifier = deployProxy({
+            name: "pivot_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver

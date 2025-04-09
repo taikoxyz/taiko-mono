@@ -3,7 +3,7 @@
 usage() {
     echo \
         'Run "PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh
-    --env [dev-<ontake|pacaya|sgxgeth>|hekla-<ontake|pacaya|sgxgeth>|mainnet], default is dev-ontake
+    --env [dev-<ontake|pacaya|pivot>|hekla-<ontake|pacaya|pivot>|mainnet], default is dev-ontake
     --tcb file_path: config tcb
     --eq file_path: config qe
     --mrenclave hex_string: config mrenclave
@@ -43,14 +43,12 @@ load_env() {
         export ATTESTATION_ADDRESS=0xACFFB14Ca4b783fe7314855fBC38c50d7b7A8240
         export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
         ;;
-    dev-pacaya |
-    dev-pacaya-sgx)
+    dev-pacaya)
         export SGX_VERIFIER_ADDRESS=0x6f6E456354A33BDe7B0ED4A10759b79AC0192e68
         export ATTESTATION_ADDRESS=0xACFFB14Ca4b783fe7314855fBC38c50d7b7A8240
         export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
         ;;
-    dev-sgxgeth |
-    dev-pacaya-sgxgeth)
+    dev-pivot)
         export SGX_VERIFIER_ADDRESS=0x9016078d9870e432cb47122609F83DeE025bC060
         export ATTESTATION_ADDRESS=0x0d272C6C9099330A0229fE0954973506416277e9
         export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
@@ -60,14 +58,12 @@ load_env() {
         export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
         export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
         ;;
-    hekla-pacaya |
-    hekla-pacaya-sgx)
+    hekla-pacaya)
         export SGX_VERIFIER_ADDRESS=0xa8cD459E3588D6edE42177193284d40332c3bcd4
         export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
         export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
         ;;
-    hekla-sgxgeth |
-    hekla-pacaya-sgxgeth)
+    hekla-pivot)
         export SGX_VERIFIER_ADDRESS=0x4361B85093720bD50d25236693CA58FD6e1b3a53
         export ATTESTATION_ADDRESS=0x84af08F56AeA1f847c75bE08c96cDC4811694595
         export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
