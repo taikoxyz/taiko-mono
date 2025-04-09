@@ -458,16 +458,14 @@ func updateL1OriginForBatch(
 		return fmt.Errorf("metadata is not for Pacaya fork")
 	}
 
-	meta := metadata.Pacaya()
-	nBlocks := len(meta.GetBlocks())
-	g := new(errgroup.Group)
+	var (
+		meta = metadata.Pacaya()
+		g    = new(errgroup.Group)
+	)
 
-	for i := 0; i < nBlocks; i++ {
-		// capture the current value of i
-		i := i
-
+	for i := 0; i < len(meta.GetBlocks()); i++ {
 		g.Go(func() error {
-			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(nBlocks-1-i))
+			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(len(meta.GetBlocks())-1-i))
 
 			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
 			if err != nil {
@@ -486,8 +484,8 @@ func updateL1OriginForBatch(
 			}
 
 			// If this is the most recent block, update the HeadL1Origin.
-			if i == nBlocks-1 {
-				log.Info("updateL1OriginForBatch setting HeadL1Origin", "blockID", blockID, "l1Origin", l1Origin.BlockID)
+			if i == len(meta.GetBlocks())-1 {
+				log.Info("Update head L1 origin", "blockID", blockID, "l1Origin", l1Origin)
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
