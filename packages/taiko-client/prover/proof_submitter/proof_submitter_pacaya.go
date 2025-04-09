@@ -193,6 +193,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					return fmt.Errorf("failed to request base proof, error: %w", err)
 				}
 			}
+			
 			// Try to add the proof to the buffer.
 			proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
 			if !exist {
