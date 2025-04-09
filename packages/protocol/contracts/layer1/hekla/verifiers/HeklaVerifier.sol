@@ -20,8 +20,8 @@ contract HeklaVerifier is ComposeVerifier {
             _taikoInbox,
             _sgxGethVerifier,
             address(0),
-            _sgxRethVerifier,
             address(0),
+            _sgxRethVerifier,
             _risc0RethVerifier,
             _sp1RethVerifier
         )

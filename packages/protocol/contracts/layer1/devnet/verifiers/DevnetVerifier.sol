@@ -19,10 +19,10 @@ contract DevnetVerifier is ComposeVerifier {
     )
         ComposeVerifier(
             _taikoInbox,
-            _opVerifier,
             _sgxGethVerifier,
-            _sgxRethVerifier,
             address(0),
+            _opVerifier,
+            _sgxRethVerifier,
             _risc0RethVerifier,
             _sp1RethVerifier
         )

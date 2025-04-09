@@ -19,8 +19,8 @@ contract AnyTwoVerifier is ComposeVerifier {
             _taikoInbox,
             address(0),
             address(0),
-            _sgxRethVerifier,
             address(0),
+            _sgxRethVerifier,
             _risc0RethVerifier,
             _sp1RethVerifier
         )

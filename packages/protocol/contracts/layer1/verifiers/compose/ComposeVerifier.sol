@@ -20,22 +20,25 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     address public immutable taikoInbox;
-    /// The sgxGethVerifier is the core verifier required in every proof.
-    /// All other proofs share its status root, despite differing public inputs.
-    /// despite varying public inputs due to differing verification types.
+    /// The sgx/tdx-GethVerifier is the core verifier required in every proof.
+    /// All other proofs share its status root, despite different public inputs
+    /// due to different verification types.
+    /// proofs come from geth client
     address public immutable sgxGethVerifier;
+    address public immutable tdxGethVerifier;
+    /// op for test purpose
     address public immutable opVerifier;
+    /// proofs come from reth client
     address public immutable sgxRethVerifier;
-    address public immutable tdxVerifier;
     address public immutable risc0RethVerifier;
     address public immutable sp1RethVerifier;
 
     constructor(
         address _taikoInbox,
         address _sgxGethVerifier,
+        address _tdxGethVerifier,
         address _opVerifier,
         address _sgxRethVerifier,
-        address _tdxVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
@@ -43,9 +46,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     {
         taikoInbox = _taikoInbox;
         sgxGethVerifier = _sgxGethVerifier;
+        tdxGethVerifier = _tdxGethVerifier;
         opVerifier = _opVerifier;
         sgxRethVerifier = _sgxRethVerifier;
-        tdxVerifier = _tdxVerifier;
         risc0RethVerifier = _risc0RethVerifier;
         sp1RethVerifier = _sp1RethVerifier;
     }
