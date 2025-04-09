@@ -1145,7 +1145,7 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 }
 
-// GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
+// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
 func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	*big.Int,
