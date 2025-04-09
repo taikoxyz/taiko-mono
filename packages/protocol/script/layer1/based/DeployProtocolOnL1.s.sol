@@ -356,7 +356,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
                 new DevnetVerifier(
-                    taikoInboxAddr, sgxGethVerifier, opVerifier, sgxRethVerifier, risc0RethVerifier, sp1RethVerifier
+                    taikoInboxAddr,
+                    sgxGethVerifier,
+                    opVerifier,
+                    sgxRethVerifier,
+                    risc0RethVerifier,
+                    sp1RethVerifier
                 )
             )
         });

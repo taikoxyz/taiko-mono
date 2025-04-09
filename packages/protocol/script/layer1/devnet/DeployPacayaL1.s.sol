@@ -190,7 +190,12 @@ contract DeployPacayaL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox, sgxGethVerifier, opProxy, sgxRethVerifier, risc0RethVerifier, sp1RethVerifier
+                    taikoInbox,
+                    sgxGethVerifier,
+                    opProxy,
+                    sgxRethVerifier,
+                    risc0RethVerifier,
+                    sp1RethVerifier
                 )
             )
         );
