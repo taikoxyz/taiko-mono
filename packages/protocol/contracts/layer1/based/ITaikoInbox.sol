@@ -87,7 +87,7 @@ interface ITaikoInbox {
     /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
         bytes32 infoHash;
-        address assignedProver;
+        address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
     }

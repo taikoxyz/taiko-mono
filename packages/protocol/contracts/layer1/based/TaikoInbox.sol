@@ -192,13 +192,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
-                    assignedProver: currentProver,
+                    prover: currentProver,
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp)
                 });
 
                 _debitBond(info_.proposer, proverFee);
-                _creditBond(meta_.assignedProver, proverFee);
+                _creditBond(meta_.prover, proverFee);
             }
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -218,7 +218,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             uint96 livenessBond =
                 config.livenessBondBase + config.livenessBondPerBlock * uint96(params.blocks.length);
 
-            _debitBond(meta_.assignedProver, livenessBond);
+            _debitBond(meta_.prover, livenessBond);
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
@@ -345,7 +345,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
 
             ts.inProvingWindow = inProvingWindow;
-            ts.prover = inProvingWindow ? meta.assignedProver : msg.sender;
+            ts.prover = inProvingWindow ? meta.prover : msg.sender;
             ts.createdAt = uint48(block.timestamp);
 
             if (tid == 1) {
