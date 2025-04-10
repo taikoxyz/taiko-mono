@@ -659,13 +659,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
                 _creditBond(ts.prover, bondToReturn);
 
+                emit BatchesVerified(batchId, blockHash);
+
                 if (batchId % _config.stateRootSyncInternal == 0) {
                     synced.batchId = batchId;
                     synced.blockId = batch.lastBlockId;
                     synced.tid = tid;
                     synced.stateRoot = ts.stateRoot;
                 }
-            }
+            } // end-of-for
 
             unchecked {
                 --batchId;
@@ -676,7 +678,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
                 batch.verifiedTransitionId = tid;
-                emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
                 if (synced.batchId != 0) {
                     if (synced.batchId != _stats2.lastVerifiedBatchId) {
