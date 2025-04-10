@@ -176,7 +176,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             });
 
             uint64 nBlocks = uint64(params.blocks.length);
-            info_.extraDataList = new bytes32[](0);
+            info_.extraDataList = new bytes32[](nBlocks);
 
             for (uint256 i; i < nBlocks; ++i) {
                 info_.extraDataList[i] =
