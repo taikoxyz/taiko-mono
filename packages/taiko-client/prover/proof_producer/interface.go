@@ -12,7 +12,7 @@ type ProofType string
 
 // ProofType constants.
 const (
-	ProofTypeSgxGeth ProofType = "sgx_geth"
+	ProofTypeSgxGeth ProofType = "sgxgeth"
 	ProofTypeOp      ProofType = "op"
 	ProofTypeSgx     ProofType = "sgx"
 	ProofTypeSgxCPU  ProofType = "native"
