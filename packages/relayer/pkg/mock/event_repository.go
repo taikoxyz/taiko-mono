@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/morkid/paginate"
@@ -176,7 +177,7 @@ func (r *EventRepository) Delete(
 ) error {
 	for i, e := range r.events {
 		if e.ID == id {
-			r.events = append(r.events[:i], r.events[i+1:]...)
+			r.events = slices.Delete(r.events, i, i+1)
 		}
 	}
 
