@@ -30,6 +30,7 @@ contract MockTaikoInbox is EssentialContract {
             blobByteSize: 0,
             extraData: bytes32(0),
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
+            proposer: params.proposer,
             gasLimit: 0, // Mock value
             lastBlockId: 0,
             lastBlockTimestamp: 0,
@@ -49,7 +50,7 @@ contract MockTaikoInbox is EssentialContract {
 
         meta_ = ITaikoInbox.BatchMetadata({
             batchId: 0,
-            proposer: params.proposer,
+            assignedProver:params.proposer, // TODO(daniel)
             proposedAt: uint64(block.timestamp),
             infoHash: keccak256(abi.encode(info_))
         });
