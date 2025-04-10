@@ -343,7 +343,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Initializable the proxy for proofVerifier to get the contract address at first.
         address sgxVerifier =
             deploySgxVerifier(rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
-        address pivotVerifier =
+        address sgxGethVerifier =
             deployPivotVerifier(rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
         (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver, l2ChainId);
 
@@ -353,9 +353,9 @@ contract DeployProtocolOnL1 is DeployCapability {
                     taikoInboxAddr,
                     sgxGethVerifier,
                     opVerifier,
-                    sgxRethVerifier,
-                    risc0RethVerifier,
-                    sp1RethVerifier
+                    sgxVerifier,
+                    risc0Verifier,
+                    sp1Verifier
                 )
             )
         });
@@ -402,7 +402,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address sgxImpl =
             address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
-        sgxRethVerifier = deployProxy({
+        sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, contractOwner),
@@ -432,7 +432,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
 
         address pivotAutomataProxy = deployProxy({
-            name: "pivot_automata_dcap_attestation",
+            name: "sgx_geth_automata_dcap_attestation",
             impl: automataDcapV3AttestationImpl,
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init,
@@ -443,7 +443,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address pivotSgxImpl =
             address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, pivotAutomataProxy));
         pivotVerifier = deployProxy({
-            name: "pivot_verifier",
+            name: "sgx_geth_verifier",
             impl: pivotSgxImpl,
             data: abi.encodeCall(SgxVerifier.init, contractOwner),
             registerTo: rollupResolver
