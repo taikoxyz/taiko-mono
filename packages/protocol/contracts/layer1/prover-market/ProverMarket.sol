@@ -76,7 +76,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     function getCurrentProver() public view returns (address, uint64) {
         address _prover = prover;
-        if (_prover == address(0) || block.timestamp >= exitTimestamps[_prover]) {
+        if (
+            _prover == address(0) // no bidding
+                || block.timestamp >= exitTimestamps[_prover] // exited already
+                || inbox.bondBalanceOf(_prover) < provingThreshold // not enough bond
+        ) {
             return (address(0), 0);
         } else {
             return (_prover, fee);
