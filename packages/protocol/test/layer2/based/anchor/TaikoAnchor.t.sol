@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./Layer2Test.sol";
-import "./helpers/TaikoAnchor_NoBaseFeeCheck.sol";
+import "test/layer2/Layer2Test.sol";
+import "test/layer2/helpers/TaikoAnchor_NoBaseFeeCheck.sol";
 
 contract TestTaikoAnchor is Layer2Test {
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
@@ -38,14 +38,14 @@ contract TestTaikoAnchor is Layer2Test {
         _anchorV3(BLOCK_GAS_LIMIT);
 
         vm.prank(anchor.GOLDEN_TOUCH_ADDRESS());
-        vm.expectRevert(TaikoAnchor.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
+        vm.expectRevert(PacayaAnchor.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
         _anchorV3(BLOCK_GAS_LIMIT);
     }
 
     // calling anchor in the same block more than once should fail
     function test_anchor_AnchorTx_revert_from_wrong_signer() external onTaiko {
         vm.fee(1);
-        vm.expectRevert(TaikoAnchor.L2_INVALID_SENDER.selector);
+        vm.expectRevert(PacayaAnchor.L2_INVALID_SENDER.selector);
         _anchorV3(BLOCK_GAS_LIMIT);
     }
 
