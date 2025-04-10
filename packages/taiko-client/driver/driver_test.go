@@ -501,7 +501,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
-	// Try to insert one preconfirmation block
+	// Try to insert two preconfirmation blocks
 	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -515,25 +515,32 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
-	// Propose a same L2 block batch
-	s.proposePreconfBatch([]*types.Block{l2Head3}, []*types.Header{l1Head1})
-
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
+	s.Equal(l2Head3.Number().Uint64()+1, l2Head4.Number().Uint64())
 	s.Equal(2, len(l2Head4.Transactions()))
 
-	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	// Propose two same L2 blocks in a batch
+	s.proposePreconfBatch([]*types.Block{l2Head3, l2Head4}, []*types.Header{l1Head1, l1Head1})
+
+	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head4.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head4.Number().Uint64(), l2Head5.Number().Uint64())
+	s.Equal(2, len(l2Head5.Transactions()))
+
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big2))
+	s.Nil(err)
+	s.Equal(l2Head5.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head5.Hash(), l1Origin2.L2BlockHash)
 	s.Equal(l2Head4.Hash(), l1Origin2.L2BlockHash)
-	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
 	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
 	s.False(l1Origin2.IsPreconfBlock())
 
 	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l1Origin2, canonicalL1Origin)
+	s.Equal(l2Head5.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
@@ -697,7 +704,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 		return nil
 	}
 
-	insertPayloadFromBlock := func(block *types.Block) {
+	insertPayloadFromBlock := func(block *types.Block, gossipRandom bool) {
 		baseFee, overflow := uint256.FromBig(block.BaseFee())
 		s.False(overflow)
 
@@ -722,6 +729,45 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 				Withdrawals:   &types.Withdrawals{},
 			}},
 		))
+
+		if gossipRandom {
+			// Also gossip some random blocks
+			s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
+				context.Background(),
+				peer.ID(testutils.RandomBytes(32)),
+				&eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
+					BlockHash:     common.BytesToHash(testutils.RandomBytes(32)),
+					ParentHash:    common.BytesToHash(testutils.RandomBytes(32)),
+					FeeRecipient:  block.Coinbase(),
+					PrevRandao:    eth.Bytes32(common.BytesToHash(testutils.RandomBytes(32))),
+					BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+					GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+					Timestamp:     eth.Uint64Quantity(block.Time()),
+					ExtraData:     block.Extra(),
+					BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+					Transactions:  []eth.Data{b},
+					Withdrawals:   &types.Withdrawals{},
+				}},
+			))
+
+			s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
+				context.Background(),
+				peer.ID(testutils.RandomBytes(32)),
+				&eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
+					BlockHash:     common.BytesToHash(testutils.RandomBytes(32)),
+					ParentHash:    block.ParentHash(),
+					FeeRecipient:  block.Coinbase(),
+					PrevRandao:    eth.Bytes32(common.BytesToHash(testutils.RandomBytes(32))),
+					BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+					GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+					Timestamp:     eth.Uint64Quantity(block.Time()),
+					ExtraData:     block.Extra(),
+					BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+					Transactions:  []eth.Data{b},
+					Withdrawals:   &types.Withdrawals{},
+				}},
+			))
+		}
 	}
 
 	// Insert all blocks except the first one
@@ -733,7 +779,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 		block := getBlock(uint64(blockNum))
 		s.NotNil(block)
 
-		insertPayloadFromBlock(block)
+		insertPayloadFromBlock(block, true)
 	}
 
 	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -743,7 +789,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	// Insert the only missing ancient block
 	block := getBlock(l2Head1.Number.Uint64() + 1)
 	s.NotNil(block)
-	insertPayloadFromBlock(block)
+	insertPayloadFromBlock(block, false)
 
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)

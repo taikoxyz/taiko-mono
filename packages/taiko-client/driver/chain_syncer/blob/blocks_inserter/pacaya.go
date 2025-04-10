@@ -195,15 +195,24 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 		log.Debug("Payload data", "hash", lastPayloadData.BlockHash, "txs", len(lastPayloadData.Transactions))
 
+		// Wait till the corresponding L2 header to be existed in the L2 EE.
+		if _, err := i.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(lastPayloadData.Number)); err != nil {
+			return fmt.Errorf("failed to wait for L2 header (%d): %w", lastPayloadData.Number, err)
+		}
+
 		log.Info(
 			"🔗 New L2 block inserted",
 			"blockID", lastPayloadData.Number,
 			"hash", lastPayloadData.BlockHash,
+			"coinbase", lastPayloadData.FeeRecipient.Hex(),
 			"transactions", len(lastPayloadData.Transactions),
 			"timestamp", lastPayloadData.Timestamp,
 			"baseFee", utils.WeiToGWei(lastPayloadData.BaseFeePerGas),
 			"withdrawals", len(lastPayloadData.Withdrawals),
 			"batchID", meta.GetBatchID(),
+			"gasLimit", lastPayloadData.GasLimit,
+			"gasUsed", lastPayloadData.GasUsed,
+			"parentHash", lastPayloadData.ParentHash,
 			"indexInBatch", j,
 		)
 
