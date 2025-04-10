@@ -1,6 +1,6 @@
 import { Config, Result } from "./interface";
 const path = require("path");
-const { ethers } = require("ethers");
+const { ethers, constants } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
 const linker = require("solc/linker");
 const { computeStorageSlots, getStorageLayout } = require("./utils");
@@ -327,6 +327,13 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
+                    {
+                        id: bridgeReferencesMap.quotaManager.id,
+                        value: ethers.utils.hexZeroPad(
+                            constants.AddressZero,
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
@@ -496,13 +503,6 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: essentialContractReferencesMap.__resolver.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.SharedResolver,
-                            32,
-                        ),
-                    },
-                    {
                         id: bridgedERC20ReferencesMap.erc20Vault.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.ERC20Vault,
@@ -525,13 +525,6 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: essentialContractReferencesMap.__resolver.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.SharedResolver,
-                            32,
-                        ),
-                    },
-                    {
                         id: bridgedERC721ReferencesMap.erc721Vault.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.ERC721Vault,
@@ -550,13 +543,6 @@ async function generateContractConfigs(
                         id: uupsImmutableReferencesMap.__self.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.BridgedERC1155Impl,
-                            32,
-                        ),
-                    },
-                    {
-                        id: essentialContractReferencesMap.__resolver.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.SharedResolver,
                             32,
                         ),
                     },
@@ -638,16 +624,16 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: taikoAnchorReferencesMap.pacayaForkHeight.id,
+                        id: taikoAnchorReferencesMap.signalService.id,
                         value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(pacayaForkHeight),
+                            addressMap.SignalService,
                             32,
                         ),
                     },
                     {
-                        id: taikoAnchorReferencesMap.signalService.id,
+                        id: taikoAnchorReferencesMap.pacayaForkHeight.id,
                         value: ethers.utils.hexZeroPad(
-                            addressMap.SignalService,
+                            ethers.utils.hexlify(pacayaForkHeight),
                             32,
                         ),
                     },
