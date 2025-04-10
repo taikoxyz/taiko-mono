@@ -16,7 +16,7 @@ lint:
 	@go install golang.org/x/tools/cmd/goimports@latest \
 	&& go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5 \
 	&& goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
-	&& golangci-lint run
+	&& golangci-lint run --timeout 5m
 
 test:
 	@PACKAGE=${PACKAGE} \

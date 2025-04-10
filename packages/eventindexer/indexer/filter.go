@@ -146,13 +146,7 @@ func (i *Indexer) filter(
 	}
 
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
-		end := j + i.blockBatchSize - 1
-
-		// if the end of the batch is greater than the latest block number, set end
-		// to the latest block number
-		if end > endBlockID {
-			end = endBlockID
-		}
+		end := min(j+i.blockBatchSize-1, endBlockID)
 
 		if !i.isPostPacayaForkHeightReached && i.taikol1 != nil && i.pacayaForkHeight > i.latestIndexedBlockNumber && i.pacayaForkHeight < end {
 			slog.Info("pacaya fork height reached", "height", i.pacayaForkHeight)

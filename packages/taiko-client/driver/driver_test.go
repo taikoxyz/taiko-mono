@@ -529,6 +529,10 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
 	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
 	s.False(l1Origin2.IsPreconfBlock())
+
+	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l1Origin2, canonicalL1Origin)
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
