@@ -175,22 +175,27 @@ contract DeployPacayaL1 is DeployCapability {
     )
         internal
     {
-        // In testing, use opVerifier impl as a pivotVerifier
-        address pivotVerifier = deployProxy({
-            name: "pivot_verifier",
+        // In testing, use opVerifier impl as a sgxGethVerifier
+        address sgxGethVerifier = deployProxy({
+            name: "sgxGeth_verifier",
             impl: opImpl,
             data: abi.encodeCall(OpVerifier.init, address(0)),
             registerTo: rollupResolver
         });
 
-        (address sgxVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
-        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
+        (address sgxRethVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
+        (address risc0RethVerifier, address sp1RethVerifier) = deployZKVerifiers(rollupResolver);
 
         // NOTE: For hekla, we need to replace DevnetVerifier with HeklaVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox, pivotVerifier, opProxy, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInbox,
+                    sgxGethVerifier,
+                    opProxy,
+                    sgxRethVerifier,
+                    risc0RethVerifier,
+                    sp1RethVerifier
                 )
             )
         );

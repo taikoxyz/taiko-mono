@@ -104,7 +104,7 @@ func (r *HealthCheckRepository) GetUptimeByGuardianProverAddress(
 ) (float64, int, error) {
 	var count int64
 
-	var query string = `SELECT COUNT(*)
+	var query = `SELECT COUNT(*)
 	FROM health_checks
 	WHERE recovered_address = ? AND
 	created_at > NOW() - INTERVAL 1 DAY`
