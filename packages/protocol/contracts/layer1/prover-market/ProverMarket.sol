@@ -26,6 +26,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     ITaikoInbox public immutable inbox;
     uint256 public immutable biddingThreshold;
+    uint256 public immutable outbidThreshold;
     uint256 public immutable provingThreshold;
     uint256 public immutable minExitDelay;
     address internal prover;
@@ -44,27 +45,41 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     constructor(
         address _inbox,
-        uint256 _biddingThreshold,
-        uint256 _provingThreshold,
+        uint256 _biddingThreshold, // = livenessBond * 2000
+        uint256 _evictingThreshold, // = livenessBond * 1000
+        uint256 _provingThreshold, // livenessBond * 100
         uint256 _minExitDelay
     )
         nonZeroAddr(_inbox)
-        nonZeroValue(_biddingThreshold)
-        nonZeroValue(_provingThreshold)
         nonZeroValue(_minExitDelay)
         EssentialContract(address(0))
     {
-        require(_biddingThreshold > _provingThreshold, InvalidThresholds());
+        require(_biddingThreshold > _evictingThreshold, InvalidThresholds());
+        require(_evictingThreshold > _provingThreshold, InvalidThresholds());
+        require(_provingThreshold > 0, InvalidThresholds());
+
         inbox = ITaikoInbox(_inbox);
+
         biddingThreshold = _biddingThreshold;
-        provingThreshold = _provingThreshold;
+        evictingThreshold = _evictingThreshold;
+        provingThreshold = livenessBond;
+
         minExitDelay = _minExitDelay;
     }
 
     function bid(uint64 _fee, uint256 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
-        _checkBiddingFee(_fee);
+        (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
+            _getCurrentProver();
+
+        if (currentProver == address(0) || currentProverBalance < evictingThreshold) {
+            // TODO(dani): ensure the new _fee cannot be too large right...
+            // Using a moving average???
+        } else {
+            require(_fee < currentProvingFee * 9 / 10, InvalidBid());
+        }
+
         prover = msg.sender;
         fee = _fee;
         exitTimestamps[msg.sender] = _exitTimestamp;
@@ -82,22 +97,22 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     function getCurrentProver() public view returns (address, uint64) {
+        (address currentProver, uint64 currentFee, uint256 currentBalance) = _getCurrentProver();
+        return currentBalance < provingThreshold // balance too low
+            ? (address(0), 0)
+            : (currentProver, currentFee);
+    }
+
+    function _getCurrentProver() public view returns (address, uint64, uint256) {
         address _prover = prover;
         if (
             _prover == address(0) // no bidding
                 || block.timestamp >= exitTimestamps[_prover] // exited already
-                || inbox.bondBalanceOf(_prover) < provingThreshold // not enough bond
+                // || inbox.bondBalanceOf(_prover) < provingThreshold // not enough bond
         ) {
-            return (address(0), 0);
+            return (address(0), 0, 0);
         } else {
-            return (_prover, fee);
-        }
-    }
-
-    function _checkBiddingFee(uint64 _fee) internal virtual {
-        (address currentProver, uint64 currentProvingFee) = getCurrentProver();
-        if (currentProver != address(0)) {
-            require(_fee < currentProvingFee * 9 / 10, InvalidBid());
+            return (_prover, fee, inbox.bondBalanceOf(_prover));
         }
     }
 }
