@@ -11,20 +11,20 @@ contract DevnetVerifier is ComposeVerifier {
 
     constructor(
         address _taikoInbox,
-        address _pivotVerifier,
+        address _sgxGethVerifier,
         address _opVerifier,
-        address _sgxVerifier,
-        address _risc0Verifier,
-        address _sp1Verifier
+        address _sgxRethVerifier,
+        address _risc0RethVerifier,
+        address _sp1RethVerifier
     )
         ComposeVerifier(
             _taikoInbox,
-            _opVerifier,
-            _pivotVerifier,
-            _sgxVerifier,
+            _sgxGethVerifier,
             address(0),
-            _risc0Verifier,
-            _sp1Verifier
+            _opVerifier,
+            _sgxRethVerifier,
+            _risc0RethVerifier,
+            _sp1RethVerifier
         )
     { }
 
@@ -35,14 +35,15 @@ contract DevnetVerifier is ComposeVerifier {
         returns (bool)
     {
         if (_verifiers.length != 2) return false;
-        uint256 pivotVerifierIdx = (_verifiers[0] == pivotVerifier) ? 0 : 1;
-        uint256 refVerifierIdx = (pivotVerifierIdx == 0) ? 1 : 0;
-        require(_verifiers[pivotVerifierIdx] == pivotVerifier, "CV_INVALID_TRUSTED_VERIFIER");
+        uint256 sgxGethVerifierIdx = (_verifiers[0] == sgxGethVerifier) ? 0 : 1;
+        uint256 refVerifierIdx = (sgxGethVerifierIdx == 0) ? 1 : 0;
+        require(_verifiers[sgxGethVerifierIdx] == sgxGethVerifier, "CV_INVALID_TRUSTED_VERIFIER");
 
         return (
-            _verifiers[refVerifierIdx] == opVerifier || _verifiers[refVerifierIdx] == sgxVerifier
-                || _verifiers[refVerifierIdx] == risc0Verifier
-                || _verifiers[refVerifierIdx] == sp1Verifier
+            _verifiers[refVerifierIdx] == opVerifier
+                || _verifiers[refVerifierIdx] == sgxRethVerifier
+                || _verifiers[refVerifierIdx] == risc0RethVerifier
+                || _verifiers[refVerifierIdx] == sp1RethVerifier
         );
     }
 }

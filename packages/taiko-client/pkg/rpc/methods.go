@@ -1145,7 +1145,7 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 }
 
-// GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
+// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
 func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	*big.Int,
@@ -1208,22 +1208,22 @@ func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error
 
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxVerifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
 func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0Verifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0RethVerifier)
 }
 
 // GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
 func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1Verifier)
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1RethVerifier)
 }
 
-// GetPivotVerifierPacaya resolves the Pacaya pivot verifier address.
-func (c *Client) GetPivotVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.PivotVerifier)
+// GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
+func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
 }
 
 // GetPreconfRouterPacaya resolves the preconf router address.

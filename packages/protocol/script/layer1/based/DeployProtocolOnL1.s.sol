@@ -350,7 +350,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
                 new DevnetVerifier(
-                    taikoInboxAddr, pivotVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInboxAddr,
+                    sgxGethVerifier,
+                    opVerifier,
+                    sgxRethVerifier,
+                    risc0RethVerifier,
+                    sp1RethVerifier
                 )
             )
         });
@@ -397,7 +402,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address sgxImpl =
             address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
-        sgxVerifier = deployProxy({
+        sgxRethVerifier = deployProxy({
             name: "sgx_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, contractOwner),
