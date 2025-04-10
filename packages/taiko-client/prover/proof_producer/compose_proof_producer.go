@@ -57,6 +57,7 @@ func (s *ComposeProofProducer) RequestProof(
 	log.Info(
 		"Request proof from raiko-host service",
 		"batchID", batchID,
+		"proofType", s.ProofType,
 		"coinbase", meta.Pacaya().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
@@ -92,8 +93,11 @@ func (s *ComposeProofProducer) RequestProof(
 			); err != nil {
 				return err
 			} else {
-				proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 				proofType = resp.ProofType
+				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
+				if ProofTypeZKSP1 != proofType {
+					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
+				}
 			}
 		}
 		return nil
@@ -235,6 +239,13 @@ func (s *ComposeProofProducer) requestBatchProof(
 	}
 
 	if err := output.Validate(); err != nil {
+		log.Debug(
+			"Proof output validation result",
+			"start", batches[0].BatchID,
+			"end", batches[len(batches)-1].BatchID,
+			"proofType", output.ProofType,
+			"err", err,
+		)
 		return nil, fmt.Errorf("invalid Raiko response(start: %d, end: %d): %w",
 			batches[0].BatchID,
 			batches[len(batches)-1].BatchID,
@@ -242,6 +253,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 		)
 	}
 
+	proofType = output.ProofType
 	log.Info(
 		"Batch proof generated",
 		"isAggregation", isAggregation,

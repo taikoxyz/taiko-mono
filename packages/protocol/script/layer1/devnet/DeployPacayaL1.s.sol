@@ -175,22 +175,27 @@ contract DeployPacayaL1 is DeployCapability {
     )
         internal
     {
-        // In testing, use opVerifier impl as a pivotVerifier
-        address pivotVerifier = deployProxy({
-            name: "pivot_verifier",
+        // In testing, use opVerifier impl as a sgxGethVerifier
+        address sgxGethVerifier = deployProxy({
+            name: "sgxGeth_verifier",
             impl: opImpl,
             data: abi.encodeCall(OpVerifier.init, address(0)),
             registerTo: rollupResolver
         });
 
-        (address sgxVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
-        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver);
+        (address sgxRethVerifier) = deployTEEVerifiers(rollupResolver, proofVerifier);
+        (address risc0RethVerifier, address sp1RethVerifier) = deployZKVerifiers(rollupResolver);
 
         // NOTE: For hekla, we need to replace DevnetVerifier with HeklaVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox, pivotVerifier, opProxy, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInbox,
+                    sgxGethVerifier,
+                    opProxy,
+                    sgxRethVerifier,
+                    risc0RethVerifier,
+                    sp1RethVerifier
                 )
             )
         );
@@ -234,11 +239,9 @@ contract DeployPacayaL1 is DeployCapability {
     function registerBridgedTokenContracts(address sharedResolver) internal {
         // Bridged Token
         register(sharedResolver, "bridged_erc20", address(new BridgedERC20(address(erc20Vault))));
+        register(sharedResolver, "bridged_erc721", address(new BridgedERC721(address(erc721Vault))));
         register(
-            sharedResolver, "bridged_erc721", address(new BridgedERC721(address(sharedResolver)))
-        );
-        register(
-            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(sharedResolver)))
+            sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(erc1155Vault)))
         );
     }
 }
