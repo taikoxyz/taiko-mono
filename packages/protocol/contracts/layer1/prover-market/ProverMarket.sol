@@ -28,7 +28,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @dev The minimal token balance of the new prover
     /// @dev The minimum token balance required to place a bid and become the current prover.
     uint256 public immutable biddingThreshold;
-    /// @dev The minimum token balance of the current prover below which they can be outbid by a higher bid.
+    /// @dev The minimum token balance of the current prover below which they can be outbid by a
+    /// higher bid.
     uint256 public immutable outbidThreshold;
     /// @dev The minimum token balance required for the current prover to maintain their status.
     uint256 public immutable provingThreshold;
