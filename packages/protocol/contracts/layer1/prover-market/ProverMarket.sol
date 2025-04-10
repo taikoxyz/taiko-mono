@@ -3,149 +3,90 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 
+/// @title IProverMarket
+/// @custom:security-contact security@taiko.xyz
 interface IProverMarket {
-    function assignProver(uint64 _batchId) external returns (address prover_, uint64 provingFee_);
-
-    function settleFee(
-        uint64 _batchId,
-        address _assignedProver,
-        address _actualProver,
-        uint64 _proverFee,
-        uint256 _burnAmount
-    )
-        external;
+    function getCurrentProver() external view returns (address, uint64);
 }
 
 /// @title ProverMarket
 /// @custom:security-contact security@taiko.xyz
-abstract contract ProverMarket is EssentialContract, IProverMarket {
+contract ProverMarket is EssentialContract, IProverMarket {
     using SafeERC20 for IERC20;
 
-    event ProverAssigned(
-        uint64 indexed batchId, address indexed prover, uint64 provingFee, uint32 assignmentId
-    );
     event ProverChanged(
-        address indexed prevProver,
-        uint64 prevProvingFee,
-        address indexed newProver,
-        uint64 newProvingFee
+        address indexed prevProver, uint64 prevFee, address indexed newProver, uint64 newFee
     );
 
-    event FeeSettled(
-        uint64 indexed batchId,
-        address indexed assignedProver,
-        address indexed actualProver,
-        uint64 proverFee,
-        uint256 burnAmount
-    );
-
-    error NoProverAvailable();
-    error NotCurrentProver();
+    error InsufficientBondBalance();
+    error InvalidBid();
     error InvalidThresholds();
-    error InsufficientDeposit();
+    error NotCurrentProver();
     error TooEarly();
-    error NotEnoughAssignments();
 
-    address public immutable inbox;
-    IERC20 public immutable taikoToken;
+    ITaikoInbox public immutable inbox;
     uint256 public immutable biddingThreshold;
     uint256 public immutable provingThreshold;
-    uint256 public immutable minAssignmentCommitment;
-
+    uint256 public immutable minExitDelay;
     address internal prover;
-    uint64 internal provingFee;
-    mapping(address account => uint256 deposit) internal deposits;
-    uint32 internal nextAssignmentId;
-    uint256 internal totalBurned;
+    uint64 internal fee;
+    mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
+
+    modifier onlyCurrentProver() {
+        require(msg.sender == prover, NotCurrentProver());
+        _;
+    }
 
     constructor(
         address _inbox,
-        address _taikoToken,
         uint256 _biddingThreshold,
         uint256 _provingThreshold,
-        uint256 _minAssignmentCommitment
+        uint256 _minExitDelay
     )
         nonZeroAddr(_inbox)
-        nonZeroAddr(_taikoToken)
         nonZeroValue(_biddingThreshold)
         nonZeroValue(_provingThreshold)
+        nonZeroValue(_minExitDelay)
         EssentialContract(address(0))
     {
         require(_biddingThreshold > _provingThreshold, InvalidThresholds());
-        inbox = _inbox;
-        taikoToken = IERC20(_taikoToken);
+        inbox = ITaikoInbox(_inbox);
         biddingThreshold = _biddingThreshold;
         provingThreshold = _provingThreshold;
-        minAssignmentCommitment = _minAssignmentCommitment;
+        minExitDelay = _minExitDelay;
     }
 
-    function assignProver(uint64 _batchId)
-        external
-        onlyFrom(inbox)
-        returns (address prover_, uint64 provingFee_)
-    {
-        (prover_, provingFee_) = getCurrentProver();
-        require(prover_ != address(0), NoProverAvailable());
+    function bid(uint64 _fee) external {
+        require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
+        _checkBiddingFee(_fee);
 
-        deposits[prover_] -= provingFee_;
-        emit ProverAssigned(_batchId, prover_, provingFee_, nextAssignmentId++);
-    }
+        emit ProverChanged(prover, fee, msg.sender, _fee);
 
-    function settleFee(
-        uint64 _batchId,
-        address _assignedProver,
-        address _actualProver,
-        uint64 _proverFee,
-        uint256 _burnAmount
-    )
-        external
-        onlyFrom(inbox)
-    {
-        deposits[_actualProver] += _proverFee;
-        if (_burnAmount != 0) {
-            totalBurned += _burnAmount;
-        }
-        emit FeeSettled(_batchId, _assignedProver, _actualProver, _proverFee, _burnAmount);
-    }
-
-    function bid(uint64 _provingFee) external {
-        require(deposits[msg.sender] >= biddingThreshold, InsufficientDeposit());
-        _checkBiddingFee(_provingFee);
-        emit ProverChanged(prover, provingFee, msg.sender, _provingFee);
         prover = msg.sender;
-        provingFee = _provingFee;
-        nextAssignmentId = 1;
+        fee = _fee;
+        exitTimestamps[msg.sender] = type(uint64).max;
     }
 
-    function exit() external {
-        require(msg.sender != prover, NotCurrentProver());
-        require(nextAssignmentId > minAssignmentCommitment, TooEarly());
-        emit ProverChanged(prover, provingFee, address(0), 0);
-        prover = address(0);
-        provingFee = 0;
-        nextAssignmentId = 1;
+    function requestExit(uint256 _exitTimestamp) external onlyCurrentProver {
+        require(_exitTimestamp >= block.timestamp + minExitDelay, TooEarly());
+        exitTimestamps[msg.sender] = _exitTimestamp;
     }
 
     function getCurrentProver() public view returns (address, uint64) {
         address _prover = prover;
-        if (_prover == address(0) || deposits[_prover] < provingThreshold) {
+        if (_prover == address(0) || block.timestamp >= exitTimestamps[_prover]) {
             return (address(0), 0);
+        } else {
+            return (_prover, fee);
         }
-
-        return (_prover, provingFee);
     }
 
-    function deposit(uint256 _amount) external {
-        deposits[msg.sender] += _amount;
-        taikoToken.safeTransferFrom(msg.sender, address(this), _amount);
+    function _checkBiddingFee(uint64 _fee) internal virtual {
+        (address currentProver, uint64 currentProvingFee) = getCurrentProver();
+        if (currentProver != address(0)) {
+            require(_fee < currentProvingFee * 9 / 10, InvalidBid());
+        }
     }
-
-    function withdraw(uint256 _amount) external {
-        require(msg.sender != prover, NotCurrentProver());
-        deposits[msg.sender] -= _amount;
-        taikoToken.safeTransfer(msg.sender, _amount);
-    }
-
-    function _checkBiddingFee(uint64 _provingFee) internal virtual;
 }
