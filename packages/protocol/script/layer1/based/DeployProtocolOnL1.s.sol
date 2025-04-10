@@ -415,7 +415,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: rollupResolver
         });
         sgxGethVerifier = deployProxy({
-            name: "sgxGeth_verifier",
+            name: "sgx_geth_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
