@@ -25,8 +25,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error TooEarly();
 
     ITaikoInbox public immutable inbox;
+    /// @dev The minimal token balance of the new prover
+    /// @dev The minimum token balance required to place a bid and become the current prover.
     uint256 public immutable biddingThreshold;
+    /// @dev The minimum token balance of the current prover below which they can be outbid by a higher bid.
     uint256 public immutable outbidThreshold;
+    /// @dev The minimum token balance required for the current prover to maintain their status.
     uint256 public immutable provingThreshold;
     uint256 public immutable minExitDelay;
     address internal prover;
@@ -46,7 +50,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     constructor(
         address _inbox,
         uint256 _biddingThreshold, // = livenessBond * 2000
-        uint256 _evictingThreshold, // = livenessBond * 1000
+        uint256 _outbidThreshold, // = livenessBond * 1000
         uint256 _provingThreshold, // livenessBond * 100
         uint256 _minExitDelay
     )
@@ -54,15 +58,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
         nonZeroValue(_minExitDelay)
         EssentialContract(address(0))
     {
-        require(_biddingThreshold > _evictingThreshold, InvalidThresholds());
-        require(_evictingThreshold > _provingThreshold, InvalidThresholds());
+        require(_biddingThreshold > _outbidThreshold, InvalidThresholds());
+        require(_outbidThreshold > _provingThreshold, InvalidThresholds());
         require(_provingThreshold > 0, InvalidThresholds());
 
         inbox = ITaikoInbox(_inbox);
 
         biddingThreshold = _biddingThreshold;
-        evictingThreshold = _evictingThreshold;
-        provingThreshold = livenessBond;
+        outbidThreshold = _outbidThreshold;
+        provingThreshold = _provingThreshold;
 
         minExitDelay = _minExitDelay;
     }
@@ -73,11 +77,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
         (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
             _getCurrentProver();
 
-        if (currentProver == address(0) || currentProverBalance < evictingThreshold) {
+        if (currentProver == address(0) || currentProverBalance < outbidThreshold) {
             // TODO(dani): ensure the new _fee cannot be too large right...
             // Using a moving average???
         } else {
-            require(_fee < currentProvingFee * 9 / 10, InvalidBid());
+            require(_fee < currentFee * 9 / 10, InvalidBid());
         }
 
         prover = msg.sender;
