@@ -4,7 +4,18 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 
-interface IProverMarket { }
+interface IProverMarket {
+    function assignProver(uint64 _batchId) external returns (address prover_, uint64 provingFee_);
+
+    function settleFee(
+        uint64 _batchId,
+        address _assignedProver,
+        address _actualProver,
+        uint64 _proverFee,
+        uint256 _burnAmount
+    )
+        external;
+}
 
 /// @title ProverMarket
 /// @custom:security-contact security@taiko.xyz
@@ -19,6 +30,14 @@ abstract contract ProverMarket is EssentialContract, IProverMarket {
         uint64 prevProvingFee,
         address indexed newProver,
         uint64 newProvingFee
+    );
+
+    event FeeSettled(
+        uint64 indexed batchId,
+        address indexed assignedProver,
+        address indexed actualProver,
+        uint64 proverFee,
+        uint256 burnAmount
     );
 
     error NoProverAvailable();
@@ -38,6 +57,7 @@ abstract contract ProverMarket is EssentialContract, IProverMarket {
     uint64 internal provingFee;
     mapping(address account => uint256 deposit) internal deposits;
     uint32 internal nextAssignmentId;
+    uint256 internal totalBurned;
 
     constructor(
         address _inbox,
@@ -60,6 +80,35 @@ abstract contract ProverMarket is EssentialContract, IProverMarket {
         minAssignmentCommitment = _minAssignmentCommitment;
     }
 
+    function assignProver(uint64 _batchId)
+        external
+        onlyFrom(inbox)
+        returns (address prover_, uint64 provingFee_)
+    {
+        (prover_, provingFee_) = getCurrentProver();
+        require(prover_ != address(0), NoProverAvailable());
+
+        deposits[prover_] -= provingFee_;
+        emit ProverAssigned(_batchId, prover_, provingFee_, nextAssignmentId++);
+    }
+
+    function settleFee(
+        uint64 _batchId,
+        address _assignedProver,
+        address _actualProver,
+        uint64 _proverFee,
+        uint256 _burnAmount
+    )
+        external
+        onlyFrom(inbox)
+    {
+        deposits[_actualProver] += _proverFee;
+        if (_burnAmount != 0) {
+            totalBurned += _burnAmount;
+        }
+        emit FeeSettled(_batchId, _assignedProver, _actualProver, _proverFee, _burnAmount);
+    }
+
     function bid(uint64 _provingFee) external {
         require(deposits[msg.sender] >= biddingThreshold, InsufficientDeposit());
         _checkBiddingFee(_provingFee);
@@ -76,18 +125,6 @@ abstract contract ProverMarket is EssentialContract, IProverMarket {
         prover = address(0);
         provingFee = 0;
         nextAssignmentId = 1;
-    }
-
-    function assignProver(uint64 _batchId)
-        external
-        onlyFrom(inbox)
-        returns (address prover_, uint64 provingFee_)
-    {
-        (prover_, provingFee_) = getCurrentProver();
-        require(prover_ != address(0), NoProverAvailable());
-
-        deposits[prover_] -= provingFee_;
-        emit ProverAssigned(_batchId, prover_, provingFee_, nextAssignmentId++);
     }
 
     function getCurrentProver() public view returns (address, uint64) {
