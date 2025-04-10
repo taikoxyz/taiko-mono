@@ -16,9 +16,7 @@ interface IProverMarket {
 contract ProverMarket is EssentialContract, IProverMarket {
     using SafeERC20 for IERC20;
 
-    event ProverChanged(
-        address indexed prevProver, uint64 prevFee, address indexed newProver, uint64 newFee
-    );
+    event ProverChanged(address indexed prover, uint64 fee, uint256 exitTimestamp);
 
     error InsufficientBondBalance();
     error InvalidBid();
@@ -36,6 +34,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     modifier onlyCurrentProver() {
         require(msg.sender == prover, NotCurrentProver());
+        _;
+    }
+
+    modifier validExitTimestamp(uint256 _exitTimestamp) {
+        require(_exitTimestamp >= block.timestamp + minExitDelay, TooEarly());
         _;
     }
 
@@ -58,20 +61,24 @@ contract ProverMarket is EssentialContract, IProverMarket {
         minExitDelay = _minExitDelay;
     }
 
-    function bid(uint64 _fee) external {
+    function bid(uint64 _fee, uint256 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
+
         _checkBiddingFee(_fee);
-
-        emit ProverChanged(prover, fee, msg.sender, _fee);
-
         prover = msg.sender;
         fee = _fee;
-        exitTimestamps[msg.sender] = type(uint64).max;
+        exitTimestamps[msg.sender] = _exitTimestamp;
+
+        emit ProverChanged(msg.sender, _fee, _exitTimestamp);
     }
 
-    function requestExit(uint256 _exitTimestamp) external onlyCurrentProver {
-        require(_exitTimestamp >= block.timestamp + minExitDelay, TooEarly());
+    function requestExit(uint256 _exitTimestamp)
+        external
+        validExitTimestamp(_exitTimestamp)
+        onlyCurrentProver
+    {
         exitTimestamps[msg.sender] = _exitTimestamp;
+        emit ProverChanged(msg.sender, fee, _exitTimestamp);
     }
 
     function getCurrentProver() public view returns (address, uint64) {
