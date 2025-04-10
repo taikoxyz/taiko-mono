@@ -29,7 +29,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint256 public immutable provingThreshold;
     uint256 public immutable minExitDelay;
     address internal prover;
-    uint64 internal fee;
+    uint64 internal fee; // proving fee per batch
     mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
 
     modifier onlyCurrentProver() {
