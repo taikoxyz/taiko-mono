@@ -562,7 +562,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         state.stats2.lastProposedIn = uint56(block.number);
         state.stats2.numBatches = 1;
 
-        emit BatchesVerified(0, _genesisBlockHash);
+        emit BatchesVerified(0, address(0), _genesisBlockHash);
     }
 
     function _unpause() internal override {
@@ -670,6 +670,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 blockHash = _blockHash;
 
+                emit BatchesVerified(batchId, ts.prover, blockHash);
+
                 uint96 bondToReturn =
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
                 _creditBond(ts.prover, bondToReturn);
@@ -691,7 +693,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
                 batch.verifiedTransitionId = tid;
-                emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
                 if (synced.batchId != 0) {
                     if (synced.batchId != _stats2.lastVerifiedBatchId) {

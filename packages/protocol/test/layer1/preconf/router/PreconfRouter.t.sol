@@ -55,7 +55,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        (ITaikoInbox.BatchInfo memory info,  ) = router.proposeBatch(abi.encode(params), "");
+        (ITaikoInbox.BatchInfo memory info,) = router.proposeBatch(abi.encode(params), "");
 
         // Assert the proposer was set correctly in the metadata
         assertEq(info.proposer, Carol);
