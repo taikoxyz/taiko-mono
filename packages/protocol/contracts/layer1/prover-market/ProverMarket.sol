@@ -32,13 +32,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// another prover even if the new bid offers the same proving fee or only a slightly higher one
     /// (e.g., 1.01× or 1.05× the current fee).
     uint256 public immutable outbidThreshold;
-    /// @dev TIf the current prover’s bond balance drops below this threshold, they are considered
+    /// @dev If the current prover’s bond balance drops below this threshold, they are considered
     /// disqualified (evicted), and the active prover is reset to address(0).
     uint256 public immutable provingThreshold;
     uint256 public immutable minExitDelay;
     address internal prover;
     uint64 internal fee; // proving fee per batch
     mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
+    /// @notice Gap for upgrade safety
+    uint256[48] private __gap;
 
     modifier onlyCurrentProver() {
         require(msg.sender == prover, NotCurrentProver());
@@ -80,9 +82,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
         (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
             _getCurrentProver();
 
-        if (currentProver == address(0) || currentProverBalance < outbidThreshold) {
+        if (currentProver != address(0) && currentProverBalance < outbidThreshold) {
             // TODO(dani): ensure the new _fee cannot be too large right...
-            // Using a moving average???
+            // Using a moving average??? -> dani: Seems "on-chain" heavy (gas-inefficient). We
+            // already know Alice (current prover) is soon running out of her deposits, so we only
+            // allow in this case outbidding with a higher amount.
+            require(uint256(_fee) < uint256(currentFee) * 105 / 100, InvalidBid());
         } else {
             require(_fee < currentFee * 9 / 10, InvalidBid());
         }
