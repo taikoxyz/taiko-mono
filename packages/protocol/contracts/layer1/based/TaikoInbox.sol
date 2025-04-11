@@ -32,7 +32,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     address public immutable inboxWrapper;
     address public immutable verifier;
-    address public immutable bondToken;
+    address private immutable __bondToken;
     ISignalService public immutable signalService;
 
     State public state; // storage layout much match Ontake fork
@@ -52,7 +52,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
-        bondToken = _bondToken;
+        __bondToken = _bondToken;
         signalService = ISignalService(_signalService);
     }
 
@@ -67,7 +67,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @return info_ Information of the proposed batch, which is used for constructing blocks
     /// offchain.
     /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
-    function proposeBatch(
+    function ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -77,7 +77,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
-        Config memory config = pacayaConfig();
+        Config memory config = GetConfig();
         require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
@@ -232,7 +232,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// - metas: Array of metadata for each batch being proved.
     /// - transitions: Array of batch transitions to be proved.
     /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
+    function ProveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
 
@@ -243,7 +243,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
-        Config memory config = pacayaConfig();
+        Config memory config = GetConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metasLength);
 
         bool hasConflictingProof;
@@ -366,23 +366,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @notice Verify batches by providing the length of the batches to verify.
     /// @dev This function is necessary to upgrade from this fork to the next one.
     /// @param _length Specifis how many batches to verify. The max number of batches to verify is
-    /// `pacayaConfig().maxBatchesToVerify * _length`.
+    /// `GetConfig().maxBatchesToVerify * _length`.
     function verifyBatches(uint64 _length)
         external
         nonZeroValue(_length)
         nonReentrant
         whenNotPaused
     {
-        _verifyBatches(pacayaConfig(), state.stats2, _length);
+        _verifyBatches(GetConfig(), state.stats2, _length);
     }
 
     /// @inheritdoc ITaikoInbox
-    function depositBond(uint256 _amount) external payable whenNotPaused {
+    function DepositBond(uint256 _amount) external payable whenNotPaused {
         state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
     /// @inheritdoc ITaikoInbox
-    function withdrawBond(uint256 _amount) external whenNotPaused {
+    function WithdrawBond(uint256 _amount) external whenNotPaused {
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
 
@@ -390,25 +390,30 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         state.bondBalance[msg.sender] -= _amount;
 
-        if (bondToken != address(0)) {
-            IERC20(bondToken).safeTransfer(msg.sender, _amount);
+        if (__bondToken != address(0)) {
+            IERC20(__bondToken).safeTransfer(msg.sender, _amount);
         } else {
             LibAddress.sendEtherAndVerify(msg.sender, _amount);
         }
     }
 
     /// @inheritdoc ITaikoInbox
-    function getStats1() external view returns (Stats1 memory) {
+    function BondToken() external view returns (address) {
+        return __bondToken;
+    }
+
+    /// @inheritdoc ITaikoInbox
+    function GetStats1() external view returns (Stats1 memory) {
         return state.stats1;
     }
 
     /// @inheritdoc ITaikoInbox
-    function getStats2() external view returns (Stats2 memory) {
+    function GetStats2() external view returns (Stats2 memory) {
         return state.stats2;
     }
 
     /// @inheritdoc ITaikoInbox
-    function getTransitionById(
+    function GetTransitionById(
         uint64 _batchId,
         uint24 _tid
     )
@@ -416,7 +421,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (TransitionState memory)
     {
-        Config memory config = pacayaConfig();
+        Config memory config = GetConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -426,7 +431,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function getTransitionByParentHash(
+    function GetTransitionByParentHash(
         uint64 _batchId,
         bytes32 _parentHash
     )
@@ -434,7 +439,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (TransitionState memory)
     {
-        Config memory config = pacayaConfig();
+        Config memory config = GetConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -458,30 +463,30 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function getLastVerifiedTransition()
+    function GetLastVerifiedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
-        require(batchId_ >= pacayaConfig().forkHeights.pacaya, BatchNotFound());
-        blockId_ = getBatch(batchId_).lastBlockId;
-        ts_ = getBatchVerifyingTransition(batchId_);
+        require(batchId_ >= GetConfig().forkHeights.pacaya, BatchNotFound());
+        blockId_ = GetBatch(batchId_).lastBlockId;
+        ts_ = GetBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
-    function getLastSyncedTransition()
+    function GetLastSyncedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats1.lastSyncedBatchId;
-        blockId_ = getBatch(batchId_).lastBlockId;
-        ts_ = getBatchVerifyingTransition(batchId_);
+        blockId_ = GetBatch(batchId_).lastBlockId;
+        ts_ = GetBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
-    function bondBalanceOf(address _user) external view returns (uint256) {
+    function BondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
     }
 
@@ -500,20 +505,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
-        Config memory config = pacayaConfig();
+    function GetBatch(uint64 _batchId) public view returns (Batch memory batch_) {
+        Config memory config = GetConfig();
 
         batch_ = state.batches[_batchId % config.batchRingBufferSize];
         require(batch_.batchId == _batchId, BatchNotFound());
     }
 
     /// @inheritdoc ITaikoInbox
-    function getBatchVerifyingTransition(uint64 _batchId)
+    function GetBatchVerifyingTransition(uint64 _batchId)
         public
         view
         returns (TransitionState memory ts_)
     {
-        Config memory config = pacayaConfig();
+        Config memory config = GetConfig();
 
         uint64 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
@@ -525,7 +530,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function pacayaConfig() public view virtual returns (Config memory);
+    function GetConfig() public view virtual returns (Config memory);
 
     // Internal functions ----------------------------------------------------------------------
 
@@ -712,7 +717,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             unchecked {
                 state.bondBalance[_user] = balance - _amount;
             }
-        } else if (bondToken != address(0)) {
+        } else if (__bondToken != address(0)) {
             uint256 amountDeposited = _handleDeposit(_user, _amount);
             require(amountDeposited == _amount, InsufficientBond());
         } else {
@@ -737,12 +742,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         private
         returns (uint256 amountDeposited_)
     {
-        if (bondToken != address(0)) {
+        if (__bondToken != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
 
-            uint256 balance = IERC20(bondToken).balanceOf(address(this));
-            IERC20(bondToken).safeTransferFrom(_user, address(this), _amount);
-            amountDeposited_ = IERC20(bondToken).balanceOf(address(this)) - balance;
+            uint256 balance = IERC20(__bondToken).balanceOf(address(this));
+            IERC20(__bondToken).safeTransferFrom(_user, address(this), _amount);
+            amountDeposited_ = IERC20(__bondToken).balanceOf(address(this)) - balance;
         } else {
             require(msg.value == _amount, EtherNotPaidAsBond());
             amountDeposited_ = _amount;

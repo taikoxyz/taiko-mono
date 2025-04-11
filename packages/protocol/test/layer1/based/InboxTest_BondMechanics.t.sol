@@ -5,7 +5,7 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_BondMechanics is InboxTestBase {
-    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({
@@ -46,17 +46,17 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = pacayaConfig();
+        ITaikoInbox.Config memory config = GetConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance - livenessBond);
 
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance);
     }
 
     function test_inbox_bonds_debit_and_credit_proved_by_non_proposer_in_proving_window()
@@ -69,18 +69,18 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = pacayaConfig();
+        ITaikoInbox.Config memory config = GetConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance - livenessBond);
 
         vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance);
-        assertEq(inbox.bondBalanceOf(Bob), 0);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance);
+        assertEq(inbox.BondBalanceOf(Bob), 0);
     }
 
     function test_inbox_bonds_half_returned_to_proposer_out_of_proving_window() external {
@@ -91,18 +91,18 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = pacayaConfig();
+        ITaikoInbox.Config memory config = GetConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance - livenessBond);
 
-        vm.warp(block.timestamp + pacayaConfig().provingWindow + 1);
+        vm.warp(block.timestamp + GetConfig().provingWindow + 1);
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond / 2);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance - livenessBond / 2);
     }
 
     function test_inbox_bonds_half_returned_to_non_proposer_out_of_proving_window() external {
@@ -113,30 +113,30 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = pacayaConfig();
+        ITaikoInbox.Config memory config = GetConfig();
         uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock;
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance - livenessBond);
 
-        vm.warp(block.timestamp + pacayaConfig().provingWindow + 1);
+        vm.warp(block.timestamp + GetConfig().provingWindow + 1);
         vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.bondBalanceOf(Alice), bondBalance - livenessBond);
-        assertEq(inbox.bondBalanceOf(Bob), livenessBond / 2);
+        assertEq(inbox.BondBalanceOf(Alice), bondBalance - livenessBond);
+        assertEq(inbox.BondBalanceOf(Bob), livenessBond / 2);
     }
 
     function test_inbox_bonds_multiple_blocks_per_batch() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](2);
 
-        (, ITaikoInbox.BatchMetadata memory meta) = inbox.proposeBatch(abi.encode(params), "txList");
+        (, ITaikoInbox.BatchMetadata memory meta) = inbox.ProposeBatch(abi.encode(params), "txList");
 
-        ITaikoInbox.Batch memory batch = inbox.getBatch(meta.batchId);
+        ITaikoInbox.Batch memory batch = inbox.GetBatch(meta.batchId);
 
-        ITaikoInbox.Config memory config = pacayaConfig();
+        ITaikoInbox.Config memory config = GetConfig();
         uint96 livenessBond = config.livenessBondBase + config.livenessBondPerBlock * 2;
         assertEq(batch.livenessBond, livenessBond);
     }

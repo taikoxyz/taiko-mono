@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_StopBatch is InboxTestBase {
-    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({
@@ -44,7 +44,7 @@ contract InboxTest_StopBatch is InboxTestBase {
         WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
         WhenLogAllBatchesAndTransitions
     {
-        ITaikoInbox.Stats2 memory _stats2 = inbox.getStats2();
-        assertEq(pacayaConfig().maxBatchesToVerify * 9, _stats2.lastVerifiedBatchId);
+        ITaikoInbox.Stats2 memory _stats2 = inbox.GetStats2();
+        assertEq(GetConfig().maxBatchesToVerify * 9, _stats2.lastVerifiedBatchId);
     }
 }

@@ -299,7 +299,7 @@ interface ITaikoInbox {
     /// for data availability.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The metadata of the proposed batch.
-    function proposeBatch(
+    function ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -311,45 +311,45 @@ interface ITaikoInbox {
     /// - metas: Array of metadata for each batch being proved.
     /// - transitions: Array of batch transitions to be proved.
     /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(bytes calldata _params, bytes calldata _proof) external;
+    function ProveBatches(bytes calldata _params, bytes calldata _proof) external;
 
     /// @notice Deposits TAIKO tokens into the contract to be used as liveness bond.
     /// @param _amount The amount of TAIKO tokens to deposit.
-    function depositBond(uint256 _amount) external payable;
+    function DepositBond(uint256 _amount) external payable;
 
     /// @notice Withdraws a specified amount of TAIKO tokens from the contract.
     /// @param _amount The amount of TAIKO tokens to withdraw.
-    function withdrawBond(uint256 _amount) external;
+    function WithdrawBond(uint256 _amount) external;
 
     /// @notice Returns the TAIKO token balance of a specific user.
     /// @param _user The address of the user.
     /// @return The TAIKO token balance of the user.
-    function bondBalanceOf(address _user) external view returns (uint256);
+    function BondBalanceOf(address _user) external view returns (uint256);
 
     /// @notice Retrieves the Bond token address. If Ether is used as bond, this function returns
     /// address(0).
     /// @return The Bond token address.
-    function bondToken() external view returns (address);
+    function BondToken() external view returns (address);
 
     /// @notice Retrieves the first set of protocol statistics.
     /// @return Stats1 structure containing the statistics.
-    function getStats1() external view returns (Stats1 memory);
+    function GetStats1() external view returns (Stats1 memory);
 
     /// @notice Retrieves the second set of protocol statistics.
     /// @return Stats2 structure containing the statistics.
-    function getStats2() external view returns (Stats2 memory);
+    function GetStats2() external view returns (Stats2 memory);
 
     /// @notice Retrieves data about a specific batch.
     /// @param _batchId The ID of the batch to retrieve.
     /// @return batch_ The batch data.
-    function getBatch(uint64 _batchId) external view returns (Batch memory batch_);
+    function GetBatch(uint64 _batchId) external view returns (Batch memory batch_);
 
     /// @notice Retrieves a specific transition by batch ID and transition ID. This function may
     /// revert if the transition is not found.
     /// @param _batchId The batch ID.
     /// @param _tid The transition ID.
     /// @return The specified transition state.
-    function getTransitionById(
+    function GetTransitionById(
         uint64 _batchId,
         uint24 _tid
     )
@@ -362,7 +362,7 @@ interface ITaikoInbox {
     /// @param _batchId The batch ID.
     /// @param _parentHash The parent hash.
     /// @return The specified transition state.
-    function getTransitionByParentHash(
+    function GetTransitionByParentHash(
         uint64 _batchId,
         bytes32 _parentHash
     )
@@ -374,7 +374,7 @@ interface ITaikoInbox {
     /// @return batchId_ The batch ID of the last verified transition.
     /// @return blockId_ The block ID of the last verified block.
     /// @return ts_ The last verified transition.
-    function getLastVerifiedTransition()
+    function GetLastVerifiedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
@@ -383,7 +383,7 @@ interface ITaikoInbox {
     /// @return batchId_ The batch ID of the last synced transition.
     /// @return blockId_ The block ID of the last synced block.
     /// @return ts_ The last synced transition.
-    function getLastSyncedTransition()
+    function GetLastSyncedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
@@ -391,12 +391,12 @@ interface ITaikoInbox {
     /// @notice Retrieves the transition used for verifying a batch.
     /// @param _batchId The batch ID.
     /// @return The transition used for verifying the batch.
-    function getBatchVerifyingTransition(uint64 _batchId)
+    function GetBatchVerifyingTransition(uint64 _batchId)
         external
         view
         returns (TransitionState memory);
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
-    function pacayaConfig() external view returns (Config memory);
+    function GetConfig() external view returns (Config memory);
 }

@@ -147,6 +147,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     function _nextBatchId() private view returns (uint64) {
-        return inbox.getStats2().numBatches;
+        return inbox.GetStats2().numBatches;
     }
 }

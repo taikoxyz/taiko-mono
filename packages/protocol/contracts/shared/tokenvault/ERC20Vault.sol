@@ -446,7 +446,7 @@ contract ERC20Vault is BaseVault {
             address taiko = resolve(LibStrings.B_TAIKO, false);
             if (!ITaiko(taiko).isOnL1()) revert VAULT_NOT_ON_L1();
 
-            bytes32 l2BatchMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BatchId).metaHash;
+            bytes32 l2BatchMetaHash = ITaikoInbox(taiko).GetBatch(_op.l2BatchId).metaHash;
             if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
         }
 
