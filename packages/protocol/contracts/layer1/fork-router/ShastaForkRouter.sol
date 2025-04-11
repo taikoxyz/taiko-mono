@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./ForkRouter.sol";
 
 /// @title IPacayaFork
-/// @dev Derived from TaikoL1.sol in the Pacaya fork
+/// @dev Derived from TaikoInbox.sol in the Pacaya fork
 /// https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v2.2.0
 /// @custom:security-contact security@taiko.xyz
 interface IPacayaFork {
