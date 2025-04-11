@@ -14,8 +14,7 @@ contract InboxTest_EtherAsBond is InboxTestBase {
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 1 ether,
-            livenessBondPerBlock: 0.1 ether,
+            livenessBond: 1 ether,
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

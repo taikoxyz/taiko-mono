@@ -14,8 +14,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 5e18, // 5 Taiko token per block
+            livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
