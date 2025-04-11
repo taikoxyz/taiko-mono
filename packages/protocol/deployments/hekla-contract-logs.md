@@ -312,7 +312,7 @@
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
-### sgx_verifier(Pacaya)
+### sgx_reth_verifier(Pacaya)
 
 - proxy : 0xa8cD459E3588D6edE42177193284d40332c3bcd4
 - impl : 0x7EB7DCd5f7053dD270c85B2388F555FCDFd6e55f
@@ -320,7 +320,7 @@
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
-### risc0_verifier(Pacaya)
+### risc0_reth_verifier(Pacaya)
 
 - proxy : 0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2
 - impl : 0x06B789A83db6cB785e5c2a99eedE7A3033576024
@@ -328,7 +328,7 @@
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
-### sp1_verifier(Pacaya)
+### sp1_reth_verifier(Pacaya)
 
 - proxy : 0x1138aA994477f0880001aa1E8106D749035b6250
 - impl : 0xC472632288b233fadca875821dE173b641bE9fB1
@@ -336,15 +336,16 @@
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
-### pivot_verifier
+### sgx_geth_verifier
 
 - proxy : 0x4361B85093720bD50d25236693CA58FD6e1b3a53
-- impl : 0x9890f2B69D5D9c217093aCb63e47B47A9070b54e
+- impl : 0x0fA3518b9594eD4905D6c44015dF5bD234D1ec09
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
+  - upgraded on Apr 11, 2025 at commit `c58d863`
 
-### pivot_automata_dcap_attestation
+### sgx_geth_automata_dcap_attestation
 
 - proxy : 0x84af08F56AeA1f847c75bE08c96cDC4811694595
 - impl : 0x9bbd836a3b1901cdc561e22f2bE0c808352BF10E
