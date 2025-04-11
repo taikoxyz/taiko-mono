@@ -74,5 +74,7 @@ contract UpgradePacayaL1 is DeployCapability {
         UUPSUpgradeable(taikoWrapper).upgradeTo({
             newImplementation: address(new TaikoWrapper(taikoInbox, store, address(0)))
         });
+//        address taikoWrapper2 = address(new TaikoWrapper(taikoInbox, store, address(0)));
+//        console2.log("taikoWrapper2", taikoWrapper2);
     }
 }
