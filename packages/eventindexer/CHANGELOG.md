@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2025-04-11)
+
+
+### Features
+
+* **eventindexer:** eventindexer post ontake fork ([#18474](https://github.com/taikoxyz/taiko-mono/issues/18474)) ([83b6f15](https://github.com/taikoxyz/taiko-mono/commit/83b6f154e372afe8512fdb6c528afabc8560a840))
+* **eventindexer:** pacaya event updates ([#18919](https://github.com/taikoxyz/taiko-mono/issues/18919)) ([e44ee25](https://github.com/taikoxyz/taiko-mono/commit/e44ee25fff0e8610c48c5e853e91a8ee16b1d54d))
+* **eventindexer:** update unique endpoints for `Pacaya` ([#19037](https://github.com/taikoxyz/taiko-mono/issues/19037)) ([03c932c](https://github.com/taikoxyz/taiko-mono/commit/03c932c952bc1d901a479169d2f8dcd43ad1ca00))
+
+
+### Chores
+
+* **eventindexer:** ei update for state vars ([#18867](https://github.com/taikoxyz/taiko-mono/issues/18867)) ([5ac01d9](https://github.com/taikoxyz/taiko-mono/commit/5ac01d9d41d867e1a8fb0f9b3b6a5cad8aff300f))
+* **eventindexer:** golangci-lint v2 migrate ([#19193](https://github.com/taikoxyz/taiko-mono/issues/19193)) ([ee403d9](https://github.com/taikoxyz/taiko-mono/commit/ee403d9e18a80d35317cb08e8897266bfbf0e4c7))
+* **eventindexer:** rm ei generator ([#18723](https://github.com/taikoxyz/taiko-mono/issues/18723)) ([b781f76](https://github.com/taikoxyz/taiko-mono/commit/b781f761d786d32d25877fd7299fc90dab208d82))
+
+
+### Documentation
+
+* **repo:** fix links to LICENSE file ([#18641](https://github.com/taikoxyz/taiko-mono/issues/18641)) ([cd2d918](https://github.com/taikoxyz/taiko-mono/commit/cd2d9180d313af6c858f7059b01851bd8e3290da))
+
+
+### Code Refactoring
+
+* **eventindexer, relayer:** simplify end index calculations using min function ([#19192](https://github.com/taikoxyz/taiko-mono/issues/19192)) ([9704aa3](https://github.com/taikoxyz/taiko-mono/commit/9704aa326541d601cfcb7d97e5040c839e1ea3f9))
+* **eventindexer, relayer:** use slices.Delete replace manual ops ([#19217](https://github.com/taikoxyz/taiko-mono/issues/19217)) ([e95496d](https://github.com/taikoxyz/taiko-mono/commit/e95496d58692aeae1f9dc4e8c195b66838a84875))
+
+
+### Workflow
+
+* **repo:** update go mod and use random port ([#18515](https://github.com/taikoxyz/taiko-mono/issues/18515)) ([3c2e943](https://github.com/taikoxyz/taiko-mono/commit/3c2e943ab2d6ff636ad69dc7e93df34d8f549c4d))
+
+
+### Build
+
+* **deps:** bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#18539](https://github.com/taikoxyz/taiko-mono/issues/18539)) ([79f3fab](https://github.com/taikoxyz/taiko-mono/commit/79f3fab5f1d1ec1bb4ee18afb9268b622e894780))
+* **deps:** bump golang.org/x/sync from 0.9.0 to 0.10.0 ([#18560](https://github.com/taikoxyz/taiko-mono/issues/18560)) ([3d51970](https://github.com/taikoxyz/taiko-mono/commit/3d51970aa0953bbfecaeebf76ea7e664c875c0e4))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
