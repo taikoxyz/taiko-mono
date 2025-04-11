@@ -409,13 +409,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         address sgxImpl =
             address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
         sgxRethVerifier = deployProxy({
-            name: "sgx_verifier",
+            name: "sgx_reth_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
         sgxGethVerifier = deployProxy({
-            name: "sgxGeth_verifier",
+            name: "sgx_geth_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
@@ -441,7 +441,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(rollupResolver, "risc0_groth16_verifier", address(verifier));
 
         risc0Verifier = deployProxy({
-            name: "risc0_verifier",
+            name: "risc0_reth_verifier",
             impl: address(new Risc0Verifier(l2ChainId, address(verifier))),
             data: abi.encodeCall(Risc0Verifier.init, (owner)),
             registerTo: rollupResolver
@@ -452,7 +452,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
 
         sp1Verifier = deployProxy({
-            name: "sp1_verifier",
+            name: "sp1_reth_verifier",
             impl: address(new SP1Verifier(l2ChainId, address(succinctVerifier))),
             data: abi.encodeCall(SP1Verifier.init, (owner)),
             registerTo: rollupResolver
