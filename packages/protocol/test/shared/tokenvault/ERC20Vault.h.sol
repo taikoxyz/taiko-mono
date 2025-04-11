@@ -16,7 +16,7 @@ contract PrankTaikoInbox {
         batch = _batch;
     }
 
-    function getBatch(uint64) external view returns (ITaikoInbox.Batch memory) {
+    function GetBatch(uint64) external view returns (ITaikoInbox.Batch memory) {
         return batch;
     }
 
