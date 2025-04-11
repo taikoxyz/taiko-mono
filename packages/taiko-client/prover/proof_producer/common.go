@@ -132,9 +132,9 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 		// nolint:exhaustive
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
-		case ProofTypePivot:
-			metrics.ProverPivotAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverPivotProofAggregationGeneratedCounter.Add(1)
+		case ProofTypeSgxGeth:
+			metrics.ProverSgxGethAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeSgx:
 			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
@@ -151,9 +151,9 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 		// nolint:exhaustive
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
-		case ProofTypePivot:
-			metrics.ProverPivotProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverPivotProofGeneratedCounter.Add(1)
+		case ProofTypeSgxGeth:
+			metrics.ProverSgxGethProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethProofGeneratedCounter.Add(1)
 		case ProofTypeSgx:
 			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofGeneratedCounter.Add(1)
