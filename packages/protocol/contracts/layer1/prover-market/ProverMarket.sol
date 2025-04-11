@@ -25,13 +25,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error TooEarly();
 
     ITaikoInbox public immutable inbox;
-    /// @dev The minimal token balance of the new prover
-    /// @dev The minimum token balance required to place a bid and become the current prover.
+    /// @dev If a prover’s available bond balance is below this threshold, they are not eligible
+    /// to participate in the bidding process.
     uint256 public immutable biddingThreshold;
-    /// @dev The minimum token balance of the current prover below which they can be outbid by a
-    /// higher bid.
+    /// @dev If the current prover’s bond balance falls below this value, they can be outbid by
+    /// another prover even if the new bid offers the same proving fee or only a slightly higher one
+    /// (e.g., 1.01× or 1.05× the current fee).
     uint256 public immutable outbidThreshold;
-    /// @dev The minimum token balance required for the current prover to maintain their status.
+    /// @dev TIf the current prover’s bond balance drops below this threshold, they are considered
+    /// disqualified (evicted), and the active prover is reset to address(0).
     uint256 public immutable provingThreshold;
     uint256 public immutable minExitDelay;
     address internal prover;
