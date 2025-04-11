@@ -44,15 +44,15 @@ type ProofResponse struct {
 
 // BatchProofs represents a response of a batch proof request.
 type BatchProofs struct {
-	ProofResponses     []*ProofResponse
-	BatchProof         []byte
-	Tier               uint16
-	BlockIDs           []*big.Int
-	ProofType          ProofType
-	Verifier           common.Address
-	PivotBatchProof    []byte
-	PivotProofVerifier common.Address
-	IsPacaya           bool
+	ProofResponses       []*ProofResponse
+	BatchProof           []byte
+	Tier                 uint16
+	BlockIDs             []*big.Int
+	ProofType            ProofType
+	Verifier             common.Address
+	SgxGethBatchProof    []byte
+	SgxGethProofVerifier common.Address
+	IsPacaya             bool
 }
 
 // ProofProducer is an interface that contains all methods to generate a proof.

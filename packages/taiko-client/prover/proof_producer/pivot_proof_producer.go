@@ -14,8 +14,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// PivotProofProducer generates a pivot proof for the given block.
-type PivotProofProducer struct {
+// SgxGethProofProducer generates a sgx geth proof for the given block.
+type SgxGethProofProducer struct {
 	Verifier            common.Address
 	RaikoHostEndpoint   string // a prover RPC endpoint
 	JWT                 string // JWT provided by Raiko
@@ -25,7 +25,7 @@ type PivotProofProducer struct {
 }
 
 // RequestProof implements the ProofProducer interface.
-func (s *PivotProofProducer) RequestProof(
+func (s *SgxGethProofProducer) RequestProof(
 	ctx context.Context,
 	opts ProofRequestOptions,
 	batchID *big.Int,
@@ -34,7 +34,7 @@ func (s *PivotProofProducer) RequestProof(
 ) (*ProofResponse, error) {
 	log.Info(
 		"Request proof from raiko-host service",
-		"type", ProofTypePivot,
+		"type", ProofTypeSgxGeth,
 		"batchID", batchID,
 		"coinbase", meta.Pacaya().GetCoinbase(),
 		"time", time.Since(requestAt),
@@ -49,7 +49,7 @@ func (s *PivotProofProducer) RequestProof(
 		[]*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}},
 		opts.GetProverAddress(),
 		false,
-		ProofTypePivot,
+		ProofTypeSgxGeth,
 		requestAt,
 	)
 	if err != nil {
@@ -65,7 +65,7 @@ func (s *PivotProofProducer) RequestProof(
 }
 
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
-func (s *PivotProofProducer) Aggregate(
+func (s *SgxGethProofProducer) Aggregate(
 	ctx context.Context,
 	items []*ProofResponse,
 	requestAt time.Time,
@@ -77,14 +77,14 @@ func (s *PivotProofProducer) Aggregate(
 	log.Info(
 		"Aggregate batch proofs from raiko-host service",
 		"batchSize", len(items),
-		"proofType", ProofTypePivot,
+		"proofType", ProofTypeSgxGeth,
 		"firstID", items[0].BlockID,
 		"lastID", items[len(items)-1].BlockID,
 		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
-		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), ProofTypePivot)
+		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), ProofTypeSgxGeth)
 		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier}, nil
 	}
 
@@ -101,7 +101,7 @@ func (s *PivotProofProducer) Aggregate(
 		batches,
 		items[0].Opts.GetProverAddress(),
 		true,
-		ProofTypePivot,
+		ProofTypeSgxGeth,
 		requestAt,
 	)
 	if err != nil {
@@ -112,7 +112,7 @@ func (s *PivotProofProducer) Aggregate(
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
-func (s *PivotProofProducer) requestBatchProof(
+func (s *SgxGethProofProducer) requestBatchProof(
 	ctx context.Context,
 	batches []*RaikoBatches,
 	proverAddress common.Address,
@@ -162,12 +162,12 @@ func (s *PivotProofProducer) requestBatchProof(
 }
 
 // Tier implements the ProofProducer interface.
-func (s *PivotProofProducer) Tier() uint16 {
+func (s *SgxGethProofProducer) Tier() uint16 {
 	return encoding.TierDeprecated
 }
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
-func (s *PivotProofProducer) RequestCancel(
+func (s *SgxGethProofProducer) RequestCancel(
 	_ context.Context,
 	_ ProofRequestOptions,
 ) error {
