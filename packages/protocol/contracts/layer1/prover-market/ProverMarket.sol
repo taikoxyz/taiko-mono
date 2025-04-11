@@ -87,7 +87,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
             // Using a moving average??? -> dani: Seems "on-chain" heavy (gas-inefficient). We
             // already know Alice (current prover) is soon running out of her deposits, so we only
             // allow in this case outbidding with a higher amount.
-            require(uint256(_fee) < uint256(currentFee) * 105 / 100, InvalidBid());
+            require(uint256(_fee) <= uint256(currentFee) * 110 / 100, InvalidBid());
         } else {
             require(_fee < currentFee * 9 / 10, InvalidBid());
         }
