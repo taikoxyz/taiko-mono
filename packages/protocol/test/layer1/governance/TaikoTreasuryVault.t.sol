@@ -7,6 +7,12 @@ import "src/layer1/governance/TaikoTreasuryVault.sol";
 import "test/mocks/TestERC20.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+contract AlwaysRevert {
+    fallback() external payable {
+        revert("Always fails");
+    }
+}
+
 contract TestTaikoTreasuryVault is Test {
     ERC1967Proxy proxy;
     TaikoTreasuryVault vault;
@@ -61,4 +67,35 @@ contract TestTaikoTreasuryVault is Test {
         assertEq(recipient.balance, 1 ether);
         vm.stopPrank();
     }
+
+    function testNonOwnerCannotForwardCall() public {
+        vm.startPrank(address(0x789)); // Not the owner
+
+        bytes memory data =
+            abi.encodeWithSelector(token.transfer.selector, recipient, 100);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        vault.forwardCall(address(token), 0, data);
+
+        vm.stopPrank();
+    }
+
+    function testForwardCallToSelfShouldRevert() public {
+        vm.startPrank(owner);
+
+        bytes memory dummyData = hex"00";
+        vm.expectRevert(TaikoTreasuryVault.InvalidTarget.selector);
+        vault.forwardCall(address(vault), 0, dummyData);
+
+        vm.stopPrank();
+    }
+
+    function testForwardCallFailsOnError() public {
+        AlwaysRevert target = new AlwaysRevert();
+
+        vm.startPrank(owner);
+        vm.expectRevert(TaikoTreasuryVault.CallFailed.selector);
+        vault.forwardCall(address(target), 0, hex"");
+        vm.stopPrank();
+}
 }
