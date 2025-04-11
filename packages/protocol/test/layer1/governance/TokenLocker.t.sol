@@ -135,4 +135,28 @@ contract TestTokenLocker is Test {
         vm.expectRevert(TokenLocker.InsufficientUnlocked.selector);
         tokenLocker.unlock(recipient, unlockAmount);
     }
+
+    function testUnlockAllAfterEndTime() public {
+        uint256 lockAmount = 500 ether;
+
+        token.approve(address(tokenLocker), lockAmount);
+        tokenLocker.lock(lockAmount);
+
+        vm.warp(block.timestamp + 366 days); // After endTime
+
+        tokenLocker.unlock(recipient, lockAmount);
+        assertEq(token.balanceOf(recipient), lockAmount);
+    }
+
+    function testUnlockToSelfReverts() public {
+        uint256 lockAmount = 500 ether;
+
+        token.approve(address(tokenLocker), lockAmount);
+        tokenLocker.lock(lockAmount);
+
+        vm.warp(block.timestamp + 180 days);
+
+        vm.expectRevert(TokenLocker.InvalidRecipient.selector);
+        tokenLocker.unlock(address(tokenLocker), 100 ether);
+    }
 }
