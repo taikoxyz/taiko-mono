@@ -345,7 +345,7 @@
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 11, 2025 at commit `c58d863`
 
-### sgx_geth_automata_dcap_attestation
+### sgx_geth_automata
 
 - proxy : 0x84af08F56AeA1f847c75bE08c96cDC4811694595
 - impl : 0x9bbd836a3b1901cdc561e22f2bE0c808352BF10E
