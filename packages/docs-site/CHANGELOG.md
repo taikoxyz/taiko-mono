@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.3...docs-site-v1.27.4) (2025-04-10)
+
+
+### Chores
+
+* **docs-site:** rename + diagram fix pivot to sgxgeth ([#19245](https://github.com/taikoxyz/taiko-mono/issues/19245)) ([c2cc150](https://github.com/taikoxyz/taiko-mono/commit/c2cc150b3dbaa80a48ce133b91c7470749b52f5b))
+
 ## [1.27.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.2...docs-site-v1.27.3) (2025-04-08)
 
 
