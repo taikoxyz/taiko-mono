@@ -61,4 +61,28 @@ contract TestMinimalOwner is Test {
         minimalOwner.forwardCall(target, data);
         vm.stopPrank();
     }
+
+    function test_minimalOwner_ForwardCallToZeroAddress() public {
+        vm.startPrank(owner);
+        vm.expectRevert(MinimalOwner.InvalidTarget.selector);
+        minimalOwner.forwardCall(address(0), data);
+    }
+
+    function test_minimalOwner_ForwardCallToSameAddress() public {
+        vm.startPrank(owner);
+        vm.expectRevert(MinimalOwner.InvalidTarget.selector);
+        minimalOwner.forwardCall(address(minimalOwner), data);
+    }
+
+    function test_minimalOwner_ForwardCallToOwner() public {
+        vm.startPrank(owner);
+        vm.expectRevert(MinimalOwner.InvalidTarget.selector);
+        minimalOwner.forwardCall(owner, data);
+    }
+
+    function test_minimalOwner_ForwardCallToContractWithoutCode() public {
+        vm.startPrank(owner);
+        vm.expectRevert(MinimalOwner.InvalidTarget.selector);
+        minimalOwner.forwardCall(address(0x999), data);
+    }
 }
