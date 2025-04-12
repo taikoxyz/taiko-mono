@@ -17,6 +17,7 @@ contract MinimalOwner is ReentrancyGuard {
     error ZeroAddress();
     error SameAddress();
     error CallFailed();
+    error InvalidTarget();
 
     address public owner;
 
@@ -55,6 +56,11 @@ contract MinimalOwner is ReentrancyGuard {
         onlyOwner
         returns (bytes memory result)
     {
+        require(target != address(0), InvalidTarget());
+        require(target != address(this), InvalidTarget());
+        require(target != owner, InvalidTarget());
+        require(target.code.length != 0, InvalidTarget());
+
         (bool success, bytes memory returnData) = target.call{ value: msg.value }(data);
         require(success, CallFailed());
         return returnData;
