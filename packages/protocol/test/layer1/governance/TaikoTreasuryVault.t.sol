@@ -71,8 +71,7 @@ contract TestTaikoTreasuryVault is Test {
     function testNonOwnerCannotForwardCall() public {
         vm.startPrank(address(0x789)); // Not the owner
 
-        bytes memory data =
-            abi.encodeWithSelector(token.transfer.selector, recipient, 100);
+        bytes memory data = abi.encodeWithSelector(token.transfer.selector, recipient, 100);
 
         vm.expectRevert("Ownable: caller is not the owner");
         vault.forwardCall(address(token), 0, data);
@@ -97,5 +96,5 @@ contract TestTaikoTreasuryVault is Test {
         vm.expectRevert(TaikoTreasuryVault.CallFailed.selector);
         vault.forwardCall(address(target), 0, hex"");
         vm.stopPrank();
-}
+    }
 }

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 /// @title MinimalOwner
 /// @notice
 ///   A minimal contract that can:
@@ -8,7 +10,7 @@ pragma solidity ^0.8.24;
 ///   2) Transfer ownership (for example, to Taiko DAO),
 ///   3) Forward arbitrary calls (execute) to any address, restricted by onlyOwner.
 /// @custom:security-contact security@taiko.xyz
-contract MinimalOwner {
+contract MinimalOwner is ReentrancyGuard {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     error NotOwner();
@@ -49,6 +51,7 @@ contract MinimalOwner {
     )
         external
         payable
+        nonReentrant
         onlyOwner
         returns (bytes memory result)
     {

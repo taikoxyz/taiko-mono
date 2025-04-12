@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title TokenLocker
 /// @notice A contract for locking and unlocking tokens with a linear release schedule.
@@ -11,7 +12,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// treasury.
 /// The contract is intentionally designed to be non-upgradable.
 /// @custom:security-contact security@taiko.xyz
-contract TokenLocker is Ownable {
+contract TokenLocker is Ownable, ReentrancyGuard {
     error AlreadyInitialized();
     error AmountIsZero();
     error InsufficientUnlocked();
@@ -39,7 +40,7 @@ contract TokenLocker is Ownable {
         endTime = startTime + _durationYears * 365 days;
     }
 
-    function lock(uint256 amount) external onlyOwner {
+    function lock(uint256 amount) external onlyOwner nonReentrant {
         require(!initialized, AlreadyInitialized());
         require(amount != 0, AmountIsZero());
 
@@ -49,7 +50,7 @@ contract TokenLocker is Ownable {
         require(token.transferFrom(msg.sender, address(this), amount), TransferFailed());
     }
 
-    function unlock(address recipient, uint256 amount) external onlyOwner {
+    function unlock(address recipient, uint256 amount) external onlyOwner nonReentrant {
         require(initialized, NotInitialized());
         require(recipient != address(0) && recipient != address(this), InvalidRecipient());
         require(amount <= unlockedAmount() - totalUnlocked, InsufficientUnlocked());
