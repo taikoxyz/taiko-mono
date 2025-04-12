@@ -187,18 +187,24 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
 
             {
-                (address currentProver, uint64 proverFee) = proverMarket.getCurrentProver();
-                require(currentProver != address(0), NoProverAvailable());
+                address prover;
+                if (params.selfProve) {
+                    prover = info_.proposer;
+                } else {
+                    uint64 proverFee;
+                    (prover, proverFee) = proverMarket.getCurrentProver();
+                    require(prover != address(0), NoProverAvailable());
+
+                    _debitBond(info_.proposer, proverFee);
+                    _creditBond(prover, proverFee);
+                }
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
-                    prover: currentProver,
+                    prover: prover,
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp)
                 });
-
-                _debitBond(info_.proposer, proverFee);
-                _creditBond(meta_.prover, proverFee);
             }
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];

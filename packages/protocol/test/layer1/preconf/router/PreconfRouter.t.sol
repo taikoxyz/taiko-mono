@@ -46,6 +46,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
+            selfProve: false, // TODO
             blobParams: blobParams,
             blocks: blockParams
         });
@@ -132,6 +133,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
+            selfProve: false, // TODO
             blobParams: blobParams,
             blocks: blockParams
         });
