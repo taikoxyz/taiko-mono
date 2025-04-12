@@ -4,11 +4,17 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Test.sol";
 import "src/layer1/governance/MinimalOwner.sol";
 
+contract DummyContract {
+    function someFunction() public pure returns (string memory) {
+        return "someFunction";
+    }
+}
+
 contract TestMinimalOwner is Test {
     MinimalOwner minimalOwner;
     address owner = address(0x123);
     address newOwner = address(0x456);
-    address target = address(0x789);
+    address target = address(new DummyContract());
     bytes data = abi.encodeWithSignature("someFunction()");
 
     function setUp() public {
@@ -45,7 +51,7 @@ contract TestMinimalOwner is Test {
         (bool success,) = target.call(data);
         require(success);
         bytes memory result = minimalOwner.forwardCall(target, data);
-        assertEq(result, "", "Forwarded call should return correct data");
+        assertEq(result, abi.encode("someFunction"), "Forwarded call should return correct data");
         vm.stopPrank();
     }
 
