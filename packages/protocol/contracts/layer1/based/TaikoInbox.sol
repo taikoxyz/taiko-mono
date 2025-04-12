@@ -56,6 +56,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         verifier = _verifier;
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
+        // proverMarket = ... // TODO
     }
 
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
@@ -188,7 +189,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 address prover;
-                if (params.selfProve) {
+                if (params.selfProve || address(proverMarket) == address(0)) {
                     prover = info_.proposer;
                 } else {
                     uint64 proverFee;
