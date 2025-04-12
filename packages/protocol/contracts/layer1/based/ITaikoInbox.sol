@@ -54,7 +54,7 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
-        bool selfProve;
+        bool optInProverMarket;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;

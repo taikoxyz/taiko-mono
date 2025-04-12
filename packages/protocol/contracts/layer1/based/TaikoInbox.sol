@@ -189,15 +189,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 address prover;
-                if (params.selfProve || address(proverMarket) == address(0)) {
-                    prover = info_.proposer;
-                } else {
+                if (address(proverMarket) != address(0) && params.optInProverMarket) {
                     uint64 proverFee;
                     (prover, proverFee) = proverMarket.getCurrentProver();
                     require(prover != address(0), NoProverAvailable());
 
                     _debitBond(info_.proposer, proverFee);
                     _creditBond(prover, proverFee);
+                } else {
+                    prover = info_.proposer;
                 }
 
                 meta_ = BatchMetadata({
