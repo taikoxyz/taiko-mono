@@ -731,9 +731,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     }
                     _stats1.lastSyncedBatchId = batch.batchId;
                     _stats1.lastSyncedAt = uint64(block.timestamp);
-                    state.stats1 = _stats1;
-
-                    emit Stats1Updated(_stats1);
 
                     // Ask signal service to write cross chain signal
                     signalService.syncChainData(
@@ -741,6 +738,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     );
                 }
             }
+        }
+
+        if (_stats1.genesisHeight != 0) {
+            state.stats1 = _stats1;
+            emit Stats1Updated(_stats1);
         }
 
         state.stats2 = _stats2;
