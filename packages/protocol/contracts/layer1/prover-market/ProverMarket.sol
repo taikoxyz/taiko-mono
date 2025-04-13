@@ -62,12 +62,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint256 _biddingThreshold, // = livenessBond * 2000
         uint256 _outbidThreshold, // = livenessBond * 1000
         uint256 _provingThreshold, // livenessBond * 100
-        uint256 _minExitDelay,
-        uint256 _feeUnit
+        uint256 _minExitDelay
     )
         nonZeroAddr(_inbox)
         nonZeroValue(_minExitDelay)
-        nonZeroValue(_feeUnit)
         EssentialContract(address(0))
     {
         require(_biddingThreshold > _outbidThreshold, InvalidThresholds());
@@ -80,7 +78,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         outbidThreshold = _outbidThreshold;
         provingThreshold = _provingThreshold;
         minExitDelay = _minExitDelay;
-        feeUnit = _feeUnit;
     }
 
     function bid(
