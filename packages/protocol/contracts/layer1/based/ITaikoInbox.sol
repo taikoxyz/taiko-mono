@@ -82,6 +82,7 @@ interface ITaikoInbox {
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
+        bool usingProverMarket;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -131,7 +132,7 @@ interface ITaikoInbox {
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     struct Stats1 {
         uint64 genesisHeight;
-        uint64 __reserved2;
+        uint64 avgProverMarketFee;
         uint64 lastSyncedBatchId;
         uint64 lastSyncedAt;
     }

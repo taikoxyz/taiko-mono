@@ -31,6 +31,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
+    uint256 public constant PROVER_FEE_CHANGE_FACTOR = 256;
+
     address public immutable inboxWrapper;
     address public immutable verifier;
     address public immutable bondToken;
@@ -177,8 +179,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
-                baseFeeConfig: config.baseFeeConfig
-            });
+                baseFeeConfig: config.baseFeeConfig,
+                usingProverMarket: false // to be updated later
+             });
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
@@ -189,25 +192,34 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             (info_.txsHash, info_.blobHashes) =
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
 
-            {
-                address prover;
-                if (address(proverMarket) != address(0) && params.optInProverMarket) {
-                    uint256 proverFee;
-                    (prover, proverFee) = proverMarket.getCurrentProver();
-                    require(prover != address(0), NoProverAvailable());
+            meta_ = BatchMetadata({
+                infoHash: keccak256(abi.encode(info_)),
+                prover: info_.proposer, // may be updated later
+                batchId: stats2.numBatches,
+                proposedAt: uint64(block.timestamp)
+            });
 
-                    _debitBond(info_.proposer, proverFee);
-                    _creditBond(prover, proverFee);
-                } else {
-                    prover = info_.proposer;
-                }
+            if (address(proverMarket) != address(0) && params.optInProverMarket) {
+                uint256 proverFee;
+                (meta_.prover, proverFee) = proverMarket.getCurrentProver();
+                require(meta_.prover != address(0), NoProverAvailable());
 
-                meta_ = BatchMetadata({
-                    infoHash: keccak256(abi.encode(info_)),
-                    prover: prover,
-                    batchId: stats2.numBatches,
-                    proposedAt: uint64(block.timestamp)
-                });
+                _debitBond(info_.proposer, proverFee);
+                _creditBond(meta_.prover, proverFee);
+
+                info_.usingProverMarket = true;
+
+                // Update avg prover market fee
+                Stats1 memory stats1 = state.stats1;
+
+                stats1.avgProverMarketFee = uint64(
+                    (
+                        stats1.avgProverMarketFee * (PROVER_FEE_CHANGE_FACTOR - 1)
+                            + uint64(proverFee / (1 gwei))
+                    ) / PROVER_FEE_CHANGE_FACTOR
+                );
+
+                state.stats1 = stats1;
             }
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];

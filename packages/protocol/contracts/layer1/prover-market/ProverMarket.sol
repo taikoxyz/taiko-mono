@@ -18,6 +18,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error InvalidThresholds();
     error NotCurrentProver();
     error FeeNotDivisibleByFeeUnit();
+    error FeeBiggerThanMax();
     error FeeTooLarge();
     error TooEarly();
 
@@ -91,6 +92,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
     {
         require(_fee % feeUnit == 0, FeeNotDivisibleByFeeUnit());
         require(_fee / feeUnit <= type(uint64).max, FeeTooLarge());
+
+        uint256 maxFee = getMaxFee();
+        require(maxFee == 0 || _fee <= maxFee, FeeBiggerThanMax());
         uint64 fee_ = uint64(_fee / feeUnit);
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
@@ -130,7 +134,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
             : (currentProver, feeUnit * currentFee);
     }
 
-    function _getCurrentProver() public view returns (address, uint64, uint256) {
+    /// @dev The maximum fee that can be used by provers to bid.
+    /// The current implementation returns a 5 times of the average fee.
+    function getMaxFee() public view returns (uint256) {
+        return 5 gwei * inbox.getStats1().avgProverMarketFee;
+    }
+
+    function _getCurrentProver() internal view returns (address, uint64, uint256) {
         address currentProver = prover;
         if (
             currentProver == address(0) // no bidding
