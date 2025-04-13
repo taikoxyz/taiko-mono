@@ -192,7 +192,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             {
                 address prover;
                 if (address(proverMarket) != address(0) && params.optInProverMarket) {
-                    uint64 proverFee;
+                    uint256 proverFee;
                     (prover, proverFee) = proverMarket.getCurrentProver();
                     require(prover != address(0), NoProverAvailable());
 
