@@ -140,6 +140,63 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 	}
 }
 
+func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
+	var (
+		testnetL1SnapshotID = s.SetL1Snapshot()
+	)
+	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	// Propose two L2 blocks
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
+	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
+
+	res, err := s.RPCClient.CheckL1Reorg(
+		context.Background(),
+		l2Head2.Number,
+	)
+	s.Nil(err)
+	s.False(res.IsReorged)
+
+	// Reorg back to l2Head1
+	s.RevertL1Snapshot(testnetL1SnapshotID)
+	s.InitProposer()
+
+	// Because of evm_revert operation, the nonce of the proposer need to be adjusted.
+	// Propose ten blocks on another fork
+	for i := 0; i < 10; i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	l1Head4, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Greater(l1Head4.Number.Uint64(), l1Head2.Number.Uint64())
+
+	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(l2Head1.Number.Uint64()+10, l2Head3.Number.Uint64())
+
+	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2Head1.Number.Uint64()+1))
+	s.Nil(err)
+	s.Equal(parent.ParentHash, l2Head1.Hash())
+	s.NotEqual(parent.Hash(), l2Head2.ParentHash)
+}
+
 func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
@@ -587,130 +644,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), l2Head2.Number().Uint64())
 	s.Equal(l2Head1.Hash(), l2Head2.Hash())
-}
-
-func (s *DriverTestSuite) TestReorgToHeigherFork() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
-
-	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
-	s.Nil(err)
-	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
-
-	snapshotID := s.SetL1Snapshot()
-
-	var (
-		lenForkA = 5
-		forkA    = make([]*types.Block, 0)
-		lenForkB = 10
-		forkB    = make([]*types.Block, 0)
-	)
-
-	for i := 0; i < lenForkA; i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
-	}
-
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
-
-	for i := l2Head1.Number.Uint64() + 1; i <= l2Head2.Number.Uint64(); i++ {
-		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
-		s.Nil(err)
-		forkA = append(forkA, block)
-	}
-	s.Equal(l2Head2.Number.Uint64()-l2Head1.Number.Uint64(), uint64(len(forkA)))
-
-	s.RevertL1Snapshot(snapshotID)
-	s.L1Mine()
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, l2Head1.Number))
-	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), headL1Origin.BlockID)
-	s.Nil(err)
-	s.d.state.SetL1Current(l1Head)
-	s.Nil(s.d.ChainSyncer().Sync())
-	s.InitProposer()
-
-	snapshotID = s.SetL1Snapshot()
-
-	for i := 0; i < lenForkB; i++ {
-		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
-	}
-
-	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Greater(l2Head3.Number.Uint64(), l2Head2.Number.Uint64())
-
-	for i := l2Head1.Number.Uint64() + 1; i <= l2Head3.Number.Uint64(); i++ {
-		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
-		s.Nil(err)
-		forkB = append(forkB, block)
-	}
-	s.Equal(l2Head3.Number.Uint64()-l2Head1.Number.Uint64(), uint64(len(forkB)))
-
-	s.RevertL1Snapshot(snapshotID)
-	s.L1Mine()
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, l2Head1.Number))
-	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), headL1Origin.BlockID)
-	s.Nil(err)
-	s.d.state.SetL1Current(l1Head)
-	s.Nil(s.d.ChainSyncer().Sync())
-	s.InitProposer()
-
-	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
-	s.Nil(err)
-	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
-
-	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head1.Number.Uint64(), l2Head4.Number.Uint64())
-
-	insertPreconfBlock := func(block *types.Block) {
-		baseFee, overflow := uint256.FromBig(block.BaseFee())
-		s.False(overflow)
-
-		b, err := utils.EncodeAndCompressTxList(block.Transactions())
-		s.Nil(err)
-		s.GreaterOrEqual(len(block.Transactions()), 1)
-
-		s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
-			context.Background(),
-			peer.ID(testutils.RandomBytes(32)),
-			&eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
-				BlockHash:     block.Hash(),
-				ParentHash:    block.ParentHash(),
-				FeeRecipient:  block.Coinbase(),
-				PrevRandao:    eth.Bytes32(block.MixDigest()),
-				BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
-				GasLimit:      eth.Uint64Quantity(block.GasLimit()),
-				Timestamp:     eth.Uint64Quantity(block.Time()),
-				ExtraData:     block.Extra(),
-				BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-				Transactions:  []eth.Data{b},
-				Withdrawals:   &types.Withdrawals{},
-			}},
-		))
-	}
-
-	for i := 0; i < len(forkB)-1; i++ {
-		insertPreconfBlock(forkB[i])
-	}
-	for i := 0; i < len(forkA); i++ {
-		insertPreconfBlock(forkA[i])
-	}
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head2.Number.Uint64(), l2Head5.Number().Uint64())
-
-	insertPreconfBlock(forkB[len(forkB)-1])
-
-	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head3.Number.Uint64(), l2Head6.Number().Uint64())
 }
 
 func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
