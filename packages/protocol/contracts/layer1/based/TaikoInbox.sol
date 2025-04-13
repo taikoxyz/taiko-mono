@@ -83,6 +83,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         nonReentrant
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
+        Stats1 memory stats1; // not loaded from storage yet
         Stats2 memory stats2 = state.stats2;
         Config memory config = pacayaConfig();
         require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
@@ -210,16 +211,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 info_.usingProverMarket = true;
 
                 // Update avg prover market fee
-                Stats1 memory stats1 = state.stats1;
-
+                require(stats1.genesisHeight == 0, "loaded already"); // TODO(daniel): remove this
+                stats1 = state.stats1; // load from storage
                 stats1.avgProverMarketFee = uint64(
                     (
                         stats1.avgProverMarketFee * (PROVER_FEE_CHANGE_FACTOR - 1)
                             + uint64(proverFee / (1 gwei))
                     ) / PROVER_FEE_CHANGE_FACTOR
                 );
-
-                state.stats1 = stats1;
             }
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -254,7 +253,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchProposed(info_, meta_, _txList);
         } // end-of-unchecked
 
-        _verifyBatches(config, stats2, 1);
+        _verifyBatches(config, stats1, stats2, 1);
     }
 
     /// @notice Proves multiple batches with a single aggregated proof.
@@ -389,7 +388,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             _pause();
             emit Paused(verifier);
         } else {
-            _verifyBatches(config, stats2, metasLength);
+            Stats1 memory stats1; // not loaded from storage yet
+            _verifyBatches(config, stats1, stats2, metasLength);
         }
     }
 
@@ -403,7 +403,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         nonReentrant
         whenNotPaused
     {
-        _verifyBatches(pacayaConfig(), state.stats2, _length);
+        Stats1 memory stats1; // not loaded from storage yet
+        _verifyBatches(pacayaConfig(), stats1, state.stats2, _length);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -626,6 +627,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     function _verifyBatches(
         Config memory _config,
+        Stats1 memory _stats1,
         Stats2 memory _stats2,
         uint256 _length
     )
@@ -721,12 +723,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                         batch.verifiedTransitionId = synced.tid;
                     }
 
-                    Stats1 memory stats1 = state.stats1;
-                    stats1.lastSyncedBatchId = batch.batchId;
-                    stats1.lastSyncedAt = uint64(block.timestamp);
-                    state.stats1 = stats1;
+                    if (_stats1.genesisHeight == 0) {
+                        // _stats1 is not loaded from storage yet.
+                        _stats1 = state.stats1;
+                    }
+                    _stats1.lastSyncedBatchId = batch.batchId;
+                    _stats1.lastSyncedAt = uint64(block.timestamp);
+                    state.stats1 = _stats1;
 
-                    emit Stats1Updated(stats1);
+                    emit Stats1Updated(_stats1);
 
                     // Ask signal service to write cross chain signal
                     signalService.syncChainData(
