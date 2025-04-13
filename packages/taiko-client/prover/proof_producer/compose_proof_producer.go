@@ -36,7 +36,7 @@ type ComposeProofProducer struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	JWT                 string // JWT provided by Raiko
-	PivotProducer       *PivotProofProducer
+	SgxGethProducer     *SgxGethProofProducer
 	ProofType           ProofType
 	Dummy               bool
 	DummyProofProducer
@@ -70,8 +70,7 @@ func (s *ComposeProofProducer) RequestProof(
 	)
 
 	g.Go(func() error {
-		// NOTE: right now we don't use the pivot proof for Pacaya, since its still not ready.
-		_, err := s.PivotProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
+		_, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
 		return err
 	})
 	g.Go(func() error {
@@ -93,8 +92,11 @@ func (s *ComposeProofProducer) RequestProof(
 			); err != nil {
 				return err
 			} else {
-				proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 				proofType = resp.ProofType
+				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
+				if ProofTypeZKSP1 != proofType {
+					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
+				}
 			}
 		}
 		return nil
@@ -137,12 +139,12 @@ func (s *ComposeProofProducer) Aggregate(
 		"time", time.Since(requestAt),
 	)
 	var (
-		g                = new(errgroup.Group)
-		pivotBatchProofs *BatchProofs
-		batchProofs      []byte
-		err              error
-		batches          = make([]*RaikoBatches, 0, len(items))
-		batchIDs         = make([]*big.Int, 0, len(items))
+		g                  = new(errgroup.Group)
+		sgxGethBatchProofs *BatchProofs
+		batchProofs        []byte
+		err                error
+		batches            = make([]*RaikoBatches, 0, len(items))
+		batchIDs           = make([]*big.Int, 0, len(items))
 	)
 	for _, item := range items {
 		batches = append(batches, &RaikoBatches{
@@ -152,7 +154,7 @@ func (s *ComposeProofProducer) Aggregate(
 		batchIDs = append(batchIDs, item.Meta.Pacaya().GetBatchID())
 	}
 	g.Go(func() error {
-		if pivotBatchProofs, err = s.PivotProducer.Aggregate(ctx, items, requestAt); err != nil {
+		if sgxGethBatchProofs, err = s.SgxGethProducer.Aggregate(ctx, items, requestAt); err != nil {
 			return err
 		}
 		return nil
@@ -183,15 +185,15 @@ func (s *ComposeProofProducer) Aggregate(
 	}
 
 	return &BatchProofs{
-		ProofResponses:     items,
-		BatchProof:         batchProofs,
-		Tier:               s.Tier(),
-		BlockIDs:           batchIDs,
-		ProofType:          proofType,
-		Verifier:           verifier,
-		PivotBatchProof:    pivotBatchProofs.BatchProof,
-		PivotProofVerifier: pivotBatchProofs.Verifier,
-		IsPacaya:           true,
+		ProofResponses:       items,
+		BatchProof:           batchProofs,
+		Tier:                 s.Tier(),
+		BlockIDs:             batchIDs,
+		ProofType:            proofType,
+		Verifier:             verifier,
+		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
+		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
+		IsPacaya:             true,
 	}, nil
 }
 
@@ -236,6 +238,13 @@ func (s *ComposeProofProducer) requestBatchProof(
 	}
 
 	if err := output.Validate(); err != nil {
+		log.Debug(
+			"Proof output validation result",
+			"start", batches[0].BatchID,
+			"end", batches[len(batches)-1].BatchID,
+			"proofType", output.ProofType,
+			"err", err,
+		)
 		return nil, fmt.Errorf("invalid Raiko response(start: %d, end: %d): %w",
 			batches[0].BatchID,
 			batches[len(batches)-1].BatchID,
