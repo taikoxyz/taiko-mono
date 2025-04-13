@@ -132,7 +132,7 @@ interface ITaikoInbox {
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     struct Stats1 {
         uint64 genesisHeight;
-        uint64 avgProverMarketFee;
+        uint64 avgProverMarketFee; // in gwei
         uint64 lastSyncedBatchId;
         uint64 lastSyncedAt;
     }
