@@ -1074,8 +1074,17 @@ func (c *Client) calculateBaseFeePacaya(
 	currentTimestamp uint64,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) (*big.Int, error) {
+	log.Info(
+		"Calculate base fee for the Pacaya block",
+		"parentNumber", l2Head.Number,
+		"parentHash", l2Head.Hash(),
+		"parentGasUsed", l2Head.GasUsed,
+		"currentTimestamp", currentTimestamp,
+		"baseFeeConfig", baseFeeConfig,
+	)
+
 	baseFeeInfo, err := c.PacayaClients.TaikoAnchor.GetBasefeeV2(
-		&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
 		uint32(l2Head.GasUsed),
 		currentTimestamp,
 		*baseFeeConfig,
