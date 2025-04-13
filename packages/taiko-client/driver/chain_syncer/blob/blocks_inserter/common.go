@@ -449,7 +449,6 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	}, anchorTx, nil
 }
 
-// updateL1OriginForBatch updates the each block's L1 origin in the given batch.
 func updateL1OriginForBatch(
 	ctx context.Context,
 	rpc *rpc.Client,
@@ -466,26 +465,32 @@ func updateL1OriginForBatch(
 
 	for i := 0; i < len(meta.GetBlocks()); i++ {
 		g.Go(func() error {
-			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(i))
+			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(len(meta.GetBlocks())-1-i))
+
 			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
 			if err != nil {
 				return fmt.Errorf("failed to get block by number %d: %w", blockID, err)
 			}
+
 			l1Origin := &rawdb.L1Origin{
 				BlockID:       blockID,
 				L2BlockHash:   header.Hash(),
 				L1BlockHeight: meta.GetRawBlockHeight(),
 				L1BlockHash:   meta.GetRawBlockHash(),
 			}
-			// Update the l1Origin and headL1Origin cursor for that preconfirmed block.
+
 			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
 				return fmt.Errorf("failed to update L1 origin: %w", err)
 			}
+
+			// If this is the most recent block, update the HeadL1Origin.
 			if i == len(meta.GetBlocks())-1 {
+				log.Info("Update head L1 origin", "blockID", blockID, "l1Origin", l1Origin)
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
 			}
+
 			return nil
 		})
 	}
