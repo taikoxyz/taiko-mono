@@ -67,6 +67,29 @@ func createExecutionPayloadsAndSetHead(
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 ) (payloadData *engine.ExecutableData, err error) {
+	// Before updating the fork choice, we need to check if the parent block is in the canonical chain,
+	// if the parent is in a frok, we need to set the fork choice to the parent block at first.
+	parent, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(meta.BlockID.Uint64()-1))
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return nil, fmt.Errorf("failed to get parent block: %w", err)
+	}
+	if parent == nil || parent.Hash() != meta.ParentHash {
+		log.Info(
+			"Parent block not in canonical chain, setting fork choice to parent",
+			"blockID", meta.BlockID,
+			"parentNumber", meta.BlockID.Uint64()-1,
+			"parentHash", meta.ParentHash,
+		)
+
+		fcRes, err := rpc.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash}, nil)
+		if err != nil {
+			return nil, err
+		}
+		if fcRes.PayloadStatus.Status != engine.VALID {
+			return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
+		}
+	}
+
 	// Create a new execution payload.
 	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
 	if err != nil {
