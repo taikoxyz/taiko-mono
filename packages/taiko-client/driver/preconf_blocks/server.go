@@ -163,7 +163,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"peer", from,
 		"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 		"hash", msg.ExecutionPayload.BlockHash.Hex(),
-		"txs", len(msg.ExecutionPayload.Transactions),
+		"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+		"timestamp", uint64(msg.ExecutionPayload.Timestamp),
+		"coinbase", msg.ExecutionPayload.FeeRecipient.Hex(),
+		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
 	)
 
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
@@ -175,6 +178,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"error", err,
 		)
 		return nil
@@ -206,7 +210,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return fmt.Errorf("failed to fetch parent header by hash: %w", err)
 	}
-	if parentInFork == nil && parentInCanonical == nil {
+	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
 		log.Info(
 			"Parent block not in L2 canonical / fork chain",
 			"peer", from,
@@ -221,6 +225,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 				"reason", err,
 			)
 			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
@@ -229,6 +234,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 					"peer", from,
 					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
+					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 				)
 
 				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)

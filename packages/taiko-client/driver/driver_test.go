@@ -759,12 +759,15 @@ func (s *DriverTestSuite) TestReorgToHeigherFork() {
 	for i := 0; i < len(forkA); i++ {
 		insertPreconfBlock(forkA[i])
 	}
-	insertPreconfBlock(forkB[len(forkB)-1])
-
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
+	s.Equal(l2Head2.Number.Uint64(), l2Head5.Number().Uint64())
 
-	s.Equal(l2Head3.Number.Uint64(), l2Head5.Number().Uint64())
+	insertPreconfBlock(forkB[len(forkB)-1])
+
+	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head3.Number.Uint64(), l2Head6.Number().Uint64())
 }
 
 func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
@@ -885,7 +888,20 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Equal(l2Head3.Number.Uint64(), l2Head5.Number().Uint64())
+	// The last block should be the last one in the forkA or forkB
+	var isInForkA bool
+	for _, b := range forkA {
+		if blocks[len(blocks)-1].Hash() == b.Hash() {
+			isInForkA = true
+			break
+		}
+	}
+
+	if isInForkA {
+		s.Equal(forkA[len(forkA)-1].Number().Uint64(), l2Head5.Number().Uint64())
+	} else {
+		s.Equal(forkB[len(forkB)-1].Number().Uint64(), l2Head5.Number().Uint64())
+	}
 
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)

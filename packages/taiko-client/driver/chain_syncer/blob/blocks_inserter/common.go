@@ -67,54 +67,6 @@ func createExecutionPayloadsAndSetHead(
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 ) (payloadData *engine.ExecutableData, err error) {
-	// Before updating the fork choice, we need to check if the parent block's height is equal to or less than the
-	// current canonical head block's height. if not, that means the current incoming block is in another fork,
-	// we need to send the fork choice requests to rebuild the missing gap at first. The caller MUST ensure that the
-	// parent block is either in the canonical chain or in a known fork.
-	parent, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(meta.BlockID.Uint64()-1))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return nil, fmt.Errorf("failed to get parent block: %w", err)
-	}
-	if parent == nil || parent.Hash() != meta.ParentHash {
-		currentCanonicalHead, err := rpc.L2.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current canonical head: %w", err)
-		}
-		log.Info(
-			"Parent block not in canonical chain, setting fork choice to parent",
-			"blockID", meta.BlockID,
-			"parentNumber", meta.BlockID.Uint64()-1,
-			"parentHash", meta.ParentHash,
-			"currentCanonicalHead", currentCanonicalHead.Number,
-			"currentCanonicalHeadHash", currentCanonicalHead.Hash(),
-		)
-
-		// Get all the missing parent hashes for the current canonical chain, to build the fork choice calls.
-		parentHashes := []common.Hash{meta.ParentHash}
-		for i := meta.BlockID.Uint64() - 1; i > currentCanonicalHead.Number.Uint64(); i-- {
-			if parent, err = rpc.L2.HeaderByHash(ctx, parentHashes[0]); err != nil {
-				return nil, fmt.Errorf("failed to get parent block: %w", err)
-			}
-			parentHashes = append([]common.Hash{parent.ParentHash}, parentHashes...)
-		}
-
-		// Keep updating the fork choice from the current canonical chain until we reach
-		// the parent block for the incoming block.
-		for _, hash := range parentHashes {
-			parent, err := rpc.L2.HeaderByHash(ctx, hash)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get parent block: %w", err)
-			}
-			fcRes, err := rpc.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()}, nil)
-			if err != nil {
-				return nil, err
-			}
-			if fcRes.PayloadStatus.Status != engine.VALID {
-				return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
-			}
-		}
-	}
-
 	// Create a new execution payload.
 	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
 	if err != nil {
