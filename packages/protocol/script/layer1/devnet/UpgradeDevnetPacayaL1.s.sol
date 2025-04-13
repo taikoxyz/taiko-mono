@@ -163,22 +163,28 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     )
         internal
     {
-        // In testing, use opVerifier impl as a pivotVerifier
-        address pivotVerifier = deployProxy({
-            name: "pivot_verifier",
+        // In testing, use opVerifier impl as a sgxGethVerifier
+        address sgxGethVerifier = deployProxy({
+            name: "sgxGeth_verifier",
             impl: opImpl,
             data: abi.encodeCall(OpVerifier.init, address(0)),
             registerTo: rollupResolver
         });
 
         deployTEEVerifiers(rollupResolver, proofVerifier, l2ChainId);
-        (address risc0Verifier, address sp1Verifier) = deployZKVerifiers(rollupResolver, l2ChainId);
+        (address risc0RethVerifier, address sp1RethVerifier) =
+            deployZKVerifiers(rollupResolver, l2ChainId);
 
         // In testing, use address(0) as an sgxVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
             address(
                 new DevnetVerifier(
-                    taikoInbox, pivotVerifier, opProxy, address(0), risc0Verifier, sp1Verifier
+                    taikoInbox,
+                    sgxGethVerifier,
+                    opProxy,
+                    address(0),
+                    risc0RethVerifier,
+                    sp1RethVerifier
                 )
             )
         );

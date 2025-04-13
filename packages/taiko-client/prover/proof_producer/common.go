@@ -45,7 +45,9 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 	if res.Data.Status == ErrZkAnyNotDrawn.Error() {
 		return ErrZkAnyNotDrawn
 	}
-	if res.Data.Proof == nil || len(res.Data.Proof.Proof) == 0 {
+	// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
+	if ProofTypeZKSP1 != res.ProofType &&
+		(res.Data.Proof == nil || len(res.Data.Proof.Proof) == 0) {
 		return errEmptyProof
 	}
 
@@ -130,9 +132,9 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 		// nolint:exhaustive
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
-		case ProofTypePivot:
-			metrics.ProverPivotAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverPivotProofAggregationGeneratedCounter.Add(1)
+		case ProofTypeSgxGeth:
+			metrics.ProverSgxGethAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeSgx:
 			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
@@ -149,9 +151,9 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 		// nolint:exhaustive
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
-		case ProofTypePivot:
-			metrics.ProverPivotProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
-			metrics.ProverPivotProofGeneratedCounter.Add(1)
+		case ProofTypeSgxGeth:
+			metrics.ProverSgxGethProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethProofGeneratedCounter.Add(1)
 		case ProofTypeSgx:
 			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 			metrics.ProverSgxProofGeneratedCounter.Add(1)

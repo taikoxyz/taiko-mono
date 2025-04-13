@@ -108,16 +108,16 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		10*time.Second,
 	)
 	s.Nil(err)
-	pivotVerifier, err := s.RPCClient.GetPivotVerifierPacaya(&bind.CallOpts{Context: context.Background()})
+	sgxGethVerifier, err := s.RPCClient.GetSgxGethVerifierPacaya(&bind.CallOpts{Context: context.Background()})
 	s.Nil(err)
 	opVerifier, err := s.RPCClient.GetOPVerifierPacaya(&bind.CallOpts{Context: context.Background()})
 	s.Nil(err)
-	pivotProducer := &producer.PivotProofProducer{
-		Verifier: pivotVerifier,
+	sgxGethProducer := &producer.SgxGethProofProducer{
+		Verifier: sgxGethVerifier,
 		Dummy:    true,
 	}
 	baseLevelProver := &producer.ComposeProofProducer{
-		PivotProducer: pivotProducer,
+		SgxGethProducer: sgxGethProducer,
 		Verifiers: map[producer.ProofType]common.Address{
 			producer.ProofTypeOp: opVerifier,
 		},
