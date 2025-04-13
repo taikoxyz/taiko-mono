@@ -221,7 +221,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             batch.anchorBlockId = anchorBlockId;
             batch.nextTransitionId = 1;
             batch.verifiedTransitionId = 0;
-            batch.reserved4 = 0;
+            batch.optInProverMarket = params.optInProverMarket;
             // SSTORE }}
 
             uint96 livenessBond =

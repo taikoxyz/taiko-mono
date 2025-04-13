@@ -121,7 +121,7 @@ interface ITaikoInbox {
         uint64 lastBlockTimestamp;
         uint64 anchorBlockId;
         uint24 nextTransitionId;
-        uint8 reserved4;
+        bool optInProverMarket;
         // The ID of the transaction that is used to verify this batch. However, if this batch is
         // not verified as the last one in a transaction, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
