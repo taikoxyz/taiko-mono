@@ -42,6 +42,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     // External functions ------------------------------------------------------------------------
 
+    /// @dev proverMarket is optional, so we can pass in address(0)
     constructor(
         address _inboxWrapper,
         address _verifier,
