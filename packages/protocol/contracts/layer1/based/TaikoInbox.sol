@@ -46,7 +46,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         address _inboxWrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        address _proverMarket
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
@@ -56,6 +57,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         verifier = _verifier;
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
+        proverMarket = IProverMarket(_proverMarket);
     }
 
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {

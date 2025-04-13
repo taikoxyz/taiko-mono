@@ -11,9 +11,10 @@ contract PreconfInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        address _proverMarket
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
     { }
 
     /// @inheritdoc ITaikoInbox
