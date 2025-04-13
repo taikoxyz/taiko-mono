@@ -10,10 +10,6 @@ but this is not recommended as it can cause nonce issues.
 
 This guide outlines how to achieve this with separate EOAs running prover and proposer through the ProverSet smart contract.
 
-<Aside>
-    ProverSet showcases how you can use a smart contract as a proposer and prover, but you may want to add custom functionalities in your contracts to settle proposer-prover payments; especially if you are working with a third party prover or proposer.
-</Aside>
-
 ## Prerequisites
 
 - You have TAIKO or TTKOh depending on which network you are proving on
@@ -46,7 +42,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 2. **Deploy the ProverSet**
 
-    Set `PROVER_SET_ADMIN` or `ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
+    Set `PROVER_SET_ADMIN` or `ADMIN` to the address of your **prover** EOA, `OWNER` to your **proposer** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
 
     Run the `DeployProverSet.s.sol` script with your **proposer's private key**.
 
@@ -67,7 +63,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
       </TabItem>
       <TabItem label="Taiko Hekla">
       ```bash
-      ADMIN={ADDRESS} TAIKO_TOKEN=0x6490E12d480549D333499236fF2Ba6676C296011 ENTRYPOINT=0x8698690dEeDB923fA0A674D3f65896B0031BF7c9 INBOX=0x79C9109b764609df928d16fC4a91e9081F7e87DB forge script --evm-version cancun --chain-id 17000 --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/layer1/mainnet/DeployProverSet.s.sol
+      PRIVATE_KEY={PRIVATE_KEY} OWNER={OWNER_ADDRESS} ADMIN={ADMIN_ADDRESS} TAIKO_TOKEN=0x6490E12d480549D333499236fF2Ba6676C296011 ENTRYPOINT=0x8698690dEeDB923fA0A674D3f65896B0031BF7c9 INBOX=0x79C9109b764609df928d16fC4a91e9081F7e87DB forge script --evm-version cancun --chain-id 17000 --rpc-url {YOUR_RPC_URL} --broadcast script/layer1/mainnet/DeployProverSet.s.sol
       ```
 
       The script if run correctly will print the following logs:
@@ -98,7 +94,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
     If the above step was completed correctly, you should be able to see the `Write as Proxy` option in the `Contract` tab.
 
-    Connect to Etherscan with the EOA you used to deploy the ProverSet and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers. Set `isProver` as `true` for both transactions. You can set these as `false` if you want to disable these provers in the future.
+    Connect to Etherscan with the prover EOA (that you set as `ADMIN` in the previous step) and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers. Set `isProver` as `true` for both transactions. You can set these as `false` if you want to disable these provers in the future.
 
     <Aside type="caution">
         Enable both your proposer and prover addresses here! If you don't, your proposeBlock transactions may fail.
@@ -130,6 +126,10 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 If you've already deployed a ProverSet but would like to upgrade it through the Proxy, this guide is for you!
 
+<Aside type="tip">
+  If you are getting revert errors when calling `upgradeTo()` on your proxy, check that `owner()` returns the EOA address you are calling the function from. If it doesn't, you will be unable to upgrade and instead will have to redeploy the proxy and implementation with the guide above.
+</Aside>
+
 <Steps>
 
 1. **Find your existing Proxy's address**
@@ -143,7 +143,9 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     git checkout tags/{PROTOCOL_RELEASE_TAG}
     ```
 
-3. **Deploy the ProverSet contract from your prover EOA and call upgradeTo with the new implementation address on your original Proxy**
+3. **Deploy the ProverSet contract from your proposer EOA and call upgradeTo with the new implementation address on your original Proxy**
+
+    Check that the proxy contract's `owner` is the proposer EOA. If it is not, you will have to call `upgradeTo` from the `owner` address.
 
     Execute the following command, filling in the values in the curly braces appropriately.
 
@@ -155,7 +157,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     </TabItem>
     <TabItem label="Taiko Hekla">
     ```bash
-    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id 17000 --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet --broadcast --constructor-args 0x3C82907B5895DB9713A0BB874379eF8A37aA2A68 0x79C9109b764609df928d16fC4a91e9081F7e87DB 0x6490E12d480549D333499236fF2Ba6676C296011 0x8698690dEeDB923fA0A674D3f65896B0031BF7c9
+    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id 17000 --evm-version cancun --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet --broadcast --constructor-args 0x3C82907B5895DB9713A0BB874379eF8A37aA2A68 0x79C9109b764609df928d16fC4a91e9081F7e87DB 0x6490E12d480549D333499236fF2Ba6676C296011 0x8698690dEeDB923fA0A674D3f65896B0031BF7c9
     ```
     </TabItem>
     </Tabs>

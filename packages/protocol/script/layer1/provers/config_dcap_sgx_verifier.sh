@@ -2,7 +2,8 @@
 
 usage() {
     echo \
-'Run "PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh
+        'Run "PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh
+    --env [dev-<ontake|pacaya>-sgx<reth|geth>|hekla-pacaya-sgx<reth|geth>|mainnet], default is dev-ontake
     --tcb file_path: config tcb
     --eq file_path: config qe
     --mrenclave hex_string: config mrenclave
@@ -29,25 +30,70 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# dev addresses of the verifier/attester/pemCertChain.
-# export SGX_VERIFIER_ADDRESS=0xebB0DA61818F639f460F67940EB269b36d1F104E
-# export ATTESTATION_ADDRESS=0xCFd1a900c9C0aB14443460b8F011d8076db636c2
-# export PEM_CERTCHAIN_ADDRESS=0xaa22e95F5Bf27E07c02e6cc41A700597832FA30d
+#default env: dev-ontake
+export SGX_VERIFIER_ADDRESS=0x6f6E456354A33BDe7B0ED4A10759b79AC0192e68
+export ATTESTATION_ADDRESS=0xACFFB14Ca4b783fe7314855fBC38c50d7b7A8240
+export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
 
-# Hekla addresses of the verifier/attester/pemCertChain for ontake fork
-export SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
-export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
-export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
+load_env() {
+    local env="$1"
+    case "$env" in
+    dev-ontake |\
+    dev-ontake-sgxreth)
+        export SGX_VERIFIER_ADDRESS=0x6f6E456354A33BDe7B0ED4A10759b79AC0192e68
+        export ATTESTATION_ADDRESS=0xACFFB14Ca4b783fe7314855fBC38c50d7b7A8240
+        export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
+        ;;
+    dev-pacaya |\
+    dev-pacaya-sgxreth)
+        export SGX_VERIFIER_ADDRESS=0x6f6E456354A33BDe7B0ED4A10759b79AC0192e68
+        export ATTESTATION_ADDRESS=0xACFFB14Ca4b783fe7314855fBC38c50d7b7A8240
+        export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
+        ;;
+    dev-sgxgeth |\
+    dev-pacaya-sgxgeth)
+        export SGX_VERIFIER_ADDRESS=0x9016078d9870e432cb47122609F83DeE025bC060
+        export ATTESTATION_ADDRESS=0x0d272C6C9099330A0229fE0954973506416277e9
+        export PEM_CERTCHAIN_ADDRESS=0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D
+        ;;
+    hekla-ontake |\
+    hekla-ontake-sgxreth)
+        echo "ontake in hekla is deprecated"
+        export SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
+        export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
+        export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
+        ;;
+    hekla-pacaya |\
+    hekla-pacaya-sgxreth)
+        export SGX_VERIFIER_ADDRESS=0xa8cD459E3588D6edE42177193284d40332c3bcd4
+        export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
+        export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
+        ;;
+    hekla-sgxgeth |\
+    hekla-pacaya-sgxgeth)
+        export SGX_VERIFIER_ADDRESS=0x4361B85093720bD50d25236693CA58FD6e1b3a53
+        export ATTESTATION_ADDRESS=0x84af08F56AeA1f847c75bE08c96cDC4811694595
+        export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
+        ;;
+    mainnet |\
+    mainnet-ontake |\
+    mainnet-ontake-sgxreth)
+        export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
+        export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
+        export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
+        ;;
+    *)
+        echo "❌ Unknown environment: $env"
+        echo "Usage: load_env [dev|hekla-pacaya-[sgxr/geth]|mainnet]"
+        return 1
+        ;;
+    esac
 
-# Hekla addresses of the verifier/attester/pemCertChain for pacaya fork
-# export SGX_VERIFIER_ADDRESS=0xa8cD459E3588D6edE42177193284d40332c3bcd4
-# export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
-# export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
-
-# Mainnet addresses of the verifier/attester/pemCertChain. Uncomment this and comment out the above if running for mainnet!
-# export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
-# export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
-# export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
+    echo "Loaded environment: $env"
+    echo "SGX_VERIFIER_ADDRESS: $SGX_VERIFIER_ADDRESS"
+    echo "ATTESTATION_ADDRESS: $ATTESTATION_ADDRESS"
+    echo "PEM_CERTCHAIN_ADDRESS: $PEM_CERTCHAIN_ADDRESS"
+}
 
 # default value
 # for setMrEnclave which should be called by the owner of the verifier
@@ -81,65 +127,72 @@ vm_file_path() {
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
-        --mrenclave)
-            MR_ENCLAVE="$2"
-            echo "Set MR_ENCLAVE: $MR_ENCLAVE"
-            set_mrenclave=1
-            shift
-            shift
-            ;;
-        --mrsigner)
-            MR_SIGNER="$2"
-            echo "Set MR_SIGNER: $MR_SIGNER"
-            set_mrsigner=1
-            shift
-            shift
-            ;;
-        --unset-mrenclave)
-            MR_ENCLAVE="$2"
-            echo "Unset MR_ENCLAVE: $MR_ENCLAVE"
-            set_mrenclave=2
-            shift
-            shift
-            ;;
-        --unset-mrsigner)
-            MR_SIGNER="$2"
-            echo "Unset MR_SIGNER: $MR_SIGNER"
-            set_mrsigner=2
-            shift
-            shift
-            ;;
-        --toggle-mr-check)
-            echo "toggle mr check"
-            toggle_check=1
-            shift
-            shift
-            ;;
-        --qeid)
-            QEID_PATH=$(vm_file_path "$2")
-            echo "Config QE file: $QEID_PATH"
-            config_qe=1
-            shift
-            shift
-            ;;
-        --tcb)
-            TCB_INFO_PATH=$(vm_file_path "$2")
-            echo "Config TCB file: $TCB_INFO_PATH"
-            config_tcb=1
-            shift
-            shift
-            ;;
-        --quote)
-            V3_QUOTE_BYTES=$2
-            echo "Register SGX Quote."
-            verify_quote=1
-            shift
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            exit 1
-            ;;
+    --mrenclave)
+        MR_ENCLAVE="$2"
+        echo "Set MR_ENCLAVE: $MR_ENCLAVE"
+        set_mrenclave=1
+        shift
+        shift
+        ;;
+    --mrsigner)
+        MR_SIGNER="$2"
+        echo "Set MR_SIGNER: $MR_SIGNER"
+        set_mrsigner=1
+        shift
+        shift
+        ;;
+    --unset-mrenclave)
+        MR_ENCLAVE="$2"
+        echo "Unset MR_ENCLAVE: $MR_ENCLAVE"
+        set_mrenclave=2
+        shift
+        shift
+        ;;
+    --unset-mrsigner)
+        MR_SIGNER="$2"
+        echo "Unset MR_SIGNER: $MR_SIGNER"
+        set_mrsigner=2
+        shift
+        shift
+        ;;
+    --toggle-mr-check)
+        echo "toggle mr check"
+        toggle_check=1
+        shift
+        shift
+        ;;
+    --qeid)
+        QEID_PATH=$(vm_file_path "$2")
+        echo "Config QE file: $QEID_PATH"
+        config_qe=1
+        shift
+        shift
+        ;;
+    --tcb)
+        TCB_INFO_PATH=$(vm_file_path "$2")
+        echo "Config TCB file: $TCB_INFO_PATH"
+        config_tcb=1
+        shift
+        shift
+        ;;
+    --quote)
+        V3_QUOTE_BYTES=$2
+        echo "Register SGX Quote."
+        verify_quote=1
+        shift
+        shift
+        ;;
+    --env)
+        config_env="$2"
+        echo "Running env $config_env."
+        load_env $config_env
+        shift
+        shift
+        ;;
+    *)
+        echo "Unknown option: $1"
+        exit 1
+        ;;
     esac
 done
 
@@ -152,12 +205,12 @@ TASK_ENABLE_MASK=$set_mrenclave,$set_mrsigner,$config_qe,$config_tcb,$toggle_che
 
 # config the contract
 TASK_ENABLE=$TASK_ENABLE_MASK \
-MR_ENCLAVE=$MR_ENCLAVE \
-MR_SIGNER=$MR_SIGNER \
-QEID_PATH=$QEID_PATH \
-TCB_INFO_PATH=$TCB_INFO_PATH \
-V3_QUOTE_BYTES=$V3_QUOTE_BYTES \
-forge script script/layer1/provers/SetDcapParams.s.sol:SetDcapParams \
+    MR_ENCLAVE=$MR_ENCLAVE \
+    MR_SIGNER=$MR_SIGNER \
+    QEID_PATH=$QEID_PATH \
+    TCB_INFO_PATH=$TCB_INFO_PATH \
+    V3_QUOTE_BYTES=$V3_QUOTE_BYTES \
+    forge script script/layer1/provers/SetDcapParams.s.sol:SetDcapParams \
     --fork-url $FORK_URL \
     --broadcast \
     --evm-version cancun \

@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
     bytes32 internal constant B_AUTOMATA_DCAP_ATTESTATION = bytes32("automata_dcap_attestation");
+    bytes32 internal constant B_SGX_GETH_AUTOMATA = bytes32("sgx_geth_automata");
     bytes32 internal constant B_BOND_TOKEN = bytes32("bond_token");
     bytes32 internal constant B_BRIDGE = bytes32("bridge");
     bytes32 internal constant B_BRIDGE_WATCHDOG = bytes32("bridge_watchdog");
@@ -18,10 +19,15 @@ library LibStrings {
     bytes32 internal constant B_FORCED_INCLUSION_STORE = bytes32("forced_inclusion_store");
     bytes32 internal constant B_PRECONF_WHITELIST = bytes32("preconf_whitelist");
     bytes32 internal constant B_PRECONF_WHITELIST_OWNER = bytes32("preconf_whitelist_owner");
+    bytes32 internal constant B_PRECONF_ROUTER = bytes32("preconf_router");
+    bytes32 internal constant B_TAIKO_WRAPPER = bytes32("taiko_wrapper");
     bytes32 internal constant B_PROOF_VERIFIER = bytes32("proof_verifier");
+    bytes32 internal constant B_SGX_RETH_VERIFIER = bytes32("sgx_reth_verifier");
+    bytes32 internal constant B_SGX_GETH_VERIFIER = bytes32("sgx_geth_verifier");
+    bytes32 internal constant B_RISC0_RETH_VERIFIER = bytes32("risc0_reth_verifier");
+    bytes32 internal constant B_SP1_RETH_VERIFIER = bytes32("sp1_reth_verifier");
     bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
-    bytes32 internal constant B_SGX_WATCHDOG = bytes32("sgx_watchdog");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");

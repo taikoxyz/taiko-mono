@@ -21,7 +21,6 @@ import (
 
 var (
 	ErrUnretryableSubmission = errors.New("unretryable submission error")
-	ZeroAddress              common.Address
 )
 
 // TxBuilder will build a transaction with the given nonce.
@@ -82,7 +81,7 @@ func (a *ProveBlockTxBuilder) Build(
 				return nil, err
 			}
 
-			if a.proverSetAddress != ZeroAddress {
+			if a.proverSetAddress != rpc.ZeroAddress {
 				if data, err = encoding.ProverSetABI.Pack(
 					"proveBlocks",
 					[]uint64{blockID.Uint64()},
@@ -106,7 +105,7 @@ func (a *ProveBlockTxBuilder) Build(
 		} else {
 			if tier > encoding.TierGuardianMinorityID {
 				to = a.guardianProverMajorityAddress
-			} else if tier == encoding.TierGuardianMinorityID && a.guardianProverMinorityAddress != ZeroAddress {
+			} else if tier == encoding.TierGuardianMinorityID && a.guardianProverMinorityAddress != rpc.ZeroAddress {
 				to = a.guardianProverMinorityAddress
 			} else {
 				return nil, fmt.Errorf("tier %d need set guardianProverMinorityAddress", tier)
@@ -173,7 +172,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 			return nil, err
 		}
 
-		if a.proverSetAddress != ZeroAddress {
+		if a.proverSetAddress != rpc.ZeroAddress {
 			if data, err = encoding.ProverSetABI.Pack(
 				"proveBlocks",
 				blockIDs,
@@ -237,11 +236,11 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 				"verifier", batchProof.Verifier,
 			)
 		}
-		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.PivotProofVerifier.Bytes()) < 0 {
+		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.SgxGethProofVerifier.Bytes()) < 0 {
 			subProofs[0] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
-			subProofs[1] = encoding.SubProof{Verifier: batchProof.PivotProofVerifier, Proof: batchProof.PivotBatchProof}
+			subProofs[1] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
 		} else {
-			subProofs[0] = encoding.SubProof{Verifier: batchProof.PivotProofVerifier, Proof: batchProof.PivotBatchProof}
+			subProofs[0] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
 			subProofs[1] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
 		}
 
@@ -254,7 +253,7 @@ func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.
 			return nil, err
 		}
 
-		if a.proverSetAddress != ZeroAddress {
+		if a.proverSetAddress != rpc.ZeroAddress {
 			if data, err = encoding.ProverSetPacayaABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}

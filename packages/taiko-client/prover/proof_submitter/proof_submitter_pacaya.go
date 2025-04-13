@@ -37,12 +37,14 @@ type ProofSubmitterPacaya struct {
 	batchResultCh          chan *proofProducer.BatchProofs
 	aggregationNotify      chan uint16
 	batchAggregationNotify chan proofProducer.ProofType
+	proofSubmissionCh      chan *proofProducer.ProofRequestBody
 	anchorValidator        *validator.AnchorTxValidator
 	txBuilder              *transaction.ProveBlockTxBuilder
 	sender                 *transaction.Sender
 	proverAddress          common.Address
 	proverSetAddress       common.Address
 	taikoAnchorAddress     common.Address
+	proofPollingInterval   time.Duration
 	// Batch proof related
 	proofBuffers              map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	forceBatchProvingInterval time.Duration
@@ -57,6 +59,7 @@ func NewProofSubmitterPacaya(
 	batchResultCh chan *proofProducer.BatchProofs,
 	aggregationNotify chan uint16,
 	batchAggregationNotify chan proofProducer.ProofType,
+	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	proverSetAddress common.Address,
 	taikoAnchorAddress common.Address,
 	gasLimit uint64,
@@ -65,6 +68,7 @@ func NewProofSubmitterPacaya(
 	builder *transaction.ProveBlockTxBuilder,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
+	proofPollingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
@@ -79,6 +83,7 @@ func NewProofSubmitterPacaya(
 		batchResultCh:             batchResultCh,
 		aggregationNotify:         aggregationNotify,
 		batchAggregationNotify:    batchAggregationNotify,
+		proofSubmissionCh:         proofSubmissionCh,
 		anchorValidator:           anchorValidator,
 		txBuilder:                 builder,
 		sender:                    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
@@ -87,6 +92,7 @@ func NewProofSubmitterPacaya(
 		taikoAnchorAddress:        taikoAnchorAddress,
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
+		proofPollingInterval:      proofPollingInterval,
 	}, nil
 }
 
@@ -151,6 +157,11 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				return err
 			}
 			if proofStatus.IsSubmitted && !proofStatus.Invalid {
+				log.Info(
+					"A valid proof has been submitted, skip requesting proof",
+					"batchID", meta.Pacaya().GetBatchID(),
+					"parent", proofStatus.ParentHeader.Hash(),
+				)
 				return nil
 			}
 			// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
@@ -211,7 +222,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
 		},
-		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
+		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
@@ -297,6 +308,14 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesPacaya(batchProof),
 		batchProof,
 	); err != nil {
+		proofBuffer.ClearItems(uint64BatchIDs...)
+		// Resend the proof request
+		for _, proofResp := range batchProof.ProofResponses {
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{
+				Tier: proofResp.Tier,
+				Meta: proofResp.Meta,
+			}
+		}
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil
 		}
@@ -362,7 +381,7 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 			s.batchResultCh <- result
 			return nil
 		},
-		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
+		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		log.Error("Aggregate proof error", "error", err)
 		return err

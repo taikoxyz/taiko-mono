@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.27.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.3...docs-site-v1.27.4) (2025-04-10)
+
+
+### Chores
+
+* **docs-site:** rename + diagram fix pivot to sgxgeth ([#19245](https://github.com/taikoxyz/taiko-mono/issues/19245)) ([c2cc150](https://github.com/taikoxyz/taiko-mono/commit/c2cc150b3dbaa80a48ce133b91c7470749b52f5b))
+
+## [1.27.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.2...docs-site-v1.27.3) (2025-04-08)
+
+
+### Bug Fixes
+
+* **docs-site:** fix proverset doc ([#19234](https://github.com/taikoxyz/taiko-mono/issues/19234)) ([3a475b6](https://github.com/taikoxyz/taiko-mono/commit/3a475b632d277c748d904210fa2fcc716966f869))
+
+## [1.27.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.1...docs-site-v1.27.2) (2025-04-05)
+
+
+### Chores
+
+* **docs-site:** update proverset guide, alethia and hekla addresses, include surge in devtools ([#19215](https://github.com/taikoxyz/taiko-mono/issues/19215)) ([1d831cb](https://github.com/taikoxyz/taiko-mono/commit/1d831cbea77ea61dc63d60b067fe447d1e4a08c5))
+
 ## [1.27.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.0...docs-site-v1.27.1) (2025-03-27)
 
 

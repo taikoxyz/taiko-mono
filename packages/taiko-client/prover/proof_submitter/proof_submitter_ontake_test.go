@@ -40,6 +40,7 @@ type ProofSubmitterTestSuite struct {
 	batchProofGenerationCh   chan *producer.BatchProofs
 	aggregationNotify        chan uint16
 	batchesAggregationNotify chan producer.ProofType
+	proofSubmissionCh        chan *producer.ProofRequestBody
 }
 
 func (s *ProofSubmitterTestSuite) SetupTest() {
@@ -49,6 +50,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
 	s.aggregationNotify = make(chan uint16, 1)
 	s.batchesAggregationNotify = make(chan producer.ProofType, 1)
+	s.proofSubmissionCh = make(chan *producer.ProofRequestBody, 1024)
 
 	var (
 		builder = transaction.NewProveBlockTxBuilder(
@@ -90,6 +92,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.proofCh,
 		s.batchProofGenerationCh,
 		s.aggregationNotify,
+		s.proofSubmissionCh,
 		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		"test",
@@ -102,18 +105,19 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		0*time.Second,
 		0,
 		30*time.Minute,
+		10*time.Second,
 	)
 	s.Nil(err)
-	pivotVerifier, err := s.RPCClient.GetPivotVerifierPacaya(&bind.CallOpts{Context: context.Background()})
+	sgxGethVerifier, err := s.RPCClient.GetSgxGethVerifierPacaya(&bind.CallOpts{Context: context.Background()})
 	s.Nil(err)
 	opVerifier, err := s.RPCClient.GetOPVerifierPacaya(&bind.CallOpts{Context: context.Background()})
 	s.Nil(err)
-	pivotProducer := &producer.PivotProofProducer{
-		Verifier: pivotVerifier,
+	sgxGethProducer := &producer.SgxGethProofProducer{
+		Verifier: sgxGethVerifier,
 		Dummy:    true,
 	}
 	baseLevelProver := &producer.ComposeProofProducer{
-		PivotProducer: pivotProducer,
+		SgxGethProducer: sgxGethProducer,
 		Verifiers: map[producer.ProofType]common.Address{
 			producer.ProofTypeOp: opVerifier,
 		},
@@ -132,6 +136,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.batchProofGenerationCh,
 		s.aggregationNotify,
 		s.batchesAggregationNotify,
+		s.proofSubmissionCh,
 		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		0,
@@ -140,6 +145,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		builder,
 		proofBuffers,
 		30*time.Minute,
+		10*time.Second,
 	)
 	s.Nil(err)
 	s.contesterOntake = NewProofContester(
@@ -230,6 +236,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.proofCh,
 		s.batchProofGenerationCh,
 		s.aggregationNotify,
+		s.proofSubmissionCh,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		"test",
@@ -242,6 +249,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		time.Duration(0),
 		0,
 		30*time.Minute,
+		10*time.Second,
 	)
 	s.Nil(err)
 
@@ -255,6 +263,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.proofCh,
 		s.batchProofGenerationCh,
 		s.aggregationNotify,
+		s.proofSubmissionCh,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		"test",
@@ -267,6 +276,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		1*time.Hour,
 		0,
 		30*time.Minute,
+		10*time.Second,
 	)
 	s.Nil(err)
 	delay, err = submitter2.getRandomBumpedSubmissionDelay(time.Now())

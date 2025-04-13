@@ -32,12 +32,17 @@ contract MainnetInbox is TaikoInbox {
             batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 5e18, // 5 Taiko token per block
+            livenessBondBase: 50e18, // 50 Taiko token per batch
+            livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
+                /// Determines the rate at which the base fee can change.
+                /// Given that Taiko may have blocks every 2 seconds, if we were to keep the gas change
+                /// speed the same as in Ethereum,
+                /// we would use 8 * (12 / 2) = 48. However, to make the gas changes 4 times slower for
+                /// better user experience, we use 48 * 4 = 192.
+                adjustmentQuotient: 192,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee

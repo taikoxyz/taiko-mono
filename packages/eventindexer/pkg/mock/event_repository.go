@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
+	"slices"
 
 	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -52,7 +53,7 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 	address string,
 	event string,
 ) (int, error) {
-	var count int = 0
+	var count = 0
 
 	for _, e := range r.events {
 		if e.Address == address && e.Event == event {
@@ -101,7 +102,7 @@ func (r *EventRepository) Delete(
 ) error {
 	for i, e := range r.events {
 		if e.ID == id {
-			r.events = append(r.events[:i], r.events[i+1:]...)
+			r.events = slices.Delete(r.events, i, i+1)
 		}
 	}
 
