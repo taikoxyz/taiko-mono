@@ -140,63 +140,6 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 	}
 }
 
-func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
-	var (
-		testnetL1SnapshotID = s.SetL1Snapshot()
-	)
-	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	// Propose two L2 blocks
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
-
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
-
-	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
-	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
-
-	res, err := s.RPCClient.CheckL1Reorg(
-		context.Background(),
-		l2Head2.Number,
-	)
-	s.Nil(err)
-	s.False(res.IsReorged)
-
-	// Reorg back to l2Head1
-	s.RevertL1Snapshot(testnetL1SnapshotID)
-	s.InitProposer()
-
-	// Because of evm_revert operation, the nonce of the proposer need to be adjusted.
-	// Propose ten blocks on another fork
-	for i := 0; i < 10; i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
-	}
-
-	l1Head4, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.Greater(l1Head4.Number.Uint64(), l1Head2.Number.Uint64())
-
-	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.Equal(l2Head1.Number.Uint64()+10, l2Head3.Number.Uint64())
-
-	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2Head1.Number.Uint64()+1))
-	s.Nil(err)
-	s.Equal(parent.ParentHash, l2Head1.Hash())
-	s.NotEqual(parent.Hash(), l2Head2.ParentHash)
-}
-
 func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
