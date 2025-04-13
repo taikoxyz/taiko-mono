@@ -402,8 +402,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc ITaikoInbox
     function withdrawBond(uint256 _amount) external whenNotPaused {
-        (address currentProver,) = proverMarket.getCurrentProver();
-        require(msg.sender != currentProver, CurrentProverCannotWithdraw());
+        if (address(proverMarket) != address(0)) {
+            (address currentProver,) = proverMarket.getCurrentProver();
+            require(msg.sender != currentProver, CurrentProverCannotWithdraw());
+        }
 
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
