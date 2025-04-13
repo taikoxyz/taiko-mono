@@ -187,7 +187,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
 
             {
-                (address currentProver, uint64 proverFee) = proverMarket.getCurrentProver();
+                (address currentProver, uint256 proverFee) = proverMarket.getCurrentProver();
                 require(currentProver != address(0), NoProverAvailable());
 
                 meta_ = BatchMetadata({
