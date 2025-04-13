@@ -34,8 +34,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint256 public immutable provingThreshold;
     /// @dev The minimum delay required before a prover can exit the prover market.
     uint256 public immutable minExitDelay;
-    /// @dev The unit of fee to make sure fee can fit into uint64
-    uint256 public immutable feeUnit;
 
     /// @dev Slot 1
     address internal prover;
@@ -61,12 +59,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint256 _biddingThreshold, // = livenessBond * 2000
         uint256 _outbidThreshold, // = livenessBond * 1000
         uint256 _provingThreshold, // livenessBond * 100
-        uint256 _minExitDelay,
-        uint256 _feeUnit
+        uint256 _minExitDelay
     )
         nonZeroAddr(_inbox)
         nonZeroValue(_minExitDelay)
-        nonZeroValue(_feeUnit)
         EssentialContract(address(0))
     {
         require(_biddingThreshold > _outbidThreshold, InvalidThresholds());
@@ -79,7 +75,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         outbidThreshold = _outbidThreshold;
         provingThreshold = _provingThreshold;
         minExitDelay = _minExitDelay;
-        feeUnit = _feeUnit;
     }
 
     function bid(
@@ -89,9 +84,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
         external
         validExitTimestamp(_exitTimestamp)
     {
-        require(_fee % feeUnit == 0, FeeNotDivisibleByFeeUnit());
-        require(_fee / feeUnit <= type(uint64).max, FeeTooLarge());
-        uint64 fee_ = uint64(_fee / feeUnit);
+        require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
+        require(_fee / (1 gwei) <= type(uint64).max, FeeTooLarge());
+        uint64 fee_ = uint64(_fee / (1 gwei));
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
@@ -118,7 +113,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         onlyCurrentProver
     {
         exitTimestamps[msg.sender] = _exitTimestamp;
-        emit ProverChanged(msg.sender, feeUnit * fee, _exitTimestamp);
+        emit ProverChanged(msg.sender, 1 gwei * fee, _exitTimestamp);
     }
 
     /// @inheritdoc IProverMarket
@@ -127,7 +122,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
             _getCurrentProver();
         return currentProverBalance < provingThreshold
             ? (address(0), 0)
-            : (currentProver, feeUnit * currentFee);
+            : (currentProver, 1 gwei * currentFee);
     }
 
     function _getCurrentProver() public view returns (address, uint64, uint256) {
