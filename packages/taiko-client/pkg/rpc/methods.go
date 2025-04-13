@@ -1075,7 +1075,7 @@ func (c *Client) calculateBaseFeePacaya(
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) (*big.Int, error) {
 	log.Info(
-		"Calculate base fee for Pacaya",
+		"Calculate base fee for the Pacaya block",
 		"parentNumber", l2Head.Number,
 		"parentHash", l2Head.Hash(),
 		"parentGasUsed", l2Head.GasUsed,
