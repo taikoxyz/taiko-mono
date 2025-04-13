@@ -42,11 +42,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     // External functions ------------------------------------------------------------------------
 
+    /// @dev proverMarket is optional, so we can pass in address(0)
     constructor(
         address _inboxWrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        address _proverMarket
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
@@ -56,6 +58,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         verifier = _verifier;
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
+        proverMarket = IProverMarket(_proverMarket);
     }
 
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
@@ -187,18 +190,24 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
 
             {
-                (address currentProver, uint256 proverFee) = proverMarket.getCurrentProver();
-                require(currentProver != address(0), NoProverAvailable());
+                address prover;
+                if (address(proverMarket) != address(0) && params.optInProverMarket) {
+                    uint256 proverFee;
+                    (prover, proverFee) = proverMarket.getCurrentProver();
+                    require(prover != address(0), NoProverAvailable());
+
+                    _debitBond(info_.proposer, proverFee);
+                    _creditBond(prover, proverFee);
+                } else {
+                    prover = info_.proposer;
+                }
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
-                    prover: currentProver,
+                    prover: prover,
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp)
                 });
-
-                _debitBond(info_.proposer, proverFee);
-                _creditBond(meta_.prover, proverFee);
             }
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -395,8 +404,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc ITaikoInbox
     function withdrawBond(uint256 _amount) external whenNotPaused {
-        (address currentProver,) = proverMarket.getCurrentProver();
-        require(msg.sender != currentProver, CurrentProverCannotWithdraw());
+        if (address(proverMarket) != address(0)) {
+            (address currentProver,) = proverMarket.getCurrentProver();
+            require(msg.sender != currentProver, CurrentProverCannotWithdraw());
+        }
 
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
