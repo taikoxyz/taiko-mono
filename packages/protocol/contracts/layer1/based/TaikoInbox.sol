@@ -31,11 +31,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
-    uint256 public constant PROVER_FEE_CHANGE_FACTOR = 256;
-
     address public immutable inboxWrapper;
     address public immutable verifier;
     address public immutable bondToken;
+
+    uint256 public immutable proverMarketFeeChangeFactor;
+
     ISignalService public immutable signalService;
     IProverMarket public immutable proverMarket;
 
@@ -61,6 +62,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
         proverMarket = IProverMarket(_proverMarket);
+        proverMarketFeeChangeFactor = 1024;
     }
 
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
@@ -215,9 +217,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 stats1 = state.stats1; // load from storage
                 stats1.avgProverMarketFee = uint64(
                     (
-                        stats1.avgProverMarketFee * (PROVER_FEE_CHANGE_FACTOR - 1)
+                        (proverMarketFeeChangeFactor - 1) * stats1.avgProverMarketFee
                             + uint64(proverFee / (1 gwei))
-                    ) / PROVER_FEE_CHANGE_FACTOR
+                    ) / proverMarketFeeChangeFactor
                 );
             }
 
