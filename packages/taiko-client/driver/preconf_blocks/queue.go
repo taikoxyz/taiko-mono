@@ -10,7 +10,7 @@ import (
 
 // maxTrackedPayloads is the maximum number of prepared payloads the execution
 // engine tracks before evicting old ones.
-const maxTrackedPayloads = 768 * 6 * 32 // equal to `maxBlocksPerBatch` * `maxBlobsPerBlock` * `slotsPerEpoch`
+const maxTrackedPayloads = 768 // equal to `maxBlocksPerBatch`
 
 // payloadQueueItem represents an id->payload tuple to store until it's retrieved
 // or evicted.
