@@ -36,8 +36,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// disqualified (evicted), and the active prover is reset to address(0).
     uint256 public immutable provingThreshold;
     uint256 public immutable minExitDelay;
+    uint256 private feeHistory; // Packed storage for last 4 fees
     address internal prover;
+    /// @dev If there are no fees yet (new deployment), just use it until someone bids.
+    uint64 public immutable firstFee;
     uint64 internal fee; // proving fee per batch
+    uint8 private feeCount; // Number of fees recorded (max 4)
     mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
     /// @notice Gap for upgrade safety
     uint256[48] private __gap;
@@ -57,7 +61,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint256 _biddingThreshold, // = livenessBond * 2000
         uint256 _outbidThreshold, // = livenessBond * 1000
         uint256 _provingThreshold, // livenessBond * 100
-        uint256 _minExitDelay
+        uint256 _minExitDelay,
+        uint64 _firstFee
     )
         nonZeroAddr(_inbox)
         nonZeroValue(_minExitDelay)
@@ -66,12 +71,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
         require(_biddingThreshold > _outbidThreshold, InvalidThresholds());
         require(_outbidThreshold > _provingThreshold, InvalidThresholds());
         require(_provingThreshold > 0, InvalidThresholds());
+        require(_firstFee > 0, InvalidThresholds());
 
         inbox = ITaikoInbox(_inbox);
 
         biddingThreshold = _biddingThreshold;
         outbidThreshold = _outbidThreshold;
         provingThreshold = _provingThreshold;
+        firstFee = _firstFee;
 
         minExitDelay = _minExitDelay;
     }
@@ -82,12 +89,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
             _getCurrentProver();
 
-        if (currentProver != address(0) && currentProverBalance < outbidThreshold) {
-            // TODO(dani): ensure the new _fee cannot be too large right...
-            // Using a moving average??? -> dani: Seems "on-chain" heavy (gas-inefficient). We
-            // already know Alice (current prover) is soon running out of her deposits, so we only
-            // allow in this case outbidding with a higher amount.
-            require(uint256(_fee) <= uint256(currentFee) * 110 / 100, InvalidBid());
+        if (currentProver == address(0) || currentProverBalance < outbidThreshold) {
+            require(uint256(_fee) <= uint256(_getMaxFeeTreshold()), InvalidBid());
         } else {
             require(_fee < currentFee * 9 / 10, InvalidBid());
         }
@@ -95,6 +98,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         prover = msg.sender;
         fee = _fee;
         exitTimestamps[msg.sender] = _exitTimestamp;
+
+        _updateFeeHistory(_fee);
 
         emit ProverChanged(msg.sender, _fee, _exitTimestamp);
     }
@@ -126,5 +131,36 @@ contract ProverMarket is EssentialContract, IProverMarket {
         } else {
             return (_prover, fee, inbox.bondBalanceOf(_prover));
         }
+    }
+
+    function _getMaxFeeTreshold() internal view returns (uint256) {
+        if (feeCount == 0) {
+            return firstFee;
+        }
+        
+        uint256 sum = 0;
+        uint256 mask = uint256(type(uint64).max);
+        
+        for (uint8 i = 0; i < feeCount; i++) {
+            uint256 shiftedMask = mask << (i * 64);
+            uint256 currentFee = (feeHistory & shiftedMask) >> (i * 64);
+            sum += currentFee;
+        }
+        
+        // add 10% margin to the average
+        return (sum / feeCount) * 110 / 100;
+    }
+
+    function _updateFeeHistory(uint64 _newFee) private {
+        // shift existing fees to the left (discard oldest)
+        feeHistory = feeCount < 4 
+            ? feeHistory 
+            : (feeHistory << 64);
+        
+        // _newfee always placed in the rightmost position
+        feeHistory = (feeHistory & ~uint256(type(uint64).max)) | uint256(_newFee);
+        
+        // feeCount max 4 (4 x 8 bytes = 32 bytes)
+        feeCount = feeCount < 4 ? feeCount + 1 : 4;
     }
 }
