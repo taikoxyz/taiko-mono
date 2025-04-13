@@ -41,7 +41,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @dev If there are no fees yet (new deployment), just use it until someone bids.
     uint64 public immutable firstFee;
     uint64 internal fee; // proving fee per batch
-    uint8 private feeCount; // Number of fees recorded (max 4)
     mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
     /// @notice Gap for upgrade safety
     uint256[48] private __gap;
@@ -133,34 +132,22 @@ contract ProverMarket is EssentialContract, IProverMarket {
         }
     }
 
-    function _getMaxFeeTreshold() internal view returns (uint256) {
-        if (feeCount == 0) {
-            return firstFee;
+    function _getMaxFeeTreshold() internal view returns (uint256 maxFee_) {
+        uint256 total = 0;
+        uint256 count = 0;
+        for (uint i = 0; i < 4; ++i) {
+            uint256 storedFee = (feeHistory >> (i * 64)) & type(uint64).max;
+            if (storedFee > 0) {
+                total += storedFee;
+                count++;
+            }
         }
-        
-        uint256 sum = 0;
-        uint256 mask = uint256(type(uint64).max);
-        
-        for (uint8 i = 0; i < feeCount; i++) {
-            uint256 shiftedMask = mask << (i * 64);
-            uint256 currentFee = (feeHistory & shiftedMask) >> (i * 64);
-            sum += currentFee;
-        }
-        
+
         // add 10% margin to the average
-        return (sum / feeCount) * 110 / 100;
+        maxFee_ = count == 0 ? firstFee : (total / count * 110 / 100);
     }
 
     function _updateFeeHistory(uint64 _newFee) private {
-        // shift existing fees to the left (discard oldest)
-        feeHistory = feeCount < 4 
-            ? feeHistory 
-            : (feeHistory << 64);
-        
-        // _newfee always placed in the rightmost position
-        feeHistory = (feeHistory & ~uint256(type(uint64).max)) | uint256(_newFee);
-        
-        // feeCount max 4 (4 x 8 bytes = 32 bytes)
-        feeCount = feeCount < 4 ? feeCount + 1 : 4;
+        feeHistory = (feeHistory << 64) | uint256(_newFee);
     }
 }
