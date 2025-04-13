@@ -741,6 +741,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
 
         if (_stats1.genesisHeight != 0) {
+            // _stats1 is every loaded from storage so there is no need to save it.
             state.stats1 = _stats1;
             emit Stats1Updated(_stats1);
         }
