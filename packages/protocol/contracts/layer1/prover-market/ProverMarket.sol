@@ -30,6 +30,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint256 public constant MAX_FEE_MULTIPLIER = 2;
     uint256 public constant NEW_BID_PERCENTAGE = 90;
 
+    struct Prover {
+        uint64 exitTimestamp;
+    }
+
     ITaikoInbox public immutable inbox;
     /// @dev If a prover’s available bond balance is below this threshold, they are not eligible
     /// to participate in the bidding process.
@@ -53,7 +57,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint16 internal assignmentCount; // number of assignments
 
     /// @dev Slot 3
-    mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
+    mapping(address account => Prover prover) public provers;
 
     uint256[47] private __gap;
 
@@ -90,13 +94,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         minExitDelay = _minExitDelay;
     }
 
-    function bid(
-        uint256 _fee,
-        uint256 _exitTimestamp
-    )
-        external
-        validExitTimestamp(_exitTimestamp)
-    {
+    function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
         require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
         uint64 feeInGwei = uint64(_fee / (1 gwei));
 
@@ -121,18 +119,18 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         prover = msg.sender;
         fee = feeInGwei;
-        exitTimestamps[msg.sender] = _exitTimestamp;
+        provers[msg.sender].exitTimestamp = _exitTimestamp;
         assignmentCount = 0;
 
         emit ProverChanged(msg.sender, _fee, _exitTimestamp);
     }
 
-    function requestExit(uint256 _exitTimestamp)
+    function requestExit(uint64 _exitTimestamp)
         external
         validExitTimestamp(_exitTimestamp)
         onlyCurrentProver
     {
-        exitTimestamps[msg.sender] = _exitTimestamp;
+        provers[msg.sender].exitTimestamp = _exitTimestamp;
         emit ProverChanged(msg.sender, 1 gwei * fee, _exitTimestamp);
     }
 
@@ -173,7 +171,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         address currentProver = prover;
         if (
             currentProver == address(0) // no bidding
-                || block.timestamp >= exitTimestamps[currentProver] // exited already
+                || block.timestamp >= provers[currentProver].exitTimestamp // exited already
         ) {
             return (address(0), 0, 0);
         } else {
