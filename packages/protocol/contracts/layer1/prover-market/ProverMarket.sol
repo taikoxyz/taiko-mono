@@ -14,6 +14,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     using LibMath for uint256;
 
     event ProverChanged(address indexed prover, uint256 fee, uint256 exitTimestamp);
+    event ProverAssigned(address indexed prover, uint256 fee, uint64 indexed batchId);
 
     error FeeLargerThanCurrent();
     error FeeLargerThanMax();
@@ -146,11 +147,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @inheritdoc IProverMarket
     function onProverAssigned(
         address, /*_prover*/
-        uint256 _fee
+        uint256 _fee,
+        uint64 _batchId
     )
         external
         onlyFrom(address(inbox))
     {
+        emit ProverAssigned(msg.sender, _fee, _batchId);
         if (assignmentCount > FEE_CHANGE_THRESHOLD) {
             // No need to update assignmentCount nor avgFee
             return;

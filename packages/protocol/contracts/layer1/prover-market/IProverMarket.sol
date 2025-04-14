@@ -13,5 +13,6 @@ interface IProverMarket {
     /// @notice Called by TaikoInbox when the prover market is used.
     /// @param _prover The address of the prover.
     /// @param _fee The proving fee per batch.
-    function onProverAssigned(address _prover, uint256 _fee) external;
+    /// @param _batchId The batch id.
+    function onProverAssigned(address _prover, uint256 _fee, uint64 _batchId) external;
 }
