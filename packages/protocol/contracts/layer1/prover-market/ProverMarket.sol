@@ -144,7 +144,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @inheritdoc IProverMarket
-    function onProverAssigned(uint256 _fee) external onlyFrom(address(inbox)) {
+    function onProverAssigned(
+        address, /*_prover*/
+        uint256 _fee
+    )
+        external
+        onlyFrom(address(inbox))
+    {
         if (assignmentCount > FEE_CHANGE_THRESHOLD) {
             // No need to update assignmentCount nor avgFee
             return;

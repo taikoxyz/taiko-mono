@@ -207,7 +207,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 meta_.usingProverMarket = true;
 
-                proverMarket.onProverAssigned(proverFee);
+                proverMarket.onProverAssigned(meta_.prover, proverFee);
             }
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
