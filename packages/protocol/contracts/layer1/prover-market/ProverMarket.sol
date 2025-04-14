@@ -104,7 +104,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         if (currentProver == address(0)) {
             // There is no prover, so the new prover can set any fee as long as it's not larger than
             // the max allowed
-            require(_fee <= getMaxFee(), FeeLargerThanMax());
+            uint256 _max = getMaxFee();
+            require(_max == 0 || _fee <= _max, FeeLargerThanMax());
         } else if (currentProverBalance < outbidThreshold) {
             // The current prover has less than outbidThreshold, so the new prover can set any fee
             // as long as it's not larger than the current fee
