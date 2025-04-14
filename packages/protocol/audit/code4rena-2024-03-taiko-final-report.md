@@ -1599,7 +1599,7 @@ Encountered 1 failing test in test/tokenvault/ERC20Vault.t.sol:TestERC20Vault
 
 > We have change the sendEther function such that if the amount is 0, there is no further action and the sendEther function simply returns.
 >
-> If if default and receive functions are both unimplemented on the destination chain for the to address, then the owner can fail the message with retryMessage({..., \_lastAttemp=true}); >or use failMessage(...) , then on the source chain, the owner can call recallMessage to get back his tokens.
+> If default and receive functions are both unimplemented on the destination chain for the to address, then the owner can fail the message with retryMessage({..., \_lastAttemp=true}); >or use failMessage(...) , then on the source chain, the owner can call recallMessage to get back his tokens.
 >
 > At the end of the day, the user must trust the dapp that use our Bridge to set the right message parameters.
 
@@ -1964,7 +1964,7 @@ _Submitted by [zzebra83](https://github.com/code-423n4/2024-03-taiko-findings/is
 
 <https://github.com/code-423n4/2024-03-taiko/blob/0d081a40e0b9637eddf8e760fabbecc250f23599/packages/protocol/contracts/verifiers/SgxVerifier.sol#L115-L136>
 
-As part of of its ZK proof setup, Taiko leverages SGX provers. it also enables remote SGX attestation and this is possible via leveraging code from Automata, which provides a modular attestation layer extending machine-level trust to Ethereum via the AutomataDcapV3Attestation repo, which is in scope of this audit.
+As part of its ZK proof setup, Taiko leverages SGX provers. it also enables remote SGX attestation and this is possible via leveraging code from Automata, which provides a modular attestation layer extending machine-level trust to Ethereum via the AutomataDcapV3Attestation repo, which is in scope of this audit.
 
 Anyone with SGX hardware can register their instance to be an SGX prover in the Taiko Network via calling the registerInstance function in SgxVerifier.sol. This is why attestation is critical to prove the reliability and trustworthiness of the SGX prover.
 
@@ -2291,7 +2291,7 @@ File: TimelockTokenPool.sol
 
 Since the function is external, an attacker can continuously spam signals to the offchain relayer which is always listening to signals. This would be more cost efficient on Taiko where fees are cheap.
 
-The signals could also be used to mess with the relayer service i.e. by sending a the same signal early by frontrunning a user's bytes32 signal \_parameter.
+The signals could also be used to mess with the relayer service i.e. by sending the same signal early by frontrunning a user's bytes32 signal \_parameter.
 
 ```solidity
 File: SignalService.sol
@@ -2778,7 +2778,7 @@ _The following wardens also submitted reports: [0x11singh99](https://github.com/
 |                     [[G-13]](#g-13-avoid-updating-storage-when-the-value-hasnt-changed)                      | Avoid updating storage when the value hasn't changed                                             |    12     |     8,400 |
 |                                  [[G-14]](#g-14-use-of-emit-inside-a-loop)                                   | Use of `emit` inside a loop                                                                      |     4     |     4,104 |
 |              [[G-15]](#g-15-use-uint2561uint2562-instead-of-truefalse-to-save-gas-for-changes)               | Use `uint256(1)/uint256(2)` instead of `true/false` to save gas for changes                      |    10     |   170,000 |
-|                 [[G-16]](#g-16-shortcircuit-rules-can-be-be-used-to-optimize-some-gas-usage)                 | Shortcircuit rules can be be used to optimize some gas usage                                     |     1     |     2,100 |
+|                 [[G-16]](#g-16-shortcircuit-rules-can-be-be-used-to-optimize-some-gas-usage)                 | Shortcircuit rules can be used to optimize some gas usage                                     |     1     |     2,100 |
 |                          [[G-17]](#g-17-cache-multiple-accesses-of-a-mappingarray)                           | Cache multiple accesses of a mapping/array                                                       |    13     |       672 |
 |                               [[G-18]](#g-18-redundant-state-variable-getters)                               | Redundant state variable getters                                                                 |     2     |         - |
 |                            [[G-19]](#g-19-using-private-for-constants-saves-gas)                             | Using `private` for constants saves gas                                                          |    14     |   117,684 |
@@ -4662,7 +4662,7 @@ File: packages/protocol/contracts/team/airdrop/MerkleClaimable.sol
 
 ---
 
-### [G-16] Shortcircuit rules can be be used to optimize some gas usage
+### [G-16] Shortcircuit rules can be used to optimize some gas usage
 
 Some conditions may be reordered to save an `SLOAD` (**2100 gas**), as we avoid reading state variables when the first part of the condition fails (with `&&`), or succeeds (with `||`).
 
