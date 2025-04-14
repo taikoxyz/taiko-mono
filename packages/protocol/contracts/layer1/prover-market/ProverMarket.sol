@@ -22,8 +22,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error InsufficientBondBalance();
     error InvalidThresholds();
     error NotCurrentProver();
-    error FeeNotDivisibleByFeeUnit();
-    error FeeTooLarge();
     error TooEarly();
 
     uint256 public constant FEE_CHANGE_FACTOR = 32;
