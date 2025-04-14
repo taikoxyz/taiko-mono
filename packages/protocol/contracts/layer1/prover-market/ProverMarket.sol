@@ -16,6 +16,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error FeeLargerThanCurrent();
     error FeeLargerThanMax();
     error FeeLargerTooLarge();
+    error CannotFitToUint64();
     error FeeNotDivisibleByFeeUnit();
     error FeeTooLarge();
     error InsufficientBondBalance();
@@ -94,6 +95,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
         require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
+        require(_fee / (1 gwei) <= type(uint64).max, CannotFitToUint64());
         uint64 feeInGwei = uint64(_fee / (1 gwei));
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
