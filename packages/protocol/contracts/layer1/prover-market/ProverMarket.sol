@@ -100,22 +100,23 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
-        (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
-            _getCurrentProver();
+        (address prover_, uint64 feeInGwei_) = _getCurrentProver();
 
-        if (currentProver == address(0)) {
+        if (prover_ == address(0)) {
             // There is no prover, so the new prover can set any fee as long as it's not larger than
             // the max allowed
             uint256 _max = getMaxFee();
             require(_max == 0 || _fee <= _max, FeeLargerThanMax());
-        } else if (currentProverBalance < outbidThreshold) {
-            // The current prover has less than outbidThreshold, so the new prover can set any fee
+        } else if (inbox.bondBalanceOf(prover_) < outbidThreshold) {
+            // The current prover has less than outbidThreshold, so the new prover can set any
+            // fee
             // as long as it's not larger than the current fee
-            require(feeInGwei <= currentFee, FeeLargerThanCurrent());
+            require(feeInGwei <= feeInGwei_, FeeLargerThanCurrent());
         } else {
-            // The current prover has more than outbidThreshold, so the new prover can set any fee
+            // The current prover has more than outbidThreshold, so the new prover can set any
+            // fee
             // as long as it's not larger than 90% of the current fee
-            require(feeInGwei <= currentFee * NEW_BID_PERCENTAGE / 100, FeeLargerTooLarge());
+            require(feeInGwei <= feeInGwei_ * NEW_BID_PERCENTAGE / 100, FeeLargerTooLarge());
         }
 
         prover = msg.sender;
@@ -136,12 +137,16 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @inheritdoc IProverMarket
-    function getCurrentProver() public view returns (address, uint256) {
-        (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
-            _getCurrentProver();
-        return currentProverBalance < provingThreshold
-            ? (address(0), 0)
-            : (currentProver, 1 gwei * currentFee);
+    function getCurrentProver() public view returns (address prover_, uint256 fee_) {
+        (prover_, fee_) = _getCurrentProver();
+
+        if (prover_ != address(0)) {
+            if (inbox.bondBalanceOf(prover_) < provingThreshold) {
+                (prover_, fee_) = (address(0), 0);
+            } else {
+                fee_ *= 1 gwei;
+            }
+        }
     }
 
     /// @inheritdoc IProverMarket
@@ -176,15 +181,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return _max.min(type(uint64).max) * 1 gwei;
     }
 
-    function _getCurrentProver() public view returns (address, uint64, uint256) {
-        address currentProver = prover;
+    function _getCurrentProver() public view returns (address, uint64) {
+        address _prover = prover;
         if (
-            currentProver == address(0) // no bidding
-                || block.timestamp >= provers[currentProver].exitTimestamp // exited already
+            _prover == address(0) // no bidding
+                || block.timestamp >= provers[_prover].exitTimestamp // exited already
         ) {
-            return (address(0), 0, 0);
+            return (address(0), 0);
         } else {
-            return (currentProver, fee, inbox.bondBalanceOf(currentProver));
+            return (_prover, fee);
         }
     }
 }
