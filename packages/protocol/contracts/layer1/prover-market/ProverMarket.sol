@@ -13,9 +13,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
-    event ProverChanged(address indexed prover, uint256 fee, uint256 exitTimestamp);
-    event ProverAssigned(address indexed prover, uint256 fee, uint64 indexed batchId);
-
     error FeeLargerThanCurrent();
     error FeeLargerThanMax();
     error FeeLargerTooLarge();
