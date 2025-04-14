@@ -151,7 +151,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     function getMaxFee() public view returns (uint256) {
-        uint256 _max = avgFee * MAX_FEE_MULTIPLIER;
+        uint256 _max = MAX_FEE_MULTIPLIER * avgFee;
         return _max.min(type(uint64).max) * 1 gwei;
     }
 
