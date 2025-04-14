@@ -9,4 +9,7 @@ interface IProverMarket {
     /// @return prover_ The address of the current winning prover.
     /// @return fee_ The proving fee per batch.
     function getCurrentProver() external view returns (address prover_, uint256 fee_);
+
+    /// @notice Called by TaikoInbox when the prover market is used.
+    function onProverAssigned() external;
 }

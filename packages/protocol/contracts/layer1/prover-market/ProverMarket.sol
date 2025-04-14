@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/libs/LibMath.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 import "./IProverMarket.sol";
 
@@ -10,6 +11,7 @@ import "./IProverMarket.sol";
 /// @custom:security-contact security@taiko.xyz
 contract ProverMarket is EssentialContract, IProverMarket {
     using SafeERC20 for IERC20;
+    using LibMath for uint256;
 
     event ProverChanged(address indexed prover, uint256 fee, uint256 exitTimestamp);
 
@@ -20,6 +22,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error FeeNotDivisibleByFeeUnit();
     error FeeTooLarge();
     error TooEarly();
+
+    uint256 public constant FEE_CHANGE_FACTOR = 32;
+    uint256 public constant FEE_CHANGE_THRESHOLD = 64;
+    uint256 public constant MAX_FEE_MULTIPLIER = 2;
 
     ITaikoInbox public immutable inbox;
     /// @dev If a prover’s available bond balance is below this threshold, they are not eligible
@@ -40,9 +46,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint64 internal fee; // proving fee per batch
 
     /// @dev Slot 2
+    uint64 internal avgFee; // moving average of fees
+    uint32 internal assignmentCount; // number of assignments
+
+    /// @dev Slot 3
     mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     modifier onlyCurrentProver() {
         require(msg.sender == prover, NotCurrentProver());
@@ -85,7 +95,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         validExitTimestamp(_exitTimestamp)
     {
         require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
-        require(_fee / (1 gwei) <= type(uint64).max, FeeTooLarge());
+        require(_fee <= getMaxFee(), FeeTooLarge());
         uint64 fee_ = uint64(_fee / (1 gwei));
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
@@ -103,6 +113,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         prover = msg.sender;
         fee = fee_;
         exitTimestamps[msg.sender] = _exitTimestamp;
+        assignmentCount = 0;
 
         emit ProverChanged(msg.sender, _fee, _exitTimestamp);
     }
@@ -123,6 +134,25 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return currentProverBalance < provingThreshold
             ? (address(0), 0)
             : (currentProver, 1 gwei * currentFee);
+    }
+
+    function onProverAssigned() external onlyFrom(address(inbox)) {
+        if (assignmentCount > FEE_CHANGE_THRESHOLD) {
+            return;
+        }
+
+        if (++assignmentCount == FEE_CHANGE_THRESHOLD) {
+            uint64 _avgFee = avgFee;
+
+            avgFee = _avgFee == 0
+                ? fee
+                : uint64((avgFee * (FEE_CHANGE_FACTOR - 1) + fee) / FEE_CHANGE_FACTOR);
+        }
+    }
+
+    function getMaxFee() public view returns (uint256) {
+        uint256 _max = avgFee * MAX_FEE_MULTIPLIER;
+        return _max.min(type(uint64).max) * 1 gwei;
     }
 
     function _getCurrentProver() public view returns (address, uint64, uint256) {
