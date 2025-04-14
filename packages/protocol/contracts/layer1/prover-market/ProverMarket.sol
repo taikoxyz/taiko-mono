@@ -136,16 +136,22 @@ contract ProverMarket is EssentialContract, IProverMarket {
             : (currentProver, 1 gwei * currentFee);
     }
 
-    function onProverAssigned() external onlyFrom(address(inbox)) {
+    /// @inheritdoc IProverMarket
+    function onProverAssigned(uint256 _fee) external onlyFrom(address(inbox)) {
         if (assignmentCount > FEE_CHANGE_THRESHOLD) {
+            // No need to update assignmentCount nor avgFee
             return;
         }
 
         if (++assignmentCount == FEE_CHANGE_THRESHOLD) {
             uint64 _avgFee = avgFee;
-            avgFee = _avgFee == 0
-                ? fee
-                : uint64(((FEE_CHANGE_FACTOR - 1) * _avgFee + fee) / FEE_CHANGE_FACTOR);
+            uint64 feeInGwei = uint64(_fee / 1 gwei);
+
+            unchecked {
+                avgFee = _avgFee == 0
+                    ? feeInGwei
+                    : uint64(((FEE_CHANGE_FACTOR - 1) * _avgFee + feeInGwei) / FEE_CHANGE_FACTOR);
+            }
         }
     }
 

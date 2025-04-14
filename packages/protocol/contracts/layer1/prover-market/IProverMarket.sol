@@ -11,5 +11,6 @@ interface IProverMarket {
     function getCurrentProver() external view returns (address prover_, uint256 fee_);
 
     /// @notice Called by TaikoInbox when the prover market is used.
-    function onProverAssigned() external;
+    /// @param _fee The proving fee per batch.
+    function onProverAssigned(uint256 _fee) external;
 }
