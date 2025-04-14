@@ -24,7 +24,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error TooEarly();
 
     uint256 public constant FEE_CHANGE_FACTOR = 32;
-    uint256 public constant FEE_CHANGE_THRESHOLD = 64;
+    uint256 public constant FEE_CHANGE_THRESHOLD = 16;
     uint256 public constant MAX_FEE_MULTIPLIER = 2;
 
     ITaikoInbox public immutable inbox;
