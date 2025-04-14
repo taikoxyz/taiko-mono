@@ -24,10 +24,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error NotCurrentProver();
     error TooEarly();
 
-    uint256 public constant FEE_CHANGE_FACTOR = 32;
-    uint16 public constant FEE_CHANGE_THRESHOLD = 16;
+    uint256 public constant FEE_CHANGE_FACTOR = 100;
+    uint16 public constant FEE_CHANGE_THRESHOLD = 10;
     uint256 public constant MAX_FEE_MULTIPLIER = 2;
-    uint256 public constant NEW_BID_PERCENTAGE = 90;
+    uint256 public constant NEW_BID_PERCENTAGE = 95;
 
     struct Prover {
         uint64 exitTimestamp;
