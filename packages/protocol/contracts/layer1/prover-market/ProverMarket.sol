@@ -46,7 +46,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint64 internal fee; // proving fee per batch
 
     /// @dev Slot 2
-    uint64 internal avgFee; // moving average of fees
+    uint64 public avgFee; // moving average of fees
     uint16 internal assignmentCount; // number of assignments
 
     /// @dev Slot 3
