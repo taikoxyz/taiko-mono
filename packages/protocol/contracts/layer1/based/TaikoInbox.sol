@@ -836,9 +836,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     function _encodeExtraData(uint8 _sharingPctg, uint8 _marker) internal pure returns (bytes32) {
-        uint256 value = _marker;
-        value = value << 8 | _sharingPctg;
-        return bytes32(value);
+        return bytes32(uint256(_marker) << 8 | _sharingPctg);
     }
 
     // Memory-only structs ----------------------------------------------------------------------
