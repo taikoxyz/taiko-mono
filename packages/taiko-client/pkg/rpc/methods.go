@@ -979,19 +979,19 @@ func (c *Client) calculateBaseFeeOntake(
 		parentGasExcess uint64
 	)
 	parentGasTarget, err := c.OntakeClients.TaikoL2.
-		ParentGasTarget(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+		ParentGasTarget(&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
 	}
 
 	if newGasTarget != parentGasTarget && parentGasTarget != 0 {
 		oldParentGasExcess, err := c.OntakeClients.TaikoL2.
-			ParentGasExcess(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+			ParentGasExcess(&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
 		}
 		if parentGasExcess, err = c.OntakeClients.TaikoL2.AdjustExcess(
-			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+			&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
 			oldParentGasExcess,
 			parentGasTarget,
 			newGasTarget,
@@ -1000,7 +1000,7 @@ func (c *Client) calculateBaseFeeOntake(
 			// to calculate the base fee.
 			if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
 				baseFeeInfo, err := c.OntakeClients.TaikoL2.GetBasefeeV2(
-					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+					&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
 					uint32(l2Head.GasUsed),
 					currentTimestamp,
 					ontakeBindings.LibSharedDataBaseFeeConfig{
@@ -1021,14 +1021,14 @@ func (c *Client) calculateBaseFeeOntake(
 		}
 	} else {
 		if parentGasExcess, err = c.OntakeClients.TaikoL2.ParentGasExcess(&bind.CallOpts{
-			BlockNumber: l2Head.Number, Context: ctx,
+			BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx,
 		}); err != nil {
 			return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
 		}
 	}
 
 	baseFeeInfo, err := c.OntakeClients.TaikoL2.CalculateBaseFee(
-		&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
 		ontakeBindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient,
 			SharingPctg:            baseFeeConfig.SharingPctg,
@@ -1045,7 +1045,7 @@ func (c *Client) calculateBaseFeeOntake(
 		// to calculate the base fee.
 		if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
 			baseFeeInfo, err := c.OntakeClients.TaikoL2.GetBasefeeV2(
-				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+				&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
 				uint32(l2Head.GasUsed),
 				currentTimestamp,
 				ontakeBindings.LibSharedDataBaseFeeConfig{
