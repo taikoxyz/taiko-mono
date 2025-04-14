@@ -164,7 +164,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
             return;
         }
 
-        if (++assignmentCount == FEE_CHANGE_THRESHOLD) {
+        if (++assignmentCount <= FEE_CHANGE_THRESHOLD) {
             uint64 _avgFee = avgFee;
             uint64 feeInGwei = uint64(_fee / 1 gwei);
 
