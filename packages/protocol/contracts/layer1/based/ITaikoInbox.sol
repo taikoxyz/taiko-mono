@@ -54,6 +54,7 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
+        bool optInProverMarket;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
@@ -88,6 +89,7 @@ interface ITaikoInbox {
     struct BatchMetadata {
         bytes32 infoHash;
         address prover;
+        bool usingProverMarket;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
     }
