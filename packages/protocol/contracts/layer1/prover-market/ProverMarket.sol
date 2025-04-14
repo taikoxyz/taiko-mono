@@ -145,7 +145,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
             uint64 _avgFee = avgFee;
             avgFee = _avgFee == 0
                 ? fee
-                : uint64((_avgFee * (FEE_CHANGE_FACTOR - 1) + fee) / FEE_CHANGE_FACTOR);
+                : uint64(((FEE_CHANGE_FACTOR - 1) * _avgFee + fee) / FEE_CHANGE_FACTOR);
         }
     }
 
