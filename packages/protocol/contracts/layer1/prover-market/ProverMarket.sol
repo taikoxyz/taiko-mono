@@ -46,10 +46,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     /// @dev Slot 1
     address internal prover;
-    uint64 internal fee; // proving fee per batch
+    uint64 internal fee; // proving fee per batch in gwei
 
     /// @dev Slot 2
-    uint64 public avgFee; // moving average of fees
+    uint64 public avgFee; // moving average of fees in gwei
     uint16 internal assignmentCount; // number of assignments
 
     /// @dev Slot 3
@@ -98,7 +98,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         validExitTimestamp(_exitTimestamp)
     {
         require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
-        uint64 fee_ = uint64(_fee / (1 gwei));
+        uint64 feeInGwei = uint64(_fee / (1 gwei));
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
@@ -112,15 +112,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
         } else if (currentProverBalance < outbidThreshold) {
             // The current prover has less than outbidThreshold, so the new prover can set any fee
             // as long as it's not larger than the current fee
-            require(_fee <= currentFee, FeeLargerThanCurrent());
+            require(feeInGwei <= currentFee, FeeLargerThanCurrent());
         } else {
             // The current prover has more than outbidThreshold, so the new prover can set any fee
             // as long as it's not larger than 90% of the current fee
-            require(fee_ <= currentFee * NEW_BID_PERCENTAGE / 100, FeeLargerTooLarge());
+            require(feeInGwei <= currentFee * NEW_BID_PERCENTAGE / 100, FeeLargerTooLarge());
         }
 
         prover = msg.sender;
-        fee = fee_;
+        fee = feeInGwei;
         exitTimestamps[msg.sender] = _exitTimestamp;
         assignmentCount = 0;
 
