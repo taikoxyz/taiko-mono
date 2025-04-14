@@ -132,7 +132,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @dev The maximum fee that can be used by provers to bid.
-    /// The current implementation returns a 5 times of the average fee.
+    /// The current implementation returns a 5 times of the moving average.
     function getMaxFee() public view returns (uint256) {
         return 5 gwei * inbox.getStats1().avgProverMarketFee;
     }
