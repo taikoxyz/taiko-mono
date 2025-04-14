@@ -66,9 +66,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     constructor(
         address _inbox,
-        uint256 _biddingThreshold, // = livenessBond * 2000
-        uint256 _outbidThreshold, // = livenessBond * 1000
-        uint256 _provingThreshold, // livenessBond * 100
+        uint256 _biddingThreshold, 
+        uint256 _outbidThreshold,
+        uint256 _provingThreshold,
         uint256 _minExitDelay
     )
         nonZeroAddr(_inbox)
