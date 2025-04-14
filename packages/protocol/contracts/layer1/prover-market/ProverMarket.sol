@@ -13,10 +13,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
+    error CannotFitToUint64();
     error FeeLargerThanCurrent();
     error FeeLargerThanMax();
     error FeeLargerTooLarge();
-    error CannotFitToUint64();
     error FeeNotDivisibleByFeeUnit();
     error FeeTooLarge();
     error InsufficientBondBalance();
