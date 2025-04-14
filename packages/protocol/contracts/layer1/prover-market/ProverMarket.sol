@@ -24,7 +24,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error TooEarly();
 
     uint256 public constant FEE_CHANGE_FACTOR = 32;
-    uint256 public constant FEE_CHANGE_THRESHOLD = 16;
+    uint16 public constant FEE_CHANGE_THRESHOLD = 16;
     uint256 public constant MAX_FEE_MULTIPLIER = 2;
 
     ITaikoInbox public immutable inbox;
@@ -47,7 +47,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     /// @dev Slot 2
     uint64 internal avgFee; // moving average of fees
-    uint32 internal assignmentCount; // number of assignments
+    uint16 internal assignmentCount; // number of assignments
 
     /// @dev Slot 3
     mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
