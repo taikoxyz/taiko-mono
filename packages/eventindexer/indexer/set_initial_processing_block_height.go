@@ -27,9 +27,9 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 				}
 
 				startingBlock = stats1.GenesisHeight
+			} else {
+				startingBlock = slotA.GenesisHeight
 			}
-
-			startingBlock = slotA.GenesisHeight
 		} else {
 			startingBlock = slotA.GenesisHeight
 		}
