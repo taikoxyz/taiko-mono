@@ -143,7 +143,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         if (++assignmentCount == FEE_CHANGE_THRESHOLD) {
             uint64 _avgFee = avgFee;
-
             avgFee = _avgFee == 0
                 ? fee
                 : uint64((_avgFee * (FEE_CHANGE_FACTOR - 1) + fee) / FEE_CHANGE_FACTOR);
