@@ -15,17 +15,20 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     event ProverChanged(address indexed prover, uint256 fee, uint256 exitTimestamp);
 
-    error InsufficientBondBalance();
-    error InvalidBid();
-    error InvalidThresholds();
-    error NotCurrentProver();
+    error FeeLargerThanCurrent();
+    error FeeLargerThanMax();
+    error FeeLargerTooLarge();
     error FeeNotDivisibleByFeeUnit();
     error FeeTooLarge();
+    error InsufficientBondBalance();
+    error InvalidThresholds();
+    error NotCurrentProver();
     error TooEarly();
 
     uint256 public constant FEE_CHANGE_FACTOR = 32;
     uint16 public constant FEE_CHANGE_THRESHOLD = 16;
     uint256 public constant MAX_FEE_MULTIPLIER = 2;
+    uint256 public constant NEW_BID_PERCENTAGE = 90;
 
     ITaikoInbox public immutable inbox;
     /// @dev If a prover’s available bond balance is below this threshold, they are not eligible
@@ -95,7 +98,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         validExitTimestamp(_exitTimestamp)
     {
         require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
-        require(_fee <= getMaxFee(), FeeTooLarge());
         uint64 fee_ = uint64(_fee / (1 gwei));
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
@@ -103,11 +105,18 @@ contract ProverMarket is EssentialContract, IProverMarket {
         (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
             _getCurrentProver();
 
-        if (currentProver == address(0) || currentProverBalance < outbidThreshold) {
-            // TODO(dani): ensure the new _fee cannot be too large right...
-            // Using a moving average???
+        if (currentProver == address(0)) {
+            // There is no prover, so the new prover can set any fee as long as it's not larger than
+            // the max allowed
+            require(_fee <= getMaxFee(), FeeLargerThanMax());
+        } else if (currentProverBalance < outbidThreshold) {
+            // The current prover has less than outbidThreshold, so the new prover can set any fee
+            // as long as it's not larger than the current fee
+            require(_fee <= currentFee, FeeLargerThanCurrent());
         } else {
-            require(fee_ < currentFee * 9 / 10, InvalidBid());
+            // The current prover has more than outbidThreshold, so the new prover can set any fee
+            // as long as it's not larger than 90% of the current fee
+            require(fee_ <= currentFee * NEW_BID_PERCENTAGE / 100, FeeLargerTooLarge());
         }
 
         prover = msg.sender;
