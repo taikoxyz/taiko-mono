@@ -92,7 +92,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint256 _exitTimestamp
     )
         external
-        nonReentrant
         validExitTimestamp(_exitTimestamp)
     {
         require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
