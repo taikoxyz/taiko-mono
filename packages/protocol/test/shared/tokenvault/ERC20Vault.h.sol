@@ -20,7 +20,7 @@ contract PrankTaikoInbox {
         return batch;
     }
 
-    function v4v4IsOnL1() external pure returns (bool) {
+    function v4IsOnL1() external pure returns (bool) {
         return true;
     }
 }
