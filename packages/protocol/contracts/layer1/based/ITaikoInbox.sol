@@ -255,7 +255,7 @@ interface ITaikoInbox {
     /// @param batchId The ID of the verified batch.
     /// @param prover The address of the prover.
     /// @param blockHash The hash of the verified batch.
-    event BatchesVerified(uint64 batchId, address indexed prover, bytes32 blockHash);
+    event BatchesVerified(uint64 batchId, address prover, bytes32 blockHash);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
