@@ -16,11 +16,11 @@ contract PrankTaikoInbox {
         batch = _batch;
     }
 
-    function GetBatch(uint64) external view returns (ITaikoInbox.Batch memory) {
+    function v4GetBatch(uint64) external view returns (ITaikoInbox.Batch memory) {
         return batch;
     }
 
-    function isOnL1() external pure returns (bool) {
+    function v4v4IsOnL1() external pure returns (bool) {
         return true;
     }
 }

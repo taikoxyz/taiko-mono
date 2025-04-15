@@ -289,7 +289,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
                 )
             ),
-            data: abi.encodeCall(TaikoInbox.init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
+            data: abi.encodeCall(TaikoInbox.v4Init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
@@ -341,7 +341,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
-        taikoInbox.init(msg.sender, vm.envBytes32("L2_GENESIS_HASH"));
+        taikoInbox.v4Init(msg.sender, vm.envBytes32("L2_GENESIS_HASH"));
         uint64 l2ChainId = taikoInbox.v4GetConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 

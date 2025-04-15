@@ -276,7 +276,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
     /// Layer 2 (L2).
     /// @return True if the contract is operating on L1, false if on L2.
-    function isOnL1() external pure returns (bool) {
+    function v4IsOnL1() external pure returns (bool) {
         return false;
     }
 

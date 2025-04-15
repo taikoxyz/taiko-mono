@@ -56,7 +56,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         signalService = ISignalService(_signalService);
     }
 
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+    function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
@@ -365,7 +365,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @dev This function is necessary to upgrade from this fork to the next one.
     /// @param _length Specifis how many batches to verify. The max number of batches to verify is
     /// `GetConfig().maxBatchesToVerify * _length`.
-    function verifyBatches(uint64 _length)
+    function v4VerifyBatches(uint64 _length)
         external
         nonZeroValue(_length)
         nonReentrant
@@ -491,7 +491,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
     /// Layer 2 (L2).
     /// @return True if the contract is operating on L1, false if on L2.
-    function isOnL1() external pure override returns (bool) {
+    function v4IsOnL1() external pure override returns (bool) {
         return true;
     }
 

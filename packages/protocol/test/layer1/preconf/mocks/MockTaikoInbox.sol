@@ -13,7 +13,7 @@ contract MockTaikoInbox is EssentialContract {
         __Essential_init(_owner);
     }
 
-    function ProposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
