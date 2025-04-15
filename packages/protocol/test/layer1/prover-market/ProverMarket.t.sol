@@ -41,12 +41,7 @@ contract ProverMarketTest is CommonTest {
         );
     }
 
-    function testInvalidThresholdsReverts() public {
-        vm.expectRevert(ProverMarket.InvalidThresholds.selector);
-        new ProverMarket(address(mockInbox), 100 ether, 200 ether, 50 ether, MIN_EXIT_DELAY);
-    }
-
-    function testInitialBid() public {
+    function test_bid() public {
         uint256 fee = 10 gwei;
         uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -60,7 +55,7 @@ contract ProverMarketTest is CommonTest {
         assertEq(currentFee, fee);
     }
 
-    function testBidWithInsufficientBond() public {
+    function test_bid_with_insufficientBondBalance() public {
         uint256 fee = 10 gwei;
         uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -71,7 +66,7 @@ contract ProverMarketTest is CommonTest {
         market.bid(fee, exitTimestamp);
     }
 
-    function testOutbidWithLowerBond() public {
+    function test_outbidWithLowerBond() public {
         uint256 fee1 = 10 gwei;
         uint64 exitTimestamp1 = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -94,7 +89,7 @@ contract ProverMarketTest is CommonTest {
         assertEq(currentFee, fee2);
     }
 
-    function testOutbidWithHigherBond() public {
+    function test_outbidWithHigherBond() public {
         uint256 fee1 = 10 gwei;
         uint64 exitTimestamp1 = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -124,7 +119,7 @@ contract ProverMarketTest is CommonTest {
         assertEq(currentFee, fee2);
     }
 
-    function testOutbidWithSameBond() public {
+    function test_outbidWithSameBond() public {
         uint256 fee1 = 10 gwei;
         uint64 exitTimestamp1 = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -147,7 +142,7 @@ contract ProverMarketTest is CommonTest {
         assertEq(currentFee, fee2);
     }
 
-    function testRequestExit() public {
+    function test_requestExit() public {
         uint256 fee = 10 gwei;
         uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -165,7 +160,7 @@ contract ProverMarketTest is CommonTest {
         market.requestExit(newExitTimestamp);
     }
 
-    function testAverageFeeCalculation() public {
+    function test_averageFeeCalculation() public {
         uint256 fee = 10 gwei;
         uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -182,7 +177,7 @@ contract ProverMarketTest is CommonTest {
         assertEq(avgFee, 10);
     }
 
-    function testGetMaxFee() public {
+    function test_getMaxFee() public {
         uint256 fee = 10 gwei;
         uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
 
@@ -199,7 +194,12 @@ contract ProverMarketTest is CommonTest {
         assertEq(maxFee, 20 gwei); // MAX_FEE_MULTIPLIER is 2
     }
 
-    function testCannotFitToUint64() public {
+    function test_invalidThresholds_reverts() public {
+        vm.expectRevert(ProverMarket.InvalidThresholds.selector);
+        new ProverMarket(address(mockInbox), 100 ether, 200 ether, 50 ether, MIN_EXIT_DELAY);
+    }
+
+    function test_cannotFitToUint64_reverts() public {
         mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
 
         uint256 tooLargeFee = (uint256(type(uint64).max) + 1) * 1 gwei;
@@ -209,7 +209,7 @@ contract ProverMarketTest is CommonTest {
         market.bid(tooLargeFee, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
     }
 
-    function testFeeLargerThanCurrentReverts() public {
+    function test_FeeLargerThanAllowed_reverts() public {
         mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
         vm.prank(PROVER1);
         market.bid(10 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
@@ -220,7 +220,7 @@ contract ProverMarketTest is CommonTest {
         market.bid(11 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 2));
     }
 
-    function testFeeLargerThanMaxReverts() public {
+    function test_feeLargerThanMax_reverts() public {
         mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
         vm.prank(PROVER1);
         market.bid(10 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
@@ -236,7 +236,7 @@ contract ProverMarketTest is CommonTest {
         market.bid(25 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 2)); // 2x avg is 20 gwei
     }
 
-    function testFeeNotDivisibleByUnitReverts() public {
+    function test_feeNotDivisibleByUnit_reverts() public {
         mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
         vm.prank(PROVER1);
         vm.expectRevert(ProverMarket.FeeNotDivisibleByFeeUnit.selector);
