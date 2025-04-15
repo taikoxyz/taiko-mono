@@ -20,7 +20,7 @@ contract MainnetInbox is TaikoInbox {
         TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     { }
 
-    function GetConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 1_000_000

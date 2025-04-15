@@ -17,7 +17,7 @@ contract PreconfInbox is TaikoInbox {
     { }
 
     /// @inheritdoc ITaikoInbox
-    function GetConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: 167_010,
             maxUnverifiedBatches: 324_000,

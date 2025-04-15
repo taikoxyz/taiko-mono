@@ -14,7 +14,7 @@ interface IProposeBatch {
     /// for data availability.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The mmetadata of the proposed batch.
-    function ProposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )

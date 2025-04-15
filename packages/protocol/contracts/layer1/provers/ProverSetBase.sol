@@ -94,13 +94,13 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
     }
 
     /// @notice Deposits Taiko token to Taiko contract.
-    function DepositBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox).DepositBond(_amount);
+    function depositBond(uint256 _amount) external onlyAuthorized {
+        ITaikoInbox(inbox).v4DepositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from Taiko contract.
-    function WithdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox).WithdrawBond(_amount);
+    function withdrawBond(uint256 _amount) external onlyAuthorized {
+        ITaikoInbox(inbox).v4WithdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.

@@ -44,7 +44,7 @@ contract InboxTest_StopBatch is InboxTestBase {
         WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
         WhenLogAllBatchesAndTransitions
     {
-        ITaikoInbox.Stats2 memory _stats2 = inbox.GetStats2();
+        ITaikoInbox.Stats2 memory _stats2 = inbox.v4GetStats2();
         assertEq(GetConfig().maxBatchesToVerify * 9, _stats2.lastVerifiedBatchId);
     }
 }

@@ -53,12 +53,12 @@ contract InboxTest_BondToken is InboxTestBase {
         bondToken.approve(address(inbox), depositAmount);
 
         vm.prank(Alice);
-        inbox.DepositBond(depositAmount);
-        assertEq(inbox.BondBalanceOf(Alice), depositAmount);
+        inbox.v4DepositBond(depositAmount);
+        assertEq(inbox.v4BondBalanceOf(Alice), depositAmount);
 
         vm.prank(Alice);
-        inbox.WithdrawBond(withdrawAmount);
-        assertEq(inbox.BondBalanceOf(Alice), depositAmount - withdrawAmount);
+        inbox.v4WithdrawBond(withdrawAmount);
+        assertEq(inbox.v4BondBalanceOf(Alice), depositAmount - withdrawAmount);
     }
 
     function test_inbox_withdraw_more_than_bond_balance() external {
@@ -75,11 +75,11 @@ contract InboxTest_BondToken is InboxTestBase {
         bondToken.approve(address(inbox), depositAmount);
 
         vm.prank(Alice);
-        inbox.DepositBond(depositAmount);
+        inbox.v4DepositBond(depositAmount);
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.InsufficientBond.selector);
-        inbox.WithdrawBond(withdrawAmount);
+        inbox.v4WithdrawBond(withdrawAmount);
     }
 
     function test_inbox_insufficient_approval() external {
@@ -97,7 +97,7 @@ contract InboxTest_BondToken is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert("ERC20: insufficient allowance");
-        inbox.DepositBond(depositAmount);
+        inbox.v4DepositBond(depositAmount);
     }
 
     function test_inbox_exceeding_token_balance() external {
@@ -114,7 +114,7 @@ contract InboxTest_BondToken is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert("ERC20: transfer amount exceeds balance");
-        inbox.DepositBond(depositAmount);
+        inbox.v4DepositBond(depositAmount);
     }
 
     function test_inbox_no_value_sent_on_deposit() external {
@@ -131,7 +131,7 @@ contract InboxTest_BondToken is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.MsgValueNotZero.selector);
-        inbox.DepositBond{ value: 1 }(depositAmount);
+        inbox.v4DepositBond{ value: 1 }(depositAmount);
     }
 
     function test_inbox_deposit_and_withdraw_from_multiple_users() external {
@@ -161,44 +161,45 @@ contract InboxTest_BondToken is InboxTestBase {
         bondToken.approve(address(inbox), aliceFirstDeposit);
 
         vm.prank(Alice);
-        inbox.DepositBond(aliceFirstDeposit);
-        assertEq(inbox.BondBalanceOf(Alice), aliceFirstDeposit);
+        inbox.v4DepositBond(aliceFirstDeposit);
+        assertEq(inbox.v4BondBalanceOf(Alice), aliceFirstDeposit);
 
         vm.prank(Bob);
         bondToken.approve(address(inbox), bobDeposit);
 
         vm.prank(Bob);
-        inbox.DepositBond(bobDeposit);
-        assertEq(inbox.BondBalanceOf(Bob), bobDeposit);
+        inbox.v4DepositBond(bobDeposit);
+        assertEq(inbox.v4BondBalanceOf(Bob), bobDeposit);
 
         vm.prank(Alice);
         bondToken.approve(address(inbox), aliceSecondDeposit);
 
         vm.prank(Alice);
-        inbox.DepositBond(aliceSecondDeposit);
-        assertEq(inbox.BondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit);
+        inbox.v4DepositBond(aliceSecondDeposit);
+        assertEq(inbox.v4BondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit);
 
         vm.prank(Bob);
-        inbox.WithdrawBond(bobWithdraw);
-        assertEq(inbox.BondBalanceOf(Bob), bobDeposit - bobWithdraw);
+        inbox.v4WithdrawBond(bobWithdraw);
+        assertEq(inbox.v4BondBalanceOf(Bob), bobDeposit - bobWithdraw);
 
         vm.prank(Alice);
-        inbox.WithdrawBond(aliceFirstWithdraw);
+        inbox.v4WithdrawBond(aliceFirstWithdraw);
         assertEq(
-            inbox.BondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
+            inbox.v4BondBalanceOf(Alice),
+            aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
         );
 
         vm.prank(Alice);
-        inbox.WithdrawBond(aliceSecondWithdraw);
+        inbox.v4WithdrawBond(aliceSecondWithdraw);
         assertEq(
-            inbox.BondBalanceOf(Alice),
+            inbox.v4BondBalanceOf(Alice),
             aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw - aliceSecondWithdraw
         );
 
         assertEq(
-            inbox.BondBalanceOf(Alice),
+            inbox.v4BondBalanceOf(Alice),
             aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw - aliceSecondWithdraw
         );
-        assertEq(inbox.BondBalanceOf(Bob), bobDeposit - bobWithdraw);
+        assertEq(inbox.v4BondBalanceOf(Bob), bobDeposit - bobWithdraw);
     }
 }

@@ -46,11 +46,11 @@ contract InboxTest_Cooldownis is InboxTestBase {
         WhenLogAllBatchesAndTransitions
     {
         // - All stats are correct and expected
-        ITaikoInbox.Stats1 memory stats1 = inbox.GetStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.v4GetStats1();
         assertEq(stats1.lastSyncedBatchId, 0);
         assertEq(stats1.lastSyncedAt, 0);
 
-        ITaikoInbox.Stats2 memory stats2 = inbox.GetStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.v4GetStats2();
         assertEq(stats2.numBatches, 10);
         assertEq(stats2.lastVerifiedBatchId, 0);
         assertEq(stats2.paused, false);
@@ -60,7 +60,7 @@ contract InboxTest_Cooldownis is InboxTestBase {
         vm.warp(block.timestamp + GetConfig().cooldownWindow);
         _ProveBatchesWithWrongTransitions(range(1, 10));
 
-        stats2 = inbox.GetStats2();
+        stats2 = inbox.v4GetStats2();
         assertEq(stats2.numBatches, 10);
         assertEq(stats2.lastVerifiedBatchId, 9);
     }

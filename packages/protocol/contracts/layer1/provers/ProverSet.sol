@@ -26,7 +26,7 @@ contract ProverSet is ProverSetBase, IProposeBatch {
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
-    function ProposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -34,12 +34,12 @@ contract ProverSet is ProverSetBase, IProposeBatch {
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        return IProposeBatch(entrypoint).ProposeBatch(_params, _txList);
+        return IProposeBatch(entrypoint).v4ProposeBatch(_params, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.
     function ProveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
-        ITaikoInbox(inbox).ProveBatches(_params, _proof);
+        ITaikoInbox(inbox).v4ProveBatches(_params, _proof);
     }
 
     // ================ Ontake calls ================

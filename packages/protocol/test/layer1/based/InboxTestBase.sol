@@ -136,7 +136,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
             (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-                inbox.ProposeBatch(abi.encode(batchParams), txList);
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList);
             _saveMetadataAndInfo(meta, info);
             batchIds[i] = meta.batchId;
         }
@@ -153,7 +153,7 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
-        inbox.ProveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
 
     function _ProveBatchesWithWrongTransitions(uint64[] memory batchIds) internal {
@@ -167,16 +167,16 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = randBytes32();
         }
 
-        inbox.ProveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
 
     function _logAllBatchesAndTransitions() internal view {
         console2.log(unicode"|───────────────────────────────────────────────────────────────");
-        ITaikoInbox.Stats1 memory stats1 = inbox.GetStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.v4GetStats1();
         console2.log("Stats1 - lastSyncedBatchId:", stats1.lastSyncedBatchId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
 
-        ITaikoInbox.Stats2 memory stats2 = inbox.GetStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.v4GetStats2();
         console2.log("Stats2 - numBatches:", stats2.numBatches);
         console2.log("Stats2 - lastVerifiedBatchId:", stats2.lastVerifiedBatchId);
         console2.log("Stats2 - paused:", stats2.paused);
@@ -191,7 +191,7 @@ abstract contract InboxTestBase is Layer1Test {
             : 0;
 
         for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {
-            ITaikoInbox.Batch memory batch = inbox.GetBatch(i);
+            ITaikoInbox.Batch memory batch = inbox.v4GetBatch(i);
             if (batch.batchId <= stats2.lastVerifiedBatchId) {
                 console2.log(unicode"|─ ✔ batch#", batch.batchId);
             } else {
@@ -206,7 +206,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
             for (uint24 j = 1; j < batch.nextTransitionId; ++j) {
-                ITaikoInbox.TransitionState memory ts = inbox.GetTransitionById(batch.batchId, j);
+                ITaikoInbox.TransitionState memory ts = inbox.v4GetTransitionById(batch.batchId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",
@@ -275,6 +275,6 @@ abstract contract InboxTestBase is Layer1Test {
         bondToken.approve(address(inbox), bondAmount);
 
         vm.prank(user);
-        inbox.DepositBond(bondAmount);
+        inbox.v4DepositBond(bondAmount);
     }
 }

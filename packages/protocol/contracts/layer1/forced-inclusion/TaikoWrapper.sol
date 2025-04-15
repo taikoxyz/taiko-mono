@@ -74,7 +74,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     }
 
     /// @inheritdoc IProposeBatch
-    function ProposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -89,11 +89,11 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
             require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
             _validateForcedInclusionParams(forcedInclusionStore, bytesX);
-            inbox.ProposeBatch(bytesX, "");
+            inbox.v4ProposeBatch(bytesX, "");
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        return inbox.ProposeBatch(bytesY, _txList);
+        return inbox.v4ProposeBatch(bytesY, _txList);
     }
 
     function _validateForcedInclusionParams(
