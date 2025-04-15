@@ -61,7 +61,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         assertEq(meta.proposer, Carol);
     }
 
-    function test_preconfRouter_ProposeBatch_notOperator() external {
+    function test_preconfRouter_proposeBatch_notOperator() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -92,7 +92,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         router.v4ProposeBatch("", "");
     }
 
-    function test_preconfRouter_ProposeBatch_proposerNotSender() external {
+    function test_preconfRouter_proposeBatch_proposerNotSender() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
