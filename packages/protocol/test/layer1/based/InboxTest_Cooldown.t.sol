@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_Cooldownis is InboxTestBase {
-    function GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({
@@ -57,7 +57,7 @@ contract InboxTest_Cooldownis is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        vm.warp(block.timestamp + GetConfig().cooldownWindow);
+        vm.warp(block.timestamp + getConfig().cooldownWindow);
         _ProveBatchesWithWrongTransitions(range(1, 10));
 
         stats2 = inbox.v4GetStats2();
