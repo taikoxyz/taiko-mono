@@ -41,7 +41,7 @@ contract HeklaInbox is TaikoInbox {
         require(_stateRoot != 0, InvalidParams());
         require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
 
-        ITaikoInbox.Config memory config = v4GetConfig();
+        Config memory config = v4GetConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());

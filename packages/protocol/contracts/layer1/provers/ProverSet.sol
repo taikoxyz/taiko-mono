@@ -38,7 +38,7 @@ contract ProverSet is ProverSetBase, IProposeBatch {
     }
 
     /// @notice Proves multiple Taiko batches.
-    function ProveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
+    function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
         ITaikoInbox(inbox).v4ProveBatches(_params, _proof);
     }
 
