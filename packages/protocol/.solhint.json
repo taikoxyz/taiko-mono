@@ -15,7 +15,6 @@
     "not-rely-on-time": "off",
     "gas-custom-errors": "off",
     "immutable-vars-naming": "off",
-    "var-name-mixedcase": "off",
     "one-contract-per-file": "off"
   }
 }
