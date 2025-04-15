@@ -14,7 +14,7 @@ import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
-import { ERC20VaultOriginal as ERC20Vault } from "src/shared/tokenvault/ERC20VaultOriginal.sol";
+import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
@@ -36,7 +36,7 @@ import { Bridge } from "../../../contracts/shared/bridge/Bridge.sol";
 contract UpgradePacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
 //    address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
-//    address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
+    address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
 //    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
@@ -52,8 +52,8 @@ contract UpgradePacayaL1 is DeployCapability {
 //        address signalService =
 //            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", false);
 //        address bridgeL1 = IResolver(sharedResolver).resolve(uint64(block.chainid), "bridge", false);
-//        address erc20Vault =
-//            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc20_vault", false);
+        address erc20Vault =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc20_vault", false);
 //        address erc721Vault =
 //            IResolver(sharedResolver).resolve(uint64(block.chainid), "erc721_vault", false);
 //        address erc1155Vault =
@@ -65,15 +65,15 @@ contract UpgradePacayaL1 is DeployCapability {
 //        // SignalService
 //        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
 //        // Vault
-//        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
+        UUPSUpgradeable(erc20Vault).upgradeTo(address(new ERC20Vault(sharedResolver)));
 //        UUPSUpgradeable(erc721Vault).upgradeTo(address(new ERC721Vault(sharedResolver)));
 //        UUPSUpgradeable(erc1155Vault).upgradeTo(address(new ERC1155Vault(sharedResolver)));
-        address taikoWrapper = 0x1E604AF21676B13A50c8d39A0Bb23722Aed10c28;
-        address taikoInbox = 0x6d2D299fEe48F3490Ed74d581bbDF4AD7b5Aa275;
-        address store = 0xA9e5777DAB71E1dEe4750BaFE5Bd9bFeC58b7231;
-        UUPSUpgradeable(taikoWrapper).upgradeTo({
-            newImplementation: address(new TaikoWrapper(taikoInbox, store, address(0)))
-        });
+//        address taikoWrapper = 0x1E604AF21676B13A50c8d39A0Bb23722Aed10c28;
+//        address taikoInbox = 0x6d2D299fEe48F3490Ed74d581bbDF4AD7b5Aa275;
+//        address store = 0xA9e5777DAB71E1dEe4750BaFE5Bd9bFeC58b7231;
+//        UUPSUpgradeable(taikoWrapper).upgradeTo({
+//            newImplementation: address(new TaikoWrapper(taikoInbox, store, address(0)))
+//        });
 //        address taikoWrapper2 = address(new TaikoWrapper(taikoInbox, store, address(0)));
 //        console2.log("taikoWrapper2", taikoWrapper2);
     }
