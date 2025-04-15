@@ -32,7 +32,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     address public immutable inboxWrapper;
     address public immutable verifier;
-    address private immutable bondToken;
+    address internal immutable bondToken;
     ISignalService public immutable signalService;
 
     State public state; // storage layout much match Ontake fork
