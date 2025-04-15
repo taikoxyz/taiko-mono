@@ -6,7 +6,7 @@ import "../mocks/MockBeaconBlockRoot.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
 contract PreconfRouterTest is PreconfRouterTestBase {
-    function test_preconfRouter_ProposeBatch() external {
+    function test_preconfRouter_proposeBatch() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
