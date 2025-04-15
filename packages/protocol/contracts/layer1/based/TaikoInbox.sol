@@ -32,7 +32,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     address public immutable inboxWrapper;
     address public immutable verifier;
-    address private immutable __bondToken;
+    address private immutable bondToken;
     ISignalService public immutable signalService;
 
     State public state; // storage layout much match Ontake fork
@@ -52,7 +52,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
-        __bondToken = _bondToken;
+        bondToken = _bondToken;
         signalService = ISignalService(_signalService);
     }
 
@@ -388,8 +388,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         state.bondBalance[msg.sender] -= _amount;
 
-        if (__bondToken != address(0)) {
-            IERC20(__bondToken).safeTransfer(msg.sender, _amount);
+        if (bondToken != address(0)) {
+            IERC20(bondToken).safeTransfer(msg.sender, _amount);
         } else {
             LibAddress.sendEtherAndVerify(msg.sender, _amount);
         }
@@ -397,7 +397,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc ITaikoInbox
     function v4BondToken() external view returns (address) {
-        return __bondToken;
+        return bondToken;
     }
 
     /// @inheritdoc ITaikoInbox
@@ -715,7 +715,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             unchecked {
                 state.bondBalance[_user] = balance - _amount;
             }
-        } else if (__bondToken != address(0)) {
+        } else if (bondToken != address(0)) {
             uint256 amountDeposited = _handleDeposit(_user, _amount);
             require(amountDeposited == _amount, InsufficientBond());
         } else {
@@ -740,12 +740,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         private
         returns (uint256 amountDeposited_)
     {
-        if (__bondToken != address(0)) {
+        if (bondToken != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
 
-            uint256 balance = IERC20(__bondToken).balanceOf(address(this));
-            IERC20(__bondToken).safeTransferFrom(_user, address(this), _amount);
-            amountDeposited_ = IERC20(__bondToken).balanceOf(address(this)) - balance;
+            uint256 balance = IERC20(bondToken).balanceOf(address(this));
+            IERC20(bondToken).safeTransferFrom(_user, address(this), _amount);
+            amountDeposited_ = IERC20(bondToken).balanceOf(address(this)) - balance;
         } else {
             require(msg.value == _amount, EtherNotPaidAsBond());
             amountDeposited_ = _amount;
