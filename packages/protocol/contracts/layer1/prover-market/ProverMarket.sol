@@ -14,9 +14,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
     using LibMath for uint256;
 
     error CannotFitToUint64();
-    error FeeLargerThanCurrent();
+    error FeeLargerThanAllowed();
     error FeeLargerThanMax();
-    error FeeLargerTooLarge();
     error FeeNotDivisibleByFeeUnit();
     error FeeTooLarge();
     error InsufficientBondBalance();
@@ -115,7 +114,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
                 maxFeePerScenario = currentFeeInGwei * NEW_BID_PERCENTAGE / 100;
             }
 
-            require(_newFeeInGwei <= maxFeePerScenario, FeeLargerThanCurrent());
+            require(_newFeeInGwei <= maxFeePerScenario, FeeLargerThanAllowed());
         }
 
         prover = msg.sender;
