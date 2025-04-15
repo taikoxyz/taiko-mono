@@ -117,12 +117,7 @@ func splitByteArray(data []byte, chunkSize int) [][]byte {
 	var chunks [][]byte
 
 	for i := 0; i < len(data); i += chunkSize {
-		end := i + chunkSize
-		// Ensure we don't go past the end of the slice
-		if end > len(data) {
-			end = len(data)
-		}
-
+		end := min(i+chunkSize, len(data))
 		chunks = append(chunks, data[i:end])
 	}
 

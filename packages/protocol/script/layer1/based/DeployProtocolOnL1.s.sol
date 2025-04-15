@@ -347,16 +347,21 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Other verifiers
         // Initializable the proxy for proofVerifier to get the contract address at first.
-        (address sgxVerifier, address pivotVerifier) =
+        (address sgxRethVerifier, address sgxGethVerifier) =
             deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
 
-        (address risc0Verifier, address sp1Verifier) =
+        (address risc0RethVerifier, address sp1RethVerifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
 
         UUPSUpgradeable(proofVerifier).upgradeTo({
             newImplementation: address(
                 new DevnetVerifier(
-                    taikoInboxAddr, pivotVerifier, opVerifier, sgxVerifier, risc0Verifier, sp1Verifier
+                    taikoInboxAddr,
+                    sgxGethVerifier,
+                    opVerifier,
+                    sgxRethVerifier,
+                    risc0RethVerifier,
+                    sp1RethVerifier
                 )
             )
         });
@@ -383,7 +388,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoProofVerifier
     )
         private
-        returns (address sgxVerifier, address pivotVerifier)
+        returns (address sgxRethVerifier, address sgxGethVerifier)
     {
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
@@ -403,14 +408,14 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address sgxImpl =
             address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
-        sgxVerifier = deployProxy({
-            name: "sgx_verifier",
+        sgxRethVerifier = deployProxy({
+            name: "sgx_reth_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
-        pivotVerifier = deployProxy({
-            name: "pivot_verifier",
+        sgxGethVerifier = deployProxy({
+            name: "sgx_geth_verifier",
             impl: sgxImpl,
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
@@ -436,7 +441,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(rollupResolver, "risc0_groth16_verifier", address(verifier));
 
         risc0Verifier = deployProxy({
-            name: "risc0_verifier",
+            name: "risc0_reth_verifier",
             impl: address(new Risc0Verifier(l2ChainId, address(verifier))),
             data: abi.encodeCall(Risc0Verifier.init, (owner)),
             registerTo: rollupResolver
@@ -447,7 +452,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
 
         sp1Verifier = deployProxy({
-            name: "sp1_verifier",
+            name: "sp1_reth_verifier",
             impl: address(new SP1Verifier(l2ChainId, address(succinctVerifier))),
             data: abi.encodeCall(SP1Verifier.init, (owner)),
             registerTo: rollupResolver
