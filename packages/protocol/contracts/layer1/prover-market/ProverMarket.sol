@@ -48,15 +48,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint256 public immutable minExitDelay;
 
     /// @dev Slot 1
+    mapping(address account => Prover prover) public provers;
+
+    /// @dev Slot 2
     address internal prover;
     uint64 internal feeInGwei; // proving fee per batch
 
-    /// @dev Slot 2
+    /// @dev Slot 3
     uint64 public avgFeeInGwei; // moving average of fees
     uint16 internal assignmentCount; // number of assignments
-
-    /// @dev Slot 3
-    mapping(address account => Prover prover) public provers;
 
     uint256[47] private __gap;
 
