@@ -32,17 +32,17 @@ func (m *TaikoDataBlockMetadataOntake) GetAnchorBlockHash() common.Hash {
 	return m.AnchorBlockHash
 }
 
-// Ontake implemnts TaikoProposalMetaData interface.
+// Ontake implements TaikoProposalMetaData interface.
 func (m *TaikoDataBlockMetadataOntake) Ontake() TaikoBlockMetaDataOntake {
 	return m
 }
 
-// Pacaya implemnts TaikoProposalMetaData interface.
+// Pacaya implements TaikoProposalMetaData interface.
 func (m *TaikoDataBlockMetadataOntake) Pacaya() TaikoBatchMetaDataPacaya {
 	return nil
 }
 
-// IsPacaya implemnts TaikoProposalMetaData interface.
+// IsPacaya implements TaikoProposalMetaData interface.
 func (m *TaikoDataBlockMetadataOntake) IsPacaya() bool {
 	return false
 }
