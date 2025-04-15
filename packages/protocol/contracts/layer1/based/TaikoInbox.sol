@@ -15,8 +15,8 @@ import "./IProposeBatch.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
-/// original Taiko-Based Contestable Rollup (BCR). The tier-based proof system and
-/// contestation mechanisms have been removed.
+/// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
+/// contestation mechanisms removed.
 ///
 /// Key assumptions of this protocol:
 /// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
