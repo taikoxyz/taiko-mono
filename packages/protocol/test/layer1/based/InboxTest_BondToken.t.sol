@@ -5,7 +5,7 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_BondToken is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({

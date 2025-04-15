@@ -15,7 +15,7 @@ abstract contract InboxTestBase is Layer1Test {
     uint256 genesisBlockProposedIn;
     uint256 private __blocksPerBatch;
 
-    function getConfig() internal view virtual returns (ITaikoInbox.Config memory);
+    function v4GetConfig() internal view virtual returns (ITaikoInbox.Config memory);
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
@@ -47,7 +47,7 @@ abstract contract InboxTestBase is Layer1Test {
             verifierAddr,
             address(bondToken),
             address(signalService),
-            getConfig()
+            v4GetConfig()
         );
 
         signalService.authorize(address(inbox), true);
@@ -186,8 +186,8 @@ abstract contract InboxTestBase is Layer1Test {
         // console2.log("stats2.numBatches:", stats2.numBatches);
         // console2.log("getConfig().maxUnverifiedBatches:", getConfig().maxUnverifiedBatches);
 
-        uint64 firstBatchId = stats2.numBatches > getConfig().maxUnverifiedBatches
-            ? stats2.numBatches - getConfig().maxUnverifiedBatches
+        uint64 firstBatchId = stats2.numBatches > v4GetConfig().maxUnverifiedBatches
+            ? stats2.numBatches - v4GetConfig().maxUnverifiedBatches
             : 0;
 
         for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {

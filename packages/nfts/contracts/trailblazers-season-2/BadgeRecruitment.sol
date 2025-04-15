@@ -259,7 +259,7 @@ contract BadgeRecruitment is
 
     /// @notice Get the current configuration
     /// @return The current configuration
-    function getConfig() external view returns (Config memory) {
+    function v4GetConfig() external view returns (Config memory) {
         return config;
     }
 

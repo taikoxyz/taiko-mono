@@ -5,7 +5,7 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_BondMechanics is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({
@@ -46,7 +46,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = getConfig();
+        ITaikoInbox.Config memory config = v4GetConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
@@ -68,7 +68,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = getConfig();
+        ITaikoInbox.Config memory config = v4GetConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
@@ -89,7 +89,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = getConfig();
+        ITaikoInbox.Config memory config = v4GetConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
@@ -110,7 +110,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-        ITaikoInbox.Config memory config = getConfig();
+        ITaikoInbox.Config memory config = v4GetConfig();
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
@@ -133,7 +133,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         ITaikoInbox.Batch memory batch = inbox.v4GetBatch(meta.batchId);
 
-        ITaikoInbox.Config memory config = getConfig();
+        ITaikoInbox.Config memory config = v4GetConfig();
         assertEq(batch.livenessBond, config.livenessBondBase);
     }
 }

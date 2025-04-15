@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_ProposeAndProve is InboxTestBase {
-    function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({
@@ -273,7 +273,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
@@ -338,7 +338,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.lastBlockId, i * 7);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
@@ -387,7 +387,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 3);
-            if (i % getConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
+            if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 2);
             } else {
                 assertEq(batch.verifiedTransitionId, 0);
