@@ -79,6 +79,16 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
 	)
 
+	if err := checkLookaheadHandover(
+		s.rpc.L1Beacon.SlotsPerEpoch,
+		s.handoverSlots,
+		s.lookahead,
+		s.rpc.L1Beacon.CurrentSlot(),
+		reqBody.ExecutableData.FeeRecipient,
+	); err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
+
 	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

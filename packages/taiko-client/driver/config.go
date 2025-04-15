@@ -31,6 +31,7 @@ type Config struct {
 	PreconfBlockServerCORSOrigins string
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
+	PreconfHandoverSkipSlots      uint64
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -125,5 +126,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
+		PreconfHandoverSkipSlots:      c.Uint64(flags.PreconfHandoverSkipSlots.Name),
 	}, nil
 }

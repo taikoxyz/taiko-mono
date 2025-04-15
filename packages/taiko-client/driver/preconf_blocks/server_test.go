@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
+	"gotest.tools/assert"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
@@ -19,7 +20,7 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*", nil, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), nil, s.RPCClient)
+	server, err := New("*", nil, 0, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), nil, s.RPCClient)
 	s.Nil(err)
 	s.s = server
 	go func() {
@@ -35,4 +36,51 @@ func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {
 
 func TestPreconfBlockAPIServerTestSuite(t *testing.T) {
 	suite.Run(t, new(PreconfBlockAPIServerTestSuite))
+}
+
+func Test_checkLookaheadHandover(t *testing.T) {
+	l := &Lookahead{
+		CurrOperator: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		NextOperator: common.HexToAddress("0x0987654321098765432109876543210987654321"),
+	}
+
+	sameOperatorLookahead := &Lookahead{
+		CurrOperator: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+		NextOperator: common.HexToAddress("0x1234567890123456789012345678901234567890"),
+	}
+
+	tests := []struct {
+		name          string
+		slotsPerEpoch uint64
+		handoverSlots uint64
+		lookahead     *Lookahead
+		currentSlot   uint64
+		feeRecipient  common.Address
+		wantErr       error
+	}{
+		{"currOperator zero handover skip slots", 32, 0, l, 27, l.CurrOperator, nil},
+		{"nextOperator zero handover skip slots", 32, 0, l, 1, l.NextOperator, errInvalidCurrOperator},
+		{"currOperator on edge", 32, 4, l, 27, l.CurrOperator, nil},
+		{"currOperator too late", 32, 4, l, 28, l.CurrOperator, errInvalidNextOperator},
+		{"nextOperator on edge", 32, 4, l, 28, l.NextOperator, nil},
+		{"nextOperator too early", 32, 4, l, 27, l.NextOperator, errInvalidCurrOperator},
+		{"currOperator and nextOperator the same", 32, 4, sameOperatorLookahead, 27, l.NextOperator, nil},
+		{"currOperator on edge small handover slots", 32, 1, l, 30, l.CurrOperator, nil},
+		{"currOperator too late small handover slots", 32, 1, l, 31, l.CurrOperator, errInvalidNextOperator},
+		{"nextOperator on edge small handover slots", 32, 1, l, 31, l.NextOperator, nil},
+		{"nextOperator too early small handover slots", 32, 1, l, 30, l.NextOperator, errInvalidCurrOperator},
+		{"currOperator and nextOperator the same small handover slots", 32, 4, sameOperatorLookahead, 27, l.NextOperator, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, checkLookaheadHandover(
+				tt.slotsPerEpoch,
+				tt.handoverSlots,
+				tt.lookahead,
+				tt.currentSlot,
+				tt.feeRecipient,
+			), tt.wantErr)
+		})
+	}
 }
