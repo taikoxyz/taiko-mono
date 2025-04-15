@@ -89,7 +89,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
-        require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
+        require(_fee > 0 && _fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
         require(_fee / (1 gwei) <= type(uint64).max, CannotFitToUint64());
 
         uint256 maxFee = getMaxFee();
