@@ -69,7 +69,15 @@ func Test_checkLookaheadHandover(t *testing.T) {
 		{"currOperator too late small handover slots", 32, 1, l, 31, l.CurrOperator, errInvalidNextOperator},
 		{"nextOperator on edge small handover slots", 32, 1, l, 31, l.NextOperator, nil},
 		{"nextOperator too early small handover slots", 32, 1, l, 30, l.NextOperator, errInvalidCurrOperator},
-		{"currOperator and nextOperator the same small handover slots", 32, 4, sameOperatorLookahead, 27, l.NextOperator, nil},
+		{
+			"currOperator and nextOperator the same small handover slots",
+			32,
+			4,
+			sameOperatorLookahead,
+			27,
+			l.NextOperator,
+			nil,
+		},
 	}
 
 	for _, tt := range tests {
