@@ -58,7 +58,7 @@ contract InboxTest_Cooldownis is InboxTestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         vm.warp(block.timestamp + getConfig().cooldownWindow);
-        _ProveBatchesWithWrongTransitions(range(1, 10));
+        _proveBatchesWithWrongTransitions(range(1, 10));
 
         stats2 = inbox.v4GetStats2();
         assertEq(stats2.numBatches, 10);

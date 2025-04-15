@@ -74,7 +74,7 @@ abstract contract InboxTestBase is Layer1Test {
         uint64 startBatchId,
         uint64 endBatchId
     ) {
-        _ProveBatchesWithWrongTransitions(range(startBatchId, endBatchId));
+        _proveBatchesWithWrongTransitions(range(startBatchId, endBatchId));
         _;
     }
 
@@ -156,7 +156,7 @@ abstract contract InboxTestBase is Layer1Test {
         inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
 
-    function _ProveBatchesWithWrongTransitions(uint64[] memory batchIds) internal {
+    function _proveBatchesWithWrongTransitions(uint64[] memory batchIds) internal {
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](batchIds.length);
         ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](batchIds.length);
 
