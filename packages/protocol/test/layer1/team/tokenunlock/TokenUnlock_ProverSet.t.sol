@@ -141,9 +141,9 @@ pragma solidity ^0.8.24;
 //         target.depositToProverSet(address(set), initialBondBalance);
 
 //         vm.expectRevert(); // ERC20: transfer amount exceeds balance
-//         set.depositBond(201 ether);
+//         set.DepositBond(201 ether);
 
-//         set.depositBond(200 ether);
+//         set.DepositBond(200 ether);
 
 //         set.enableProver(Carol, true);
 //         assertTrue(set.isProver(Carol));
@@ -153,16 +153,16 @@ pragma solidity ^0.8.24;
 //         vm.prank(Alice);
 //         vm.expectRevert(TokenUnlock.PERMISSION_DENIED.selector);
 //         ITaikoInbox.BlockParamsV3[] memory paramsArray = new ITaikoInbox.BlockParamsV3[](1);
-//         set.proposeBatches(paramsArray, "txList", false);
+//         set.ProposeBatches(paramsArray, "txList", false);
 
 //         vm.prank(Carol);
 //         ITaikoInbox.BlockMetadataV3[] memory metas =
-//             set.proposeBatches(paramsArray, "txList", false);
+//             set.ProposeBatches(paramsArray, "txList", false);
 
 //         vm.startPrank(Bob);
 //         vm.expectRevert();
-//         set.withdrawBond(initialBondBalance);
-//         set.withdrawBond(initialBondBalance - livenessBond);
+//         set.WithdrawBond(initialBondBalance);
+//         set.WithdrawBond(initialBondBalance - livenessBond);
 //         vm.stopPrank();
 
 //         // Only prover in ProverSet  can prove taiko blocks
@@ -175,12 +175,12 @@ pragma solidity ^0.8.24;
 
 //         vm.prank(Alice);
 //         vm.expectRevert(TokenUnlock.PERMISSION_DENIED.selector);
-//         set.proveBatches(metas, transitions, "proof");
+//         set.ProveBatches(metas, transitions, "proof");
 
 //         vm.prank(Carol);
-//         set.proveBatches(metas, transitions, "proof");
+//         set.ProveBatches(metas, transitions, "proof");
 
 //         vm.startPrank(Bob);
-//         set.withdrawBond(livenessBond);
+//         set.WithdrawBond(livenessBond);
 //     }
 // }

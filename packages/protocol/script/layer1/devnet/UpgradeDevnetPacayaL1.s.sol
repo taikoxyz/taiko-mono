@@ -147,7 +147,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
         );
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
-        uint64 l2ChainId = taikoInboxImpl.pacayaConfig().chainId;
+        uint64 l2ChainId = taikoInboxImpl.v4GetConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         // Other verifiers

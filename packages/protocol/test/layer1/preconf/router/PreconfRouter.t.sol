@@ -6,7 +6,7 @@ import "../mocks/MockBeaconBlockRoot.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
 contract PreconfRouterTest is PreconfRouterTestBase {
-    function test_preconfRouter_proposeBatch() external {
+    function test_preconfRouter_ProposeBatch() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -55,13 +55,13 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        (, ITaikoInbox.BatchMetadata memory meta) = router.proposeBatch(abi.encode(params), "");
+        (, ITaikoInbox.BatchMetadata memory meta) = router.v4ProposeBatch(abi.encode(params), "");
 
         // Assert the proposer was set correctly in the metadata
         assertEq(meta.proposer, Carol);
     }
 
-    function test_preconfRouter_proposeBatch_notOperator() external {
+    function test_preconfRouter_ProposeBatch_notOperator() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -89,10 +89,10 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
         vm.expectRevert(IPreconfRouter.NotPreconfer.selector);
-        router.proposeBatch("", "");
+        router.v4ProposeBatch("", "");
     }
 
-    function test_preconfRouter_proposeBatch_proposerNotSender() external {
+    function test_preconfRouter_ProposeBatch_proposerNotSender() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
         operators[1] = Carol;
@@ -142,6 +142,6 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
         vm.expectRevert(IPreconfRouter.ProposerIsNotPreconfer.selector);
-        router.proposeBatch(abi.encode(params), "");
+        router.v4ProposeBatch(abi.encode(params), "");
     }
 }
