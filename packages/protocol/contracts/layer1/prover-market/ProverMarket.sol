@@ -17,7 +17,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error FeeLargerThanAllowed();
     error FeeLargerThanMax();
     error FeeNotDivisibleByFeeUnit();
-    error FeeTooLarge();
     error InsufficientBondBalance();
     error InvalidThresholds();
     error NotCurrentProver();

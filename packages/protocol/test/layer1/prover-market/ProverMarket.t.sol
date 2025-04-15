@@ -41,6 +41,11 @@ contract ProverMarketTest is CommonTest {
         );
     }
 
+    function testInvalidThresholdsReverts() public {
+        vm.expectRevert(ProverMarket.InvalidThresholds.selector);
+        new ProverMarket(address(mockInbox), 100 ether, 200 ether, 50 ether, MIN_EXIT_DELAY);
+    }
+
     function testInitialBid() public {
         uint256 fee = 10 gwei;
         uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
@@ -192,5 +197,49 @@ contract ProverMarketTest is CommonTest {
 
         uint256 maxFee = market.getMaxFee();
         assertEq(maxFee, 20 gwei); // MAX_FEE_MULTIPLIER is 2
+    }
+
+    function testCannotFitToUint64() public {
+        mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
+
+        uint256 tooLargeFee = (uint256(type(uint64).max) + 1) * 1 gwei;
+
+        vm.prank(PROVER1);
+        vm.expectRevert(ProverMarket.CannotFitToUint64.selector);
+        market.bid(tooLargeFee, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
+    }
+
+    function testFeeLargerThanCurrentReverts() public {
+        mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
+        vm.prank(PROVER1);
+        market.bid(10 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
+
+        mockInbox.setBondBalance(PROVER2, BIDDING_THRESHOLD);
+        vm.prank(PROVER2);
+        vm.expectRevert(ProverMarket.FeeLargerThanAllowed.selector);
+        market.bid(11 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 2));
+    }
+
+    function testFeeLargerThanMaxReverts() public {
+        mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
+        vm.prank(PROVER1);
+        market.bid(10 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
+
+        for (uint16 i = 0; i < 10; i++) {
+            vm.prank(address(mockInbox));
+            market.onProverAssigned(PROVER1, 10 gwei, i);
+        }
+
+        mockInbox.setBondBalance(PROVER2, BIDDING_THRESHOLD);
+        vm.prank(PROVER2);
+        vm.expectRevert(ProverMarket.FeeLargerThanMax.selector);
+        market.bid(25 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 2)); // 2x avg is 20 gwei
+    }
+
+    function testFeeNotDivisibleByUnitReverts() public {
+        mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
+        vm.prank(PROVER1);
+        vm.expectRevert(ProverMarket.FeeNotDivisibleByFeeUnit.selector);
+        market.bid(1 wei, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
     }
 }
