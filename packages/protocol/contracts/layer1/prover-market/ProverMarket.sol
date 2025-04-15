@@ -101,18 +101,21 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
 
-        if (currentProver == address(0)) {
-            // There is no prover, so the new prover can set any fee.
-        } else if (inbox.bondBalanceOf(currentProver) < outbidThreshold) {
-            // The current prover has less than outbidThreshold, so the new prover can set any
-            // fee as long as it's not larger than the current fee
-            require(_newFeeInGwei <= currentFeeInGwei, FeeLargerThanCurrent());
-        } else {
-            // The current prover has more than outbidThreshold, so the new prover can set any
-            // fee as long as it's not larger than 90% of the current fee
-            require(
-                _newFeeInGwei <= currentFeeInGwei * NEW_BID_PERCENTAGE / 100, FeeLargerTooLarge()
-            );
+        // If there is no prover, the new prover can set any fee.
+        if (currentProver != address(0)) {
+            uint256 maxFeePerScenario;
+
+            if (inbox.bondBalanceOf(currentProver) < outbidThreshold) {
+                // The current prover has less than outbidThreshold, so the new prover can set any
+                // fee as long as it's not larger than the current fee
+                maxFeePerScenario = currentFeeInGwei;
+            } else {
+                // The current prover has more than outbidThreshold, so the new prover can set any
+                // fee as long as it's not larger than 95% of the current fee
+                maxFeePerScenario = currentFeeInGwei * NEW_BID_PERCENTAGE / 100;
+            }
+
+            require(_newFeeInGwei <= maxFeePerScenario, FeeLargerThanCurrent());
         }
 
         prover = msg.sender;
