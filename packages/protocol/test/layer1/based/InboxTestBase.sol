@@ -47,7 +47,7 @@ abstract contract InboxTestBase is Layer1Test {
             verifierAddr,
             address(bondToken),
             address(signalService),
-           getConfig()
+            getConfig()
         );
 
         signalService.authorize(address(inbox), true);
