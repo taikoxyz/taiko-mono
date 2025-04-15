@@ -152,7 +152,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         onlyFrom(address(inbox))
     {
         emit ProverAssigned(msg.sender, _fee, _batchId);
-        
+
         if (assignmentCount > FEE_CHANGE_THRESHOLD) {
             // No need to update assignmentCount nor avgFee
             return;

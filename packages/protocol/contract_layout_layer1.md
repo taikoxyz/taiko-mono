@@ -1383,9 +1383,9 @@
 |
 | prover                      | address                                        | 251  | 0      | 20    |
 |
-| fee                         | uint64                                         | 251  | 20     | 8     |
+| feeInGwei                   | uint64                                         | 251  | 20     | 8     |
 |
-| avgFee                      | uint64                                         | 252  | 0      | 8     |
+| avgFeeInGwei                | uint64                                         | 252  | 0      | 8     |
 |
 | assignmentCount             | uint16                                         | 252  | 8      | 2     |
 |
