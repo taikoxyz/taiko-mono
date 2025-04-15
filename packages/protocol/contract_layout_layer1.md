@@ -1381,15 +1381,15 @@
 |
 | __gap                       | uint256[49]                                    | 202  | 0      | 1568  |
 |
-| prover                      | address                                        | 251  | 0      | 20    |
+| provers                     | mapping(address => struct ProverMarket.Prover) | 251  | 0      | 32    |
 |
-| feeInGwei                   | uint64                                         | 251  | 20     | 8     |
+| prover                      | address                                        | 252  | 0      | 20    |
 |
-| avgFeeInGwei                | uint64                                         | 252  | 0      | 8     |
+| feeInGwei                   | uint64                                         | 252  | 20     | 8     |
 |
-| assignmentCount             | uint16                                         | 252  | 8      | 2     |
+| avgFeeInGwei                | uint64                                         | 253  | 0      | 8     |
 |
-| provers                     | mapping(address => struct ProverMarket.Prover) | 253  | 0      | 32    |
+| assignmentCount             | uint16                                         | 253  | 8      | 2     |
 |
 | __gap                       | uint256[47]                                    | 254  | 0      | 1504  |
 ╰-----------------------------+------------------------------------------------+------+--------+-------+--------------------------------------------------------------╯
