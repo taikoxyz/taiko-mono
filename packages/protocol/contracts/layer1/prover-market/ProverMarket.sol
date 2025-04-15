@@ -99,7 +99,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
-        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFee();
+        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
 
         if (currentProver == address(0)) {
             // There is no prover, so the new prover can set any fee.
@@ -124,7 +124,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     function requestExit(uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
-        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFee();
+        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
 
         require(currentProver != address(0) && msg.sender == currentProver, NotCurrentProver());
 
@@ -134,12 +134,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     /// @inheritdoc IProverMarket
     function getCurrentProver() public view returns (address, uint256) {
-        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFee();
-        if (currentProver == address(0) || inbox.bondBalanceOf(currentProver) < provingThreshold) {
-            return (address(0), 0);
-        } else {
-            return (currentProver, 1 gwei * currentFeeInGwei);
-        }
+        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
+        return currentProver == address(0)
+            ? (address(0), 0)
+            : (currentProver, 1 gwei * currentFeeInGwei);
     }
 
     /// @inheritdoc IProverMarket
@@ -174,15 +172,16 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return (MAX_FEE_MULTIPLIER * avgFeeInGwei).min(type(uint64).max) * 1 gwei;
     }
 
-    function _getCurrentProverAndFee() internal view returns (address, uint64) {
-        address _prover = prover;
+    function _getCurrentProverAndFeeInGwei() internal view returns (address, uint64) {
+        address currentProver = prover;
         if (
-            _prover == address(0) // no bidding
-                || block.timestamp >= provers[_prover].exitTimestamp // exited already
+            currentProver == address(0) // no bidding
+                || block.timestamp >= provers[currentProver].exitTimestamp // exited already
+                || inbox.bondBalanceOf(currentProver) < provingThreshold // not eligible
         ) {
             return (address(0), 0);
         } else {
-            return (_prover, feeInGwei);
+            return (currentProver, feeInGwei);
         }
     }
 }
