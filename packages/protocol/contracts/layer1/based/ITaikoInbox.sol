@@ -143,10 +143,10 @@ interface ITaikoInbox {
     }
 
     struct ForkHeights {
-        uint64 ontake; // measured with block number.
-        uint64 pacaya; // measured with the batch Id, not block number.
-        uint64 shasta; // measured with the batch Id, not block number.
-        uint64 unzen; // measured with the batch Id, not block number.
+        uint64 ontake; // v2, measured with block number.
+        uint64 pacaya; // v3, measured with the batch Id, not block number.
+        uint64 shasta; // v4, measured with the batch Id, not block number.
+        uint64 unzen; // v5, measured with the batch Id, not block number.
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
