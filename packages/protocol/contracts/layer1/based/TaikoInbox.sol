@@ -10,7 +10,7 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import { IProverMarket } from "src/layer1/prover-market/ProverMarket.sol";
+import  "src/layer1/prover-market/IProverMarket.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
 
