@@ -56,7 +56,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         addressNotNull(vm.envAddress("TAIKO_ANCHOR_ADDRESS"), "TAIKO_ANCHOR_ADDRESS");
         addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
         addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
-        addressNotNull(vm.envAddress("PROVER_MARKET"), "PROVER_MARKET");
 
         require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
         address contractOwner = vm.envAddress("CONTRACT_OWNER");
