@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/libs/LibMath.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 import "./IProverMarket.sol";
 
@@ -10,16 +11,25 @@ import "./IProverMarket.sol";
 /// @custom:security-contact security@taiko.xyz
 contract ProverMarket is EssentialContract, IProverMarket {
     using SafeERC20 for IERC20;
+    using LibMath for uint256;
 
-    event ProverChanged(address indexed prover, uint256 fee, uint256 exitTimestamp);
-
+    error CannotFitToUint64();
+    error FeeLargerThanAllowed();
+    error FeeLargerThanMax();
+    error FeeNotDivisibleByFeeUnit();
     error InsufficientBondBalance();
-    error InvalidBid();
     error InvalidThresholds();
     error NotCurrentProver();
-    error FeeNotDivisibleByFeeUnit();
-    error FeeTooLarge();
     error TooEarly();
+
+    uint256 public constant FEE_CHANGE_FACTOR = 100;
+    uint16 public constant FEE_CHANGE_THRESHOLD = 10;
+    uint256 public constant MAX_FEE_MULTIPLIER = 2;
+    uint256 public constant NEW_BID_PERCENTAGE = 95;
+
+    struct Prover {
+        uint64 exitTimestamp;
+    }
 
     ITaikoInbox public immutable inbox;
     /// @dev If a prover’s available bond balance is below this threshold, they are not eligible
@@ -36,18 +46,17 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint256 public immutable minExitDelay;
 
     /// @dev Slot 1
-    address internal prover;
-    uint64 internal fee; // proving fee per batch
+    mapping(address account => Prover prover) public provers;
 
     /// @dev Slot 2
-    mapping(address account => uint256 exitTimestamp) internal exitTimestamps;
+    address internal prover;
+    uint64 internal feeInGwei; // proving fee per batch
 
-    uint256[48] private __gap;
+    /// @dev Slot 3
+    uint64 public avgFeeInGwei; // moving average of fees
+    uint16 internal assignmentCount; // number of assignments
 
-    modifier onlyCurrentProver() {
-        require(msg.sender == prover, NotCurrentProver());
-        _;
-    }
+    uint256[47] private __gap;
 
     modifier validExitTimestamp(uint256 _exitTimestamp) {
         require(_exitTimestamp >= block.timestamp + minExitDelay, TooEarly());
@@ -56,9 +65,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     constructor(
         address _inbox,
-        uint256 _biddingThreshold, // = livenessBond * 2000
-        uint256 _outbidThreshold, // = livenessBond * 1000
-        uint256 _provingThreshold, // livenessBond * 100
+        uint256 _biddingThreshold,
+        uint256 _outbidThreshold,
+        uint256 _provingThreshold,
         uint256 _minExitDelay
     )
         nonZeroAddr(_inbox)
@@ -77,63 +86,103 @@ contract ProverMarket is EssentialContract, IProverMarket {
         minExitDelay = _minExitDelay;
     }
 
-    function bid(
-        uint256 _fee,
-        uint256 _exitTimestamp
-    )
-        external
-        validExitTimestamp(_exitTimestamp)
-    {
-        require(_fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
-        require(_fee / (1 gwei) <= type(uint64).max, FeeTooLarge());
-        uint64 fee_ = uint64(_fee / (1 gwei));
+    function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
+        require(_fee > 0 && _fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
+        require(_fee / (1 gwei) <= type(uint64).max, CannotFitToUint64());
+
+        uint256 maxFee = getMaxFee();
+        require(maxFee == 0 || _fee <= maxFee, FeeLargerThanMax());
+
+        uint64 _newFeeInGwei = uint64(_fee / (1 gwei));
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
-        (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
-            _getCurrentProver();
+        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
 
-        if (currentProver == address(0) || currentProverBalance < outbidThreshold) {
-            // TODO(dani): ensure the new _fee cannot be too large right...
-            // Using a moving average???
-        } else {
-            require(fee_ < currentFee * 9 / 10, InvalidBid());
+        // If there is no prover, the new prover can set any fee.
+        if (currentProver != address(0)) {
+            uint256 maxFeePerScenario;
+
+            if (inbox.bondBalanceOf(currentProver) < outbidThreshold) {
+                // The current prover has less than outbidThreshold, so the new prover can set any
+                // fee as long as it's not larger than the current fee
+                maxFeePerScenario = currentFeeInGwei;
+            } else {
+                // The current prover has more than outbidThreshold, so the new prover can set any
+                // fee as long as it's not larger than 95% of the current fee
+                maxFeePerScenario = currentFeeInGwei * NEW_BID_PERCENTAGE / 100;
+            }
+
+            require(_newFeeInGwei <= maxFeePerScenario, FeeLargerThanAllowed());
         }
 
         prover = msg.sender;
-        fee = fee_;
-        exitTimestamps[msg.sender] = _exitTimestamp;
+        feeInGwei = _newFeeInGwei;
+        provers[msg.sender].exitTimestamp = _exitTimestamp;
+        assignmentCount = 0;
 
         emit ProverChanged(msg.sender, _fee, _exitTimestamp);
     }
 
-    function requestExit(uint256 _exitTimestamp)
-        external
-        validExitTimestamp(_exitTimestamp)
-        onlyCurrentProver
-    {
-        exitTimestamps[msg.sender] = _exitTimestamp;
-        emit ProverChanged(msg.sender, 1 gwei * fee, _exitTimestamp);
+    function requestExit(uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
+        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
+
+        require(currentProver != address(0) && msg.sender == currentProver, NotCurrentProver());
+
+        provers[msg.sender].exitTimestamp = _exitTimestamp;
+        emit ProverChanged(msg.sender, 1 gwei * currentFeeInGwei, _exitTimestamp);
     }
 
     /// @inheritdoc IProverMarket
     function getCurrentProver() public view returns (address, uint256) {
-        (address currentProver, uint64 currentFee, uint256 currentProverBalance) =
-            _getCurrentProver();
-        return currentProverBalance < provingThreshold
+        (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
+        return currentProver == address(0)
             ? (address(0), 0)
-            : (currentProver, 1 gwei * currentFee);
+            : (currentProver, 1 gwei * currentFeeInGwei);
     }
 
-    function _getCurrentProver() public view returns (address, uint64, uint256) {
+    /// @inheritdoc IProverMarket
+    function onProverAssigned(
+        address, /*_prover*/
+        uint256 _fee,
+        uint64 _batchId
+    )
+        external
+        onlyFrom(address(inbox))
+    {
+        emit ProverAssigned(msg.sender, _fee, _batchId);
+
+        if (assignmentCount > FEE_CHANGE_THRESHOLD) {
+            // No need to update assignmentCount nor avgFee
+            return;
+        }
+
+        if (++assignmentCount <= FEE_CHANGE_THRESHOLD) {
+            uint64 _avgFeeInGwei = avgFeeInGwei;
+            uint64 _feeInGwei = uint64(_fee / 1 gwei);
+
+            unchecked {
+                avgFeeInGwei = _avgFeeInGwei == 0
+                    ? _feeInGwei
+                    : uint64(((FEE_CHANGE_FACTOR - 1) * _avgFeeInGwei + _feeInGwei) / FEE_CHANGE_FACTOR);
+            }
+        }
+    }
+
+    function getMaxFee() public view returns (uint256) {
+        return (MAX_FEE_MULTIPLIER * avgFeeInGwei).min(type(uint64).max) * 1 gwei;
+    }
+
+    function _getCurrentProverAndFeeInGwei() internal view returns (address, uint64) {
         address currentProver = prover;
         if (
             currentProver == address(0) // no bidding
-                || block.timestamp >= exitTimestamps[currentProver] // exited already
+                || block.timestamp >= provers[currentProver].exitTimestamp // exited already
+                || inbox.bondBalanceOf(currentProver) < provingThreshold // not eligible
         ) {
-            return (address(0), 0, 0);
+            return (address(0), 0);
         } else {
-            return (currentProver, fee, inbox.bondBalanceOf(currentProver));
+            return (currentProver, feeInGwei);
         }
     }
 }
