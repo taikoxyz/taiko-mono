@@ -181,7 +181,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return _max.min(type(uint64).max) * 1 gwei;
     }
 
-    function _getCurrentProver() public view returns (address, uint64) {
+    function _getCurrentProver() internal view returns (address, uint64) {
         address _prover = prover;
         if (
             _prover == address(0) // no bidding
