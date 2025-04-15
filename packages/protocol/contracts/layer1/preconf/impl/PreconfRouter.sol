@@ -48,7 +48,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
             require(msg.sender == fallbackPreconfer, NotFallbackPreconfer());
         }
 
-        // Both TaikoInbox and TaikoWrapper implement the same ABI for ProposeBatch.
+        // Both TaikoInbox and TaikoWrapper implement the same ABI for IProposeBatch.
         (info_, meta_) = proposeBatchEntrypoint.v4ProposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
