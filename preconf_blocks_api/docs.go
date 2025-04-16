@@ -46,7 +46,7 @@ const docTemplate = `{
         },
         "/preconfBlocks": {
             "post": {
-                "description": "Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation\nbody in request are valid, it will insert the correspoinding the\npreconfirmation block to the backend L2 execution engine and return a success response.",
+                "description": "Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation\nbody in request are valid, it will insert the corresponding\npreconfirmation block to the backend L2 execution engine and return a success response.",
                 "consumes": [
                     "application/json"
                 ],

@@ -177,7 +177,7 @@ paths:
       - application/json
       description: |-
         Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
-        body in request are valid, it will insert the correspoinding the
+        body in request are valid, it will insert the corresponding
         preconfirmation block to the backend L2 execution engine and return a success response.
       parameters:
       - description: preconf block creation request body
