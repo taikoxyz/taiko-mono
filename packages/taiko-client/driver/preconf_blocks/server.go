@@ -457,29 +457,40 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 	s.lookahead = l
 }
 
-func checkLookaheadHandover(
-	slotsPerEpoch uint64,
-	handoverSlots uint64,
-	lookahead *Lookahead,
-	currentSlot uint64,
-	feeRecipient common.Address,
-) error {
-	if lookahead.CurrOperator.Hex() == lookahead.NextOperator.Hex() {
+// checkLookaheadHandover checks if the current operator is in the handover window.
+func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address) error {
+	if s.lookahead == nil || s.rpc.L1Beacon == nil {
+		log.Warn("Lookahead has not been cached yet, skipping handover check")
 		return nil
 	}
 
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	var (
+		handoverSlots = s.handoverSlots
+		slotsPerEpoch = s.rpc.L1Beacon.SlotsPerEpoch
+		currentSlot   = s.rpc.L1Beacon.CurrentSlot()
+	)
+
+	// If the current operator is the same as the next operator, no need to check.
+	if s.lookahead.CurrOperator.Hex() == s.lookahead.NextOperator.Hex() {
+		return nil
+	}
+
+	// Calculate the threshold for handover slots.
 	threshold := slotsPerEpoch - handoverSlots
 
 	if currentSlot < threshold {
 		// For slots [0, threshold-1], only the current operator is allowed.
-		if lookahead.CurrOperator.Hex() != feeRecipient.Hex() {
+		if s.lookahead.CurrOperator.Hex() != feeRecipient.Hex() {
 			return errInvalidCurrOperator
 		}
 
 		return nil
 	} else {
 		// For slots [threshold, slotsPerEpoch-1], only the next operator is allowed.
-		if lookahead.NextOperator.Hex() != feeRecipient.Hex() {
+		if s.lookahead.NextOperator.Hex() != feeRecipient.Hex() {
 			return errInvalidNextOperator
 		}
 

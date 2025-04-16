@@ -4,13 +4,14 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
-	"gotest.tools/assert"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 type PreconfBlockAPIServerTestSuite struct {
@@ -28,10 +29,6 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 			log.Error("Start test preconf block server", "error", s.s.Start(uint64(testutils.RandomPort())))
 		})
 	}()
-}
-
-func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {
-	s.Nil(s.s.Shutdown(context.Background()))
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
@@ -78,15 +75,19 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 
 	for _, tt := range tests {
 		s.T().Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, checkLookaheadHandover(
-				tt.slotsPerEpoch,
-				tt.handoverSlots,
-				tt.lookahead,
-				tt.currentSlot,
-				tt.feeRecipient,
-			), tt.wantErr)
+			s.s.handoverSlots = tt.handoverSlots
+			s.s.lookahead = tt.lookahead
+			s.s.rpc.L1Beacon = &rpc.BeaconClient{
+				SlotsPerEpoch:  tt.slotsPerEpoch,
+				SecondsPerSlot: uint64(time.Now().UTC().Unix()) / tt.currentSlot,
+			}
+			s.Equal(s.s.checkLookaheadHandover(tt.feeRecipient), tt.wantErr)
 		})
 	}
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {
+	s.Nil(s.s.Shutdown(context.Background()))
 }
 
 func TestPreconfBlockAPIServerTestSuite(t *testing.T) {

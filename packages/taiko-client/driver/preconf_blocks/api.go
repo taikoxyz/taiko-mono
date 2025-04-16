@@ -79,13 +79,8 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
 	)
 
-	if err := checkLookaheadHandover(
-		s.rpc.L1Beacon.SlotsPerEpoch,
-		s.handoverSlots,
-		s.lookahead,
-		s.rpc.L1Beacon.CurrentSlot(),
-		reqBody.ExecutableData.FeeRecipient,
-	); err != nil {
+	// Check if the fee recipient the current operator or the next operator if its in handover window.
+	if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient); err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
 	}
 
