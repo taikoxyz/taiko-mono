@@ -87,12 +87,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         minExitDelay = _minExitDelay;
     }
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-
     function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
         require(_fee > 0 && _fee % GWEI == 0, FeeNotDivisibleByFeeUnit());
         require(_fee / GWEI <= type(uint64).max, CannotFitToUint64());
@@ -143,8 +137,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @inheritdoc IProverMarket
     function getCurrentProver() public view returns (address, uint256) {
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
-        return
-            currentProver == address(0) ? (address(0), 0) : (currentProver, currentFeeInGwei * GWEI);
+        return currentProver == address(0)
+            ? (address(0), 0)
+            : (currentProver, 1 gwei * currentFeeInGwei);
     }
 
     /// @inheritdoc IProverMarket
