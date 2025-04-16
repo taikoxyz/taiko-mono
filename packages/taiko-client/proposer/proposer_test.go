@@ -122,7 +122,7 @@ func (s *ProposerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.p = p
-	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
+	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 	s.cancel = cancel
 }
 
