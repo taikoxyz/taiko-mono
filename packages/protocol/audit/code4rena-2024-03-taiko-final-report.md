@@ -483,7 +483,7 @@ POC for example 1. Paste the below code into the `TaikoL1LibProvingWithTiers.t` 
         assertLt(bobBalanceAfter, bobBalanceBefore);
 
         console2.log("Bob Loss:", bobBalanceBefore - bobBalanceAfter);
-        console2.log("Bob Loss without couting livenessbond:", bobBalanceBefore - bobBalanceAfter - 1e18); // Liveness bond is 1 ETH in tests
+        console2.log("Bob Loss without counting livenessbond:", bobBalanceBefore - bobBalanceAfter - 1e18); // Liveness bond is 1 ETH in tests
     }
 
 ```
@@ -669,7 +669,7 @@ Notice how the meta data is passed to this function. Part of the function of the
 Notice how if the payment is in ERC20 tokens, the payee will be the variable \_meta.coinbase, and like we showed earlier, this can be set to any arbitrary address by the proposer. This can lead to a scenario as such:
 
 1.  proposer A approves the assignmentHook contract to spend a portion of their tokens, the allowance is set higher than the actual fee they will be paying.
-2.  proposer A proposes a block, and a fee is charged and payed to the assigned prover, but there remains allowance that the assignment hook contract can still use.
+2.  proposer A proposes a block, and a fee is charged and paid to the assigned prover, but there remains allowance that the assignment hook contract can still use.
 3.  proposer B proposes a block and sets params.coinbase as the address of proposer A.
 4.  proposer A address will be the payee of the fee for the assigned prover for the block proposed by proposer B.
 
@@ -1175,7 +1175,7 @@ The `bridge_watchdog` role can forge arbitrary messages and drain the bridge of 
 
 ### Proof of Concept
 
-`bridge_watchdog` can call `suspendMessasges()` to suspend and un-suspend a message
+`bridge_watchdog` can call `suspendMessages()` to suspend and un-suspend a message
 
 <https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L82-L95>
 
@@ -1324,7 +1324,7 @@ _Note: For full discussion, see [here](https://github.com/code-423n4/2024-03-tai
 
 ---
 
-## [[M-06] First block proposer check in the `LibProposing._isProposerPermitted` function is errorneous](https://github.com/code-423n4/2024-03-taiko-findings/issues/274)
+## [[M-06] First block proposer check in the `LibProposing._isProposerPermitted` function is erroneous](https://github.com/code-423n4/2024-03-taiko-findings/issues/274)
 
 _Submitted by [Shield](https://github.com/code-423n4/2024-03-taiko-findings/issues/274), also found by [monrel](https://github.com/code-423n4/2024-03-taiko-findings/issues/382) and [blockdev](https://github.com/code-423n4/2024-03-taiko-findings/issues/9)_
 
@@ -1651,7 +1651,7 @@ TaikoData.Block memory blk = TaikoData.Block({
 })
 ```
 
-This also generates issues for independent provers, as they may not utilize the proposed block's data to attempt to prove it and utilize the correct parentMetaHash, which will make the LibProving:proveBlock call revert with an L1_BLOCK_MISTATCH error:
+This also generates issues for independent provers, as they may not utilize the proposed block's data to attempt to prove it and utilize the correct parentMetaHash, which will make the LibProving:proveBlock call revert with an L1_BLOCK_MISMATCH error:
 
 ```solidity
 function proveBlock
@@ -1827,7 +1827,7 @@ Consider using VRF like solutions to make `_rand` truly random.
 
 > Not the proving but the liveness (proposing) would take longer as provers would deny to grant signatures to prove blocks - which's evaluation i happening during `proposeBlock`.
 >
-> But at least +2 years post mainnet taiko foundation is commited to `proposeBlock` every X time intervals (even if not breaking even) to keep the liveness and get over this.
+> But at least +2 years post mainnet taiko foundation is committed to `proposeBlock` every X time intervals (even if not breaking even) to keep the liveness and get over this.
 >
 > And as stated, by the time hopefully this minTier() will vanish in that time - hopefully even in months after launch (not years) when ZK is cheap enough. So for now we would say it is a known issue, we are aware of.
 
@@ -1952,7 +1952,7 @@ Also refer my other recommendation under the report titled: _"Incorrect calculat
 
 > This is a valid bug report, fixing in https://github.com/taikoxyz/taiko-mono/pull/16612
 >
-> TimelockTokenPool.sol will not have a similar fix as the risk is very managable. Blob caching/sharing is disabled, so no fix for it as well.
+> TimelockTokenPool.sol will not have a similar fix as the risk is very manageable. Blob caching/sharing is disabled, so no fix for it as well.
 
 ---
 
@@ -2246,7 +2246,7 @@ _The following wardens also submitted reports: [Shield](https://github.com/code-
 
 [Link](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L25)
 
-ContextUpgradeable is not initialized in TaikoToken.sol contract. This contract is used in ERC20PermitUpgradeable which is used in ERC20VotesUpgradeable. But neither contract initializes this Context contract when the contracts themselves are intialized.
+ContextUpgradeable is not initialized in TaikoToken.sol contract. This contract is used in ERC20PermitUpgradeable which is used in ERC20VotesUpgradeable. But neither contract initializes this Context contract when the contracts themselves are initialized.
 
 In TaikoToken.sol [here](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/TaikoToken.sol#L25), we can see that the below \_\_Context_init() function is not called.
 
@@ -2615,12 +2615,12 @@ File: MerkleTrie.sol
 
 ## [N-04] Typo in comment in Bytes.sol
 
-Use rather instead of rathern.
+Use rather instead of rather.
 
 ```solidity
 File: Bytes.sol
 93:     /// @notice Slices a byte array with a given starting index up to the end of the original byte
-94:     ///         array. Returns a new array rathern than a pointer to the original.
+94:     ///         array. Returns a new array rather than a pointer to the original.
 ```
 
 ## [N-05] Incorrect comment regarding gasLimit in processMessage()
@@ -2726,7 +2726,7 @@ File: TaikoToken.sol
 
 ## [N-12] Guardian proof that is never fully approved by minGuardians is never deleted
 
-A guardian proof hashs is only deleted if it has been approved by min number of guardians in the approval bits. In case it is not, the approval for the hash remains and is not deleted.
+A guardian proof hash is only deleted if it has been approved by min number of guardians in the approval bits. In case it is not, the approval for the hash remains and is not deleted.
 
 ```solidity
 File: GuardianProver.sol
@@ -12959,7 +12959,7 @@ Overall, I'm excited to see where the Taiko project will go, and I'm confident t
 | Preparation of report     | 10                 |
 | Total time spent          | 70                 |
 
-## 13. Refrences
+## 13. References
 
 - https://github.com/code-423n4/2024-03-taiko
 - https://docs.taiko.xyz/start-here/getting-started

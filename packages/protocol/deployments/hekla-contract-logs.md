@@ -339,11 +339,12 @@
 ### sgx_geth_verifier
 
 - proxy : 0x4361B85093720bD50d25236693CA58FD6e1b3a53
-- impl : 0x0fA3518b9594eD4905D6c44015dF5bD234D1ec09
+- impl : 0x36d14AFaf49783C4d405773f1934d726A2d55989
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 11, 2025 at commit `c58d863`
+  - upgraded on Apr 15, 2025 at commit `0b5cb00`
 
 ### sgx_geth_automata
 
