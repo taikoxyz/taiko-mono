@@ -481,6 +481,17 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 	// Calculate the threshold for handover slots.
 	threshold := slotsPerEpoch - handoverSlots
 
+	log.Info(
+		"Check lookahead handover",
+		"handoverSlots", handoverSlots,
+		"slotsPerEpoch", slotsPerEpoch,
+		"slotInEpoch", slotInEpoch,
+		"threshold", threshold,
+		"currOperator", s.lookahead.CurrOperator.Hex(),
+		"nextOperator", s.lookahead.NextOperator.Hex(),
+		"feeRecipient", feeRecipient.Hex(),
+	)
+
 	if slotInEpoch < threshold {
 		// For slots [0, threshold-1], only the current operator is allowed.
 		if s.lookahead.CurrOperator.Hex() != feeRecipient.Hex() {
