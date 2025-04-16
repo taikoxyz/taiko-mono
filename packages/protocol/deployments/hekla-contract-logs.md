@@ -235,13 +235,19 @@
 - logs:
   - upgraded on Nov 6, 2024 at commit `0706f0a`
 
-### risc0_groth16_verifier
+### risc0_groth16_verifier(Ontake)
 
 - addr : 0x714FD0666B0cee87bFC29A029E2AE66f40F12cE5
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
   - upgraded on October 22, 2024 at commit `684a909`
   - upgraded on Jan 10, 2025 at commit `2802b21`
+
+### risc0_groth16_verifier(Pacaya)
+
+- addr : 0xf365178fE7D1F34474a0eb90B2A0E8754A2dD3Ce
+- logs:
+  - deployed on Apr 16, 2025 at commit `9bcf8e5`
 
 ### tier_zkvm_risc0
 
@@ -252,7 +258,7 @@
   - deployed on August 14, 2024 at commit `cba2a1e`
   - upgraded on Nov 6, 2024 at commit `0706f0a`
 
-### sp1_plonk_verifier
+### sp1_plonk_verifier(Ontake)
 
 - addr : 0x7110bd8909CFC4C31204BA8597882CBFa1F77dC9
 - logs:
@@ -261,6 +267,12 @@
   - upgraded on October 22, 2024 at commit `684a909`
   - upgraded on Nov 8, 2024 at commit `0b11101`
   - upgraded on Jan 9, 2025 at commit `de12a26`
+
+### sp1_plonk_verifier(Pacaya)
+
+- addr : 0xaFa7E6aC18572265b026D147c7907b300E35D58E
+- logs:
+  - deployed on Apr 16, 2025 at commit `9bcf8e5`
 
 ### tier_zkvm_sp1
 
@@ -323,18 +335,20 @@
 ### risc0_reth_verifier(Pacaya)
 
 - proxy : 0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2
-- impl : 0x06B789A83db6cB785e5c2a99eedE7A3033576024
+- impl : 0xe84676980F08631D17BF9b3e59c6b6DeBF0B0F50
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
+  - upgraded on Apr 16, 2025 at commit `9bcf8e5`
 
 ### sp1_reth_verifier(Pacaya)
 
 - proxy : 0x1138aA994477f0880001aa1E8106D749035b6250
-- impl : 0xC472632288b233fadca875821dE173b641bE9fB1
+- impl : 0x3002047a5B4f8ef022Cb87e97418dd5112209182
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
+  - upgraded on Apr 16, 2025 at commit `9bcf8e5`
 
 ### sgx_geth_verifier
 
