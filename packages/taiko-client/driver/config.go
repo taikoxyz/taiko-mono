@@ -115,6 +115,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, err
 	}
 
+	preconfHandoverSkipSlots := c.Uint64(flags.PreconfHandoverSkipSlots.Name)
+	if rpc.L1Beacon != nil && preconfHandoverSkipSlots > rpc.L1Beacon.SlotsPerEpoch {
+		return nil, fmt.Errorf(
+			"preconf handover skip slots %d is greater than slots per epoch %d",
+			preconfHandoverSkipSlots,
+			rpc.L1Beacon.SlotsPerEpoch,
+		)
+	}
+
 	return &Config{
 		ClientConfig:                  clientConfig,
 		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
@@ -126,6 +135,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
-		PreconfHandoverSkipSlots:      c.Uint64(flags.PreconfHandoverSkipSlots.Name),
+		PreconfHandoverSkipSlots:      preconfHandoverSkipSlots,
 	}, nil
 }
