@@ -480,7 +480,7 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 	// Calculate the threshold for handover slots.
 	threshold := slotsPerEpoch - handoverSlots
 
-	log.Info(
+	log.Debug(
 		"Check lookahead handover",
 		"handoverSlots", handoverSlots,
 		"slotsPerEpoch", slotsPerEpoch,
