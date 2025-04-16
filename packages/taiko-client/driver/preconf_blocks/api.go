@@ -46,12 +46,12 @@ type BuildPreconfBlockResponseBody struct {
 }
 
 // BuildPreconfBlock handles a preconfirmation block creation request,
-// if the preconfirmation block creation body in request are valid, it will insert the correspoinding the
+// if the preconfirmation block creation body in request are valid, it will insert the corresponding
 // preconfirmation block to the backend L2 execution engine and return a success response.
 //
 //		@Summary 	    Insert a preconfirmation block to the L2 execution engine.
 //		@Description	Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
-//		@Description	body in request are valid, it will insert the correspoinding the
+//		@Description	body in request are valid, it will insert the corresponding
 //	 	@Description	preconfirmation block to the backend L2 execution engine and return a success response.
 //		@Param  	body body BuildPreconfBlockRequestBody true "preconf block creation request body"
 //		@Accept	  json

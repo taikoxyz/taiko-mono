@@ -64,7 +64,7 @@ type PreconfBlockAPIServer struct {
 	handoverSlots  uint64
 }
 
-// New creates a new preconf blcok server instance, and starts the server.
+// New creates a new preconf block server instance, and starts the server.
 func New(
 	cors string,
 	jwtSecret []byte,
