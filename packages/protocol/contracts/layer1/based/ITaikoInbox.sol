@@ -26,6 +26,8 @@ interface ITaikoInbox {
         // the timestamp of the parent block in the same batch. For the first block in a batch,
         // there is not parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
+        // A value used to mark the block.
+        uint8 marker;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
     }
@@ -66,7 +68,7 @@ interface ITaikoInbox {
         // Data to build L2 blocks
         BlockParams[] blocks;
         bytes32[] blobHashes;
-        bytes32 extraData;
+        bytes32[] extraDataList;
         address coinbase;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;

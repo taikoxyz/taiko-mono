@@ -28,7 +28,7 @@ contract MockTaikoInbox is EssentialContract {
             blobHashes: new bytes32[](0),
             blobByteOffset: 0,
             blobByteSize: 0,
-            extraData: bytes32(0),
+            extraDataList: new bytes32[](params.blocks.length),
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             gasLimit: 0, // Mock value
             lastBlockId: 0,
