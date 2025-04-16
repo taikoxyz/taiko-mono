@@ -34,11 +34,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {
 	s.Nil(s.s.Shutdown(context.Background()))
 }
 
-func TestPreconfBlockAPIServerTestSuite(t *testing.T) {
-	suite.Run(t, new(PreconfBlockAPIServerTestSuite))
-}
-
-func Test_checkLookaheadHandover(t *testing.T) {
+func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	l := &Lookahead{
 		CurrOperator: common.HexToAddress("0x1234567890123456789012345678901234567890"),
 		NextOperator: common.HexToAddress("0x0987654321098765432109876543210987654321"),
@@ -81,7 +77,7 @@ func Test_checkLookaheadHandover(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		s.T().Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, checkLookaheadHandover(
 				tt.slotsPerEpoch,
 				tt.handoverSlots,
@@ -91,4 +87,8 @@ func Test_checkLookaheadHandover(t *testing.T) {
 			), tt.wantErr)
 		})
 	}
+}
+
+func TestPreconfBlockAPIServerTestSuite(t *testing.T) {
+	suite.Run(t, new(PreconfBlockAPIServerTestSuite))
 }
