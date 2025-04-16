@@ -458,7 +458,7 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 }
 
 // checkLookaheadHandover checks if the current operator is in the handover window.
-func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address) error {
+func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address, slotInEpoch uint64) error {
 	if s.lookahead == nil || s.rpc.L1Beacon == nil {
 		log.Warn("Lookahead has not been cached yet, skipping handover check")
 		return nil
@@ -470,7 +470,6 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 	var (
 		handoverSlots = s.handoverSlots
 		slotsPerEpoch = s.rpc.L1Beacon.SlotsPerEpoch
-		slotInEpoch   = s.rpc.L1Beacon.SlotInEpoch()
 	)
 
 	// If the current operator is the same as the next operator, no need to check.

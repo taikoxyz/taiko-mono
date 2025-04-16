@@ -80,7 +80,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	)
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
-	if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient); err != nil {
+	if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.SlotInEpoch()); err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
 	}
 
