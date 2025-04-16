@@ -470,7 +470,7 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 	var (
 		handoverSlots = s.handoverSlots
 		slotsPerEpoch = s.rpc.L1Beacon.SlotsPerEpoch
-		currentSlot   = s.rpc.L1Beacon.CurrentSlot()
+		slotInEpoch   = s.rpc.L1Beacon.SlotInEpoch()
 	)
 
 	// If the current operator is the same as the next operator, no need to check.
@@ -481,7 +481,7 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 	// Calculate the threshold for handover slots.
 	threshold := slotsPerEpoch - handoverSlots
 
-	if currentSlot < threshold {
+	if slotInEpoch < threshold {
 		// For slots [0, threshold-1], only the current operator is allowed.
 		if s.lookahead.CurrOperator.Hex() != feeRecipient.Hex() {
 			return errInvalidCurrOperator

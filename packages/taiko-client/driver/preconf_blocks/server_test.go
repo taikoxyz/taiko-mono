@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -47,7 +46,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 		slotsPerEpoch uint64
 		handoverSlots uint64
 		lookahead     *Lookahead
-		currentSlot   uint64
+		slotInEpoch   uint64
 		feeRecipient  common.Address
 		wantErr       error
 	}{
@@ -79,7 +78,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 			s.s.lookahead = tt.lookahead
 			s.s.rpc.L1Beacon = &rpc.BeaconClient{
 				SlotsPerEpoch:  tt.slotsPerEpoch,
-				SecondsPerSlot: uint64(time.Now().UTC().Unix()) / tt.currentSlot,
+				SecondsPerSlot: 12,
 			}
 			s.Equal(s.s.checkLookaheadHandover(tt.feeRecipient), tt.wantErr)
 		})
