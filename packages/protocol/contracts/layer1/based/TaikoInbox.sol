@@ -719,7 +719,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
                 batch.verifiedTransitionId = tid;
-                emit BatchesVerified(batchId, blockHash);
+                emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
                 if (synced.batchId != 0) {
                     if (synced.batchId != _stats2.lastVerifiedBatchId) {
