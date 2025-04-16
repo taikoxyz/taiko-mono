@@ -14,7 +14,7 @@ contract InboxTest_StopBatch is InboxTestBase {
             maxBatchesToVerify: 1,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 5e18, // 5 Taiko token per block
+            livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

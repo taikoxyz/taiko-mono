@@ -26,6 +26,8 @@ interface ITaikoInbox {
         // the timestamp of the parent block in the same batch. For the first block in a batch,
         // there is not parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
+        // A value used to mark the block.
+        uint8 marker;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
     }
@@ -66,7 +68,7 @@ interface ITaikoInbox {
         // Data to build L2 blocks
         BlockParams[] blocks;
         bytes32[] blobHashes;
-        bytes32 extraData;
+        bytes32[] extraDataList;
         address coinbase;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;
@@ -163,7 +165,8 @@ interface ITaikoInbox {
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
         uint96 livenessBondBase;
-        /// @notice The amount of Taiko token as a prover liveness bond per block.
+        /// @notice The amount of Taiko token as a prover liveness bond per block. This field is
+        /// deprecated and its value will be ignored.
         uint96 livenessBondPerBlock;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;

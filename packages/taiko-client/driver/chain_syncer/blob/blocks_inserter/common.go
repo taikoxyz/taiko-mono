@@ -7,16 +7,21 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -41,36 +46,6 @@ func createPayloadAndSetHead(
 	if err != nil {
 		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
 		return nil, err
-	}
-
-	// If the Pacaya block is preconfirmed, we don't need to insert it again.
-	if meta.BlockID.Cmp(new(big.Int).SetUint64(rpc.PacayaClients.ForkHeight)) >= 0 {
-		header, err := isBlockPreconfirmed(ctx, rpc, meta, txListBytes, anchorTx)
-		if err != nil {
-			log.Debug("Failed to check if the block is preconfirmed", "error", err)
-		} else if header != nil {
-			// Update the l1Origin and headL1Origin cursor for that preconfirmed block.
-			meta.L1Origin.L2BlockHash = header.Hash()
-			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, meta.L1Origin); err != nil {
-				return nil, fmt.Errorf("failed to update L1 origin: %w", err)
-			}
-			if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, meta.L1Origin.BlockID); err != nil {
-				return nil, fmt.Errorf("failed to write head L1 origin: %w", err)
-			}
-
-			log.Info(
-				"🧬 The block is preconfirmed",
-				"blockID", meta.BlockID,
-				"hash", header.Hash(),
-				"coinbase", header.Coinbase,
-				"timestamp", header.Time,
-				"anchorBlockID", meta.AnchorBlockID,
-				"anchorBlockHash", meta.AnchorBlockHash,
-				"baseFee", utils.WeiToEther(header.BaseFee),
-			)
-
-			return encoding.ToExecutableData(header), nil
-		}
 	}
 
 	// Increase the gas limit for the anchor block.
@@ -219,6 +194,61 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
+// isBatchPreconfirmed checks if all blocks in the given batch are preconfirmed,
+// and returns the header of the last block in the batch if it is preconfirmed.
+func isBatchPreconfirmed(
+	ctx context.Context,
+	rpc *rpc.Client,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	metadata metadata.TaikoProposalMetaData,
+	allTxs []*types.Transaction,
+	txListBytes []byte,
+) (*types.Header, error) {
+	// Get the parent block of the last block in this batch.
+	parent, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(metadata.Pacaya().GetLastBlockID()-1))
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return nil, fmt.Errorf("failed to get parent block: %w", err)
+	}
+	// If we can't find the parent block, then its not preconfirmed.
+	if parent == nil {
+		log.Debug("Parent block not found, batch is not preconfirmed", "batchID", metadata.Pacaya().GetBatchID())
+		return nil, nil
+	}
+
+	// Then we check if the last block in this batch is preconfirmed.
+	createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
+		ctx,
+		rpc,
+		anchorConstructor,
+		metadata,
+		allTxs,
+		parent,
+		len(metadata.Pacaya().GetBlocks())-1,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
+	}
+
+	b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+	if err != nil {
+		return nil, fmt.Errorf("failed to RLP encode tx list: %w", err)
+	}
+
+	return isBlockPreconfirmed(
+		ctx,
+		rpc,
+		&createPayloadAndSetHeadMetaData{
+			createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
+			AnchorBlockID:                   new(big.Int).SetUint64(metadata.Pacaya().GetAnchorBlockID()),
+			AnchorBlockHash:                 metadata.Pacaya().GetAnchorBlockHash(),
+			BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
+			Parent:                          parent,
+		},
+		b,
+		anchorTx,
+	)
+}
+
 // isBlockPreconfirmed checks if the block is preconfirmed.
 func isBlockPreconfirmed(
 	ctx context.Context,
@@ -319,4 +349,150 @@ func isBlockPreconfirmed(
 	}
 
 	return block.Header(), nil
+}
+
+// assembleCreateExecutionPayloadMetaPacaya assembles the metadata for creating an execution payload,
+// and the `TaikoAnchor.anchorV3` transaction for the given Pacaya block.
+func assembleCreateExecutionPayloadMetaPacaya(
+	ctx context.Context,
+	rpc *rpc.Client,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	metadata metadata.TaikoProposalMetaData,
+	allTxsInBatch []*types.Transaction,
+	parent *types.Header,
+	blockIndex int,
+) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
+	if !metadata.IsPacaya() {
+		return nil, nil, fmt.Errorf("metadata is not for Pacaya fork")
+	}
+	if blockIndex >= len(metadata.Pacaya().GetBlocks()) {
+		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
+	}
+
+	var (
+		meta         = metadata.Pacaya()
+		blockID      = new(big.Int).Add(parent.Number, common.Big1)
+		blockInfo    = meta.GetBlocks()[blockIndex]
+		txListCursor = 0
+	)
+	difficulty, err := encoding.CalculatePacayaDifficulty(blockID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
+	}
+	timestamp := meta.GetLastBlockTimestamp()
+	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
+		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
+	}
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, true, meta.GetBaseFeeConfig(), timestamp)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.Info(
+		"L2 baseFee",
+		"blockID", blockID,
+		"baseFee", utils.WeiToGWei(baseFee),
+		"parentGasUsed", parent.GasUsed,
+		"batchID", meta.GetBatchID(),
+		"indexInBatch", blockIndex,
+	)
+
+	// Assemble a TaikoAnchor.anchorV3 transaction
+	anchorBlockHeader, err := rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
+	}
+
+	anchorTx, err := anchorConstructor.AssembleAnchorV3Tx(
+		ctx,
+		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+		anchorBlockHeader.Root,
+		parent.GasUsed,
+		meta.GetBaseFeeConfig(),
+		meta.GetBlocks()[blockIndex].SignalSlots,
+		blockID,
+		baseFee,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
+	}
+
+	for i := 0; i < blockIndex; i++ {
+		txListCursor += int(meta.GetBlocks()[i].NumTransactions)
+	}
+
+	// Get transactions in the block.
+	txs := types.Transactions{}
+	if txListCursor+int(blockInfo.NumTransactions) <= len(allTxsInBatch) {
+		txs = allTxsInBatch[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
+	} else if txListCursor < len(allTxsInBatch) {
+		txs = allTxsInBatch[txListCursor:]
+	}
+
+	return &createExecutionPayloadsMetaData{
+		BlockID:               blockID,
+		ExtraData:             meta.GetExtraData(),
+		SuggestedFeeRecipient: meta.GetCoinbase(),
+		GasLimit:              uint64(meta.GetGasLimit()),
+		Difficulty:            common.BytesToHash(difficulty),
+		Timestamp:             timestamp,
+		ParentHash:            parent.Hash(),
+		L1Origin: &rawdb.L1Origin{
+			BlockID:       blockID,
+			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+			L1BlockHeight: meta.GetRawBlockHeight(),
+			L1BlockHash:   meta.GetRawBlockHash(),
+		},
+		Txs:         txs,
+		Withdrawals: make([]*types.Withdrawal, 0),
+		BaseFee:     baseFee,
+	}, anchorTx, nil
+}
+
+func updateL1OriginForBatch(
+	ctx context.Context,
+	rpc *rpc.Client,
+	metadata metadata.TaikoProposalMetaData,
+) error {
+	if !metadata.IsPacaya() {
+		return fmt.Errorf("metadata is not for Pacaya fork")
+	}
+
+	var (
+		meta = metadata.Pacaya()
+		g    = new(errgroup.Group)
+	)
+
+	for i := 0; i < len(meta.GetBlocks()); i++ {
+		g.Go(func() error {
+			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(len(meta.GetBlocks())-1-i))
+
+			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
+			if err != nil {
+				return fmt.Errorf("failed to get block by number %d: %w", blockID, err)
+			}
+
+			l1Origin := &rawdb.L1Origin{
+				BlockID:       blockID,
+				L2BlockHash:   header.Hash(),
+				L1BlockHeight: meta.GetRawBlockHeight(),
+				L1BlockHash:   meta.GetRawBlockHash(),
+			}
+
+			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
+				return fmt.Errorf("failed to update L1 origin: %w", err)
+			}
+
+			// If this is the most recent block, update the HeadL1Origin.
+			if i == len(meta.GetBlocks())-1 {
+				log.Info("Update head L1 origin", "blockID", blockID, "l1Origin", l1Origin)
+				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
+					return fmt.Errorf("failed to write head L1 origin: %w", err)
+				}
+			}
+
+			return nil
+		})
+	}
+	return g.Wait()
 }

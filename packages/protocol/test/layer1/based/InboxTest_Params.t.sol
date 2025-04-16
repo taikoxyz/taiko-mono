@@ -14,7 +14,7 @@ contract InboxTest_Params is InboxTestBase {
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 5e18, // 5 Taiko token per block
+            livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -91,6 +91,7 @@ contract InboxTest_Params is InboxTestBase {
         blocks[0] = ITaikoInbox.BlockParams({
             numTransactions: 0,
             timeShift: 0,
+            marker: 0,
             signalSlots: new bytes32[](0)
         });
 

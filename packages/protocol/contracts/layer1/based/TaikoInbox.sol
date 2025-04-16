@@ -152,13 +152,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // use
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
+
             info_ = BatchInfo({
                 txsHash: bytes32(0), // to be initialised later
                 //
                 // Data to build L2 blocks
                 blocks: params.blocks,
                 blobHashes: new bytes32[](0), // to be initialised later
-                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+                extraDataList: new bytes32[](0), // to be initliaised later
                 coinbase: params.coinbase,
                 proposedIn: uint64(block.number),
                 blobCreatedIn: params.blobParams.createdIn,
@@ -174,11 +175,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 baseFeeConfig: config.baseFeeConfig
             });
 
+            uint64 nBlocks = uint64(params.blocks.length);
+            info_.extraDataList = new bytes32[](nBlocks);
+
+            for (uint256 i; i < nBlocks; ++i) {
+                info_.extraDataList[i] =
+                    _encodeExtraData(config.baseFeeConfig.sharingPctg, params.blocks[i].marker);
+            }
+
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
             info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                ? stats2.numBatches + uint64(params.blocks.length) - 1
-                : lastBatch.lastBlockId + uint64(params.blocks.length);
+                ? stats2.numBatches + nBlocks - 1
+                : lastBatch.lastBlockId + nBlocks;
 
             (info_.txsHash, info_.blobHashes) =
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
@@ -204,14 +213,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             batch.reserved4 = 0;
             // SSTORE }}
 
-            uint96 livenessBond =
-                config.livenessBondBase + config.livenessBondPerBlock * uint96(params.blocks.length);
-            _debitBond(params.proposer, livenessBond);
+            _debitBond(params.proposer, config.livenessBondBase);
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
             batch.reserved3 = 0;
-            batch.livenessBond = livenessBond;
+            batch.livenessBond = config.livenessBondBase;
             // SSTORE }}
 
             stats2.numBatches += 1;
@@ -761,9 +768,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
     {
-        uint256 blocksLength = _params.blocks.length;
-        require(blocksLength != 0, BlockNotFound());
-        require(blocksLength <= _maxBlocksPerBatch, TooManyBlocks());
+        uint256 nBlocks = _params.blocks.length;
+        require(nBlocks != 0, BlockNotFound());
+        require(nBlocks <= _maxBlocksPerBatch, TooManyBlocks());
 
         unchecked {
             if (_params.anchorBlockId == 0) {
@@ -790,7 +797,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             uint64 totalShift;
 
-            for (uint256 i; i < blocksLength; ++i) {
+            for (uint256 i; i < nBlocks; ++i) {
                 totalShift += _params.blocks[i].timeShift;
 
                 uint256 numSignals = _params.blocks[i].signalSlots.length;
@@ -826,6 +833,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 ParentMetaHashMismatch()
             );
         }
+    }
+
+    function _encodeExtraData(uint8 _sharingPctg, uint8 _marker) internal pure returns (bytes32) {
+        return bytes32(uint256(_marker) << 8 | _sharingPctg);
     }
 
     // Memory-only structs ----------------------------------------------------------------------
