@@ -28,6 +28,11 @@ import (
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 )
 
+var (
+	errInvalidCurrOperator = errors.New("invalid operator: expected current operator in handover window")
+	errInvalidNextOperator = errors.New("invalid operator: expected next operator in handover window")
+)
+
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload) ([]*types.Header, error)
@@ -56,12 +61,14 @@ type PreconfBlockAPIServer struct {
 	payloadsCache  *payloadQueue
 	lookahead      *Lookahead
 	lookaheadMutex sync.Mutex
+	handoverSlots  uint64
 }
 
 // New creates a new preconf block server instance, and starts the server.
 func New(
 	cors string,
 	jwtSecret []byte,
+	handoverSlots uint64,
 	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
@@ -75,6 +82,7 @@ func New(
 		echo:            echo.New(),
 		anchorValidator: anchorValidator,
 		chainSyncer:     chainSyncer,
+		handoverSlots:   handoverSlots,
 		rpc:             cli,
 		payloadsCache:   newPayloadQueue(),
 		lookahead:       &Lookahead{},
@@ -447,4 +455,45 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 	s.lookahead = l
+}
+
+// checkLookaheadHandover checks if the current operator is in the handover window.
+func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address) error {
+	if s.lookahead == nil || s.rpc.L1Beacon == nil {
+		log.Warn("Lookahead has not been cached yet, skipping handover check")
+		return nil
+	}
+
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	var (
+		handoverSlots = s.handoverSlots
+		slotsPerEpoch = s.rpc.L1Beacon.SlotsPerEpoch
+		currentSlot   = s.rpc.L1Beacon.CurrentSlot()
+	)
+
+	// If the current operator is the same as the next operator, no need to check.
+	if s.lookahead.CurrOperator.Hex() == s.lookahead.NextOperator.Hex() {
+		return nil
+	}
+
+	// Calculate the threshold for handover slots.
+	threshold := slotsPerEpoch - handoverSlots
+
+	if currentSlot < threshold {
+		// For slots [0, threshold-1], only the current operator is allowed.
+		if s.lookahead.CurrOperator.Hex() != feeRecipient.Hex() {
+			return errInvalidCurrOperator
+		}
+
+		return nil
+	} else {
+		// For slots [threshold, slotsPerEpoch-1], only the next operator is allowed.
+		if s.lookahead.NextOperator.Hex() != feeRecipient.Hex() {
+			return errInvalidNextOperator
+		}
+
+		return nil
+	}
 }
