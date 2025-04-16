@@ -51,7 +51,6 @@ contract MockTaikoInbox is EssentialContract {
         meta_ = ITaikoInbox.BatchMetadata({
             batchId: 0,
             prover: params.proposer,
-            usingProverMarket: false,
             proposedAt: uint64(block.timestamp),
             infoHash: keccak256(abi.encode(info_))
         });

@@ -201,7 +201,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             meta_ = BatchMetadata({
                 infoHash: keccak256(abi.encode(info_)),
                 prover: info_.proposer,
-                usingProverMarket: false,
                 batchId: stats2.numBatches,
                 proposedAt: uint64(block.timestamp)
             });
@@ -211,7 +210,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 (meta_.prover, proverFee) = proverMarket.getCurrentProver();
                 require(meta_.prover != address(0), NoProverAvailable());
 
-                meta_.usingProverMarket = true;
                 proverMarket.onProverAssigned(meta_.prover, proverFee, meta_.batchId);
 
                 if (info_.proposer == meta_.prover) {

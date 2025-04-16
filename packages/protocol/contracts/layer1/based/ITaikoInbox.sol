@@ -91,7 +91,6 @@ interface ITaikoInbox {
     struct BatchMetadata {
         bytes32 infoHash;
         address prover;
-        bool usingProverMarket;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
     }
