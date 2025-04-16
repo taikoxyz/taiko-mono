@@ -574,46 +574,41 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
         WhenLogAllBatchesAndTransitions
     {
-        uint64 count = 10;
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](10);
 
         vm.startSnapshotGas("proposeBatch");
+        (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+        uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
-        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(count);
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
+        metas[0] = meta;
 
-        uint256 gasProposeBatches = vm.stopSnapshotGas("proposeBatch");
-        console2.log("Gas per batch - proposing:", gasProposeBatches / count);
-
-        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](count);
-        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](count);
-
-        for (uint256 i; i < batchIds.length; ++i) {
-            (metas[i],) = _loadMetadataAndInfo(batchIds[i]);
-
-            transitions[i].parentHash = correctBlockhash(batchIds[i] - 1);
-            transitions[i].blockHash = correctBlockhash(batchIds[i]);
-            transitions[i].stateRoot = correctStateRoot(batchIds[i]);
-        }
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
+        transitions[0].parentHash = correctBlockhash(meta.batchId - 1);
+        transitions[0].blockHash = correctBlockhash(meta.batchId);
+        transitions[0].stateRoot = correctStateRoot(meta.batchId);
 
         vm.startSnapshotGas("proveBatches");
         inbox.proveBatches(abi.encode(metas, transitions), "proof");
-        uint256 gasProveBatches = vm.stopSnapshotGas("proveBatches");
-        console2.log("Gas per batch - proving:", gasProveBatches / count);
-        console2.log("Gas per batch - total:", (gasProposeBatches + gasProveBatches) / count);
+        uint256 gas2 = vm.stopSnapshotGas("proveBatches");
 
         _logAllBatchesAndTransitions();
 
         string memory str = string(
             abi.encodePacked(
                 "See `test_inbox_measure_gas_used` in InboxTest_ProposeAndProve.t.sol\n",
-                "\nGas per proposeBatches: ",
-                Strings.toString(gasProposeBatches / count),
-                "\nGas per proveBatches: ",
-                Strings.toString(gasProveBatches / count),
+                "\nGas per proposing: ",
+                Strings.toString(gas1),
+                "\nGas per proving + verification: ",
+                Strings.toString(gas2),
                 "\nTotal: ",
-                Strings.toString((gasProposeBatches + gasProveBatches) / count)
+                Strings.toString((gas1 + gas2))
             )
         );
 
+        console2.log(str);
         vm.writeFile("./deployments/test_inbox_measure_gas_used.txt", str);
     }
 }
