@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
+import "src/layer1/prover-market/ProverMarket.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";

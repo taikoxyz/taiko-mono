@@ -86,6 +86,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
         minExitDelay = _minExitDelay;
     }
 
+    /// @notice Initializes the ProverMarket contract
+    /// @param _addressManager The address of the address manager contract
+    function initialize(address _addressManager) external initializer {
+        __Essential_init(_addressManager);
+    }
+
     function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
         require(_fee > 0 && _fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
         require(_fee / (1 gwei) <= type(uint64).max, CannotFitToUint64());
@@ -138,7 +144,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
         return currentProver == address(0)
             ? (address(0), 0)
-            : (currentProver, 1 gwei * currentFeeInGwei);
+            : (currentProver, 1 gwei * uint256(currentFeeInGwei));
     }
 
     /// @inheritdoc IProverMarket
