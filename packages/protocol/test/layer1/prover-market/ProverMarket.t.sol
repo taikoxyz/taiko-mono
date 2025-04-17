@@ -24,7 +24,7 @@ contract ProverMarketTest is CommonTest {
     address internal constant PROVER1 = address(0x1);
     address internal constant PROVER2 = address(0x2);
 
-    uint256 internal constant BIaDDING_THRESHOLD = 200 ether;
+    uint256 internal constant BIDDING_THRESHOLD = 200 ether;
     uint256 internal constant OUTBID_THRESHOLD = 100 ether;
     uint256 internal constant PROVING_THRESHOLD = 50 ether;
     uint256 internal constant MIN_EXIT_DELAY = 1 days;
