@@ -579,7 +579,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
@@ -591,7 +591,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].stateRoot = correctStateRoot(meta.batchId);
 
         vm.startSnapshotGas("proveBatches");
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
         uint256 gas2 = vm.stopSnapshotGas("proveBatches");
 
         _logAllBatchesAndTransitions();
@@ -633,8 +633,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         proverMarket.bid(fee, exitTimestamp);
 
         // Check if Alice's and Bob's bonds are correctly deducted !
-        uint256 alice_bond_before_propose = inbox.bondBalanceOf(Alice);
-        uint256 bob_bond_before_propose = inbox.bondBalanceOf(Bob);
+        uint256 alice_bond_before_propose = inbox.v4BondBalanceOf(Alice);
+        uint256 bob_bond_before_propose = inbox.v4BondBalanceOf(Bob);
 
         vm.startPrank(Alice);
 
@@ -644,7 +644,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
@@ -655,16 +655,16 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].blockHash = correctBlockhash(meta.batchId);
         transitions[0].stateRoot = correctStateRoot(meta.batchId);
 
-        uint256 alice_bond_after_propose = inbox.bondBalanceOf(Alice);
+        uint256 alice_bond_after_propose = inbox.v4BondBalanceOf(Alice);
         // Check if Alice's bond is correctly deducted - only fee
         assertEq(alice_bond_after_propose, alice_bond_before_propose - fee);
 
-        uint256 bob_bond_after_propose = inbox.bondBalanceOf(Bob);
+        uint256 bob_bond_after_propose = inbox.v4BondBalanceOf(Bob);
         // Since prover fee is smaller than config.liveness, just deduct the diff of the 2.
         assertEq(bob_bond_after_propose, bob_bond_before_propose - (125e18 - fee));
 
         vm.startSnapshotGas("proveBatches");
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
         uint256 gas2 = vm.stopSnapshotGas("proveBatches");
 
         _logAllBatchesAndTransitions();
@@ -682,10 +682,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         );
 
         console2.log(str);
-        vm.writeFile(
-            "./gas-reports/inbox_with_provermarket_diff_prover_and_proposer.md",
-            str
-        );
+        vm.writeFile("./gas-reports/inbox_with_provermarket_diff_prover_and_proposer.md", str);
     }
 
     function test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used(
@@ -710,9 +707,9 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         proverMarket.bid(fee, exitTimestamp);
 
         // Check if Alice's bond is correctly deducted !
-        uint256 alice_bond_before_propose = inbox.bondBalanceOf(Alice);
+        uint256 alice_bond_before_propose = inbox.v4BondBalanceOf(Alice);
         // Check if Bob's bond is correctly deducted !
-        uint256 bob_bond_before_propose = inbox.bondBalanceOf(Bob);
+        uint256 bob_bond_before_propose = inbox.v4BondBalanceOf(Bob);
 
         vm.startPrank(Alice);
 
@@ -722,7 +719,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
@@ -733,16 +730,16 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].blockHash = correctBlockhash(meta.batchId);
         transitions[0].stateRoot = correctStateRoot(meta.batchId);
 
-        uint256 alice_bond_after_propose = inbox.bondBalanceOf(Alice);
+        uint256 alice_bond_after_propose = inbox.v4BondBalanceOf(Alice);
         // Check if Alice's bond is correctly deducted - only fee
         assertEq(alice_bond_after_propose, alice_bond_before_propose - fee);
 
-        uint256 bob_bond_after_propose = inbox.bondBalanceOf(Bob);
+        uint256 bob_bond_after_propose = inbox.v4BondBalanceOf(Bob);
         // Since prover fee is bigger than config.liveness, just add the diff of the 2.
         assertEq(bob_bond_after_propose, bob_bond_before_propose + (fee - 125e18));
 
         vm.startSnapshotGas("proveBatches");
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
         uint256 gas2 = vm.stopSnapshotGas("proveBatches");
 
         _logAllBatchesAndTransitions();
@@ -779,7 +776,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         proverMarket.bid(fee, exitTimestamp);
 
         // Check if Alice's bond is correctly deducted !
-        uint256 alice_bond_before_propose = inbox.bondBalanceOf(Alice);
+        uint256 alice_bond_before_propose = inbox.v4BondBalanceOf(Alice);
 
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](10);
@@ -787,11 +784,11 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         // Check if Alice's bond is correctly deducted - only liveness bond base
-        uint256 alice_bond_after_propose = inbox.bondBalanceOf(Alice);
+        uint256 alice_bond_after_propose = inbox.v4BondBalanceOf(Alice);
         assertEq(alice_bond_after_propose, alice_bond_before_propose - 125e18);
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
@@ -803,7 +800,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].stateRoot = correctStateRoot(meta.batchId);
 
         vm.startSnapshotGas("proveBatches");
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
         uint256 gas2 = vm.stopSnapshotGas("proveBatches");
 
         _logAllBatchesAndTransitions();
