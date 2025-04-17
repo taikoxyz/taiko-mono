@@ -201,7 +201,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             meta_ = BatchMetadata({
                 infoHash: keccak256(abi.encode(info_)),
                 prover: info_.proposer,
-                usingProverMarket: false,
                 batchId: stats2.numBatches,
                 proposedAt: uint64(block.timestamp)
             });
@@ -211,12 +210,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 (meta_.prover, proverFee) = proverMarket.getCurrentProver();
                 require(meta_.prover != address(0), NoProverAvailable());
 
-                _debitBond(info_.proposer, proverFee);
-                _creditBond(meta_.prover, proverFee);
+                if (info_.proposer == meta_.prover) {
+                    // proposer is the same as the prover, no need to pay the prover fee.
+                    _debitBond(meta_.prover, config.livenessBondBase);
+                } else {
+                    // proposer pay the prover fee.
+                    _debitBond(info_.proposer, proverFee);
 
-                meta_.usingProverMarket = true;
-
-                proverMarket.onProverAssigned(meta_.prover, proverFee, meta_.batchId);
+                    if (proverFee < config.livenessBondBase) {
+                        _debitBond(meta_.prover, config.livenessBondBase - proverFee);
+                    } else {
+                        _creditBond(meta_.prover, proverFee - config.livenessBondBase);
+                    }
+                    proverMarket.onProverAssigned(meta_.prover, proverFee, meta_.batchId);
+                }
+            } else {
+                // proposer is the same as the prover, no need to pay the prover fee.
+                _debitBond(meta_.prover, config.livenessBondBase);
             }
 
             Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -232,8 +242,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             batch.verifiedTransitionId = 0;
             batch.reserved4 = 0;
             // SSTORE }}
-
-            _debitBond(params.proposer, config.livenessBondBase);
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;

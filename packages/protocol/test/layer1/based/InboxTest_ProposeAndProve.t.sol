@@ -578,7 +578,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         batchParams.blocks = new ITaikoInbox.BlockParams[](10);
 
         vm.startSnapshotGas("proposeBatch");
-        (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+        (, ITaikoInbox.BatchMetadata memory meta) =
             inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
@@ -610,5 +610,220 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         console2.log(str);
         vm.writeFile("./deployments/test_inbox_measure_gas_used.txt", str);
+    }
+
+    function test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used()
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
+        WhenLogAllBatchesAndTransitions
+    {
+        uint256 fee = 1 ether;
+        uint64 exitTimestamp = uint64(block.timestamp + 2 days);
+
+        vm.stopPrank();
+
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondAmount = 100_000 ether;
+
+        setupBondTokenState(Bob, initialBondBalance, bondAmount);
+
+        vm.prank(Bob);
+        proverMarket.bid(fee, exitTimestamp);
+
+        // Check if Alice's and Bob's bonds are correctly deducted !
+        uint256 alice_bond_before_propose = inbox.bondBalanceOf(Alice);
+        uint256 bob_bond_before_propose = inbox.bondBalanceOf(Bob);
+
+        vm.startPrank(Alice);
+
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](10);
+        batchParams.optInProverMarket = true;
+
+        vm.startSnapshotGas("proposeBatch");
+        (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+        uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
+
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
+        metas[0] = meta;
+
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
+        transitions[0].parentHash = correctBlockhash(meta.batchId - 1);
+        transitions[0].blockHash = correctBlockhash(meta.batchId);
+        transitions[0].stateRoot = correctStateRoot(meta.batchId);
+
+        uint256 alice_bond_after_propose = inbox.bondBalanceOf(Alice);
+        // Check if Alice's bond is correctly deducted - only fee
+        assertEq(alice_bond_after_propose, alice_bond_before_propose - fee);
+
+        uint256 bob_bond_after_propose = inbox.bondBalanceOf(Bob);
+        // Since prover fee is smaller than config.liveness, just deduct the diff of the 2.
+        assertEq(bob_bond_after_propose, bob_bond_before_propose - (125e18 - fee));
+
+        vm.startSnapshotGas("proveBatches");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        uint256 gas2 = vm.stopSnapshotGas("proveBatches");
+
+        _logAllBatchesAndTransitions();
+
+        string memory str = string(
+            abi.encodePacked(
+                "See `test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used` in InboxTest_ProposeAndProve.t.sol\n",
+                "\nGas per proposing: ",
+                Strings.toString(gas1),
+                "\nGas per proving + verification: ",
+                Strings.toString(gas2),
+                "\nTotal: ",
+                Strings.toString((gas1 + gas2))
+            )
+        );
+
+        console2.log(str);
+        vm.writeFile(
+            "./deployments/test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used.txt",
+            str
+        );
+    }
+
+    function test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used(
+    )
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
+        WhenLogAllBatchesAndTransitions
+    {
+        uint256 fee = 130 ether; // above the liveness bond
+        uint64 exitTimestamp = uint64(block.timestamp + 2 days);
+
+        vm.stopPrank();
+
+        uint256 initialBondBalance = 100_000 ether;
+        uint256 bondAmount = 100_000 ether;
+
+        setupBondTokenState(Bob, initialBondBalance, bondAmount);
+
+        vm.prank(Bob);
+        proverMarket.bid(fee, exitTimestamp);
+
+        // Check if Alice's bond is correctly deducted !
+        uint256 alice_bond_before_propose = inbox.bondBalanceOf(Alice);
+        // Check if Bob's bond is correctly deducted !
+        uint256 bob_bond_before_propose = inbox.bondBalanceOf(Bob);
+
+        vm.startPrank(Alice);
+
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](10);
+        batchParams.optInProverMarket = true;
+
+        vm.startSnapshotGas("proposeBatch");
+        (, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+        uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
+
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
+        metas[0] = meta;
+
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
+        transitions[0].parentHash = correctBlockhash(meta.batchId - 1);
+        transitions[0].blockHash = correctBlockhash(meta.batchId);
+        transitions[0].stateRoot = correctStateRoot(meta.batchId);
+
+        uint256 alice_bond_after_propose = inbox.bondBalanceOf(Alice);
+        // Check if Alice's bond is correctly deducted - only fee
+        assertEq(alice_bond_after_propose, alice_bond_before_propose - fee);
+
+        uint256 bob_bond_after_propose = inbox.bondBalanceOf(Bob);
+        // Since prover fee is bigger than config.liveness, just add the diff of the 2.
+        assertEq(bob_bond_after_propose, bob_bond_before_propose + (fee - 125e18));
+
+        vm.startSnapshotGas("proveBatches");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        uint256 gas2 = vm.stopSnapshotGas("proveBatches");
+
+        _logAllBatchesAndTransitions();
+
+        string memory str = string(
+            abi.encodePacked(
+                "See `test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used` in InboxTest_ProposeAndProve.t.sol\n",
+                "\nGas per proposing: ",
+                Strings.toString(gas1),
+                "\nGas per proving + verification: ",
+                Strings.toString(gas2),
+                "\nTotal: ",
+                Strings.toString((gas1 + gas2))
+            )
+        );
+
+        console2.log(str);
+        vm.writeFile(
+            "./deployments/test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used.txt",
+            str
+        );
+    }
+
+    function test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used()
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(9)
+        WhenMultipleBatchesAreProvedWithCorrectTransitions(1, 10)
+        WhenLogAllBatchesAndTransitions
+    {
+        uint256 fee = 10 gwei;
+        uint64 exitTimestamp = uint64(block.timestamp + 2 days);
+
+        proverMarket.bid(fee, exitTimestamp);
+
+        // Check if Alice's bond is correctly deducted !
+        uint256 alice_bond_before_propose = inbox.bondBalanceOf(Alice);
+
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](10);
+        batchParams.optInProverMarket = true;
+
+        vm.startSnapshotGas("proposeBatch");
+        (, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+        uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
+
+        // Check if Alice's bond is correctly deducted - only liveness bond base
+        uint256 alice_bond_after_propose = inbox.bondBalanceOf(Alice);
+        assertEq(alice_bond_after_propose, alice_bond_before_propose - 125e18);
+
+        ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
+        metas[0] = meta;
+
+        ITaikoInbox.Transition[] memory transitions = new ITaikoInbox.Transition[](1);
+        transitions[0].parentHash = correctBlockhash(meta.batchId - 1);
+        transitions[0].blockHash = correctBlockhash(meta.batchId);
+        transitions[0].stateRoot = correctStateRoot(meta.batchId);
+
+        vm.startSnapshotGas("proveBatches");
+        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        uint256 gas2 = vm.stopSnapshotGas("proveBatches");
+
+        _logAllBatchesAndTransitions();
+
+        string memory str = string(
+            abi.encodePacked(
+                "See `test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used` in InboxTest_ProposeAndProve.t.sol\n",
+                "\nGas per proposing: ",
+                Strings.toString(gas1),
+                "\nGas per proving + verification: ",
+                Strings.toString(gas2),
+                "\nTotal: ",
+                Strings.toString((gas1 + gas2))
+            )
+        );
+
+        console2.log(str);
+        vm.writeFile(
+            "./deployments/test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used.txt",
+            str
+        );
     }
 }

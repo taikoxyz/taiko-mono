@@ -26,6 +26,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint16 public constant FEE_CHANGE_THRESHOLD = 10;
     uint256 public constant MAX_FEE_MULTIPLIER = 2;
     uint256 public constant NEW_BID_PERCENTAGE = 95;
+    uint256 internal constant GWEI = 10 ** 9;
 
     struct Prover {
         uint64 exitTimestamp;
@@ -86,14 +87,20 @@ contract ProverMarket is EssentialContract, IProverMarket {
         minExitDelay = _minExitDelay;
     }
 
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+
     function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
-        require(_fee > 0 && _fee % (1 gwei) == 0, FeeNotDivisibleByFeeUnit());
-        require(_fee / (1 gwei) <= type(uint64).max, CannotFitToUint64());
+        require(_fee > 0 && _fee % GWEI == 0, FeeNotDivisibleByFeeUnit());
+        require(_fee / GWEI <= type(uint64).max, CannotFitToUint64());
 
         uint256 maxFee = getMaxFee();
         require(maxFee == 0 || _fee <= maxFee, FeeLargerThanMax());
 
-        uint64 _newFeeInGwei = uint64(_fee / (1 gwei));
+        uint64 _newFeeInGwei = uint64(_fee / GWEI);
 
         require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
@@ -101,19 +108,19 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         // If there is no prover, the new prover can set any fee.
         if (currentProver != address(0)) {
-            uint256 maxFeePerScenario;
+            uint256 maxFeeInGwei;
 
             if (inbox.bondBalanceOf(currentProver) < outbidThreshold) {
                 // The current prover has less than outbidThreshold, so the new prover can set any
                 // fee as long as it's not larger than the current fee
-                maxFeePerScenario = currentFeeInGwei;
+                maxFeeInGwei = currentFeeInGwei;
             } else {
                 // The current prover has more than outbidThreshold, so the new prover can set any
                 // fee as long as it's not larger than 95% of the current fee
-                maxFeePerScenario = currentFeeInGwei * NEW_BID_PERCENTAGE / 100;
+                maxFeeInGwei = currentFeeInGwei * NEW_BID_PERCENTAGE / 100;
             }
 
-            require(_newFeeInGwei <= maxFeePerScenario, FeeLargerThanAllowed());
+            require(_newFeeInGwei <= maxFeeInGwei, FeeLargerThanAllowed());
         }
 
         prover = msg.sender;
@@ -130,15 +137,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
         require(currentProver != address(0) && msg.sender == currentProver, NotCurrentProver());
 
         provers[msg.sender].exitTimestamp = _exitTimestamp;
-        emit ProverChanged(msg.sender, 1 gwei * currentFeeInGwei, _exitTimestamp);
+        emit ProverChanged(msg.sender, currentFeeInGwei * GWEI, _exitTimestamp);
     }
 
     /// @inheritdoc IProverMarket
     function getCurrentProver() public view returns (address, uint256) {
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
-        return currentProver == address(0)
-            ? (address(0), 0)
-            : (currentProver, 1 gwei * currentFeeInGwei);
+        return
+            currentProver == address(0) ? (address(0), 0) : (currentProver, currentFeeInGwei * GWEI);
     }
 
     /// @inheritdoc IProverMarket
@@ -159,7 +165,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         if (++assignmentCount <= FEE_CHANGE_THRESHOLD) {
             uint64 _avgFeeInGwei = avgFeeInGwei;
-            uint64 _feeInGwei = uint64(_fee / 1 gwei);
+            uint64 _feeInGwei = uint64(_fee / GWEI);
 
             unchecked {
                 avgFeeInGwei = _avgFeeInGwei == 0
@@ -170,7 +176,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     function getMaxFee() public view returns (uint256) {
-        return (MAX_FEE_MULTIPLIER * avgFeeInGwei).min(type(uint64).max) * 1 gwei;
+        return (MAX_FEE_MULTIPLIER * avgFeeInGwei).min(type(uint64).max) * GWEI;
     }
 
     function _getCurrentProverAndFeeInGwei() internal view returns (address, uint64) {
