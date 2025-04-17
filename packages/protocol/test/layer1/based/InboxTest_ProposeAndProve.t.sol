@@ -822,7 +822,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         console2.log(str);
         vm.writeFile(
-            "./gas-reports/test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used.txt",
+            "./gas-reports/test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used.md",
             str
         );
     }
