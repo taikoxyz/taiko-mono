@@ -67,7 +67,7 @@ else
 fi
 
 # Empty the output file initially
-output_file="contract_layout_${profile}.md"
+output_file="layout/${profile}-contracts.md"
 > $output_file
 
 # Loop over each contract
