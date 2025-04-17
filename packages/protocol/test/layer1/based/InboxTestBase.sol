@@ -58,7 +58,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         address proverMarketProxy = address(
             new ERC1967Proxy(
-                proverMarketImpl, abi.encodeCall(ProverMarket.initialize, (address(0)))
+                proverMarketImpl, abi.encodeCall(ProverMarket.init, (address(0)))
             )
         );
 

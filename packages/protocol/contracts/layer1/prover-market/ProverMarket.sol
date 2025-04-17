@@ -87,10 +87,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
         minExitDelay = _minExitDelay;
     }
 
-    /// @notice Initializes the ProverMarket contract
-    /// @param _addressManager The address of the address manager contract
-    function initialize(address _addressManager) external initializer {
-        __Essential_init(_addressManager);
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     function bid(uint256 _fee, uint64 _exitTimestamp) external validExitTimestamp(_exitTimestamp) {
