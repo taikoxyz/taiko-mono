@@ -137,9 +137,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @inheritdoc IProverMarket
     function getCurrentProver() public view returns (address, uint256) {
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
-        return currentProver == address(0)
-            ? (address(0), 0)
-            : (currentProver, 1 gwei * currentFeeInGwei);
+        return
+            currentProver == address(0) ? (address(0), 0) : (currentProver, currentFeeInGwei * GWEI);
     }
 
     /// @inheritdoc IProverMarket
