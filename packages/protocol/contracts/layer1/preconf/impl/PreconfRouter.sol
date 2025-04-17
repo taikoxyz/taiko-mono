@@ -52,6 +52,6 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
-        require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());
+        require(info_.proposer == msg.sender, ProposerIsNotPreconfer());
     }
 }
