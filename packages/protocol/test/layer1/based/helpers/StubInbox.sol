@@ -50,13 +50,13 @@ contract StubInbox is ITaikoInbox {
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory)
+        returns (uint64 batchId_, TransitionState memory)
     { }
 
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory)
+        returns (uint64 batchId_, TransitionState memory)
     { }
 
     function getBatchVerifyingTransition(uint64 _batchId)

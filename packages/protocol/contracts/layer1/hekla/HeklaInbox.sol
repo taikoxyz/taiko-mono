@@ -32,7 +32,8 @@ contract HeklaInbox is TaikoInbox {
         bytes32 _blockHash,
         bytes32 _stateRoot,
         address _prover,
-        bool _inProvingWindow
+        bool _inProvingWindow,
+        uint64 _lastBlockId
     )
         external
         onlyOwner
@@ -58,6 +59,7 @@ contract HeklaInbox is TaikoInbox {
         ts.prover = _prover;
         ts.inProvingWindow = _inProvingWindow;
         ts.createdAt = uint48(block.timestamp);
+        ts.lastBlockId = _lastBlockId;
 
         if (tid == 1) {
             ts.parentHash = _parentHash;
@@ -74,7 +76,8 @@ contract HeklaInbox is TaikoInbox {
                 _stateRoot,
                 _prover,
                 _inProvingWindow,
-                uint48(block.timestamp)
+                uint48(block.timestamp),
+                _lastBlockId
             )
         );
     }

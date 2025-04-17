@@ -59,16 +59,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
-            inbox.getLastVerifiedTransition();
+        (uint64 batchId, ITaikoInbox.TransitionState memory ts) = inbox.getLastVerifiedTransition();
         assertEq(batchId, 0);
-        assertEq(blockId, 0);
+        assertEq(ts.lastBlockId, 0);
         assertEq(ts.blockHash, correctBlockhash(0));
         assertEq(ts.stateRoot, bytes32(uint256(0)));
 
-        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
+        (batchId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 0);
-        assertEq(blockId, 0);
+        assertEq(ts.lastBlockId, 0);
         assertEq(ts.blockHash, correctBlockhash(0));
         assertEq(ts.stateRoot, bytes32(uint256(0)));
     }
@@ -223,10 +222,9 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
-            inbox.getLastVerifiedTransition();
+        (uint64 batchId, ITaikoInbox.TransitionState memory ts) = inbox.getLastVerifiedTransition();
         assertEq(batchId, 9);
-        assertEq(blockId, 9);
+        assertEq(ts.lastBlockId, 9);
         assertEq(ts.blockHash, correctBlockhash(9));
         assertEq(ts.stateRoot, bytes32(uint256(0)));
 
@@ -246,9 +244,9 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(ts.blockHash, correctBlockhash(9));
         assertEq(ts.stateRoot, bytes32(uint256(0)));
 
-        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
+        (batchId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 5);
-        assertEq(blockId, 5);
+        assertEq(ts.lastBlockId, 5);
         assertEq(ts.blockHash, correctBlockhash(5));
         assertEq(ts.stateRoot, correctStateRoot(5));
 
@@ -303,16 +301,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
-            inbox.getLastVerifiedTransition();
+        (uint64 batchId, ITaikoInbox.TransitionState memory ts) = inbox.getLastVerifiedTransition();
         assertEq(batchId, 9);
-        assertEq(blockId, 9 * 7);
+        assertEq(ts.lastBlockId, 9 * 7);
         assertEq(ts.blockHash, correctBlockhash(9));
         assertEq(ts.stateRoot, bytes32(uint256(0)));
 
-        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
+        (batchId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 5);
-        assertEq(blockId, 5 * 7);
+        assertEq(ts.lastBlockId, 5 * 7);
         assertEq(ts.blockHash, correctBlockhash(5));
         assertEq(ts.stateRoot, correctStateRoot(5));
 
@@ -335,7 +332,6 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.lastBlockId, i * 7);
             assertEq(batch.anchorBlockId, block.number - 1);
             assertEq(batch.nextTransitionId, 2);
             if (i % pacayaConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
@@ -420,16 +416,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
-            inbox.getLastVerifiedTransition();
+        (uint64 batchId, ITaikoInbox.TransitionState memory ts) = inbox.getLastVerifiedTransition();
         assertEq(batchId, 10);
-        assertEq(blockId, 10);
+        assertEq(ts.lastBlockId, 10);
         assertEq(ts.blockHash, correctBlockhash(10));
         assertEq(ts.stateRoot, correctStateRoot(10));
 
-        (batchId, blockId, ts) = inbox.getLastSyncedTransition();
+        (batchId, ts) = inbox.getLastSyncedTransition();
         assertEq(batchId, 10);
-        assertEq(blockId, 10);
+        assertEq(ts.lastBlockId, 10);
         assertEq(ts.blockHash, correctBlockhash(10));
         assertEq(ts.stateRoot, correctStateRoot(10));
 
@@ -682,10 +677,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         );
 
         console2.log(str);
-        vm.writeFile(
-            "./gas-reports/inbox_with_provermarket_diff_prover_and_proposer.md",
-            str
-        );
+        vm.writeFile("./gas-reports/inbox_with_provermarket_diff_prover_and_proposer.md", str);
     }
 
     function test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used(

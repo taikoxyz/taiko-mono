@@ -231,7 +231,10 @@ abstract contract InboxTestBase is Layer1Test {
             }
             console2.log(unicode"│    |── metahash:", Strings.toHexString(uint256(batch.metaHash)));
             console2.log(unicode"│    |── lastBlockTimestamp:", batch.lastBlockTimestamp);
-            console2.log(unicode"│    |── lastBlockId:", batch.lastBlockId);
+
+            ITaikoInbox.TransitionState memory vts = inbox.getBatchVerifyingTransition(i);
+
+            console2.log(unicode"│    |── lastBlockId:", vts.lastBlockId);
             console2.log(unicode"│    |── livenessBond:", batch.livenessBond);
             console2.log(unicode"│    |── anchorBlockId:", batch.anchorBlockId);
             console2.log(unicode"│    |── nextTransitionId:", batch.nextTransitionId);

@@ -78,8 +78,9 @@ contract TestSP1Verifier is Layer1Test {
             transition: ITaikoInbox.Transition({
                 parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
                 blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
-                stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9
-            })
+                stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9,
+                lastBlockId: 0 // TODO
+             })
         });
         ctxs[1] = IVerifier.Context({
             batchId: 393_334,
@@ -87,8 +88,9 @@ contract TestSP1Verifier is Layer1Test {
             transition: ITaikoInbox.Transition({
                 parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
                 blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,
-                stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9
-            })
+                stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9,
+                lastBlockId: 0 // TODO
+             })
         });
 
         // TypedProof
@@ -105,8 +107,9 @@ contract TestSP1Verifier is Layer1Test {
             transition: ITaikoInbox.Transition({
                 parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,
                 blockHash: 0x9966d3cf051d3d1e44e2a740169627506a619257c95374e812ca572de91ed885,
-                stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860
-            })
+                stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860,
+                lastBlockId: 0 // TODO
+             })
         });
     }
 }

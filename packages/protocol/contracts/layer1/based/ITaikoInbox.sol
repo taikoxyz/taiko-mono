@@ -77,7 +77,6 @@ interface ITaikoInbox {
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
-        uint64 lastBlockId;
         uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
         uint64 anchorBlockId;
@@ -100,6 +99,7 @@ interface ITaikoInbox {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
+        uint64 lastBlockId;
     }
 
     //  @notice Struct representing transition storage
@@ -111,12 +111,13 @@ interface ITaikoInbox {
         address prover;
         bool inProvingWindow;
         uint48 createdAt;
+        uint64 lastBlockId;
     }
 
     /// @notice 3 slots used.
     struct Batch {
         bytes32 metaHash; // slot 1
-        uint64 lastBlockId; // slot 2
+        uint64 reserved1; // slot 2
         uint96 reserved3;
         uint96 livenessBond;
         uint64 batchId; // slot 3
@@ -282,8 +283,10 @@ interface ITaikoInbox {
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
+    error InvalidTransitionLastBlockId();
     error MetaHashMismatch();
     error MsgValueNotZero();
+    error NoopProposalStateRootNonZero();
     error NoBlocksToProve();
     error NoProverAvailable();
     error NotFirstProposal();
@@ -379,21 +382,19 @@ interface ITaikoInbox {
 
     /// @notice Retrieves the transition used for the last verified batch.
     /// @return batchId_ The batch ID of the last verified transition.
-    /// @return blockId_ The block ID of the last verified block.
     /// @return ts_ The last verified transition.
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
+        returns (uint64 batchId_, TransitionState memory ts_);
 
     /// @notice Retrieves the transition used for the last synced batch.
     /// @return batchId_ The batch ID of the last synced transition.
-    /// @return blockId_ The block ID of the last synced block.
     /// @return ts_ The last synced transition.
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
+        returns (uint64 batchId_, TransitionState memory ts_);
 
     /// @notice Retrieves the transition used for verifying a batch.
     /// @param _batchId The batch ID.

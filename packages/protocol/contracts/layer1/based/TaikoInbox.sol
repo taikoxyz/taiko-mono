@@ -172,7 +172,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 blobByteOffset: params.blobParams.byteOffset,
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,
-                lastBlockId: 0, // to be initialised later
                 lastBlockTimestamp: lastBlockTimestamp,
                 //
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
@@ -190,10 +189,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
-
-            info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                ? stats2.numBatches + nBlocks - 1
-                : lastBatch.lastBlockId + nBlocks;
 
             (info_.txsHash, info_.blobHashes) =
                 _calculateTxsHash(keccak256(_txList), params.blobParams);
@@ -244,7 +239,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // SSTORE }}
 
             // SSTORE #3 {{
-            batch.lastBlockId = info_.lastBlockId;
+            batch.reserved1 = 0;
             batch.reserved3 = 0;
             batch.livenessBond = config.livenessBondBase;
             // SSTORE }}
@@ -297,7 +292,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             Transition memory tran = trans[i];
             require(tran.parentHash != 0, InvalidTransitionParentHash());
             require(tran.blockHash != 0, InvalidTransitionBlockHash());
-            require(tran.stateRoot != 0, InvalidTransitionStateRoot());
+
+            if (tran.parentHash == tran.blockHash) {
+                require(tran.stateRoot == 0, NoopProposalStateRootNonZero());
+            } else {
+                require(tran.stateRoot != 0, InvalidTransitionStateRoot());
+            }
+
+            require(tran.lastBlockId != 0, InvalidTransitionLastBlockId());
 
             ctxs[i].batchId = meta.batchId;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
@@ -370,6 +372,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             ts.inProvingWindow = inProvingWindow;
             ts.prover = inProvingWindow ? meta.prover : msg.sender;
             ts.createdAt = uint48(block.timestamp);
+            ts.lastBlockId = tran.lastBlockId;
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
@@ -501,11 +504,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
+        returns (uint64 batchId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
         require(batchId_ >= pacayaConfig().forkHeights.pacaya, BatchNotFound());
-        blockId_ = getBatch(batchId_).lastBlockId;
         ts_ = getBatchVerifyingTransition(batchId_);
     }
 
@@ -513,10 +515,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     function getLastSyncedTransition()
         external
         view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
+        returns (uint64 batchId_, TransitionState memory ts_)
     {
         batchId_ = state.stats1.lastSyncedBatchId;
-        blockId_ = getBatch(batchId_).lastBlockId;
         ts_ = getBatchVerifyingTransition(batchId_);
     }
 
@@ -699,9 +700,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
                 _creditBond(ts.prover, bondToReturn);
 
-                if (batchId % _config.stateRootSyncInternal == 0) {
+                if (
+                    batchId % _config.stateRootSyncInternal == 0 && ts.parentHash != ts.blockHash // not
+                        // an noop proposal
+                ) {
                     synced.batchId = batchId;
-                    synced.blockId = batch.lastBlockId;
+                    synced.blockId = ts.lastBlockId;
                     synced.tid = tid;
                     synced.stateRoot = ts.stateRoot;
                 }
