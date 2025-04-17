@@ -609,7 +609,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         );
 
         console2.log(str);
-        vm.writeFile("./deployments/test_inbox_measure_gas_used.txt", str);
+        vm.writeFile("./gas-reports/inbox_without_provermarket.md", str);
     }
 
     function test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used()
@@ -683,7 +683,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         console2.log(str);
         vm.writeFile(
-            "./deployments/test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used.txt",
+            "./gas-reports/inbox_with_provermarket_diff_prover_and_proposer.md",
             str
         );
     }
@@ -761,7 +761,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         console2.log(str);
         vm.writeFile(
-            "./deployments/test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used.txt",
+            "./gas-reports/inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness.md",
             str
         );
     }
@@ -822,7 +822,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         console2.log(str);
         vm.writeFile(
-            "./deployments/test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used.txt",
+            "./gas-reports/test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used.txt",
             str
         );
     }
