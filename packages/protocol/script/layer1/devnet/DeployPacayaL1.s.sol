@@ -162,7 +162,7 @@ contract DeployPacayaL1 is DeployCapability {
                 proofVerifier,
                 taikoToken,
                 signalService,
-                proverMarket    
+                proverMarket
             )
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
