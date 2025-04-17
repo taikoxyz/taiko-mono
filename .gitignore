@@ -41,6 +41,10 @@ build/Release
 node_modules/
 jspm_packages/
 
+# ignore local changes in these 2 directories
+gas-snapshots/
+layout/
+
 # TypeScript v1 declaration files
 typings/
 
