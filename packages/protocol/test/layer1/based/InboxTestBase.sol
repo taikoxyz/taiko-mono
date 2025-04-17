@@ -10,7 +10,7 @@ abstract contract InboxTestBase is Layer1Test {
 
     ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
-    ProverMarket proverMarket;
+    ProverMarket internal proverMarket;
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
     uint256 genesisBlockProposedIn;
