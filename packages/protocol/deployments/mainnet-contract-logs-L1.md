@@ -361,10 +361,11 @@
 
 #### risc0_groth16_verifier
 
-- impl: `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9`
+- impl: `0x48E32eFbe22e180A3FFe617f4955cD83B983dd98`
 - logs:
   - deployed on Nov 6, 2024 @commit`bfb0386`
   - deployed on Jan 13, 2025 @commit`a58852f`
+  - deployed on Jan 13, 2025 @commit`e0805e3`
 
 #### sp1_remote_verifier
 
