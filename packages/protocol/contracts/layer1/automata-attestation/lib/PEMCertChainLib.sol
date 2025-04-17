@@ -95,7 +95,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         // The Validity sequence is located 4 elements below the first element of the tbsCertificate
         // sequence
 
-        // The subject commanName value is contained in the Subject sequence
+        // The subject commonName value is contained in the Subject sequence
         // which is 5 elements below the first element of the tbsCertificate sequence
 
         // The PublicKey is located in the second element of subjectPublicKeyInfo sequence

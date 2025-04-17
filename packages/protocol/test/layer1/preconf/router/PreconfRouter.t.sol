@@ -47,6 +47,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
+            optInProverMarket: false,
             blobParams: blobParams,
             blocks: blockParams
         });
@@ -56,10 +57,10 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        (, ITaikoInbox.BatchMetadata memory meta) = router.v4ProposeBatch(abi.encode(params), "");
+        (ITaikoInbox.BatchInfo memory info,) = router.v4ProposeBatch(abi.encode(params), "");
 
         // Assert the proposer was set correctly in the metadata
-        assertEq(meta.proposer, Carol);
+        assertEq(info.proposer, Carol);
     }
 
     function test_preconfRouter_proposeBatch_notOperator() external {
@@ -134,6 +135,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
+            optInProverMarket: false,
             blobParams: blobParams,
             blocks: blockParams
         });

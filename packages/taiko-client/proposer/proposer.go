@@ -542,9 +542,9 @@ func (p *Proposer) Name() string {
 	return "proposer"
 }
 
-// RegisterTxMgrSelctorToBlobServer registers the tx manager selector to the given blob server,
+// RegisterTxMgrSelectorToBlobServer registers the tx manager selector to the given blob server,
 // should only be used for testing.
-func (p *Proposer) RegisterTxMgrSelctorToBlobServer(blobServer *testutils.MemoryBlobServer) {
+func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.MemoryBlobServer) {
 	p.txmgrSelector = utils.NewTxMgrSelector(
 		testutils.NewMemoryBlobTxMgr(p.rpc, p.txmgrSelector.TxMgr(), blobServer),
 		testutils.NewMemoryBlobTxMgr(p.rpc, p.txmgrSelector.PrivateTxMgr(), blobServer),

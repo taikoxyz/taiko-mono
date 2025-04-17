@@ -56,6 +56,7 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
+        bool optInProverMarket;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
@@ -70,6 +71,7 @@ interface ITaikoInbox {
         bytes32[] blobHashes;
         bytes32[] extraDataList;
         address coinbase;
+        address proposer;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;
         uint32 blobByteOffset;
@@ -88,7 +90,7 @@ interface ITaikoInbox {
     /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
         bytes32 infoHash;
-        address proposer;
+        address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
     }
@@ -266,6 +268,7 @@ interface ITaikoInbox {
     error BlockNotFound();
     error BlobNotSpecified();
     error ContractPaused();
+    error CurrentProverCannotWithdraw();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
@@ -282,6 +285,7 @@ interface ITaikoInbox {
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoBlocksToProve();
+    error NoProverAvailable();
     error NotFirstProposal();
     error NotInboxWrapper();
     error ParentMetaHashMismatch();
