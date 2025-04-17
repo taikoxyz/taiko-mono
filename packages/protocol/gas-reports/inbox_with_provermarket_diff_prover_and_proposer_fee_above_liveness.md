@@ -1,5 +1,5 @@
 See `test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used` in InboxTest_ProposeAndProve.t.sol
 
-Gas per proposing: 206703
-Gas per proving + verification: 158749
-Total: 365452
+Gas per proposing: 206694
+Gas per proving + verification: 158579
+Total: 365273
