@@ -40,7 +40,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
     /// @param _signalSlots The signal slots to mark as received.
-    function shastaAnchor(
+    function v4Anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint256 _parentBaseFee,
@@ -66,7 +66,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint256 blockTime = block.timestamp - parentTimestamp;
 
         require(
-            shastaGetBaseFee(
+            v4GetBaseFee(
                 _parentBaseFee,
                 _parentGasUsed,
                 blockTime,
@@ -88,7 +88,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         signalService.receiveSignals(_signalSlots);
     }
 
-    function shastaGetBaseFee(
+    function v4GetBaseFee(
         uint256 _parentBaseFee,
         uint64 _parentGasUsed,
         uint256 _blockTime,
