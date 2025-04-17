@@ -578,7 +578,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         batchParams.blocks = new ITaikoInbox.BlockParams[](10);
 
         vm.startSnapshotGas("proposeBatch");
-        (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+        (, ITaikoInbox.BatchMetadata memory meta) =
             inbox.proposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
