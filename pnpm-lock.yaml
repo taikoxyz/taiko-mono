@@ -15,8 +15,6 @@ importers:
         specifier: ^3.2.5
         version: 3.2.5
 
-  packages/blobstorage: {}
-
   packages/bridge-ui:
     dependencies:
       '@moralisweb3/common-evm-utils':
@@ -36,7 +34,7 @@ importers:
         version: 2.6.2(@types/react@18.3.3)(react@18.3.1)
       '@web3modal/wagmi':
         specifier: ^4.1.11
-        version: 4.1.11(465hcphkttv2p5txznqylpmnwa)
+        version: 4.1.11(9ecc8b7aeee8c74c3518124cbf094f4f)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.15)
@@ -451,6 +449,9 @@ importers:
       sp1-contracts:
         specifier: github:succinctlabs/sp1-contracts#v4.0.0-rc.3
         version: sp1-contracts#v4.0.0-rc.3@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00
+      urc:
+        specifier: github:eth-fabric/urc#e0c5c8a
+        version: urc#e0c5c8a@https://codeload.github.com/eth-fabric/urc/tar.gz/e0c5c8a
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -751,7 +752,7 @@ importers:
         version: 4.1.11
       '@web3modal/wagmi':
         specifier: ^4.1.1
-        version: 4.1.11(nhv3btjcneav7vr3ub73tnaqau)
+        version: 4.1.11(eda42001c1d6ea60fc09d76f6c806d0c)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.15)
@@ -11757,6 +11758,10 @@ packages:
   uqr@0.1.2:
     resolution: {integrity: sha512-MJu7ypHq6QasgF5YRTjqscSzQp/W11zoUk6kvmlH+fmWEs63Y0Eib13hYFwAzagRJcVY8WVnlV+eBDUGMJ5IbA==}
 
+  urc#e0c5c8a@https://codeload.github.com/eth-fabric/urc/tar.gz/e0c5c8a:
+    resolution: {tarball: https://codeload.github.com/eth-fabric/urc/tar.gz/e0c5c8a}
+    version: 0.0.0
+
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
@@ -12467,6 +12472,7 @@ packages:
   yaeti@0.0.6:
     resolution: {integrity: sha512-MvQa//+KcZCUkBTIC9blM+CU9J2GzuTytsOUwf2lidtvkx/6gnEp1QvJv34t9vdjhFmha/mUiNDbN0D0mJWdug==}
     engines: {node: '>=0.10.32'}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   yallist@2.1.2:
     resolution: {integrity: sha512-ncTzHV7NvsQZkYe1DW7cbDLm0YpzHmZF5r/iyP3ZnQtMiJ+pjzisCiMNI+Sj+xQF5pXhSHxSB3uDbsBTzY/c2A==}
@@ -12784,8 +12790,8 @@ snapshots:
       '@aws-crypto/sha1-browser': 3.0.0
       '@aws-crypto/sha256-browser': 3.0.0
       '@aws-crypto/sha256-js': 3.0.0
-      '@aws-sdk/client-sso-oidc': 3.577.0
-      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
+      '@aws-sdk/client-sso-oidc': 3.577.0(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/client-sts': 3.577.0
       '@aws-sdk/core': 3.576.0
       '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/middleware-bucket-endpoint': 3.577.0
@@ -12842,11 +12848,11 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@aws-sdk/client-sso-oidc@3.577.0':
+  '@aws-sdk/client-sso-oidc@3.577.0(@aws-sdk/client-sts@3.577.0)':
     dependencies:
       '@aws-crypto/sha256-browser': 3.0.0
       '@aws-crypto/sha256-js': 3.0.0
-      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
+      '@aws-sdk/client-sts': 3.577.0
       '@aws-sdk/core': 3.576.0
       '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/middleware-host-header': 3.577.0
@@ -12885,6 +12891,7 @@ snapshots:
       '@smithy/util-utf8': 3.0.0
       tslib: 2.6.2
     transitivePeerDependencies:
+      - '@aws-sdk/client-sts'
       - aws-crt
 
   '@aws-sdk/client-sso@3.577.0':
@@ -12930,11 +12937,11 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)':
+  '@aws-sdk/client-sts@3.577.0':
     dependencies:
       '@aws-crypto/sha256-browser': 3.0.0
       '@aws-crypto/sha256-js': 3.0.0
-      '@aws-sdk/client-sso-oidc': 3.577.0
+      '@aws-sdk/client-sso-oidc': 3.577.0(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/core': 3.576.0
       '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/middleware-host-header': 3.577.0
@@ -12973,7 +12980,6 @@ snapshots:
       '@smithy/util-utf8': 3.0.0
       tslib: 2.6.2
     transitivePeerDependencies:
-      - '@aws-sdk/client-sso-oidc'
       - aws-crt
 
   '@aws-sdk/core@3.576.0':
@@ -13007,7 +13013,7 @@ snapshots:
 
   '@aws-sdk/credential-provider-ini@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)':
     dependencies:
-      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
+      '@aws-sdk/client-sts': 3.577.0
       '@aws-sdk/credential-provider-env': 3.577.0
       '@aws-sdk/credential-provider-process': 3.577.0
       '@aws-sdk/credential-provider-sso': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
@@ -13064,7 +13070,7 @@ snapshots:
 
   '@aws-sdk/credential-provider-web-identity@3.577.0(@aws-sdk/client-sts@3.577.0)':
     dependencies:
-      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
+      '@aws-sdk/client-sts': 3.577.0
       '@aws-sdk/types': 3.577.0
       '@smithy/property-provider': 3.0.0
       '@smithy/types': 3.0.0
@@ -13191,7 +13197,7 @@ snapshots:
 
   '@aws-sdk/token-providers@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)':
     dependencies:
-      '@aws-sdk/client-sso-oidc': 3.577.0
+      '@aws-sdk/client-sso-oidc': 3.577.0(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/types': 3.577.0
       '@smithy/property-provider': 3.0.0
       '@smithy/shared-ini-file-loader': 3.0.0
@@ -20414,7 +20420,7 @@ snapshots:
       lit: 3.1.0
       qrcode: 1.5.3
 
-  '@web3modal/wagmi@4.1.11(465hcphkttv2p5txznqylpmnwa)':
+  '@web3modal/wagmi@4.1.11(9ecc8b7aeee8c74c3518124cbf094f4f)':
     dependencies:
       '@wagmi/connectors': 4.3.3(@types/react@18.3.3)(@wagmi/core@2.9.1(@types/react@18.3.3)(bufferutil@4.0.8)(react@18.3.1)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.9.31(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react-i18next@13.5.0(i18next@23.11.5)(react-dom@18.3.1(react@18.3.1))(react-native@0.74.1(@babel/core@7.25.2)(@babel/preset-env@7.24.5(@babel/core@7.25.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.74.1(@babel/core@7.25.2)(@babel/preset-env@7.24.5(@babel/core@7.25.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(rollup@4.17.2)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.9.31(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
       '@wagmi/core': 2.9.1(@types/react@18.3.3)(bufferutil@4.0.8)(react@18.3.1)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.9.31(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
@@ -20431,7 +20437,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  '@web3modal/wagmi@4.1.11(nhv3btjcneav7vr3ub73tnaqau)':
+  '@web3modal/wagmi@4.1.11(eda42001c1d6ea60fc09d76f6c806d0c)':
     dependencies:
       '@wagmi/connectors': 4.3.3(@types/react@18.3.3)(@wagmi/core@2.9.1(@types/react@18.3.3)(bufferutil@4.0.8)(react@18.3.1)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react-i18next@13.5.0(i18next@22.5.1)(react-dom@18.3.1(react@18.3.1))(react-native@0.74.1(@babel/core@7.25.2)(@babel/preset-env@7.24.5(@babel/core@7.25.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.74.1(@babel/core@7.25.2)(@babel/preset-env@7.24.5(@babel/core@7.25.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(rollup@4.17.2)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6)
       '@wagmi/core': 2.9.1(@types/react@18.3.3)(bufferutil@4.0.8)(react@18.3.1)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6)
@@ -28706,6 +28712,8 @@ snapshots:
       tslib: 2.6.2
 
   uqr@0.1.2: {}
+
+  urc#e0c5c8a@https://codeload.github.com/eth-fabric/urc/tar.gz/e0c5c8a: {}
 
   uri-js@4.4.1:
     dependencies:
