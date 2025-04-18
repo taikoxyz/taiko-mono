@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "urc/src/IRegistry.sol";
+// import "urc/src/IRegistry.sol";
 import "src/shared/common/EssentialContract.sol";
 import "../iface/IPreconfRouter.sol";
 import "../iface/IPreconfWhitelist.sol";
