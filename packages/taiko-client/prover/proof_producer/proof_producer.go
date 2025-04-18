@@ -19,7 +19,6 @@ var (
 
 // ProofRequestBody represents a request body to generate a proof.
 type ProofRequestBody struct {
-	Tier uint16
 	Meta metadata.TaikoProposalMetaData
 }
 
@@ -29,7 +28,6 @@ type ContestRequestBody struct {
 	ProposedIn *big.Int
 	ParentHash common.Hash
 	Meta       metadata.TaikoProposalMetaData
-	Tier       uint16
 }
 
 // ProofResponse represents a response of a proof request.
@@ -38,7 +36,6 @@ type ProofResponse struct {
 	Meta      metadata.TaikoProposalMetaData
 	Proof     []byte
 	Opts      ProofRequestOptions
-	Tier      uint16
 	ProofType ProofType
 }
 
@@ -46,7 +43,6 @@ type ProofResponse struct {
 type BatchProofs struct {
 	ProofResponses       []*ProofResponse
 	BatchProof           []byte
-	Tier                 uint16
 	BlockIDs             []*big.Int
 	ProofType            ProofType
 	Verifier             common.Address
@@ -69,11 +65,4 @@ type ProofProducer interface {
 		items []*ProofResponse,
 		requestAt time.Time,
 	) (*BatchProofs, error)
-	// RequestCancel @dev this function would be deprecated after Pacaya fork
-	RequestCancel(
-		ctx context.Context,
-		opts ProofRequestOptions,
-	) error
-	// Tier @dev this function would be deprecated after Pacaya fork
-	Tier() uint16
 }

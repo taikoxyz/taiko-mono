@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -102,7 +101,6 @@ func (s *Sender) Send(
 		log.Error(
 			"Failed to submit proof",
 			"blockID", proofResponse.BlockID,
-			"tier", proofResponse.Tier,
 			"proofType", proofResponse.ProofType,
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
@@ -112,40 +110,24 @@ func (s *Sender) Send(
 		return ErrUnretryableSubmission
 	}
 
-	if proofResponse.Meta.IsPacaya() {
-		log.Info(
-			"💰 Your batch proof was accepted",
-			"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
-			"blocks", len(proofResponse.Meta.Pacaya().GetBlocks()),
-		)
-	} else {
-		log.Info(
-			"💰 Your block proof was accepted",
-			"blockID", proofResponse.BlockID,
-			"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
-			"hash", proofResponse.Opts.OntakeOptions().BlockHash,
-			"txHash", receipt.TxHash,
-			"tier", proofResponse.Tier,
-			"proofType", proofResponse.ProofType,
-			"isContest", len(proofResponse.Proof) == 0,
-		)
-	}
+	log.Info(
+		"💰 Your batch proof was accepted",
+		"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
+		"blocks", len(proofResponse.Meta.Pacaya().GetBlocks()),
+	)
 
 	metrics.ProverSubmissionAcceptedCounter.Add(1)
 
 	return nil
 }
 
-func (s *Sender) SendBatchProof(
-	ctx context.Context,
-	buildTx TxBuilder,
-	batchProof *producer.BatchProofs,
-) error {
-	// Assemble the TaikoL1.proveBlocks / TaikoInbox.proveBatches transaction.
+func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchProof *producer.BatchProofs) error {
+	// Assemble the TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
 	if err != nil {
 		return err
 	}
+
 	// Send the transaction.
 	txMgr, isPrivate := s.txmgrSelector.Select()
 	receipt, err := txMgr.Send(ctx, *txCandidate)
@@ -170,7 +152,6 @@ func (s *Sender) SendBatchProof(
 	log.Info(
 		fmt.Sprintf("🚚 Your %s batch proofs have been accepted", batchProof.ProofType),
 		"txHash", receipt.TxHash,
-		"tier", batchProof.Tier,
 		"blockIDs", batchProof.BlockIDs,
 	)
 
@@ -244,20 +225,4 @@ func (s *Sender) ValidateProof(
 	}
 
 	return true, nil
-}
-
-// isSubmitProofTxErrorRetryable checks whether the error returned by a proof submission transaction
-// is retryable.
-func isSubmitProofTxErrorRetryable(err error, blockID *big.Int) bool {
-	if !strings.HasPrefix(err.Error(), "L1_") {
-		return true
-	}
-
-	if strings.HasPrefix(err.Error(), "L1_NOT_ASSIGNED_PROVER") ||
-		strings.HasPrefix(err.Error(), "L1_INVALID_PAUSE_STATUS") {
-		return true
-	}
-
-	log.Warn("🤷 Unretryable proof submission error", "error", err, "blockID", blockID)
-	return false
 }

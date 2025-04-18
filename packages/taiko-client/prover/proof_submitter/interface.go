@@ -3,17 +3,14 @@ package submitter
 import (
 	"context"
 	"errors"
-	"math/big"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 var (
-	_                              Submitter = (*ProofSubmitterOntake)(nil)
+	_                              Submitter = (*ProofSubmitterPacaya)(nil)
 	submissionDelayRandomBumpRange float64   = 20
 	ProofTimeout                             = 3 * time.Hour
 	ErrInvalidProof                          = errors.New("invalid proof found")
@@ -36,16 +33,4 @@ type Submitter interface {
 	// AggregationEnabled @dev this function would be deprecated after Pacaya fork
 	AggregationEnabled() bool
 	AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error
-}
-
-// Contester is the interface for contesting proofs of the L2 blocks.
-type Contester interface {
-	SubmitContest(
-		ctx context.Context,
-		blockID *big.Int,
-		proposedIn *big.Int,
-		parentHash common.Hash,
-		meta metadata.TaikoProposalMetaData,
-		tier uint16,
-	) error
 }

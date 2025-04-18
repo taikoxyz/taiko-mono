@@ -11,8 +11,8 @@ import (
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
 
-func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
-	handler := NewBlockProposedEventHandler(&NewBlockProposedEventHandlerOps{
+func (s *EventHandlerTestSuite) TestBatchProposedHandle() {
+	handler := NewBatchProposedEventHandler(&NewBatchProposedEventHandlerOps{
 		SharedState:           &state.SharedState{},
 		ProverAddress:         common.Address{},
 		RPC:                   s.RPCClient,

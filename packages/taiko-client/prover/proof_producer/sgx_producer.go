@@ -115,7 +115,6 @@ func (s *SGXProofProducer) RequestProof(
 		Meta:    meta,
 		Proof:   proof,
 		Opts:    opts,
-		Tier:    s.Tier(),
 	}, nil
 }
 
@@ -154,7 +153,6 @@ func (s *SGXProofProducer) Aggregate(
 	return &BatchProofs{
 		ProofResponses: items,
 		BatchProof:     batchProof,
-		Tier:           s.Tier(),
 		BlockIDs:       blockIDs,
 		ProofType:      ProofTypeSgx,
 	}, nil

@@ -1,7 +1,6 @@
 package transaction
 
 import (
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -37,8 +36,6 @@ func (s *TransactionTestSuite) SetupTest() {
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		rpc.ZeroAddress,
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 	)
 
 	txmgr, err := txmgr.NewSimpleTxManager(
@@ -64,13 +61,6 @@ func (s *TransactionTestSuite) SetupTest() {
 	s.Nil(err)
 
 	s.sender = NewSender(s.RPCClient, txmgr, txmgr, rpc.ZeroAddress, 0)
-}
-
-func (s *TransactionTestSuite) TestIsSubmitProofTxErrorRetryable() {
-	s.True(isSubmitProofTxErrorRetryable(errors.New(testAddr.String()), common.Big0))
-	s.False(isSubmitProofTxErrorRetryable(errors.New("L1_NOT_SPECIAL_PROVER"), common.Big0))
-	s.False(isSubmitProofTxErrorRetryable(errors.New("L1_DUP_PROVERS"), common.Big0))
-	s.False(isSubmitProofTxErrorRetryable(errors.New("L1_"+testAddr.String()), common.Big0))
 }
 
 func TestTxSenderTestSuite(t *testing.T) {

@@ -24,7 +24,6 @@ func (o *DummyProofProducer) RequestProof(
 		Meta:    meta,
 		Proof:   bytes.Repeat([]byte{0xff}, 100),
 		Opts:    opts,
-		Tier:    tier,
 	}, nil
 }
 
@@ -38,6 +37,5 @@ func (o *DummyProofProducer) RequestBatchProofs(
 		ProofResponses: proofs,
 		BatchProof:     bytes.Repeat([]byte{0xbb}, 100),
 		ProofType:      proofType,
-		Tier:           tier,
 	}, nil
 }

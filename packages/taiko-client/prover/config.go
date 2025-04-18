@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -21,45 +20,39 @@ import (
 
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
-	L1WsEndpoint                            string
-	L2WsEndpoint                            string
-	L2HttpEndpoint                          string
-	TaikoL1Address                          common.Address
-	TaikoL2Address                          common.Address
-	TaikoTokenAddress                       common.Address
-	ProverSetAddress                        common.Address
-	L1ProverPrivKey                         *ecdsa.PrivateKey
-	StartingBlockID                         *big.Int
-	Dummy                                   bool
-	GuardianProverMinorityAddress           common.Address
-	GuardianProverMajorityAddress           common.Address
-	GuardianProofSubmissionDelay            time.Duration
-	Graffiti                                string
-	BackOffMaxRetries                       uint64
-	BackOffRetryInterval                    time.Duration
-	ProveUnassignedBlocks                   bool
-	ContesterMode                           bool
-	EnableLivenessBondProof                 bool
-	RPCTimeout                              time.Duration
-	ProveBlockGasLimit                      uint64
-	HTTPServerPort                          uint64
-	MinEthBalance                           *big.Int
-	MaxExpiry                               time.Duration
-	Allowance                               *big.Int
-	GuardianProverHealthCheckServerEndpoint *url.URL
-	RaikoHostEndpoint                       string
-	RaikoZKVMHostEndpoint                   string
-	RaikoJWT                                string
-	RaikoRequestTimeout                     time.Duration
-	L1NodeVersion                           string
-	L2NodeVersion                           string
-	BlockConfirmations                      uint64
-	TxmgrConfigs                            *txmgr.CLIConfig
-	PrivateTxmgrConfigs                     *txmgr.CLIConfig
-	SGXProofBufferSize                      uint64
-	ZKVMProofBufferSize                     uint64
-	ForceBatchProvingInterval               time.Duration
-	ProofPollingInterval                    time.Duration
+	L1WsEndpoint              string
+	L2WsEndpoint              string
+	L2HttpEndpoint            string
+	TaikoL1Address            common.Address
+	TaikoL2Address            common.Address
+	TaikoTokenAddress         common.Address
+	ProverSetAddress          common.Address
+	L1ProverPrivKey           *ecdsa.PrivateKey
+	StartingBlockID           *big.Int
+	BackOffMaxRetries         uint64
+	BackOffRetryInterval      time.Duration
+	ProveUnassignedBlocks     bool
+	ContesterMode             bool
+	RPCTimeout                time.Duration
+	ProveBlockGasLimit        uint64
+	HTTPServerPort            uint64
+	MinEthBalance             *big.Int
+	MaxExpiry                 time.Duration
+	Allowance                 *big.Int
+	RaikoHostEndpoint         string
+	RaikoZKVMHostEndpoint     string
+	RaikoJWT                  string
+	RaikoRequestTimeout       time.Duration
+	L1NodeVersion             string
+	L2NodeVersion             string
+	BlockConfirmations        uint64
+	TxmgrConfigs              *txmgr.CLIConfig
+	PrivateTxmgrConfigs       *txmgr.CLIConfig
+	SGXProofBufferSize        uint64
+	ZKVMProofBufferSize       uint64
+	ForceBatchProvingInterval time.Duration
+	ProofPollingInterval      time.Duration
+	Dummy                     bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -85,15 +78,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 
 		allowance = amt
-	}
-
-	var guardianProverHealthCheckServerEndpoint *url.URL
-	if c.IsSet(flags.GuardianProverHealthCheckServerEndpoint.Name) {
-		if guardianProverHealthCheckServerEndpoint, err = url.Parse(
-			c.String(flags.GuardianProverHealthCheckServerEndpoint.Name),
-		); err != nil {
-			return nil, err
-		}
 	}
 
 	// If we are running a guardian prover, we need to prove unassigned blocks and run in contester mode by default.
@@ -126,38 +110,32 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	return &Config{
-		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
-		L2WsEndpoint:                            c.String(flags.L2WSEndpoint.Name),
-		L2HttpEndpoint:                          c.String(flags.L2HTTPEndpoint.Name),
-		TaikoL1Address:                          common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
-		TaikoL2Address:                          common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
-		TaikoTokenAddress:                       common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
-		ProverSetAddress:                        common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
-		L1ProverPrivKey:                         l1ProverPrivKey,
-		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
-		RaikoZKVMHostEndpoint:                   c.String(flags.RaikoZKVMHostEndpoint.Name),
-		RaikoJWT:                                common.Bytes2Hex(jwtSecret),
-		RaikoRequestTimeout:                     c.Duration(flags.RaikoRequestTimeout.Name),
-		StartingBlockID:                         startingBlockID,
-		Dummy:                                   c.Bool(flags.Dummy.Name),
-		GuardianProverMinorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMinority.Name)),
-		GuardianProverMajorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMajority.Name)),
-		GuardianProofSubmissionDelay:            c.Duration(flags.GuardianProofSubmissionDelay.Name),
-		GuardianProverHealthCheckServerEndpoint: guardianProverHealthCheckServerEndpoint,
-		Graffiti:                                c.String(flags.Graffiti.Name),
-		BackOffMaxRetries:                       c.Uint64(flags.BackOffMaxRetries.Name),
-		BackOffRetryInterval:                    c.Duration(flags.BackOffRetryInterval.Name),
-		ProveUnassignedBlocks:                   c.Bool(flags.ProveUnassignedBlocks.Name),
-		ContesterMode:                           c.Bool(flags.ContesterMode.Name),
-		EnableLivenessBondProof:                 c.Bool(flags.EnableLivenessBondProof.Name),
-		RPCTimeout:                              c.Duration(flags.RPCTimeout.Name),
-		ProveBlockGasLimit:                      c.Uint64(flags.TxGasLimit.Name),
-		HTTPServerPort:                          c.Uint64(flags.ProverHTTPServerPort.Name),
-		MaxExpiry:                               c.Duration(flags.MaxExpiry.Name),
-		Allowance:                               allowance,
-		L1NodeVersion:                           c.String(flags.L1NodeVersion.Name),
-		L2NodeVersion:                           c.String(flags.L2NodeVersion.Name),
-		BlockConfirmations:                      c.Uint64(flags.BlockConfirmations.Name),
+		L1WsEndpoint:          c.String(flags.L1WSEndpoint.Name),
+		L2WsEndpoint:          c.String(flags.L2WSEndpoint.Name),
+		L2HttpEndpoint:        c.String(flags.L2HTTPEndpoint.Name),
+		TaikoL1Address:        common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
+		TaikoL2Address:        common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
+		TaikoTokenAddress:     common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
+		ProverSetAddress:      common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
+		L1ProverPrivKey:       l1ProverPrivKey,
+		RaikoHostEndpoint:     c.String(flags.RaikoHostEndpoint.Name),
+		RaikoZKVMHostEndpoint: c.String(flags.RaikoZKVMHostEndpoint.Name),
+		RaikoJWT:              common.Bytes2Hex(jwtSecret),
+		RaikoRequestTimeout:   c.Duration(flags.RaikoRequestTimeout.Name),
+		StartingBlockID:       startingBlockID,
+		Dummy:                 c.Bool(flags.Dummy.Name),
+		BackOffMaxRetries:     c.Uint64(flags.BackOffMaxRetries.Name),
+		BackOffRetryInterval:  c.Duration(flags.BackOffRetryInterval.Name),
+		ProveUnassignedBlocks: c.Bool(flags.ProveUnassignedBlocks.Name),
+		ContesterMode:         c.Bool(flags.ContesterMode.Name),
+		RPCTimeout:            c.Duration(flags.RPCTimeout.Name),
+		ProveBlockGasLimit:    c.Uint64(flags.TxGasLimit.Name),
+		HTTPServerPort:        c.Uint64(flags.ProverHTTPServerPort.Name),
+		MaxExpiry:             c.Duration(flags.MaxExpiry.Name),
+		Allowance:             allowance,
+		L1NodeVersion:         c.String(flags.L1NodeVersion.Name),
+		L2NodeVersion:         c.String(flags.L2NodeVersion.Name),
+		BlockConfirmations:    c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
 			l1ProverPrivKey,

@@ -57,7 +57,6 @@ func NewProofSubmitterPacaya(
 	zkvmProofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
-	aggregationNotify chan uint16,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	proverSetAddress common.Address,
@@ -81,7 +80,6 @@ func NewProofSubmitterPacaya(
 		zkvmProofProducer:         zkvmProofProducer,
 		resultCh:                  resultCh,
 		batchResultCh:             batchResultCh,
-		aggregationNotify:         aggregationNotify,
 		batchAggregationNotify:    batchAggregationNotify,
 		proofSubmissionCh:         proofSubmissionCh,
 		anchorValidator:           anchorValidator,
@@ -311,10 +309,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		proofBuffer.ClearItems(uint64BatchIDs...)
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
-			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-				Tier: proofResp.Tier,
-				Meta: proofResp.Meta,
-			}
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
 		}
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil

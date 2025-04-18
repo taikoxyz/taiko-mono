@@ -65,7 +65,6 @@ func (s *ZKvmProofProducer) RequestProof(
 		Meta:      meta,
 		Proof:     proof,
 		Opts:      opts,
-		Tier:      s.Tier(),
 		ProofType: proofType,
 	}, nil
 }
@@ -116,7 +115,6 @@ func (s *ZKvmProofProducer) Aggregate(
 	return &BatchProofs{
 		ProofResponses: items,
 		BatchProof:     batchProof,
-		Tier:           s.Tier(),
 		BlockIDs:       blockIDs,
 		ProofType:      zkType,
 	}, nil

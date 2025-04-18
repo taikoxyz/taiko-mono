@@ -35,22 +35,22 @@ func New(taikoL2Address common.Address, chainID *big.Int, rpc *rpc.Client) (*Anc
 // `TaikoAnchor.anchorV3` transaction.
 func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	if tx.To() == nil || *tx.To() != v.taikoL2Address {
-		return fmt.Errorf("invalid TaikoL2.anchor transaction to: %s, want: %s", tx.To(), v.taikoL2Address)
+		return fmt.Errorf("invalid TaikoAnchor.anchorV3 transaction to: %s, want: %s", tx.To(), v.taikoL2Address)
 	}
 
 	sender, err := types.LatestSignerForChainID(v.chainID).Sender(tx)
 	if err != nil {
-		return fmt.Errorf("failed to get TaikoL2.anchor transaction sender: %w", err)
+		return fmt.Errorf("failed to get TaikoAnchor.anchorV3 transaction sender: %w", err)
 	}
 
 	if sender != v.goldenTouchAddress {
-		return fmt.Errorf("invalid TaikoL2.anchor transaction sender: %s", sender)
+		return fmt.Errorf("invalid TaikoAnchor.anchorV3 transaction sender: %s", sender)
 	}
 
 	var method *abi.Method
 	if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
 		if method, err = encoding.TaikoL2ABI.MethodById(tx.Data()); err != nil {
-			return fmt.Errorf("failed to get TaikoL2.anchor transaction method: %w", err)
+			return fmt.Errorf("failed to get TaikoAnchor.anchorV3 transaction method: %w", err)
 		}
 	}
 	if method.Name != "anchor" && method.Name != "anchorV2" && method.Name != "anchorV3" {

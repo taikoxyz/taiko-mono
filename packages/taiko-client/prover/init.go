@@ -32,11 +32,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	}
 
 	// Check the existing allowance for the contract.
-	allowance, err := p.rpc.PacayaClients.TaikoToken.Allowance(
-		&bind.CallOpts{Context: ctx},
-		p.ProverAddress(),
-		contract,
-	)
+	allowance, err := p.rpc.PacayaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctx}, p.ProverAddress(), contract)
 	if err != nil {
 		return err
 	}
@@ -60,10 +56,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 		return err
 	}
 
-	receipt, err := p.txmgr.Send(ctx, txmgr.TxCandidate{
-		TxData: data,
-		To:     &p.cfg.TaikoTokenAddress,
-	})
+	receipt, err := p.txmgr.Send(ctx, txmgr.TxCandidate{TxData: data, To: &p.cfg.TaikoTokenAddress})
 	if err != nil {
 		return err
 	}
@@ -71,11 +64,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 		return fmt.Errorf("failed to approve allowance for contract (%s): %s", contract, receipt.TxHash.Hex())
 	}
 
-	log.Info(
-		"Approved the contract for taiko token",
-		"txHash", receipt.TxHash.Hex(),
-		"contract", contract,
-	)
+	log.Info("Approved the contract for taiko token", "txHash", receipt.TxHash.Hex(), "contract", contract)
 
 	// Check the new allowance for the contract.
 	if allowance, err = p.rpc.PacayaClients.TaikoToken.Allowance(
@@ -89,84 +78,6 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	log.Info("New allowance for the contract", "allowance", utils.WeiToEther(allowance), "contract", contract)
 
 	return nil
-}
-
-// initProofSubmitters initializes the proof submitters from the given tiers in protocol.
-func (p *Prover) initProofSubmitters(
-	txBuilder *transaction.ProveBlockTxBuilder,
-	tiers []*rpc.TierProviderTierWithID,
-) (err error) {
-	if len(tiers) > 0 {
-		for _, tier := range p.sharedState.GetTiers() {
-			var (
-				bufferSize    = p.cfg.SGXProofBufferSize
-				proofProducer producer.ProofProducer
-				submitter     proofSubmitter.Submitter
-				err           error
-			)
-			switch tier.ID {
-			case encoding.TierOptimisticID:
-				proofProducer = &producer.OptimisticProofProducer{}
-			case encoding.TierSgxID:
-				proofProducer = &producer.SGXProofProducer{
-					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-					JWT:                 p.cfg.RaikoJWT,
-					ProofType:           producer.ProofTypeSgx,
-					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-					Dummy:               p.cfg.Dummy,
-				}
-			case encoding.TierZkVMRisc0ID:
-				continue
-			case encoding.TierZkVMSp1ID:
-				proofProducer = &producer.ZKvmProofProducer{
-					RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-					JWT:                 p.cfg.RaikoJWT,
-					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-					Dummy:               p.cfg.Dummy,
-				}
-				// Since the proof aggregation in Ontake fork is selected by request tier, and
-				// sp1 & risc0 can't be aggregated together, we disabled the proof aggregation until the Pacaya fork
-				bufferSize = 1
-			case encoding.TierGuardianMinorityID:
-				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
-				// For guardian, we need to prove the unsigned block as soon as possible
-				bufferSize = 1
-			case encoding.TierGuardianMajorityID:
-				proofProducer = producer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
-				// For guardian, we need to prove the unsigned block as soon as possible
-				bufferSize = 1
-			default:
-				return fmt.Errorf("unsupported tier: %d", tier.ID)
-			}
-
-			if submitter, err = proofSubmitter.NewProofSubmitterOntake(
-				p.rpc,
-				proofProducer,
-				p.proofGenerationCh,
-				p.batchProofGenerationCh,
-				p.aggregationNotify,
-				p.proofSubmissionCh,
-				p.cfg.ProverSetAddress,
-				p.cfg.TaikoL2Address,
-				p.cfg.Graffiti,
-				p.cfg.ProveBlockGasLimit,
-				p.txmgr,
-				p.privateTxmgr,
-				txBuilder,
-				tiers,
-				p.IsGuardianProver(),
-				p.cfg.GuardianProofSubmissionDelay,
-				bufferSize,
-				p.cfg.ForceBatchProvingInterval,
-				p.cfg.ProofPollingInterval,
-			); err != nil {
-				return err
-			}
-
-			p.proofSubmittersOntake = append(p.proofSubmittersOntake, submitter)
-		}
-	}
-	return p.initPacayaProofSubmitter(txBuilder)
 }
 
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
@@ -260,7 +171,6 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		zkvmProducer,
 		p.proofGenerationCh,
 		p.batchProofGenerationCh,
-		p.aggregationNotify,
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,
 		p.cfg.ProverSetAddress,
@@ -345,17 +255,10 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 		)
 		stateVars, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: p.ctx})
 		if err != nil {
-			slot1, _, err := p.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: p.ctx})
-			if err != nil {
-				return err
-			}
-
-			lastVerifiedBlockID = new(big.Int).SetUint64(slot1.LastSyncedBlockId)
-			genesisHeight = new(big.Int).SetUint64(slot1.GenesisHeight)
-		} else {
-			lastVerifiedBlockID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
-			genesisHeight = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+			return err
 		}
+		lastVerifiedBlockID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
+		genesisHeight = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
 
 		if lastVerifiedBlockID.Cmp(common.Big0) == 0 {
 			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, genesisHeight)
@@ -416,8 +319,8 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 // initEventHandlers initialize all event handlers which will be used by the current prover.
 func (p *Prover) initEventHandlers() error {
 	p.eventHandlers = &eventHandlers{}
-	// ------- BlockProposed -------
-	opts := &handler.NewBlockProposedEventHandlerOps{
+	// ------- BatchProposed -------
+	opts := &handler.NewBatchProposedEventHandlerOps{
 		SharedState:           p.sharedState,
 		ProverAddress:         p.ProverAddress(),
 		ProverSetAddress:      p.cfg.ProverSetAddress,
@@ -425,32 +328,14 @@ func (p *Prover) initEventHandlers() error {
 		ProofGenerationCh:     p.proofGenerationCh,
 		AssignmentExpiredCh:   p.assignmentExpiredCh,
 		ProofSubmissionCh:     p.proofSubmissionCh,
-		ProofContestCh:        p.proofContestCh,
 		BackOffRetryInterval:  p.cfg.BackOffRetryInterval,
 		BackOffMaxRetrys:      p.cfg.BackOffMaxRetries,
 		ContesterMode:         p.cfg.ContesterMode,
 		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
 	}
-	if p.IsGuardianProver() {
-		p.eventHandlers.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
-			&handler.NewBlockProposedGuardianEventHandlerOps{
-				NewBlockProposedEventHandlerOps: opts,
-				GuardianProverHeartbeater:       p.guardianProverHeartbeater,
-			},
-		)
-	} else {
-		p.eventHandlers.blockProposedHandler = handler.NewBlockProposedEventHandler(opts)
-	}
-	// ------- TransitionProved -------
-	p.eventHandlers.transitionProvedHandler = handler.NewTransitionProvedEventHandler(
-		p.rpc,
-		p.proofContestCh,
-		p.proofSubmissionCh,
-		p.cfg.ContesterMode,
-		p.IsGuardianProver(),
-	)
-	// ------- TransitionContested -------
-	p.eventHandlers.transitionContestedHandler = handler.NewTransitionContestedEventHandler(
+	p.eventHandlers.batchProposedHandler = handler.NewBatchProposedEventHandler(opts)
+	// ------- BatchesProved -------
+	p.eventHandlers.batchesProvedHandler = handler.NewTransitionProvedEventHandler(
 		p.rpc,
 		p.proofSubmissionCh,
 		p.cfg.ContesterMode,
@@ -461,30 +346,11 @@ func (p *Prover) initEventHandlers() error {
 		p.ProverAddress(),
 		p.cfg.ProverSetAddress,
 		p.proofSubmissionCh,
-		p.proofContestCh,
 		p.cfg.ContesterMode,
-		p.IsGuardianProver(),
 	)
 
-	// ------- BlockVerified -------
-	guardianProverAddress, err := p.rpc.GetGuardianProverAddress(p.ctx)
-	if err != nil {
-		log.Debug("Failed to get guardian prover address", "error", encoding.TryParsingCustomError(err))
-		p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(p.rpc, common.Address{})
-		return nil
-	}
-	p.eventHandlers.blockVerifiedHandler = handler.NewBlockVerifiedEventHandler(p.rpc, guardianProverAddress)
+	// ------- BatchesVerified -------
+	p.eventHandlers.batchesVerifiedHandler = handler.NewBatchesVerifiedEventHandler(p.rpc)
 
-	return nil
-}
-
-// initProofTiers initializes the proof tiers for the current prover.
-func (p *Prover) initProofTiers(ctx context.Context) error {
-	tiers, err := p.rpc.GetTiers(ctx)
-	if err != nil {
-		log.Warn("Failed to get tiers", "error", err)
-		return nil
-	}
-	p.sharedState.SetTiers(tiers)
 	return nil
 }

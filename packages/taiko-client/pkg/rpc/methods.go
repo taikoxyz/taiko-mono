@@ -34,7 +34,7 @@ var (
 	defaultWaitTimeout = 3 * time.Minute
 )
 
-// GetProtocolConfigs gets the protocol configs from TaikoInbox or TaikoL2 contract.
+// GetProtocolConfigs gets the protocol configs from TaikoInbox contract.
 func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -45,11 +45,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 
 	configs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
 	if err != nil {
-		configs, err := c.OntakeClients.TaikoL1.GetConfig(opts)
-		if err != nil {
-			return nil, err
-		}
-		return config.NewOntakeProtocolConfigs(&configs, c.PacayaClients.ForkHeight), nil
+		return nil, err
 	}
 
 	return config.NewPacayaProtocolConfigs(&configs), nil

@@ -26,6 +26,5 @@ func TestDummyProducerRequestProof(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, res.BlockID, blockID)
-	require.Equal(t, tier, res.Tier)
 	require.NotEmpty(t, res.Proof)
 }

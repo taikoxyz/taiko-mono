@@ -40,7 +40,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 			crypto.PubkeyToAddress(c.L1ProverPrivKey.PublicKey),
 		)
 		s.True(c.Dummy)
-		s.Equal("", c.Graffiti)
 		s.True(c.ProveUnassignedBlocks)
 		s.True(c.ContesterMode)
 		s.Equal(rpcTimeout, c.RPCTimeout)

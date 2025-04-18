@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -126,33 +125,13 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.proposer = prop
 }
 
-func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
-	handler := NewTransitionProvedEventHandler(
-		s.RPCClient,
-		make(chan *proofProducer.ContestRequestBody),
-		make(chan *proofProducer.ProofRequestBody),
-		true,
-		false,
-	)
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
-	if !m.IsPacaya() {
-		s.Nil(handler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
-			BlockId:    m.Ontake().GetBlockID(),
-			Tier:       m.Ontake().GetMinTier(),
-			ProposedIn: m.Ontake().GetRawBlockHeight().Uint64(),
-		}))
-	}
-}
-
 func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
 
 	handler := NewTransitionProvedEventHandler(
 		s.RPCClient,
-		make(chan *proofProducer.ContestRequestBody, 1),
 		proofRequestBodyCh,
 		true,
-		false,
 	)
 
 	s.ForkIntoPacaya(s.proposer, s.blobSyncer)

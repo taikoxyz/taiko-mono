@@ -17,10 +17,7 @@ type AssignmentExpiredEventHandler struct {
 	proverAddress     common.Address
 	proverSetAddress  common.Address
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
-	proofContestCh    chan<- *proofProducer.ContestRequestBody
 	contesterMode     bool
-	// Guardian prover related.
-	isGuardian bool
 }
 
 // NewAssignmentExpiredEventHandler creates a new AssignmentExpiredEventHandler instance.
@@ -29,18 +26,14 @@ func NewAssignmentExpiredEventHandler(
 	proverAddress common.Address,
 	proverSetAddress common.Address,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-	proofContestCh chan *proofProducer.ContestRequestBody,
 	contesterMode bool,
-	isGuardian bool,
 ) *AssignmentExpiredEventHandler {
 	return &AssignmentExpiredEventHandler{
 		rpc,
 		proverAddress,
 		proverSetAddress,
 		proofSubmissionCh,
-		proofContestCh,
 		contesterMode,
-		isGuardian,
 	}
 }
 
@@ -82,13 +75,10 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	}
 
 	if !proofStatus.IsSubmitted {
-		reqBody := &proofProducer.ProofRequestBody{Meta: meta}
-		if !meta.IsPacaya() {
-			reqBody.Tier = meta.Ontake().GetMinTier()
-		}
-		go func() { h.proofSubmissionCh <- reqBody }()
+		go func() { h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta} }()
 		return nil
 	}
+
 	// If there is already a proof submitted and there is no need to contest
 	// it, we skip proving this block here.
 	if !proofStatus.Invalid || !h.contesterMode {
@@ -96,26 +86,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	}
 
 	// If there is no contester, we submit a contest to protocol.
-	go func() {
-		if meta.IsPacaya() {
-			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
-			return
-		}
-		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress && !h.isGuardian {
-			h.proofContestCh <- &proofProducer.ContestRequestBody{
-				BlockID:    meta.Ontake().GetBlockID(),
-				ProposedIn: meta.Ontake().GetRawBlockHeight(),
-				ParentHash: proofStatus.ParentHeader.Hash(),
-				Meta:       meta,
-				Tier:       proofStatus.CurrentTransitionState.Tier,
-			}
-		} else {
-			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-				Tier: proofStatus.CurrentTransitionState.Tier + 1,
-				Meta: meta,
-			}
-		}
-	}()
+	go func() { h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta} }()
 
 	return nil
 }

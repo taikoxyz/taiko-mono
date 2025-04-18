@@ -111,7 +111,6 @@ func (s *ComposeProofProducer) RequestProof(
 		Meta:      meta,
 		Proof:     proof,
 		Opts:      opts,
-		Tier:      s.Tier(),
 		ProofType: proofType,
 	}, nil
 }
@@ -187,7 +186,6 @@ func (s *ComposeProofProducer) Aggregate(
 	return &BatchProofs{
 		ProofResponses:       items,
 		BatchProof:           batchProofs,
-		Tier:                 s.Tier(),
 		BlockIDs:             batchIDs,
 		ProofType:            proofType,
 		Verifier:             verifier,
