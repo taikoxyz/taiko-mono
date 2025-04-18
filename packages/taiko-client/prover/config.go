@@ -2,7 +2,6 @@ package prover
 
 import (
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -80,28 +79,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		allowance = amt
 	}
 
-	// If we are running a guardian prover, we need to prove unassigned blocks and run in contester mode by default.
-	if c.IsSet(flags.GuardianProverMajority.Name) {
-		if err := c.Set(flags.ProveUnassignedBlocks.Name, "true"); err != nil {
-			return nil, err
-		}
-		if err := c.Set(flags.ContesterMode.Name, "true"); err != nil {
-			return nil, err
-		}
-
-		// L1 and L2 node version flags are required only if guardian prover
-		if !c.IsSet(flags.L1NodeVersion.Name) {
-			return nil, errors.New("--prover.l1NodeVersion flag is required if guardian prover is set")
-		}
-		if !c.IsSet(flags.L2NodeVersion.Name) {
-			return nil, errors.New("--prover.l2NodeVersion flag is required if guardian prover is set")
-		}
-	}
-
-	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
-		return nil, errors.New("empty raiko host endpoint")
-	}
-
 	if c.IsSet(flags.RaikoJWTPath.Name) {
 		jwtSecret, err = jwt.ParseSecretFromFile(c.String(flags.RaikoJWTPath.Name))
 		if err != nil {
@@ -113,8 +90,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1WsEndpoint:          c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:          c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:        c.String(flags.L2HTTPEndpoint.Name),
-		TaikoL1Address:        common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
-		TaikoL2Address:        common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
+		TaikoL1Address:        common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+		TaikoL2Address:        common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		TaikoTokenAddress:     common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:      common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:       l1ProverPrivKey,
@@ -133,8 +110,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		HTTPServerPort:        c.Uint64(flags.ProverHTTPServerPort.Name),
 		MaxExpiry:             c.Duration(flags.MaxExpiry.Name),
 		Allowance:             allowance,
-		L1NodeVersion:         c.String(flags.L1NodeVersion.Name),
-		L2NodeVersion:         c.String(flags.L2NodeVersion.Name),
 		BlockConfirmations:    c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),

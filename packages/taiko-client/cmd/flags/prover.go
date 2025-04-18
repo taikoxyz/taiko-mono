@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // Required flags used by prover.
@@ -53,13 +51,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_STARTING_BLOCK_ID"},
 	}
-	Graffiti = &cli.StringFlag{
-		Name:     "prover.graffiti",
-		Usage:    "When string is passed, adds additional graffiti info to proof evidence",
-		Category: proverCategory,
-		Value:    "",
-		EnvVars:  []string{"PROVER_GRAFFITI"},
-	}
 	// Proving strategy.
 	ProveUnassignedBlocks = &cli.BoolFlag{
 		Name:     "prover.proveUnassignedBlocks",
@@ -105,52 +96,6 @@ var (
 		Usage:    "Amount without decimal to approve TaikoL1 contract for TaikoToken usage",
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ALLOWANCE"},
-	}
-	GuardianProverHealthCheckServerEndpoint = &cli.StringFlag{
-		Name:     "prover.guardianProverHealthCheckServerEndpoint",
-		Usage:    "HTTP endpoint for main guardian prover health check server",
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_GUARDIAN_PROVER_HEALTH_CHECK_SERVER_ENDPOINT"},
-	}
-	// Guardian prover specific flag
-	GuardianProverMinority = &cli.StringFlag{
-		Name:     "guardianProverMinority",
-		Usage:    "GuardianProverMinority contract `address`",
-		Value:    rpc.ZeroAddress.Hex(),
-		Category: proverCategory,
-		EnvVars:  []string{"GUARDIAN_PROVER_MINORITY"},
-	}
-	GuardianProverMajority = &cli.StringFlag{
-		Name:     "guardianProverMajority",
-		Usage:    "GuardianProverMajority contract `address`",
-		Category: proverCategory,
-		EnvVars:  []string{"GUARDIAN_PROVER_MAJORITY"},
-	}
-	GuardianProofSubmissionDelay = &cli.DurationFlag{
-		Name:     "guardian.submissionDelay",
-		Usage:    "Guardian proof submission delay",
-		Value:    1 * time.Hour,
-		Category: proverCategory,
-		EnvVars:  []string{"GUARDIAN_SUBMISSION_DELAY"},
-	}
-	EnableLivenessBondProof = &cli.BoolFlag{
-		Name:     "prover.enableLivenessBondProof",
-		Usage:    "Toggles whether the proof is a dummy proof or returns keccak256(RETURN_LIVENESS_BOND) as proof",
-		Value:    false,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_ENABLE_LIVENESS_BOND_PROOF"},
-	}
-	L1NodeVersion = &cli.StringFlag{
-		Name:     "prover.l1NodeVersion",
-		Usage:    "Version or tag or the L1 Node Version used as an L1 RPC Url by this guardian prover",
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_L1_NODE_VERSION"},
-	}
-	L2NodeVersion = &cli.StringFlag{
-		Name:     "prover.l2NodeVersion",
-		Usage:    "Version or tag or the L2 Node Version used as an L2 RPC Url by this guardian prover",
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_L2_NODE_VERSION"},
 	}
 	ProofPollingInterval = &cli.DurationFlag{
 		Name:     "prover.proofPollingInterval",
@@ -203,19 +148,12 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1ProverPrivKey,
 	StartingBlockID,
 	Dummy,
-	GuardianProverMinority,
-	GuardianProverMajority,
-	GuardianProofSubmissionDelay,
-	GuardianProverHealthCheckServerEndpoint,
-	Graffiti,
 	ProveUnassignedBlocks,
 	ContesterMode,
 	ProverHTTPServerPort,
 	MaxExpiry,
 	TaikoTokenAddress,
 	Allowance,
-	L1NodeVersion,
-	L2NodeVersion,
 	ProofPollingInterval,
 	BlockConfirmations,
 	RaikoRequestTimeout,
