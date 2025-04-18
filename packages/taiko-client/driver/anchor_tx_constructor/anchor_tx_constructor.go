@@ -19,7 +19,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoL2.anchor) in
+// AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoAnchor.anchorV3) in
 // each L2 block, which must be the first transaction, and its sender must be the golden touch account.
 type AnchorTxConstructor struct {
 	rpc    *rpc.Client
@@ -139,7 +139,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign TaikoL2.anchor transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign TaikoAnchor.anchorV3 transaction using K = 1 and K = 2")
 		}
 	}
 

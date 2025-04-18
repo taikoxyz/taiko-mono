@@ -32,7 +32,7 @@ type BlocksInserterPacaya struct {
 	progressTracker    *beaconsync.SyncProgressTracker
 	blobDatasource     *rpc.BlobDataSource
 	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoAnchor.anchorV3 transactions constructor
 	calldataFetcher    txlistFetcher.TxListFetcher
 	blobFetcher        txlistFetcher.TxListFetcher
 	mutex              sync.Mutex

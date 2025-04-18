@@ -750,10 +750,7 @@ func (c *Client) getSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 ) {
 	var method *abi.Method
 	if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
-		method, err = encoding.TaikoL2ABI.MethodById(tx.Data())
-		if err != nil {
-			return common.Hash{}, 0, 0, fmt.Errorf("failed to get TaikoL2.Anchor method by ID: %w", err)
-		}
+		return common.Hash{}, 0, 0, fmt.Errorf("failed to get TaikoAnchor.AnchorV3 method by ID: %w", err)
 	}
 
 	var ok bool
