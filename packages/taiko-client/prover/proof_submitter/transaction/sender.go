@@ -48,27 +48,10 @@ func (s *Sender) Send(
 	proofResponse *producer.ProofResponse,
 	buildTx TxBuilder,
 ) (err error) {
-	var proofStatus *rpc.BlockProofStatus
-
 	// Check if the proof has already been submitted.
-	if proofResponse.Meta.IsPacaya() {
-		if proofStatus, err = rpc.GetBatchProofStatus(
-			ctx,
-			s.rpc,
-			proofResponse.Meta.Pacaya().GetBatchID(),
-		); err != nil {
-			return err
-		}
-	} else {
-		if proofStatus, err = rpc.GetBlockProofStatus(
-			ctx,
-			s.rpc,
-			proofResponse.BlockID,
-			proofResponse.Opts.GetProverAddress(),
-			s.proverSetAddress,
-		); err != nil {
-			return err
-		}
+	proofStatus, err := rpc.GetBatchProofStatus(ctx, s.rpc, proofResponse.Meta.Pacaya().GetBatchID())
+	if err != nil {
+		return err
 	}
 
 	if proofStatus.IsSubmitted && !proofStatus.Invalid {
@@ -190,38 +173,22 @@ func (s *Sender) ValidateProof(
 	}
 
 	var verifiedID = latestVerifiedID
-	// 2. Check if latest verified head is ahead of this block proof.
+	// 2. Check if latest verified head is ahead of the current block.
 	if verifiedID == nil {
 		ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 		if err != nil {
-			blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
-			if err != nil {
-				return false, err
-			}
-			verifiedID = new(big.Int).SetUint64(blockInfo.BlockId)
-		} else {
-			verifiedID = new(big.Int).SetUint64(ts.BlockId)
+			return false, err
 		}
+		verifiedID = new(big.Int).SetUint64(ts.BlockId)
 	}
 
-	if proofResponse.Meta.IsPacaya() {
-		if verifiedID.Cmp(new(big.Int).SetUint64(proofResponse.Meta.Pacaya().GetLastBlockID())) >= 0 {
-			log.Info(
-				"Batch is already verified, skip current proof submission",
-				"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
-				"latestVerifiedID", latestVerifiedID,
-			)
-			return false, nil
-		}
-	} else {
-		if verifiedID.Cmp(proofResponse.BlockID) >= 0 {
-			log.Info(
-				"Block is already verified, skip current proof submission",
-				"blockID", proofResponse.BlockID.Uint64(),
-				"latestVerifiedID", latestVerifiedID,
-			)
-			return false, nil
-		}
+	if verifiedID.Cmp(new(big.Int).SetUint64(proofResponse.Meta.Pacaya().GetLastBlockID())) >= 0 {
+		log.Info(
+			"Batch is already verified, skip current proof submission",
+			"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
+			"latestVerifiedID", latestVerifiedID,
+		)
+		return false, nil
 	}
 
 	return true, nil

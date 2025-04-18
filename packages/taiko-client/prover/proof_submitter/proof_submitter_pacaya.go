@@ -419,10 +419,7 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	ctx context.Context,
 	batchProof *proofProducer.BatchProofs,
 ) ([]uint64, error) {
-	var (
-		latestVerifiedID uint64
-		invalidBatchIDs  []uint64
-	)
+	var invalidBatchIDs []uint64
 
 	if len(batchProof.ProofResponses) == 0 {
 		return nil, proofProducer.ErrInvalidLength
@@ -431,18 +428,10 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	// Fetch the latest verified block ID.
 	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			log.Warn(
-				"Failed to fetch state variables",
-				"error", err,
-			)
-			return nil, err
-		}
-		latestVerifiedID = blockInfo.BlockId
-	} else {
-		latestVerifiedID = batchInfo.BatchId
+		return nil, err
 	}
+	latestVerifiedID := batchInfo.BatchId
+
 	// Check if any batch in this aggregation is already submitted and valid,
 	// if so, we skip this batch.
 	for _, proof := range batchProof.ProofResponses {

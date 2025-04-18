@@ -230,12 +230,7 @@ func (s *State) IsPacaya(num *big.Int) bool {
 func (s *State) initGenesisHeight(ctx context.Context) error {
 	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		slotA, _, err := s.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return err
-		}
-		s.GenesisL1Height = new(big.Int).SetUint64(slotA.GenesisHeight)
-		return nil
+		return err
 	}
 
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)

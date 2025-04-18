@@ -50,23 +50,11 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	}
 
 	// Fetch the block info from TaikoL1 contract, and set the L1 height.
-	var (
-		proposedIn uint64
-		err        error
-	)
-	if blockID.Uint64() >= s.rpc.PacayaClients.ForkHeight {
-		batch, err := s.FindBatchForBlockID(ctx, blockID.Uint64())
-		if err != nil {
-			return fmt.Errorf("failed to find batch for block ID (%d): %w", blockID, err)
-		}
-		proposedIn = batch.AnchorBlockId
-	} else {
-		blockInfo, err := s.rpc.GetL2BlockInfoV2(ctx, blockID)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 block (%d) info from TaikoL1 contract: %w", blockID, err)
-		}
-		proposedIn = blockInfo.ProposedIn
+	batch, err := s.FindBatchForBlockID(ctx, blockID.Uint64())
+	if err != nil {
+		return fmt.Errorf("failed to find batch for block ID (%d): %w", blockID, err)
 	}
+	proposedIn := batch.AnchorBlockId
 
 	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(proposedIn))
 	if err != nil {

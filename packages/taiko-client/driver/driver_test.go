@@ -1102,7 +1102,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	baseFee, err := s.RPCClient.CalculateBaseFee(
 		context.Background(),
 		parent,
-		true,
 		s.d.protocolConfig.BaseFeeConfig(),
 		anchoredL1Block.Time,
 	)

@@ -76,18 +76,11 @@ func createExecutionPayloadsAndSetHead(
 	var lastVerifiedBlockHash common.Hash
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		lastVerifiedBlockInfo, err := rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-		}
+		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+	}
 
-		if meta.BlockID.Uint64() > lastVerifiedBlockInfo.BlockId {
-			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
-		}
-	} else {
-		if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
-			lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
-		}
+	if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
+		lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -383,7 +376,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, true, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
 	if err != nil {
 		return nil, nil, err
 	}

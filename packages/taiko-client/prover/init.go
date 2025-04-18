@@ -278,31 +278,17 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, startingBlockID)
 	if err != nil {
 		if err.Error() == ethereum.NotFound.Error() {
-			if startingBlockID.Uint64() < p.rpc.PacayaClients.ForkHeight {
-				blockInfo, err := p.rpc.GetL2BlockInfoV2(p.ctx, startingBlockID)
-				if err != nil {
-					return fmt.Errorf("failed to get block info for blockID: %d", startingBlockID)
-				}
-
-				l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(blockInfo.ProposedIn))
-				if err != nil {
-					return fmt.Errorf("failed to get L1 head for blockID: %d", blockInfo.ProposedIn)
-				}
-				p.sharedState.SetL1Current(l1Head)
-				return nil
-			} else {
-				batch, err := p.rpc.GetBatchByID(p.ctx, startingBlockID)
-				if err != nil {
-					return fmt.Errorf("failed to get batch by ID: %d", startingBlockID)
-				}
-
-				l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
-				if err != nil {
-					return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
-				}
-				p.sharedState.SetL1Current(l1Head)
-				return nil
+			batch, err := p.rpc.GetBatchByID(p.ctx, startingBlockID)
+			if err != nil {
+				return fmt.Errorf("failed to get batch by ID: %d", startingBlockID)
 			}
+
+			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
+			if err != nil {
+				return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
+			}
+			p.sharedState.SetL1Current(l1Head)
+			return nil
 		}
 		return err
 	}
@@ -348,7 +334,6 @@ func (p *Prover) initEventHandlers() error {
 		p.proofSubmissionCh,
 		p.cfg.ContesterMode,
 	)
-
 	// ------- BatchesVerified -------
 	p.eventHandlers.batchesVerifiedHandler = handler.NewBatchesVerifiedEventHandler(p.rpc)
 

@@ -211,7 +211,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		return nil
 	}
 
-	windowExpired, _, timeToExpire, err := IsProvingWindowExpired(h.rpc, meta, nil)
+	windowExpired, _, timeToExpire, err := IsProvingWindowExpired(h.rpc, meta)
 	if err != nil {
 		return fmt.Errorf("failed to check if the proving window is expired: %w", err)
 	}
@@ -223,7 +223,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		meta.GetProposer() != h.proverSetAddress {
 		log.Info(
 			"Proposed batch is not provable by current prover at the moment",
-			"blockOrBatchID", meta.Pacaya().GetBatchID(),
+			"batchID", meta.Pacaya().GetBatchID(),
 			"prover", meta.GetProposer(),
 			"timeToExpire", timeToExpire,
 		)

@@ -97,7 +97,6 @@ func getMetadataFromBatchPacaya(
 func IsProvingWindowExpired(
 	rpc *rpc.Client,
 	metadata metadata.TaikoProposalMetaData,
-	tiers []*rpc.TierProviderTierWithID,
 ) (bool, time.Time, time.Duration, error) {
 	var (
 		provingWindow time.Duration

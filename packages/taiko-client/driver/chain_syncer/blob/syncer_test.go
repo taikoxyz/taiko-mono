@@ -62,7 +62,7 @@ func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
 	block, err := s.RPCClient.L2.BlockByNumber(ctx, meta.Ontake().GetBlockID())
 	s.Nil(err)
 
-	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedBlockOntake(ctx)
+	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	s.Nil(err)
 
 	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
@@ -124,8 +124,8 @@ func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
 	step3 := func(payload *engine.ExecutableData) {
 		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{
 			HeadBlockHash:      payload.BlockHash,
-			SafeBlockHash:      lastVerifiedBlockInfo.BlockHash,
-			FinalizedBlockHash: lastVerifiedBlockInfo.BlockHash,
+			SafeBlockHash:      lastVerifiedBlockInfo.Ts.BlockHash,
+			FinalizedBlockHash: lastVerifiedBlockInfo.Ts.BlockHash,
 		}, nil)
 		s.Nil(err)
 		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
