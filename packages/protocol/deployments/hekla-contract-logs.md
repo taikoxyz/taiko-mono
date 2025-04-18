@@ -122,10 +122,10 @@
 ### taikoInbox
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x013CDdBD3Be242337C3124834335Cd8b72c97324`
+- impl: `0x7B12b7aF661f06c2B036158c850bd54aa881DbA4`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - oldFork: `0x6e15d2049480C7E339C6B398774166e1ddbCd43e` at commit `a634150`
-- newFork: `0x93684C898950013850dE100b0Aed0a8E457dC825` at commit `80baf41`
+- newFork: `0x34FB37E54a8f0eeA51d096FF2b4ad9f3CfAeA1Ca` at commit `32441f0`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
@@ -145,6 +145,7 @@
   - upgraded on Feb 1, 2025 at commit `75359cc`
   - upgraded on Feb 2, 2025 at commit `e294023`
   - upgraded on Mar 21, 2025 at commit `80baf41`
+  - upgraded on Apr 18, 2025 at commit `32441f0`
 
 ### assignmentHook
 
