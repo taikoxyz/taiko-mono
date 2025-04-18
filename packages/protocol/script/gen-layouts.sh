@@ -66,7 +66,7 @@ else
 fi
 
 # Empty the output file initially
-output_file="layout/${profile}-contracts.md"
+output_file="layout/${profile}-contracts.txt"
 > $output_file
 
 # Loop over each contract
@@ -79,19 +79,3 @@ for contract in "${contracts[@]}"; do
     FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout | jq -r '["Slot", "Type", "Name"], ["---", "---", "---"], (.storage[] | [.slot, .type, .label]) | @tsv' | column -t -s $'\t' >> $output_file
     echo "" >> $output_file
 done
-
-sed_pattern='s|contracts/.*/\([^/]*\)\.sol:\([^/]*\)|\2|g'
-
-if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "$sed_pattern" "$output_file"
-else
-    sed -i "$sed_pattern" "$output_file"
-fi
-
-# # Use awk to remove the last column and write to a temporary file
-# temp_file="${output_file}_temp"
-# while IFS= read -r line; do
-#     # Remove everything behind the second-to-last "|"
-#     echo "$line" | sed -E 's/\|[^|]*\|[^|]*$/|/'
-# done < "$output_file" > "$temp_file"
-# mv "$temp_file" "$output_file"
