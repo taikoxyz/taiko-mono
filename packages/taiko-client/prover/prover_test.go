@@ -137,8 +137,8 @@ func (s *ProverTestSuite) TestInitError() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
 		Dummy:                 true,
@@ -496,18 +496,18 @@ func (s *ProverTestSuite) TestForceAggregate() {
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 	s.p.cfg.Allowance = common.Big256
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoInboxAddress))
 
-	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoInboxAddress)
 	s.Nil(err)
 
 	s.NotZero(originalAllowance.Uint64())
 
 	s.p.cfg.Allowance = new(big.Int).Sub(originalAllowance, common.Big1)
 
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoInboxAddress))
 
-	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoInboxAddress)
 	s.Nil(err)
 
 	s.Zero(allowance.Cmp(originalAllowance))
@@ -628,7 +628,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	receipt, err := s.TxMgr("unpauseTaikoInbox", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")).
 		Send(
 			context.Background(),
-			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.TaikoL1Address},
+			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.TaikoInboxAddress},
 		)
 	s.Nil(err)
 	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
@@ -682,8 +682,8 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		L1ProverPrivKey:       key,
@@ -693,8 +693,6 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
-		L1NodeVersion:         "1.0.0",
-		L2NodeVersion:         "0.1.0",
 		SGXProofBufferSize:    1,
 		ZKVMProofBufferSize:   1,
 		BlockConfirmations:    0,

@@ -22,8 +22,8 @@ type Config struct {
 	L1WsEndpoint              string
 	L2WsEndpoint              string
 	L2HttpEndpoint            string
-	TaikoL1Address            common.Address
-	TaikoL2Address            common.Address
+	TaikoInboxAddress         common.Address
+	TaikoAnchorAddress        common.Address
 	TaikoTokenAddress         common.Address
 	ProverSetAddress          common.Address
 	L1ProverPrivKey           *ecdsa.PrivateKey
@@ -34,16 +34,12 @@ type Config struct {
 	ContesterMode             bool
 	RPCTimeout                time.Duration
 	ProveBlockGasLimit        uint64
-	HTTPServerPort            uint64
-	MinEthBalance             *big.Int
 	MaxExpiry                 time.Duration
 	Allowance                 *big.Int
 	RaikoHostEndpoint         string
 	RaikoZKVMHostEndpoint     string
 	RaikoJWT                  string
 	RaikoRequestTimeout       time.Duration
-	L1NodeVersion             string
-	L2NodeVersion             string
 	BlockConfirmations        uint64
 	TxmgrConfigs              *txmgr.CLIConfig
 	PrivateTxmgrConfigs       *txmgr.CLIConfig
@@ -90,8 +86,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1WsEndpoint:          c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:          c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:        c.String(flags.L2HTTPEndpoint.Name),
-		TaikoL1Address:        common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
-		TaikoL2Address:        common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+		TaikoInboxAddress:     common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+		TaikoAnchorAddress:    common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		TaikoTokenAddress:     common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:      common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:       l1ProverPrivKey,
@@ -107,7 +103,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ContesterMode:         c.Bool(flags.ContesterMode.Name),
 		RPCTimeout:            c.Duration(flags.RPCTimeout.Name),
 		ProveBlockGasLimit:    c.Uint64(flags.TxGasLimit.Name),
-		HTTPServerPort:        c.Uint64(flags.ProverHTTPServerPort.Name),
 		MaxExpiry:             c.Duration(flags.MaxExpiry.Name),
 		Allowance:             allowance,
 		BlockConfirmations:    c.Uint64(flags.BlockConfirmations.Name),

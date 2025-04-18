@@ -174,7 +174,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,
 		p.cfg.ProverSetAddress,
-		p.cfg.TaikoL2Address,
+		p.cfg.TaikoAnchorAddress,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
 		p.privateTxmgr,

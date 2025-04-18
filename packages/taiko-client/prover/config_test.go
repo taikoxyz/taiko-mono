@@ -17,10 +17,8 @@ var (
 	l1WsEndpoint   = os.Getenv("L1_WS")
 	l2WsEndpoint   = os.Getenv("L2_WS")
 	l2HttpEndpoint = os.Getenv("L2_HTTP")
-	l1NodeVersion  = "1.0.0"
-	l2NodeVersion  = "0.1.0"
-	taikoL1        = os.Getenv("TAIKO_INBOX")
-	taikoL2        = os.Getenv("TAIKO_ANCHOR")
+	taikoInbox     = os.Getenv("TAIKO_INBOX")
+	taikoAnchor    = os.Getenv("TAIKO_ANCHOR")
 	allowance      = 10.0
 	rpcTimeout     = 5 * time.Second
 )
@@ -33,8 +31,8 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		s.Equal(l1WsEndpoint, c.L1WsEndpoint)
 		s.Equal(l2WsEndpoint, c.L2WsEndpoint)
 		s.Equal(l2HttpEndpoint, c.L2HttpEndpoint)
-		s.Equal(taikoL1, c.TaikoL1Address.String())
-		s.Equal(taikoL2, c.TaikoL2Address.String())
+		s.Equal(taikoInbox, c.TaikoInboxAddress.String())
+		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(
 			crypto.PubkeyToAddress(s.p.cfg.L1ProverPrivKey.PublicKey),
 			crypto.PubkeyToAddress(c.L1ProverPrivKey.PublicKey),
@@ -43,8 +41,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		s.True(c.ProveUnassignedBlocks)
 		s.True(c.ContesterMode)
 		s.Equal(rpcTimeout, c.RPCTimeout)
-		s.Equal(c.L1NodeVersion, l1NodeVersion)
-		s.Equal(c.L2NodeVersion, l2NodeVersion)
 		s.Nil(new(Prover).InitFromCli(context.Background(), ctx))
 		s.True(c.ProveUnassignedBlocks)
 		allowanceWithDecimal, err := utils.EtherToWei(allowance)
@@ -59,8 +55,8 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		"--" + flags.L1WSEndpoint.Name, l1WsEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2WsEndpoint,
 		"--" + flags.L2HTTPEndpoint.Name, l2HttpEndpoint,
-		"--" + flags.TaikoInboxAddress.Name, taikoL1,
-		"--" + flags.TaikoAnchorAddress.Name, taikoL2,
+		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.L1ProverPrivKey.Name, os.Getenv("L1_PROVER_PRIVATE_KEY"),
 		"--" + flags.StartingBlockID.Name, "0",
 		"--" + flags.RPCTimeout.Name, "5s",

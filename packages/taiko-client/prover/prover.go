@@ -109,8 +109,8 @@ func InitFromConfig(
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
 		L1Endpoint:        cfg.L1WsEndpoint,
 		L2Endpoint:        cfg.L2WsEndpoint,
-		TaikoL1Address:    cfg.TaikoL1Address,
-		TaikoL2Address:    cfg.TaikoL2Address,
+		TaikoL1Address:    cfg.TaikoInboxAddress,
+		TaikoL2Address:    cfg.TaikoAnchorAddress,
 		TaikoTokenAddress: cfg.TaikoTokenAddress,
 		ProverSetAddress:  cfg.ProverSetAddress,
 		Timeout:           cfg.RPCTimeout,
@@ -139,7 +139,7 @@ func InitFromConfig(
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
 		p.rpc,
-		p.cfg.TaikoL1Address,
+		p.cfg.TaikoInboxAddress,
 		p.cfg.ProverSetAddress,
 	)
 
@@ -189,7 +189,7 @@ func InitFromConfig(
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
 	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.TaikoL1Address} {
+	for _, contract := range []common.Address{p.cfg.TaikoInboxAddress} {
 		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
 			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
 		}
