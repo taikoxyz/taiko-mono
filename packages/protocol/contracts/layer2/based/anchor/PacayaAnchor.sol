@@ -25,6 +25,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
 
     ISignalService public immutable signalService;
     uint64 public immutable pacayaForkHeight;
+    uint64 public immutable shastaForkHeight;
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
@@ -123,6 +124,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         nonReentrant
     {
         require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
+        require(shastaForkHeight == 0 || block.number < shastaForkHeight, L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
