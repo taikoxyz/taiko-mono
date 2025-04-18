@@ -317,8 +317,6 @@ func (s *DriverTestSuite) TestDoSyncNoNewL2Blocks() {
 }
 
 func (s *DriverTestSuite) TestForcedInclusion() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
-
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
@@ -402,9 +400,6 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 
 	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 
-	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
-
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -486,9 +481,6 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 
 	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 
-	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
-
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -544,7 +536,6 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
@@ -608,7 +599,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
@@ -647,7 +637,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
 }
 
 func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -785,7 +774,6 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 

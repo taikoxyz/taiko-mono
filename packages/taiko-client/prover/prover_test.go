@@ -238,7 +238,6 @@ func (s *ProverTestSuite) TestProveOp() {
 }
 
 func (s *ProverTestSuite) TestProveMultiBlobBatch() {
-	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	s.True(m.IsPacaya())
 
@@ -524,7 +523,6 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	s.True(m.IsPacaya())
 	s.Nil(s.p.proveOp())

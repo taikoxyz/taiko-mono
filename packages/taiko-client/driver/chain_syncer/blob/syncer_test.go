@@ -12,8 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -150,19 +148,6 @@ func (s *BlobSyncerTestSuite) TestProcessL1Blocks() {
 func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 	s.ProposeAndInsertEmptyBlocks(s.p, s.s)
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
-}
-
-func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
-	s.Nil(s.s.onBlockProposed(
-		context.Background(),
-		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 0}},
-		func() {},
-	))
-	s.NotNil(s.s.onBlockProposed(
-		context.Background(),
-		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 1}},
-		func() {},
-	))
 }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {

@@ -18,7 +18,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 	res, err := producer.RequestProof(
 		&ProofRequestOptionsPacaya{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataOntake{},
+		&metadata.TaikoDataBlockMetadataPacaya{},
 		time.Now(),
 	)
 	require.Nil(t, err)

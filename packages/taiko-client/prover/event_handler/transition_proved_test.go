@@ -134,8 +134,6 @@ func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 		true,
 	)
 
-	s.ForkIntoPacaya(s.proposer, s.blobSyncer)
-
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
 	s.True(m.IsPacaya())
 

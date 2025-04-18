@@ -22,7 +22,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
@@ -388,17 +387,12 @@ func (s *ProposerTestSuite) TestName() {
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
-	sink2 := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
-	s.Nil(err)
-	sub2, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 
 	defer func() {
 		sub1.Unsubscribe()
-		sub2.Unsubscribe()
 		close(sink1)
-		close(sink2)
 	}()
 
 	to := common.BytesToAddress(testutils.RandomBytes(32))
@@ -407,13 +401,8 @@ func (s *ProposerTestSuite) TestProposeOp() {
 
 	s.Nil(s.p.ProposeOp(context.Background()))
 
-	var meta metadata.TaikoProposalMetaData
-	select {
-	case event := <-sink1:
-		meta = metadata.NewTaikoDataBlockMetadataPacaya(event)
-	case event := <-sink2:
-		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
-	}
+	event := <-sink1
+	meta := metadata.NewTaikoDataBlockMetadataPacaya(event)
 	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
@@ -440,9 +429,6 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 }
 
 func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
-	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	s.ForkIntoPacaya(s.p, s.s)
-
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.NotZero(l2Head1.Number.Uint64())
