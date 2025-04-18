@@ -44,7 +44,7 @@ contract MainnetInbox is TaikoInbox {
                 /// we would use 8 * (12 / 2) = 48. However, to make the gas changes 4 times slower for
                 /// better user experience, we use 48 * 4 = 192.
                 adjustmentQuotient: 192,
-                sharingPctg: 75,
+                sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
