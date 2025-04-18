@@ -70,7 +70,7 @@ InboxTest_ProposeAndProve:test_inbox_reprove_the_same_batch_with_same_transition
 InboxTest_ProposeAndProve:test_inbox_ring_buffer_will_be_reused() (gas: 15990492)
 InboxTest_ProposeAndProve:test_inbox_with_provermarket_diff_prover_and_proposer_fee_above_liveness_measure_gas_used() (gas: 9937632)
 InboxTest_ProposeAndProve:test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used() (gas: 9937677)
-InboxTest_ProposeAndProve:test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used() (gas: 9851303)
+InboxTest_ProposeAndProve:test_inbox_with_provermarket_same_prover_as_proposer_measure_gas_used() (gas: 9851309)
 InboxTest_ProposeAndProve:test_proposeBatch_reverts_for_invalid_proposer_and_operator() (gas: 166185)
 InboxTest_StopBatch:test_inbox_num_batches_verified() (gas: 8834867)
 PreconfRouterTest:test_preconfRouter_proposeBatch() (gas: 377529)
