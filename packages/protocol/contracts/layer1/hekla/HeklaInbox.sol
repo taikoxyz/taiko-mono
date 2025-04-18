@@ -93,7 +93,7 @@ contract HeklaInbox is TaikoInbox {
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
+                adjustmentQuotient: 192,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
