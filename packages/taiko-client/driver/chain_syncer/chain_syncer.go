@@ -47,7 +47,13 @@ func New(
 	go tracker.Track(ctx)
 
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
-	blobSyncer, err := blob.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint)
+	blobSyncer, err := blob.NewSyncer(
+		ctx,
+		rpc,
+		state,
+		tracker,
+		blobServerEndpoint,
+	)
 	if err != nil {
 		return nil, err
 	}

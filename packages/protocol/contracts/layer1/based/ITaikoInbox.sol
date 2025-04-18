@@ -163,8 +163,7 @@ interface ITaikoInbox {
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
         uint96 livenessBondBase;
-        /// @notice The amount of Taiko token as a prover liveness bond per block. This field is
-        /// deprecated and its value will be ignored.
+        /// @notice The amount of Taiko token as a prover liveness bond per block.
         uint96 livenessBondPerBlock;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;

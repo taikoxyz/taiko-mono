@@ -163,7 +163,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		// If the transaction is underpriced, we just ignore it.
+		// If the transaction is underpriced, we just ingore it.
 		s.Equal("replacement transaction underpriced", err.Error())
 	}
 	s.Nil(proposer.ProposeOp(context.Background()))

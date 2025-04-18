@@ -316,7 +316,7 @@ func (s *BlobSyncerTestSuite) initProposer() {
 	}, nil, nil))
 
 	s.p = prop
-	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
+	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
 func TestBlobSyncerTestSuite(t *testing.T) {

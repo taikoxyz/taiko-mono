@@ -203,7 +203,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	}, txMgr, txMgr))
 
 	s.proposer = prop
-	s.proposer.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
+	s.proposer.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
 }
 
 func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {

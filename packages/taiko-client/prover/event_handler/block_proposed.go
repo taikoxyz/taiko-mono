@@ -378,8 +378,8 @@ type NewBlockProposedGuardianEventHandlerOps struct {
 	GuardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 }
 
-// BlockProposedGuardianEventHandler is responsible for handling the BlockProposed event as a guardian prover.
-type BlockProposedGuardianEventHandler struct {
+// BlockProposedGuaridanEventHandler is responsible for handling the BlockProposed event as a guardian prover.
+type BlockProposedGuaridanEventHandler struct {
 	*BlockProposedEventHandler
 	GuardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 }
@@ -387,18 +387,18 @@ type BlockProposedGuardianEventHandler struct {
 // NewBlockProposedEventGuardianHandler creates a new BlockProposedEventHandler instance.
 func NewBlockProposedEventGuardianHandler(
 	opts *NewBlockProposedGuardianEventHandlerOps,
-) *BlockProposedGuardianEventHandler {
+) *BlockProposedGuaridanEventHandler {
 	blockProposedEventHandler := NewBlockProposedEventHandler(opts.NewBlockProposedEventHandlerOps)
 	blockProposedEventHandler.isGuardian = true
 
-	return &BlockProposedGuardianEventHandler{
+	return &BlockProposedGuaridanEventHandler{
 		BlockProposedEventHandler: blockProposedEventHandler,
 		GuardianProverHeartbeater: opts.GuardianProverHeartbeater,
 	}
 }
 
 // Handle implements the BlockProposedHandler interface.
-func (h *BlockProposedGuardianEventHandler) Handle(
+func (h *BlockProposedGuaridanEventHandler) Handle(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	end eventIterator.EndBlockProposedEventIterFunc,

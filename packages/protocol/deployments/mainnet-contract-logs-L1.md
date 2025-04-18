@@ -276,7 +276,7 @@
   - Upgraded from `0xEE5F6648307319263FFBaE91f68ac700b188fF24` to `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3` @commit`dd09223` @tx`0x2e246e4b4637c4bf13dccea873a30e35e704bafa7f02e30c877ecec7d786e662`
   - Upgraded from `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3` to `0x81DFEA931500cdcf0460e9EC45FA283A6B7f0838` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
 
-#### tier_risc0
+#### tier_risk0
 
 - proxy: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
 - impl: `0xefe30A0D56a5804F695f971010597262CAd9A2c3`
@@ -361,11 +361,10 @@
 
 #### risc0_groth16_verifier
 
-- impl: `0x48E32eFbe22e180A3FFe617f4955cD83B983dd98`
+- impl: `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9`
 - logs:
   - deployed on Nov 6, 2024 @commit`bfb0386`
   - deployed on Jan 13, 2025 @commit`a58852f`
-  - deployed on Jan 13, 2025 @commit`e0805e3`
 
 #### sp1_remote_verifier
 

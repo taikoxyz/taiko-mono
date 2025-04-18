@@ -12,7 +12,7 @@ SGX instances are uniquely identified by Ethereum addresses, derived from **an E
 ## Features
 
 - **Instance Registry**: Tracks valid SGX instances and enforces expiration policies.
-- **Instance Lifecycle Management**: Registers new instances, rotates old instances, and removes compromised or outdated instances.
+- **Instance Lifecycle Management**: Registers new intsances, rotates old instances, and removes compromised or outdated instances.
 - **SGX Proof Verification**: Validates **block state transitions** using SGX-generated signatures and supports **batch proof verification** for efficiency.
 
 ---

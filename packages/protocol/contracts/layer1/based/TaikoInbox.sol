@@ -204,12 +204,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             batch.reserved4 = 0;
             // SSTORE }}
 
-            _debitBond(params.proposer, config.livenessBondBase);
+            uint96 livenessBond =
+                config.livenessBondBase + config.livenessBondPerBlock * uint96(params.blocks.length);
+            _debitBond(params.proposer, livenessBond);
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
             batch.reserved3 = 0;
-            batch.livenessBond = config.livenessBondBase;
+            batch.livenessBond = livenessBond;
             // SSTORE }}
 
             stats2.numBatches += 1;

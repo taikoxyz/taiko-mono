@@ -33,12 +33,7 @@ contract TestLibEIP1559 is Layer2Test {
     }
 
     function test_mainnet_min_basefee() external pure {
-        console2.log(
-            "Mainnet minimal basefee ontake: ", LibEIP1559.basefee(5_000_000 * 8, 1_340_000_000)
-        );
-        console2.log(
-            "Mainnet minimal basefee pacaya: ", LibEIP1559.basefee(5_000_000 * 8, 1_344_899_430)
-        );
+        console2.log("Mainnet minimal basefee: ", LibEIP1559.basefee(5_000_000 * 8, 1_340_000_000));
     }
 
     function test_change_of_quotient_and_gasIssuancePerSecond() public pure {

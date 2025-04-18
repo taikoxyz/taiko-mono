@@ -9,7 +9,7 @@ import (
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	cliV2 "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
@@ -117,7 +117,7 @@ func (i *Indexer) Name() string {
 	return "indexer"
 }
 
-func (i *Indexer) InitFromCli(ctx context.Context, c *cliV2.Context) error {
+func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
 		return err

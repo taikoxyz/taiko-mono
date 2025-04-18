@@ -153,16 +153,8 @@ contract DeployPacayaL1 is DeployCapability {
 
         // Register taiko
         // NOTE: For hekla, we need to replace DevnetInbox with HeklaInbox
-        address newFork = address(
-            new DevnetInbox(
-                LibNetwork.TAIKO_DEVNET,
-                2 hours,
-                taikoWrapper,
-                proofVerifier,
-                taikoToken,
-                signalService
-            )
-        );
+        address newFork =
+            address(new DevnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
 
@@ -214,7 +206,7 @@ contract DeployPacayaL1 is DeployCapability {
         returns (address risc0Verifier, address sp1Verifier)
     {
         risc0Verifier = deployProxy({
-            name: "risc0_reth_verifier",
+            name: "risc0_verifier",
             impl: address(new Risc0Verifier(l2ChainId, risc0Groth16Verifier)),
             data: abi.encodeCall(Risc0Verifier.init, (address(0))),
             registerTo: rollupResolver
@@ -222,7 +214,7 @@ contract DeployPacayaL1 is DeployCapability {
 
         // Deploy sp1 verifier
         sp1Verifier = deployProxy({
-            name: "sp1_reth_verifier",
+            name: "sp1_verifier",
             impl: address(new SP1Verifier(l2ChainId, sp1RemoteVerifier)),
             data: abi.encodeCall(SP1Verifier.init, (address(0))),
             registerTo: rollupResolver
@@ -237,7 +229,7 @@ contract DeployPacayaL1 is DeployCapability {
         returns (address sgxVerifier)
     {
         sgxVerifier = deployProxy({
-            name: "sgx_reth_verifier",
+            name: "sgx_verifier",
             impl: address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automata)),
             data: abi.encodeCall(SgxVerifier.init, (address(0))),
             registerTo: rollupResolver

@@ -195,24 +195,15 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 		log.Debug("Payload data", "hash", lastPayloadData.BlockHash, "txs", len(lastPayloadData.Transactions))
 
-		// Wait till the corresponding L2 header to be existed in the L2 EE.
-		if _, err := i.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(lastPayloadData.Number)); err != nil {
-			return fmt.Errorf("failed to wait for L2 header (%d): %w", lastPayloadData.Number, err)
-		}
-
 		log.Info(
 			"🔗 New L2 block inserted",
 			"blockID", lastPayloadData.Number,
 			"hash", lastPayloadData.BlockHash,
-			"coinbase", lastPayloadData.FeeRecipient.Hex(),
 			"transactions", len(lastPayloadData.Transactions),
 			"timestamp", lastPayloadData.Timestamp,
 			"baseFee", utils.WeiToGWei(lastPayloadData.BaseFeePerGas),
 			"withdrawals", len(lastPayloadData.Withdrawals),
 			"batchID", meta.GetBatchID(),
-			"gasLimit", lastPayloadData.GasLimit,
-			"gasUsed", lastPayloadData.GasUsed,
-			"parentHash", lastPayloadData.ParentHash,
 			"indexInBatch", j,
 		)
 
@@ -222,31 +213,14 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	return nil
 }
 
-// InsertPreconfBlocksFromExecutionPayloads inserts preconf blocks from the given execution payloads.
-func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
-	ctx context.Context,
-	executionPayloads []*eth.ExecutionPayload,
-) ([]*types.Header, error) {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	headers := make([]*types.Header, len(executionPayloads))
-	for j, executableData := range executionPayloads {
-		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert preconf block: %w", err)
-		}
-		headers[j] = header
-	}
-
-	return headers, nil
-}
-
-// insertPreconfBlockFromExecutionPayload the inner method to insert a preconf block from the given execution payload.
-func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
+// InsertPreconfBlockFromExecutionPayload inserts a preconf block from the given execution payload.
+func (i *BlocksInserterPacaya) InsertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
@@ -257,7 +231,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	if headL1Origin != nil {
 		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 			return nil, fmt.Errorf(
-				"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
+				"preconfirmation block number (%d) is less than or equal to the current head L1 origin block ID (%d)",
 				executableData.BlockNumber,
 				headL1Origin.BlockID,
 			)
@@ -266,11 +240,6 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 
 	if len(executableData.Transactions) == 0 {
 		return nil, fmt.Errorf("no transactions data in the payload")
-	}
-
-	// Decompress the transactions list.
-	if executableData.Transactions[0], err = utils.DecompressPacaya(executableData.Transactions[0]); err != nil {
-		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
