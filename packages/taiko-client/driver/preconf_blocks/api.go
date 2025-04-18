@@ -2,7 +2,6 @@ package preconfblocks
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"net/http"
 
@@ -47,12 +46,12 @@ type BuildPreconfBlockResponseBody struct {
 }
 
 // BuildPreconfBlock handles a preconfirmation block creation request,
-// if the preconfirmation block creation body in request are valid, it will insert the correspoinding the
+// if the preconfirmation block creation body in request are valid, it will insert the corresponding
 // preconfirmation block to the backend L2 execution engine and return a success response.
 //
 //		@Summary 	    Insert a preconfirmation block to the L2 execution engine.
 //		@Description	Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
-//		@Description	body in request are valid, it will insert the correspoinding the
+//		@Description	body in request are valid, it will insert the corresponding
 //	 	@Description	preconfirmation block to the backend L2 execution engine and return a success response.
 //		@Param  	body body BuildPreconfBlockRequestBody true "preconf block creation request body"
 //		@Accept	  json
@@ -77,26 +76,39 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"gasLimit", reqBody.ExecutableData.GasLimit,
 		"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas)),
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
+		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
 	)
 
-	if reqBody.ExecutableData.Timestamp == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero timestamp is required"))
+	// Check if the fee recipient the current operator or the next operator if its in handover window.
+	if s.rpc.L1Beacon != nil {
+		if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.SlotInEpoch()); err != nil {
+			return s.returnError(c, http.StatusBadRequest, err)
+		}
 	}
-	if reqBody.ExecutableData.FeeRecipient == (common.Address{}) {
-		return s.returnError(c, http.StatusBadRequest, errors.New("empty L2 fee recipient"))
-	}
-	if reqBody.ExecutableData.GasLimit == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero gas limit is required"))
-	}
-	if reqBody.ExecutableData.BaseFeePerGas == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero base fee per gas is required"))
+
+	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
 	if overflow {
 		return s.returnError(c, http.StatusBadRequest, errors.New("base fee per gas is too large"))
 	}
-	if len(reqBody.ExecutableData.ExtraData) == 0 {
-		return s.returnError(c, http.StatusBadRequest, errors.New("empty extra data"))
+
+	executablePayload := &eth.ExecutionPayload{
+		ParentHash:    reqBody.ExecutableData.ParentHash,
+		FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
+		PrevRandao:    eth.Bytes32(difficulty[:]),
+		BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
+		GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
+		Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
+		ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
+		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+		Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+	}
+
+	if err := s.ValidateExecutionPayload(executablePayload); err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
@@ -108,35 +120,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
 	}
 
-	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	// Decompress the transactions list.
-	decompressed, err := utils.DecompressPacaya(reqBody.ExecutableData.Transactions)
-	if err != nil {
-		return fmt.Errorf("failed to decompress transactions list bytes: %w", err)
-	}
-
 	// Insert the preconf block.
-	header, err := s.chainSyncer.InsertPreconfBlockFromExecutionPayload(
+	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		c.Request().Context(),
-		&eth.ExecutionPayload{
-			ParentHash:    reqBody.ExecutableData.ParentHash,
-			FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
-			PrevRandao:    eth.Bytes32(difficulty[:]),
-			BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
-			GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
-			Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
-			ExtraData:     eth.BytesMax32(reqBody.ExecutableData.ExtraData),
-			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-			Transactions:  []eth.Data{decompressed},
-		},
+		[]*eth.ExecutionPayload{executablePayload},
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
+	if len(headers) == 0 {
+		return s.returnError(c, http.StatusInternalServerError, errors.New("no inserted header returned"))
+	}
+
+	header := headers[0]
 
 	log.Info(
 		"⏰ New preconfirmation L2 block inserted",
@@ -148,7 +144,8 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"gasUsed", header.GasUsed,
 		"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
 		"extraData", common.Bytes2Hex(header.Extra),
-		"baseFee", utils.WeiToEther(header.BaseFee),
+		"baseFee", utils.WeiToGWei(header.BaseFee),
+		"parentHash", header.ParentHash.Hex(),
 	)
 
 	// Propagate the preconfirmation block to the P2P network, if the current server

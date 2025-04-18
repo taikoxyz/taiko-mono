@@ -138,8 +138,16 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
 
         // TaikoInbox
-        address newFork =
-            address(new DevnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+        address newFork = address(
+            new DevnetInbox(
+                LibNetwork.TAIKO_DEVNET,
+                2 hours,
+                taikoWrapper,
+                proofVerifier,
+                taikoToken,
+                signalService
+            )
+        );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
         // Prover set
@@ -202,7 +210,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupResolver, "risc0_groth16_verifier", address(risc0Groth16Verifier));
         risc0Verifier = deployProxy({
-            name: "risc0_verifier",
+            name: "risc0_reth_verifier",
             impl: address(new Risc0Verifier(l2ChainId, address(risc0Groth16Verifier))),
             data: abi.encodeCall(Risc0Verifier.init, (address(0))),
             registerTo: rollupResolver
@@ -212,7 +220,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         SuccinctVerifier sp1RemoteVerifier = new SuccinctVerifier();
         register(rollupResolver, "sp1_remote_verifier", address(sp1RemoteVerifier));
         sp1Verifier = deployProxy({
-            name: "sp1_verifier",
+            name: "sp1_reth_verifier",
             impl: address(new SP1Verifier(l2ChainId, address(sp1RemoteVerifier))),
             data: abi.encodeCall(SP1Verifier.init, (address(0))),
             registerTo: rollupResolver
@@ -244,7 +252,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         });
 
         sgxVerifier = deployProxy({
-            name: "sgx_verifier",
+            name: "sgx_reth_verifier",
             impl: address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy)),
             data: abi.encodeCall(SgxVerifier.init, (address(0))),
             registerTo: rollupResolver
