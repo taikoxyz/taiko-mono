@@ -9,8 +9,6 @@ import "./PacayaAnchor.sol";
 /// @notice Anchoring functions for the Shasta fork.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaAnchor is PacayaAnchor {
-    uint64 public immutable shastaForkHeight;
-
     error InvalidForkHeight();
 
     uint256[50] private __gap;

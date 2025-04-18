@@ -94,9 +94,9 @@ contract HeklaInbox is TaikoInbox {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 75,
+                sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000,
+                minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             provingWindow: 2 hours,

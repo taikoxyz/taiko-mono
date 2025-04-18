@@ -115,6 +115,7 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
         assertEq(uint64(pacayaForkHeight), taikoAnchorProxy.pacayaForkHeight());
+        assertEq(uint64(shastaForkHeight), taikoAnchorProxy.shastaForkHeight());
         assertEq(
             getPredeployedContractAddress("SignalService"),
             address(taikoAnchorProxy.signalService())

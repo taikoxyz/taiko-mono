@@ -641,6 +641,13 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
+                    {
+                        id: taikoAnchorReferencesMap.shastaForkHeight.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(shastaForkHeight),
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
