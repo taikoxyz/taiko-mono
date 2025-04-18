@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -65,11 +64,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 			nil,
 		)})
 	}
-}
-
-func (s *TransactionBuilderTestSuite) TestBuildCalldata() {
-	_, err := s.calldataTxBuilder.BuildOntake(context.Background(), [][]byte{{1}, {2}}, common.Hash{})
-	s.Nil(err)
 }
 
 func TestTransactionBuilderTestSuite(t *testing.T) {

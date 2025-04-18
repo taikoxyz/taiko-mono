@@ -2,7 +2,6 @@ package proposer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -15,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -324,90 +322,10 @@ func (p *Proposer) ProposeTxLists(
 	l2Head uint64,
 	parentMetaHash common.Hash,
 ) error {
-	// Check if the current L2 chain is after Pacaya fork, propose blocks batch.
-	if p.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head + 1)) {
-		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
-			return err
-		}
-		p.lastProposedAt = time.Now()
-		return nil
-	}
-
-	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
-	if err := p.ProposeTxListOntake(ctx, txLists, parentMetaHash); err != nil {
+	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
 		return err
 	}
 	p.lastProposedAt = time.Now()
-	return nil
-}
-
-// ProposeTxListOntake proposes the given transactions lists to TaikoL1 smart contract.
-func (p *Proposer) ProposeTxListOntake(
-	ctx context.Context,
-	txLists []types.Transactions,
-	parentMetaHash common.Hash,
-) error {
-	var (
-		proverAddress     = p.proposerAddress
-		txListsBytesArray [][]byte
-		txNums            []int
-		totalTxs          int
-	)
-	for _, txs := range txLists {
-		txListBytes, err := rlp.EncodeToBytes(txs)
-		if err != nil {
-			return fmt.Errorf("failed to encode transactions: %w", err)
-		}
-
-		compressedTxListBytes, err := utils.Compress(txListBytes)
-		if err != nil {
-			return err
-		}
-
-		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
-		txNums = append(txNums, len(txs))
-		totalTxs += len(txs)
-	}
-
-	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proverAddress = p.Config.ClientConfig.ProverSetAddress
-	}
-
-	ok, err := rpc.CheckProverBalance(
-		ctx,
-		p.rpc,
-		proverAddress,
-		p.TaikoL1Address,
-		new(big.Int).Mul(
-			p.protocolConfigs.LivenessBond(),
-			new(big.Int).SetUint64(uint64(len(txLists))),
-		),
-	)
-
-	if err != nil {
-		log.Warn("Failed to check prover balance", "error", err)
-		return err
-	}
-
-	if !ok {
-		return errors.New("insufficient prover balance")
-	}
-
-	txCandidate, err := p.txBuilder.BuildOntake(ctx, txListsBytesArray, parentMetaHash)
-	if err != nil {
-		log.Warn("Failed to build TaikoL1.proposeBlocksV2 transaction", "error", encoding.TryParsingCustomError(err))
-		return err
-	}
-
-	if err := p.SendTx(ctx, txCandidate); err != nil {
-		return err
-	}
-
-	log.Info("📝 Batch propose transactions succeeded", "txs", txNums)
-
-	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
-	metrics.ProposerProposedTxsCounter.Add(float64(totalTxs))
-
 	return nil
 }
 
@@ -521,7 +439,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoL1.proposeBlockV2 / TaikoInbox.proposeBatch transaction by tx manager",
+			"Failed to send TaikoInbox.proposeBatch transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)
@@ -532,7 +450,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("failed to propose block: %s", receipt.TxHash.Hex())
+		return fmt.Errorf("failed to propose batch: %s", receipt.TxHash.Hex())
 	}
 	return nil
 }
@@ -554,29 +472,15 @@ func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.Memor
 
 // GetParentMetaHash returns the parent meta hash of the given L2 head.
 func (p *Proposer) GetParentMetaHash(ctx context.Context, l2Head uint64) (common.Hash, error) {
-	// Check if the current L2 chain is after Pacaya fork.
-	if p.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head + 1)) {
-		state, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch protocol state variables: %w", err)
-		}
-
-		batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(state.Stats2.NumBatches-1))
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch batch by ID: %w", err)
-		}
-
-		return batch.MetaHash, nil
-	}
-
-	_, slotB, err := p.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
+	state, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch protocol state variables: %w", err)
 	}
-	blockInfo, err := p.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(slotB.NumBlocks-1))
+
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(state.Stats2.NumBatches-1))
 	if err != nil {
-		return common.Hash{}, err
+		return common.Hash{}, fmt.Errorf("failed to fetch batch by ID: %w", err)
 	}
 
-	return blockInfo.MetaHash, nil
+	return batch.MetaHash, nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -19,14 +20,14 @@ import (
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataOnly() {
 	builder := s.newTestBuilderWithFallback(false, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}}, common.Hash{})
+	candidate, err := builder.BuildPacaya(context.Background(), []types.Transactions{}, nil, nil, common.Hash{})
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataWithBlobAllowed() {
 	builder := s.newTestBuilderWithFallback(true, false, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}}, common.Hash{})
+	candidate, err := builder.BuildPacaya(context.Background(), []types.Transactions{}, nil, nil, common.Hash{})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }
@@ -41,7 +42,7 @@ func (s *TransactionBuilderTestSuite) TestBlobAllowed() {
 func (s *TransactionBuilderTestSuite) TestFallback() {
 	// By default, blob fee should be cheaper.
 	builder := s.newTestBuilderWithFallback(true, true, nil)
-	candidate, err := builder.BuildOntake(context.Background(), [][]byte{{1}}, common.Hash{})
+	candidate, err := builder.BuildPacaya(context.Background(), []types.Transactions{}, nil, nil, common.Hash{})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 
@@ -56,7 +57,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 			nil
 	})
 
-	candidate, err = builder.BuildOntake(context.Background(), [][]byte{{1}}, common.Hash{})
+	candidate, err = builder.BuildPacaya(context.Background(), []types.Transactions{}, nil, nil, common.Hash{})
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 
@@ -71,7 +72,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 			nil
 	})
 
-	candidate, err = builder.BuildOntake(context.Background(), [][]byte{{1}}, common.Hash{})
+	candidate, err = builder.BuildPacaya(context.Background(), []types.Transactions{}, nil, nil, common.Hash{})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }

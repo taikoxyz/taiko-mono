@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -55,73 +54,6 @@ func NewCalldataTransactionBuilder(
 		chainConfig,
 		revertProtectionEnabled,
 	}
-}
-
-// BuildOntake implements the ProposeBlockTransactionBuilder interface.
-func (b *CalldataTransactionBuilder) BuildOntake(
-	ctx context.Context,
-	txListBytesArray [][]byte,
-	parentMetahash common.Hash,
-) (*txmgr.TxCandidate, error) {
-	// Check if the current L2 chain is after ontake fork.
-	l2Head, err := b.rpc.L2.BlockNumber(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(l2Head)) {
-		return nil, fmt.Errorf("ontake transaction builder is not supported before ontake fork")
-	}
-
-	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
-	var (
-		to                 = &b.taikoL1Address
-		data               []byte
-		encodedParamsArray [][]byte
-	)
-
-	for i := range txListBytesArray {
-		params := &encoding.BlockParamsV2{
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ParentMetaHash: [32]byte{},
-			AnchorBlockId:  0,
-			Timestamp:      0,
-		}
-
-		if i == 0 && b.revertProtectionEnabled {
-			params.ParentMetaHash = parentMetahash
-		}
-
-		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
-		if err != nil {
-			return nil, err
-		}
-		encodedParamsArray = append(encodedParamsArray, encodedParams)
-	}
-
-	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-		if b.revertProtectionEnabled {
-			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListBytesArray)
-		} else {
-			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
-		}
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &txmgr.TxCandidate{
-		TxData:   data,
-		Blobs:    nil,
-		To:       to,
-		GasLimit: b.gasLimit,
-	}, nil
 }
 
 // BuildPacaya implements the ProposeBlocksTransactionBuilder interface.

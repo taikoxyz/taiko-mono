@@ -15,7 +15,6 @@ import (
 // ProposeBlocksTransactionBuilder is an interface for building a TaikoL1.proposeBlock / TaikoInbox.proposeBatch
 // transaction.
 type ProposeBlocksTransactionBuilder interface {
-	BuildOntake(ctx context.Context, txListBytesArray [][]byte, parentMetahash common.Hash) (*txmgr.TxCandidate, error)
 	BuildPacaya(
 		ctx context.Context,
 		txBatch []types.Transactions,
