@@ -1,4 +1,4 @@
-## ERC1155Vault
+## contracts/shared/tokenvault/ERC1155Vault.sol:ERC1155Vault
 Slot  Type                                                     Name
 ---   ---                                                      ---
 0     t_uint8                                                  _initialized
@@ -20,7 +20,7 @@ Slot  Type                                                     Name
 401   t_array(t_uint256)50_storage                             __gap
 451   t_array(t_uint256)50_storage                             __gap
 
-## ERC20Vault
+## contracts/shared/tokenvault/ERC20Vault.sol:ERC20Vault
 Slot  Type                                                       Name
 ---   ---                                                        ---
 0     t_uint8                                                    _initialized
@@ -42,7 +42,7 @@ Slot  Type                                                       Name
 305   t_mapping(t_bytes32,t_address)                             solverConditionToSolver
 306   t_array(t_uint256)45_storage                               __gap
 
-## ERC20VaultOriginal
+## contracts/shared/tokenvault/ERC20VaultOriginal.sol:ERC20VaultOriginal
 Slot  Type                                                       Name
 ---   ---                                                        ---
 0     t_uint8                                                    _initialized
@@ -63,7 +63,7 @@ Slot  Type                                                       Name
 304   t_mapping(t_uint256,t_mapping(t_address,t_uint256))        lastMigrationStart
 305   t_array(t_uint256)46_storage                               __gap
 
-## ERC721Vault
+## contracts/shared/tokenvault/ERC721Vault.sol:ERC721Vault
 Slot  Type                                                     Name
 ---   ---                                                      ---
 0     t_uint8                                                  _initialized
@@ -83,7 +83,7 @@ Slot  Type                                                     Name
 303   t_array(t_uint256)48_storage                             __gap
 351   t_array(t_uint256)50_storage                             __gap
 
-## BridgedERC20
+## contracts/shared/tokenvault/BridgedERC20.sol:BridgedERC20
 Slot  Type                                                 Name
 ---   ---                                                  ---
 0     t_uint8                                              _initialized
@@ -110,7 +110,7 @@ Slot  Type                                                 Name
 303   t_bool                                               migratingInbound
 304   t_array(t_uint256)47_storage                         __gap
 
-## BridgedERC20V2
+## contracts/shared/tokenvault/BridgedERC20V2.sol:BridgedERC20V2
 Slot  Type                                                 Name
 ---   ---                                                  ---
 0     t_uint8                                              _initialized
@@ -144,7 +144,7 @@ Slot  Type                                                 Name
 403   t_mapping(t_address,t_struct(Counter)3147_storage)   _nonces
 404   t_array(t_uint256)49_storage                         __gap
 
-## BridgedERC721
+## contracts/shared/tokenvault/BridgedERC721.sol:BridgedERC721
 Slot  Type                                              Name
 ---   ---                                               ---
 0     t_uint8                                           _initialized
@@ -170,7 +170,7 @@ Slot  Type                                              Name
 352   t_uint256                                         srcChainId
 353   t_array(t_uint256)48_storage                      __gap
 
-## BridgedERC1155
+## contracts/shared/tokenvault/BridgedERC1155.sol:BridgedERC1155
 Slot  Type                                                 Name
 ---   ---                                                  ---
 0     t_uint8                                              _initialized
@@ -195,7 +195,7 @@ Slot  Type                                                 Name
 354   t_string_storage                                     name
 355   t_array(t_uint256)46_storage                         __gap
 
-## Bridge
+## contracts/shared/bridge/Bridge.sol:Bridge
 Slot  Type                                     Name
 ---   ---                                      ---
 0     t_uint8                                  _initialized
@@ -217,7 +217,7 @@ Slot  Type                                     Name
 256   t_uint256                                __reserved3
 257   t_array(t_uint256)44_storage             __gap
 
-## QuotaManager
+## contracts/shared/bridge/QuotaManager.sol:QuotaManager
 Slot  Type                                            Name
 ---   ---                                             ---
 0     t_uint8                                         _initialized
@@ -235,7 +235,7 @@ Slot  Type                                            Name
 252   t_uint24                                        quotaPeriod
 253   t_array(t_uint256)48_storage                    __gap
 
-## DefaultResolver
+## contracts/shared/common/DefaultResolver.sol:DefaultResolver
 Slot  Type                                                 Name
 ---   ---                                                  ---
 0     t_uint8                                              _initialized
@@ -252,7 +252,7 @@ Slot  Type                                                 Name
 251   t_mapping(t_uint256,t_mapping(t_bytes32,t_address))  __addresses
 252   t_array(t_uint256)49_storage                         __gap
 
-## EssentialContract
+## contracts/shared/common/EssentialContract.sol:EssentialContract
 Slot  Type                          Name
 ---   ---                           ---
 0     t_uint8                       _initialized
@@ -267,7 +267,7 @@ Slot  Type                          Name
 201   t_uint8                       __paused
 202   t_array(t_uint256)49_storage  __gap
 
-## SignalService
+## contracts/shared/signal/SignalService.sol:SignalService
 Slot  Type                                               Name
 ---   ---                                                ---
 0     t_uint8                                            _initialized
@@ -286,7 +286,7 @@ Slot  Type                                               Name
 253   t_mapping(t_bytes32,t_bool)                        _receivedSignals
 254   t_array(t_uint256)47_storage                       __gap
 
-## BridgedTaikoToken
+## contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken
 Slot  Type                                                                       Name
 ---   ---                                                                        ---
 0     t_uint8                                                                    _initialized
@@ -321,7 +321,7 @@ Slot  Type                                                                      
 457   t_array(t_uint256)47_storage                                               __gap
 504   t_array(t_uint256)50_storage                                               __gap
 
-## DelegateOwner
+## contracts/layer2/DelegateOwner.sol:DelegateOwner
 Slot  Type                          Name
 ---   ---                           ---
 0     t_uint8                       _initialized
@@ -341,7 +341,7 @@ Slot  Type                          Name
 252   t_address                     remoteOwner
 253   t_array(t_uint256)48_storage  __gap
 
-## TaikoAnchor
+## contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor
 Slot  Type                            Name
 ---   ---                             ---
 0     t_uint8                         _initialized
