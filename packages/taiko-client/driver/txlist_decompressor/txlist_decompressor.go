@@ -11,7 +11,7 @@ import (
 )
 
 // TxListDecompressor is responsible for validating and decompressing
-// the transactions list in a TaikoL1.proposeBlock transaction.
+// the transactions list in a TaikoInbox.proposeBatch transaction.
 type TxListDecompressor struct {
 	blockMaxGasLimit  uint64
 	maxBytesPerTxList uint64
@@ -31,7 +31,7 @@ func NewTxListDecompressor(
 	}
 }
 
-// TryDecompress validates and decompresses whether the transactions list in the TaikoL1.proposeBlock transaction's
+// TryDecompress validates and decompresses whether the transactions list in the TaikoInbox.proposeBatch transaction's
 // input data is valid, the rules are:
 // - If the transaction list is empty, it's valid.
 // - If the transaction list is not empty:

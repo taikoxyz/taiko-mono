@@ -260,7 +260,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 
 // ProposeOp performs a proposing operation, fetching transactions
 // from L2 execution engine's tx pool, splitting them by proposing constraints,
-// and then proposing them to TaikoL1 contract.
+// and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Check if the preconfirmation router is set, if so, skip proposing.
 	preconfRouter, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
@@ -315,7 +315,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	return p.ProposeTxLists(ctx, txLists, l2Head, parentMetaHash)
 }
 
-// ProposeTxList proposes the given transactions lists to TaikoL1 smart contract.
+// ProposeTxList proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,

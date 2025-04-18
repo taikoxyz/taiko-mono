@@ -16,45 +16,45 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// EndBlockProposedEventIterFunc ends the current iteration.
-type EndBlockProposedEventIterFunc func()
+// EndBatchProposedEventIterFunc ends the current iteration.
+type EndBatchProposedEventIterFunc func()
 
-// OnBlockProposedEvent represents the callback function which will be called when a TaikoL1.BlockProposed event is
+// OnBatchProposedEvent represents the callback function which will be called when a TaikoInbox.BatchProposed event is
 // iterated.
-type OnBlockProposedEvent func(
+type OnBatchProposedEvent func(
 	context.Context,
 	metadata.TaikoProposalMetaData,
-	EndBlockProposedEventIterFunc,
+	EndBatchProposedEventIterFunc,
 ) error
 
-// BlockProposedIterator iterates the emitted TaikoL1.BlockProposed events in the chain,
+// BatchProposedIterator iterates the emitted TaikoInbox.BatchProposed events in the chain,
 // with the awareness of reorganization.
-type BlockProposedIterator struct {
+type BatchProposedIterator struct {
 	ctx                context.Context
 	taikoInbox         *pacayaBindings.TaikoInboxClient
 	blockBatchIterator *chainIterator.BlockBatchIterator
 	isEnd              bool
 }
 
-// BlockProposedIteratorConfig represents the configs of a BlockProposed event iterator.
-type BlockProposedIteratorConfig struct {
+// BatchProposedIteratorConfig represents the configs of a BatchProposed event iterator.
+type BatchProposedIteratorConfig struct {
 	Client                *rpc.EthClient
 	TaikoInbox            *pacayaBindings.TaikoInboxClient
 	PacayaForkHeight      uint64
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
-	OnBlockProposedEvent  OnBlockProposedEvent
+	OnBatchProposedEvent  OnBatchProposedEvent
 	BlockConfirmations    *uint64
 }
 
-// NewBlockProposedIterator creates a new instance of BlockProposed event iterator.
-func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorConfig) (*BlockProposedIterator, error) {
-	if cfg.OnBlockProposedEvent == nil {
+// NewBatchProposedIterator creates a new instance of BatchProposed event iterator.
+func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorConfig) (*BatchProposedIterator, error) {
+	if cfg.OnBatchProposedEvent == nil {
 		return nil, errors.New("invalid callback")
 	}
 
-	iterator := &BlockProposedIterator{ctx: ctx, taikoInbox: cfg.TaikoInbox}
+	iterator := &BatchProposedIterator{ctx: ctx, taikoInbox: cfg.TaikoInbox}
 
 	// Initialize the inner block iterator.
 	blockIterator, err := chainIterator.NewBlockBatchIterator(ctx, &chainIterator.BlockBatchIteratorConfig{
@@ -63,11 +63,11 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 		StartHeight:           cfg.StartHeight,
 		EndHeight:             cfg.EndHeight,
 		BlockConfirmations:    cfg.BlockConfirmations,
-		OnBlocks: assembleBlockProposedIteratorCallback(
+		OnBlocks: assembleBatchProposedIteratorCallback(
 			cfg.Client,
 			cfg.TaikoInbox,
 			cfg.PacayaForkHeight,
-			cfg.OnBlockProposedEvent,
+			cfg.OnBatchProposedEvent,
 			iterator,
 		),
 	})
@@ -81,24 +81,24 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 }
 
 // Iter iterates the given chain between the given start and end heights,
-// will call the callback when a BlockProposed event is iterated.
-func (i *BlockProposedIterator) Iter() error {
+// will call the callback when a BatchProposed event is iterated.
+func (i *BatchProposedIterator) Iter() error {
 	return i.blockBatchIterator.Iter()
 }
 
 // end ends the current iteration.
-func (i *BlockProposedIterator) end() {
+func (i *BatchProposedIterator) end() {
 	i.isEnd = true
 }
 
-// assembleBlockProposedIteratorCallback assembles the callback which will be used
+// assembleBatchProposedIteratorCallback assembles the callback which will be used
 // by a event iterator's inner block iterator.
-func assembleBlockProposedIteratorCallback(
+func assembleBatchProposedIteratorCallback(
 	client *rpc.EthClient,
 	taikoInbox *pacayaBindings.TaikoInboxClient,
 	pacayaForkHeight uint64,
-	callback OnBlockProposedEvent,
-	eventIter *BlockProposedIterator,
+	callback OnBatchProposedEvent,
+	eventIter *BatchProposedIterator,
 ) chainIterator.OnBlocksFunc {
 	return func(
 		ctx context.Context,

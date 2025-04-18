@@ -17,13 +17,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// CalldataTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
+// CalldataTransactionBuilder is responsible for building a TaikoInbox.proposeBatch transaction with txList
 // bytes saved in calldata.
 type CalldataTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
 	l2SuggestedFeeRecipient common.Address
-	taikoL1Address          common.Address
+	taikoInboxAddress       common.Address
 	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	gasLimit                uint64
@@ -36,7 +36,7 @@ func NewCalldataTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
-	taikoL1Address common.Address,
+	taikoInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
@@ -47,7 +47,7 @@ func NewCalldataTransactionBuilder(
 		rpc,
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
-		taikoL1Address,
+		taikoInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,

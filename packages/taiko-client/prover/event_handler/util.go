@@ -34,7 +34,7 @@ func getMetadataFromBatchPacaya(
 	callback := func(
 		_ context.Context,
 		meta metadata.TaikoProposalMetaData,
-		_ eventIterator.EndBlockProposedEventIterFunc,
+		_ eventIterator.EndBatchProposedEventIterFunc,
 	) error {
 		if !meta.IsPacaya() {
 			return nil
@@ -67,13 +67,13 @@ func getMetadataFromBatchPacaya(
 		endHeight = l1Head.Number
 	}
 
-	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
+	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               rpc.L1,
 		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
 		PacayaForkHeight:     rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId),
 		EndHeight:            endHeight,
-		OnBlockProposedEvent: callback,
+		OnBatchProposedEvent: callback,
 	})
 	if err != nil {
 		log.Error("Failed to start event iterator", "event", "BatchProposed", "error", err)

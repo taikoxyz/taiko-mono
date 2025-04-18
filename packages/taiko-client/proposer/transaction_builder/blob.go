@@ -18,12 +18,12 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// BlobTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
+// BlobTransactionBuilder is responsible for building a TaikoInbox.proposeBatch transaction with txList
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
-	taikoL1Address          common.Address
+	taikoInboxAddress       common.Address
 	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
@@ -36,7 +36,7 @@ type BlobTransactionBuilder struct {
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
-	taikoL1Address common.Address,
+	taikoInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
@@ -47,7 +47,7 @@ func NewBlobTransactionBuilder(
 	return &BlobTransactionBuilder{
 		rpc,
 		proposerPrivateKey,
-		taikoL1Address,
+		taikoInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		l2SuggestedFeeRecipient,

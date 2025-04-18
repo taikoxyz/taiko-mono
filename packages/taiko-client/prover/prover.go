@@ -218,9 +218,9 @@ func (p *Prover) eventLoop() {
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
-	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoL1 contract, there will be no new
-	// BlockProposed event temporarily, so except the BlockProposed subscription, we need another trigger to start
-	// fetching the proposed blocks.
+	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoInbox contract, there will be no
+	// new BatchProposed event temporarily, so except the BatchProposed subscription, we need another trigger to start
+	// fetching the proposed batches.
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
@@ -280,12 +280,12 @@ func (p *Prover) Close(_ context.Context) {
 
 // proveOp iterates through BatchProposed events.
 func (p *Prover) proveOp() error {
-	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
+	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               p.rpc.L1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
 		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
-		OnBlockProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
+		OnBatchProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
 	})
 	if err != nil {

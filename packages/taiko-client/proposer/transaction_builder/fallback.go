@@ -36,7 +36,7 @@ func NewBuilderWithFallback(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
-	taikoL1Address common.Address,
+	taikoInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
@@ -46,17 +46,13 @@ func NewBuilderWithFallback(
 	blobAllowed bool,
 	fallback bool,
 ) *TxBuilderWithFallback {
-	builder := &TxBuilderWithFallback{
-		rpc:           rpc,
-		fallback:      fallback,
-		txmgrSelector: txmgrSelector,
-	}
+	builder := &TxBuilderWithFallback{rpc: rpc, fallback: fallback, txmgrSelector: txmgrSelector}
 
 	if blobAllowed {
 		builder.blobTransactionBuilder = NewBlobTransactionBuilder(
 			rpc,
 			proposerPrivateKey,
-			taikoL1Address,
+			taikoInboxAddress,
 			taikoWrapperAddress,
 			proverSetAddress,
 			l2SuggestedFeeRecipient,
@@ -70,7 +66,7 @@ func NewBuilderWithFallback(
 		rpc,
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
-		taikoL1Address,
+		taikoInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,

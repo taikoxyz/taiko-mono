@@ -42,12 +42,8 @@ func NewSender(
 	}
 }
 
-// Send sends the given proof to the TaikoL1 smart contract with a backoff policy.
-func (s *Sender) Send(
-	ctx context.Context,
-	proofResponse *producer.ProofResponse,
-	buildTx TxBuilder,
-) (err error) {
+// Send sends the given proof to the TaikoInbox smart contract with a backoff policy.
+func (s *Sender) Send(ctx context.Context, proofResponse *producer.ProofResponse, buildTx TxBuilder) (err error) {
 	// Check if the proof has already been submitted.
 	proofStatus, err := rpc.GetBatchProofStatus(ctx, s.rpc, proofResponse.Meta.Pacaya().GetBatchID())
 	if err != nil {
@@ -64,7 +60,7 @@ func (s *Sender) Send(
 		return err
 	}
 
-	// Assemble the TaikoL1.proveBlock transaction.
+	// Assemble the TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
 	if err != nil {
 		return err

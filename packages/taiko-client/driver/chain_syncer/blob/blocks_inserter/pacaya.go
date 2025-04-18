@@ -63,7 +63,7 @@ func NewBlocksInserterPacaya(
 func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBlockProposedEventIterFunc,
+	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
 		return fmt.Errorf("metadata is not for Pacaya fork")

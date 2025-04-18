@@ -13,7 +13,7 @@ type BatchProposedHandler interface {
 	Handle(
 		ctx context.Context,
 		meta metadata.TaikoProposalMetaData,
-		end eventIterator.EndBlockProposedEventIterFunc,
+		end eventIterator.EndBatchProposedEventIterFunc,
 	) error
 }
 

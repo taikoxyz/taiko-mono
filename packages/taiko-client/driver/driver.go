@@ -31,7 +31,7 @@ const (
 	exchangeTransitionConfigInterval = 1 * time.Minute
 )
 
-// Driver keeps the L2 execution engine's local block chain in sync with the TaikoL1
+// Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
 // contract.
 type Driver struct {
 	*Config

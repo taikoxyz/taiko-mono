@@ -514,7 +514,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	return progress, nil
 }
 
-// GetProtocolStateVariablesPacaya gets the protocol states from TaikoL1 contract.
+// GetProtocolStateVariablesPacaya gets the protocol states from TaikoInbox contract.
 func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	Stats1 pacayaBindings.ITaikoInboxStats1
 	Stats2 pacayaBindings.ITaikoInboxStats2

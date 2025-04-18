@@ -10,7 +10,7 @@ import (
 var (
 	L1ProverPrivKey = &cli.StringFlag{
 		Name:     "l1.proverPrivKey",
-		Usage:    "Private key of L1 prover, who will send TaikoL1.proveBlock transactions",
+		Usage:    "Private key of L1 prover, who will send TaikoInbox.proveBatches transactions",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
@@ -82,10 +82,9 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_DUMMY"},
 	}
-	// Max amount of L1 blocks that can pass before block is invalid
 	Allowance = &cli.Float64Flag{
 		Name:     "prover.allowance",
-		Usage:    "Amount without decimal to approve TaikoL1 contract for TaikoToken usage",
+		Usage:    "Amount without decimal to approve TaikoInbox contract for TaikoToken usage",
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ALLOWANCE"},
 	}

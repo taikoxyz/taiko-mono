@@ -12,7 +12,7 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
-// ProposeBlocksTransactionBuilder is an interface for building a TaikoL1.proposeBlock / TaikoInbox.proposeBatch
+// ProposeBlocksTransactionBuilder is an interface for building a TaikoInbox.proposeBatch
 // transaction.
 type ProposeBlocksTransactionBuilder interface {
 	BuildPacaya(

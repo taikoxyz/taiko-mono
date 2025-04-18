@@ -95,7 +95,7 @@ func NewSyncer(
 	}, nil
 }
 
-// ProcessL1Blocks fetches all `TaikoL1.BlockProposed` events between given
+// ProcessL1Blocks fetches all `TaikoInbox.BatchProposed` events between given
 // L1 block heights, and then tries inserting them into L2 execution engine's blockchain.
 func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 	for {
@@ -141,13 +141,13 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		s.lastInsertedBlockID = nil
 	}
 
-	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
+	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		TaikoInbox:           s.rpc.PacayaClients.TaikoInbox,
 		PacayaForkHeight:     s.rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
-		OnBlockProposedEvent: s.onBlockProposed,
+		OnBatchProposedEvent: s.onBlockProposed,
 	})
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 func (s *Syncer) onBlockProposed(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBlockProposedEventIterFunc,
+	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	var (
 		firstBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + 1)

@@ -76,7 +76,7 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 func (h *BatchProposedEventHandler) Handle(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	end eventIterator.EndBlockProposedEventIterFunc,
+	end eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	// If there are newly generated proofs, we need to submit them as soon as possible,
 	// to avoid proof submission timeout.

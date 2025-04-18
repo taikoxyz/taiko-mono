@@ -18,7 +18,7 @@ type Inserter interface {
 	InsertBlocks(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		endIter eventIterator.EndBlockProposedEventIterFunc,
+		endIter eventIterator.EndBatchProposedEventIterFunc,
 	) error
 }
 
