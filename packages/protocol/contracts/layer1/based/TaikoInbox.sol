@@ -37,7 +37,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
-    uint256[50] private __gap2;
 
     // External functions ------------------------------------------------------------------------
 
