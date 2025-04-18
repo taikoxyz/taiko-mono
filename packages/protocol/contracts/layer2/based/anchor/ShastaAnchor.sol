@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
+import "../eip1559/LibEIP1559Classic.sol";
 import "./PacayaAnchor.sol";
 
 /// @title ShastaAnchor
@@ -42,7 +43,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     function v4Anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
-        uint256, /*_parentBaseFee*/
+        uint256 _parentBaseFee,
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
@@ -55,11 +56,32 @@ abstract contract ShastaAnchor is PacayaAnchor {
         onlyGoldenTouch
         nonReentrant
     {
-        require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
+        // If shastaForkHeight is 0, the shasta fork is not scheduled to be active. Set it to 1 to
+        // activate shasta immediately after genesis.
+        require(shastaForkHeight != 0 && block.number >= shastaForkHeight, L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
-        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
+
+        uint256 blockTime = block.timestamp - parentTimestamp;
+
+        require(
+            v4GetBaseFee(
+                _parentBaseFee,
+                _parentGasUsed,
+                blockTime,
+                _baseFeeConfig.adjustmentQuotient,
+                _baseFeeConfig.gasIssuancePerSecond
+            ) == block.basefee || skipFeeCheck(),
+            L2_BASEFEE_MISMATCH()
+        );
+
+        if (blockTime == 0) {
+            accumulatedAncestorGasUsed += _parentGasUsed;
+        } else {
+            accumulatedAncestorGasUsed = 0;
+        }
+
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
@@ -67,33 +89,24 @@ abstract contract ShastaAnchor is PacayaAnchor {
     }
 
     function v4GetBaseFee(
-        uint32 _parentGasUsed,
-        uint64 _blockTimestamp,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        uint256 _parentBaseFee,
+        uint64 _parentGasUsed,
+        uint256 _blockTime,
+        uint8 _adjustmentQuotient,
+        uint32 _gasIssuancePerSecond
     )
         public
         view
-        returns (uint256 basefee_, uint64 newGasTarget_, uint64 newGasExcess_)
+        returns (uint256)
     {
-        // uint32 * uint8 will never overflow
-        uint64 newGasTarget =
-            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
-
-        (newGasTarget_, newGasExcess_) =
-            LibEIP1559.adjustExcess(parentGasTarget, newGasTarget, parentGasExcess);
-
-        uint64 gasIssuance =
-            (_blockTimestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
-
-        if (
-            _baseFeeConfig.maxGasIssuancePerBlock != 0
-                && gasIssuance > _baseFeeConfig.maxGasIssuancePerBlock
-        ) {
-            gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
-        }
-
-        (basefee_, newGasExcess_) = LibEIP1559.calc1559BaseFee(
-            newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
-        );
+        return _blockTime == 0
+            ? _parentBaseFee
+            : LibEIP1559Classic.calculateBaseFee(
+                _parentBaseFee,
+                _parentGasUsed + accumulatedAncestorGasUsed,
+                _adjustmentQuotient,
+                _gasIssuancePerSecond,
+                _blockTime
+            );
     }
 }
