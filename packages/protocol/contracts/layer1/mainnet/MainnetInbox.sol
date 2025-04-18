@@ -38,12 +38,7 @@ contract MainnetInbox is TaikoInbox {
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
-                /// Determines the rate at which the base fee can change.
-                /// Given that Taiko may have blocks every 2 seconds, if we were to keep the gas change
-                /// speed the same as in Ethereum,
-                /// we would use 8 * (12 / 2) = 48. However, to make the gas changes 4 times slower for
-                /// better user experience, we use 48 * 4 = 192.
-                adjustmentQuotient: 192,
+                adjustmentQuotient: 8,
                 sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
