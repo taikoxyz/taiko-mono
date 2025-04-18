@@ -441,14 +441,14 @@ importers:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
         version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
       risc0-ethereum:
-        specifier: github:risc0/risc0-ethereum#v1.2.0
-        version: risc0-ethereum#v1.2.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/3c1fd2a859e40ea009a580aac294191196968c60
+        specifier: github:risc0/risc0-ethereum#v2.0.0-rc.3
+        version: risc0-ethereum#v2.0.0-rc.3@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/1a586f842763ed729b912e7351d542de797187b9
       solady:
         specifier: github:Vectorized/solady#v0.0.231
         version: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b
       sp1-contracts:
-        specifier: github:succinctlabs/sp1-contracts#v4.0.0-rc.3
-        version: sp1-contracts#v4.0.0-rc.3@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00
+        specifier: github:succinctlabs/sp1-contracts#v4.0.0
+        version: sp1-contracts#v4.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6
       urc:
         specifier: github:eth-fabric/urc#main
         version: urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/e0c5c8a8212a04e8844df0268c7de17b9e6b8896
@@ -10597,8 +10597,8 @@ packages:
   ripemd160@2.0.2:
     resolution: {integrity: sha512-ii4iagi25WusVoiC4B4lq7pbXfAp3D9v5CwfkY33vffw2+pkDjY1D8GaN7spsxvCSx8dkPqOZCEZyfxcmJG2IA==}
 
-  risc0-ethereum#v1.2.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/3c1fd2a859e40ea009a580aac294191196968c60:
-    resolution: {tarball: https://codeload.github.com/risc0/risc0-ethereum/tar.gz/3c1fd2a859e40ea009a580aac294191196968c60}
+  risc0-ethereum#v2.0.0-rc.3@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/1a586f842763ed729b912e7351d542de797187b9:
+    resolution: {tarball: https://codeload.github.com/risc0/risc0-ethereum/tar.gz/1a586f842763ed729b912e7351d542de797187b9}
     version: 0.0.0
 
   rlp@2.2.7:
@@ -10928,8 +10928,8 @@ packages:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
     engines: {node: '>= 8'}
 
-  sp1-contracts#v4.0.0-rc.3@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00:
-    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00}
+  sp1-contracts#v4.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6:
+    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6}
     version: 0.0.0
 
   space-separated-tokens@2.0.2:
@@ -12933,7 +12933,7 @@ snapshots:
       '@smithy/util-middleware': 3.0.0
       '@smithy/util-retry': 3.0.0
       '@smithy/util-utf8': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
     transitivePeerDependencies:
       - aws-crt
 
@@ -12997,7 +12997,7 @@ snapshots:
       '@aws-sdk/types': 3.577.0
       '@smithy/property-provider': 3.0.0
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/credential-provider-http@3.577.0':
     dependencies:
@@ -13009,7 +13009,7 @@ snapshots:
       '@smithy/smithy-client': 3.0.1
       '@smithy/types': 3.0.0
       '@smithy/util-stream': 3.0.1
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/credential-provider-ini@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)':
     dependencies:
@@ -13023,7 +13023,7 @@ snapshots:
       '@smithy/property-provider': 3.0.0
       '@smithy/shared-ini-file-loader': 3.0.0
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
     transitivePeerDependencies:
       - '@aws-sdk/client-sso-oidc'
       - aws-crt
@@ -13053,7 +13053,7 @@ snapshots:
       '@smithy/property-provider': 3.0.0
       '@smithy/shared-ini-file-loader': 3.0.0
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/credential-provider-sso@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)':
     dependencies:
@@ -13063,7 +13063,7 @@ snapshots:
       '@smithy/property-provider': 3.0.0
       '@smithy/shared-ini-file-loader': 3.0.0
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
     transitivePeerDependencies:
       - '@aws-sdk/client-sso-oidc'
       - aws-crt
@@ -13074,7 +13074,7 @@ snapshots:
       '@aws-sdk/types': 3.577.0
       '@smithy/property-provider': 3.0.0
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/lib-storage@3.578.0(@aws-sdk/client-s3@3.577.0)':
     dependencies:
@@ -13202,7 +13202,7 @@ snapshots:
       '@smithy/property-provider': 3.0.0
       '@smithy/shared-ini-file-loader': 3.0.0
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/types@3.577.0':
     dependencies:
@@ -13211,7 +13211,7 @@ snapshots:
 
   '@aws-sdk/util-arn-parser@3.568.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/util-endpoints@3.577.0':
     dependencies:
@@ -13222,7 +13222,7 @@ snapshots:
 
   '@aws-sdk/util-locate-window@3.568.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/util-user-agent-browser@3.577.0':
     dependencies:
@@ -13240,7 +13240,7 @@ snapshots:
 
   '@aws-sdk/util-utf8-browser@3.259.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@aws-sdk/xml-builder@3.575.0':
     dependencies:
@@ -13388,7 +13388,7 @@ snapshots:
       '@babel/core': 7.24.5
       '@babel/helper-compilation-targets': 7.23.6
       '@babel/helper-plugin-utils': 7.24.5
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       lodash.debounce: 4.0.8
       resolve: 1.22.8
     transitivePeerDependencies:
@@ -13399,7 +13399,7 @@ snapshots:
       '@babel/core': 7.25.2
       '@babel/helper-compilation-targets': 7.23.6
       '@babel/helper-plugin-utils': 7.24.5
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       lodash.debounce: 4.0.8
       resolve: 1.22.8
     transitivePeerDependencies:
@@ -14819,7 +14819,7 @@ snapshots:
       '@babel/helper-split-export-declaration': 7.24.5
       '@babel/parser': 7.24.5
       '@babel/types': 7.24.5
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       globals: 11.12.0
     transitivePeerDependencies:
       - supports-color
@@ -15469,7 +15469,7 @@ snapshots:
   '@eslint/eslintrc@1.4.1':
     dependencies:
       ajv: 6.12.6
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       espree: 9.6.1
       globals: 13.24.0
       ignore: 5.3.1
@@ -15811,26 +15811,26 @@ snapshots:
   '@formatjs/ecma402-abstract@1.18.2':
     dependencies:
       '@formatjs/intl-localematcher': 0.5.4
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@formatjs/fast-memoize@2.2.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@formatjs/icu-messageformat-parser@2.7.6':
     dependencies:
       '@formatjs/ecma402-abstract': 1.18.2
       '@formatjs/icu-skeleton-parser': 1.8.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@formatjs/icu-skeleton-parser@1.8.0':
     dependencies:
       '@formatjs/ecma402-abstract': 1.18.2
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@formatjs/intl-localematcher@0.5.4':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@hapi/hoek@9.3.0': {}
 
@@ -15849,7 +15849,7 @@ snapshots:
   '@humanwhocodes/config-array@0.9.5':
     dependencies:
       '@humanwhocodes/object-schema': 1.2.1
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       minimatch: 3.1.2
     transitivePeerDependencies:
       - supports-color
@@ -16269,7 +16269,7 @@ snapshots:
       bufferutil: 4.0.8
       cross-fetch: 4.0.0(encoding@0.1.13)
       date-fns: 2.30.0
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       eciesjs: 0.3.18
       eventemitter2: 6.4.9
       readable-stream: 3.6.2
@@ -16284,7 +16284,7 @@ snapshots:
       bufferutil: 4.0.8
       cross-fetch: 4.0.0(encoding@0.1.13)
       date-fns: 2.30.0
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       eciesjs: 0.3.18
       eventemitter2: 6.4.9
       readable-stream: 3.6.2
@@ -16446,7 +16446,7 @@ snapshots:
       '@noble/hashes': 1.4.0
       '@scure/base': 1.1.6
       '@types/debug': 4.1.12
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       pony-cause: 2.1.11
       semver: 7.6.3
       superstruct: 1.0.4
@@ -16572,7 +16572,7 @@ snapshots:
       '@motionone/easing': 10.17.0
       '@motionone/types': 10.17.0
       '@motionone/utils': 10.17.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@motionone/dom@10.17.0':
     dependencies:
@@ -16581,23 +16581,23 @@ snapshots:
       '@motionone/types': 10.17.0
       '@motionone/utils': 10.17.0
       hey-listen: 1.0.8
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@motionone/easing@10.17.0':
     dependencies:
       '@motionone/utils': 10.17.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@motionone/generators@10.17.0':
     dependencies:
       '@motionone/types': 10.17.0
       '@motionone/utils': 10.17.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@motionone/svelte@10.16.4':
     dependencies:
       '@motionone/dom': 10.17.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@motionone/types@10.17.0': {}
 
@@ -16605,12 +16605,12 @@ snapshots:
     dependencies:
       '@motionone/types': 10.17.0
       hey-listen: 1.0.8
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@motionone/vue@10.16.4':
     dependencies:
       '@motionone/dom': 10.17.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@multiformats/dns@1.0.6':
     dependencies:
@@ -17638,11 +17638,11 @@ snapshots:
   '@smithy/chunked-blob-reader-native@3.0.0':
     dependencies:
       '@smithy/util-base64': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/chunked-blob-reader@3.0.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/config-resolver@3.0.0':
     dependencies:
@@ -17669,14 +17669,14 @@ snapshots:
       '@smithy/property-provider': 3.0.0
       '@smithy/types': 3.0.0
       '@smithy/url-parser': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/eventstream-codec@3.0.0':
     dependencies:
       '@aws-crypto/crc32': 3.0.0
       '@smithy/types': 3.0.0
       '@smithy/util-hex-encoding': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/eventstream-serde-browser@3.0.0':
     dependencies:
@@ -17699,7 +17699,7 @@ snapshots:
     dependencies:
       '@smithy/eventstream-codec': 3.0.0
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/fetch-http-handler@3.0.1':
     dependencies:
@@ -17736,7 +17736,7 @@ snapshots:
 
   '@smithy/is-array-buffer@3.0.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/md5-js@3.0.0':
     dependencies:
@@ -17800,7 +17800,7 @@ snapshots:
   '@smithy/property-provider@3.0.0':
     dependencies:
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/protocol-http@4.0.0':
     dependencies:
@@ -17811,12 +17811,12 @@ snapshots:
     dependencies:
       '@smithy/types': 3.0.0
       '@smithy/util-uri-escape': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/querystring-parser@3.0.0':
     dependencies:
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/service-error-classification@3.0.0':
     dependencies:
@@ -17825,7 +17825,7 @@ snapshots:
   '@smithy/shared-ini-file-loader@3.0.0':
     dependencies:
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/signature-v4@3.0.0':
     dependencies:
@@ -17835,7 +17835,7 @@ snapshots:
       '@smithy/util-middleware': 3.0.0
       '@smithy/util-uri-escape': 3.0.0
       '@smithy/util-utf8': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/smithy-client@3.0.1':
     dependencies:
@@ -17873,11 +17873,11 @@ snapshots:
   '@smithy/util-buffer-from@3.0.0':
     dependencies:
       '@smithy/is-array-buffer': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/util-config-provider@3.0.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/util-defaults-mode-browser@3.0.1':
     dependencies:
@@ -17905,12 +17905,12 @@ snapshots:
 
   '@smithy/util-hex-encoding@3.0.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/util-middleware@3.0.0':
     dependencies:
       '@smithy/types': 3.0.0
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/util-retry@3.0.0':
     dependencies:
@@ -17931,7 +17931,7 @@ snapshots:
 
   '@smithy/util-uri-escape@3.0.0':
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   '@smithy/util-utf8@3.0.0':
     dependencies:
@@ -18854,10 +18854,10 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 5.62.0
       '@typescript-eslint/visitor-keys': 5.62.0
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       globby: 11.1.0
       is-glob: 4.0.3
-      semver: 7.6.2
+      semver: 7.6.3
       tsutils: 3.21.0(typescript@5.4.5)
     optionalDependencies:
       typescript: 5.4.5
@@ -20589,7 +20589,7 @@ snapshots:
 
   agent-base@7.1.1:
     dependencies:
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -20761,7 +20761,7 @@ snapshots:
 
   ast-types@0.16.1:
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   astral-regex@1.0.0: {}
 
@@ -21265,7 +21265,7 @@ snapshots:
   camel-case@4.1.2:
     dependencies:
       pascal-case: 3.1.2
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   camelcase-css@2.0.1: {}
 
@@ -21286,7 +21286,7 @@ snapshots:
   capital-case@1.0.4:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
       upper-case-first: 2.0.2
 
   caseless@0.12.0: {}
@@ -21579,7 +21579,7 @@ snapshots:
   constant-case@3.0.4:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
       upper-case: 2.0.2
 
   content-disposition@0.5.4:
@@ -21962,7 +21962,7 @@ snapshots:
   dot-case@3.0.4:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   dotenv-expand@10.0.0: {}
 
@@ -22056,7 +22056,7 @@ snapshots:
   engine.io-client@6.5.3(bufferutil@4.0.8)(utf-8-validate@5.0.10):
     dependencies:
       '@socket.io/component-emitter': 3.1.2
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       engine.io-parser: 5.2.2
       ws: 8.11.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
       xmlhttprequest-ssl: 2.0.0
@@ -22205,7 +22205,7 @@ snapshots:
 
   esbuild-register@3.6.0(esbuild@0.21.3):
     dependencies:
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       esbuild: 0.21.3
     transitivePeerDependencies:
       - supports-color
@@ -22553,7 +22553,7 @@ snapshots:
       ajv: 6.12.6
       chalk: 4.1.2
       cross-spawn: 7.0.3
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       doctrine: 3.0.0
       enquirer: 2.4.1
       escape-string-regexp: 4.0.0
@@ -22581,7 +22581,7 @@ snapshots:
       optionator: 0.9.4
       progress: 2.0.3
       regexpp: 3.2.0
-      semver: 7.6.2
+      semver: 7.6.3
       strip-ansi: 6.0.1
       strip-json-comments: 3.1.1
       text-table: 0.2.0
@@ -23774,7 +23774,7 @@ snapshots:
   header-case@2.0.4:
     dependencies:
       capital-case: 1.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   hermes-estree@0.19.1: {}
 
@@ -24875,7 +24875,7 @@ snapshots:
 
   lower-case@2.0.2:
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   lowercase-keys@2.0.0: {}
 
@@ -24931,7 +24931,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.6.2
+      semver: 7.6.3
 
   make-error@1.3.6: {}
 
@@ -25606,7 +25606,7 @@ snapshots:
   micromark@4.0.0:
     dependencies:
       '@types/debug': 4.1.12
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       decode-named-character-reference: 1.0.2
       devlop: 1.1.0
       micromark-core-commonmark: 2.0.1
@@ -25910,7 +25910,7 @@ snapshots:
   no-case@3.0.4:
     dependencies:
       lower-case: 2.0.2
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   nocache@3.0.4: {}
 
@@ -26255,7 +26255,7 @@ snapshots:
   param-case@3.0.4:
     dependencies:
       dot-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   parent-module@1.0.1:
     dependencies:
@@ -26306,14 +26306,14 @@ snapshots:
   pascal-case@3.1.2:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   path-browserify@1.0.1: {}
 
   path-case@3.0.4:
     dependencies:
       dot-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   path-exists@3.0.0: {}
 
@@ -26925,7 +26925,7 @@ snapshots:
       esprima: 4.0.1
       source-map: 0.6.1
       tiny-invariant: 1.3.3
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   receptacle@1.3.2:
     dependencies:
@@ -27229,7 +27229,7 @@ snapshots:
       hash-base: 3.1.0
       inherits: 2.0.4
 
-  risc0-ethereum#v1.2.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/3c1fd2a859e40ea009a580aac294191196968c60: {}
+  risc0-ethereum#v2.0.0-rc.3@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/1a586f842763ed729b912e7351d542de797187b9: {}
 
   rlp@2.2.7:
     dependencies:
@@ -27379,7 +27379,7 @@ snapshots:
   sentence-case@3.0.4:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
       upper-case-first: 2.0.2
 
   serialize-error@2.1.0: {}
@@ -27559,12 +27559,12 @@ snapshots:
   snake-case@3.0.4:
     dependencies:
       dot-case: 3.0.4
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   socket.io-client@4.7.5(bufferutil@4.0.8)(utf-8-validate@5.0.10):
     dependencies:
       '@socket.io/component-emitter': 3.1.2
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
       engine.io-client: 6.5.3(bufferutil@4.0.8)(utf-8-validate@5.0.10)
       socket.io-parser: 4.2.4
     transitivePeerDependencies:
@@ -27575,7 +27575,7 @@ snapshots:
   socket.io-parser@4.2.4:
     dependencies:
       '@socket.io/component-emitter': 3.1.2
-      debug: 4.3.4
+      debug: 4.3.6(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -27691,7 +27691,7 @@ snapshots:
 
   source-map@0.7.4: {}
 
-  sp1-contracts#v4.0.0-rc.3@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00: {}
+  sp1-contracts#v4.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6: {}
 
   space-separated-tokens@2.0.2: {}
 
@@ -28507,7 +28507,7 @@ snapshots:
 
   typescript-auto-import-cache@0.3.3:
     dependencies:
-      semver: 7.6.2
+      semver: 7.6.3
 
   typescript@5.4.5: {}
 
@@ -28705,11 +28705,11 @@ snapshots:
 
   upper-case-first@2.0.2:
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   upper-case@2.0.2:
     dependencies:
-      tslib: 2.6.2
+      tslib: 2.7.0
 
   uqr@0.1.2: {}
 
