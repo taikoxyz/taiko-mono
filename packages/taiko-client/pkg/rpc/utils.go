@@ -130,7 +130,7 @@ func GetBatchProofStatus(
 		batch    *pacayaBindings.ITaikoInboxBatch
 		err      error
 	)
-	if batchID.Uint64() == cli.PacayaClients.ForkHeight {
+	if batchID.Uint64() == cli.PacayaClients.ForkHeights.Pacaya {
 		parentID = new(big.Int).Sub(batchID, common.Big1)
 	} else {
 		lastBatch, err := cli.GetBatchByID(ctx, new(big.Int).Sub(batchID, common.Big1))

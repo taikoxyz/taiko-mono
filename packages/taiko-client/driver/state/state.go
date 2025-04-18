@@ -60,8 +60,8 @@ func (s *State) init(ctx context.Context) error {
 	if err := s.initGenesisHeight(ctx); err != nil {
 		return err
 	}
-	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.OntakeClients.ForkHeight)
-	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeight)
+	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Ontake)
+	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Pacaya)
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)

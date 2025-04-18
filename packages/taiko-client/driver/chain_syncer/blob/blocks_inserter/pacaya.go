@@ -106,7 +106,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		} else {
 			var parentNumber *big.Int
 			if lastPayloadData == nil {
-				if meta.GetBatchID().Uint64() == i.rpc.PacayaClients.ForkHeight {
+				if meta.GetBatchID().Uint64() == i.rpc.PacayaClients.ForkHeights.Pacaya {
 					parentNumber = new(big.Int).SetUint64(meta.GetBatchID().Uint64() - 1)
 				} else {
 					lastBatch, err := i.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(meta.GetBatchID().Uint64()-1))

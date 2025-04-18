@@ -147,29 +147,13 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Less(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
+	s.Less(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeights)
 
 	s.SetIntervalMining(1)
-	for i := 0; i < int(s.p.rpc.PacayaClients.ForkHeight); i++ {
-		head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-		s.Nil(err)
-		metaHash, err := s.p.GetParentMetaHash(context.Background(), head.Number.Uint64())
-		s.Nil(err)
-
-		s.Nil(
-			s.p.ProposeTxLists(
-				context.Background(),
-				[]types.Transactions{{}},
-				head.Number.Uint64(),
-				metaHash,
-			),
-		)
-		s.Nil(s.s.ProcessL1Blocks(context.Background()))
-	}
 
 	head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.GreaterOrEqual(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
+	s.GreaterOrEqual(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeights)
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {

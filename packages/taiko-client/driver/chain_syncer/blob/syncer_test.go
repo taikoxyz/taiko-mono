@@ -197,8 +197,8 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	var hasNoneAnchorTxs bool
 	chainConfig := config.NewChainConfig(
 		s.RPCClient.L2.ChainID,
-		s.RPCClient.OntakeClients.ForkHeight,
-		s.RPCClient.PacayaClients.ForkHeight,
+		s.RPCClient.PacayaClients.ForkHeights.Ontake,
+		s.RPCClient.PacayaClients.ForkHeights.Pacaya,
 	)
 
 	cfg, err := s.RPCClient.GetProtocolConfigs(nil)

@@ -49,11 +49,7 @@ func createPayloadAndSetHead(
 	}
 
 	// Increase the gas limit for the anchor block.
-	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
-		meta.GasLimit += consensus.AnchorV3GasLimit
-	} else {
-		meta.GasLimit += consensus.AnchorGasLimit
-	}
+	meta.GasLimit += consensus.AnchorV3GasLimit
 
 	// Create a new execution payload and set the chain head.
 	return createExecutionPayloadsAndSetHead(ctx, rpc, meta.createExecutionPayloadsMetaData, txListBytes)

@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -48,9 +49,9 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	return config.NewPacayaProtocolConfigs(&configs), nil
 }
 
-// ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,
+// ensureGenesisMatched fetches the L2 genesis block from TaikoInbox contract,
 // and checks whether the fetched genesis is same to the node local genesis.
-func (c *Client) ensureGenesisMatched(ctx context.Context) error {
+func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Address) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -91,28 +92,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 			return iter.Error()
 		}
 	} else if protocolConfigs.ForkHeightsOntake() == 0 {
-		// Fetch the genesis `BlockVerifiedV2` event.
-		iter, err := c.OntakeClients.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
-		if err != nil {
+		if l2GenesisHash, err = c.filterGenesisBlockVerifiedV2(ctx, filterOpts, taikoInbox); err != nil {
 			return err
-		}
-		if iter.Next() {
-			l2GenesisHash = iter.Event.BlockHash
-		}
-		if iter.Error() != nil {
-			return iter.Error()
 		}
 	} else {
-		// Fetch the genesis `BlockVerified` event.
-		iter, err := c.OntakeClients.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
-		if err != nil {
+		if l2GenesisHash, err = c.filterGenesisBlockVerified(ctx, filterOpts, taikoInbox); err != nil {
 			return err
-		}
-		if iter.Next() {
-			l2GenesisHash = iter.Event.BlockHash
-		}
-		if iter.Error() != nil {
-			return iter.Error()
 		}
 	}
 
@@ -133,6 +118,60 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// filterGenesisBlockVerifiedV2 fetches the genesis block verified
+// event from the lagacy TaikoL1 `BlockVerifiedV2` events.
+func (c *Client) filterGenesisBlockVerifiedV2(
+	ctx context.Context,
+	ops *bind.FilterOpts,
+	taikoInbox common.Address,
+) (common.Hash, error) {
+	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to create lagacy TaikoL1 client: %w", err)
+	}
+
+	// Fetch the genesis `BlockVerifiedV2` event.
+	iter, err := client.FilterBlockVerifiedV2(ops, []*big.Int{common.Big0}, nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	if iter.Next() {
+		return iter.Event.BlockHash, nil
+	}
+	if iter.Error() != nil {
+		return common.Hash{}, iter.Error()
+	}
+
+	return common.Hash{}, fmt.Errorf("failed to find genesis block verified event")
+}
+
+// filterGenesisBlockVerified fetches the genesis block verified
+// event from the lagacy TaikoL1 `BlockVerified` events.
+func (c *Client) filterGenesisBlockVerified(
+	ctx context.Context,
+	ops *bind.FilterOpts,
+	taikoInbox common.Address,
+) (common.Hash, error) {
+	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to create lagacy TaikoL1 client: %w", err)
+	}
+
+	// Fetch the genesis `BlockVerified` event.
+	iter, err := client.FilterBlockVerified(ops, []*big.Int{common.Big0}, nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	if iter.Next() {
+		return iter.Event.BlockHash, nil
+	}
+	if iter.Error() != nil {
+		return common.Hash{}, iter.Error()
+	}
+
+	return common.Hash{}, fmt.Errorf("failed to find genesis block verified event")
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.

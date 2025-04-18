@@ -17,7 +17,6 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -174,17 +173,12 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 
 	// Propose txs in L2 execution engine's mempool
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
-	sink2 := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
-	s.Nil(err)
-	sub2, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 
 	defer func() {
 		sub1.Unsubscribe()
-		sub2.Unsubscribe()
 		close(sink1)
-		close(sink2)
 	}()
 
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
@@ -204,13 +198,8 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 
 	s.Nil(proposer.ProposeOp(context.Background()))
 
-	var txHash common.Hash
-	select {
-	case event := <-sink1:
-		txHash = event.Raw.TxHash
-	case event := <-sink2:
-		txHash = event.Raw.TxHash
-	}
+	event := <-sink1
+	txHash := event.Raw.TxHash
 
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)

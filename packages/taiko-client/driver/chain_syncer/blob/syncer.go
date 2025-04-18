@@ -144,7 +144,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		TaikoInbox:           s.rpc.PacayaClients.TaikoInbox,
-		PacayaForkHeight:     s.rpc.PacayaClients.ForkHeight,
+		PacayaForkHeight:     s.rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		OnBlockProposedEvent: s.onBlockProposed,
@@ -288,8 +288,8 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 	for {
 		// If the current batch is the first Pacaya batch, we start checking the Ontake blocks.
-		if lastVerifiedBatchID == s.rpc.PacayaClients.ForkHeight {
-			lastVerifiedBlockID = s.rpc.PacayaClients.ForkHeight - 1
+		if lastVerifiedBatchID == s.rpc.PacayaClients.ForkHeights.Pacaya {
+			lastVerifiedBlockID = s.rpc.PacayaClients.ForkHeights.Pacaya - 1
 			break
 		}
 
