@@ -33,7 +33,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         public
         pure
         deprecated
-        returns (uint256, uint64)
+        returns (uint256 basefee_, uint64 parentGasExcess_)
     { }
 
     function adjustExcess(
@@ -44,7 +44,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         public
         pure
         deprecated
-        returns (uint64)
+        returns (uint64 newGasExcess_)
     { }
 
     function calculateBaseFee(
@@ -56,7 +56,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         public
         pure
         deprecated
-        returns (uint256, uint64)
+        returns (uint256 basefee_, uint64 parentGasExcess_)
     { }
 
     function anchorV2(
