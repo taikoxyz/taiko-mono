@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -103,16 +102,12 @@ func (s *State) eventLoop(ctx context.Context) {
 		// Channels for subscriptions.
 		l1HeadCh                = make(chan *types.Header, 10)
 		l2HeadCh                = make(chan *types.Header, 10)
-		transitionProvedV2Ch    = make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, 10)
-		blockVerifiedV2Ch       = make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, 10)
 		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
 		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
 
 		// Subscriptions.
 		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
 		l2HeadSub                  = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2BlockVerifiedV2Sub       = rpc.SubscribeBlockVerifiedV2(s.rpc.OntakeClients.TaikoL1, blockVerifiedV2Ch)
-		l2TransitionProvedV2Sub    = rpc.SubscribeTransitionProvedV2(s.rpc.OntakeClients.TaikoL1, transitionProvedV2Ch)
 		l2BatchesVerifiedPacayaSub = rpc.SubscribeBatchesVerifiedPacaya(
 			s.rpc.PacayaClients.TaikoInbox,
 			batchesVerifiedPacayaCh,
@@ -123,8 +118,6 @@ func (s *State) eventLoop(ctx context.Context) {
 	defer func() {
 		l1HeadSub.Unsubscribe()
 		l2HeadSub.Unsubscribe()
-		l2BlockVerifiedV2Sub.Unsubscribe()
-		l2TransitionProvedV2Sub.Unsubscribe()
 		l2BatchesVerifiedPacayaSub.Unsubscribe()
 		l2BatchesProvedPacayaSub.Unsubscribe()
 	}()
@@ -133,28 +126,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-transitionProvedV2Ch:
-			log.Info(
-				"✅ Transition proven",
-				"blockID", e.BlockId,
-				"parentHash", common.Hash(e.Tran.ParentHash),
-				"hash", common.Hash(e.Tran.BlockHash),
-				"stateRoot", common.Hash(e.Tran.StateRoot),
-				"prover", e.Prover,
-			)
 		case e := <-batchesProvedPacayaCh:
-			log.Info(
-				"✅ Batches proven",
-				"batchIDs", e.BatchIds,
-				"verifier", e.Verifier,
-			)
-		case e := <-blockVerifiedV2Ch:
-			log.Info(
-				"📈 Block verified",
-				"blockID", e.BlockId,
-				"hash", common.Hash(e.BlockHash),
-				"prover", e.Prover,
-			)
+			log.Info("✅ Batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(
 				"📈 Batches verified",
@@ -208,14 +181,6 @@ func (s *State) GetL2Head() *types.Header {
 // SubL1HeadsFeed registers a subscription of new L1 heads.
 func (s *State) SubL1HeadsFeed(ch chan *types.Header) event.Subscription {
 	return s.l1HeadsFeed.Subscribe(ch)
-}
-
-// IsOnTake returns whether num is either equal to the ontake block or greater.
-func (s *State) IsOnTake(num *big.Int) bool {
-	if s.OnTakeForkHeight == nil || num == nil {
-		return false
-	}
-	return s.OnTakeForkHeight.Cmp(num) <= 0
 }
 
 // IsPacaya returns whether num is either equal to the Pacaya block or greater.

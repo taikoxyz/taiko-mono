@@ -119,7 +119,7 @@ func (p *Proposer) InitFromConfig(
 		p.rpc,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.TaikoL1Address,
+		cfg.TaikoInboxAddress,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
 		cfg.ProposeBlockTxGasLimit,
@@ -358,7 +358,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		ctx,
 		p.rpc,
 		proposerAddress,
-		p.TaikoL1Address,
+		p.TaikoInboxAddress,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
 			new(big.Int).Mul(

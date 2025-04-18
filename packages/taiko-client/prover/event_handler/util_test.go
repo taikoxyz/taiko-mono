@@ -14,23 +14,18 @@ type ProverEventHandlerTestSuite struct {
 	testutils.ClientTestSuite
 }
 
-func (s *ProverEventHandlerTestSuite) TestIsBlockVerified() {
-	_, slotB, err := s.RPCClient.OntakeClients.TaikoL1.GetStateVariables(nil)
+func (s *ProverEventHandlerTestSuite) TestIsBatchVerified() {
+	state2, err := s.RPCClient.PacayaClients.TaikoInbox.GetStats2(nil)
 	s.Nil(err)
 
-	verified, err := isBlockVerified(
-		context.Background(),
-		s.RPCClient,
-		new(big.Int).SetUint64(slotB.LastVerifiedBlockId),
-	)
+	batch, err := s.RPCClient.PacayaClients.TaikoInbox.GetBatch(nil, state2.LastVerifiedBatchId)
+	s.Nil(err)
+
+	verified, err := isBlockVerified(context.Background(), s.RPCClient, new(big.Int).SetUint64(batch.LastBlockId))
 	s.Nil(err)
 	s.True(verified)
 
-	verified, err = isBlockVerified(
-		context.Background(),
-		s.RPCClient,
-		new(big.Int).SetUint64(slotB.LastVerifiedBlockId+1),
-	)
+	verified, err = isBlockVerified(context.Background(), s.RPCClient, new(big.Int).SetUint64(batch.LastBlockId+1))
 	s.Nil(err)
 	s.False(verified)
 }

@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"math/big"
 	"sync"
 	"time"
 
@@ -118,7 +117,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfHandoverSkipSlots,
-			d.TaikoL2Address,
+			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
 			d.rpc,
 		); err != nil {
@@ -284,17 +283,7 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			l2Head, err := d.rpc.L2.BlockNumber(d.ctx)
-			if err != nil {
-				log.Error("Failed to fetch L2 head", "error", err)
-				continue
-			}
-
-			if d.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head)) {
-				d.reportProtocolStatusPacaya(maxNumProposals)
-			} else {
-				d.reportProtocolStatusOntake(maxNumProposals)
-			}
+			d.reportProtocolStatusPacaya(maxNumProposals)
 		}
 	}
 }
@@ -312,22 +301,6 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
 		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
-	)
-}
-
-// reportProtocolStatusOntake reports some status for Ontake protocol.
-func (d *Driver) reportProtocolStatusOntake(maxNumProposals uint64) {
-	_, slotB, err := d.rpc.OntakeClients.TaikoL1.GetStateVariables(&bind.CallOpts{Context: d.ctx})
-	if err != nil {
-		log.Error("Failed to get protocol state variables", "error", err)
-		return
-	}
-
-	log.Info(
-		"📖 Protocol status",
-		"lastVerifiedBlockId", slotB.LastVerifiedBlockId,
-		"pendingBlocks", slotB.NumBlocks-slotB.LastVerifiedBlockId-1,
-		"availableSlots", slotB.LastVerifiedBlockId+maxNumProposals-slotB.NumBlocks,
 	)
 }
 

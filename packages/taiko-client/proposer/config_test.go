@@ -16,15 +16,15 @@ import (
 var (
 	l1Endpoint      = os.Getenv("L1_WS")
 	l2Endpoint      = os.Getenv("L2_HTTP")
-	taikoL1         = os.Getenv("TAIKO_INBOX")
-	taikoL2         = os.Getenv("TAIKO_ANCHOR")
+	taikoInbox      = os.Getenv("TAIKO_INBOX")
+	taikoAnchor     = os.Getenv("TAIKO_ANCHOR")
 	taikoToken      = os.Getenv("TAIKO_TOKEN")
 	proposeInterval = "10s"
 	rpcTimeout      = "5s"
 )
 
 func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
-	goldenTouchAddress, err := s.RPCClient.OntakeClients.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	app := s.SetupApp()
@@ -34,8 +34,8 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		s.Nil(err)
 		s.Equal(l1Endpoint, c.L1Endpoint)
 		s.Equal(l2Endpoint, c.L2Endpoint)
-		s.Equal(taikoL1, c.TaikoL1Address.String())
-		s.Equal(taikoL2, c.TaikoL2Address.String())
+		s.Equal(taikoInbox, c.TaikoInboxAddress.String())
+		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(taikoToken, c.TaikoTokenAddress.String())
 		s.Equal(goldenTouchAddress, crypto.PubkeyToAddress(c.L1ProposerPrivKey.PublicKey))
 		s.Equal(goldenTouchAddress, c.L2SuggestedFeeRecipient)
@@ -52,8 +52,8 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		"TestNewConfigFromCliContext",
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
 		"--" + flags.L2HTTPEndpoint.Name, l2Endpoint,
-		"--" + flags.TaikoInboxAddress.Name, taikoL1,
-		"--" + flags.TaikoAnchorAddress.Name, taikoL2,
+		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.TaikoTokenAddress.Name, taikoToken,
 		"--" + flags.L1ProposerPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.L2SuggestedFeeRecipient.Name, goldenTouchAddress.Hex(),
@@ -86,7 +86,7 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContextL2RecipErr() {
 }
 
 func (s *ProposerTestSuite) TestNewConfigFromCliContextTxPoolLocalsErr() {
-	goldenTouchAddress, err := s.RPCClient.OntakeClients.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	app := s.SetupApp()

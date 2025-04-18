@@ -74,9 +74,9 @@ type ClientConfig struct {
 	L2Endpoint                    string
 	L1BeaconEndpoint              string
 	L2CheckPoint                  string
-	TaikoL1Address                common.Address
+	TaikoInboxAddress             common.Address
 	TaikoWrapperAddress           common.Address
-	TaikoL2Address                common.Address
+	TaikoAnchorAddress            common.Address
 	TaikoTokenAddress             common.Address
 	ForcedInclusionStoreAddress   common.Address
 	PreconfWhitelistAddress       common.Address
@@ -177,22 +177,22 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 // initOntakeClients initializes all Ontake smart contract clients.
 func (c *Client) initOntakeClients(cfg *ClientConfig) error {
-	taikoL1, err := ontakeBindings.NewTaikoL1Client(cfg.TaikoL1Address, c.L1)
+	taikoL1, err := ontakeBindings.NewTaikoL1Client(cfg.TaikoInboxAddress, c.L1)
 	if err != nil {
 		return err
 	}
 
-	forkRouter, err := ontakeBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
+	forkRouter, err := ontakeBindings.NewForkRouter(cfg.TaikoInboxAddress, c.L1)
 	if err != nil {
 		return err
 	}
 
-	libProposing, err := ontakeBindings.NewLibProposing(cfg.TaikoL1Address, c.L1)
+	libProposing, err := ontakeBindings.NewLibProposing(cfg.TaikoInboxAddress, c.L1)
 	if err != nil {
 		return err
 	}
 
-	taikoL2, err := ontakeBindings.NewTaikoL2Client(cfg.TaikoL2Address, c.L2)
+	taikoL2, err := ontakeBindings.NewTaikoL2Client(cfg.TaikoAnchorAddress, c.L2)
 	if err != nil {
 		return err
 	}
@@ -246,17 +246,17 @@ func (c *Client) initOntakeClients(cfg *ClientConfig) error {
 
 // initPacayaClients initializes all Pacaya smart contract clients.
 func (c *Client) initPacayaClients(cfg *ClientConfig) error {
-	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoL1Address, c.L1)
+	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoInboxAddress, c.L1)
 	if err != nil {
 		return err
 	}
 
-	forkRouter, err := pacayaBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
+	forkRouter, err := pacayaBindings.NewForkRouter(cfg.TaikoInboxAddress, c.L1)
 	if err != nil {
 		return err
 	}
 
-	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoL2Address, c.L2)
+	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoAnchorAddress, c.L2)
 	if err != nil {
 		return err
 	}
