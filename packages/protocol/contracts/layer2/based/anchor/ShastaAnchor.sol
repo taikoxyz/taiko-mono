@@ -42,7 +42,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     function v4Anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
-        uint256 /*_parentBaseFee*/,
+        uint256, /*_parentBaseFee*/
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
@@ -66,7 +66,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         signalService.receiveSignals(_signalSlots);
     }
 
-  function v4GetBaseFee(
+    function v4GetBaseFee(
         uint32 _parentGasUsed,
         uint64 _blockTimestamp,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
