@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
+import "src/layer1/prover-market/ProverMarket.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
@@ -20,9 +21,10 @@ contract ConfigurableInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        address _proverMarket
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
     { }
 
     function initWithConfig(
@@ -60,6 +62,7 @@ abstract contract Layer1Test is CommonTest {
         address _verifier,
         address _bondToken,
         address _signalService,
+        address _proverMarket,
         ITaikoInbox.Config memory _config
     )
         internal
@@ -68,7 +71,11 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox(address(0), _verifier, _bondToken, _signalService)),
+                impl: address(
+                    new ConfigurableInbox(
+                        address(0), _verifier, _bondToken, _signalService, _proverMarket
+                    )
+                ),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )
