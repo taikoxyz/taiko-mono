@@ -28,7 +28,6 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
-import "src/layer1/preconf/PreconfInbox.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -44,6 +43,9 @@ import "test/shared/DeployCapability.sol";
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
 contract DeployProtocolOnL1 is DeployCapability {
+    uint24 constant PRECONF_COOLDOWN_WINDOW = 0 hours;
+    uint24 constant DEVNET_COOLDOWN_WINDOW = 2 hours;
+
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "invalid private key");
@@ -297,6 +299,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (oldFork == address(0)) {
             oldFork = address(
                 new DevnetInbox(
+                    LibNetwork.TAIKO_DEVNET,
+                    DEVNET_COOLDOWN_WINDOW,
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
@@ -311,7 +315,9 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         if (vm.envBool("PRECONF_INBOX")) {
             newFork = address(
-                new PreconfInbox(
+                new DevnetInbox(
+                    LibNetwork.TAIKO_PRECONF,
+                    PRECONF_COOLDOWN_WINDOW,
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
@@ -324,6 +330,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             newFork = address(
                 new DevnetInbox(
+                    LibNetwork.TAIKO_DEVNET,
+                    DEVNET_COOLDOWN_WINDOW,
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
@@ -516,6 +524,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (oldFork == address(0)) {
             oldFork = address(
                 new DevnetInbox(
+                    LibNetwork.TAIKO_DEVNET,
+                    DEVNET_COOLDOWN_WINDOW,
                     address(0),
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
@@ -531,7 +541,9 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         if (vm.envBool("PRECONF_INBOX")) {
             newFork = address(
-                new PreconfInbox(
+                new DevnetInbox(
+                    LibNetwork.TAIKO_PRECONF,
+                    PRECONF_COOLDOWN_WINDOW,
                     taikoWrapper,
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
@@ -544,6 +556,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             newFork = address(
                 new DevnetInbox(
+                    LibNetwork.TAIKO_DEVNET,
+                    DEVNET_COOLDOWN_WINDOW,
                     taikoWrapper,
                     verifier,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
