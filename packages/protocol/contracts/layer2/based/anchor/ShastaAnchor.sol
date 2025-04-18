@@ -55,7 +55,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         onlyGoldenTouch
         nonReentrant
     {
-        require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
+        require(block.number >= shastaForkHeight, L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
