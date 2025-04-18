@@ -76,7 +76,7 @@ for contract in "${contracts[@]}"; do
     echo "inspect ${contract}"
 
     echo "## ${contract}" >> $output_file
-    FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout >> $output_file
+    FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout | jq -r '["Slot", "Type", "Name"], ["---", "---", "---"], (.storage[] | [.slot, .type, .label]) | @tsv' | column -t -s $'\t' >> $output_file
     echo "" >> $output_file
 done
 
