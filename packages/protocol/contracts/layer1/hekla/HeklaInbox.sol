@@ -88,7 +88,7 @@ contract HeklaInbox is TaikoInbox {
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 5e18, // 5 Taiko token per block
+            livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -98,9 +98,9 @@ contract HeklaInbox is TaikoInbox {
                 /// we would use 8 * (12 / 2) = 48. However, to make the gas changes 4 times slower for
                 /// better user experience, we use 48 * 4 = 192.
                 adjustmentQuotient: 192,
-                sharingPctg: 75,
+                sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000,
+                minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             provingWindow: 2 hours,

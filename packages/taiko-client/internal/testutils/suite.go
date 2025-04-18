@@ -230,6 +230,10 @@ func (s *ClientTestSuite) IncreaseTime(time uint64) {
 	s.NotNil(result)
 }
 
+func (s *ClientTestSuite) L1Mine() {
+	s.Nil(s.RPCClient.L1.CallContext(context.Background(), nil, "evm_mine"))
+}
+
 func (s *ClientTestSuite) SetNextBlockTimestamp(time uint64) {
 	var result uint64
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &result, "evm_setNextBlockTimestamp", time))

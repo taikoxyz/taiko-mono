@@ -22,20 +22,22 @@ var (
 	getConfigSpecPath  = "/eth/v1/config/spec"
 )
 
+// ConfigSpec is the config spec of the beacon node.
 type ConfigSpec struct {
 	SecondsPerSlot string `json:"SECONDS_PER_SLOT"`
 	SlotsPerEpoch  string `json:"SLOTS_PER_EPOCH"`
 }
 
+// GenesisResponse is the response from the beacon node for fetching the genesis time.
 type GenesisResponse struct {
 	Data struct {
 		GenesisTime string `json:"genesis_time"`
 	} `json:"data"`
 }
 
+// BeaconClient is a client for the beacon node.
 type BeaconClient struct {
 	*beacon.Client
-
 	timeout        time.Duration
 	genesisTime    uint64
 	SecondsPerSlot uint64
