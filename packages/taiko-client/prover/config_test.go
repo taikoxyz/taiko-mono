@@ -1,72 +1,10 @@
 package prover
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"time"
-
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
-
-var (
-	l1WsEndpoint   = os.Getenv("L1_WS")
-	l2WsEndpoint   = os.Getenv("L2_WS")
-	l2HttpEndpoint = os.Getenv("L2_HTTP")
-	taikoInbox     = os.Getenv("TAIKO_INBOX")
-	taikoAnchor    = os.Getenv("TAIKO_ANCHOR")
-	allowance      = 10.0
-	rpcTimeout     = 5 * time.Second
-)
-
-func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
-	app := s.SetupApp()
-	app.Action = func(ctx *cli.Context) error {
-		c, err := NewConfigFromCliContext(ctx)
-		s.Nil(err)
-		s.Equal(l1WsEndpoint, c.L1WsEndpoint)
-		s.Equal(l2WsEndpoint, c.L2WsEndpoint)
-		s.Equal(l2HttpEndpoint, c.L2HttpEndpoint)
-		s.Equal(taikoInbox, c.TaikoInboxAddress.String())
-		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
-		s.Equal(
-			crypto.PubkeyToAddress(s.p.cfg.L1ProverPrivKey.PublicKey),
-			crypto.PubkeyToAddress(c.L1ProverPrivKey.PublicKey),
-		)
-		s.True(c.Dummy)
-		s.True(c.ProveUnassignedBlocks)
-		s.True(c.ContesterMode)
-		s.Equal(rpcTimeout, c.RPCTimeout)
-		s.Nil(new(Prover).InitFromCli(context.Background(), ctx))
-		s.True(c.ProveUnassignedBlocks)
-		allowanceWithDecimal, err := utils.EtherToWei(allowance)
-		s.Nil(err)
-		s.Equal(allowanceWithDecimal.Uint64(), c.Allowance.Uint64())
-
-		return err
-	}
-
-	s.Nil(app.Run([]string{
-		"TestNewConfigFromCliContextGuardianProver",
-		"--" + flags.L1WSEndpoint.Name, l1WsEndpoint,
-		"--" + flags.L2WSEndpoint.Name, l2WsEndpoint,
-		"--" + flags.L2HTTPEndpoint.Name, l2HttpEndpoint,
-		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
-		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
-		"--" + flags.L1ProverPrivKey.Name, os.Getenv("L1_PROVER_PRIVATE_KEY"),
-		"--" + flags.StartingBlockID.Name, "0",
-		"--" + flags.RPCTimeout.Name, "5s",
-		"--" + flags.TxGasLimit.Name, "100000",
-		"--" + flags.Dummy.Name,
-		"--" + flags.ProveUnassignedBlocks.Name,
-		"--" + flags.Allowance.Name, fmt.Sprint(allowance),
-		"--" + flags.RaikoHostEndpoint.Name, "https://dummy.raiko.xyz",
-	}))
-}
 
 func (s *ProverTestSuite) TestNewConfigFromCliContextProverKeyError() {
 	app := s.SetupApp()

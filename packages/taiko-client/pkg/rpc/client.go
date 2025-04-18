@@ -50,22 +50,20 @@ type Client struct {
 // RPC client. If not providing L2EngineEndpoint or JwtSecret, then the L2Engine client
 // won't be initialized.
 type ClientConfig struct {
-	L1Endpoint                    string
-	L2Endpoint                    string
-	L1BeaconEndpoint              string
-	L2CheckPoint                  string
-	TaikoInboxAddress             common.Address
-	TaikoWrapperAddress           common.Address
-	TaikoAnchorAddress            common.Address
-	TaikoTokenAddress             common.Address
-	ForcedInclusionStoreAddress   common.Address
-	PreconfWhitelistAddress       common.Address
-	GuardianProverMinorityAddress common.Address
-	GuardianProverMajorityAddress common.Address
-	ProverSetAddress              common.Address
-	L2EngineEndpoint              string
-	JwtSecret                     string
-	Timeout                       time.Duration
+	L1Endpoint                  string
+	L2Endpoint                  string
+	L1BeaconEndpoint            string
+	L2CheckPoint                string
+	TaikoInboxAddress           common.Address
+	TaikoWrapperAddress         common.Address
+	TaikoAnchorAddress          common.Address
+	TaikoTokenAddress           common.Address
+	ForcedInclusionStoreAddress common.Address
+	PreconfWhitelistAddress     common.Address
+	ProverSetAddress            common.Address
+	L2EngineEndpoint            string
+	JwtSecret                   string
+	Timeout                     time.Duration
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
