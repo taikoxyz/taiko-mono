@@ -398,10 +398,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    /// @notice Verify batches by providing the length of the batches to verify.
-    /// @dev This function is necessary to upgrade from this fork to the next one.
-    /// @param _length Specifis how many batches to verify. The max number of batches to verify is
-    /// `v4GetConfig().maxBatchesToVerify * _length`.
+    /// @inheritdoc ITaikoInbox
     function v4VerifyBatches(uint64 _length)
         external
         nonZeroValue(_length)

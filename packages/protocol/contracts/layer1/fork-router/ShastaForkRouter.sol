@@ -11,6 +11,7 @@ interface IPacayaFork {
     // Return value types, visibility, or mutability modifiers do not affect the function selector.
     function proposeBatch(bytes calldata, bytes calldata) external;
     function proveBatches(bytes calldata, bytes calldata) external;
+    function verifyBatches(uint64) external;
     function depositBond(uint256) external;
     function withdrawBond(uint256) external;
     function bondBalanceOf(address) external;
@@ -36,6 +37,7 @@ contract ShastaForkRouter is ForkRouter {
         if (
             _selector == IPacayaFork.proposeBatch.selector
                 || _selector == IPacayaFork.proveBatches.selector
+                || _selector == IPacayaFork.verifyBatches.selector
                 || _selector == IPacayaFork.depositBond.selector
                 || _selector == IPacayaFork.withdrawBond.selector
                 || _selector == IPacayaFork.bondBalanceOf.selector

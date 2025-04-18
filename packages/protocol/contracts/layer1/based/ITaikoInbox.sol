@@ -320,6 +320,12 @@ interface ITaikoInbox {
     /// @param _proof The aggregated cryptographic proof proving the batches transitions.
     function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external;
 
+    /// @notice Verify batches by providing the length of the batches to verify.
+    /// @dev This function is necessary to upgrade from this fork to the next one.
+    /// @param _length Specifis how many batches to verify. The max number of batches to verify is
+    /// `v4GetConfig().maxBatchesToVerify * _length`.
+    function v4VerifyBatches(uint64 _length) external;
+
     /// @notice Deposits TAIKO tokens into the contract to be used as liveness bond.
     /// @param _amount The amount of TAIKO tokens to deposit.
     function v4DepositBond(uint256 _amount) external payable;
