@@ -46,12 +46,12 @@ type BuildPreconfBlockResponseBody struct {
 }
 
 // BuildPreconfBlock handles a preconfirmation block creation request,
-// if the preconfirmation block creation body in request are valid, it will insert the correspoinding the
+// if the preconfirmation block creation body in request are valid, it will insert the corresponding
 // preconfirmation block to the backend L2 execution engine and return a success response.
 //
 //		@Summary 	    Insert a preconfirmation block to the L2 execution engine.
 //		@Description	Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
-//		@Description	body in request are valid, it will insert the correspoinding the
+//		@Description	body in request are valid, it will insert the corresponding
 //	 	@Description	preconfirmation block to the backend L2 execution engine and return a success response.
 //		@Param  	body body BuildPreconfBlockRequestBody true "preconf block creation request body"
 //		@Accept	  json
@@ -78,6 +78,11 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
 	)
+
+	// Check if the fee recipient the current operator or the next operator if its in handover window.
+	if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient); err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
 
 	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
 	if err != nil {

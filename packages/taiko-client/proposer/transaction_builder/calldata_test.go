@@ -16,7 +16,7 @@ import (
 type TransactionBuilderTestSuite struct {
 	testutils.ClientTestSuite
 	calldataTxBuilder *CalldataTransactionBuilder
-	blobTxBuiler      *BlobTransactionBuilder
+	blobTxBuilder     *BlobTransactionBuilder
 	txsToPropose      []types.Transactions
 }
 
@@ -43,7 +43,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		chainConfig,
 		false,
 	)
-	s.blobTxBuiler = NewBlobTransactionBuilder(
+	s.blobTxBuilder = NewBlobTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),

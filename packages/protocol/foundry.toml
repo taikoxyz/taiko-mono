@@ -35,6 +35,7 @@ block_gas_limit = 80_000_000
 fs_permissions = [
   { access = "read", path = "./out" },
   { access = "read-write", path = "./deployments" },
+  { access = "read-write", path = "./gas-reports" },
   { access = "read", path = "./test" },
   { access = "read", path = "./script/" },
   { access = "read", path = "./genesis" },

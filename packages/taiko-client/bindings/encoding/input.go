@@ -365,7 +365,7 @@ var (
 	TaikoWrapperABI         *abi.ABI
 	ForcedInclusionStoreABI *abi.ABI
 	TaikoAnchorABI          *abi.ABI
-	ResloverBaseABI         *abi.ABI
+	ResolverBaseABI         *abi.ABI
 	ComposeVerifierABI      *abi.ABI
 	ForkRouterPacayaABI     *abi.ABI
 	TaikoTokenPacayaABI     *abi.ABI
@@ -441,8 +441,8 @@ func init() {
 		log.Crit("Get TaikoAnchor ABI error", "error", err)
 	}
 
-	if ResloverBaseABI, err = pacayaBindings.ResolverBaseMetaData.GetAbi(); err != nil {
-		log.Crit("Get ResloverBase ABI error", "error", err)
+	if ResolverBaseABI, err = pacayaBindings.ResolverBaseMetaData.GetAbi(); err != nil {
+		log.Crit("Get ResolverBase ABI error", "error", err)
 	}
 
 	if ComposeVerifierABI, err = pacayaBindings.ComposeVerifierMetaData.GetAbi(); err != nil {
@@ -477,7 +477,7 @@ func init() {
 		TaikoWrapperABI.Errors,
 		ForcedInclusionStoreABI.Errors,
 		TaikoAnchorABI.Errors,
-		ResloverBaseABI.Errors,
+		ResolverBaseABI.Errors,
 		ComposeVerifierABI.Errors,
 		ForkRouterPacayaABI.Errors,
 		TaikoTokenPacayaABI.Errors,
