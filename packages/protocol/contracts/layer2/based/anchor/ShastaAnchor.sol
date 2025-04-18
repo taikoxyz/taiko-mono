@@ -44,7 +44,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint256 _parentBaseFee,
-        uint64 _parentGasUsed,
+        uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
     )

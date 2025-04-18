@@ -42,6 +42,7 @@ contracts_layer1=(
 "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol:ForcedInclusionStore"
 "contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
+"contracts/layer1/prover-market/ProverMarket.sol:ProverMarket"
 "contracts/layer1/governance/TaikoTreasuryVault.sol:TaikoTreasuryVault"
 )
 
@@ -66,7 +67,7 @@ else
 fi
 
 # Empty the output file initially
-output_file="contract_layout_${profile}.md"
+output_file="layout/${profile}-contracts.md"
 > $output_file
 
 # Loop over each contract

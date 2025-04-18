@@ -1052,7 +1052,7 @@ func (s *DriverTestSuite) InitProposer() {
 		},
 	}, nil, nil))
 	s.p = p
-	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
+	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 }
 
 func (s *DriverTestSuite) TearDownTestTearDown() {
@@ -1090,7 +1090,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
 	s.Nil(err)
 
-	// If the transaction is underpriced, we just ingore it.
+	// If the transaction is underpriced, we just ignore it.
 	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
 	if err != nil {
 		s.Equal("replacement transaction underpriced", err.Error())
