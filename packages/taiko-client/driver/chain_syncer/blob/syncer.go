@@ -153,7 +153,6 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
-		TaikoL1:              s.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           s.rpc.PacayaClients.TaikoInbox,
 		PacayaForkHeight:     s.rpc.PacayaClients.ForkHeight,
 		StartHeight:          s.state.GetL1Current().Number,

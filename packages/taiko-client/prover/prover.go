@@ -282,7 +282,6 @@ func (p *Prover) Close(_ context.Context) {
 func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               p.rpc.L1,
-		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
 		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeight,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),

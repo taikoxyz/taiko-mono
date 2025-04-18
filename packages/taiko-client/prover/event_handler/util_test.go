@@ -7,21 +7,11 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 type ProverEventHandlerTestSuite struct {
 	testutils.ClientTestSuite
-}
-
-func (s *ProverEventHandlerTestSuite) TestGetProvingWindowNotFound() {
-	_, err := getProvingWindowOntake(
-		encoding.TierGuardianMajorityID+1,
-		[]*rpc.TierProviderTierWithID{},
-	)
-	s.ErrorIs(err, errTierNotFound)
 }
 
 func (s *ProverEventHandlerTestSuite) TestIsBlockVerified() {
