@@ -12,15 +12,13 @@ import (
 
 func TestDummyProducerRequestProof(t *testing.T) {
 	var (
-		producer        = DummyProofProducer{}
-		tier     uint16 = 1024
-		blockID         = common.Big32
+		producer = DummyProofProducer{}
+		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
-		&ProofRequestOptionsOntake{},
+		&ProofRequestOptionsPacaya{},
 		blockID,
 		&metadata.TaikoDataBlockMetadataOntake{},
-		tier,
 		time.Now(),
 	)
 	require.Nil(t, err)

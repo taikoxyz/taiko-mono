@@ -46,32 +46,15 @@ func (h *AssignmentExpiredEventHandler) Handle(
 		proofStatus *rpc.BlockProofStatus
 		err         error
 	)
-	// Check if we still need to generate a new proof for that block.
-	if meta.IsPacaya() {
-		log.Info(
-			"Proof assignment window is expired",
-			"batchID", meta.Pacaya().GetBatchID(),
-			"assignedProver", meta.GetProposer(),
-		)
-		if proofStatus, err = rpc.GetBatchProofStatus(ctx, h.rpc, meta.Pacaya().GetBatchID()); err != nil {
-			return err
-		}
-	} else {
-		log.Info(
-			"Proof assignment window is expired",
-			"blockID", meta.Ontake().GetBlockID(),
-			"assignedProver", meta.Ontake().GetAssignedProver(),
-			"minTier", meta.Ontake().GetMinTier(),
-		)
-		if proofStatus, err = rpc.GetBlockProofStatus(
-			ctx,
-			h.rpc,
-			meta.Ontake().GetBlockID(),
-			h.proverAddress,
-			h.proverSetAddress,
-		); err != nil {
-			return err
-		}
+
+	// Check if we still need to generate a new proof for that batch.
+	log.Info(
+		"Proof assignment window is expired",
+		"batchID", meta.Pacaya().GetBatchID(),
+		"assignedProver", meta.GetProposer(),
+	)
+	if proofStatus, err = rpc.GetBatchProofStatus(ctx, h.rpc, meta.Pacaya().GetBatchID()); err != nil {
+		return err
 	}
 
 	if !proofStatus.IsSubmitted {

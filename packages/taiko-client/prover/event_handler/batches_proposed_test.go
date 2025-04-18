@@ -19,7 +19,6 @@ func (s *EventHandlerTestSuite) TestBatchProposedHandle() {
 		ProofGenerationCh:     make(chan *proofProducer.ProofResponse),
 		AssignmentExpiredCh:   make(chan metadata.TaikoProposalMetaData),
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
-		ProofContestCh:        make(chan *proofProducer.ContestRequestBody),
 		BackOffRetryInterval:  1 * time.Minute,
 		BackOffMaxRetrys:      5,
 		ContesterMode:         true,

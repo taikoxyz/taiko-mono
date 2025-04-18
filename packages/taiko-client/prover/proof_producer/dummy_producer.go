@@ -16,7 +16,6 @@ func (o *DummyProofProducer) RequestProof(
 	opts ProofRequestOptions,
 	blockID *big.Int,
 	meta metadata.TaikoProposalMetaData,
-	tier uint16,
 	_ time.Time,
 ) (*ProofResponse, error) {
 	return &ProofResponse{
@@ -30,7 +29,6 @@ func (o *DummyProofProducer) RequestProof(
 // RequestBatchProofs returns a dummy proof aggregation to the result channel.
 func (o *DummyProofProducer) RequestBatchProofs(
 	proofs []*ProofResponse,
-	tier uint16,
 	proofType ProofType,
 ) (*BatchProofs, error) {
 	return &BatchProofs{

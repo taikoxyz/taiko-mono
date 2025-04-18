@@ -174,19 +174,10 @@ func (s *Syncer) onBlockProposed(
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	var (
-		firstBlockID *big.Int
-		lastBlockID  *big.Int
-		timestamp    uint64
-	)
-	if meta.IsPacaya() {
 		firstBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + 1)
-		lastBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
-		timestamp = meta.Pacaya().GetLastBlockTimestamp()
-	} else {
-		firstBlockID = meta.Ontake().GetBlockID()
-		lastBlockID = meta.Ontake().GetBlockID()
-		timestamp = meta.Ontake().GetTimestamp()
-	}
+		lastBlockID  = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
+		timestamp    = meta.Pacaya().GetLastBlockTimestamp()
+	)
 
 	// We simply ignore the genesis block's `BlockProposedV2` / `BatchesProposed` event.
 	if lastBlockID.Cmp(common.Big0) == 0 {

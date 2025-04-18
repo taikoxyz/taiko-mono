@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -41,7 +40,7 @@ func (s *SgxGethProofProducer) RequestProof(
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, batchID, meta, s.Tier(), requestAt)
+		return s.DummyProofProducer.RequestProof(opts, batchID, meta, requestAt)
 	}
 
 	resp, err := s.requestBatchProof(
@@ -84,7 +83,7 @@ func (s *SgxGethProofProducer) Aggregate(
 	)
 
 	if s.Dummy {
-		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), ProofTypeSgxGeth)
+		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, ProofTypeSgxGeth)
 		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier}, nil
 	}
 
@@ -159,11 +158,6 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	updateProvingMetrics(proofType, requestAt, isAggregation)
 
 	return output, nil
-}
-
-// Tier implements the ProofProducer interface.
-func (s *SgxGethProofProducer) Tier() uint16 {
-	return encoding.TierDeprecated
 }
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.

@@ -12,22 +12,18 @@ import (
 )
 
 var (
-	errProofGenerating = errors.New("proof is generating")
-	errEmptyProof      = errors.New("proof is empty")
-	ErrInvalidLength   = errors.New("invalid items length")
+	ErrEmptyProof             = errors.New("proof is empty")
+	ErrInvalidLength          = errors.New("invalid items length")
+	ErrProofInProgress        = errors.New("work_in_progress")
+	ErrProofGeneartionTimeout = errors.New("proof_generation_timeout")
+	ErrRetry                  = errors.New("retry")
+	ErrZkAnyNotDrawn          = errors.New("zk_any_not_drawn")
+	StatusRegistered          = "registered"
 )
 
 // ProofRequestBody represents a request body to generate a proof.
 type ProofRequestBody struct {
 	Meta metadata.TaikoProposalMetaData
-}
-
-// ContestRequestBody represents a request body to generate a proof for contesting.
-type ContestRequestBody struct {
-	BlockID    *big.Int
-	ProposedIn *big.Int
-	ParentHash common.Hash
-	Meta       metadata.TaikoProposalMetaData
 }
 
 // ProofResponse represents a response of a proof request.
@@ -53,16 +49,11 @@ type BatchProofs struct {
 
 // ProofProducer is an interface that contains all methods to generate a proof.
 type ProofProducer interface {
-	RequestProof(
-		ctx context.Context,
+	RequestProof(ctx context.Context,
 		opts ProofRequestOptions,
 		blockID *big.Int,
 		meta metadata.TaikoProposalMetaData,
 		requestAt time.Time,
 	) (*ProofResponse, error)
-	Aggregate(
-		ctx context.Context,
-		items []*ProofResponse,
-		requestAt time.Time,
-	) (*BatchProofs, error)
+	Aggregate(ctx context.Context, items []*ProofResponse, requestAt time.Time) (*BatchProofs, error)
 }

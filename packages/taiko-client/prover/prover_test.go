@@ -169,19 +169,9 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 		s.p.withRetry(func() error {
 			return s.p.submitProofOp(&proofProducer.ProofResponse{
 				BlockID: common.Big1,
-				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
+				Meta:    &metadata.TaikoDataBlockMetadataPacaya{},
 				Proof:   []byte{},
-				Opts:    &proofProducer.ProofRequestOptionsOntake{},
-			})
-		})
-	})
-	s.NotPanics(func() {
-		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&proofProducer.ProofResponse{
-				BlockID: common.Big1,
-				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
-				Proof:   []byte{},
-				Opts:    &proofProducer.ProofRequestOptionsOntake{},
+				Opts:    &proofProducer.ProofRequestOptionsPacaya{},
 			})
 		})
 	})

@@ -34,7 +34,6 @@ type BatchProposedEventHandler struct {
 	proofGenerationCh     chan<- *proofProducer.ProofResponse
 	assignmentExpiredCh   chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh     chan<- *proofProducer.ProofRequestBody
-	proofContestCh        chan<- *proofProducer.ContestRequestBody
 	backOffRetryInterval  time.Duration
 	backOffMaxRetrys      uint64
 	contesterMode         bool
@@ -50,7 +49,6 @@ type NewBatchProposedEventHandlerOps struct {
 	ProofGenerationCh     chan *proofProducer.ProofResponse
 	AssignmentExpiredCh   chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh     chan *proofProducer.ProofRequestBody
-	ProofContestCh        chan *proofProducer.ContestRequestBody
 	BackOffRetryInterval  time.Duration
 	BackOffMaxRetrys      uint64
 	ContesterMode         bool
@@ -67,7 +65,6 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProofGenerationCh,
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,
-		opts.ProofContestCh,
 		opts.BackOffRetryInterval,
 		opts.BackOffMaxRetrys,
 		opts.ContesterMode,

@@ -29,11 +29,6 @@ func NewTaikoDataBlockMetadataPacaya(e *pacayaBindings.TaikoInboxClientBatchProp
 	}
 }
 
-// Ontake implements TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataPacaya) Ontake() TaikoBlockMetaDataOntake {
-	return nil
-}
-
 // Pacaya implements TaikoProposalMetaData interface.
 func (m *TaikoDataBlockMetadataPacaya) Pacaya() TaikoBatchMetaDataPacaya {
 	return m
