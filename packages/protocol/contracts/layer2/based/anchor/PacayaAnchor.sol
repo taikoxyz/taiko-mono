@@ -4,20 +4,19 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "src/shared/common/EssentialContract.sol";
+
 import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
 import "../eip1559/LibEIP1559.sol";
-import "../IBlockHashProvider.sol";
 import "./OntakeAnchor.sol";
 
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract PacayaAnchor is EssentialContract, IBlockHashProvider, OntakeAnchor {
+abstract contract PacayaAnchor is OntakeAnchor {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
