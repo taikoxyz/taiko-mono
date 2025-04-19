@@ -15,14 +15,9 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
     uint256[50] private __gap;
 
-    modifier onlyFromPreconferOrFallback() {
-        require(
-            msg.sender == fallbackPreconfer
-                || msg.sender == preconfWhitelist.getOperatorForCurrentEpoch(),
-            NotPreconferOrFallback()
-        );
-        _;
-    }
+    error NotPreconfer();
+    error NotFallbackPreconfer();
+    error ProposerIsNotPreconfer();
 
     constructor(
         address _proposeBatchEntrypoint, // TaikoInbox or TaikoWrapper
@@ -43,16 +38,23 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     }
 
     /// @inheritdoc IProposeBatch
-    function proposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        onlyFromPreconferOrFallback
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
-        // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);
+        // Sender must be the selected operator for the epoch
+        address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
+        if (preconfer != address(0)) {
+            require(msg.sender == preconfer, NotPreconfer());
+        } else if (fallbackPreconfer != address(0)) {
+            require(msg.sender == fallbackPreconfer, NotFallbackPreconfer());
+        }
+
+        // Both TaikoInbox and TaikoWrapper implement the same ABI for IProposeBatch.
+        (info_, meta_) = proposeBatchEntrypoint.v4ProposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(info_.proposer == msg.sender, ProposerIsNotPreconfer());
