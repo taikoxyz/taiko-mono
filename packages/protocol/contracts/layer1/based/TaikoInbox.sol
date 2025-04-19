@@ -408,12 +408,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         _verifyBatches(v4GetConfig(), state.stats2, _length);
     }
 
-    /// @inheritdoc ITaikoInbox
+    /// @inheritdoc IBondManager
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
         state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
-    /// @inheritdoc ITaikoInbox
+    /// @inheritdoc IBondManager
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
         if (address(proverMarket) != address(0)) {
             (address currentProver,) = proverMarket.getCurrentProver();
@@ -434,7 +434,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    /// @inheritdoc ITaikoInbox
+    /// @inheritdoc IBondManager
     function v4BondToken() external view returns (address) {
         return bondToken;
     }
@@ -522,7 +522,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         ts_ = v4GetBatchVerifyingTransition(batchId_);
     }
 
-    /// @inheritdoc ITaikoInbox
+    /// @inheritdoc IBondManager
     function v4BondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
     }
