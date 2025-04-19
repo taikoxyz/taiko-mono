@@ -1237,6 +1237,10 @@ func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, 
 
 // GetPreconfRouterPacaya resolves the preconf router address.
 func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.TaikoWrapper == nil {
+		return common.Address{}, errors.New("taikoWrapper contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
 }
 
@@ -1246,8 +1250,8 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	opts *bind.CallOpts,
 	resolveFunc T,
 ) (common.Address, error) {
-	if c.PacayaClients.TaikoWrapper == nil {
-		return common.Address{}, errors.New("taikoWrapper contract is not set")
+	if c.PacayaClients.TaikoInbox == nil {
+		return common.Address{}, errors.New("taikoInbox contract is not set")
 	}
 
 	var cancel context.CancelFunc
