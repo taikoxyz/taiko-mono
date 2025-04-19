@@ -102,7 +102,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         uint64 _newFeeInGwei = uint64(_fee / GWEI);
 
-        require(inbox.bondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
+        require(inbox.v4BondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
 
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
 
@@ -110,7 +110,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         if (currentProver != address(0)) {
             uint256 maxFeeInGwei;
 
-            if (inbox.bondBalanceOf(currentProver) < outbidThreshold) {
+            if (inbox.v4BondBalanceOf(currentProver) < outbidThreshold) {
                 // The current prover has less than outbidThreshold, so the new prover can set any
                 // fee as long as it's not larger than the current fee
                 maxFeeInGwei = currentFeeInGwei;
@@ -184,7 +184,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         if (
             currentProver == address(0) // no bidding
                 || block.timestamp >= provers[currentProver].exitTimestamp // exited already
-                || inbox.bondBalanceOf(currentProver) < provingThreshold // not eligible
+                || inbox.v4BondBalanceOf(currentProver) < provingThreshold // not eligible
         ) {
             return (address(0), 0);
         } else {

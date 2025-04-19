@@ -26,7 +26,7 @@ contract DevnetInbox is TaikoInbox {
     }
 
     /// @inheritdoc ITaikoInbox
-    function pacayaConfig() public view override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() public view override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: chainId,
             maxUnverifiedBatches: 324_000,
