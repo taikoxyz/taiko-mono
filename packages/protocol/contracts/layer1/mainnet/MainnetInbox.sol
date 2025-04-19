@@ -21,7 +21,7 @@ contract MainnetInbox is TaikoInbox {
         TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
     { }
 
-    function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() public pure override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 1_000_000
@@ -39,9 +39,9 @@ contract MainnetInbox is TaikoInbox {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 75,
+                sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 2 hours,

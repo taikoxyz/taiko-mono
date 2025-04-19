@@ -5,7 +5,7 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_CalldataForTxList is InboxTestBase {
-    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({
@@ -77,7 +77,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
         // With empty txList
-        inbox.proposeBatch(abi.encode(params), "");
+        inbox.v4ProposeBatch(abi.encode(params), "");
     }
 
     function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
@@ -96,7 +96,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         // With empty txList
         (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.proposeBatch(abi.encode(params), "");
+            inbox.v4ProposeBatch(abi.encode(params), "");
         assertTrue(info.txsHash != 0, "txsHash should not be zero for valid blobIndex");
 
         _saveMetadataAndInfo(meta, info);
@@ -163,6 +163,6 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.MetaHashMismatch.selector);
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
 }
