@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -27,8 +26,8 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
 		chainConfig       = config.NewChainConfig(
 			s.RPCClient.L2.ChainID,
-			s.RPCClient.OntakeClients.ForkHeight,
-			s.RPCClient.PacayaClients.ForkHeight,
+			s.RPCClient.PacayaClients.ForkHeights.Ontake,
+			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
 		)
 	)
 
@@ -65,11 +64,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 			nil,
 		)})
 	}
-}
-
-func (s *TransactionBuilderTestSuite) TestBuildCalldata() {
-	_, err := s.calldataTxBuilder.BuildOntake(context.Background(), [][]byte{{1}, {2}}, common.Hash{})
-	s.Nil(err)
 }
 
 func TestTransactionBuilderTestSuite(t *testing.T) {

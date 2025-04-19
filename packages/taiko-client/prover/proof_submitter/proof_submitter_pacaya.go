@@ -28,7 +28,7 @@ var (
 )
 
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
-// blocks, and submitting the generated proofs to the TaikoL1 smart contract.
+// blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterPacaya struct {
 	rpc                    *rpc.Client
 	baseLevelProofProducer proofProducer.ProofProducer
@@ -57,7 +57,6 @@ func NewProofSubmitterPacaya(
 	zkvmProofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
-	aggregationNotify chan uint16,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	proverSetAddress common.Address,
@@ -81,7 +80,6 @@ func NewProofSubmitterPacaya(
 		zkvmProofProducer:         zkvmProofProducer,
 		resultCh:                  resultCh,
 		batchResultCh:             batchResultCh,
-		aggregationNotify:         aggregationNotify,
 		batchAggregationNotify:    batchAggregationNotify,
 		proofSubmissionCh:         proofSubmissionCh,
 		anchorValidator:           anchorValidator,
@@ -311,10 +309,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		proofBuffer.ClearItems(uint64BatchIDs...)
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
-			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-				Tier: proofResp.Tier,
-				Meta: proofResp.Meta,
-			}
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
 		}
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil
@@ -424,10 +419,7 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	ctx context.Context,
 	batchProof *proofProducer.BatchProofs,
 ) ([]uint64, error) {
-	var (
-		latestVerifiedID uint64
-		invalidBatchIDs  []uint64
-	)
+	var invalidBatchIDs []uint64
 
 	if len(batchProof.ProofResponses) == 0 {
 		return nil, proofProducer.ErrInvalidLength
@@ -436,18 +428,10 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	// Fetch the latest verified block ID.
 	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			log.Warn(
-				"Failed to fetch state variables",
-				"error", err,
-			)
-			return nil, err
-		}
-		latestVerifiedID = blockInfo.BlockId
-	} else {
-		latestVerifiedID = batchInfo.BatchId
+		return nil, err
 	}
+	latestVerifiedID := batchInfo.BatchId
+
 	// Check if any batch in this aggregation is already submitted and valid,
 	// if so, we skip this batch.
 	for _, proof := range batchProof.ProofResponses {
