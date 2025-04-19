@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/LibSharedData.sol";
+import "../IBlockHashProvider.sol";
 
-/// @title TaikoAnchorDeprecated
-/// @notice This contract includes deprecated functions whose ABI are still used by client for old
-/// blocks.
+/// @title OntakeAnchor
+/// @notice Anchoring functions for the Ontake and pre-Ontake fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoAnchorDeprecated {
+abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
     error L2_DEPRECATED_METHOD();
 
     modifier deprecated() {
@@ -56,5 +57,15 @@ abstract contract TaikoAnchorDeprecated {
         pure
         deprecated
         returns (uint256 basefee_, uint64 parentGasExcess_)
+    { }
+
+    function anchorV2(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        external
+        deprecated
     { }
 }

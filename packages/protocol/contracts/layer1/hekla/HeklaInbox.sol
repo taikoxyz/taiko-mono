@@ -17,9 +17,10 @@ contract HeklaInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        address _proverMarket
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
     { }
 
     /// @notice Manually write a transition for a batch.
@@ -41,7 +42,7 @@ contract HeklaInbox is TaikoInbox {
         require(_stateRoot != 0, InvalidParams());
         require(_batchId > state.stats2.lastVerifiedBatchId, BatchVerified());
 
-        Config memory config = pacayaConfig();
+        Config memory config = v4GetConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -78,7 +79,7 @@ contract HeklaInbox is TaikoInbox {
         );
     }
 
-    function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() public pure override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!

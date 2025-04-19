@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./InboxTestBase.sol";
 
 contract InboxTest_Cooldownis is InboxTestBase {
-    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+    function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;
 
         return ITaikoInbox.Config({
@@ -46,21 +46,21 @@ contract InboxTest_Cooldownis is InboxTestBase {
         WhenLogAllBatchesAndTransitions
     {
         // - All stats are correct and expected
-        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.v4GetStats1();
         assertEq(stats1.lastSyncedBatchId, 0);
         assertEq(stats1.lastSyncedAt, 0);
 
-        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.v4GetStats2();
         assertEq(stats2.numBatches, 10);
         assertEq(stats2.lastVerifiedBatchId, 0);
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        vm.warp(block.timestamp + pacayaConfig().cooldownWindow);
+        vm.warp(block.timestamp + v4GetConfig().cooldownWindow);
         _proveBatchesWithWrongTransitions(range(1, 10));
 
-        stats2 = inbox.getStats2();
+        stats2 = inbox.v4GetStats2();
         assertEq(stats2.numBatches, 10);
         assertEq(stats2.lastVerifiedBatchId, 9);
     }

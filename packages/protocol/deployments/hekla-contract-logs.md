@@ -438,6 +438,7 @@
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### shared_resolver
+
 - proxy: `0xF2880d5F0dF947Ab5A08B43D0b6B2841757CB25e`
 - impl: `0x823904Ab163192661e9f9e95b43351cD38319F28`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
@@ -469,6 +470,7 @@
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### rollup_resolver
+
 - proxy: `0x4a10e91F528F1EeA44C6E5744607BB5F3904d539`
 - impl: `0x76a5bfbfe60DBdDBeaB5048efeaADcfACD66f621`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`

@@ -42,6 +42,7 @@ contracts_layer1=(
 "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol:ForcedInclusionStore"
 "contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
+"contracts/layer1/prover-market/ProverMarket.sol:ProverMarket"
 "contracts/layer1/governance/TaikoTreasuryVault.sol:TaikoTreasuryVault"
 )
 
@@ -49,7 +50,7 @@ contracts_layer1=(
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/DelegateOwner.sol:DelegateOwner"
-"contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
+"contracts/layer2/based/anchor/TaikoAnchor.sol:TaikoAnchor"
 )
 
 profile=$1
@@ -66,7 +67,7 @@ else
 fi
 
 # Empty the output file initially
-output_file="layout/${profile}-contracts.md"
+output_file="layout/${profile}-contracts.txt"
 > $output_file
 
 # Loop over each contract

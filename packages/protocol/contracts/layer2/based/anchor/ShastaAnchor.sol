@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "src/shared/based/LibSharedData.sol";
+import "./PacayaAnchor.sol";
+
+/// @title ShastaAnchor
+/// @notice Anchoring functions for the Shasta fork.
+/// @custom:security-contact security@taiko.xyz
+abstract contract ShastaAnchor is PacayaAnchor {
+    error InvalidForkHeight();
+
+    uint256[50] private __gap;
+
+    constructor(
+        address _resolver,
+        address _signalService,
+        uint64 _pacayaForkHeight,
+        uint64 _shastaForkHeight
+    )
+        PacayaAnchor(_resolver, _signalService, _pacayaForkHeight)
+    {
+        require(
+            _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
+        );
+        shastaForkHeight = _shastaForkHeight;
+    }
+
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message verification.
+    /// @dev The gas limit for this transaction must be set to 1,000,000 gas.
+    /// @dev This function can be called freely as the golden touch private key is publicly known,
+    /// but the Taiko node guarantees the first transaction of each block is always this anchor
+    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
+    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _parentGasUsed The gas used in the parent block.
+    /// @param _baseFeeConfig The base fee configuration.
+    /// @param _signalSlots The signal slots to mark as received.
+    function v4Anchor(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint256, /*_parentBaseFee*/
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        bytes32[] calldata _signalSlots
+    )
+        external
+        nonZeroBytes32(_anchorStateRoot)
+        nonZeroValue(_anchorBlockId)
+        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
+        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
+        onlyGoldenTouch
+        nonReentrant
+    {
+        require(block.number >= shastaForkHeight, L2_FORK_ERROR());
+
+        uint256 parentId = block.number - 1;
+        _verifyAndUpdatePublicInputHash(parentId);
+        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
+        _syncChainData(_anchorBlockId, _anchorStateRoot);
+        _updateParentHashAndTimestamp(parentId);
+
+        signalService.receiveSignals(_signalSlots);
+    }
+
+    function v4GetBaseFee(
+        uint32 _parentGasUsed,
+        uint64 _blockTimestamp,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        public
+        view
+        returns (uint256 basefee_, uint64 newGasTarget_, uint64 newGasExcess_)
+    {
+        // uint32 * uint8 will never overflow
+        uint64 newGasTarget =
+            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
+
+        (newGasTarget_, newGasExcess_) =
+            LibEIP1559.adjustExcess(parentGasTarget, newGasTarget, parentGasExcess);
+
+        uint64 gasIssuance =
+            (_blockTimestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
+
+        if (
+            _baseFeeConfig.maxGasIssuancePerBlock != 0
+                && gasIssuance > _baseFeeConfig.maxGasIssuancePerBlock
+        ) {
+            gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
+        }
+
+        (basefee_, newGasExcess_) = LibEIP1559.calc1559BaseFee(
+            newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
+        );
+    }
+}
