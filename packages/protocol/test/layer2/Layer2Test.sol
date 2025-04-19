@@ -2,8 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/layer2/DelegateOwner.sol";
-import "src/layer2/based/LibEIP1559.sol";
-import "src/layer2/based/TaikoAnchor.sol";
+import "src/layer2/based/anchor/TaikoAnchor.sol";
 import "test/layer2/LibAnchorSigner.sol";
 import "test/shared/CommonTest.sol";
 
