@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 import "./IBondManager.sol";
+import "./IProveBatches.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -17,7 +18,7 @@ import "./IBondManager.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoInbox is IBondManager {
+interface ITaikoInbox is IBondManager, IProveBatches {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contains as many transactions as
@@ -293,13 +294,6 @@ interface ITaikoInbox is IBondManager {
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
-
-    /// @notice Proves state transitions for multiple batches with a single aggregated proof.
-    /// @param _params ABI-encoded parameter containing:
-    /// - metas: Array of metadata for each batch being proved.
-    /// - transitions: Array of batch transitions to be proved.
-    /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external;
 
     /// @notice Verify batches by providing the length of the batches to verify.
     /// @dev This function is necessary to upgrade from this fork to the next one.

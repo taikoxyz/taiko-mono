@@ -262,11 +262,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         _verifyBatches(config, stats2, 1);
     }
 
-    /// @notice Proves multiple batches with a single aggregated proof.
-    /// @param _params ABI-encoded parameter containing:
-    /// - metas: Array of metadata for each batch being proved.
-    /// - transitions: Array of batch transitions to be proved.
-    /// @param _proof The aggregated cryptographic proof proving the batches transitions.
+    /// @inheritdoc IProveBatches
     function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
