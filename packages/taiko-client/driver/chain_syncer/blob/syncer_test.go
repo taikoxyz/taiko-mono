@@ -247,7 +247,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 			}
 
 			feeCoinbase := new(big.Int).Div(
-				new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(sharingPctg))),
+				new(big.Int).Mul(fee, new(big.Int).SetUint64(sharingPctg)),
 				new(big.Int).SetUint64(100),
 			)
 			feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
