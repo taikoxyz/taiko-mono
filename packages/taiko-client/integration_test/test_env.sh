@@ -4,12 +4,11 @@ source internal/docker/docker_env.sh
 source scripts/common.sh
 
 # Get deployed contract address.
-DEPLOYMENT_JSON=$(cat ${OLD_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
 PACAYA_DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
-export TAIKO_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
+export TAIKO_INBOX=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
-export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
-export PROVER_SET=$(echo "$DEPLOYMENT_JSON" | jq '.prover_set' | sed 's/\"//g')
+export TAIKO_TOKEN=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
+export PROVER_SET=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.prover_set' | sed 's/\"//g')
 export TAIKO_WRAPPER=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko_wrapper' | sed 's/\"//g')
 export FORCED_INCLUSION_STORE=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.forced_inclusion_store' | sed 's/\"//g')
 export COMPOSE_VERIFIER=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.proof_verifier' | sed 's/\"//g')

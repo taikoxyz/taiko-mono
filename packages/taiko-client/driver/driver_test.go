@@ -392,144 +392,127 @@ func (s *DriverTestSuite) TestL1Current() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocks() {
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-
-	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
 	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert two preconfirmation blocks
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head1.Number.Uint64()+1).IsSuccess())
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(2, len(l2Head2.Transactions()))
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head2.Number().Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), l1Origin.L2BlockHash)
+	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
+	s.True(l1Origin.IsPreconfBlock())
+
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head1.Number.Uint64()+2).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	s.Equal(2, len(l2Head3.Transactions()))
 
-	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big1))
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), l1Origin.L2BlockHash)
-	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
-	s.True(l1Origin.IsPreconfBlock())
-
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
-	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.Equal(2, len(l2Head4.Transactions()))
-
-	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
-	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin2.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), l1Origin2.L2BlockHash)
 	s.Equal(common.Hash{}, l1Origin2.L1BlockHash)
 	s.True(l1Origin2.IsPreconfBlock())
 
 	// Remove one preconf block
 	res, err = resty.New().
 		R().
-		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{
-			NewLastBlockID: l2Head4.Number().Uint64() - 1,
-		}).
+		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{NewLastBlockID: l2Head3.Number().Uint64() - 1}).
 		Delete(s.preconfServerURL.String() + "/preconfBlocks")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Hash(), l2Head5.Hash())
-
-	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
-	s.Nil(err)
-	s.Equal(l2Head2.Number.Uint64(), canonicalL1Origin.BlockID.Uint64())
-	s.False(canonicalL1Origin.IsPreconfBlock())
+	s.Equal(l2Head2.Hash(), l2Head4.Hash())
 
 	// Propose 3 valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
-	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64()+2, l2Head6.Number().Uint64())
-	s.Equal(1, len(l2Head6.Transactions()))
+	s.Equal(l2Head2.Number().Uint64()+2, l2Head5.Number().Uint64())
+	s.Equal(1, len(l2Head5.Transactions()))
 
-	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head6.Number())
+	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head5.Number())
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64()+2, l1Origin3.BlockID.Uint64())
-	s.Equal(l2Head6.Hash(), l1Origin3.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64()+2, l1Origin3.BlockID.Uint64())
+	s.Equal(l2Head5.Hash(), l1Origin3.L2BlockHash)
 	s.NotZero(l1Origin3.L1BlockHeight.Uint64())
 	s.NotEmpty(l1Origin3.L1BlockHash)
 	s.False(l1Origin3.IsPreconfBlock())
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-
-	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
 	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert two preconfirmation blocks
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1).IsSuccess())
-	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head1.Number.Uint64()+1).IsSuccess())
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Equal(2, len(l2Head3.Transactions()))
+	s.Equal(2, len(l2Head2.Transactions()))
 
-	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big1))
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), l1Origin.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), l1Origin.L2BlockHash)
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2).IsSuccess())
-	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head1.Number.Uint64()+2).IsSuccess())
+	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64()+1, l2Head4.Number().Uint64())
-	s.Equal(2, len(l2Head4.Transactions()))
+	s.Equal(l2Head2.Number().Uint64()+1, l2Head3.Number().Uint64())
+	s.Equal(2, len(l2Head3.Transactions()))
 
 	// Propose two same L2 blocks in a batch
-	s.proposePreconfBatch([]*types.Block{l2Head3, l2Head4}, []*types.Header{l1Head1, l1Head1})
+	s.proposePreconfBatch([]*types.Block{l2Head2, l2Head3}, []*types.Header{l1Head1, l1Head1})
 
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head4.Number().Uint64(), l2Head5.Number().Uint64())
-	s.Equal(2, len(l2Head5.Transactions()))
+	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
+	s.Equal(2, len(l2Head4.Transactions()))
 
-	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big2))
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big2))
 	s.Nil(err)
-	s.Equal(l2Head5.Number().Uint64(), l1Origin2.BlockID.Uint64())
-	s.Equal(l2Head5.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head4.Number().Uint64(), l1Origin2.BlockID.Uint64())
 	s.Equal(l2Head4.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
 	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
 	s.False(l1Origin2.IsPreconfBlock())
 
 	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l1Origin2, canonicalL1Origin)
-	s.Equal(l2Head5.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
+	s.Equal(l2Head4.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {

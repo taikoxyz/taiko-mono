@@ -213,6 +213,8 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
+	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big0)
+	s.Nil(err)
 	s.BlobServer.Close()
 }
 
