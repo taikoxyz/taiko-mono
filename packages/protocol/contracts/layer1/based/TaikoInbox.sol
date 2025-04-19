@@ -16,8 +16,8 @@ import "./IProposeBatch.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
-/// original Taiko-Based Contestable Rollup (BCR). The tier-based proof system and
-/// contestation mechanisms have been removed.
+/// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
+/// contestation mechanisms removed.
 ///
 /// Key assumptions of this protocol:
 /// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
@@ -33,7 +33,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     address public immutable inboxWrapper;
     address public immutable verifier;
-    address public immutable bondToken;
+    address internal immutable bondToken;
     ISignalService public immutable signalService;
     IProverMarket public immutable proverMarket;
 
@@ -61,7 +61,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         proverMarket = IProverMarket(_proverMarket);
     }
 
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+    function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
@@ -72,7 +72,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @return info_ Information of the proposed batch, which is used for constructing blocks
     /// offchain.
     /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
-    function proposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -82,7 +82,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
-        Config memory config = pacayaConfig();
+        Config memory config = v4GetConfig();
         require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
@@ -262,12 +262,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         _verifyBatches(config, stats2, 1);
     }
 
-    /// @notice Proves multiple batches with a single aggregated proof.
-    /// @param _params ABI-encoded parameter containing:
-    /// - metas: Array of metadata for each batch being proved.
-    /// - transitions: Array of batch transitions to be proved.
-    /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
+    /// @inheritdoc IProveBatches
+    function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
         (BatchMetadata[] memory metas, Transition[] memory trans) =
             abi.decode(_params, (BatchMetadata[], Transition[]));
 
@@ -278,7 +274,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
-        Config memory config = pacayaConfig();
+        Config memory config = v4GetConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metasLength);
 
         bool hasConflictingProof;
@@ -398,26 +394,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    /// @notice Verify batches by providing the length of the batches to verify.
-    /// @dev This function is necessary to upgrade from this fork to the next one.
-    /// @param _length Specifis how many batches to verify. The max number of batches to verify is
-    /// `pacayaConfig().maxBatchesToVerify * _length`.
-    function verifyBatches(uint64 _length)
+    /// @inheritdoc ITaikoInbox
+    function v4VerifyBatches(uint64 _length)
         external
         nonZeroValue(_length)
         nonReentrant
         whenNotPaused
     {
-        _verifyBatches(pacayaConfig(), state.stats2, _length);
+        _verifyBatches(v4GetConfig(), state.stats2, _length);
     }
 
-    /// @inheritdoc ITaikoInbox
-    function depositBond(uint256 _amount) external payable whenNotPaused {
+    /// @inheritdoc IBondManager
+    function v4DepositBond(uint256 _amount) external payable whenNotPaused {
         state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
-    /// @inheritdoc ITaikoInbox
-    function withdrawBond(uint256 _amount) external whenNotPaused {
+    /// @inheritdoc IBondManager
+    function v4WithdrawBond(uint256 _amount) external whenNotPaused {
         if (address(proverMarket) != address(0)) {
             (address currentProver,) = proverMarket.getCurrentProver();
             require(msg.sender != currentProver, CurrentProverCannotWithdraw());
@@ -437,18 +430,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
+    /// @inheritdoc IBondManager
+    function v4BondToken() external view returns (address) {
+        return bondToken;
+    }
+
     /// @inheritdoc ITaikoInbox
-    function getStats1() external view returns (Stats1 memory) {
+    function v4GetStats1() external view returns (Stats1 memory) {
         return state.stats1;
     }
 
     /// @inheritdoc ITaikoInbox
-    function getStats2() external view returns (Stats2 memory) {
+    function v4GetStats2() external view returns (Stats2 memory) {
         return state.stats2;
     }
 
     /// @inheritdoc ITaikoInbox
-    function getTransitionById(
+    function v4GetTransitionById(
         uint64 _batchId,
         uint24 _tid
     )
@@ -456,7 +454,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (TransitionState memory)
     {
-        Config memory config = pacayaConfig();
+        Config memory config = v4GetConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -466,7 +464,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function getTransitionByParentHash(
+    function v4GetTransitionByParentHash(
         uint64 _batchId,
         bytes32 _parentHash
     )
@@ -474,7 +472,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (TransitionState memory)
     {
-        Config memory config = pacayaConfig();
+        Config memory config = v4GetConfig();
         uint256 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
@@ -498,37 +496,37 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function getLastVerifiedTransition()
+    function v4GetLastVerifiedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
-        require(batchId_ >= pacayaConfig().forkHeights.pacaya, BatchNotFound());
-        blockId_ = getBatch(batchId_).lastBlockId;
-        ts_ = getBatchVerifyingTransition(batchId_);
+        require(batchId_ >= v4GetConfig().forkHeights.pacaya, BatchNotFound());
+        blockId_ = v4GetBatch(batchId_).lastBlockId;
+        ts_ = v4GetBatchVerifyingTransition(batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
-    function getLastSyncedTransition()
+    function v4GetLastSyncedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats1.lastSyncedBatchId;
-        blockId_ = getBatch(batchId_).lastBlockId;
-        ts_ = getBatchVerifyingTransition(batchId_);
+        blockId_ = v4GetBatch(batchId_).lastBlockId;
+        ts_ = v4GetBatchVerifyingTransition(batchId_);
     }
 
-    /// @inheritdoc ITaikoInbox
-    function bondBalanceOf(address _user) external view returns (uint256) {
+    /// @inheritdoc IBondManager
+    function v4BondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
     }
 
     /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
     /// Layer 2 (L2).
     /// @return True if the contract is operating on L1, false if on L2.
-    function isOnL1() external pure override returns (bool) {
+    function v4IsOnL1() external pure override returns (bool) {
         return true;
     }
 
@@ -540,20 +538,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
-        Config memory config = pacayaConfig();
+    function v4GetBatch(uint64 _batchId) public view returns (Batch memory batch_) {
+        Config memory config = v4GetConfig();
 
         batch_ = state.batches[_batchId % config.batchRingBufferSize];
         require(batch_.batchId == _batchId, BatchNotFound());
     }
 
     /// @inheritdoc ITaikoInbox
-    function getBatchVerifyingTransition(uint64 _batchId)
+    function v4GetBatchVerifyingTransition(uint64 _batchId)
         public
         view
         returns (TransitionState memory ts_)
     {
-        Config memory config = pacayaConfig();
+        Config memory config = v4GetConfig();
 
         uint64 slot = _batchId % config.batchRingBufferSize;
         Batch storage batch = state.batches[slot];
@@ -565,7 +563,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function pacayaConfig() public view virtual returns (Config memory);
+    function v4GetConfig() public view virtual returns (Config memory);
 
     // Internal functions ----------------------------------------------------------------------
 

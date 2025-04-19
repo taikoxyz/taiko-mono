@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./ITaikoInbox.sol";
 
 /// @title IProposeBatch
-/// @notice This interface defines the proposeBatch function that is also part of the ITaikoInbox
+/// @notice This interface defines the v4ProposeBatch function that is also part of the ITaikoInbox
 /// interface.
 /// @custom:security-contact security@taiko.xyz
 interface IProposeBatch {
@@ -14,7 +14,7 @@ interface IProposeBatch {
     /// for data availability.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The mmetadata of the proposed batch.
-    function proposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )

@@ -12,7 +12,7 @@ contract MockInbox {
         bondBalances[_prover] = _amount;
     }
 
-    function bondBalanceOf(address _prover) external view returns (uint256) {
+    function v4BondBalanceOf(address _prover) external view returns (uint256) {
         return bondBalances[_prover];
     }
 }
