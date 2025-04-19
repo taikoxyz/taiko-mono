@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -240,7 +241,7 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 
 	// Request body validation.
 	canonicalHeadL1Origin, err := s.rpc.L2.HeadL1Origin(c.Request().Context())
-	if err != nil {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
@@ -249,20 +250,19 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	log.Info(
-		"New preconfirmation block removing request",
-		"newLastBlockId", reqBody.NewLastBlockID,
-		"canonicalHead", canonicalHeadL1Origin.BlockID.Uint64(),
-		"currentHead", currentHead.Number.Uint64(),
-	)
-
-	if reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
+	if canonicalHeadL1Origin != nil && reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
 		return s.returnError(
 			c,
 			http.StatusBadRequest,
 			errors.New("newLastBlockId must not be smaller than the canonical chain's highest block ID"),
 		)
 	}
+
+	log.Info(
+		"New preconfirmation block removing request",
+		"newLastBlockId", reqBody.NewLastBlockID,
+		"currentHead", currentHead.Number.Uint64(),
+	)
 
 	if err := s.chainSyncer.RemovePreconfBlocks(c.Request().Context(), reqBody.NewLastBlockID); err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
@@ -273,9 +273,14 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
+	var lastBlockID uint64
+	if canonicalHeadL1Origin != nil {
+		lastBlockID = canonicalHeadL1Origin.BlockID.Uint64()
+	}
+
 	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
 		LastBlockID:         newHead.Number.Uint64(),
-		LastProposedBlockID: canonicalHeadL1Origin.BlockID.Uint64(),
+		LastProposedBlockID: lastBlockID,
 		HeadsRemoved:        currentHead.Number.Uint64() - newHead.Number.Uint64(),
 	})
 }
