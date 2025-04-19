@@ -30,7 +30,7 @@ contract MockInbox {
         numBatches = _numBatches;
     }
 
-    function getStats2() external view returns (ITaikoInbox.Stats2 memory stats2_) {
+    function v4GetStats2() external view returns (ITaikoInbox.Stats2 memory stats2_) {
         stats2_.numBatches = numBatches;
     }
 }

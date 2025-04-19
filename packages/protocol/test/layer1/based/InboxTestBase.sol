@@ -16,7 +16,7 @@ abstract contract InboxTestBase is Layer1Test {
     uint256 genesisBlockProposedIn;
     uint256 private __blocksPerBatch;
 
-    function pacayaConfig() internal view virtual returns (ITaikoInbox.Config memory);
+    function v4GetConfig() internal view virtual returns (ITaikoInbox.Config memory);
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
@@ -66,7 +66,7 @@ abstract contract InboxTestBase is Layer1Test {
             address(bondToken),
             address(signalService),
             proverMarketProxy,
-            pacayaConfig()
+            v4GetConfig()
         );
 
         address realProverMarketImpl = address(
@@ -168,7 +168,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
             (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-                inbox.proposeBatch(abi.encode(batchParams), txList);
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList);
             _saveMetadataAndInfo(meta, info);
             batchIds[i] = meta.batchId;
         }
@@ -185,7 +185,7 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
 
     function _proveBatchesWithWrongTransitions(uint64[] memory batchIds) internal {
@@ -199,16 +199,16 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = randBytes32();
         }
 
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
 
     function _logAllBatchesAndTransitions() internal view {
         console2.log(unicode"|───────────────────────────────────────────────────────────────");
-        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.v4GetStats1();
         console2.log("Stats1 - lastSyncedBatchId:", stats1.lastSyncedBatchId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
 
-        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.v4GetStats2();
         console2.log("Stats2 - numBatches:", stats2.numBatches);
         console2.log("Stats2 - lastVerifiedBatchId:", stats2.lastVerifiedBatchId);
         console2.log("Stats2 - paused:", stats2.paused);
@@ -218,12 +218,12 @@ abstract contract InboxTestBase is Layer1Test {
         // console2.log("stats2.numBatches:", stats2.numBatches);
         // console2.log("getConfig().maxUnverifiedBatches:", getConfig().maxUnverifiedBatches);
 
-        uint64 firstBatchId = stats2.numBatches > pacayaConfig().maxUnverifiedBatches
-            ? stats2.numBatches - pacayaConfig().maxUnverifiedBatches
+        uint64 firstBatchId = stats2.numBatches > v4GetConfig().maxUnverifiedBatches
+            ? stats2.numBatches - v4GetConfig().maxUnverifiedBatches
             : 0;
 
         for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {
-            ITaikoInbox.Batch memory batch = inbox.getBatch(i);
+            ITaikoInbox.Batch memory batch = inbox.v4GetBatch(i);
             if (batch.batchId <= stats2.lastVerifiedBatchId) {
                 console2.log(unicode"|─ ✔ batch#", batch.batchId);
             } else {
@@ -238,7 +238,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
             for (uint24 j = 1; j < batch.nextTransitionId; ++j) {
-                ITaikoInbox.TransitionState memory ts = inbox.getTransitionById(batch.batchId, j);
+                ITaikoInbox.TransitionState memory ts = inbox.v4GetTransitionById(batch.batchId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",
@@ -307,6 +307,6 @@ abstract contract InboxTestBase is Layer1Test {
         bondToken.approve(address(inbox), bondAmount);
 
         vm.prank(user);
-        inbox.depositBond(bondAmount);
+        inbox.v4DepositBond(bondAmount);
     }
 }
