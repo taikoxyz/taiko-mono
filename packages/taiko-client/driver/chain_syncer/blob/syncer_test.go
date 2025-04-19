@@ -220,7 +220,9 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 		s.RPCClient.PacayaClients.ForkHeight,
 	)
 
-	cfg, err := s.RPCClient.GetProtocolConfigs(nil)
+	pacayaCfg, err := s.RPCClient.GetProtocolConfigs(nil)
+	s.Nil(err)
+	ontakeCfg, err := s.RPCClient.OntakeClients.TaikoL1.GetConfig(nil)
 	s.Nil(err)
 
 	for i := headBefore + 1; i <= headAfter; i++ {
@@ -239,16 +241,17 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 			s.Nil(err)
 
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
-			if chainConfig.IsOntake(block.Number()) {
-				feeCoinbase := new(big.Int).Div(
-					new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(cfg.BaseFeeConfig().SharingPctg))),
-					new(big.Int).SetUint64(100),
-				)
-				feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
-				balance = new(big.Int).Add(balance, feeTreasury)
-			} else {
-				balance = new(big.Int).Add(balance, fee)
+			sharingPctg := uint64(ontakeCfg.BaseFeeConfig.SharingPctg)
+			if chainConfig.IsPacaya(block.Number()) {
+				sharingPctg = uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
 			}
+
+			feeCoinbase := new(big.Int).Div(
+				new(big.Int).Mul(fee, new(big.Int).SetUint64(sharingPctg)),
+				new(big.Int).SetUint64(100),
+			)
+			feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
+			balance = new(big.Int).Add(balance, feeTreasury)
 		}
 	}
 
