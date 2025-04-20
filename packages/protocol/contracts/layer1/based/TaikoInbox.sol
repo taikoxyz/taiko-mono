@@ -169,7 +169,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // Data to build L2 blocks
                 blocks: params.blocks,
                 blobHashes: new bytes32[](0), // to be initialised later
-                extraDataList: new bytes32[](0), // to be initliaised later
+                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
                 proposer: params.proposer,
                 proposedIn: uint64(block.number),
@@ -187,12 +187,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             });
 
             uint64 nBlocks = uint64(params.blocks.length);
-            info_.extraDataList = new bytes32[](nBlocks);
-
-            for (uint256 i; i < nBlocks; ++i) {
-                info_.extraDataList[i] =
-                    _encodeExtraData(config.baseFeeConfig.sharingPctg, params.blocks[i].marker);
-            }
 
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
@@ -869,10 +863,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 ParentMetaHashMismatch()
             );
         }
-    }
-
-    function _encodeExtraData(uint8 _sharingPctg, uint8 _marker) internal pure returns (bytes32) {
-        return bytes32(uint256(_marker) << 8 | _sharingPctg);
     }
 
     // Memory-only structs ----------------------------------------------------------------------
