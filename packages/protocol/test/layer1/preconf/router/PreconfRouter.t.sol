@@ -33,7 +33,6 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
             timeShift: 1,
-            marker: 0,
             signalSlots: new bytes32[](0)
         });
 
@@ -121,7 +120,6 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
             timeShift: 1,
-            marker: 0,
             signalSlots: new bytes32[](0)
         });
 
