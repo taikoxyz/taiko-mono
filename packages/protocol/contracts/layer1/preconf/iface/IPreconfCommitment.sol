@@ -24,7 +24,7 @@ interface IPreconfCommitment {
         uint256 chainId;
         uint256 batchId;
         uint256 blockId;
-        bytes32 blockhash;
+        bytes32 blockHash;
         PreconfAnnotation annotation;
         PreconfConditions conditions;
     }

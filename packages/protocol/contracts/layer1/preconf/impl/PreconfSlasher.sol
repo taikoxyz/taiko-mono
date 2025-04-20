@@ -74,7 +74,7 @@ contract PreconfSlasher is EssentialContract, IPreconfCommitment, ISlasher {
         return penaltyAmountWei;
     }
 
-    // TODO(daniel): implement this function
+    /// @dev Checks the block has been verified and returns the block's hash.
     function getTaikoBlockHash(
         uint256 _batchId,
         uint256 _blockId,
