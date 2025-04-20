@@ -15,7 +15,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
@@ -195,15 +194,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.True(balanceAfter.Cmp(balance) > 0)
 
 	var hasNoneAnchorTxs bool
-	chainConfig := config.NewChainConfig(
-		s.RPCClient.L2.ChainID,
-		s.RPCClient.PacayaClients.ForkHeights.Ontake,
-		s.RPCClient.PacayaClients.ForkHeights.Pacaya,
-	)
-
 	pacayaCfg, err := s.RPCClient.GetProtocolConfigs(nil)
-	s.Nil(err)
-	ontakeCfg, err := s.RPCClient.OntakeClients.TaikoL1.GetConfig(nil)
 	s.Nil(err)
 
 	for i := headBefore + 1; i <= headAfter; i++ {
@@ -222,10 +213,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 			s.Nil(err)
 
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
-			sharingPctg := uint64(ontakeCfg.BaseFeeConfig.SharingPctg)
-			if chainConfig.IsPacaya(block.Number()) {
-				sharingPctg = uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
-			}
+			sharingPctg := uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
 
 			feeCoinbase := new(big.Int).Div(
 				new(big.Int).Mul(fee, new(big.Int).SetUint64(sharingPctg)),

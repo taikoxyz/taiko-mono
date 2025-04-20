@@ -147,13 +147,17 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Less(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeights)
-
 	s.SetIntervalMining(1)
 
-	head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	metaHash, err := s.p.GetParentMetaHash(context.Background(), head.Number.Uint64())
 	s.Nil(err)
-	s.GreaterOrEqual(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeights)
+
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, head.Number.Uint64(), metaHash))
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(head2.Number.Uint64(), head.Number.Uint64()+1)
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
@@ -415,7 +419,6 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.NotZero(l2Head1.Number.Uint64())
 
 	// Propose a batch which contains two blobs.
 	var (
