@@ -8,11 +8,11 @@ pragma solidity ^0.8.24;
 interface IPreconfCommitment {
     /// @dev Preconfirmations are contingent upon the Conditions object evaluating to true. If the
     /// conditions evaluate to false, the preconfer is protected from being penalized.
-    struct Conditions {
+    struct PreconfConditions {
         uint256 someConditions; // TODO
     }
 
-    enum Annotation {
+    enum PreconfAnnotation {
         NONE,
         BEGIN_OF_BATCH,
         END_OF_BATCh,
@@ -21,12 +21,13 @@ interface IPreconfCommitment {
     }
 
     /// @dev The payload for URC Commitment
-    struct Commitment {
+    struct PreconfCommitment {
         bytes32 domainSeparator;
         uint256 chainId;
         uint256 batchId;
+        uint256 blockId;
         bytes32 blockhash;
-        Annotation annotation;
-        Conditions conditions;
+        PreconfAnnotation annotation;
+        PreconfConditions conditions;
     }
 }
