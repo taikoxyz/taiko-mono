@@ -104,8 +104,8 @@ func CheckProverBalance(
 	return true, nil
 }
 
-// BlockProofStatus represents the proving status of the given L2 block.
-type BlockProofStatus struct {
+// BatchProofStatus represents the proving status of the given L2 blocks batch.
+type BatchProofStatus struct {
 	IsSubmitted            bool
 	Invalid                bool
 	CurrentTransitionState *ontakeBindings.TaikoDataTransitionState
@@ -121,7 +121,7 @@ func GetBatchProofStatus(
 	ctx context.Context,
 	cli *Client,
 	batchID *big.Int,
-) (*BlockProofStatus, error) {
+) (*BatchProofStatus, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -162,7 +162,7 @@ func GetBatchProofStatus(
 		}
 
 		// Status 1, no proof on chain at all.
-		return &BlockProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
+		return &BatchProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
 
 	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
@@ -181,11 +181,11 @@ func GetBatchProofStatus(
 			"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
 		)
 		// Status 2, an invalid proof has been submitted.
-		return &BlockProofStatus{IsSubmitted: true, Invalid: true, ParentHeader: parent}, nil
+		return &BatchProofStatus{IsSubmitted: true, Invalid: true, ParentHeader: parent}, nil
 	}
 
 	// Status 3, a valid proof has been submitted.
-	return &BlockProofStatus{IsSubmitted: true, ParentHeader: parent}, nil
+	return &BatchProofStatus{IsSubmitted: true, ParentHeader: parent}, nil
 }
 
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used

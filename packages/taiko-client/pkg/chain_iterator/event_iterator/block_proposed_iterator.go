@@ -144,7 +144,7 @@ func assembleBatchProposedIteratorCallback(
 			}
 
 			if eventIter.isEnd {
-				log.Debug("BlockProposedIterator is ended", "start", start.Number, "end", endHeight)
+				log.Debug("BatchProposedIterator is ended", "start", start.Number, "end", endHeight)
 				endFunc()
 				return nil
 			}

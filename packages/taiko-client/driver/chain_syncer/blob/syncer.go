@@ -147,7 +147,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		PacayaForkHeight:     s.rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
-		OnBatchProposedEvent: s.onBlockProposed,
+		OnBatchProposedEvent: s.onBatchProposed,
 	})
 	if err != nil {
 		return err
@@ -166,9 +166,9 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	return nil
 }
 
-// OnBlockProposed is a `BlockProposed` event callback which responsible for
+// onBatchProposed is a `BatchProposed` event callback which responsible for
 // inserting the proposed block one by one to the L2 execution engine.
-func (s *Syncer) onBlockProposed(
+func (s *Syncer) onBatchProposed(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
@@ -179,7 +179,7 @@ func (s *Syncer) onBlockProposed(
 		timestamp    = meta.Pacaya().GetLastBlockTimestamp()
 	)
 
-	// We simply ignore the genesis block's `BlockProposedV2` / `BatchesProposed` event.
+	// We simply ignore the genesis block's `BatchesProposed` event.
 	if lastBlockID.Cmp(common.Big0) == 0 {
 		return nil
 	}

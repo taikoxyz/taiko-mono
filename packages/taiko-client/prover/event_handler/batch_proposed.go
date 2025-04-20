@@ -87,10 +87,7 @@ func (h *BatchProposedEventHandler) Handle(
 	}
 
 	// Wait for the corresponding L2 block being mined in node.
-	if _, err := h.rpc.WaitL2Header(
-		ctx,
-		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
-	); err != nil {
+	if _, err := h.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())); err != nil {
 		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", meta.Pacaya().GetLastBlockID(), err)
 	}
 
@@ -158,7 +155,7 @@ func (h *BatchProposedEventHandler) Handle(
 				ctx,
 			),
 		); err != nil {
-			log.Error("Handle new BlockProposed event error", "error", err)
+			log.Error("Handle new BatchProposed event error", "error", err)
 		}
 	}()
 

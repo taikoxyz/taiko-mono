@@ -43,7 +43,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	meta metadata.TaikoProposalMetaData,
 ) error {
 	var (
-		proofStatus *rpc.BlockProofStatus
+		proofStatus *rpc.BatchProofStatus
 		err         error
 	)
 

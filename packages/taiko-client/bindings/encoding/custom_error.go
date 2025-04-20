@@ -95,10 +95,16 @@ func getErrorData(err error) string {
 	if strings.Contains(err.Error(), "custom error") && strings.Contains(err.Error(), "reason") {
 		return "0x" + err.Error()[len(err.Error())-8:len(err.Error())]
 	}
-	// Anvil node custom errors, example:
+	// Anvil node custom errors without reasons but with a colon, example:
 	// "execution reverted: custom error 712eb087:"
-	if strings.Contains(err.Error(), "custom error") {
+	if strings.Contains(err.Error(), "custom error") && err.Error()[len(err.Error())-1] == ':' {
 		return "0x" + err.Error()[len(err.Error())-9:len(err.Error())-1]
+	}
+
+	// Anvil node custom errors without reasons, example:
+	// "execution reverted: custom error 712eb087"
+	if strings.Contains(err.Error(), "custom error") && err.Error()[len(err.Error())-1] != ':' {
+		return "0x" + err.Error()[len(err.Error())-8:len(err.Error())]
 	}
 
 	return err.Error()
