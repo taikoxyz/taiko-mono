@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-// import "urc/src/IShasher.sol";
-
 /// @title IPreconfCommitment
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfCommitment {
