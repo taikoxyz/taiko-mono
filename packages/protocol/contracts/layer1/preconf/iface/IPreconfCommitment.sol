@@ -6,8 +6,8 @@ pragma solidity ^0.8.24;
 /// @title IPreconfCommitment
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfCommitment {
-    /// @dev Preconfirmations are contingent upon the PreconfirmationCondition object evaluating to
-    /// true. If the conditions evaluate to false, the preconfer is protected from being penalized.
+    /// @dev Preconfirmations are contingent upon the Conditions object evaluating to true. If the
+    /// conditions evaluate to false, the preconfer is protected from being penalized.
     struct Conditions {
         uint256 someConditions; // TODO
     }
