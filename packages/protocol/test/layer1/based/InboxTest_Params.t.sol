@@ -91,7 +91,6 @@ contract InboxTest_Params is InboxTestBase {
         blocks[0] = ITaikoInbox.BlockParams({
             numTransactions: 0,
             timeShift: 0,
-            marker: 0,
             signalSlots: new bytes32[](0)
         });
 
