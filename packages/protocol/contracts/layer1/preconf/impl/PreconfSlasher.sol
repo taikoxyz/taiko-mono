@@ -67,7 +67,7 @@ contract PreconfSlasher is EssentialContract, IPreconfCommitment, ISlasher {
         require(chainId == pc.chainId, ChainIdMismatch());
 
         bytes32 blockHash = getTaikoBlockHash(pc.batchId, pc.blockId, evidence);
-        require(blockHash != pc.blockhash, BlockHashesMatch());
+        require(blockHash != pc.blockHash, BlockHashesMatch());
 
         require(evaluateConditions(pc.conditions), ConditionsNotMet());
 
