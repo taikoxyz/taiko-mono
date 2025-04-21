@@ -20,6 +20,7 @@ export INCLUSION_FEE_IN_GWEI=10
 export DEPLOY_PRECONF_CONTRACTS="true"
 export PRECONF_ROUTER="false"
 export PRECONF_INBOX="false"
+export DUMMY_VERIFIERS=true
 
 # Get the hash of the L2 genesis block.
 export L2_GENESIS_HASH=$(

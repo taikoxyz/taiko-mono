@@ -260,6 +260,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupResolver, _sharedResolver, "signal_service");
         copyRegister(rollupResolver, _sharedResolver, "bridge");
 
+        // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
         proofVerifier = deployProxy({
             name: "proof_verifier",
@@ -269,14 +270,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
-            registerTo: rollupResolver
-        });
-
-        // OP verifier
-        address opVerifier = deployProxy({
-            name: "op_verifier",
-            impl: address(new OpVerifier(rollupResolver)),
-            data: abi.encodeCall(OpVerifier.init, (owner)),
             registerTo: rollupResolver
         });
 
@@ -353,28 +346,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
-        // Other verifiers
-        // Initializable the proxy for proofVerifier to get the contract address at first.
-        (address sgxRethVerifier, address sgxGethVerifier) =
-            deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
-
-        (address risc0RethVerifier, address sp1RethVerifier) =
-            deployZKVerifiers(owner, rollupResolver, l2ChainId);
-
-        UUPSUpgradeable(proofVerifier).upgradeTo({
-            newImplementation: address(
-                new DevnetVerifier(
-                    taikoInboxAddr,
-                    sgxGethVerifier,
-                    opVerifier,
-                    sgxRethVerifier,
-                    risc0RethVerifier,
-                    sp1RethVerifier
-                )
-            )
-        });
-        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
-
         // Prover set
         deployProxy({
             name: "prover_set",
@@ -388,23 +359,32 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function deploySgxVerifier(
+    function deployVerifiers(
         address owner,
         address rollupResolver,
-        uint64 l2ChainId,
-        address taikoInbox,
-        address taikoProofVerifier
+        address proofVerifier,
+        address taikoInboxAddr
     )
         private
-        returns (address sgxRethVerifier, address sgxGethVerifier)
     {
+        // OP verifier
+        address opVerifier = deployProxy({
+            name: "op_verifier",
+            impl: address(new OpVerifier(rollupResolver)),
+            data: abi.encodeCall(OpVerifier.init, (owner)),
+            registerTo: rollupResolver
+        });
+
+        // Other verifiers
+
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
-        P256Verifier p256Verifier = new P256Verifier();
-        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
         PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
         address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
-
+        // Log addresses for the user to register sgx instance
+        console2.log("SigVerifyLib", address(sigVerifyLib));
+        console2.log("PemCertChainLib", address(pemCertChainLib));
         address automataProxy = deployProxy({
             name: "automata_dcap_attestation",
             impl: automataDcapV3AttestationImpl,
@@ -413,26 +393,64 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             registerTo: rollupResolver
         });
+        address sgxGethAutomataProxy = deployProxy({
+            name: "sgx_geth_automata",
+            impl: automataDcapV3AttestationImpl,
+            data: abi.encodeCall(
+                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+            ),
+            registerTo: rollupResolver
+        });
 
-        address sgxImpl =
-            address(new SgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
-        sgxRethVerifier = deployProxy({
+        TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
+        uint64 l2ChainId = taikoInbox.pacayaConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
+        address sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: sgxImpl,
+            impl: address(new SgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, automataProxy)),
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
-        sgxGethVerifier = deployProxy({
+        address sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
-            impl: sgxImpl,
+            impl: address(
+                new SgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
+            ),
             data: abi.encodeCall(SgxVerifier.init, owner),
             registerTo: rollupResolver
         });
 
-        // Log addresses for the user to register sgx instance
-        console2.log("SigVerifyLib", address(sigVerifyLib));
-        console2.log("PemCertChainLib", address(pemCertChainLib));
-        console2.log("AutomataDcapVaAttestation", automataProxy);
+        (address risc0RethVerifier, address sp1RethVerifier) =
+            deployZKVerifiers(owner, rollupResolver, l2ChainId);
+        if (vm.envBool("DUMMY_VERIFIERS")) {
+            UUPSUpgradeable(proofVerifier).upgradeTo({
+                newImplementation: address(
+                    new DevnetVerifier(
+                        taikoInboxAddr,
+                        opVerifier,
+                        opVerifier,
+                        address(0),
+                        risc0RethVerifier,
+                        sp1RethVerifier
+                    )
+                )
+            });
+        } else {
+            UUPSUpgradeable(proofVerifier).upgradeTo({
+                newImplementation: address(
+                    new DevnetVerifier(
+                        taikoInboxAddr,
+                        sgxGethVerifier,
+                        opVerifier,
+                        sgxRethVerifier,
+                        risc0RethVerifier,
+                        sp1RethVerifier
+                    )
+                )
+            });
+        }
+        Ownable2StepUpgradeable(proofVerifier).transferOwnership(owner);
     }
 
     function deployZKVerifiers(
