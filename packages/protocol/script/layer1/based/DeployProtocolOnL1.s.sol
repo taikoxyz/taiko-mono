@@ -423,7 +423,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         (address risc0RethVerifier, address sp1RethVerifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
-        if (vm.envBool("RUN_TEST")) {
+        if (vm.envBool("DUMMY_VERIFIERS")) {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
                     new DevnetVerifier(
