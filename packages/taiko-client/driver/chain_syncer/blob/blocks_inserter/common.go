@@ -206,7 +206,6 @@ func isBatchPreconfirmed(
 ) (*types.Header, error) {
 	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
-		// Then we check if the last block in this batch is preconfirmed.
 		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
 			ctx,
 			rpc,
