@@ -10,7 +10,8 @@ import "./PacayaAnchor.sol";
 abstract contract ShastaAnchor is PacayaAnchor {
     error InvalidForkHeight();
 
-    uint256[50] private __gap;
+    mapping(uint256 blockId => address coinbase) internal _blockCoinbases;
+    uint256[49] private __gap;
 
     constructor(
         address _resolver,
@@ -62,6 +63,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _updateParentHashAndTimestamp(parentId);
 
         signalService.receiveSignals(_signalSlots);
+
+        _blockCoinbases[block.number] = block.coinbase;
     }
 
     function v4GetBaseFee(
@@ -93,5 +96,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
         (basefee_, newGasExcess_) = LibEIP1559.calc1559BaseFee(
             newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
+    }
+
+    /// @inheritdoc IBlockInfoProvider
+    function getBlockCoinbase(uint256 _blockId) public view returns (address) {
+        return _blockCoinbases[_blockId];
     }
 }

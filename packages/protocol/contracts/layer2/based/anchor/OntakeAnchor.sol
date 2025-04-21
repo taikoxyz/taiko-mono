@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/LibSharedData.sol";
-import "../IBlockHashProvider.sol";
+import "../IBlockInfoProvider.sol";
 
 /// @title OntakeAnchor
 /// @notice Anchoring functions for the Ontake and pre-Ontake fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
+abstract contract OntakeAnchor is EssentialContract, IBlockInfoProvider {
     error L2_DEPRECATED_METHOD();
 
     modifier deprecated() {

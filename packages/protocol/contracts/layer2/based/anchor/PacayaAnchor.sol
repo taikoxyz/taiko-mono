@@ -195,7 +195,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         );
     }
 
-    /// @inheritdoc IBlockHashProvider
+    /// @inheritdoc IBlockInfoProvider
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
