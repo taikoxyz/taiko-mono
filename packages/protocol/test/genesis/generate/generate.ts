@@ -4,7 +4,7 @@ const path = require("path");
 const { ethers } = require("ethers");
 const { deployTaikoAnchor } = require("./taikoAnchor");
 const { deployERC20 } = require("./erc20");
-const config: Config = require("../data/genesis_config.js");
+const config: Config = require("../data/masaya_genesis_config.js");
 
 // Generate a L2 genesis JSON based on the given configurations.
 // ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
