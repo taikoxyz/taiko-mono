@@ -132,23 +132,22 @@ func (c *EngineClient) GetPayload(
 	if c.witness {
 		return c.getPayloadFull(ctx, payloadID)
 	}
-	payload, err := c.getPayload(ctx, payloadID)
-	return payload, nil, err
+	return c.getPayload(ctx, payloadID)
 }
 
 func (c *EngineClient) getPayload(
 	ctx context.Context,
 	payloadID *engine.PayloadID,
-) (*engine.ExecutableData, error) {
+) (*engine.ExecutableData, *hexutil.Bytes, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
 	if err := c.Client.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return result.ExecutionPayload, nil
+	return result.ExecutionPayload, nil, nil
 }
 
 func (c *EngineClient) getPayloadFull(
