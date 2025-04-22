@@ -11,10 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -52,7 +52,6 @@ func NewBlocksInserterPacaya(
 	calldataFetcher txlistFetcher.TxListFetcher,
 	blobFetcher txlistFetcher.TxListFetcher,
 ) *BlocksInserterPacaya {
-	witnessCache, _ := lru.New[uint64, *hexutil.Bytes](128)
 	return &BlocksInserterPacaya{
 		rpc:                rpc,
 		progressTracker:    progressTracker,
@@ -61,7 +60,7 @@ func NewBlocksInserterPacaya(
 		anchorConstructor:  anchorConstructor,
 		calldataFetcher:    calldataFetcher,
 		blobFetcher:        blobFetcher,
-		witnessCache:       witnessCache,
+		witnessCache:       lru.NewCache[uint64, *hexutil.Bytes](128),
 	}
 }
 
