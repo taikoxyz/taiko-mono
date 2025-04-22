@@ -17,6 +17,7 @@ library LibNetwork {
     uint64 internal constant TAIKO_HEKLA = 167_009;
     uint64 internal constant TAIKO_DEVNET = 167_001;
     uint64 internal constant TAIKO_PRECONF = 167_010;
+    uint64 internal constant TAIKO_MASAYA = 167_111;
 
     uint256 internal constant ETHEREUM_BLOCK_TIME = 12 seconds;
 

@@ -350,7 +350,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (vm.envBool("PRECONF_INBOX")) {
             newFork = address(
                 new DevnetInbox(
-                    LibNetwork.TAIKO_PRECONF,
+                    LibNetwork.TAIKO_MASAYA,
                     PRECONF_COOLDOWN_WINDOW,
                     address(0),
                     proofVerifier,
@@ -577,7 +577,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (vm.envBool("PRECONF_INBOX")) {
             newFork = address(
                 new DevnetInbox(
-                    LibNetwork.TAIKO_PRECONF,
+                    LibNetwork.TAIKO_MASAYA,
                     PRECONF_COOLDOWN_WINDOW,
                     taikoWrapper,
                     verifier,
