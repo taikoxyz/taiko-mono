@@ -136,7 +136,15 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
 		// and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
-			lastBlockHeader, err := isBatchPreconfirmed(ctx, i.rpc, i.anchorConstructor, metadata, allTxs, txListBytes)
+			lastBlockHeader, err := isBatchPreconfirmed(
+				ctx,
+				i.rpc,
+				i.anchorConstructor,
+				metadata,
+				allTxs,
+				txListBytes,
+				parent,
+			)
 			if err != nil {
 				log.Debug("Failed to check if batch is preconfirmed", "batchID", meta.GetBatchID(), "err", err)
 			} else if lastBlockHeader != nil {
