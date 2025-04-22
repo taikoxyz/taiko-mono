@@ -49,3 +49,27 @@ func TestSequencingWindowSplit(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(currRanges, []SlotRange{{Start: 0, End: 28}}), "currRanges = %v", currRanges)
 	assert.True(t, reflect.DeepEqual(nextRanges, []SlotRange{{Start: 60, End: 64}}), "nextRanges = %v", nextRanges)
 }
+
+func TestSequencingWindowSplit_WithDualEpochPush(t *testing.T) {
+	w := NewOpWindow()
+	addr := common.HexToAddress("0xabc")
+	other := common.HexToAddress("0xdef")
+	w.Push(0, addr, other) // addr is curr at epoch 0
+	w.Push(1, other, addr) // addr is next at epoch 1
+	w.Push(2, addr, other) // addr is curr again at epoch 2
+
+	handoverSlots := uint64(4)
+	slotsPerEpoch := uint64(32)
+
+	currRanges := w.SequencingWindowSplit(addr, true, handoverSlots, slotsPerEpoch)
+	nextRanges := w.SequencingWindowSplit(addr, false, handoverSlots, slotsPerEpoch)
+
+	assert.True(t, reflect.DeepEqual(currRanges, []SlotRange{
+		{Start: 0, End: 28},
+		{Start: 64, End: 92},
+	}), "currRanges = %v", currRanges)
+
+	assert.True(t, reflect.DeepEqual(nextRanges, []SlotRange{
+		{Start: 60, End: 64},
+	}), "nextRanges = %v", nextRanges)
+}
