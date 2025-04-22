@@ -380,7 +380,11 @@ func (d *Driver) cacheLookaheadLoop() {
 		d.wg.Done()
 	}()
 
-	opWin := preconfBlocks.NewOpWindow()
+	var (
+		seenBlockNumber uint64 = 0
+		lastSlot        uint64 = 0
+		opWin                  = preconfBlocks.NewOpWindow()
+	)
 
 	for {
 		select {
@@ -389,6 +393,27 @@ func (d *Driver) cacheLookaheadLoop() {
 		case <-ticker.C:
 			slot := d.rpc.L1Beacon.CurrentSlot()
 			epoch := d.rpc.L1Beacon.CurrentEpoch()
+			currentSlot := d.rpc.L1Beacon.CurrentSlot()
+
+			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
+			if err != nil {
+				log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
+				continue
+			}
+
+			if latestSeenBlockNumber == seenBlockNumber {
+				// Leave some grace period for the block to arrive.
+				if lastSlot != currentSlot &&
+					uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
+					log.Warn(
+						"Lookahead possible missed slot detected",
+						"currentSlot", currentSlot,
+						"latestSeenBlockNumber", latestSeenBlockNumber,
+					)
+
+					lastSlot = currentSlot
+				}
+			}
 
 			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
@@ -399,8 +424,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("could not fetch next operator", "err", err)
-
-				nextOp = common.Address{}
+				continue
 			}
 
 			// push into our 3‑epoch ring
