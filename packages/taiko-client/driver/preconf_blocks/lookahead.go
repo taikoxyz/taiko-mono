@@ -41,14 +41,16 @@ func mergeRanges(r []SlotRange) []SlotRange {
 
 // opWindow holds the last three epochs’ operator addresses.
 type opWindow struct {
-	epochs  [3]uint64
-	currOps [3]common.Address
-	nextOps [3]common.Address
-	valid   [3]bool
+	epochs            [3]uint64
+	currOps           [3]common.Address
+	nextOps           [3]common.Address
+	valid             [3]bool
+	handoverSkipSlots uint64
+	slotsPerEpoch     uint64
 }
 
-func NewOpWindow() *opWindow {
-	return &opWindow{}
+func NewOpWindow(handoverSkipSlots, slotsPerEpoch uint64) *opWindow {
+	return &opWindow{handoverSkipSlots: handoverSkipSlots, slotsPerEpoch: slotsPerEpoch}
 }
 
 // Push records the operator pair for one epoch into the ring.
@@ -68,11 +70,9 @@ func (w *opWindow) Push(epoch uint64, curr, next common.Address) {
 func (w *opWindow) SequencingWindowSplit(
 	operator common.Address,
 	curr bool,
-	handoverSlots,
-	slotsPerEpoch uint64,
 ) []SlotRange {
 	var ranges []SlotRange
-	threshold := slotsPerEpoch - handoverSlots
+	threshold := w.slotsPerEpoch - w.handoverSkipSlots
 
 	for i := 0; i < 3; i++ {
 		if !w.valid[i] {
@@ -80,7 +80,7 @@ func (w *opWindow) SequencingWindowSplit(
 		}
 
 		epoch := w.epochs[i]
-		startEpoch := epoch * slotsPerEpoch
+		startEpoch := epoch * w.slotsPerEpoch
 
 		if curr {
 			if w.currOps[i] == operator {
@@ -93,7 +93,7 @@ func (w *opWindow) SequencingWindowSplit(
 			if w.nextOps[i] == operator {
 				ranges = append(ranges, SlotRange{
 					Start: startEpoch + threshold,
-					End:   (epoch + 1) * slotsPerEpoch,
+					End:   (epoch + 1) * w.slotsPerEpoch,
 				})
 			}
 		}

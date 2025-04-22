@@ -383,7 +383,10 @@ func (d *Driver) cacheLookaheadLoop() {
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
-		opWin                  = preconfBlocks.NewOpWindow()
+		opWin                  = preconfBlocks.NewOpWindow(
+			d.PreconfHandoverSkipSlots,
+			d.rpc.L1Beacon.SlotsPerEpoch,
+		)
 	)
 
 	for {
@@ -441,15 +444,11 @@ func (d *Driver) cacheLookaheadLoop() {
 			currRanges := opWin.SequencingWindowSplit(
 				d.PreconfOperatorAddress,
 				true,
-				d.PreconfHandoverSkipSlots,
-				d.rpc.L1Beacon.SlotsPerEpoch,
 			)
 
 			nextRanges := opWin.SequencingWindowSplit(
 				d.PreconfOperatorAddress,
 				false,
-				d.PreconfHandoverSkipSlots,
-				d.rpc.L1Beacon.SlotsPerEpoch,
 			)
 
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
