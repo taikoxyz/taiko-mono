@@ -41,10 +41,10 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 		CurrOperator: curr,
 		NextOperator: next,
 		CurrRanges: []SlotRange{
-			{Start: 0, End: 28}, // allowed slots 0..27 (handover at 28)
+			{Start: 0, End: 32}, // Full epoch 0
 		},
 		NextRanges: []SlotRange{
-			{Start: 28, End: 32}, // allowed slots 28..31
+			{Start: 32, End: 64}, // Next epoch 1
 		},
 		UpdatedAt: time.Now().UTC(),
 	}
@@ -55,17 +55,28 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 		feeRecipient common.Address
 		wantErr      error
 	}{
-		{name: "curr allowed", globalSlot: 10, feeRecipient: curr, wantErr: nil},
-		{name: "handover slot next allowed", globalSlot: 28, feeRecipient: next, wantErr: nil},
-		{name: "handover slot curr not allowed", globalSlot: 28, feeRecipient: curr, wantErr: errInvalidCurrOperator},
-		{name: "next allowed inside next range", globalSlot: 30, feeRecipient: next, wantErr: nil},
-		{name: "curr wrong at next slot", globalSlot: 30, feeRecipient: curr, wantErr: errInvalidCurrOperator},
-		{name: "next wrong in curr slot", globalSlot: 5, feeRecipient: next, wantErr: errInvalidNextOperator},
+		// Inside CurrRanges, before handover point
+		{name: "curr allowed early slot", globalSlot: 10, feeRecipient: curr, wantErr: nil},
+		{name: "next wrong early slot", globalSlot: 10, feeRecipient: next, wantErr: errInvalidCurrOperator},
+
+		// Inside CurrRanges, at handover threshold
+		{name: "next allowed at handover slot", globalSlot: 28, feeRecipient: next, wantErr: nil},
+		{name: "curr wrong at handover slot", globalSlot: 28, feeRecipient: curr, wantErr: errInvalidNextOperator},
+
+		// Inside CurrRanges, after threshold
+		{name: "next allowed after handover", globalSlot: 30, feeRecipient: next, wantErr: nil},
+		{name: "curr wrong after handover", globalSlot: 30, feeRecipient: curr, wantErr: errInvalidNextOperator},
+
+		// Inside NextRanges (next epoch)
+		{name: "next allowed next epoch", globalSlot: 33, feeRecipient: next, wantErr: nil},
+		{name: "curr wrong next epoch", globalSlot: 33, feeRecipient: curr, wantErr: errInvalidNextOperator},
+
+		// Random fee recipient not allowed
 		{
-			name:         "random address",
-			globalSlot:   5,
+			name:         "random address wrong",
+			globalSlot:   10,
 			feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"),
-			wantErr:      errInvalidNextOperator,
+			wantErr:      errInvalidCurrOperator,
 		},
 	}
 
