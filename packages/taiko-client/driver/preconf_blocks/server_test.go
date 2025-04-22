@@ -57,7 +57,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	}{
 		// Inside CurrRanges, before handover point
 		{name: "curr allowed early slot", globalSlot: 10, feeRecipient: curr, wantErr: nil},
-		{name: "next wrong early slot", globalSlot: 10, feeRecipient: next, wantErr: errInvalidCurrOperator},
+		{name: "next wrong early slot", globalSlot: 10, feeRecipient: next, wantErr: errInvalidNextOperator},
 
 		// Inside CurrRanges, at handover threshold
 		{name: "next allowed at handover slot", globalSlot: 28, feeRecipient: next, wantErr: nil},
@@ -78,7 +78,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 			feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"),
 			wantErr:      errInvalidNextOperator,
 		},
-		{name: "curr wrong outside", globalSlot: 70, feeRecipient: curr, wantErr: errInvalidNextOperator},
+		{name: "curr wrong outside", globalSlot: 70, feeRecipient: curr, wantErr: errInvalidCurrOperator},
 		{name: "next wrong outside", globalSlot: 70, feeRecipient: next, wantErr: errInvalidNextOperator},
 	}
 
