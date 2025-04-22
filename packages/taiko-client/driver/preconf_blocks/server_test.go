@@ -65,7 +65,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 			name:         "random address",
 			globalSlot:   5,
 			feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"),
-			wantErr:      errInvalidCurrOperator,
+			wantErr:      errInvalidNextOperator,
 		},
 	}
 
