@@ -20,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -48,7 +49,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			TaikoInboxAddress:  common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
-			Witness:            os.Getenv("WITNESS") == "true",
+			Witness:            utils.ParseBoolFlagFromEnv("WITNESS"),
 		},
 	}))
 	s.d = d

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 func newTestClient(t *testing.T) *Client {
@@ -22,7 +23,7 @@ func newTestClient(t *testing.T) *Client {
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   os.Getenv("JWT_SECRET"),
-		Witness:                     os.Getenv("WITNESS") == "true",
+		Witness:                     utils.ParseBoolFlagFromEnv("WITNESS"),
 	})
 
 	require.Nil(t, err)
@@ -43,7 +44,7 @@ func newTestClientWithTimeout(t *testing.T) *Client {
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   os.Getenv("JWT_SECRET"),
-		Witness:                     os.Getenv("WITNESS") == "true",
+		Witness:                     utils.ParseBoolFlagFromEnv("WITNESS"),
 		Timeout:                     5 * time.Second,
 	})
 	require.Nil(t, err)

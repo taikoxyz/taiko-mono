@@ -29,6 +29,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
@@ -73,7 +74,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_HTTP"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			Witness:                     os.Getenv("WITNESS") == "true",
+			Witness:                     utils.ParseBoolFlagFromEnv("WITNESS"),
 			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
