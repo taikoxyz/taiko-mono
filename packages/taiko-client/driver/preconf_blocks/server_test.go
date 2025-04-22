@@ -55,15 +55,17 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 		feeRecipient common.Address
 		wantErr      error
 	}{
-		{name: "curr in range", globalSlot: 150, feeRecipient: curr, wantErr: nil},
-		{name: "next in range", globalSlot: 350, feeRecipient: next, wantErr: nil},
-		{name: "curr out range", globalSlot: 250, feeRecipient: curr, wantErr: errInvalidCurrOperator},
-		{name: "next out range", globalSlot: 250, feeRecipient: next, wantErr: errInvalidNextOperator},
+		{name: "curr allowed", globalSlot: 10, feeRecipient: curr, wantErr: nil},
+		{name: "handover slot next allowed", globalSlot: 28, feeRecipient: next, wantErr: nil},
+		{name: "handover slot curr not allowed", globalSlot: 28, feeRecipient: curr, wantErr: errInvalidNextOperator},
+		{name: "next allowed inside next range", globalSlot: 30, feeRecipient: next, wantErr: nil},
+		{name: "curr wrong at next slot", globalSlot: 30, feeRecipient: curr, wantErr: errInvalidNextOperator},
+		{name: "next wrong in curr slot", globalSlot: 5, feeRecipient: next, wantErr: errInvalidCurrOperator},
 		{
-			name:         "other out of range",
-			globalSlot:   250,
+			name:         "random address",
+			globalSlot:   5,
 			feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"),
-			wantErr:      errInvalidNextOperator,
+			wantErr:      errInvalidCurrOperator,
 		},
 	}
 
