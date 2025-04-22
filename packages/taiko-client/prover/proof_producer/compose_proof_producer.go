@@ -106,7 +106,7 @@ func (s *ComposeProofProducer) RequestProof(
 	}
 
 	return &ProofResponse{
-		BlockID:   batchID,
+		BatchID:   batchID,
 		Meta:      meta,
 		Proof:     proof,
 		Opts:      opts,
@@ -132,8 +132,8 @@ func (s *ComposeProofProducer) Aggregate(
 		"Aggregate batch proofs from raiko-host service",
 		"proofType", proofType,
 		"batchSize", len(items),
-		"firstID", items[0].BlockID,
-		"lastID", items[len(items)-1].BlockID,
+		"firstID", items[0].BatchID,
+		"lastID", items[len(items)-1].BatchID,
 		"time", time.Since(requestAt),
 	)
 	var (
@@ -185,12 +185,11 @@ func (s *ComposeProofProducer) Aggregate(
 	return &BatchProofs{
 		ProofResponses:       items,
 		BatchProof:           batchProofs,
-		BlockIDs:             batchIDs,
+		BatchIDs:             batchIDs,
 		ProofType:            proofType,
 		Verifier:             verifier,
 		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
 		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
-		IsPacaya:             true,
 	}, nil
 }
 

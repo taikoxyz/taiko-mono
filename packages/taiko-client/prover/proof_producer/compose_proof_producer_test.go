@@ -29,6 +29,6 @@ func TestComposeProducerRequestProof(t *testing.T) {
 	)
 	require.Nil(t, err)
 
-	require.Equal(t, res.BlockID, blockID)
+	require.Equal(t, res.BatchID, blockID)
 	require.NotEmpty(t, res.Proof)
 }

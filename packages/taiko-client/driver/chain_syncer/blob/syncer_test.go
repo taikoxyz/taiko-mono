@@ -82,7 +82,7 @@ func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
 	// 	},
 	// 	BaseFeePerGas: block.BaseFee(),
 	// 	L1Origin: &rawdb.L1Origin{
-	// 		BlockID:       meta.Ontake().GetBlockID(),
+	// 		BatchID:       meta.Ontake().GetBlockID(),
 	// 		L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
 	// 		L1BlockHeight: meta.GetRawBlockHeight(),
 	// 		L1BlockHash:   meta.GetRawBlockHash(),
