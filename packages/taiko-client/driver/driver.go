@@ -454,8 +454,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			log.Info(
 				"lookahead refreshed",
-				"slot", slot,
-				"epoch", epoch,
+				"currentSlot", slot,
+				"currentEpoch", epoch,
 				"currOp", currOp.Hex(),
 				"nextOp", nextOp.Hex(),
 				"currRanges", currRanges,
