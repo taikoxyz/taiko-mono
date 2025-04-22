@@ -40,6 +40,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
 		s.NotEmpty(c.JwtSecret)
+		s.False(c.Witness)
 		s.True(c.P2PSync)
 		s.Equal(l2CheckPoint, c.L2CheckPoint)
 		s.Nil(new(Driver).InitFromCli(context.Background(), ctx))

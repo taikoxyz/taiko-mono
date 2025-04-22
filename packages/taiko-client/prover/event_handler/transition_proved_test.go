@@ -48,6 +48,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			TaikoInboxAddress:  common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
+			Witness:            os.Getenv("WITNESS") == "true",
 		},
 	}))
 	s.d = d

@@ -90,6 +90,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			PreconfWhitelistAddress: common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name)),
 			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:               string(jwtSecret),
+			Witness:                 c.Bool(flags.Witness.Name),
 			Timeout:                 c.Duration(flags.RPCTimeout.Name),
 		}
 		p2pConfigs    *p2p.Config

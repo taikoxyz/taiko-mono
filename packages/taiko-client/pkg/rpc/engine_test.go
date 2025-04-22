@@ -13,7 +13,7 @@ import (
 func TestL2EngineForbidden(t *testing.T) {
 	c := newTestClient(t)
 
-	_, err := c.L2Engine.ForkchoiceUpdate(
+	_, err := c.L2Engine.ForkchoiceUpdated(
 		context.Background(),
 		&engine.ForkchoiceStateV1{},
 		&engine.PayloadAttributes{},
@@ -26,7 +26,7 @@ func TestL2EngineForbidden(t *testing.T) {
 	)
 	require.ErrorContains(t, err, "Unauthorized")
 
-	_, err = c.L2Engine.GetPayload(
+	_, _, err = c.L2Engine.GetPayload(
 		context.Background(),
 		&engine.PayloadID{},
 	)

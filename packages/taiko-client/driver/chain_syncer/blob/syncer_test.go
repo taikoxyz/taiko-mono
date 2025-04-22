@@ -244,6 +244,7 @@ func (s *BlobSyncerTestSuite) initProposer() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
+			Witness:                     os.Getenv("WITNESS") == "true",
 			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),

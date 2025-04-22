@@ -90,6 +90,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			TaikoAnchorAddress:          common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			L2EngineEndpoint:            c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:                   string(jwtSecret),
+			Witness:                     c.Bool(flags.Witness.Name),
 			TaikoTokenAddress:           common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),

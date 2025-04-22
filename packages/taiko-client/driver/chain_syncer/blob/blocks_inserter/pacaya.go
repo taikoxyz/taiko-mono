@@ -319,7 +319,7 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	}
 
 	fc := &engine.ForkchoiceStateV1{HeadBlockHash: newHead.Hash()}
-	fcRes, err := i.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
+	fcRes, err := i.rpc.L2Engine.ForkchoiceUpdated(ctx, fc, nil)
 	if err != nil {
 		return err
 	}

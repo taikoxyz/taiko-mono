@@ -85,7 +85,7 @@ func createExecutionPayloadsAndSetHead(
 	}
 
 	// Update the fork choice.
-	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
+	fcRes, err := rpc.L2Engine.ForkchoiceUpdated(ctx, fc, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func createExecutionPayloads(
 	)
 
 	// Step 1, prepare a payload
-	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(
+	fcRes, err := rpc.L2Engine.ForkchoiceUpdated(
 		ctx,
 		&engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash},
 		attributes,
@@ -153,7 +153,7 @@ func createExecutionPayloads(
 	}
 
 	// Step 2, get the payload
-	payload, err := rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+	payload, _, err := rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payload: %w", err)
 	}
@@ -267,7 +267,7 @@ func isBlockPreconfirmed(
 		}
 		id = args.Id()
 	)
-	executableData, err := rpc.L2Engine.GetPayload(ctx, &id)
+	executableData, _, err := rpc.L2Engine.GetPayload(ctx, &id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payload: %w", err)
 	}

@@ -66,7 +66,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 		return fmt.Errorf("unexpected NewPayload response status: %s", status.Status)
 	}
 
-	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(s.ctx, &engine.ForkchoiceStateV1{
+	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdated(s.ctx, &engine.ForkchoiceStateV1{
 		HeadBlockHash: headPayload.BlockHash,
 	}, nil)
 	if err != nil {

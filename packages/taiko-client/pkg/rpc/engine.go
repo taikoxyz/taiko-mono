@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
@@ -18,10 +19,11 @@ import (
 // ref: https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md
 type EngineClient struct {
 	*rpc.Client
+	witness bool
 }
 
 // NewJWTEngineClient creates a new EngineClient with JWT authentication.
-func NewJWTEngineClient(url, jwtSecret string) (*EngineClient, error) {
+func NewJWTEngineClient(url, jwtSecret string, witness bool) (*EngineClient, error) {
 	var jwt = StringToBytes32(jwtSecret)
 	if jwt == (common.Hash{}) || url == "" {
 		return nil, errors.New("url is empty or jwt secret is illegal")
@@ -32,12 +34,24 @@ func NewJWTEngineClient(url, jwtSecret string) (*EngineClient, error) {
 	}
 
 	return &EngineClient{
-		Client: authClient,
+		Client:  authClient,
+		witness: witness,
 	}, nil
 }
 
-// ForkchoiceUpdate updates the forkchoice on the execution client.
-func (c *EngineClient) ForkchoiceUpdate(
+// ForkchoiceUpdated updates the forkchoice on the execution client.
+func (c *EngineClient) ForkchoiceUpdated(
+	ctx context.Context,
+	fc *engine.ForkchoiceStateV1,
+	attributes *engine.PayloadAttributes,
+) (*engine.ForkChoiceResponse, error) {
+	if c.witness {
+		return c.forkchoiceUpdatedWithWitness(ctx, fc, attributes)
+	}
+	return c.ForkchoiceUpdated(ctx, fc, attributes)
+}
+
+func (c *EngineClient) forkchoiceUpdated(
 	ctx context.Context,
 	fc *engine.ForkchoiceStateV1,
 	attributes *engine.PayloadAttributes,
@@ -53,8 +67,34 @@ func (c *EngineClient) ForkchoiceUpdate(
 	return result, nil
 }
 
+func (c *EngineClient) forkchoiceUpdatedWithWitness(
+	ctx context.Context,
+	fc *engine.ForkchoiceStateV1,
+	attributes *engine.PayloadAttributes,
+) (*engine.ForkChoiceResponse, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	var result *engine.ForkChoiceResponse
+	if err := c.Client.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedWithWitnessV2", fc, attributes); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // NewPayload executes a built block on the execution engine.
 func (c *EngineClient) NewPayload(
+	ctx context.Context,
+	payload *engine.ExecutableData,
+) (*engine.PayloadStatusV1, error) {
+	if c.witness {
+		return c.newPayloadWithWitness(ctx, payload)
+	}
+	return c.newPayload(ctx, payload)
+}
+
+func (c *EngineClient) newPayload(
 	ctx context.Context,
 	payload *engine.ExecutableData,
 ) (*engine.PayloadStatusV1, error) {
@@ -69,8 +109,34 @@ func (c *EngineClient) NewPayload(
 	return result, nil
 }
 
+func (c *EngineClient) newPayloadWithWitness(
+	ctx context.Context,
+	payload *engine.ExecutableData,
+) (*engine.PayloadStatusV1, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	var result *engine.PayloadStatusV1
+	if err := c.Client.CallContext(timeoutCtx, &result, "engine_newPayloadWithWitnessV2", payload); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // GetPayload gets the execution payload associated with the payload ID.
 func (c *EngineClient) GetPayload(
+	ctx context.Context,
+	payloadID *engine.PayloadID,
+) (*engine.ExecutableData, *hexutil.Bytes, error) {
+	if c.witness {
+		return c.getPayloadFull(ctx, payloadID)
+	}
+	payload, err := c.getPayload(ctx, payloadID)
+	return payload, nil, err
+}
+
+func (c *EngineClient) getPayload(
 	ctx context.Context,
 	payloadID *engine.PayloadID,
 ) (*engine.ExecutableData, error) {
@@ -83,6 +149,21 @@ func (c *EngineClient) GetPayload(
 	}
 
 	return result.ExecutionPayload, nil
+}
+
+func (c *EngineClient) getPayloadFull(
+	ctx context.Context,
+	payloadID *engine.PayloadID,
+) (*engine.ExecutableData, *hexutil.Bytes, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	var result *engine.ExecutionPayloadEnvelope
+	if err := c.Client.CallContext(timeoutCtx, &result, "engine_getPayloadFullV2", payloadID); err != nil {
+		return nil, nil, err
+	}
+
+	return result.ExecutionPayload, result.Witness, nil
 }
 
 // ExchangeTransitionConfiguration exchanges transition configs with the L2 execution engine.

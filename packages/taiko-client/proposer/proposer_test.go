@@ -73,6 +73,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_HTTP"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
+			Witness:                     os.Getenv("WITNESS") == "true",
 			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
