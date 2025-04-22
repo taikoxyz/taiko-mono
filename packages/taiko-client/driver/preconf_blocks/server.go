@@ -471,22 +471,32 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(
 		log.Warn("lookahead not initialized, allowing by default")
 		return nil
 	}
-
-	for _, r := range la.SequencingRanges {
+	// Check CurrRanges first
+	for _, r := range la.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
-			return nil
+			if feeRecipient == la.CurrOperator {
+				return nil
+			}
+			return errInvalidCurrOperator
 		}
 	}
 
+	// Then NextRanges
+	for _, r := range la.NextRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			if feeRecipient == la.NextOperator {
+				return nil
+			}
+			return errInvalidNextOperator
+		}
+	}
+
+	// If not in any range
 	log.Warn(
 		"slot out of sequencing window",
 		"slot", globalSlot,
-		"ranges", la.SequencingRanges,
+		"currRanges", la.CurrRanges,
+		"nextRanges", la.NextRanges,
 	)
-
-	if feeRecipient == la.CurrOperator {
-		return errInvalidCurrOperator
-	}
-
 	return errInvalidNextOperator
 }

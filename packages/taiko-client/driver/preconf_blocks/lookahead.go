@@ -72,25 +72,35 @@ func (w *opWindow) Push(epoch uint64, curr, next common.Address) {
 // sequencingWindow returns the union of
 // [(epoch*slotsPerEpoch) .. (epoch*slotsPerEpoch + slotsPerEpoch - handoverSlots))
 // for every epoch where we were either curr or next operator.
-func (w *opWindow) SequencingWindow(
-	operatorAddress common.Address,
+func (w *opWindow) SequencingWindowSplit(
+	operator common.Address,
+	curr bool,
 	handoverSlots, slotsPerEpoch uint64,
 ) []SlotRange {
 	var ranges []SlotRange
+	threshold := slotsPerEpoch - handoverSlots
 
 	for i := 0; i < 3; i++ {
 		if !w.valid[i] {
 			continue
 		}
 
-		ep := w.epochs[i]
+		epoch := w.epochs[i]
+		startEpoch := epoch * slotsPerEpoch
 
-		if w.currOps[i] == operatorAddress || w.nextOps[i] == operatorAddress {
-			start := ep * slotsPerEpoch
-			end := (ep+1)*slotsPerEpoch - handoverSlots
-
-			if end > start {
-				ranges = append(ranges, SlotRange{Start: start, End: end})
+		if curr {
+			if w.currOps[i] == operator {
+				ranges = append(ranges, SlotRange{
+					Start: startEpoch,
+					End:   startEpoch + threshold,
+				})
+			}
+		} else {
+			if w.nextOps[i] == operator {
+				ranges = append(ranges, SlotRange{
+					Start: startEpoch + threshold,
+					End:   (epoch + 1) * slotsPerEpoch,
+				})
 			}
 		}
 	}
@@ -100,8 +110,9 @@ func (w *opWindow) SequencingWindow(
 
 // Lookahead holds the up‑to‑date sequencing window and operator addrs.
 type Lookahead struct {
-	CurrOperator     common.Address
-	NextOperator     common.Address
-	SequencingRanges []SlotRange
-	UpdatedAt        time.Time
+	CurrOperator common.Address
+	NextOperator common.Address
+	CurrRanges   []SlotRange // slots allowed for CurrOperator (0..threshold-1)
+	NextRanges   []SlotRange // slots allowed for NextOperator (threshold..slotsPerEpoch-1)
+	UpdatedAt    time.Time
 }

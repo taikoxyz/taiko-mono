@@ -33,45 +33,19 @@ func TestMergeRanges_Adjacent(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
 }
 
-func TestSequencingWindow_SingleEpoch(t *testing.T) {
+func TestSequencingWindowSplit(t *testing.T) {
 	w := NewOpWindow()
 	addr := common.HexToAddress("0xabc")
 	other := common.HexToAddress("0xdef")
-	// only curr matches
-	w.Push(1, addr, other)
-	got := w.SequencingWindow(addr, 10, 100)
-	want := []SlotRange{{Start: 100, End: 190}}
-	assert.True(t, reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
-}
+	w.Push(0, addr, other) // addr is curr at epoch 0
+	w.Push(1, other, addr) // addr is next at epoch 1
 
-func TestSequencingWindow_MultipleEpochs(t *testing.T) {
-	w := NewOpWindow()
-	addr := common.HexToAddress("0xabc")
-	// epoch0: curr, epoch1: next
-	w.Push(0, addr, common.Address{})
-	w.Push(1, common.Address{}, addr)
-	got := w.SequencingWindow(addr, 10, 100)
-	want := []SlotRange{{Start: 0, End: 90}, {Start: 100, End: 190}}
-	assert.True(t, reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
-}
+	handoverSlots := uint64(4)
+	slotsPerEpoch := uint64(32)
 
-func TestSequencingWindow_AdjacentEpochsMerged(t *testing.T) {
-	w := NewOpWindow()
-	addr := common.HexToAddress("0xabc")
-	w.Push(0, addr, common.Address{})
-	w.Push(1, addr, common.Address{})
-	got := w.SequencingWindow(addr, 0, 100)
-	want := []SlotRange{{Start: 0, End: 200}}
-	assert.True(t, reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
-}
+	currRanges := w.SequencingWindowSplit(addr, true, handoverSlots, slotsPerEpoch)
+	nextRanges := w.SequencingWindowSplit(addr, false, handoverSlots, slotsPerEpoch)
 
-func TestSequencingWindow_Gaps(t *testing.T) {
-	w := NewOpWindow()
-	addr := common.HexToAddress("0xabc")
-	// non‑adjacent epochs 0 and 2
-	w.Push(0, addr, common.Address{})
-	w.Push(2, addr, common.Address{})
-	got := w.SequencingWindow(addr, 0, 100)
-	want := []SlotRange{{Start: 0, End: 100}, {Start: 200, End: 300}}
-	assert.True(t, reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
+	assert.True(t, reflect.DeepEqual(currRanges, []SlotRange{{Start: 0, End: 28}}), "currRanges = %v", currRanges)
+	assert.True(t, reflect.DeepEqual(nextRanges, []SlotRange{{Start: 60, End: 64}}), "nextRanges = %v", nextRanges)
 }

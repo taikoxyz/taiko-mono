@@ -406,28 +406,34 @@ func (d *Driver) cacheLookaheadLoop() {
 			// push into our 3‑epoch ring
 			opWin.Push(epoch, currOp, nextOp)
 
-			// build the sequencing window
-			seqRanges := opWin.SequencingWindow(
-				d.PreconfOperatorAddress,
+			currRanges := opWin.SequencingWindowSplit(
+				d.PreconfOperatorAddress, true,
 				d.PreconfHandoverSkipSlots,
 				d.rpc.L1Beacon.SlotsPerEpoch,
 			)
 
-			// push to server
+			nextRanges := opWin.SequencingWindowSplit(
+				d.PreconfOperatorAddress, false,
+				d.PreconfHandoverSkipSlots,
+				d.rpc.L1Beacon.SlotsPerEpoch,
+			)
+
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
-				CurrOperator:     currOp,
-				NextOperator:     nextOp,
-				SequencingRanges: seqRanges,
-				UpdatedAt:        time.Now().UTC(),
+				CurrOperator: currOp,
+				NextOperator: nextOp,
+				CurrRanges:   currRanges,
+				NextRanges:   nextRanges,
+				UpdatedAt:    time.Now().UTC(),
 			})
 
-			log.Debug(
+			log.Info(
 				"lookahead refreshed",
 				"slot", slot,
 				"epoch", epoch,
 				"currOp", currOp.Hex(),
 				"nextOp", nextOp.Hex(),
-				"ranges", seqRanges,
+				"currRanges", currRanges,
+				"nextRanges", nextRanges,
 			)
 		}
 	}

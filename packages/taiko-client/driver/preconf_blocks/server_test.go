@@ -4,11 +4,11 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
-	"gotest.tools/assert"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -31,21 +31,22 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	}()
 }
 
-func TestCheckLookaheadHandover_NewLogic(t *testing.T) {
+func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	curr := common.HexToAddress("0xAAA0000000000000000000000000000000000000")
 	next := common.HexToAddress("0xBBB0000000000000000000000000000000000000")
+
+	s.s.handoverSlots = 4
+
 	la := &Lookahead{
 		CurrOperator: curr,
 		NextOperator: next,
-		SequencingRanges: []SlotRange{
-			{Start: 100, End: 200},
-			{Start: 300, End: 400},
+		CurrRanges: []SlotRange{
+			{Start: 0, End: 28}, // allowed slots 0..27 (handover at 28)
 		},
-	}
-
-	server := &PreconfBlockAPIServer{
-		lookahead: la,
-		rpc:       &rpc.Client{L1Beacon: &rpc.BeaconClient{SlotsPerEpoch: 32}},
+		NextRanges: []SlotRange{
+			{Start: 28, End: 32}, // allowed slots 28..31
+		},
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	tests := []struct {
@@ -62,9 +63,13 @@ func TestCheckLookaheadHandover_NewLogic(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := server.checkLookaheadHandover(tt.feeRecipient, tt.globalSlot)
-			assert.Equal(t, tt.wantErr, err)
+		s.T().Run(tt.name, func(t *testing.T) {
+			s.s.lookahead = la
+			s.s.rpc.L1Beacon = &rpc.BeaconClient{
+				SlotsPerEpoch: 32,
+			}
+
+			s.Equal(tt.wantErr, s.s.checkLookaheadHandover(tt.feeRecipient, tt.globalSlot))
 		})
 	}
 }
