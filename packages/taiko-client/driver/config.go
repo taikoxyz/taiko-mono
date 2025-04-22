@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
@@ -131,7 +130,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	var preconfOperatorAddress common.Address
 
 	if c.IsSet(p2pFlags.SequencerP2PKeyName) {
-		pk, err := crypto.HexToECDSA(strings.TrimPrefix(c.String(p2pFlags.SequencerP2PKeyName), "0x"))
+		pk, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
 		if err != nil {
 			return nil, err
 		}
