@@ -22,6 +22,7 @@ const (
 	pacayaForkHeightHekla         = 1_299_888
 	pacayaForkHeightMainnet       = 999_999_999_999
 	pacayaForkHeightPreconfDevnet = 0
+	pacayaForkhHeightMasaya       = 0
 )
 
 // OntakeClients contains all smart contract clients for Ontake fork.
@@ -345,6 +346,8 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 			c.PacayaClients.ForkHeight = pacayaForkHeightMainnet
 		case params.PreconfDevnetNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeightPreconfDevnet
+		case params.MasayaDevnetNetworkID.Uint64():
+			c.PacayaClients.ForkHeight = pacayaForkhHeightMasaya
 		default:
 			log.Debug("Using devnet Pacaya fork height", "height", pacayaForkHeightDevnet)
 			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
