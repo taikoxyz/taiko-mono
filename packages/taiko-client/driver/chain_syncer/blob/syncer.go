@@ -24,10 +24,6 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
-const (
-	reorgCheckRewindBlocks = 10 // Number of blocks to rewind when checking reorg by comparing the verified block hash
-)
-
 // Syncer responsible for letting the L2 execution engine catching up with protocol's latest
 // pending block through deriving L1 calldata.
 type Syncer struct {
@@ -259,40 +255,34 @@ func (s *Syncer) onBatchProposed(
 // checkLastVerifiedBlockMismatch checks if there is a mismatch between protocol's last verified block hash and
 // the corresponding L2 EE block hash.
 func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.ReorgCheckResult, error) {
-	var reorgCheckResult = new(rpc.ReorgCheckResult)
-
 	// Fetch the latest verified block hash.
 	ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
 		return nil, err
 	}
-	lastVerifiedBatchID := ts.BatchId
-	lastVerifiedBlockID := ts.BlockId
-	lastVerifiedBlockHash := ts.Ts.BlockHash
+
+	var (
+		reorgCheckResult    = new(rpc.ReorgCheckResult)
+		lastVerifiedBatchID = ts.BatchId
+	)
 
 	// If the current L2 chain is behind of the last verified block, we skip the check.
-	if s.state.GetL2Head().Number.Uint64() < lastVerifiedBlockID ||
-		(s.lastInsertedBlockID != nil && s.lastInsertedBlockID.Uint64() < lastVerifiedBlockID) {
+	if s.state.GetL2Head().Number.Uint64() < ts.BlockId ||
+		(s.lastInsertedBlockID != nil && s.lastInsertedBlockID.Uint64() < ts.BlockId) {
 		return reorgCheckResult, nil
 	}
 
-	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(lastVerifiedBlockID))
+	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(ts.BlockId))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
 	}
 
 	// If the last verified block hash matches the L2 EE block hash, we skip the check.
-	if header.Hash() == lastVerifiedBlockHash {
+	if header.Hash() == ts.Ts.BlockHash {
 		return reorgCheckResult, nil
 	}
 
 	for {
-		// If the current batch is the first Pacaya batch, we start checking the Ontake blocks.
-		if lastVerifiedBatchID == s.rpc.PacayaClients.ForkHeights.Pacaya {
-			lastVerifiedBlockID = s.rpc.PacayaClients.ForkHeights.Pacaya - 1
-			break
-		}
-
 		batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID))
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
@@ -304,15 +294,13 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 		if batch.VerifiedTransitionId.Cmp(common.Big0) == 0 {
 			lastVerifiedBatchID = previousBatch.BatchId
-			lastVerifiedBlockID = previousBatch.LastBlockId
 			continue
 		}
 		ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(&bind.CallOpts{Context: ctx}, batch.BatchId)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
 		}
-		header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId))
-		if err != nil {
+		if header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId)); err != nil {
 			return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
 		}
 
@@ -342,10 +330,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		)
 
 		lastVerifiedBatchID = previousBatch.BatchId
-		lastVerifiedBlockID = previousBatch.LastBlockId
 	}
-
-	return reorgCheckResult, nil
 }
 
 // checkReorg checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.

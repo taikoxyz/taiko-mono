@@ -13,9 +13,9 @@ func (s *EventHandlerTestSuite) TestBatchesVerifiedHandle() {
 	handler := &BatchesVerifiedEventHandler{rpc: s.RPCClient}
 	id := testutils.RandomHash().Big().Uint64()
 	s.NotPanics(func() {
-		handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesVerified{
+		s.Nil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesVerified{
 			BatchId: testutils.RandomHash().Big().Uint64(),
 			Raw:     types.Log{BlockHash: testutils.RandomHash(), BlockNumber: id},
-		})
+		}))
 	})
 }

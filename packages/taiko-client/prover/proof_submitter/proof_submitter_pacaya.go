@@ -35,7 +35,6 @@ type ProofSubmitterPacaya struct {
 	zkvmProofProducer      proofProducer.ProofProducer
 	resultCh               chan *proofProducer.ProofResponse
 	batchResultCh          chan *proofProducer.BatchProofs
-	aggregationNotify      chan uint16
 	batchAggregationNotify chan proofProducer.ProofType
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
 	anchorValidator        *validator.AnchorTxValidator

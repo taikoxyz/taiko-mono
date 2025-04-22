@@ -178,17 +178,16 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 }
 
 func (s *ProverTestSuite) TestOnBatchesVerified() {
-	id := testutils.RandomHash().Big().Uint64()
 	s.NotPanics(func() {
-		s.p.eventHandlers.batchesVerifiedHandler.HandlePacaya(
+		s.NotNil(s.p.eventHandlers.batchesVerifiedHandler.HandlePacaya(
 			context.Background(),
 			&pacayaBindings.TaikoInboxClientBatchesVerified{
 				BatchId: testutils.RandomHash().Big().Uint64(),
 				Raw: types.Log{
 					BlockHash:   testutils.RandomHash(),
-					BlockNumber: id,
+					BlockNumber: testutils.RandomHash().Big().Uint64(),
 				},
-			})
+			}))
 	})
 }
 

@@ -397,12 +397,7 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
-	baseFee, err := c.CalculateBaseFee(
-		ctx,
-		l2Head,
-		baseFeeConfig,
-		uint64(time.Now().Unix()),
-	)
+	baseFee, err := c.CalculateBaseFee(ctx, l2Head, baseFeeConfig, uint64(time.Now().Unix()))
 	if err != nil {
 		return nil, err
 	}

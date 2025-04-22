@@ -10,10 +10,9 @@ import (
 )
 
 var (
-	_                              Submitter = (*ProofSubmitterPacaya)(nil)
-	submissionDelayRandomBumpRange float64   = 20
-	ProofTimeout                             = 3 * time.Hour
-	ErrInvalidProof                          = errors.New("invalid proof found")
+	_               Submitter = (*ProofSubmitterPacaya)(nil)
+	ProofTimeout              = 3 * time.Hour
+	ErrInvalidProof           = errors.New("invalid proof found")
 )
 
 // Submitter is the interface for submitting proofs of the L2 blocks.
