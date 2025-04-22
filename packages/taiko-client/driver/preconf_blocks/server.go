@@ -457,53 +457,36 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 	s.lookahead = l
 }
 
-// checkLookaheadHandover checks if the current operator is in the handover window.
-func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address, slotInEpoch uint64) error {
-	if s.lookahead == nil || s.rpc.L1Beacon == nil {
-		log.Warn("Lookahead has not been cached yet, skipping handover check")
-		return nil
-	}
-
+// checkLookaheadHandover returns nil if feeRecipient is allowed
+// to build at slot globalSlot (absolute L1 slot).
+func (s *PreconfBlockAPIServer) checkLookaheadHandover(
+	feeRecipient common.Address,
+	globalSlot uint64,
+) error {
 	s.lookaheadMutex.Lock()
-	defer s.lookaheadMutex.Unlock()
+	la := s.lookahead
+	s.lookaheadMutex.Unlock()
 
-	var (
-		handoverSlots = s.handoverSlots
-		slotsPerEpoch = s.rpc.L1Beacon.SlotsPerEpoch
-	)
-
-	// If the current operator is the same as the next operator, no need to check.
-	if s.lookahead.CurrOperator.Hex() == s.lookahead.NextOperator.Hex() {
+	if la == nil || s.rpc.L1Beacon == nil {
+		log.Warn("lookahead not initialized, allowing by default")
 		return nil
 	}
 
-	// Calculate the threshold for handover slots.
-	threshold := slotsPerEpoch - handoverSlots
+	for _, r := range la.SequencingRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			return nil
+		}
+	}
 
-	log.Debug(
-		"Check lookahead handover",
-		"handoverSlots", handoverSlots,
-		"slotsPerEpoch", slotsPerEpoch,
-		"slotInEpoch", slotInEpoch,
-		"threshold", threshold,
-		"currOperator", s.lookahead.CurrOperator.Hex(),
-		"nextOperator", s.lookahead.NextOperator.Hex(),
-		"feeRecipient", feeRecipient.Hex(),
+	log.Warn(
+		"slot out of sequencing window",
+		"slot", globalSlot,
+		"ranges", la.SequencingRanges,
 	)
 
-	if slotInEpoch < threshold {
-		// For slots [0, threshold-1], only the current operator is allowed.
-		if s.lookahead.CurrOperator.Hex() != feeRecipient.Hex() {
-			return errInvalidCurrOperator
-		}
-
-		return nil
-	} else {
-		// For slots [threshold, slotsPerEpoch-1], only the next operator is allowed.
-		if s.lookahead.NextOperator.Hex() != feeRecipient.Hex() {
-			return errInvalidNextOperator
-		}
-
-		return nil
+	if feeRecipient == la.CurrOperator {
+		return errInvalidCurrOperator
 	}
+
+	return errInvalidNextOperator
 }

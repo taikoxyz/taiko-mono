@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
+	"gotest.tools/assert"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -30,55 +31,40 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	}()
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
-	l := &Lookahead{
-		CurrOperator: common.HexToAddress("0x1234567890123456789012345678901234567890"),
-		NextOperator: common.HexToAddress("0x0987654321098765432109876543210987654321"),
-	}
-
-	sameOperatorLookahead := &Lookahead{
-		CurrOperator: common.HexToAddress("0x1234567890123456789012345678901234567890"),
-		NextOperator: common.HexToAddress("0x1234567890123456789012345678901234567890"),
-	}
-
-	tests := []struct {
-		name          string
-		handoverSlots uint64
-		lookahead     *Lookahead
-		slotInEpoch   uint64
-		feeRecipient  common.Address
-		wantErr       error
-	}{
-		{"currOperator zero handover skip slots", 0, l, 27, l.CurrOperator, nil},
-		{"nextOperator zero handover skip slots", 0, l, 1, l.NextOperator, errInvalidCurrOperator},
-		{"currOperator on edge", 4, l, 27, l.CurrOperator, nil},
-		{"currOperator too late", 4, l, 28, l.CurrOperator, errInvalidNextOperator},
-		{"nextOperator on edge", 4, l, 28, l.NextOperator, nil},
-		{"nextOperator too early", 4, l, 27, l.NextOperator, errInvalidCurrOperator},
-		{"currOperator and nextOperator the same", 4, sameOperatorLookahead, 27, l.NextOperator, nil},
-		{"currOperator on edge small handover slots", 1, l, 30, l.CurrOperator, nil},
-		{"currOperator too late small handover slots", 1, l, 31, l.CurrOperator, errInvalidNextOperator},
-		{"nextOperator on edge small handover slots", 1, l, 31, l.NextOperator, nil},
-		{"nextOperator too early small handover slots", 1, l, 30, l.NextOperator, errInvalidCurrOperator},
-		{
-			"currOperator and nextOperator the same small handover slots",
-			4,
-			sameOperatorLookahead,
-			27,
-			l.NextOperator,
-			nil,
+func TestCheckLookaheadHandover_NewLogic(t *testing.T) {
+	curr := common.HexToAddress("0xAAA0000000000000000000000000000000000000")
+	next := common.HexToAddress("0xBBB0000000000000000000000000000000000000")
+	la := &Lookahead{
+		CurrOperator: curr,
+		NextOperator: next,
+		SequencingRanges: []SlotRange{
+			{Start: 100, End: 200},
+			{Start: 300, End: 400},
 		},
 	}
 
-	for _, tt := range tests {
-		s.T().Run(tt.name, func(t *testing.T) {
-			s.s.handoverSlots = tt.handoverSlots
-			s.s.lookahead = tt.lookahead
-			s.s.rpc.L1Beacon = &rpc.BeaconClient{
-				SlotsPerEpoch: 32,
-			}
+	server := &PreconfBlockAPIServer{
+		lookahead: la,
+		rpc:       &rpc.Client{L1Beacon: &rpc.BeaconClient{SlotsPerEpoch: 32}},
+	}
 
-			s.Equal(tt.wantErr, s.s.checkLookaheadHandover(tt.feeRecipient, tt.slotInEpoch))
+	tests := []struct {
+		name         string
+		globalSlot   uint64
+		feeRecipient common.Address
+		wantErr      error
+	}{
+		{name: "curr in range", globalSlot: 150, feeRecipient: curr, wantErr: nil},
+		{name: "next in range", globalSlot: 350, feeRecipient: next, wantErr: nil},
+		{name: "curr out range", globalSlot: 250, feeRecipient: curr, wantErr: errInvalidCurrOperator},
+		{name: "next out range", globalSlot: 250, feeRecipient: next, wantErr: errInvalidNextOperator},
+		{name: "other out range", globalSlot: 250, feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"), wantErr: errInvalidNextOperator},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := server.checkLookaheadHandover(tt.feeRecipient, tt.globalSlot)
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }

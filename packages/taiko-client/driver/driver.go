@@ -51,6 +51,8 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
+	preconfOperatorAddress common.Address
+
 	ctx context.Context
 	wg  sync.WaitGroup
 }
@@ -150,6 +152,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 					return err
 				}
+
+				d.preconfOperatorAddress = cfg.PreconfOperatorAddress
 			}
 
 			d.preconfBlockServer.SetP2PNode(d.p2pNode)
@@ -376,75 +380,54 @@ func (d *Driver) cacheLookaheadLoop() {
 		d.wg.Done()
 	}()
 
-	var (
-		seenBlockNumber uint64 = 0
-		lastSlot        uint64 = 0
-	)
+	opWin := preconfBlocks.NewOpWindow()
 
 	for {
 		select {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			currentSlot := d.rpc.L1Beacon.CurrentSlot()
+			slot := d.rpc.L1Beacon.CurrentSlot()
+			epoch := d.rpc.L1Beacon.CurrentEpoch()
 
-			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
+			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
-				log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
+				log.Warn("could not fetch current operator", "err", err)
 				continue
 			}
 
-			// Avoid fetching on missed slots, otherwise the previous "current" can get tagged as
-			// the new "current" for this epoch.
-			if latestSeenBlockNumber == seenBlockNumber {
-				// Leave some grace period for the block to arrive.
-				if lastSlot != currentSlot &&
-					uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
-					log.Warn(
-						"Lookahead possible missed slot detected",
-						"currentSlot", currentSlot,
-						"latestSeenBlockNumber", latestSeenBlockNumber,
-					)
+			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
+			if err != nil {
+				log.Warn("could not fetch next operator", "err", err)
 
-					lastSlot = currentSlot
-				}
-
-				continue
+				nextOp = common.Address{}
 			}
 
-			seenBlockNumber = latestSeenBlockNumber
-			lastSlot = currentSlot
+			// push into our 3‑epoch ring
+			opWin.Push(epoch, currOp, nextOp)
 
-			var (
-				currentEpoch   = d.rpc.L1Beacon.CurrentEpoch()
-				remainingSlots = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
+			// build the sequencing window
+			seqRanges := opWin.SequencingWindow(
+				d.PreconfOperatorAddress,
+				d.PreconfHandoverSkipSlots,
+				d.rpc.L1Beacon.SlotsPerEpoch,
 			)
 
-			currentOperatorAddress, err := d.rpc.GetPreconfWhiteListOperator(nil)
-			if err != nil {
-				log.Warn("Failed to get current preconf whitelist operator address", "error", err)
-				continue
-			}
-
-			nextOperatorAddress, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
-			if err != nil {
-				log.Warn("Failed to get next preconf whitelist operator address", "error", err)
-				nextOperatorAddress = rpc.ZeroAddress
-			}
-
-			// Update the lookahead information for the preconfirmation
-			// block server.
+			// push to server
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
-				CurrOperator: currentOperatorAddress,
-				NextOperator: nextOperatorAddress,
-				UpdatedAt:    time.Now().UTC(),
+				CurrOperator:     currOp,
+				NextOperator:     nextOp,
+				SequencingRanges: seqRanges,
+				UpdatedAt:        time.Now().UTC(),
 			})
 
-			log.Debug("Lookahead information",
-				"remainingSlots", remainingSlots,
-				"currentEpoch", currentEpoch,
-				"currentOperator", currentOperatorAddress.Hex(),
-				"nextOperator", nextOperatorAddress.Hex(),
+			log.Debug(
+				"lookahead refreshed",
+				"slot", slot,
+				"epoch", epoch,
+				"currOp", currOp.Hex(),
+				"nextOp", nextOp.Hex(),
+				"ranges", seqRanges,
 			)
 		}
 	}
