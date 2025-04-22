@@ -475,6 +475,11 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(
 	// Check CurrRanges first
 	for _, r := range la.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
+			// first slot should only be processed by the nextOperator
+			if globalSlot == r.Start && feeRecipient == la.NextOperator {
+				return nil
+			}
+
 			if feeRecipient == la.CurrOperator {
 				return nil
 			}
