@@ -413,7 +413,12 @@ func (d *Driver) cacheLookaheadLoop() {
 
 					lastSlot = currentSlot
 				}
+
+				continue
 			}
+
+			lastSlot = currentSlot
+			seenBlockNumber = latestSeenBlockNumber
 
 			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
