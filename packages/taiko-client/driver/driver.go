@@ -435,7 +435,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			// push into our 3‑epoch ring
 			opWin.Push(epoch, currOp, nextOp)
 
-			// Push next epoch (currOp becomes nextOp at next epoch)
+			// Push next epoch (nextOp becomes currOp at next epoch)
 			opWin.Push(epoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
 
 			currRanges := opWin.SequencingWindowSplit(
