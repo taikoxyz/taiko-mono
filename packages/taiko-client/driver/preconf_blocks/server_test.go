@@ -63,7 +63,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 			name:         "other out of range",
 			globalSlot:   250,
 			feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"),
-			wantErr:      errInvalidNextOperator
+			wantErr:      errInvalidNextOperator,
 		},
 	}
 
