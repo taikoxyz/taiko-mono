@@ -31,7 +31,6 @@ type BatchProposedEventHandler struct {
 	proverAddress         common.Address
 	proverSetAddress      common.Address
 	rpc                   *rpc.Client
-	proofGenerationCh     chan<- *proofProducer.ProofResponse
 	assignmentExpiredCh   chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh     chan<- *proofProducer.ProofRequestBody
 	backOffRetryInterval  time.Duration
@@ -46,7 +45,6 @@ type NewBatchProposedEventHandlerOps struct {
 	ProverAddress         common.Address
 	ProverSetAddress      common.Address
 	RPC                   *rpc.Client
-	ProofGenerationCh     chan *proofProducer.ProofResponse
 	AssignmentExpiredCh   chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh     chan *proofProducer.ProofRequestBody
 	BackOffRetryInterval  time.Duration
@@ -62,7 +60,6 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProverAddress,
 		opts.ProverSetAddress,
 		opts.RPC,
-		opts.ProofGenerationCh,
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,
 		opts.BackOffRetryInterval,
@@ -78,14 +75,6 @@ func (h *BatchProposedEventHandler) Handle(
 	meta metadata.TaikoProposalMetaData,
 	end eventIterator.EndBatchProposedEventIterFunc,
 ) error {
-	// If there are newly generated proofs, we need to submit them as soon as possible,
-	// to avoid proof submission timeout.
-	if len(h.proofGenerationCh) > 0 {
-		log.Info("onBatchProposed callback early return", "proofGenerationChannelLength", len(h.proofGenerationCh))
-		end()
-		return nil
-	}
-
 	// Wait for the corresponding L2 block being mined in node.
 	if _, err := h.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())); err != nil {
 		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", meta.Pacaya().GetLastBlockID(), err)

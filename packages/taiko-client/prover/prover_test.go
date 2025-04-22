@@ -165,14 +165,22 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 }
 
-func (s *ProverTestSuite) TestSubmitProofOp() {
+func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&proofProducer.ProofResponse{
-				BlockID: common.Big1,
-				Meta:    &metadata.TaikoDataBlockMetadataPacaya{},
-				Proof:   []byte{},
-				Opts:    &proofProducer.ProofRequestOptionsPacaya{},
+			return s.p.submitProofAggregationOp(&proofProducer.BatchProofs{
+				ProofResponses: []*proofProducer.ProofResponse{
+					{
+						BatchID: common.Big1,
+						Meta:    &metadata.TaikoDataBlockMetadataPacaya{},
+						Proof:   []byte{},
+						Opts:    &proofProducer.ProofRequestOptionsPacaya{},
+					},
+				},
+				BatchProof:        []byte{},
+				BatchIDs:          []*big.Int{common.Big1},
+				ProofType:         proofProducer.ProofTypeOp,
+				SgxGethBatchProof: []byte{},
 			})
 		})
 	})
@@ -362,17 +370,14 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		s.Nil(s.p.requestProofOp(req1.Meta))
 		req2 := <-batchProver.proofSubmissionCh
 		s.Nil(batchProver.requestProofOp(req2.Meta))
-		s.Nil(s.p.proofSubmitterPacaya.SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 	}
-	tier := <-batchProver.batchesAggregationNotify
-	s.Nil(batchProver.aggregateOpPacaya(tier))
+	s.Nil(batchProver.aggregateOpPacaya(<-batchProver.batchesAggregationNotify))
 	s.ErrorIs(
 		batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh),
 		proofSubmitter.ErrInvalidProof,
 	)
-	for i := 0; i < batchSize; i++ {
-		<-sink1
-	}
 }
 
 func (s *ProverTestSuite) TestAggregateProofs() {
@@ -422,9 +427,6 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	proofType := <-batchProver.batchesAggregationNotify
 	s.Nil(batchProver.aggregateOpPacaya(proofType))
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
-	for i := 0; i < batchSize; i++ {
-		s.NotNil(<-sink)
-	}
 }
 
 func (s *ProverTestSuite) TestForceAggregate() {
@@ -482,9 +484,6 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	proofType := <-batchProver.batchesAggregationNotify
 	s.Nil(batchProver.aggregateOpPacaya(proofType))
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
-	for i := 0; i < batchSize-1; i++ {
-		<-sink
-	}
 }
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {

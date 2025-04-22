@@ -51,7 +51,7 @@ func (s *Sender) Send(ctx context.Context, proofResponse *producer.ProofResponse
 	}
 
 	if proofStatus.IsSubmitted && !proofStatus.Invalid {
-		return fmt.Errorf("a valid proof for block %d is already submitted", proofResponse.BlockID)
+		return fmt.Errorf("a valid proof for block %d is already submitted", proofResponse.BatchID)
 	}
 
 	// Check if this proof is still needed to be submitted.
@@ -79,7 +79,7 @@ func (s *Sender) Send(ctx context.Context, proofResponse *producer.ProofResponse
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		log.Error(
 			"Failed to submit proof",
-			"blockID", proofResponse.BlockID,
+			"blockID", proofResponse.BatchID,
 			"proofType", proofResponse.ProofType,
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
@@ -131,10 +131,10 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 	log.Info(
 		fmt.Sprintf("🚚 Your %s batch proofs have been accepted", batchProof.ProofType),
 		"txHash", receipt.TxHash,
-		"blockIDs", batchProof.BlockIDs,
+		"blockIDs", batchProof.BatchIDs,
 	)
 
-	metrics.ProverSubmissionAcceptedCounter.Add(float64(len(batchProof.BlockIDs)))
+	metrics.ProverSubmissionAcceptedCounter.Add(float64(len(batchProof.BatchIDs)))
 
 	return nil
 }
@@ -151,7 +151,7 @@ func (s *Sender) ValidateProof(
 	if err != nil {
 		log.Warn(
 			"Failed to fetch L1 block",
-			"blockID", proofResponse.BlockID,
+			"blockID", proofResponse.BatchID,
 			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
 			"error", err,
 		)
@@ -160,7 +160,7 @@ func (s *Sender) ValidateProof(
 	if l1Header.Hash() != proofResponse.Opts.GetRawBlockHash() {
 		log.Warn(
 			"Reorg detected, skip the current proof submission",
-			"blockID", proofResponse.BlockID,
+			"blockID", proofResponse.BatchID,
 			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
 			"l1HashOld", proofResponse.Opts.GetRawBlockHash(),
 			"l1HashNew", l1Header.Hash(),

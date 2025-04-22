@@ -65,7 +65,6 @@ type Prover struct {
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
-	proofGenerationCh      chan *proofProducer.ProofResponse
 	batchProofGenerationCh chan *proofProducer.BatchProofs
 
 	// Transactions manager
@@ -126,7 +125,6 @@ func InitFromConfig(
 	config.ReportProtocolConfigs(p.protocolConfigs)
 
 	chBufferSize := p.protocolConfigs.MaxProposals()
-	p.proofGenerationCh = make(chan *proofProducer.ProofResponse, chBufferSize)
 	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
@@ -243,8 +241,6 @@ func (p *Prover) eventLoop() {
 		select {
 		case <-p.ctx.Done():
 			return
-		case proofResponse := <-p.proofGenerationCh:
-			p.withRetry(func() error { return p.submitProofOp(proofResponse) })
 		case batchProof := <-p.batchProofGenerationCh:
 			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
@@ -315,33 +311,6 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
 	return nil
 }
 
-// submitProofOp performs a proof submission operation.
-func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error {
-	submitter := p.proofSubmitterPacaya
-	if utils.IsNil(submitter) {
-		return nil
-	}
-
-	if err := submitter.SubmitProof(p.ctx, proofResponse); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
-			log.Error(
-				"Proof submission reverted",
-				"blockID", proofResponse.BlockID,
-				"error", err,
-			)
-			return nil
-		}
-		log.Error(
-			"Submit proof error",
-			"blockID", proofResponse.BlockID,
-			"error", err,
-		)
-		return err
-	}
-
-	return nil
-}
-
 // submitProofsOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
 	submitter := p.proofSubmitterPacaya
@@ -353,7 +322,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
 			log.Error(
 				"Proof submission reverted",
-				"blockIDs", batchProof.BlockIDs,
+				"blockIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
@@ -361,7 +330,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		} else if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Warn(
 				"Detected proven blocks",
-				"blockIDs", batchProof.BlockIDs,
+				"blockIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
@@ -369,7 +338,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		}
 		log.Error(
 			"Submit proof error",
-			"blockIDs", batchProof.BlockIDs,
+			"blockIDs", batchProof.BatchIDs,
 			"proofType", batchProof.ProofType,
 			"error", err,
 		)

@@ -19,7 +19,7 @@ func (o *DummyProofProducer) RequestProof(
 	_ time.Time,
 ) (*ProofResponse, error) {
 	return &ProofResponse{
-		BlockID: blockID,
+		BatchID: blockID,
 		Meta:    meta,
 		Proof:   bytes.Repeat([]byte{0xff}, 100),
 		Opts:    opts,

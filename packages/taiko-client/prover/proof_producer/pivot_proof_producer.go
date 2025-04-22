@@ -56,7 +56,7 @@ func (s *SgxGethProofProducer) RequestProof(
 	}
 
 	return &ProofResponse{
-		BlockID: batchID,
+		BatchID: batchID,
 		Meta:    meta,
 		Proof:   common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
 		Opts:    opts,
@@ -77,8 +77,8 @@ func (s *SgxGethProofProducer) Aggregate(
 		"Aggregate batch proofs from raiko-host service",
 		"batchSize", len(items),
 		"proofType", ProofTypeSgxGeth,
-		"firstID", items[0].BlockID,
-		"lastID", items[len(items)-1].BlockID,
+		"firstID", items[0].BatchID,
+		"lastID", items[len(items)-1].BatchID,
 		"time", time.Since(requestAt),
 	)
 
