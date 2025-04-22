@@ -10,9 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -36,6 +38,8 @@ type BlocksInserterPacaya struct {
 	calldataFetcher    txlistFetcher.TxListFetcher
 	blobFetcher        txlistFetcher.TxListFetcher
 	mutex              sync.Mutex
+
+	witnessCache *lru.Cache[uint64, *hexutil.Bytes] // Cache for witnesses
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -48,6 +52,7 @@ func NewBlocksInserterPacaya(
 	calldataFetcher txlistFetcher.TxListFetcher,
 	blobFetcher txlistFetcher.TxListFetcher,
 ) *BlocksInserterPacaya {
+	witnessCache, _ := lru.New[uint64, *hexutil.Bytes](128)
 	return &BlocksInserterPacaya{
 		rpc:                rpc,
 		progressTracker:    progressTracker,
@@ -56,6 +61,7 @@ func NewBlocksInserterPacaya(
 		anchorConstructor:  anchorConstructor,
 		calldataFetcher:    calldataFetcher,
 		blobFetcher:        blobFetcher,
+		witnessCache:       witnessCache,
 	}
 }
 
@@ -91,6 +97,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		allTxs          = i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, txListBytes, len(meta.GetBlobHashes()) != 0)
 		parent          *types.Header
 		lastPayloadData *engine.ExecutableData
+		lastWitness     *hexutil.Bytes
 	)
 
 	for j := range meta.GetBlocks() {
@@ -181,7 +188,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
-		if lastPayloadData, err = createPayloadAndSetHead(
+		if lastPayloadData, lastWitness, err = createPayloadAndSetHead(
 			ctx,
 			i.rpc,
 			&createPayloadAndSetHeadMetaData{
@@ -195,6 +202,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		); err != nil {
 			return fmt.Errorf("failed to insert new head to L2 execution engine: %w", err)
 		}
+
+		i.cacheWitness(lastPayloadData.Number, lastWitness)
 
 		log.Debug("Payload data", "hash", lastPayloadData.BlockHash, "txs", len(lastPayloadData.Transactions))
 
@@ -277,7 +286,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	}
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
-	payload, err := createExecutionPayloadsAndSetHead(
+	payload, witness, err := createExecutionPayloadsAndSetHead(
 		ctx,
 		i.rpc,
 		&createExecutionPayloadsMetaData{
@@ -302,7 +311,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
 	}
-
+	i.cacheWitness(payload.Number, witness)
 	metrics.DriverL2PreconfHeadHeightGauge.Set(float64(executableData.BlockNumber))
 
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
@@ -328,4 +337,11 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	}
 
 	return nil
+}
+
+func (i *BlocksInserterPacaya) cacheWitness(blockID uint64, witness *hexutil.Bytes) {
+	if witness == nil {
+		return
+	}
+	i.witnessCache.Add(blockID, witness)
 }

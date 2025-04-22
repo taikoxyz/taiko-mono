@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -32,7 +33,7 @@ func createPayloadAndSetHead(
 	rpc *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
 	anchorTx *types.Transaction,
-) (*engine.ExecutableData, error) {
+) (*engine.ExecutableData, *hexutil.Bytes, error) {
 	log.Debug(
 		"Try to insert a new L2 head block",
 		"parentNumber", meta.Parent.Number,
@@ -44,7 +45,7 @@ func createPayloadAndSetHead(
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
 		log.Error("Encode txList error", "blockID", meta.BlockID, "error", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Increase the gas limit for the anchor block.
@@ -61,17 +62,17 @@ func createExecutionPayloadsAndSetHead(
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
-) (payloadData *engine.ExecutableData, err error) {
+) (payloadData *engine.ExecutableData, witness *hexutil.Bytes, err error) {
 	// Create a new execution payload.
-	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
+	payload, witness, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
+		return nil, nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
 	var lastVerifiedBlockHash common.Hash
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+		return nil, nil, fmt.Errorf("failed to fetch last verified block: %w", err)
 	}
 
 	if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
@@ -87,13 +88,13 @@ func createExecutionPayloadsAndSetHead(
 	// Update the fork choice.
 	fcRes, err := rpc.L2Engine.ForkchoiceUpdated(ctx, fc, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if fcRes.PayloadStatus.Status != engine.VALID {
-		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
+		return nil, nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
 
-	return payload, nil
+	return payload, witness, nil
 }
 
 // createExecutionPayloads creates a new execution payloads through Engine APIs.
@@ -102,7 +103,7 @@ func createExecutionPayloads(
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
-) (payloadData *engine.ExecutableData, err error) {
+) (payloadData *engine.ExecutableData, witness *hexutil.Bytes, err error) {
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
 		Random:                meta.Difficulty,
@@ -143,19 +144,19 @@ func createExecutionPayloads(
 		attributes,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update fork choice: %w", err)
+		return nil, nil, fmt.Errorf("failed to update fork choice: %w", err)
 	}
 	if fcRes.PayloadStatus.Status != engine.VALID {
-		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
+		return nil, nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
 	if fcRes.PayloadID == nil {
-		return nil, errors.New("empty payload ID")
+		return nil, nil, errors.New("empty payload ID")
 	}
 
 	// Step 2, get the payload
-	payload, _, err := rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+	payload, witness, err := rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get payload: %w", err)
+		return nil, nil, fmt.Errorf("failed to get payload: %w", err)
 	}
 
 	log.Debug(
@@ -173,13 +174,13 @@ func createExecutionPayloads(
 	// Step 3, execute the payload
 	execStatus, err := rpc.L2Engine.NewPayload(ctx, payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a new payload: %w", err)
+		return nil, nil, fmt.Errorf("failed to create a new payload: %w", err)
 	}
 	if execStatus.Status != engine.VALID {
-		return nil, fmt.Errorf("unexpected NewPayload response status: %s", execStatus.Status)
+		return nil, nil, fmt.Errorf("unexpected NewPayload response status: %s", execStatus.Status)
 	}
 
-	return payload, nil
+	return payload, witness, nil
 }
 
 // isBatchPreconfirmed checks if all blocks in the given batch are preconfirmed,
