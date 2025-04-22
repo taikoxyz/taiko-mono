@@ -208,7 +208,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 uint256 proverFee;
                 (meta_.prover, proverFee) = proverMarket.getCurrentProver();
                 require(meta_.prover != address(0), NoProverAvailable());
-
                 if (info_.proposer == meta_.prover) {
                     // proposer is the same as the prover, no need to pay the prover fee.
                     _debitBond(meta_.prover, config.livenessBondBase);
@@ -216,15 +215,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // proposer pay the prover fee.
                     _debitBond(info_.proposer, proverFee);
 
-                    if (proverFee < config.livenessBondBase) {
-                        _debitBond(meta_.prover, config.livenessBondBase - proverFee);
-                    } else {
-                        _creditBond(meta_.prover, proverFee - config.livenessBondBase);
-                    }
+                    // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
+                    // if not then add the diff to the bond balance
+                    int256 bondDelta = int256(proverFee) - int256(uint256(config.livenessBondBase));
+                    bondDelta < 0
+                        ? _debitBond(meta_.prover, uint256(-bondDelta))
+                        : _creditBond(meta_.prover, uint256(bondDelta));
+
                     proverMarket.onProverAssigned(meta_.prover, proverFee, meta_.batchId);
                 }
             } else {
-                // proposer is the same as the prover, no need to pay the prover fee.
                 _debitBond(meta_.prover, config.livenessBondBase);
             }
 
