@@ -7,10 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var (
-	size = 3
-)
-
 // SlotRange represents a half‑open [Start,End) range of L1 slots.
 type SlotRange struct {
 	Start uint64
@@ -33,7 +29,6 @@ func mergeRanges(r []SlotRange) []SlotRange {
 		last := &out[len(out)-1]
 
 		if rng.Start <= last.End {
-
 			if rng.End > last.End {
 				last.End = rng.End
 			}
