@@ -26,7 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
+// BlocksInserterPacaya is responsible for inserting Pacaya blocks to the L2 execution engine.
 type BlocksInserterPacaya struct {
 	rpc                *rpc.Client
 	progressTracker    *beaconsync.SyncProgressTracker
@@ -38,7 +38,7 @@ type BlocksInserterPacaya struct {
 	mutex              sync.Mutex
 }
 
-// NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
+// NewBlocksInserterPacaya creates a new BlocksInserterPacaya instance.
 func NewBlocksInserterPacaya(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,

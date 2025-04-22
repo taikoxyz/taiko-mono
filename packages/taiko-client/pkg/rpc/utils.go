@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -106,10 +105,9 @@ func CheckProverBalance(
 
 // BatchProofStatus represents the proving status of the given L2 blocks batch.
 type BatchProofStatus struct {
-	IsSubmitted            bool
-	Invalid                bool
-	CurrentTransitionState *ontakeBindings.TaikoDataTransitionState
-	ParentHeader           *types.Header
+	IsSubmitted  bool
+	Invalid      bool
+	ParentHeader *types.Header
 }
 
 // GetBatchesProofStatus checks whether the L2 blocks batch still needs a new proof.

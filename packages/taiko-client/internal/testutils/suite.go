@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -29,7 +28,6 @@ type ClientTestSuite struct {
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
-	AddressManager      *ontakeBindings.AddressManager
 	BlobServer          *MemoryBlobServer
 }
 
