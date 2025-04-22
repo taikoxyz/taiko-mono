@@ -407,13 +407,15 @@ func (d *Driver) cacheLookaheadLoop() {
 			opWin.Push(epoch, currOp, nextOp)
 
 			currRanges := opWin.SequencingWindowSplit(
-				d.PreconfOperatorAddress, true,
+				d.PreconfOperatorAddress,
+				true,
 				d.PreconfHandoverSkipSlots,
 				d.rpc.L1Beacon.SlotsPerEpoch,
 			)
 
 			nextRanges := opWin.SequencingWindowSplit(
-				d.PreconfOperatorAddress, false,
+				d.PreconfOperatorAddress,
+				false,
 				d.PreconfHandoverSkipSlots,
 				d.rpc.L1Beacon.SlotsPerEpoch,
 			)

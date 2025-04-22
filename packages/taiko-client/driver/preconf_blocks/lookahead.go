@@ -64,13 +64,12 @@ func (w *opWindow) Push(epoch uint64, curr, next common.Address) {
 	w.valid[idx] = true
 }
 
-// sequencingWindow returns the union of
-// [(epoch*slotsPerEpoch) .. (epoch*slotsPerEpoch + slotsPerEpoch - handoverSlots))
-// for every epoch where we were either curr or next operator.
+// SequencingWindowSplit creates a slot range for either the current or the next operator
 func (w *opWindow) SequencingWindowSplit(
 	operator common.Address,
 	curr bool,
-	handoverSlots, slotsPerEpoch uint64,
+	handoverSlots,
+	slotsPerEpoch uint64,
 ) []SlotRange {
 	var ranges []SlotRange
 	threshold := slotsPerEpoch - handoverSlots
