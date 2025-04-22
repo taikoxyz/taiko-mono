@@ -158,11 +158,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
     {
         emit ProverAssigned(msg.sender, _fee, _batchId);
 
-        if (assignmentCount > FEE_CHANGE_THRESHOLD) {
-            // No need to update assignmentCount nor avgFee
-            return;
-        }
-
         if (++assignmentCount <= FEE_CHANGE_THRESHOLD) {
             uint64 _avgFeeInGwei = avgFeeInGwei;
             uint64 _feeInGwei = uint64(_fee / GWEI);
