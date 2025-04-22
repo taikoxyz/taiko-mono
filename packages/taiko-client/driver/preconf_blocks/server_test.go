@@ -69,7 +69,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 
 		// Inside NextRanges (next epoch)
 		{name: "next allowed next epoch", globalSlot: 33, feeRecipient: next, wantErr: nil},
-		{name: "curr wrong next epoch", globalSlot: 33, feeRecipient: curr, wantErr: errInvalidNextOperator},
+		{name: "curr wrong next epoch", globalSlot: 33, feeRecipient: curr, wantErr: errInvalidCurrOperator},
 
 		// Slot outside all ranges (invalid)
 		{
