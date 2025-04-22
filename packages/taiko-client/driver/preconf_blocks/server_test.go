@@ -71,13 +71,15 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 		{name: "next allowed next epoch", globalSlot: 33, feeRecipient: next, wantErr: nil},
 		{name: "curr wrong next epoch", globalSlot: 33, feeRecipient: curr, wantErr: errInvalidNextOperator},
 
-		// Random fee recipient not allowed
+		// Slot outside all ranges (invalid)
 		{
 			name:         "random address wrong",
-			globalSlot:   10,
+			globalSlot:   70,
 			feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"),
-			wantErr:      errInvalidCurrOperator,
+			wantErr:      errInvalidNextOperator,
 		},
+		{name: "curr wrong outside", globalSlot: 70, feeRecipient: curr, wantErr: errInvalidNextOperator},
+		{name: "next wrong outside", globalSlot: 70, feeRecipient: next, wantErr: errInvalidNextOperator},
 	}
 
 	for _, tt := range tests {
