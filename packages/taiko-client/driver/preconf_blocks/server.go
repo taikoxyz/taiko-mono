@@ -483,8 +483,6 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(
 			if feeRecipient == la.CurrOperator {
 				return nil
 			}
-
-			return errInvalidCurrOperator
 		}
 	}
 
@@ -494,8 +492,6 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(
 			if feeRecipient == la.NextOperator {
 				return nil
 			}
-
-			return errInvalidNextOperator
 		}
 	}
 
@@ -506,6 +502,10 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(
 		"currRanges", la.CurrRanges,
 		"nextRanges", la.NextRanges,
 	)
+
+	if feeRecipient == la.CurrOperator {
+		return errInvalidCurrOperator
+	}
 
 	return errInvalidNextOperator
 }
