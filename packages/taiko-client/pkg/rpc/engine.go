@@ -48,7 +48,7 @@ func (c *EngineClient) ForkchoiceUpdated(
 	if c.witness {
 		return c.forkchoiceUpdatedWithWitness(ctx, fc, attributes)
 	}
-	return c.ForkchoiceUpdated(ctx, fc, attributes)
+	return c.forkchoiceUpdated(ctx, fc, attributes)
 }
 
 func (c *EngineClient) forkchoiceUpdated(
