@@ -391,7 +391,6 @@ func (d *Driver) cacheLookaheadLoop() {
 			return
 		case <-ticker.C:
 			var (
-				slot        = d.rpc.L1Beacon.CurrentSlot()
 				epoch       = d.rpc.L1Beacon.CurrentEpoch()
 				currentSlot = d.rpc.L1Beacon.CurrentSlot()
 			)
