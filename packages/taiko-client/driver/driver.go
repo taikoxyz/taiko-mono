@@ -429,7 +429,7 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
-				log.Warn("could not fetch next operator", "err", err)
+				log.Warn("Could not fetch next operator", "err", err)
 				continue
 			}
 
