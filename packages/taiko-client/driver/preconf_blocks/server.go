@@ -457,18 +457,14 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 	s.lookahead = l
 }
 
-// checkLookaheadHandover returns nil if feeRecipient is allowed
-// to build at slot globalSlot (absolute L1 slot).
-func (s *PreconfBlockAPIServer) checkLookaheadHandover(
-	feeRecipient common.Address,
-	globalSlot uint64,
-) error {
+// checkLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
+func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
 	s.lookaheadMutex.Lock()
 	la := s.lookahead
 	s.lookaheadMutex.Unlock()
 
 	if la == nil || s.rpc.L1Beacon == nil {
-		log.Warn("lookahead not initialized, allowing by default")
+		log.Warn("Lookahead information not initialized, allowing by default")
 		return nil
 	}
 
@@ -476,7 +472,7 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(
 	threshold := slotsPerEpoch - s.handoverSlots
 	slotInEpoch := globalSlot % slotsPerEpoch
 
-	// Check CurrRanges first
+	// Check Current ranges first
 	for _, r := range la.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
 			// at slotInEpoch >= threshold (handover point), the next operator should be allowed
@@ -504,7 +500,7 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(
 
 	// If not in any range
 	log.Warn(
-		"slot out of sequencing window",
+		"Slot out of sequencing window",
 		"slot", globalSlot,
 		"currRanges", la.CurrRanges,
 		"nextRanges", la.NextRanges,
