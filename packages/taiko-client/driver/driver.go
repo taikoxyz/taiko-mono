@@ -423,7 +423,7 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
-				log.Warn("could not fetch current operator", "err", err)
+				log.Warn("Could not fetch current operator", "err", err)
 				continue
 			}
 
