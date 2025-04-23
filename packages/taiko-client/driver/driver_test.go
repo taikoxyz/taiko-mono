@@ -914,9 +914,30 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
 
-	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head1.Number.Uint64(), l2Head3.Number.Uint64())
+	s.Equal(l2Head1.Number.Uint64(), l2Head3.Number().Uint64())
+
+	baseFee, overflow := uint256.FromBig(l2Head3.BaseFee())
+	s.False(overflow)
+
+	b, err := utils.EncodeAndCompressTxList(l2Head3.Transactions())
+	s.Nil(err)
+	s.GreaterOrEqual(len(l2Head3.Transactions()), 1)
+
+	s.d.preconfBlockServer.PutPayloadsCache(l2Head3.Number().Uint64(), &eth.ExecutionPayload{
+		BlockHash:     l2Head3.Hash(),
+		ParentHash:    l2Head3.ParentHash(),
+		FeeRecipient:  l2Head3.Coinbase(),
+		PrevRandao:    eth.Bytes32(l2Head3.MixDigest()),
+		BlockNumber:   eth.Uint64Quantity(l2Head3.Number().Uint64()),
+		GasLimit:      eth.Uint64Quantity(l2Head3.GasLimit()),
+		Timestamp:     eth.Uint64Quantity(l2Head3.Time()),
+		ExtraData:     l2Head3.Extra(),
+		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+		Transactions:  []eth.Data{b},
+		Withdrawals:   &types.Withdrawals{},
+	})
 
 	// Randomly gossip preconfirmation messages with missing ancients
 	blockNums := rand.Perm(len(blocks))

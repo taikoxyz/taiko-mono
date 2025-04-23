@@ -516,3 +516,8 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 		return nil
 	}
 }
+
+// PutPayloadsCache puts the given payload into the payload cache queue, should ONLY be used in testing.
+func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.ExecutionPayload) {
+	s.payloadsCache.put(id, payload)
+}
