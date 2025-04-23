@@ -832,10 +832,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 require(numSignals <= _maxSignalsToReceive, TooManySignals());
 
                 for (uint256 j; j < numSignals; ++j) {
-                    require(
-                        signalService.isSignalSent(blockParams.signalSlots[j]),
-                        SignalNotSent()
-                    );
+                    require(signalService.isSignalSent(blockParams.signalSlots[j]), SignalNotSent());
                 }
             }
 
