@@ -15,16 +15,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     error CannotFitToUint64();
     error FeeLargerThanAllowed();
-    error FeeLargerThanMax();
     error FeeNotDivisibleByFeeUnit();
     error InsufficientBondBalance();
     error InvalidThresholds();
     error NotCurrentProver();
     error TooEarly();
 
-    uint256 public constant FEE_CHANGE_FACTOR = 100;
-    uint16 public constant FEE_CHANGE_THRESHOLD = 10;
-    uint256 public constant MAX_FEE_MULTIPLIER = 2;
     uint256 public constant NEW_BID_PERCENTAGE = 95;
     uint256 internal constant GWEI = 10 ** 9;
 
@@ -53,11 +49,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     address internal prover;
     uint64 internal feeInGwei; // proving fee per batch
 
-    /// @dev Slot 3
-    uint64 public avgFeeInGwei; // moving average of fees
-    uint16 internal assignmentCount; // number of assignments
-
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
     modifier validExitTimestamp(uint256 _exitTimestamp) {
         require(_exitTimestamp >= block.timestamp + minExitDelay, TooEarly());
@@ -97,9 +89,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         require(_fee > 0 && _fee % GWEI == 0, FeeNotDivisibleByFeeUnit());
         require(_fee / GWEI <= type(uint64).max, CannotFitToUint64());
 
-        uint256 maxFee = getMaxFee();
-        require(maxFee == 0 || _fee <= maxFee, FeeLargerThanMax());
-
         uint64 _newFeeInGwei = uint64(_fee / GWEI);
 
         require(inbox.v4BondBalanceOf(msg.sender) >= biddingThreshold, InsufficientBondBalance());
@@ -126,7 +115,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         prover = msg.sender;
         feeInGwei = _newFeeInGwei;
         provers[msg.sender].exitTimestamp = _exitTimestamp;
-        assignmentCount = 0;
 
         emit ProverChanged(msg.sender, _fee, _exitTimestamp);
     }
@@ -145,34 +133,6 @@ contract ProverMarket is EssentialContract, IProverMarket {
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
         return
             currentProver == address(0) ? (address(0), 0) : (currentProver, currentFeeInGwei * GWEI);
-    }
-
-    /// @inheritdoc IProverMarket
-    function onProverAssigned(
-        address, /*_prover*/
-        uint256 _fee,
-        uint64 _batchId
-    )
-        external
-        onlyFrom(address(inbox))
-    {
-        emit ProverAssigned(msg.sender, _fee, _batchId);
-
-        if (assignmentCount < FEE_CHANGE_THRESHOLD) {
-            uint64 _avgFeeInGwei = avgFeeInGwei;
-            uint64 _feeInGwei = uint64(_fee / GWEI);
-
-            unchecked {
-                assignmentCount++;
-                avgFeeInGwei = _avgFeeInGwei == 0
-                    ? _feeInGwei
-                    : uint64(((FEE_CHANGE_FACTOR - 1) * _avgFeeInGwei + _feeInGwei) / FEE_CHANGE_FACTOR);
-            }
-        }
-    }
-
-    function getMaxFee() public view returns (uint256) {
-        return (MAX_FEE_MULTIPLIER * avgFeeInGwei).min(type(uint64).max) * GWEI;
     }
 
     function _getCurrentProverAndFeeInGwei() internal view returns (address, uint64) {

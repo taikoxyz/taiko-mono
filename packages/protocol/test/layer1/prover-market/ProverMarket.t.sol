@@ -160,40 +160,6 @@ contract ProverMarketTest is CommonTest {
         market.requestExit(newExitTimestamp);
     }
 
-    function test_averageFeeCalculation() public {
-        uint256 fee = 10 gwei;
-        uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
-
-        mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
-        vm.prank(PROVER1);
-        market.bid(fee, exitTimestamp);
-
-        for (uint16 i = 0; i < 10; i++) {
-            vm.prank(address(mockInbox));
-            market.onProverAssigned(PROVER1, fee, i);
-        }
-
-        uint64 avgFee = market.avgFeeInGwei();
-        assertEq(avgFee, 10);
-    }
-
-    function test_getMaxFee() public {
-        uint256 fee = 10 gwei;
-        uint64 exitTimestamp = uint64(block.timestamp + MIN_EXIT_DELAY + 1);
-
-        mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
-        vm.prank(PROVER1);
-        market.bid(fee, exitTimestamp);
-
-        for (uint16 i = 0; i < 10; i++) {
-            vm.prank(address(mockInbox));
-            market.onProverAssigned(PROVER1, fee, i);
-        }
-
-        uint256 maxFee = market.getMaxFee();
-        assertEq(maxFee, 20 gwei); // MAX_FEE_MULTIPLIER is 2
-    }
-
     function test_invalidThresholds_reverts() public {
         vm.expectRevert(ProverMarket.InvalidThresholds.selector);
         new ProverMarket(address(mockInbox), 100 ether, 200 ether, 50 ether, MIN_EXIT_DELAY);
@@ -218,22 +184,6 @@ contract ProverMarketTest is CommonTest {
         vm.prank(PROVER2);
         vm.expectRevert(ProverMarket.FeeLargerThanAllowed.selector);
         market.bid(11 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 2));
-    }
-
-    function test_feeLargerThanMax_reverts() public {
-        mockInbox.setBondBalance(PROVER1, BIDDING_THRESHOLD);
-        vm.prank(PROVER1);
-        market.bid(10 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 1));
-
-        for (uint16 i = 0; i < 10; i++) {
-            vm.prank(address(mockInbox));
-            market.onProverAssigned(PROVER1, 10 gwei, i);
-        }
-
-        mockInbox.setBondBalance(PROVER2, BIDDING_THRESHOLD);
-        vm.prank(PROVER2);
-        vm.expectRevert(ProverMarket.FeeLargerThanMax.selector);
-        market.bid(25 gwei, uint64(block.timestamp + MIN_EXIT_DELAY + 2)); // 2x avg is 20 gwei
     }
 
     function test_feeNotDivisibleByUnit_reverts() public {
