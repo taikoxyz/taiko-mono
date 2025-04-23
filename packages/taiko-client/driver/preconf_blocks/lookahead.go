@@ -49,6 +49,7 @@ type opWindow struct {
 	slotsPerEpoch     uint64
 }
 
+// NewOpWindow creates a new opWindow instance.
 func NewOpWindow(handoverSkipSlots, slotsPerEpoch uint64) *opWindow {
 	return &opWindow{handoverSkipSlots: handoverSkipSlots, slotsPerEpoch: slotsPerEpoch}
 }
@@ -67,10 +68,7 @@ func (w *opWindow) Push(epoch uint64, curr, next common.Address) {
 }
 
 // SequencingWindowSplit creates a slot range for either the current or the next operator
-func (w *opWindow) SequencingWindowSplit(
-	operator common.Address,
-	curr bool,
-) []SlotRange {
+func (w *opWindow) SequencingWindowSplit(operator common.Address, curr bool) []SlotRange {
 	var ranges []SlotRange
 	threshold := w.slotsPerEpoch - w.handoverSkipSlots
 

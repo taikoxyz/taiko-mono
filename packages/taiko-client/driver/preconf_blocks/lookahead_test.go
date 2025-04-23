@@ -2,38 +2,35 @@ package preconfblocks
 
 import (
 	"reflect"
-	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 )
 
-func TestMergeRanges_Empty(t *testing.T) {
-	got := mergeRanges([]SlotRange{})
-	assert.Len(t, got, 0, "expected empty slice")
+func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesEmpty() {
+	s.Len(mergeRanges([]SlotRange{}), 0, "expected empty slice")
 }
 
-func TestMergeRanges_NonOverlapping(t *testing.T) {
+func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesNonOverlapping() {
 	input := []SlotRange{{Start: 0, End: 5}, {Start: 10, End: 15}}
 	got := mergeRanges(input)
-	assert.True(t, reflect.DeepEqual(got, input), "expected %v, got %v", input, got)
+	s.True(reflect.DeepEqual(got, input), "expected %v, got %v", input, got)
 }
 
-func TestMergeRanges_Overlapping(t *testing.T) {
+func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesOverlapping() {
 	input := []SlotRange{{Start: 0, End: 5}, {Start: 3, End: 10}, {Start: 8, End: 12}}
 	want := []SlotRange{{Start: 0, End: 12}}
 	got := mergeRanges(input)
-	assert.True(t, reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
+	s.True(reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
 }
 
-func TestMergeRanges_Adjacent(t *testing.T) {
+func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesAdjacent() {
 	input := []SlotRange{{Start: 0, End: 5}, {Start: 5, End: 8}}
 	want := []SlotRange{{Start: 0, End: 8}}
 	got := mergeRanges(input)
-	assert.True(t, reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
+	s.True(reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
 }
 
-func TestSequencingWindowSplit(t *testing.T) {
+func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplit() {
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 
@@ -46,11 +43,11 @@ func TestSequencingWindowSplit(t *testing.T) {
 	currRanges := w.SequencingWindowSplit(addr, true)
 	nextRanges := w.SequencingWindowSplit(addr, false)
 
-	assert.True(t, reflect.DeepEqual(currRanges, []SlotRange{{Start: 0, End: 28}}), "currRanges = %v", currRanges)
-	assert.True(t, reflect.DeepEqual(nextRanges, []SlotRange{{Start: 60, End: 64}}), "nextRanges = %v", nextRanges)
+	s.True(reflect.DeepEqual(currRanges, []SlotRange{{Start: 0, End: 28}}), "currRanges = %v", currRanges)
+	s.True(reflect.DeepEqual(nextRanges, []SlotRange{{Start: 60, End: 64}}), "nextRanges = %v", nextRanges)
 }
 
-func TestSequencingWindowSplit_WithDualEpochPush(t *testing.T) {
+func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitWithDualEpochPush() {
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 
@@ -64,12 +61,12 @@ func TestSequencingWindowSplit_WithDualEpochPush(t *testing.T) {
 	currRanges := w.SequencingWindowSplit(addr, true)
 	nextRanges := w.SequencingWindowSplit(addr, false)
 
-	assert.True(t, reflect.DeepEqual(currRanges, []SlotRange{
+	s.True(reflect.DeepEqual(currRanges, []SlotRange{
 		{Start: 0, End: 28},
 		{Start: 64, End: 92},
 	}), "currRanges = %v", currRanges)
 
-	assert.True(t, reflect.DeepEqual(nextRanges, []SlotRange{
+	s.True(reflect.DeepEqual(nextRanges, []SlotRange{
 		{Start: 60, End: 64},
 	}), "nextRanges = %v", nextRanges)
 }

@@ -51,8 +51,6 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
-	preconfOperatorAddress common.Address
-
 	ctx context.Context
 	wg  sync.WaitGroup
 }
@@ -152,8 +150,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 					return err
 				}
-
-				d.preconfOperatorAddress = cfg.PreconfOperatorAddress
 			}
 
 			d.preconfBlockServer.SetP2PNode(d.p2pNode)
@@ -394,9 +390,11 @@ func (d *Driver) cacheLookaheadLoop() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			slot := d.rpc.L1Beacon.CurrentSlot()
-			epoch := d.rpc.L1Beacon.CurrentEpoch()
-			currentSlot := d.rpc.L1Beacon.CurrentSlot()
+			var (
+				slot        = d.rpc.L1Beacon.CurrentSlot()
+				epoch       = d.rpc.L1Beacon.CurrentEpoch()
+				currentSlot = d.rpc.L1Beacon.CurrentSlot()
+			)
 
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 			if err != nil {
@@ -441,14 +439,9 @@ func (d *Driver) cacheLookaheadLoop() {
 			// Push next epoch (nextOp becomes currOp at next epoch)
 			opWin.Push(epoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
 
-			currRanges := opWin.SequencingWindowSplit(
-				d.PreconfOperatorAddress,
-				true,
-			)
-
-			nextRanges := opWin.SequencingWindowSplit(
-				d.PreconfOperatorAddress,
-				false,
+			var (
+				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
+				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
 			)
 
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
@@ -460,7 +453,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			})
 
 			log.Info(
-				"lookahead refreshed",
+				"Lookahead information refreshed",
 				"currentSlot", slot,
 				"currentEpoch", epoch,
 				"currOp", currOp.Hex(),

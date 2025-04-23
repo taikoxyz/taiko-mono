@@ -128,14 +128,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var preconfOperatorAddress common.Address
-
 	if c.IsSet(p2pFlags.SequencerP2PKeyName) {
-		pk, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
+		sequencerP2PKey, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
 		if err != nil {
 			return nil, err
 		}
 
-		preconfOperatorAddress = crypto.PubkeyToAddress(pk.PublicKey)
+		preconfOperatorAddress = crypto.PubkeyToAddress(sequencerP2PKey.PublicKey)
 	}
 
 	return &Config{
