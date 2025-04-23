@@ -8,10 +8,16 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -46,98 +52,104 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 }
 
 func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
-	// TODO(David): fix this test.
-	// ctx := context.Background()
+	ctx := context.Background()
 
-	// meta := s.ProposeAndInsertValidBlock(s.p, s.s)
-	// s.False(meta.IsPacaya())
+	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
+	s.True(meta.IsPacaya())
+	s.Equal(1, len(meta.Pacaya().GetBlocks()))
 
-	// block, err := s.RPCClient.L2.BlockByNumber(ctx, meta.Ontake().GetBlockID())
-	// s.Nil(err)
+	block, err := s.RPCClient.L2.BlockByNumber(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
+	s.Nil(err)
 
-	// lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedTransitionPacaya(ctx)
-	// s.Nil(err)
+	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedTransitionPacaya(ctx)
+	s.Nil(err)
 
-	// txListBytes, err := rlp.EncodeToBytes(block.Transactions())
-	// s.Nil(err)
+	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
+	s.Nil(err)
 
-	// parent, err := s.RPCClient.L2ParentByCurrentBlockID(context.Background(), meta.Ontake().GetBlockID())
-	// s.Nil(err)
+	parent, err := s.RPCClient.L2ParentByCurrentBlockID(
+		context.Background(),
+		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
+	)
+	s.Nil(err)
 
-	// // Reset l2 chain.
-	// s.Nil(rpc.SetHead(ctx, s.RPCClient.L2, common.Big0))
+	// Reset the L2 chain.
+	s.Nil(rpc.SetHead(ctx, s.RPCClient.L2, common.Big0))
 
-	// attributes := &engine.PayloadAttributes{
-	// 	Timestamp:             meta.Ontake().GetTimestamp(),
-	// 	Random:                meta.Ontake().GetDifficulty(),
-	// 	SuggestedFeeRecipient: meta.GetCoinbase(),
-	// 	Withdrawals:           make([]*types.Withdrawal, 0),
-	// 	BlockMetadata: &engine.BlockMetadata{
-	// 		Beneficiary: meta.GetCoinbase(),
-	// 		GasLimit:    uint64(meta.Ontake().GetGasLimit()) + consensus.AnchorGasLimit,
-	// 		Timestamp:   meta.Ontake().GetTimestamp(),
-	// 		TxList:      txListBytes,
-	// 		MixHash:     meta.Ontake().GetDifficulty(),
-	// 		ExtraData:   meta.Ontake().GetExtraData(),
-	// 	},
-	// 	BaseFeePerGas: block.BaseFee(),
-	// 	L1Origin: &rawdb.L1Origin{
-	// 		BlockID:       meta.Ontake().GetBlockID(),
-	// 		L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-	// 		L1BlockHeight: meta.GetRawBlockHeight(),
-	// 		L1BlockHash:   meta.GetRawBlockHash(),
-	// 	},
-	// }
+	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
+	s.Nil(err)
 
-	// step0 := func() *engine.ForkChoiceResponse {
-	// 	fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
-	// 		ctx,
-	// 		&engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()},
-	// 		attributes,
-	// 	)
-	// 	s.Nil(err)
-	// 	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
-	// 	s.True(true, fcRes.PayloadID != nil)
-	// 	return fcRes
-	// }
+	attributes := &engine.PayloadAttributes{
+		Timestamp:             meta.Pacaya().GetLastBlockTimestamp(),
+		Random:                common.BytesToHash(difficulty),
+		SuggestedFeeRecipient: meta.GetCoinbase(),
+		Withdrawals:           make([]*types.Withdrawal, 0),
+		BlockMetadata: &engine.BlockMetadata{
+			Beneficiary: meta.GetCoinbase(),
+			GasLimit:    uint64(meta.Pacaya().GetGasLimit()) + consensus.AnchorV3GasLimit,
+			Timestamp:   meta.Pacaya().GetLastBlockTimestamp(),
+			TxList:      txListBytes,
+			MixHash:     common.BytesToHash(difficulty),
+			ExtraData:   meta.Pacaya().GetExtraData(),
+		},
+		BaseFeePerGas: block.BaseFee(),
+		L1Origin: &rawdb.L1Origin{
+			BlockID:       new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
+			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+			L1BlockHeight: meta.GetRawBlockHeight(),
+			L1BlockHash:   meta.GetRawBlockHash(),
+		},
+	}
 
-	// step1 := func(fcRes *engine.ForkChoiceResponse) *engine.ExecutableData {
-	// 	payload, err := s.RPCClient.L2Engine.GetPayload(ctx, fcRes.PayloadID)
-	// 	s.Nil(err)
-	// 	return payload
-	// }
+	step0 := func() *engine.ForkChoiceResponse {
+		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
+			ctx,
+			&engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()},
+			attributes,
+		)
+		s.Nil(err)
+		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+		s.True(true, fcRes.PayloadID != nil)
+		return fcRes
+	}
 
-	// step2 := func(payload *engine.ExecutableData) *engine.ExecutableData {
-	// 	execStatus, err := s.RPCClient.L2Engine.NewPayload(ctx, payload)
-	// 	s.Nil(err)
-	// 	s.Equal(engine.VALID, execStatus.Status)
-	// 	return payload
-	// }
+	step1 := func(fcRes *engine.ForkChoiceResponse) *engine.ExecutableData {
+		payload, err := s.RPCClient.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+		s.Nil(err)
+		return payload
+	}
 
-	// step3 := func(payload *engine.ExecutableData) {
-	// 	fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{
-	// 		HeadBlockHash:      payload.BlockHash,
-	// 		SafeBlockHash:      lastVerifiedBlockInfo.Ts.BlockHash,
-	// 		FinalizedBlockHash: lastVerifiedBlockInfo.Ts.BlockHash,
-	// 	}, nil)
-	// 	s.Nil(err)
-	// 	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
-	// }
+	step2 := func(payload *engine.ExecutableData) *engine.ExecutableData {
+		execStatus, err := s.RPCClient.L2Engine.NewPayload(ctx, payload)
+		s.Nil(err)
+		s.Equal(engine.VALID, execStatus.Status)
+		return payload
+	}
 
-	// loopSize := 10
-	// for i := 0; i < loopSize; i++ {
-	// 	step0()
-	// }
+	step3 := func(payload *engine.ExecutableData) {
+		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{
+			HeadBlockHash:      payload.BlockHash,
+			SafeBlockHash:      lastVerifiedBlockInfo.Ts.BlockHash,
+			FinalizedBlockHash: lastVerifiedBlockInfo.Ts.BlockHash,
+		}, nil)
+		s.Nil(err)
+		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+	}
 
-	// for i := 0; i < loopSize; i++ {
-	// 	step1(step0())
-	// }
+	loopSize := 10
+	for i := 0; i < loopSize; i++ {
+		step0()
+	}
 
-	// for i := 0; i < loopSize; i++ {
-	// 	step2(step1(step0()))
-	// }
+	for i := 0; i < loopSize; i++ {
+		step1(step0())
+	}
 
-	// step3(step2(step1(step0())))
+	for i := 0; i < loopSize; i++ {
+		step2(step1(step0()))
+	}
+
+	step3(step2(step1(step0())))
 }
 
 func (s *BlobSyncerTestSuite) TestProcessL1Blocks() {
