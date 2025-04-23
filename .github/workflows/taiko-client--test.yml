@@ -8,6 +8,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "!**/*.md"
+    branches: [codecov-fix]
     branches-ignore:
       - release-please--branches--**
 
@@ -86,3 +87,6 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: packages/taiko-client/coverage.out
+          flags: taiko-client
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
