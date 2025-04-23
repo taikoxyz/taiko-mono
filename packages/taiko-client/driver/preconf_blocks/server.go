@@ -313,6 +313,15 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				currentPayload.ParentHash.Hex(),
 			)
 		}
+		if parentPayload.BlockHash == headL1Origin.L2BlockHash {
+			log.Debug(
+				"Reached canonical chain head, skip searching for ancients in cache",
+				"parentNumber", parentPayload.BlockNumber,
+				"parentHash", parentPayload.BlockHash,
+			)
+			break
+		}
+
 		payloadsToImport = append([]*eth.ExecutionPayload{parentPayload}, payloadsToImport...)
 
 		// Check if the found parent payload is in the canonical chain,
