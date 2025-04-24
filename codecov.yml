@@ -17,3 +17,6 @@ comment:
   show_carryforward_flags: true
   layout: "header, files, footer"
   hide_project_coverage: false
+
+ignore:
+  - packages/taiko-client/bindings
