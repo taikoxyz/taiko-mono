@@ -26,3 +26,4 @@ comment:
 
 ignore:
   - packages/taiko-client/bindings
+  - packages/relayer/bindings
