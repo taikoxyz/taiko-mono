@@ -219,7 +219,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         uint256 seedTs;
 
         if (_epochTimestamp == currentEpochTs) {
-           seedTs = currentEpochTs - LibPreconfConstants.SECONDS_IN_SLOT;
+           seedTs = currentEpochTs - LibPreconfConstants.SECONDS_IN_EPOCH;
         } else if (_epochTimestamp == nextEpochTs) {
           seedTs = currentEpochTs;
         }
