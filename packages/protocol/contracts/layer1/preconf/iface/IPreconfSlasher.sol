@@ -94,6 +94,17 @@ interface IPreconfSlasher is ISlasher {
         MissingEOP
     }
 
+    event SlashAmountUpdated(uint256 newAmount);
+    event SlashedInvalidPreconfirmation(
+        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
+    );
+    event SlashedInvalidEOP(
+        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
+    );
+    event SlashedMissingEOP(
+        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
+    );
+
     error InvalidDomainSeparator();
     error InvalidChainId();
     error BatchNotVerified();
@@ -109,4 +120,8 @@ interface IPreconfSlasher is ISlasher {
     error EOPIsValid();
     error EOPIsPresent();
     error EOPIsNotMissing();
+
+    /// @notice Allows the owner to update the slash amount
+    /// @param _newAmount The new slash amount in wei
+    function updateSlashAmount(uint256 _newAmount) external;
 }

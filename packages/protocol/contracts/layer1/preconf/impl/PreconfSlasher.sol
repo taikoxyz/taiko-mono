@@ -9,13 +9,13 @@ import "src/shared/libs/LibTrieProof.sol";
 import "solady/src/utils/LibRLP.sol";
 
 contract PreconfSlasher is IPreconfSlasher, EssentialContract {
-    // Todo: owner can change this
     uint256 public slashAmountWei;
 
     constructor(address _resolver) EssentialContract(_resolver) { }
 
-    function init(address _owner) external initializer {
+    function init(address _owner, uint256 _slashAmountWei) external initializer {
         __Essential_init(_owner);
+        slashAmountWei = _slashAmountWei;
     }
 
     /// @inheritdoc ISlasher
@@ -28,10 +28,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         returns (uint256)
     {
         // Parse the commitment payload and evidence
-        IPreconfSlasher.CommitmentPayload memory parsedPayload =
-            abi.decode(commitment.payload, (IPreconfSlasher.CommitmentPayload));
-        IPreconfSlasher.Evidence memory parsedEvidence =
-            abi.decode(evidence, (IPreconfSlasher.Evidence));
+        CommitmentPayload memory parsedPayload = abi.decode(commitment.payload, (CommitmentPayload));
+        Evidence memory parsedEvidence = abi.decode(evidence, (Evidence));
 
         ITaikoInbox taikoInbox =
             ITaikoInbox(resolve(uint64(block.chainid), LibStrings.B_TAIKO, false));
@@ -49,12 +47,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             InvalidBlockHeader()
         );
 
-        if (parsedEvidence.violationType == IPreconfSlasher.ViolationType.InvalidPreconfirmation) {
+        if (parsedEvidence.violationType == ViolationType.InvalidPreconfirmation) {
             return
                 _slashPreconfirmationViolation(l2ChainId, taikoInbox, parsedPayload, parsedEvidence);
-        } else if (parsedEvidence.violationType == IPreconfSlasher.ViolationType.InvalidEOP) {
+        } else if (parsedEvidence.violationType == ViolationType.InvalidEOP) {
             return _slashInvalidEOP(taikoInbox, parsedPayload, parsedEvidence);
-        } else if (parsedEvidence.violationType == IPreconfSlasher.ViolationType.MissingEOP) {
+        } else if (parsedEvidence.violationType == ViolationType.MissingEOP) {
             return _slashMissingEOP(taikoInbox, parsedPayload, parsedEvidence);
         }
     }
@@ -72,11 +70,19 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         return 0;
     }
 
+    /// @inheritdoc IPreconfSlasher
+    function updateSlashAmount(uint256 _newAmount) external onlyOwner {
+        slashAmountWei = _newAmount;
+        emit SlashAmountUpdated(_newAmount);
+    }
+
+    // Internal functions ----------------------------------------------------------------------
+
     function _slashPreconfirmationViolation(
         uint64 l2ChainId,
         ITaikoInbox taikoInbox,
-        IPreconfSlasher.CommitmentPayload memory parsedPayload,
-        IPreconfSlasher.Evidence memory parsedEvidence
+        CommitmentPayload memory parsedPayload,
+        Evidence memory parsedEvidence
     )
         internal
         returns (uint256)
@@ -101,6 +107,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
         if (parsedPayload.anchorId != parsedEvidence.batchInfo.anchorBlockId) {
+            // Todo: replace msg.sender with committer
+            emit SlashedInvalidPreconfirmation(msg.sender, parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
 
@@ -176,13 +184,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             PreconfirmationIsValid()
         );
 
+        emit SlashedInvalidPreconfirmation(msg.sender, parsedPayload, slashAmountWei);
         return slashAmountWei;
     }
 
     function _slashInvalidEOP(
         ITaikoInbox taikoInbox,
-        IPreconfSlasher.CommitmentPayload memory parsedPayload,
-        IPreconfSlasher.Evidence memory parsedEvidence
+        CommitmentPayload memory parsedPayload,
+        Evidence memory parsedEvidence
     )
         internal
         returns (uint256)
@@ -194,6 +203,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Slash if another block was proposed after EOP in the same batch
         if (parsedEvidence.preconfedBlockHeader.number != batch.lastBlockId) {
+            emit SlashedInvalidEOP(msg.sender, parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
 
@@ -212,13 +222,15 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             EOPIsValid()
         );
 
+        emit SlashedInvalidEOP(msg.sender, parsedPayload, slashAmountWei);
+
         return slashAmountWei;
     }
 
     function _slashMissingEOP(
         ITaikoInbox taikoInbox,
-        IPreconfSlasher.CommitmentPayload memory parsedPayload,
-        IPreconfSlasher.Evidence memory parsedEvidence
+        CommitmentPayload memory parsedPayload,
+        Evidence memory parsedEvidence
     )
         internal
         returns (uint256)
@@ -241,6 +253,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             EOPIsNotMissing()
         );
 
+        emit SlashedMissingEOP(msg.sender, parsedPayload, slashAmountWei);
         return slashAmountWei;
     }
 }
