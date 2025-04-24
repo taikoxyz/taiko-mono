@@ -209,12 +209,12 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
-        if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
+        // Use the previous epoch's last slot timestamp as the random number, if it is not available
+        // (zero), return address(0) directly.
+        if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_SLOT) {
             return address(0);
         }
 
-        // Use the previous epoch's start timestamp as the random number, if it is not available
-        // (zero), return address(0) directly.
         uint256 rand = uint256(
             LibPreconfUtils.getBeaconBlockRoot(
                 _epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT
