@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // SlotRange represents a half‑open [Start,End) range of L1 slots.
@@ -70,13 +69,6 @@ func (w *opWindow) Push(epoch uint64, curr, next common.Address) {
 
 // SequencingWindowSplit creates a slot range for either the current or the next operator
 func (w *opWindow) SequencingWindowSplit(operator common.Address, curr bool) []SlotRange {
-	log.Info("ring contents",
-		"epochs", w.epochs,
-		"currOps", w.currOps,
-		"nextOps", w.nextOps,
-		"operator", operator,
-	)
-
 	var ranges []SlotRange
 	threshold := w.slotsPerEpoch - w.handoverSkipSlots
 

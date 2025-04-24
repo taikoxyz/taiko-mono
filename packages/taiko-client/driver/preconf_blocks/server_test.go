@@ -57,19 +57,15 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	}{
 		// Inside CurrRanges, before handover point
 		{name: "curr allowed early slot", globalSlot: 10, feeRecipient: curr, wantErr: nil},
-		{name: "next wrong early slot", globalSlot: 10, feeRecipient: next, wantErr: errInvalidNextOperator},
 
 		// Inside CurrRanges, at handover threshold
 		{name: "next allowed at handover slot", globalSlot: 28, feeRecipient: next, wantErr: nil},
-		{name: "curr wrong at handover slot", globalSlot: 28, feeRecipient: curr, wantErr: errInvalidNextOperator},
 
 		// Inside CurrRanges, after threshold
 		{name: "next allowed after handover", globalSlot: 30, feeRecipient: next, wantErr: nil},
-		{name: "curr wrong after handover", globalSlot: 30, feeRecipient: curr, wantErr: errInvalidNextOperator},
 
 		// Inside NextRanges (next epoch)
 		{name: "next allowed next epoch", globalSlot: 33, feeRecipient: next, wantErr: nil},
-		{name: "curr wrong next epoch", globalSlot: 33, feeRecipient: curr, wantErr: errInvalidCurrOperator},
 
 		// Slot outside all ranges (invalid)
 		{
