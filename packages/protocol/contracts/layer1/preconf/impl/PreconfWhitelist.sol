@@ -18,7 +18,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
 
-    uint256 public immutable selectorBeaconEpochOffset; // in epochs
+    uint256 public immutable selectorEpochOffset; // in epochs
     uint256 public immutable operatorChangeDelay; // in epochs
 
     // Slot 1
@@ -37,12 +37,12 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     constructor(
         uint256 _operatorChangeDelay,
-        uint256 _selectorBeaconEpochOffset
+        uint256 _selectorEpochOffset
     )
         EssentialContract(address(0))
     {
-        require(_selectorBeaconEpochOffset > 1, InvalidselectorBeaconEpochOffset());
-        selectorBeaconEpochOffset = _selectorBeaconEpochOffset;
+        require(_selectorEpochOffset > 1, SelectorEpochOffsetTooSmall());
+        selectorEpochOffset = _selectorEpochOffset;
         operatorChangeDelay = _operatorChangeDelay;
     }
 
@@ -218,10 +218,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
-        uint256 timeShift = selectorBeaconEpochOffset * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 timeShift = selectorEpochOffset * LibPreconfConstants.SECONDS_IN_EPOCH;
         // We use the beacon root at or after ` _epochTimestamp - timeShift` as the random number to
         // select an operator.
-        // selectorBeaconEpochOffset must be big enough to ensure a non-zero beacon root is
+        // selectorEpochOffset must be big enough to ensure a non-zero beacon root is
         // available and immutable.
 
         if (_epochTimestamp < timeShift) return address(0);
