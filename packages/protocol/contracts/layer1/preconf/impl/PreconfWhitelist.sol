@@ -213,13 +213,21 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             return address(0);
         }
 
-        // Use the previous epoch's start timestamp as the random number, if it is not available
-        // (zero), return address(0) directly.
-        uint256 rand = uint256(
-            LibPreconfUtils.getBeaconBlockRoot(
-                _epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT
-            )
-        );
+        // figure out what “boundary” we’re seeding from
+        uint256 currentEpochTs = LibPreconfUtils.getEpochTimestamp();
+        uint256 nextEpochTs = currentEpochTs + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 seedTs;
+
+        if (_epochTimestamp == currentEpochTs) {
+           seedTs = currentEpochTs - LibPreconfConstants.SECONDS_IN_SLOT;
+        } else if (_epochTimestamp == nextEpochTs) {
+          seedTs = currentEpochTs;
+        }
+
+         uint256 rand = uint256(
+            LibPreconfUtils.getBeaconBlockRoot(seedTs)
+       );
+ 
 
         if (rand == 0) return address(0);
 
