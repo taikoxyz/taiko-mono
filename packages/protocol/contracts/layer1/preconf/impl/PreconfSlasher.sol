@@ -19,8 +19,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     }
 
     /// @inheritdoc ISlasher
-    function slashFromOptIn(
+    function slash(
+        Delegation calldata,
         Commitment calldata commitment,
+        address committer,
         bytes calldata evidence,
         address
     )
@@ -48,26 +50,16 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         );
 
         if (parsedEvidence.violationType == ViolationType.InvalidPreconfirmation) {
-            return
-                _slashPreconfirmationViolation(l2ChainId, taikoInbox, parsedPayload, parsedEvidence);
+            return _slashPreconfirmationViolation(
+                l2ChainId, taikoInbox, committer, parsedPayload, parsedEvidence
+            );
         } else if (parsedEvidence.violationType == ViolationType.InvalidEOP) {
-            return _slashInvalidEOP(taikoInbox, parsedPayload, parsedEvidence);
+            return _slashInvalidEOP(taikoInbox, committer, parsedPayload, parsedEvidence);
         } else if (parsedEvidence.violationType == ViolationType.MissingEOP) {
-            return _slashMissingEOP(taikoInbox, parsedPayload, parsedEvidence);
+            return _slashMissingEOP(taikoInbox, committer, parsedPayload, parsedEvidence);
         }
-    }
 
-    /// @dev Unused for Taiko
-    function slash(
-        Delegation calldata,
-        Commitment calldata,
-        bytes calldata,
-        address
-    )
-        external
-        returns (uint256)
-    {
-        return 0;
+        revert InvalidViolationType();
     }
 
     /// @inheritdoc IPreconfSlasher
@@ -81,6 +73,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     function _slashPreconfirmationViolation(
         uint64 l2ChainId,
         ITaikoInbox taikoInbox,
+        address committer,
         CommitmentPayload memory parsedPayload,
         Evidence memory parsedEvidence
     )
@@ -107,20 +100,19 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
         if (parsedPayload.anchorId != parsedEvidence.batchInfo.anchorBlockId) {
-            // Todo: replace msg.sender with committer
-            emit SlashedInvalidPreconfirmation(msg.sender, parsedPayload, slashAmountWei);
+            emit SlashedInvalidPreconfirmation(committer, parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
 
-        // Todo: check if the committer and proposer do not match.
-        // Contingent on https://github.com/eth-fabric/urc/issues/59.
-
-        // Ensure that the beacon block root is available at the proposal slot timestamp i.e
-        // it was not a missed slot or a reorg
-        (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
-            abi.encode(parsedPayload.l1ProposalSlotTimestamp)
-        );
-        require(success, PossibleReorgAtProposalSlot());
+        // Check for reorgs if the committer missed the proposal
+        if (parsedEvidence.batchInfo.proposer != committer) {
+            // Ensure that the beacon block root is available at the proposal slot timestamp i.e
+            // it was not a missed slot or a reorg
+            (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
+                abi.encode(parsedPayload.l1ProposalSlotTimestamp)
+            );
+            require(success, PossibleReorgAtProposalSlot());
+        }
 
         // Ensure that the anchor block has not been reorged out
         require(
@@ -184,12 +176,13 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             PreconfirmationIsValid()
         );
 
-        emit SlashedInvalidPreconfirmation(msg.sender, parsedPayload, slashAmountWei);
+        emit SlashedInvalidPreconfirmation(committer, parsedPayload, slashAmountWei);
         return slashAmountWei;
     }
 
     function _slashInvalidEOP(
         ITaikoInbox taikoInbox,
+        address committer,
         CommitmentPayload memory parsedPayload,
         Evidence memory parsedEvidence
     )
@@ -203,7 +196,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Slash if another block was proposed after EOP in the same batch
         if (parsedEvidence.preconfedBlockHeader.number != batch.lastBlockId) {
-            emit SlashedInvalidEOP(msg.sender, parsedPayload, slashAmountWei);
+            emit SlashedInvalidEOP(committer, parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
 
@@ -222,13 +215,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             EOPIsValid()
         );
 
-        emit SlashedInvalidEOP(msg.sender, parsedPayload, slashAmountWei);
+        emit SlashedInvalidEOP(committer, parsedPayload, slashAmountWei);
 
         return slashAmountWei;
     }
 
     function _slashMissingEOP(
         ITaikoInbox taikoInbox,
+        address committer,
         CommitmentPayload memory parsedPayload,
         Evidence memory parsedEvidence
     )
@@ -253,7 +247,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             EOPIsNotMissing()
         );
 
-        emit SlashedMissingEOP(msg.sender, parsedPayload, slashAmountWei);
+        emit SlashedMissingEOP(committer, parsedPayload, slashAmountWei);
         return slashAmountWei;
     }
 }
