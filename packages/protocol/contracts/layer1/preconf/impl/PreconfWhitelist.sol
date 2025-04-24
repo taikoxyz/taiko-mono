@@ -19,7 +19,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
 
     uint256 public immutable selectorBeaconEpochOffset; // in epochs
-    uint8 public immutable operatorChangeDelay; // in epochs
+    uint256 public immutable operatorChangeDelay; // in epochs
 
     // Slot 1
     mapping(address operator => OperatorInfo info) public operators;
@@ -36,7 +36,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     uint256[47] private __gap;
 
     constructor(
-        uint8 _operatorChangeDelay,
+        uint256 _operatorChangeDelay,
         uint256 _selectorBeaconEpochOffset
     )
         EssentialContract(address(0))
@@ -170,7 +170,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         );
     }
 
-    function _addOperator(address _operator, uint8 _operatorChangeDelay) internal {
+    function _addOperator(address _operator, uint256 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
         require(operators[_operator].activeSince == 0, OperatorAlreadyExists());
 
@@ -193,7 +193,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         emit OperatorAdded(_operator, activeSince);
     }
 
-    function _removeOperator(address _operator, uint8 _operatorChangeDelay) internal {
+    function _removeOperator(address _operator, uint256 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
         OperatorInfo memory info = operators[_operator];
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
