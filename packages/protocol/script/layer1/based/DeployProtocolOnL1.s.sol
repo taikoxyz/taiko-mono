@@ -528,8 +528,8 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(3 * LibPreconfConstants.SECONDS_IN_EPOCH)),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2)),
+            impl: address(new PreconfWhitelist(2, 3)),
+            data: abi.encodeCall(PreconfWhitelist.init, (owner)),
             registerTo: rollupResolver
         });
 

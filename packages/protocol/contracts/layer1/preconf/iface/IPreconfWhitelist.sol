@@ -17,7 +17,7 @@ interface IPreconfWhitelist {
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
     error InvalidOperatorAddress();
-    error InvalidSelectorBeaconBlockOffset();
+    error InvalidselectorBeaconEpochOffset();
     error OperatorAlreadyExists();
     error OperatorAlreadyRemoved();
     error OperatorNotAvailableYet();

@@ -17,38 +17,38 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
-    event OperatorChangeDelaySet(uint8 delay);
 
-    uint256 public immutable selectorBeaconBlockOffset;
+    uint256 public immutable selectorBeaconEpochOffset; // in epochs
+    uint8 public immutable operatorChangeDelay; // in epochs
 
+    // Slot 1
     mapping(address operator => OperatorInfo info) public operators;
+
+    // Slot 2
     mapping(uint256 index => address operator) public operatorMapping;
+
+    // Slot 3
     uint8 public operatorCount;
-    uint8 public operatorChangeDelay; // in epochs
 
     // all operators in operatorMapping are active and none of them is to be deactivated.
     bool public havingPerfectOperators;
 
     uint256[47] private __gap;
 
-    constructor(uint256 _selectorBeaconBlockOffset) EssentialContract(address(0)) {
-        require(
-            _selectorBeaconBlockOffset % LibPreconfConstants.SECONDS_IN_EPOCH == 0
-                && _selectorBeaconBlockOffset / LibPreconfConstants.SECONDS_IN_EPOCH > 1,
-            InvalidSelectorBeaconBlockOffset()
-        );
-        selectorBeaconBlockOffset = _selectorBeaconBlockOffset;
+    constructor(
+        uint8 _operatorChangeDelay,
+        uint256 _selectorBeaconEpochOffset
+    )
+        EssentialContract(address(0))
+    {
+        require(_selectorBeaconEpochOffset > 1, InvalidselectorBeaconEpochOffset());
+        selectorBeaconEpochOffset = _selectorBeaconEpochOffset;
+        operatorChangeDelay = _operatorChangeDelay;
     }
 
-    function init(address _owner, uint8 _operatorChangeDelay) external initializer {
+    function init(address _owner) external initializer {
         __Essential_init(_owner);
-        operatorChangeDelay = _operatorChangeDelay;
         havingPerfectOperators = true;
-    }
-
-    function setOperatorChangeDelay(uint8 _operatorChangeDelay) external onlyOwner {
-        operatorChangeDelay = _operatorChangeDelay;
-        emit OperatorChangeDelaySet(_operatorChangeDelay);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -218,15 +218,15 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
-        // We use the beacon root at or after ` _epochTimestamp - selectorBeaconBlockOffset` as the
-        // random number to select an operator.
-        // selectorBeaconBlockOffset must be big enough to ensure a non-zero beacon root is
+        uint256 timeShift = selectorBeaconEpochOffset * LibPreconfConstants.SECONDS_IN_EPOCH;
+        // We use the beacon root at or after ` _epochTimestamp - timeShift` as the random number to
+        // select an operator.
+        // selectorBeaconEpochOffset must be big enough to ensure a non-zero beacon root is
         // available and immutable.
 
-        if (_epochTimestamp < selectorBeaconBlockOffset) return address(0);
+        if (_epochTimestamp < timeShift) return address(0);
 
-        uint256 rand =
-            uint256(LibPreconfUtils.getBeaconBlockRoot(_epochTimestamp - selectorBeaconBlockOffset));
+        uint256 rand = uint256(LibPreconfUtils.getBeaconBlockRoot(_epochTimestamp - timeShift));
 
         if (rand == 0) return address(0);
 

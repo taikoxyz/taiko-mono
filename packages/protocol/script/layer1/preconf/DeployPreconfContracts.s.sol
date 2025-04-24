@@ -28,8 +28,8 @@ contract DeployPreconfContracts is BaseScript {
         // Deploy PreconfWhitelist
         deploy(
             LibStrings.B_PRECONF_WHITELIST,
-            address(new PreconfWhitelist(3 * LibPreconfConstants.SECONDS_IN_EPOCH)),
-            abi.encodeCall(PreconfWhitelist.init, (contractOwner, 2))
+            address(new PreconfWhitelist(2, 3)),
+            abi.encodeCall(PreconfWhitelist.init, (contractOwner))
         );
 
         // Deploy PreconfRouter
