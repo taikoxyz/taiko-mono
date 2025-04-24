@@ -70,3 +70,25 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitWithDu
 		{Start: 60, End: 64},
 	}), "nextRanges = %v", nextRanges)
 }
+
+func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitCurrRange() {
+	handoverSlots := uint64(4)
+	slotsPerEpoch := uint64(32)
+
+	w := NewOpWindow(handoverSlots, slotsPerEpoch)
+	addr := common.HexToAddress("0xabc")
+	w.Push(0, addr, addr)
+	w.Push(1, addr, common.Address{})
+
+	currRanges := w.SequencingWindowSplit(addr, true)
+	nextRanges := w.SequencingWindowSplit(addr, false)
+
+	s.True(reflect.DeepEqual(currRanges, []SlotRange{
+		{Start: 0, End: 28},
+		{Start: 32, End: 60},
+	}), "currRanges = %v", currRanges)
+
+	s.True(reflect.DeepEqual(nextRanges, []SlotRange{
+		{Start: 28, End: 32},
+	}), "nextRanges = %v", nextRanges)
+}

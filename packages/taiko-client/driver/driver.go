@@ -391,7 +391,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			return
 		case <-ticker.C:
 			var (
-				epoch            = d.rpc.L1Beacon.CurrentEpoch()
+				currentEpoch     = d.rpc.L1Beacon.CurrentEpoch()
 				currentSlot      = d.rpc.L1Beacon.CurrentSlot()
 				slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
 				slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
@@ -435,10 +435,10 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 
 			// push into our 3‑epoch ring
-			opWin.Push(epoch, currOp, nextOp)
+			opWin.Push(currentEpoch, currOp, nextOp)
 
 			// Push next epoch (nextOp becomes currOp at next epoch)
-			opWin.Push(epoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
+			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
 
 			var (
 				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
@@ -456,7 +456,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			log.Info(
 				"Lookahead information refreshed",
 				"currentSlot", currentSlot,
-				"currentEpoch", epoch,
+				"currentEpoch", currentEpoch,
 				"slotsLeftInEpoch", slotsLeftInEpoch,
 				"slotInEpoch", slotInEpoch,
 				"currOp", currOp.Hex(),
