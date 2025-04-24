@@ -8,7 +8,6 @@ on:
       - "go.mod"
       - "go.sum"
       - "!**/*.md"
-    branches: [codecov-fix]
     branches-ignore:
       - release-please--branches--**
 
