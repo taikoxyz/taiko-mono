@@ -105,6 +105,7 @@ interface IPreconfSlasher is ISlasher {
         address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
     );
 
+    error SenderIsNotUrc();
     error InvalidViolationType();
     error InvalidDomainSeparator();
     error InvalidChainId();

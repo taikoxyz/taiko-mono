@@ -10,12 +10,14 @@ import "solady/src/utils/LibRLP.sol";
 
 contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     uint256 public slashAmountWei;
+    address public immutable urc;
 
     constructor(address _resolver) EssentialContract(_resolver) { }
 
-    function init(address _owner, uint256 _slashAmountWei) external initializer {
+    function init(address _owner, address _urc, uint256 _slashAmountWei) external initializer {
         __Essential_init(_owner);
         slashAmountWei = _slashAmountWei;
+        urc = _urc;
     }
 
     /// @inheritdoc ISlasher
@@ -29,6 +31,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         external
         returns (uint256)
     {
+        require(msg.sender == urc, SenderIsNotUrc());
+
         // Parse the commitment payload and evidence
         CommitmentPayload memory parsedPayload = abi.decode(commitment.payload, (CommitmentPayload));
         Evidence memory parsedEvidence = abi.decode(evidence, (Evidence));
