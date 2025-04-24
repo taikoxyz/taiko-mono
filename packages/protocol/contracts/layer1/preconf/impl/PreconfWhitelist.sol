@@ -219,15 +219,12 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         uint256 seedTs;
 
         if (_epochTimestamp == currentEpochTs) {
-           seedTs = currentEpochTs - LibPreconfConstants.SECONDS_IN_EPOCH;
+            seedTs = currentEpochTs - LibPreconfConstants.SECONDS_IN_EPOCH;
         } else if (_epochTimestamp == nextEpochTs) {
-          seedTs = currentEpochTs;
+            seedTs = currentEpochTs;
         }
 
-         uint256 rand = uint256(
-            LibPreconfUtils.getBeaconBlockRoot(seedTs)
-       );
- 
+        uint256 rand = uint256(LibPreconfUtils.getBeaconBlockRoot(seedTs));
 
         if (rand == 0) return address(0);
 
