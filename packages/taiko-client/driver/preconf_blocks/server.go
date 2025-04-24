@@ -477,33 +477,16 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 		return nil
 	}
 
-	slotsPerEpoch := s.rpc.L1Beacon.SlotsPerEpoch
-	threshold := slotsPerEpoch - s.handoverSlots
-	slotInEpoch := globalSlot % slotsPerEpoch
-
 	// Check Current ranges first
 	for _, r := range la.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
-			// at slotInEpoch >= threshold (handover point), the next operator should be allowed
-			if slotInEpoch >= threshold {
-				if feeRecipient == la.NextOperator {
-					return nil
-				}
-
-				return errInvalidNextOperator
-			}
-			// else normal current operator period
-			if feeRecipient == la.CurrOperator {
-				return nil
-			}
+			return nil
 		}
 	}
 
 	for _, r := range la.NextRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
-			if feeRecipient == la.NextOperator {
-				return nil
-			}
+			return nil
 		}
 	}
 
