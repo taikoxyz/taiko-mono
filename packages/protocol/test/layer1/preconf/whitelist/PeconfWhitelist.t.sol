@@ -16,7 +16,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(3 * LibPreconfConstants.SECONDS_IN_EPOCH)),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2))
             })
         );
@@ -24,7 +24,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelistNoDelay = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist_nodelay",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(3 * LibPreconfConstants.SECONDS_IN_EPOCH)),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0))
             })
         );
@@ -278,7 +278,7 @@ contract TestPreconfWhitelist is Layer1Test {
 
         assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), address(0));
 
-        vm.warp(whitelistNoDelay.MIN_TIMESTAMP());
+        vm.warp(whitelistNoDelay.selectorBeaconBlockOffset());
         assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), Bob);
         assertEq(whitelistNoDelay.getOperatorForNextEpoch(), Bob);
 

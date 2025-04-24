@@ -30,7 +30,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(3 * LibPreconfConstants.SECONDS_IN_EPOCH)),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2))
             })
         );

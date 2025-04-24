@@ -17,7 +17,7 @@ library LibPreconfUtils {
     /// @dev Caller should verify the returned value is not 0.
     /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
     /// @return The beacon block root as a bytes32 value.
-    function getBeaconBlockRootAtOrAfter(uint256 timestamp) internal view returns (bytes32) {
+    function getBeaconBlockRoot(uint256 timestamp) internal view returns (bytes32) {
         if (timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
             return bytes32(0);
         }

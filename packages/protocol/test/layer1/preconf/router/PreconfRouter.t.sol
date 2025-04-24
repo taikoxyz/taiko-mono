@@ -17,7 +17,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.chainId(1);
         uint256 epoch1Start = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Current epoch
-        uint256 epoch4Start = epoch1Start + 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epoch4Start = epoch1Start + whitelist.selectorBeaconBlockOffset();
 
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
@@ -73,7 +73,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         uint256 epoch1Start = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         // Current epoch
-        uint256 epoch4Start = epoch1Start + 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epoch4Start = epoch1Start + whitelist.selectorBeaconBlockOffset();
 
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
 
@@ -103,7 +103,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.chainId(1);
         uint256 epoch1Start = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Current epoch
-        uint256 epoch4Start = epoch1Start + 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epoch4Start = epoch1Start + whitelist.selectorBeaconBlockOffset();
 
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol

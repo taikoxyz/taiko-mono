@@ -10,8 +10,6 @@ import "src/shared/common/EssentialContract.sol";
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
-    uint256 public constant MIN_TIMESTAMP = 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
-
     struct OperatorInfo {
         uint64 activeSince; // Epoch when the operator becomes active.
         uint64 inactiveSince; // Epoch when the operator is no longer active.
@@ -20,6 +18,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
+
+    uint256 public immutable selectorBeaconBlockOffset;
 
     mapping(address operator => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
@@ -31,7 +31,14 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     uint256[47] private __gap;
 
-    constructor() EssentialContract(address(0)) { }
+    constructor(uint256 _selectorBeaconBlockOffset) EssentialContract(address(0)) {
+        require(
+            _selectorBeaconBlockOffset % LibPreconfConstants.SECONDS_IN_EPOCH == 0
+                && _selectorBeaconBlockOffset / LibPreconfConstants.SECONDS_IN_EPOCH > 1,
+            InvalidSelectorBeaconBlockOffset()
+        );
+        selectorBeaconBlockOffset = _selectorBeaconBlockOffset;
+    }
 
     function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
@@ -211,16 +218,15 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
-        // We use the beacon root at or after ` _epochTimestamp - MIN_TIMESTAMP` as the
+        // We use the beacon root at or after ` _epochTimestamp - selectorBeaconBlockOffset` as the
         // random number to select an operator.
-        // TIME_THIFT_FOR_RAND must be big enough to ensure a non-zero beacon root is available and
-        // immutable.
-        if (_epochTimestamp < MIN_TIMESTAMP) {
-            return address(0);
-        }
+        // selectorBeaconBlockOffset must be big enough to ensure a non-zero beacon root is
+        // available and immutable.
+
+        if (_epochTimestamp < selectorBeaconBlockOffset) return address(0);
 
         uint256 rand =
-            uint256(LibPreconfUtils.getBeaconBlockRootAtOrAfter(_epochTimestamp - MIN_TIMESTAMP));
+            uint256(LibPreconfUtils.getBeaconBlockRoot(_epochTimestamp - selectorBeaconBlockOffset));
 
         if (rand == 0) return address(0);
 
