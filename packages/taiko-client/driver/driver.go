@@ -391,8 +391,10 @@ func (d *Driver) cacheLookaheadLoop() {
 			return
 		case <-ticker.C:
 			var (
-				epoch       = d.rpc.L1Beacon.CurrentEpoch()
-				currentSlot = d.rpc.L1Beacon.CurrentSlot()
+				epoch            = d.rpc.L1Beacon.CurrentEpoch()
+				currentSlot      = d.rpc.L1Beacon.CurrentSlot()
+				slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
+				slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
 			)
 
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
@@ -455,6 +457,8 @@ func (d *Driver) cacheLookaheadLoop() {
 				"Lookahead information refreshed",
 				"currentSlot", currentSlot,
 				"currentEpoch", epoch,
+				"slotsLeftInEpoch", slotsLeftInEpoch,
+				"slotInEpoch", slotInEpoch,
 				"currOp", currOp.Hex(),
 				"nextOp", nextOp.Hex(),
 				"currRanges", currRanges,
