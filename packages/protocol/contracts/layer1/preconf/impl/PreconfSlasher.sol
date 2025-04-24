@@ -100,7 +100,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             ITaikoInbox.TransitionState memory parentTransition =
                 taikoInbox.v4GetBatchVerifyingTransition(uint64(parsedPayload.batchId - 1));
             require(
-                parentTransition.blockHash != parsedEvidence.preconfedBlockHeader.parentHash,
+                parentTransition.blockHash == parsedEvidence.preconfedBlockHeader.parentHash,
                 ParentHashMismatch()
             );
         } else {
