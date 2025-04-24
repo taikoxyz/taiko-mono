@@ -30,10 +30,15 @@ interface IPreconfSlasher is ISlasher {
 
     // Evidence to prove preconfirmation violation of a block at a certain height X
     struct Evidence {
+        // Type of preconfirmation violation
+        ViolationType violationType;
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
+        // This is the BatchMetadata of the next batch that contains the block at height X + 1
+        // This is only used for EOP violations
+        ITaikoInbox.BatchMetadata nextBatchMetadata;
         // Header of the preconfirmed block at height X
         BlockHeader preconfedBlockHeader;
         // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
@@ -83,6 +88,12 @@ interface IPreconfSlasher is ISlasher {
         bytes32 parentBeaconBlockRoot;
     }
 
+    enum ViolationType {
+        InvalidPreconfirmation,
+        InvalidEOP,
+        MissingEOP
+    }
+
     error InvalidDomainSeparator();
     error InvalidChainId();
     error BatchNotVerified();
@@ -93,4 +104,9 @@ interface IPreconfSlasher is ISlasher {
     error PossibleReorgOfAnchorBlock();
     error ParentHashMismatch();
     error PreconfirmationIsValid();
+    error InvalidNextBatchMetadata();
+    error NotEndOfPreconfirmation();
+    error EOPIsValid();
+    error EOPIsPresent();
+    error EOPIsNotMissing();
 }
