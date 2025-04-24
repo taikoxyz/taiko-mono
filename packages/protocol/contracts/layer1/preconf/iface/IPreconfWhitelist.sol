@@ -16,6 +16,7 @@ interface IPreconfWhitelist {
 
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
+    error InvalidOperatorChangeDelay();
     error InvalidOperatorAddress();
     error SelectorEpochOffsetTooSmall();
     error OperatorAlreadyExists();

@@ -304,7 +304,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelistNoDelay.addOperator(Bob);
         whitelistNoDelay.addOperator(Carol);
 
-        address[] memory candidates = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
+        address[] memory candidates = whitelistNoDelay.getActiveOperatorsForCurrentEpoch();
         assertEq(candidates.length, 3);
         assertEq(candidates[0], Alice);
         assertEq(candidates[1], Bob);
@@ -315,7 +315,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelistNoDelay.havingPerfectOperators(), false);
 
         whitelistNoDelay.consolidate();
-        candidates = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
+        candidates = whitelistNoDelay.getActiveOperatorsForCurrentEpoch();
         assertEq(candidates.length, 2);
         assertEq(candidates[0], Bob);
         assertEq(candidates[1], Carol);

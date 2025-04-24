@@ -50,6 +50,8 @@ library LibPreconfUtils {
         uint256 timePassedUptoCurrentEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        return genesisTimestamp + timePassedUptoCurrentEpoch;
+        unchecked {
+            return genesisTimestamp + timePassedUptoCurrentEpoch;
+        }
     }
 }
