@@ -226,7 +226,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
         if (_epochTimestamp < timeShift) return address(0);
 
-        uint256 rand = uint256(LibPreconfUtils.getBeaconBlockRoot(_epochTimestamp - timeShift));
+        uint256 rand;
+        unchecked {
+            rand = uint256(LibPreconfUtils.getBeaconBlockRoot(_epochTimestamp - timeShift));
+        }
 
         if (rand == 0) return address(0);
 
