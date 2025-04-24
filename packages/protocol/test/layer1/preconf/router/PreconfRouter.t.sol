@@ -15,9 +15,9 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Setup mock beacon for operator selection
         vm.chainId(1);
-        uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
+        uint256 epoch1Start = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Current epoch
-        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epoch4Start = epoch1Start + 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
@@ -25,7 +25,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
         vm.etch(beaconBlockRootContract, address(mockBeacon).code);
         MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
+            epoch1Start + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
         );
 
         // Setup block params
@@ -51,7 +51,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         });
 
         // Warp to arbitrary slot in epoch 2
-        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        vm.warp(epoch4Start + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
@@ -70,21 +70,21 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Setup mock beacon for operator selection
         vm.chainId(1);
-        uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
+        uint256 epoch1Start = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         // Current epoch
-        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epoch4Start = epoch1Start + 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
 
         address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
         vm.etch(beaconBlockRootContract, address(mockBeacon).code);
         MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
+            epoch1Start + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
         );
 
         // Warp to arbitrary slot in epoch 2
-        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        vm.warp(epoch4Start + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
@@ -101,9 +101,9 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Setup mock beacon for operator selection
         vm.chainId(1);
-        uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
+        uint256 epoch1Start = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Current epoch
-        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epoch4Start = epoch1Start + 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
@@ -111,7 +111,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
         vm.etch(beaconBlockRootContract, address(mockBeacon).code);
         MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
+            epoch1Start + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
         );
 
         // Setup block params
@@ -137,7 +137,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         });
 
         // Warp to arbitrary slot in epoch 2
-        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        vm.warp(epoch4Start + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);

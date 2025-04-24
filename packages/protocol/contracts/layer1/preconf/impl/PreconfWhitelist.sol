@@ -10,7 +10,7 @@ import "src/shared/common/EssentialContract.sol";
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
-    uint256 internal constant TIME_SHIFT_FOR_RANDOMNESS = 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
+    uint256 public constant MIN_TIMESTAMP = 3 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
     struct OperatorInfo {
         uint64 activeSince; // Epoch when the operator becomes active.
@@ -211,17 +211,16 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
     function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
-        // We use the beacon root at or after ` _epochTimestamp - TIME_SHIFT_FOR_RANDOMNESS` as the
+        // We use the beacon root at or after ` _epochTimestamp - MIN_TIMESTAMP` as the
         // random number to select an operator.
         // TIME_THIFT_FOR_RAND must be big enough to ensure a non-zero beacon root is available and
         // immutable.
-        if (_epochTimestamp < TIME_SHIFT_FOR_RANDOMNESS) {
+        if (_epochTimestamp < MIN_TIMESTAMP) {
             return address(0);
         }
 
-        uint256 rand = uint256(
-            LibPreconfUtils.getBeaconBlockRootAtOrAfter(_epochTimestamp - TIME_SHIFT_FOR_RANDOMNESS)
-        );
+        uint256 rand =
+            uint256(LibPreconfUtils.getBeaconBlockRootAtOrAfter(_epochTimestamp - MIN_TIMESTAMP));
 
         if (rand == 0) return address(0);
 

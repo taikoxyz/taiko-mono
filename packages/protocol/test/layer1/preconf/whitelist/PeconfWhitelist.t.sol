@@ -276,6 +276,9 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
 
+        assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), address(0));
+
+        vm.warp(whitelistNoDelay.MIN_TIMESTAMP());
         assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), Bob);
         assertEq(whitelistNoDelay.getOperatorForNextEpoch(), Bob);
 
