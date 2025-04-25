@@ -88,6 +88,19 @@ interface IPreconfSlasher is ISlasher {
         bytes32 parentBeaconBlockRoot;
     }
 
+    struct SlashAmountWei {
+        // Slash amount for invalid preconfirmation
+        uint256 invalidPreconf;
+        // Slash amount for invalid EOP
+        uint256 invalidEOP;
+        // Slash amount for missing EOP
+        uint256 missingEOP;
+        // Slash amount for reorged preconfirmation
+        // While preconfs affcted by L1 reorgs have separately defined slash amount, the violation
+        // is handled under invalid preconirmation itself.
+        uint256 reorgedPreconf;
+    }
+
     enum ViolationType {
         InvalidPreconfirmation,
         InvalidEOP,
@@ -123,7 +136,7 @@ interface IPreconfSlasher is ISlasher {
     error EOPIsPresent();
     error EOPIsNotMissing();
 
-    /// @notice Allows the owner to update the slash amount
-    /// @param _newAmount The new slash amount in wei
-    function updateSlashAmount(uint256 _newAmount) external;
+    /// @notice Returns the slash amount for each violation type
+    /// @return slashAmountWei The slash amount for each violation type
+    function getSlashAmountWei() external pure returns (SlashAmountWei memory slashAmountWei);
 }

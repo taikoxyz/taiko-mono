@@ -9,15 +9,16 @@ import "src/shared/libs/LibTrieProof.sol";
 import "solady/src/utils/LibRLP.sol";
 
 contract PreconfSlasher is IPreconfSlasher, EssentialContract {
-    uint256 public slashAmountWei;
     address public immutable urc;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    uint256[50] private __gap;
 
-    function init(address _owner, address _urc, uint256 _slashAmountWei) external initializer {
-        __Essential_init(_owner);
-        slashAmountWei = _slashAmountWei;
+    constructor(address _resolver, address _urc) EssentialContract(_resolver) {
         urc = _urc;
+    }
+
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @inheritdoc ISlasher
@@ -66,10 +67,16 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         revert InvalidViolationType();
     }
 
+    // View functions --------------------------------------------------------------------------
+
     /// @inheritdoc IPreconfSlasher
-    function updateSlashAmount(uint256 _newAmount) external onlyOwner {
-        slashAmountWei = _newAmount;
-        emit SlashAmountUpdated(_newAmount);
+    function getSlashAmountWei() public pure returns (SlashAmountWei memory slashAmountWei) {
+        return SlashAmountWei({
+            invalidPreconf: 1 ether,
+            invalidEOP: 0.5 ether,
+            missingEOP: 0.5 ether,
+            reorgedPreconf: 0.1 ether
+        });
     }
 
     // Internal functions ----------------------------------------------------------------------
@@ -104,18 +111,24 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
         if (parsedPayload.anchorId != parsedEvidence.batchInfo.anchorBlockId) {
+            uint256 slashAmountWei = getSlashAmountWei().invalidPreconf;
             emit SlashedInvalidPreconfirmation(committer, parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
 
         // Check for reorgs if the committer missed the proposal
         if (parsedEvidence.batchInfo.proposer != committer) {
-            // Ensure that the beacon block root is available at the proposal slot timestamp i.e
-            // it was not a missed slot or a reorg
             (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
                 abi.encode(parsedPayload.l1ProposalSlotTimestamp)
             );
-            require(success, PossibleReorgAtProposalSlot());
+
+            // If the beacon block root is not available, it means that the preconfirmed block
+            // was reorged out due to an L1 reorg.
+            if (!success) {
+                uint256 _slashAmountWei = getSlashAmountWei().reorgedPreconf;
+                emit SlashedInvalidPreconfirmation(committer, parsedPayload, _slashAmountWei);
+                return _slashAmountWei;
+            }
         }
 
         // Ensure that the anchor block has not been reorged out
@@ -180,8 +193,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             PreconfirmationIsValid()
         );
 
-        emit SlashedInvalidPreconfirmation(committer, parsedPayload, slashAmountWei);
-        return slashAmountWei;
+        uint256 __slashAmountWei = getSlashAmountWei().invalidPreconf;
+        emit SlashedInvalidPreconfirmation(committer, parsedPayload, __slashAmountWei);
+        return __slashAmountWei;
     }
 
     function _slashInvalidEOP(
@@ -200,6 +214,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Slash if another block was proposed after EOP in the same batch
         if (parsedEvidence.preconfedBlockHeader.number != batch.lastBlockId) {
+            uint256 slashAmountWei = getSlashAmountWei().invalidEOP;
             emit SlashedInvalidEOP(committer, parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
@@ -219,9 +234,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             EOPIsValid()
         );
 
-        emit SlashedInvalidEOP(committer, parsedPayload, slashAmountWei);
-
-        return slashAmountWei;
+        uint256 _slashAmountWei = getSlashAmountWei().invalidEOP;
+        emit SlashedInvalidEOP(committer, parsedPayload, _slashAmountWei);
+        return _slashAmountWei;
     }
 
     function _slashMissingEOP(
@@ -251,6 +266,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             EOPIsNotMissing()
         );
 
+        uint256 slashAmountWei = getSlashAmountWei().missingEOP;
         emit SlashedMissingEOP(committer, parsedPayload, slashAmountWei);
         return slashAmountWei;
     }
