@@ -1,6 +1,10 @@
 name: "CI"
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/taiko-client/**"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
