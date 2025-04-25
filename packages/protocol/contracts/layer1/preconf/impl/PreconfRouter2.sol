@@ -21,6 +21,8 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     address public immutable preconfSlasher;
     address public immutable fallbackPreconfer;
 
+    uint256[50] private __gap;
+
     constructor(
         address _resolver,
         address _lookaheadStore,
