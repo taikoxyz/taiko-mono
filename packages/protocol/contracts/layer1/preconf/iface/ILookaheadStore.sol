@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@eth-fabric/urc/ISlasher.sol";
 
+/// @title ILookaheadStore
+/// @custom:security-contact security@taiko.xyz
 interface ILookaheadStore {
     // An array of `LookaheadPayloadEntry` will be byte-encoded to be the payload of the
     // lookahead commitment.

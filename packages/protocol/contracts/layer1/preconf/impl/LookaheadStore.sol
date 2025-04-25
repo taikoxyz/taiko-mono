@@ -8,6 +8,8 @@ import "src/layer1/preconf/libs/LibMerkleTree.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+/// @title LookaheadStore
+/// @custom:security-contact security@taiko.xyz
 contract LookaheadStore is ILookaheadStore, EssentialContract {
     IRegistry public immutable urc;
     address public immutable guardian;
