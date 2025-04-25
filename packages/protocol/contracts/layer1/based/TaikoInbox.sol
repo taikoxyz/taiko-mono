@@ -213,11 +213,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
                     // if not then add the diff to the bond balance
                     int256 bondDelta = int256(proverFee) - int256(uint256(config.livenessBondBase));
-                    bondDelta < 0
-                        ? _debitBond(meta_.prover, uint256(-bondDelta))
-                        : _creditBond(meta_.prover, uint256(bondDelta));
 
-                    proverMarket.onProverAssigned(meta_.prover, proverFee, meta_.batchId);
+                    if (bondDelta < 0) {
+                        _debitBond(meta_.prover, uint256(-bondDelta));
+                    } else {
+                        _creditBond(meta_.prover, uint256(bondDelta));
+                    }
                 }
             } else {
                 _debitBond(meta_.prover, config.livenessBondBase);
