@@ -22,7 +22,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => bytes32 lookaheadRoot) public
         lookahead;
 
-    uint256[50] private __gap;
+    uint256[48] private __gap;
 
     constructor(
         address _resolver,
