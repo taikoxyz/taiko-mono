@@ -63,6 +63,7 @@ type ClientConfig struct {
 	ProverSetAddress            common.Address
 	L2EngineEndpoint            string
 	JwtSecret                   string
+	Witness                     bool
 	Timeout                     time.Duration
 }
 
@@ -116,7 +117,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	// won't be initialized.
 	var l2AuthClient *EngineClient
 	if len(cfg.L2EngineEndpoint) != 0 && len(cfg.JwtSecret) != 0 {
-		l2AuthClient, err = NewJWTEngineClient(cfg.L2EngineEndpoint, cfg.JwtSecret)
+		l2AuthClient, err = NewJWTEngineClient(cfg.L2EngineEndpoint, cfg.JwtSecret, cfg.Witness)
 		if err != nil {
 			return nil, err
 		}

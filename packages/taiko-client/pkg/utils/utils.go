@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -186,4 +187,9 @@ func WeiToEther(wei *big.Int) *big.Float {
 // WeiToGWei converts wei value to gwei value.
 func WeiToGWei(wei *big.Int) *big.Float {
 	return new(big.Float).Quo(new(big.Float).SetInt(wei), new(big.Float).SetInt(big.NewInt(params.GWei)))
+}
+
+func ParseBoolFlagFromEnv(key string) bool {
+	flag, _ := strconv.ParseBool(os.Getenv(key))
+	return flag
 }

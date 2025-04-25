@@ -68,6 +68,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"JWT_SECRET"},
 	}
+	Witness = &cli.BoolFlag{
+		Name:     "witness",
+		Usage:    "Use witness mode for the L2 engine endpoint",
+		Value:    false,
+		Category: commonCategory,
+		EnvVars:  []string{"WITNESS"},
+	}
 	TaikoInboxAddress = &cli.StringFlag{
 		Name:     "taikoInbox",
 		Usage:    "TaikoInbox contract `address`",
