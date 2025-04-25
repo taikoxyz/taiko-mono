@@ -6,19 +6,19 @@ import "@eth-fabric/urc/ISlasher.sol";
 /// @title ILookaheadStore
 /// @custom:security-contact security@taiko.xyz
 interface ILookaheadStore {
-    // An array of `LookaheadPayloadEntry` will be byte-encoded to be the payload of the
+    // An array of `LookaheadPayload` will be byte-encoded to be the payload of the
     // lookahead commitment.
-    struct LookaheadPayloadEntry {
+    struct LookaheadPayload {
         // Timestamp of the L1 slot
         uint256 slotTimestamp;
         // Registration root of the operator in the URC
         bytes32 registrationRoot;
         // Index of the Operator's registration merkle tree leaf that contains the validator
         // for the slot
-        uint256 leafIndex;
+        uint256 validatorLeafIndex;
     }
 
-    struct LookaheadBufferEntry {
+    struct LookaheadLeaf {
         // Timestamp of the slot.
         uint256 timestamp;
         // Pointer to the last entry's timestamp.
@@ -32,6 +32,13 @@ interface ILookaheadStore {
         // Index of the Operator's registration merkle tree leaf that contains the validator for the
         // slot.
         uint256 validatorLeafIndex;
+    }
+
+    struct LookaheadRoot {
+        // The timestamp of the epoch.
+        uint256 epochTimestamp;
+        // The lookahead root.
+        bytes32 root;
     }
 
     struct Config {
@@ -59,9 +66,10 @@ interface ILookaheadStore {
     error InvalidValidatorLeafIndex();
     error OperatorHasNotOptedIntoPreconfSlasher();
     error SenderIsNotGuardian();
+    error LookaheadRootNotFound();
 
     event LookaheadRootUpdated(uint256 epochTimestamp, bytes32 lookaheadRoot);
-    event LookaheadEntryPosted(
+    event LookaheadLeafPosted(
         uint256 indexed timestamp,
         uint256 prevTimestamp,
         address committer,
@@ -91,6 +99,13 @@ interface ILookaheadStore {
      * @return True if the lookahead is required for the next epoch, false otherwise.
      */
     function isLookaheadRequired() external view returns (bool);
+
+    /**
+     * @notice Returns the lookahead root for an epoch.
+     * @param epochTimestamp The timestamp of the epoch.
+     * @return The lookahead root.
+     */
+    function getLookaheadRoot(uint256 epochTimestamp) external view returns (bytes32);
 
     /**
      * @notice Returns the configuration of the lookahead store.

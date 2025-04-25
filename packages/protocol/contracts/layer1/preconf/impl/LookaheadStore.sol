@@ -19,7 +19,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     uint256 public lastRecordedSlotTimestamp;
 
     // Lookahead buffer that stores the merkle root of the merkleized lookahead entries for an epoch
-    mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => bytes32 lookaheadRoot) public
+    mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => LookaheadRoot lookaheadRoot) public
         lookahead;
 
     uint256[48] private __gap;
@@ -57,48 +57,48 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         // Validate the lookahead poster's operator status within the URC
         _validateLookaheadPoster(registrationRoot, signedCommitment);
 
-        LookaheadPayloadEntry[] memory lookaheadPayloadEntries =
-            abi.decode(signedCommitment.commitment.payload, (LookaheadPayloadEntry[]));
+        LookaheadPayload[] memory lookaheadPayloads =
+            abi.decode(signedCommitment.commitment.payload, (LookaheadPayload[]));
 
-        if (lookaheadPayloadEntries.length == 0) {
+        if (lookaheadPayloads.length == 0) {
             // The poster claims that the lookahead for the next epoch has no preconfers
             bytes32 emptyLookaheadRoot = keccak256(abi.encode(nextEpochTimestamp));
             _setLookaheadRoot(nextEpochTimestamp, emptyLookaheadRoot);
 
             emit LookaheadRootUpdated(nextEpochTimestamp, emptyLookaheadRoot);
         } else {
-            bytes32[] memory leaves = new bytes32[](lookaheadPayloadEntries.length);
+            bytes32[] memory leaves = new bytes32[](lookaheadPayloads.length);
 
             uint256 _lastRecordedSlotTimestamp = lastRecordedSlotTimestamp;
-            for (uint256 i; i < lookaheadPayloadEntries.length; ++i) {
-                LookaheadPayloadEntry memory lookaheadPayloadEntry = lookaheadPayloadEntries[i];
+            for (uint256 i; i < lookaheadPayloads.length; ++i) {
+                LookaheadPayload memory lookaheadPayload = lookaheadPayloads[i];
 
                 _validateSlotTimestamp(
-                    lookaheadPayloadEntry,
-                    i > 0 ? lookaheadPayloadEntries[i - 1].slotTimestamp : 0,
+                    lookaheadPayload,
+                    i > 0 ? lookaheadPayloads[i - 1].slotTimestamp : 0,
                     nextEpochTimestamp
                 );
 
                 address committer =
-                    _validateOperatorInLookaheadPayload(lookaheadPayloadEntry, epochTimestamp);
+                    _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
 
-                LookaheadBufferEntry memory lookaheadBufferEntry = LookaheadBufferEntry({
-                    timestamp: lookaheadPayloadEntry.slotTimestamp,
+                LookaheadLeaf memory lookaheadLeaf = LookaheadLeaf({
+                    timestamp: lookaheadPayload.slotTimestamp,
                     prevTimestamp: _lastRecordedSlotTimestamp,
                     committer: committer,
-                    operatorRegistrationRoot: lookaheadPayloadEntry.registrationRoot,
-                    validatorLeafIndex: lookaheadPayloadEntry.leafIndex
+                    operatorRegistrationRoot: lookaheadPayload.registrationRoot,
+                    validatorLeafIndex: lookaheadPayload.validatorLeafIndex
                 });
 
-                emit LookaheadEntryPosted(
-                    lookaheadPayloadEntry.slotTimestamp,
+                emit LookaheadLeafPosted(
+                    lookaheadPayload.slotTimestamp,
                     _lastRecordedSlotTimestamp,
                     committer,
-                    lookaheadPayloadEntry.leafIndex
+                    lookaheadPayload.validatorLeafIndex
                 );
 
-                _lastRecordedSlotTimestamp = lookaheadPayloadEntry.slotTimestamp;
-                leaves[i] = keccak256(abi.encode(lookaheadBufferEntry));
+                _lastRecordedSlotTimestamp = lookaheadPayload.slotTimestamp;
+                leaves[i] = keccak256(abi.encode(lookaheadLeaf));
             }
 
             // Validate that the last recorded slot timestamp is within the next epoch
@@ -111,11 +111,17 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             lastRecordedSlotTimestamp = _lastRecordedSlotTimestamp;
 
             // Merkleize the lookahead buffer entries and update the lookahead root for next epoch
-            bytes32 lookaheadRoot = LibMerkleTree.generateTree(leaves);
-            _setLookaheadRoot(nextEpochTimestamp, lookaheadRoot);
+            bytes32 root = LibMerkleTree.generateTree(leaves);
+            _setLookaheadRoot(nextEpochTimestamp, root);
 
-            emit LookaheadRootUpdated(nextEpochTimestamp, lookaheadRoot);
+            emit LookaheadRootUpdated(nextEpochTimestamp, root);
         }
+    }
+
+    /// @inheritdoc ILookaheadStore
+    function overwriteLookahead(uint256 epochTimestamp, bytes32 lookaheadRoot) external {
+        require(msg.sender == guardian, SenderIsNotGuardian());
+        _setLookaheadRoot(epochTimestamp, lookaheadRoot);
     }
 
     // View functions --------------------------------------------------------------------------
@@ -127,7 +133,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         // no-proposer-preconfer slots && no-claim-of-empty-lookahead
         return lastRecordedSlotTimestamp < nextEpochTimestamp
-            && _getLookaheadRoot(nextEpochTimestamp) != keccak256(abi.encode(nextEpochTimestamp));
+            && _getLookaheadRoot(nextEpochTimestamp).root != keccak256(abi.encode(nextEpochTimestamp));
+    }
+
+    /// @inheritdoc ILookaheadStore
+    function getLookaheadRoot(uint256 epochTimestamp) external view returns (bytes32) {
+        LookaheadRoot memory lookaheadRoot = _getLookaheadRoot(epochTimestamp);
+        require(lookaheadRoot.epochTimestamp == epochTimestamp, LookaheadRootNotFound());
+        return lookaheadRoot.root;
     }
 
     /// @inheritdoc ILookaheadStore
@@ -138,12 +151,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             minCollateralForPosting: 1 ether,
             minCollateralForPreconfing: 1 ether
         });
-    }
-
-    /// @inheritdoc ILookaheadStore
-    function overwriteLookahead(uint256 epochTimestamp, bytes32 lookaheadRoot) external {
-        require(msg.sender == guardian, SenderIsNotGuardian());
-        _setLookaheadRoot(epochTimestamp, lookaheadRoot);
     }
 
     // Internal functions ----------------------------------------------------------------------
@@ -179,7 +186,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     /// @dev Validates if the timestamp belongs to a valid slot in the next epoch
     function _validateSlotTimestamp(
-        LookaheadPayloadEntry memory lookaheadPayloadEntry,
+        LookaheadPayload memory lookaheadPayload,
         uint256 previousSlotTimestamp,
         uint256 nextEpochTimestamp
     )
@@ -187,19 +194,16 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         pure
     {
         if (previousSlotTimestamp == 0) {
-            require(
-                lookaheadPayloadEntry.slotTimestamp >= nextEpochTimestamp, InvalidLookaheadEpoch()
-            );
+            require(lookaheadPayload.slotTimestamp >= nextEpochTimestamp, InvalidLookaheadEpoch());
         } else {
             require(
-                lookaheadPayloadEntry.slotTimestamp > previousSlotTimestamp,
+                lookaheadPayload.slotTimestamp > previousSlotTimestamp,
                 SlotTimestampIsNotIncrementing()
             );
         }
 
         require(
-            (lookaheadPayloadEntry.slotTimestamp - nextEpochTimestamp) % 12 == 0,
-            InvalidSlotTimestamp()
+            (lookaheadPayload.slotTimestamp - nextEpochTimestamp) % 12 == 0, InvalidSlotTimestamp()
         );
     }
 
@@ -207,7 +211,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     /// timestamp. We use the epoch timestamp of the epoch in which the lookahead is posted to
     /// validate the registration and slashing status.
     function _validateOperatorInLookaheadPayload(
-        LookaheadPayloadEntry memory lookaheadPayloadEntry,
+        LookaheadPayload memory lookaheadPayload,
         uint256 epochTimestamp
     )
         internal
@@ -215,7 +219,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         returns (address committer)
     {
         IRegistry.OperatorData memory OperatorData =
-            urc.getOperatorData(lookaheadPayloadEntry.registrationRoot);
+            urc.getOperatorData(lookaheadPayload.registrationRoot);
         require(
             OperatorData.unregisteredAt == 0 || OperatorData.unregisteredAt >= epochTimestamp,
             OperatorHasUnregistered()
@@ -224,10 +228,12 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             OperatorData.slashedAt == 0 || OperatorData.slashedAt >= epochTimestamp,
             OperatorHasBeenSlashed()
         );
-        require(lookaheadPayloadEntry.leafIndex < OperatorData.numKeys, InvalidValidatorLeafIndex());
+        require(
+            lookaheadPayload.validatorLeafIndex < OperatorData.numKeys, InvalidValidatorLeafIndex()
+        );
 
         uint256 collateralAtEpochTimestamp =
-            urc.getHistoricalCollateral(lookaheadPayloadEntry.registrationRoot, epochTimestamp);
+            urc.getHistoricalCollateral(lookaheadPayload.registrationRoot, epochTimestamp);
         require(
             collateralAtEpochTimestamp >= lookaheadStoreConfig().minCollateralForPreconfing,
             OperatorHasInsufficientCollateral()
@@ -235,7 +241,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         // Validate the operator's slashing commitment
         IRegistry.SlasherCommitment memory slashingCommitment =
-            urc.getSlasherCommitment(lookaheadPayloadEntry.registrationRoot, preconfSlasher);
+            urc.getSlasherCommitment(lookaheadPayload.registrationRoot, preconfSlasher);
         require(
             slashingCommitment.optedInAt < epochTimestamp
                 && (
@@ -248,11 +254,16 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return slashingCommitment.committer;
     }
 
-    function _setLookaheadRoot(uint256 epochTimestamp, bytes32 lookaheadRoot) internal {
-        lookahead[epochTimestamp % lookaheadStoreConfig().lookaheadBufferSize] = lookaheadRoot;
+    function _setLookaheadRoot(uint256 epochTimestamp, bytes32 root) internal {
+        lookahead[epochTimestamp % lookaheadStoreConfig().lookaheadBufferSize] =
+            LookaheadRoot({ epochTimestamp: epochTimestamp, root: root });
     }
 
-    function _getLookaheadRoot(uint256 epochTimestamp) internal view returns (bytes32) {
+    function _getLookaheadRoot(uint256 epochTimestamp)
+        internal
+        view
+        returns (LookaheadRoot memory)
+    {
         return lookahead[epochTimestamp % lookaheadStoreConfig().lookaheadBufferSize];
     }
 }
