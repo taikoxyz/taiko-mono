@@ -63,6 +63,8 @@ jobs:
         with:
           files: ./packages/eventindexer/coverage.txt
           flags: eventindexer
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   push-eventindexer-docker-image:
     # Skip dependabot PRs
