@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox } from "src/layer1/based/ITaikoInbox.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 
+/// @title IPreconfSlasher
+/// @custom:security-contact security@taiko.xyz
 interface IPreconfSlasher is ISlasher {
     // Byte-encoded and used as `ISlasher.Commitment.payload`.
     struct CommitmentPayload {
