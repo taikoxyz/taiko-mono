@@ -26,9 +26,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     /// @inheritdoc ISlasher
     function slash(
         Delegation calldata,
-        Commitment calldata commitment,
-        address committer,
-        bytes calldata evidence,
+        Commitment calldata _commitment,
+        address _committer,
+        bytes calldata _evidence,
         address
     )
         external
@@ -37,8 +37,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(msg.sender == urc, SenderIsNotUrc());
 
         // Parse the commitment payload and evidence
-        CommitmentPayload memory parsedPayload = abi.decode(commitment.payload, (CommitmentPayload));
-        Evidence memory parsedEvidence = abi.decode(evidence, (Evidence));
+        CommitmentPayload memory parsedPayload =
+            abi.decode(_commitment.payload, (CommitmentPayload));
+        Evidence memory parsedEvidence = abi.decode(_evidence, (Evidence));
 
         ITaikoInbox taikoInbox =
             ITaikoInbox(resolve(uint64(block.chainid), LibStrings.B_TAIKO, false));
@@ -58,12 +59,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         if (parsedEvidence.violationType == ViolationType.InvalidPreconfirmation) {
             return _slashPreconfirmationViolation(
-                l2ChainId, taikoInbox, committer, parsedPayload, parsedEvidence
+                l2ChainId, taikoInbox, _committer, parsedPayload, parsedEvidence
             );
         } else if (parsedEvidence.violationType == ViolationType.InvalidEOP) {
-            return _slashInvalidEOP(taikoInbox, committer, parsedPayload, parsedEvidence);
+            return _slashInvalidEOP(taikoInbox, _committer, parsedPayload, parsedEvidence);
         } else if (parsedEvidence.violationType == ViolationType.MissingEOP) {
-            return _slashMissingEOP(taikoInbox, committer, parsedPayload, parsedEvidence);
+            return _slashMissingEOP(taikoInbox, _committer, parsedPayload, parsedEvidence);
         }
 
         revert InvalidViolationType();
@@ -84,58 +85,59 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     // Internal functions ----------------------------------------------------------------------
 
     function _slashPreconfirmationViolation(
-        uint64 l2ChainId,
-        ITaikoInbox taikoInbox,
-        address committer,
-        CommitmentPayload memory parsedPayload,
-        Evidence memory parsedEvidence
+        uint64 _l2ChainId,
+        ITaikoInbox _taikoInbox,
+        address _committer,
+        CommitmentPayload memory _parsedPayload,
+        Evidence memory _parsedEvidence
     )
         internal
         returns (uint256)
     {
-        ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(parsedPayload.batchId));
+        ITaikoInbox.Batch memory batch = _taikoInbox.v4GetBatch(uint64(_parsedPayload.batchId));
         ITaikoInbox.TransitionState memory transition =
-            taikoInbox.v4GetBatchVerifyingTransition(uint64(parsedPayload.batchId));
+            _taikoInbox.v4GetBatchVerifyingTransition(uint64(_parsedPayload.batchId));
 
         // Validate that the batch has been verified
         require(transition.blockHash != bytes32(0), BatchNotVerified());
 
         // Validate the pre-images in the evidence
         require(
-            keccak256(abi.encode(parsedEvidence.batchMetadata)) == batch.metaHash,
+            keccak256(abi.encode(_parsedEvidence.batchMetadata)) == batch.metaHash,
             InvalidBatchMetadata()
         );
         require(
-            keccak256(abi.encode(parsedEvidence.batchInfo)) == parsedEvidence.batchMetadata.infoHash,
+            keccak256(abi.encode(_parsedEvidence.batchInfo))
+                == _parsedEvidence.batchMetadata.infoHash,
             InvalidBatchInfo()
         );
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
-        if (parsedPayload.anchorId != parsedEvidence.batchInfo.anchorBlockId) {
+        if (_parsedPayload.anchorId != _parsedEvidence.batchInfo.anchorBlockId) {
             uint256 slashAmountWei = getSlashAmountWei().invalidPreconf;
-            emit SlashedInvalidPreconfirmation(committer, parsedPayload, slashAmountWei);
+            emit SlashedInvalidPreconfirmation(_committer, _parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
 
         // Check for reorgs if the committer missed the proposal
-        if (parsedEvidence.batchInfo.proposer != committer) {
+        if (_parsedEvidence.batchInfo.proposer != _committer) {
             (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
-                abi.encode(parsedPayload.l1ProposalSlotTimestamp)
+                abi.encode(_parsedPayload.l1ProposalSlotTimestamp)
             );
 
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
             if (!success) {
                 uint256 _slashAmountWei = getSlashAmountWei().reorgedPreconf;
-                emit SlashedInvalidPreconfirmation(committer, parsedPayload, _slashAmountWei);
+                emit SlashedInvalidPreconfirmation(_committer, _parsedPayload, _slashAmountWei);
                 return _slashAmountWei;
             }
         }
 
         // Ensure that the anchor block has not been reorged out
         require(
-            parsedPayload.anchorHash == parsedEvidence.batchInfo.anchorBlockHash,
+            _parsedPayload.anchorHash == _parsedEvidence.batchInfo.anchorBlockHash,
             PossibleReorgOfAnchorBlock()
         );
 
@@ -143,15 +145,15 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
         uint256 heightOfFirstBlockInBatch =
-            parsedEvidence.batchInfo.lastBlockId - parsedEvidence.batchInfo.blocks.length;
-        if (parsedEvidence.preconfedBlockHeader.number == heightOfFirstBlockInBatch) {
+            _parsedEvidence.batchInfo.lastBlockId - _parsedEvidence.batchInfo.blocks.length;
+        if (_parsedEvidence.preconfedBlockHeader.number == heightOfFirstBlockInBatch) {
             // If the preconfirmed block is the first block in the batch, we compare the parent hash
             // against the verified block hash of the previous batch, since the "batch blockhash" is
             // basically the hash of the last block.
             ITaikoInbox.TransitionState memory parentTransition =
-                taikoInbox.v4GetBatchVerifyingTransition(uint64(parsedPayload.batchId - 1));
+                _taikoInbox.v4GetBatchVerifyingTransition(uint64(_parsedPayload.batchId - 1));
             require(
-                parentTransition.blockHash == parsedEvidence.preconfedBlockHeader.parentHash,
+                parentTransition.blockHash == _parsedEvidence.preconfedBlockHeader.parentHash,
                 ParentHashMismatch()
             );
         } else {
@@ -160,71 +162,71 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             // Slot within the TaikoAnchor contract that contains the blockhash of the parent of the
             // preconfirmed block.
             bytes32 parentBlockhashSlot =
-                keccak256(abi.encode(parsedEvidence.preconfedBlockHeader.number - 1, bytes32(0)));
+                keccak256(abi.encode(_parsedEvidence.preconfedBlockHeader.number - 1, bytes32(0)));
 
             LibTrieProof.verifyMerkleProof(
                 transition.stateRoot,
-                resolve(l2ChainId, LibStrings.B_TAIKO, false),
+                resolve(_l2ChainId, LibStrings.B_TAIKO, false),
                 parentBlockhashSlot,
-                parsedEvidence.preconfedBlockHeader.parentHash,
-                parsedEvidence.parentBlockhashProofs.accountProof,
-                parsedEvidence.parentBlockhashProofs.storageProof
+                _parsedEvidence.preconfedBlockHeader.parentHash,
+                _parsedEvidence.parentBlockhashProofs.accountProof,
+                _parsedEvidence.parentBlockhashProofs.storageProof
             );
         }
 
         // Slot within the TaikoAnchor contract that contains the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         bytes32 blockhashSlot =
-            keccak256(abi.encode(parsedEvidence.preconfedBlockHeader.number, bytes32(0)));
+            keccak256(abi.encode(_parsedEvidence.preconfedBlockHeader.number, bytes32(0)));
 
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         LibTrieProof.verifyMerkleProof(
             transition.stateRoot,
-            resolve(l2ChainId, LibStrings.B_TAIKO, false),
+            resolve(_l2ChainId, LibStrings.B_TAIKO, false),
             blockhashSlot,
-            parsedEvidence.blockhashProofs.value,
-            parsedEvidence.blockhashProofs.accountProof,
-            parsedEvidence.blockhashProofs.storageProof
+            _parsedEvidence.blockhashProofs.value,
+            _parsedEvidence.blockhashProofs.accountProof,
+            _parsedEvidence.blockhashProofs.storageProof
         );
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
         require(
-            parsedEvidence.blockhashProofs.value != parsedPayload.blockHash,
+            _parsedEvidence.blockhashProofs.value != _parsedPayload.blockHash,
             PreconfirmationIsValid()
         );
 
         uint256 __slashAmountWei = getSlashAmountWei().invalidPreconf;
-        emit SlashedInvalidPreconfirmation(committer, parsedPayload, __slashAmountWei);
+        emit SlashedInvalidPreconfirmation(_committer, _parsedPayload, __slashAmountWei);
         return __slashAmountWei;
     }
 
     function _slashInvalidEOP(
-        ITaikoInbox taikoInbox,
-        address committer,
-        CommitmentPayload memory parsedPayload,
-        Evidence memory parsedEvidence
+        ITaikoInbox _taikoInbox,
+        address _committer,
+        CommitmentPayload memory _parsedPayload,
+        Evidence memory _parsedEvidence
     )
         internal
         returns (uint256)
     {
         // Validate that the commitment is an EOP
-        require(parsedPayload.eop == true, NotEndOfPreconfirmation());
+        require(_parsedPayload.eop == true, NotEndOfPreconfirmation());
 
-        ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(parsedPayload.batchId));
+        ITaikoInbox.Batch memory batch = _taikoInbox.v4GetBatch(uint64(_parsedPayload.batchId));
 
         // Slash if another block was proposed after EOP in the same batch
-        if (parsedEvidence.preconfedBlockHeader.number != batch.lastBlockId) {
+        if (_parsedEvidence.preconfedBlockHeader.number != batch.lastBlockId) {
             uint256 slashAmountWei = getSlashAmountWei().invalidEOP;
-            emit SlashedInvalidEOP(committer, parsedPayload, slashAmountWei);
+            emit SlashedInvalidEOP(_committer, _parsedPayload, slashAmountWei);
             return slashAmountWei;
         }
 
         ITaikoInbox.Batch memory nextBatch =
-            taikoInbox.v4GetBatch(uint64(parsedPayload.batchId + 1));
+            _taikoInbox.v4GetBatch(uint64(_parsedPayload.batchId + 1));
         require(
-            keccak256(abi.encode(nextBatch.metaHash)) == parsedEvidence.nextBatchMetadata.infoHash,
+            keccak256(abi.encode(nextBatch.metaHash)) == _parsedEvidence.nextBatchMetadata.infoHash,
             InvalidNextBatchMetadata()
         );
 
@@ -232,44 +234,44 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // We validate this by comparing the proposal timestamp to the timestamp of the preconfer's
         // lookahead slot.
         require(
-            parsedEvidence.nextBatchMetadata.proposedAt <= parsedPayload.l1ProposalSlotTimestamp,
+            _parsedEvidence.nextBatchMetadata.proposedAt <= _parsedPayload.l1ProposalSlotTimestamp,
             EOPIsValid()
         );
 
         uint256 _slashAmountWei = getSlashAmountWei().invalidEOP;
-        emit SlashedInvalidEOP(committer, parsedPayload, _slashAmountWei);
+        emit SlashedInvalidEOP(_committer, _parsedPayload, _slashAmountWei);
         return _slashAmountWei;
     }
 
     function _slashMissingEOP(
-        ITaikoInbox taikoInbox,
-        address committer,
-        CommitmentPayload memory parsedPayload,
-        Evidence memory parsedEvidence
+        ITaikoInbox _taikoInbox,
+        address _committer,
+        CommitmentPayload memory _parsedPayload,
+        Evidence memory _parsedEvidence
     )
         internal
         returns (uint256)
     {
         // Validate that the commitment is not an EOP
-        require(parsedPayload.eop == false, EOPIsPresent());
+        require(_parsedPayload.eop == false, EOPIsPresent());
 
         ITaikoInbox.Batch memory nextBatch =
-            taikoInbox.v4GetBatch(uint64(parsedPayload.batchId + 1));
+            _taikoInbox.v4GetBatch(uint64(_parsedPayload.batchId + 1));
         require(
-            keccak256(abi.encode(nextBatch.metaHash)) == parsedEvidence.nextBatchMetadata.infoHash,
+            keccak256(abi.encode(nextBatch.metaHash)) == _parsedEvidence.nextBatchMetadata.infoHash,
             InvalidNextBatchMetadata()
         );
 
         // The block with missing EOP should be the last block in the batch and the next batch
         // should have been proposed after the lookahead slot.
         require(
-            parsedEvidence.preconfedBlockHeader.number == nextBatch.lastBlockId
-                && parsedEvidence.nextBatchMetadata.proposedAt > parsedPayload.l1ProposalSlotTimestamp,
+            _parsedEvidence.preconfedBlockHeader.number == nextBatch.lastBlockId
+                && _parsedEvidence.nextBatchMetadata.proposedAt > _parsedPayload.l1ProposalSlotTimestamp,
             EOPIsNotMissing()
         );
 
         uint256 slashAmountWei = getSlashAmountWei().missingEOP;
-        emit SlashedMissingEOP(committer, parsedPayload, slashAmountWei);
+        emit SlashedMissingEOP(_committer, _parsedPayload, slashAmountWei);
         return slashAmountWei;
     }
 }
