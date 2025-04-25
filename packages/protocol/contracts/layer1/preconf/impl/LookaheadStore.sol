@@ -83,6 +83,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
 
                 LookaheadLeaf memory lookaheadLeaf = LookaheadLeaf({
+                    index: i,
                     timestamp: lookaheadPayload.slotTimestamp,
                     prevTimestamp: _lastRecordedSlotTimestamp,
                     committer: committer,
@@ -90,12 +91,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     validatorLeafIndex: lookaheadPayload.validatorLeafIndex
                 });
 
-                emit LookaheadLeafPosted(
-                    lookaheadPayload.slotTimestamp,
-                    _lastRecordedSlotTimestamp,
-                    committer,
-                    lookaheadPayload.validatorLeafIndex
-                );
+                emit LookaheadLeafPosted(lookaheadPayload.slotTimestamp, lookaheadLeaf);
 
                 _lastRecordedSlotTimestamp = lookaheadPayload.slotTimestamp;
                 leaves[i] = keccak256(abi.encode(lookaheadLeaf));

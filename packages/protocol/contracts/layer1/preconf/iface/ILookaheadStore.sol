@@ -19,6 +19,8 @@ interface ILookaheadStore {
     }
 
     struct LookaheadLeaf {
+        // Index of the lookahead leaf.
+        uint256 index;
         // Timestamp of the slot.
         uint256 timestamp;
         // Pointer to the last entry's timestamp.
@@ -69,12 +71,7 @@ interface ILookaheadStore {
     error LookaheadRootNotFound();
 
     event LookaheadRootUpdated(uint256 epochTimestamp, bytes32 lookaheadRoot);
-    event LookaheadLeafPosted(
-        uint256 indexed timestamp,
-        uint256 prevTimestamp,
-        address committer,
-        uint256 validatorLeafIndex
-    );
+    event LookaheadLeafPosted(uint256 indexed timestamp, LookaheadLeaf lookaheadLeaf);
 
     /**
      * @notice Allows a registered operator to post the lookahead for the next epoch.
