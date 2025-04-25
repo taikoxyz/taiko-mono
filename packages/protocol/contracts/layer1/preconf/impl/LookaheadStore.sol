@@ -140,6 +140,12 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         });
     }
 
+    /// @inheritdoc ILookaheadStore
+    function overwriteLookahead(uint256 epochTimestamp, bytes32 lookaheadRoot) external {
+        require(msg.sender == guardian, SenderIsNotGuardian());
+        _setLookaheadRoot(epochTimestamp, lookaheadRoot);
+    }
+
     // Internal functions ----------------------------------------------------------------------
 
     function _validateLookaheadPoster(

@@ -58,6 +58,7 @@ interface ILookaheadStore {
     error OperatorHasInsufficientCollateral();
     error InvalidValidatorLeafIndex();
     error OperatorHasNotOptedIntoPreconfSlasher();
+    error SenderIsNotGuardian();
 
     event LookaheadRootUpdated(uint256 epochTimestamp, bytes32 lookaheadRoot);
     event LookaheadEntryPosted(
@@ -77,6 +78,13 @@ interface ILookaheadStore {
         ISlasher.SignedCommitment memory signedCommitment
     )
         external;
+
+    /**
+     * @notice Called by the guardian to overwrite the lookahead root for an epoch.
+     * @param epochTimestamp The timestamp of the epoch.
+     * @param lookaheadRoot The lookahead root.
+     */
+    function overwriteLookahead(uint256 epochTimestamp, bytes32 lookaheadRoot) external;
 
     /**
      * @notice Returns true if the lookahead is required for the next epoch.
