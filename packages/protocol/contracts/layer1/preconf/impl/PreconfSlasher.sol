@@ -8,6 +8,8 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibTrieProof.sol";
 import "solady/src/utils/LibRLP.sol";
 
+/// @title PreconfSlasher
+/// @custom:security-contact security@taiko.xyz
 contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     address public immutable urc;
 
