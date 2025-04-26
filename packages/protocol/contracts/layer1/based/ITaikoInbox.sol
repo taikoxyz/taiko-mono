@@ -237,6 +237,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
+    error AdditionalDataNotAllowed();
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
     error AnchorBlockIdTooSmall();
@@ -284,11 +285,14 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
+    /// @param _additionalData Additional data to be included in the batch. This value must be
+    /// empty.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The metadata of the proposed batch.
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata _additionalData
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
