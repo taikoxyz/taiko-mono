@@ -69,22 +69,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @param _params ABI-encoded BlockParams.
     /// @param _txList Transaction list in calldata. If the txList is empty, blob will be used for
     /// data availability.
-    /// @param _additionalData Additional data to be included in the batch. This value must be
-    /// empty.
     /// @return info_ Information of the proposed batch, which is used for constructing blocks
     /// offchain.
     /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
     function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList,
-        bytes calldata _additionalData
+        bytes calldata /*_additionalData*/
     )
         public
         override(ITaikoInbox, IProposeBatch)
         nonReentrant
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
-        require(_additionalData.length == 0, AdditionalDataNotAllowed());
         Stats2 memory stats2 = state.stats2;
         Config memory config = v4GetConfig();
         require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());

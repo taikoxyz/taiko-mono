@@ -77,15 +77,13 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList,
-        bytes calldata _additionalData
+        bytes calldata
     )
         external
         onlyFromOptional(preconfRouter)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        require(_additionalData.length == 0, ITaikoInbox.AdditionalDataNotAllowed());
-
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
         if (bytesX.length == 0) {
