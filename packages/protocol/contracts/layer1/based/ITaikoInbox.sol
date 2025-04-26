@@ -21,12 +21,12 @@ import "./IProveBatches.sol";
 interface ITaikoInbox is IBondManager, IProveBatches {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
-        // transactions in calldata or blobs, the block will contains as many transactions as
+        // transactions in calldata or blobs, the block will contain as many transactions as
         // possible.
         uint16 numTransactions;
         // The time difference (in seconds) between the timestamp of this block and
         // the timestamp of the parent block in the same batch. For the first block in a batch,
-        // there is not parent block in the same batch, so the time shift should be 0.
+        // there is no parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
