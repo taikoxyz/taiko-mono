@@ -57,6 +57,6 @@ library LibPreconfUtils {
     /// @param _epochOffset The offset from the current epoch.
     /// @return The timestamp of the future epoch.
     function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint256) {
-        return getEpochTimestamp() + e_epochOffsetpochOffset * LibPreconfConstants.SECONDS_IN_EPOCH;
+        return getEpochTimestamp() + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH;
     }
 }
