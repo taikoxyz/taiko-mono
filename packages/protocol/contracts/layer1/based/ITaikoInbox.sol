@@ -284,7 +284,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
-    /// @param _additionalData Additional data to be included in the batch. This value must be
+    /// @param _additionalData Additional data to be included in the batch.
     /// empty.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The metadata of the proposed batch.
