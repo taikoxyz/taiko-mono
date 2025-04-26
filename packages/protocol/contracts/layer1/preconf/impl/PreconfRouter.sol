@@ -3,15 +3,20 @@ pragma solidity ^0.8.24;
 
 // import "urc/src/IRegistry.sol";
 import "src/shared/common/EssentialContract.sol";
-import "../iface/IPreconfRouter.sol";
+import "src/layer1/based/IProposeBatch.sol";
 import "../iface/IPreconfWhitelist.sol";
 
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
-contract PreconfRouter is EssentialContract, IPreconfRouter {
+contract PreconfRouter is EssentialContract, IProposeBatch {
     IProposeBatch public immutable proposeBatchEntrypoint;
     IPreconfWhitelist public immutable preconfWhitelist;
     address public immutable fallbackPreconfer;
+
+    error ForcedInclusionNotSupported();
+    error NotFallbackPreconfer();
+    error NotPreconfer();
+    error ProposerIsNotPreconfer();
 
     uint256[50] private __gap;
 
