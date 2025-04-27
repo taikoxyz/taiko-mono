@@ -121,7 +121,7 @@ func (q *payloadQueue) getLatestPayload() *eth.ExecutionPayload {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
-	if len(q.payloads) == 0 {
+	if q.payloads[0] == nil {
 		return nil
 	}
 
