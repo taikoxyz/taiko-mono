@@ -1069,6 +1069,77 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingChildren() {
 	s.Equal(l2Head2.Number.Uint64(), l2Head5.Number().Uint64())
 }
 
+func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
+	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
+	// Propose some valid L2 blocks
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l2Head1, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l2Head1.Number().Uint64(), headL1Origin.BlockID.Uint64())
+
+	snapshotID := s.SetL1Snapshot()
+
+	for i := 0; i < rand.Intn(3)+2; i++ {
+		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number().Uint64())
+
+	for i := l2Head1.Number().Uint64() + 1; i <= l2Head2.Number.Uint64(); i++ {
+		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
+		s.Nil(err)
+
+		log.Info("Put payloads cache for block", "number", block.Number().Uint64(), "hash", block.Hash().Hex())
+
+		baseFee, overflow := uint256.FromBig(block.BaseFee())
+		s.False(overflow)
+
+		b, err := utils.EncodeAndCompressTxList(block.Transactions())
+		s.Nil(err)
+		s.GreaterOrEqual(len(block.Transactions()), 1)
+
+		s.d.preconfBlockServer.PutPayloadsCache(block.Number().Uint64(), &eth.ExecutionPayload{
+			BlockHash:     block.Hash(),
+			ParentHash:    block.ParentHash(),
+			FeeRecipient:  block.Coinbase(),
+			PrevRandao:    eth.Bytes32(block.MixDigest()),
+			BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+			GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+			Timestamp:     eth.Uint64Quantity(block.Time()),
+			ExtraData:     block.Extra(),
+			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+			Transactions:  []eth.Data{b},
+			Withdrawals:   &types.Withdrawals{},
+		})
+	}
+
+	s.RevertL1Snapshot(snapshotID)
+	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, l2Head1.Number()))
+	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), headL1Origin.BlockID)
+	s.Nil(err)
+
+	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l2Head1.Number().Uint64(), headL1Origin.BlockID.Uint64())
+
+	s.Nil(s.d.preconfBlockServer.ImportPendingBlocksFromCache(context.Background()))
+
+	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head2.Number.Uint64(), l2Head3.Number.Uint64())
+	s.Equal(l2Head2.Hash(), l2Head3.Hash())
+
+	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l2Head1.Number().Uint64(), headL1Origin.BlockID.Uint64())
+}
+
 func (s *DriverTestSuite) proposePreconfBatch(
 	blocks []*types.Block,
 	anchoredL1Blocks []*types.Header,
