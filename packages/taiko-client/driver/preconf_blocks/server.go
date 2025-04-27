@@ -441,7 +441,7 @@ func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context
 
 	log.Info(
 		"Found pending payloads in the cache, try importing",
-		"lastestPayloadNumber", uint64(lastestPayload.BlockNumber),
+		"latestPayloadNumber", uint64(lastestPayload.BlockNumber),
 		"latestPayloadBlockHash", lastestPayload.BlockHash.Hex(),
 		"latestPayloadParentHash", lastestPayload.ParentHash.Hex(),
 	)
