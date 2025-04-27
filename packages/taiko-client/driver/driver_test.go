@@ -1128,7 +1128,7 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number().Uint64(), headL1Origin.BlockID.Uint64())
 
-	s.Nil(s.d.preconfBlockServer.ImportPendingBlocksFromCache(context.Background()))
+	s.Nil(s.d.ChainSyncer().SetUpBlobSync())
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
