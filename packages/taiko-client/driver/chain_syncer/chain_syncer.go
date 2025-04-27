@@ -11,6 +11,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
+	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -25,6 +26,9 @@ type L2ChainSyncer struct {
 	// Syncers
 	beaconSyncer *beaconsync.Syncer
 	blobSyncer   *blob.Syncer
+
+	// Preconfirmation server
+	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
 
 	// Monitors
 	progressTracker *beaconsync.SyncProgressTracker
@@ -42,6 +46,7 @@ func New(
 	p2pSync bool,
 	p2pSyncTimeout time.Duration,
 	blobServerEndpoint *url.URL,
+	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer,
 ) (*L2ChainSyncer, error) {
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
@@ -115,6 +120,19 @@ func (s *L2ChainSyncer) Sync() error {
 
 		// Reset to the latest L2 execution engine's chain status.
 		s.progressTracker.UpdateMeta(l2Head.Number, l2Head.Hash())
+
+		// If the preconfirmation block server is enabled, we should try to insert the pending
+		// preconfirmation blocks from the cache.
+		if s.preconfBlockServer != nil {
+			log.Info(
+				"Try inserting pending preconf blocks",
+				"currentL2HeadNumber", l2Head.Number,
+				"currentL2HeadHash", l2Head.Hash(),
+			)
+			if err := s.preconfBlockServer.ImportPendingBlocksFromCache(s.ctx); err != nil {
+				log.Warn("Failed to recover the preconfirmation blocks from cache", "error", err)
+			}
+		}
 	}
 
 	// Insert the proposed block one by one.

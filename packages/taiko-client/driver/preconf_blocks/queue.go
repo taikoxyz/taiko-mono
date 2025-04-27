@@ -21,8 +21,9 @@ type payloadQueueItem struct {
 
 // payloadQueue tracks the latest payloads from the P2P gossip messages.
 type payloadQueue struct {
-	payloads []*payloadQueueItem
-	lock     sync.RWMutex
+	payloads     []*payloadQueueItem
+	latestPaylod *eth.ExecutionPayload
+	lock         sync.RWMutex
 }
 
 // newPayloadQueue creates a pre-initialized queue with a fixed number of slots
@@ -43,6 +44,7 @@ func (q *payloadQueue) put(id uint64, payload *eth.ExecutionPayload) {
 		id:      id,
 		payload: payload,
 	}
+	q.latestPaylod = payload
 }
 
 // get retrieves a previously stored payload item or nil if it does not exist.

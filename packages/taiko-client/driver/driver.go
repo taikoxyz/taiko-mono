@@ -95,6 +95,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
+		d.preconfBlockServer,
 	); err != nil {
 		return err
 	}
