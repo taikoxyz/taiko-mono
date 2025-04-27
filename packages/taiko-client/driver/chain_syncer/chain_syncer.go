@@ -124,12 +124,17 @@ func (s *L2ChainSyncer) Sync() error {
 		// preconfirmation blocks from the cache.
 		if s.preconfBlockServer != nil {
 			log.Info(
-				"Try inserting pending preconf blocks",
+				"Try importing pending preconfirmation blocks",
 				"currentL2HeadNumber", l2Head.Number,
 				"currentL2HeadHash", l2Head.Hash(),
 			)
 			if err := s.preconfBlockServer.ImportPendingBlocksFromCache(s.ctx); err != nil {
-				log.Warn("Failed to recover the preconfirmation blocks from cache", "error", err)
+				log.Warn(
+					"Failed to import the pending preconfirmation blocks from cache, skip the import",
+					"currentL2HeadNumber", l2Head.Number,
+					"currentL2HeadHash", l2Head.Hash(),
+					"error", err,
+				)
 			}
 		}
 	}
