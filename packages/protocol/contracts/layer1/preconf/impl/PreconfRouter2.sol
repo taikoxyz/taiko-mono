@@ -107,7 +107,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         // Validate the preconfing period
         require(
             block.timestamp > _lookaheadLeaf.prevTimestamp
-                && block.timestamp < _lookaheadLeaf.timestamp,
+                && block.timestamp <= _lookaheadLeaf.timestamp,
             InvalidLookaheadTimestamp()
         );
 
