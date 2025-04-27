@@ -433,19 +433,19 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 // ImportPendingBlocksFromCache tries to insert pending blocks from the cache,
 // if there is no payload in the cache, it will skip the operation.
 func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
-	lastestPayload := s.payloadsCache.getLatestPayload()
-	if lastestPayload == nil {
+	latestPayload := s.payloadsCache.getLatestPayload()
+	if latestPayload == nil {
 		log.Info("No payloads in cache, skip recovering from cache")
 		return nil
 	}
 
 	log.Info(
 		"Found pending payloads in the cache, try importing",
-		"latestPayloadNumber", uint64(lastestPayload.BlockNumber),
-		"latestPayloadBlockHash", lastestPayload.BlockHash.Hex(),
-		"latestPayloadParentHash", lastestPayload.ParentHash.Hex(),
+		"latestPayloadNumber", uint64(latestPayload.BlockNumber),
+		"latestPayloadBlockHash", latestPayload.BlockHash.Hex(),
+		"latestPayloadParentHash", latestPayload.ParentHash.Hex(),
 	)
-	return s.ImportChildBlocksFromCache(ctx, lastestPayload)
+	return s.ImportChildBlocksFromCache(ctx, latestPayload)
 }
 
 // P2PSequencerAddress implements the p2p.GossipRuntimeConfig interface.
