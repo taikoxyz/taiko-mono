@@ -22,8 +22,7 @@ type payloadQueueItem struct {
 // payloadQueue tracks the latest payloads from the P2P gossip messages.
 type payloadQueue struct {
 	payloads     []*payloadQueueItem
-	latestPaylod *eth.ExecutionPayload
-	lock         sync.RWMutex
+	latestPayload *eth.ExecutionPayload
 }
 
 // newPayloadQueue creates a pre-initialized queue with a fixed number of slots
