@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ITaikoInbox } from "src/layer1/based/ITaikoInbox.sol";
-import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
+import "src/layer1/based/ITaikoInbox.sol";
+import "@eth-fabric/urc/ISlasher.sol";
 
 /// @title IPreconfSlasher
 /// @custom:security-contact security@taiko.xyz
@@ -16,7 +16,7 @@ interface IPreconfSlasher is ISlasher {
         // Timestamp of the L1 slot in which the preconfer is the proposer.
         // In the case of falback preconfer, this will be the timestamp of the last slot of the
         // epoch.
-        uint256 l1ProposalSlotTimestamp;
+        uint256 preconferSlotTimestamp;
         // Height of the L1 anchor block
         uint256 anchorId;
         // Blockhash of the L1 anchor block
@@ -30,17 +30,15 @@ interface IPreconfSlasher is ISlasher {
         bool eop; // End-Of-Preconf flag
     }
 
-    // Evidence to prove preconfirmation violation of a block at a certain height X
-    struct Evidence {
-        // Type of preconfirmation violation
-        ViolationType violationType;
+    // The evidence bytes will be encoded as:
+    // - First byte: ViolationType (0 = InvalidPreconfirmation, 1 = InvalidEOP, 2 = MissingEOP)
+    // - Remaining bytes: ABI-encoded struct based on the violation type
+
+    struct EvidenceInvalidPreconfirmation {
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
-        // This is the BatchMetadata of the next batch that contains the block at height X + 1
-        // This is only used for EOP violations
-        ITaikoInbox.BatchMetadata nextBatchMetadata;
         // Header of the preconfirmed block at height X
         BlockHeader preconfedBlockHeader;
         // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
@@ -55,6 +53,28 @@ interface IPreconfSlasher is ISlasher {
         BlockhashProofs parentBlockhashProofs;
     }
 
+    struct EvidenceInvalidEOP {
+        // This is the BatchInfo of the batch that contains the block at height X
+        ITaikoInbox.BatchInfo batchInfo;
+        // This is the BatchMetadata of the batch that contains the block at height X
+        ITaikoInbox.BatchMetadata batchMetadata;
+        // This is the BatchMetadata of the next batch that contains the block at height X + 1
+        ITaikoInbox.BatchMetadata nextBatchMetadata;
+        // Header of the preconfirmed block at height X
+        BlockHeader preconfedBlockHeader;
+    }
+
+    struct EvidenceMissingEOP {
+        // This is the BatchInfo of the batch that contains the block at height X
+        ITaikoInbox.BatchInfo batchInfo;
+        // This is the BatchMetadata of the batch that contains the block at height X
+        ITaikoInbox.BatchMetadata batchMetadata;
+        // This is the BatchMetadata of the next batch that contains the block at height X + 1
+        ITaikoInbox.BatchMetadata nextBatchMetadata;
+        // Header of the preconfirmed block at height X
+        BlockHeader preconfedBlockHeader;
+    }
+
     // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
     // The EVM `slot` containing the blockhash is calculated dynamically based on the block number.
     struct BlockhashProofs {
@@ -66,7 +86,7 @@ interface IPreconfSlasher is ISlasher {
         bytes[] storageProof;
     }
 
-    // Ethereum block header
+    // Taiko block header
     struct BlockHeader {
         bytes32 parentHash;
         bytes32 ommersHash;
@@ -90,7 +110,7 @@ interface IPreconfSlasher is ISlasher {
         bytes32 parentBeaconBlockRoot;
     }
 
-    struct SlashAmountWei {
+    struct SlashAmount {
         // Slash amount for invalid preconfirmation
         uint256 invalidPreconf;
         // Slash amount for invalid EOP
@@ -110,35 +130,33 @@ interface IPreconfSlasher is ISlasher {
     }
 
     event SlashAmountUpdated(uint256 newAmount);
-    event SlashedInvalidPreconfirmation(
+    event InvalidPreconfirmationSlashed(
         address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
     );
-    event SlashedInvalidEOP(
+    event InvalidEOPSlashed(
         address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
     );
-    event SlashedMissingEOP(
+    event MissingEOPSlashed(
         address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
     );
 
-    error SenderIsNotUrc();
-    error InvalidViolationType();
-    error InvalidDomainSeparator();
-    error InvalidChainId();
     error BatchNotVerified();
-    error InvalidBlockHeader();
-    error InvalidBatchMetadata();
+    error EOPIsNotMissing();
+    error EOPIsPresent();
+    error EOPIsValid();
     error InvalidBatchInfo();
-    error PossibleReorgAtProposalSlot();
-    error PossibleReorgOfAnchorBlock();
+    error InvalidBatchMetadata();
+    error InvalidBlockHeader();
+    error InvalidChainId();
+    error InvalidDomainSeparator();
+    error InvalidNextBatchMetadata();
+    error InvalidViolationType();
+    error NotEndOfPreconfirmation();
     error ParentHashMismatch();
     error PreconfirmationIsValid();
-    error InvalidNextBatchMetadata();
-    error NotEndOfPreconfirmation();
-    error EOPIsValid();
-    error EOPIsPresent();
-    error EOPIsNotMissing();
+    error SenderIsNotUrc();
 
     /// @notice Returns the slash amount for each violation type
-    /// @return slashAmountWei The slash amount for each violation type
-    function getSlashAmountWei() external pure returns (SlashAmountWei memory slashAmountWei);
+    /// @return slashAmount The slash amount for each violation type
+    function getSlashAmount() external pure returns (SlashAmount memory slashAmount);
 }
