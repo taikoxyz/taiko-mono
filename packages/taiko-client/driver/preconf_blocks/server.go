@@ -435,6 +435,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
 	if s.payloadsCache.latestPaylod == nil {
 		log.Info("No payloads in cache, skip recovering from cache")
+		return nil
 	}
 	return s.ImportChildBlocksFromCache(ctx, s.payloadsCache.latestPaylod)
 }
