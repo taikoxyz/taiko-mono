@@ -46,7 +46,6 @@ func New(
 	p2pSync bool,
 	p2pSyncTimeout time.Duration,
 	blobServerEndpoint *url.URL,
-	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer,
 ) (*L2ChainSyncer, error) {
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
@@ -214,4 +213,9 @@ func (s *L2ChainSyncer) BeaconSyncer() *beaconsync.Syncer {
 // BlobSyncer returns the inner blob syncer.
 func (s *L2ChainSyncer) BlobSyncer() *blob.Syncer {
 	return s.blobSyncer
+}
+
+// SetPreconfBlockServer sets the preconfirmation block server.
+func (s *L2ChainSyncer) SetPreconfBlockServer(server *preconfBlocks.PreconfBlockAPIServer) {
+	s.preconfBlockServer = server
 }

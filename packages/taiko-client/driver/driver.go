@@ -95,7 +95,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
-		d.preconfBlockServer,
 	); err != nil {
 		return err
 	}
@@ -156,6 +155,9 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.preconfBlockServer.SetP2PNode(d.p2pNode)
 			d.preconfBlockServer.SetP2PSigner(d.p2pSigner)
 		}
+
+		// Set the preconf block server to the chain syncer.
+		d.l2ChainSyncer.SetPreconfBlockServer(d.preconfBlockServer)
 	}
 
 	return nil

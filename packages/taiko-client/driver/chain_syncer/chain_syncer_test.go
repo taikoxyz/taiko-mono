@@ -39,7 +39,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		false,
 		1*time.Hour,
 		s.BlobServer.URL(),
-		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
