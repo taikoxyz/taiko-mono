@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultTimeout = 1 * time.Minute
+	defaultTimeout                = 1 * time.Minute
 )
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
@@ -245,6 +245,11 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		Ontake: protocolConfigs.ForkHeights.Ontake,
 		Pacaya: protocolConfigs.ForkHeights.Pacaya,
 	}
+
+	log.Info("Forkheight configs",
+		"ontakeForkHeight", c.OntakeClients.ForkHeight,
+		"pacayaForkHeight", c.PacayaClients.ForkHeight,
+	)
 
 	return nil
 }
