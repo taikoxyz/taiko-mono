@@ -14,13 +14,13 @@ library LibMerkleTree {
     error EmptyLeaves();
     error IndexOutOfBounds();
     error LeavesTooLarge();
+
     /**
      * @dev Generates a complete Merkle tree from an array of leaves
      * @dev The tree size is limited to 256 leaves
      * @param leaves Array of leaf values
      * @return bytes32 Root hash of the Merkle tree
      */
-
     function generateTree(bytes32[] memory leaves) internal pure returns (bytes32) {
         if (leaves.length == 0) revert EmptyLeaves();
         if (leaves.length == 1) return leaves[0];
@@ -30,17 +30,17 @@ library LibMerkleTree {
         bytes32[] memory nodes = new bytes32[](_nextPowerOfTwo);
 
         // Fill leaf nodes
-        for (uint256 i = 0; i < leaves.length; i++) {
+        for (uint256 i = 0; i < leaves.length; ++i) {
             nodes[i] = leaves[i];
         }
 
         // Build up the tree
         uint256 n = _nextPowerOfTwo;
         while (n > 1) {
-            for (uint256 i = 0; i < n / 2; i++) {
-                nodes[i] = _efficientKeccak256(nodes[2 * i], nodes[2 * i + 1]);
+            for (uint256 i = 0; i < n >> 1; ++i) {
+                nodes[i] = _efficientKeccak256(nodes[i << 1], nodes[i << 1 + 1]);
             }
-            n = n / 2;
+            n = n >> 1;
         }
 
         return nodes[0];
@@ -70,18 +70,18 @@ library LibMerkleTree {
         uint256 size = _nextPowerOfTwo;
         while (size > 1) {
             height++;
-            size /= 2;
+            size >>= 1;
         }
 
         bytes32[] memory nodes = new bytes32[](_nextPowerOfTwo);
         bytes32[] memory proof = new bytes32[](height); // <-- This is the key fix
 
         // Fill leaf nodes
-        for (uint256 i = 0; i < leaves.length; i++) {
+        for (uint256 i; i < leaves.length; ++i) {
             nodes[i] = leaves[i];
         }
         // Fill remaining nodes with zero
-        for (uint256 i = leaves.length; i < _nextPowerOfTwo; i++) {
+        for (uint256 i = leaves.length; i < _nextPowerOfTwo; ++i) {
             nodes[i] = bytes32(0);
         }
 
@@ -95,11 +95,11 @@ library LibMerkleTree {
             proof[proofIndex++] = nodes[siblingIndex];
 
             // Calculate next level
-            for (uint256 i = 0; i < levelSize / 2; i++) {
-                nodes[i] = _efficientKeccak256(nodes[2 * i], nodes[2 * i + 1]);
+            for (uint256 i = 0; i < levelSize >> 1; ++i) {
+                nodes[i] = _efficientKeccak256(nodes[i << 1], nodes[i << 1 + 1]);
             }
-            levelSize /= 2;
-            currentIndex /= 2;
+            levelSize >>= 1;
+            currentIndex >>= 1;
         }
 
         return proof;
@@ -125,13 +125,13 @@ library LibMerkleTree {
     {
         bytes32 computedHash = leaf;
 
-        for (uint256 i = 0; i < proof.length; i++) {
+        for (uint256 i; i < proof.length; ++i) {
             if (index % 2 == 0) {
                 computedHash = _efficientKeccak256(computedHash, proof[i]);
             } else {
                 computedHash = _efficientKeccak256(proof[i], computedHash);
             }
-            index = index / 2;
+            index = index >> 1;
         }
 
         return computedHash == root;
@@ -157,13 +157,13 @@ library LibMerkleTree {
     {
         bytes32 computedHash = leaf;
 
-        for (uint256 i = 0; i < proof.length; i++) {
+        for (uint256 i; i < proof.length; ++i) {
             if (index % 2 == 0) {
                 computedHash = _efficientKeccak256(computedHash, proof[i]);
             } else {
                 computedHash = _efficientKeccak256(proof[i], computedHash);
             }
-            index = index / 2;
+            index = index >> 1;
         }
 
         return computedHash == root;

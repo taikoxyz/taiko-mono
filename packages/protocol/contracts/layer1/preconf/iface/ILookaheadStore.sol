@@ -52,23 +52,22 @@ interface ILookaheadStore {
         uint80 minCollateralForPreconfing;
     }
 
+    error CommittmentSignerMismatch();
+    error InvalidLookaheadEpoch();
+    error InvalidSlotTimestamp();
+    error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
-    error PosterHasUnregistered();
+    error LookaheadRootNotFound();
+    error OperatorHasBeenSlashed();
+    error OperatorHasInsufficientCollateral();
+    error OperatorHasNotOptedIntoPreconfSlasher();
+    error OperatorHasUnregistered();
     error PosterHasBeenSlashed();
     error PosterHasInsufficientCollateral();
     error PosterHasNotOptedIn();
-    error CommittmentSignerMismatch();
+    error PosterHasUnregistered();
     error SlasherIsNotGuardian();
-    error InvalidLookaheadEpoch();
     error SlotTimestampIsNotIncrementing();
-    error InvalidSlotTimestamp();
-    error OperatorHasUnregistered();
-    error OperatorHasBeenSlashed();
-    error OperatorHasInsufficientCollateral();
-    error InvalidValidatorLeafIndex();
-    error OperatorHasNotOptedIntoPreconfSlasher();
-    error SenderIsNotGuardian();
-    error LookaheadRootNotFound();
 
     event LookaheadRootUpdated(uint256 epochTimestamp, bytes32 lookaheadRoot);
     event LookaheadLeafPosted(uint256 indexed timestamp, LookaheadLeaf lookaheadLeaf);
@@ -108,5 +107,5 @@ interface ILookaheadStore {
      * @notice Returns the configuration of the lookahead store.
      * @return The configuration of the lookahead store.
      */
-    function lookaheadStoreConfig() external pure returns (Config memory);
+    function getConfig() external pure returns (Config memory);
 }
