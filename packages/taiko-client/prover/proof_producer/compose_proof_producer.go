@@ -70,8 +70,13 @@ func (s *ComposeProofProducer) RequestProof(
 	)
 
 	g.Go(func() error {
-		_, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
-		return err
+		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+			return err
+		} else {
+			// Note: we mark the `IsSgxGethProofGenerated` with true to record if it is first time generated
+			opts.PacayaOptions().IsSgxGethProofGenerated = true
+			return nil
+		}
 	})
 	g.Go(func() error {
 		if s.Dummy {
@@ -156,8 +161,12 @@ func (s *ComposeProofProducer) Aggregate(
 	g.Go(func() error {
 		if sgxGethBatchProofs, err = s.SgxGethProducer.Aggregate(ctx, items, requestAt); err != nil {
 			return err
+		} else {
+			// Note: we mark the `IsSgxGethProofAggregationGenerated` in the first item with true
+			// to record if it is first time generated
+			items[0].Opts.PacayaOptions().IsSgxGethProofAggregationGenerated = true
+			return nil
 		}
-		return nil
 	})
 	g.Go(func() error {
 		if s.Dummy {
