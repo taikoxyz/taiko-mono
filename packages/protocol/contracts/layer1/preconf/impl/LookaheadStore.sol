@@ -254,7 +254,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     function _setLookaheadHash(uint256 _epochTimestamp, bytes32 _hash) internal {
-        LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
+        LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);   
         lookaheadHash.epochTimestamp = _epochTimestamp;
         lookaheadHash.lookaheadHash = _hash;
     }
