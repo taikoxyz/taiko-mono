@@ -74,7 +74,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata /*_additionalData*/
     )
         public
         override(ITaikoInbox, IProposeBatch)
@@ -180,24 +181,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 baseFeeSharings: new BaseFeeSharing[](0), // TODO
                 baseFeeConfig: config.baseFeeConfig
             });
+            {
+                uint64 nBlocks = uint64(params.blocks.length);
 
-            uint64 nBlocks = uint64(params.blocks.length);
+                require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
-            require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
+                info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
+                    ? stats2.numBatches + nBlocks - 1
+                    : lastBatch.lastBlockId + nBlocks;
 
-            info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                ? stats2.numBatches + nBlocks - 1
-                : lastBatch.lastBlockId + nBlocks;
+                (info_.txsHash, info_.blobHashes) =
+                    _calculateTxsHash(keccak256(_txList), params.blobParams);
 
-            (info_.txsHash, info_.blobHashes) =
-                _calculateTxsHash(keccak256(_txList), params.blobParams);
-
-            meta_ = BatchMetadata({
-                infoHash: keccak256(abi.encode(info_)),
-                prover: info_.proposer,
-                batchId: stats2.numBatches,
-                proposedAt: uint64(block.timestamp)
-            });
+                meta_ = BatchMetadata({
+                    infoHash: keccak256(abi.encode(info_)),
+                    prover: info_.proposer,
+                    batchId: stats2.numBatches,
+                    proposedAt: uint64(block.timestamp)
+                });
+            }
 
             if (address(proverMarket) != address(0) && params.optInProverMarket) {
                 uint256 proverFee;
@@ -224,26 +226,27 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 _debitBond(meta_.prover, config.livenessBondBase);
             }
 
-            Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
+            {
+                Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
 
-            // SSTORE #1
-            batch.metaHash = keccak256(abi.encode(meta_));
+                // SSTORE #1
+                batch.metaHash = keccak256(abi.encode(meta_));
 
-            // SSTORE #2 {{
-            batch.batchId = stats2.numBatches;
-            batch.lastBlockTimestamp = lastBlockTimestamp;
-            batch.anchorBlockId = anchorBlockId;
-            batch.nextTransitionId = 1;
-            batch.verifiedTransitionId = 0;
-            batch.reserved4 = 0;
-            // SSTORE }}
+                // SSTORE #2 {{
+                batch.batchId = stats2.numBatches;
+                batch.lastBlockTimestamp = lastBlockTimestamp;
+                batch.anchorBlockId = anchorBlockId;
+                batch.nextTransitionId = 1;
+                batch.verifiedTransitionId = 0;
+                batch.reserved4 = 0;
+                // SSTORE }}
 
-            // SSTORE #3 {{
-            batch.lastBlockId = info_.lastBlockId;
-            batch.reserved3 = 0;
-            batch.livenessBond = config.livenessBondBase;
-            // SSTORE }}
-
+                // SSTORE #3 {{
+                batch.lastBlockId = info_.lastBlockId;
+                batch.reserved3 = 0;
+                batch.livenessBond = config.livenessBondBase;
+                // SSTORE }}
+            }
             stats2.numBatches += 1;
             require(
                 config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
