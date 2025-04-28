@@ -1026,7 +1026,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().BlobSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
