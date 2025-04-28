@@ -867,7 +867,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         pure
         returns (bytes32)
     {
-        return bytes32(uint256(_baseFeeSharings[0]) << 8 | uint256(_baseFeeSharings[1]));
+        return bytes32(uint256(_baseFeeSharings[1]) << 8 | uint256(_baseFeeSharings[0]));
     }
 
     // Memory-only structs ----------------------------------------------------------------------
