@@ -227,19 +227,19 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         uint256 blockHeightAtEpochTimestamp =
             LibPreconfUtils.getBlockHeightAtTimestamp(_epochTimestamp);
 
-        IRegistry.OperatorData memory OperatorData =
+        IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadPayload.registrationRoot);
         require(
-            OperatorData.unregisteredAt == 0
-                || OperatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
+            operatorData.unregisteredAt == 0
+                || operatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            OperatorData.slashedAt == 0 || OperatorData.slashedAt >= blockHeightAtEpochTimestamp,
+            operatorData.slashedAt == 0 || operatorData.slashedAt >= blockHeightAtEpochTimestamp,
             OperatorHasBeenSlashed()
         );
         require(
-            _lookaheadPayload.validatorLeafIndex < OperatorData.numKeys, InvalidValidatorLeafIndex()
+            _lookaheadPayload.validatorLeafIndex < operatorData.numKeys, InvalidValidatorLeafIndex()
         );
 
         uint256 collateralAtEpochTimestamp =
