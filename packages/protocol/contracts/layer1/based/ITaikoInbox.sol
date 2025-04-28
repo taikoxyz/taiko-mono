@@ -21,12 +21,12 @@ import "./IProveBatches.sol";
 interface ITaikoInbox is IBondManager, IProveBatches {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
-        // transactions in calldata or blobs, the block will contains as many transactions as
+        // transactions in calldata or blobs, the block will contain as many transactions as
         // possible.
         uint16 numTransactions;
         // The time difference (in seconds) between the timestamp of this block and
         // the timestamp of the parent block in the same batch. For the first block in a batch,
-        // there is not parent block in the same batch, so the time shift should be 0.
+        // there is no parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
@@ -184,6 +184,12 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
         uint16 maxBlocksPerBatch;
+        /// @notice Specifies the base fee sharing percentages. The addresses are predefined in the
+        /// node software.
+        /// If address(0) is specified, the base fee will be burned. This allows for distributing
+        /// the base fee in three ways: for instance, 40% to address-1, 10% to address-2, and the
+        /// remaining 50% to the coinbase.
+        uint8[2] baseFeeSharings;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
@@ -284,11 +290,13 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
+    /// @param _additionalData Additional data to be included in the batch.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The metadata of the proposed batch.
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata _additionalData
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);

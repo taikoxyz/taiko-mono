@@ -5,34 +5,6 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_CalldataForTxList is InboxTestBase {
-    function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory) {
-        ITaikoInbox.ForkHeights memory forkHeights;
-
-        return ITaikoInbox.Config({
-            chainId: LibNetwork.TAIKO_MAINNET,
-            maxUnverifiedBatches: 10,
-            batchRingBufferSize: 15,
-            maxBatchesToVerify: 5,
-            blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 0, // deprecated
-            stateRootSyncInternal: 5,
-            maxAnchorHeightOffset: 64,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
-                sharingPctg: 75,
-                gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
-                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
-             }),
-            provingWindow: 1 hours,
-            cooldownWindow: 0 hours,
-            maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 768,
-            forkHeights: forkHeights
-        });
-    }
-
     function setUpOnEthereum() internal override {
         bondToken = deployBondToken();
         super.setUpOnEthereum();
@@ -77,7 +49,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
         // With empty txList
-        inbox.v4ProposeBatch(abi.encode(params), "");
+        inbox.v4ProposeBatch(abi.encode(params), "", "");
     }
 
     function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
@@ -96,7 +68,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         // With empty txList
         (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.v4ProposeBatch(abi.encode(params), "");
+            inbox.v4ProposeBatch(abi.encode(params), "", "");
         assertTrue(info.txsHash != 0, "txsHash should not be zero for valid blobIndex");
 
         _saveMetadataAndInfo(meta, info);
