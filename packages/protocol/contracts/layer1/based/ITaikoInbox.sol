@@ -69,7 +69,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // Data to build L2 blocks
         BlockParams[] blocks;
         bytes32[] blobHashes;
-        bytes32 extraData;
         address coinbase;
         address proposer;
         uint64 proposedIn; // Used by node/client
@@ -84,6 +83,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
+        uint8 baseFeeSharingPctg;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 

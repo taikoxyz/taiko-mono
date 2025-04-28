@@ -155,17 +155,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // computation and verification of its integrity through the comparison of the metahash.
             //
             // Note that `difficulty` has been removed from the metadata. The client and prover must
-            // use
-            // the following approach to calculate a block's difficulty:
+            // use the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-
+            // also, the extraData field must be zero.
             info_ = BatchInfo({
                 txsHash: bytes32(0), // to be initialised later
                 //
                 // Data to build L2 blocks
                 blocks: params.blocks,
                 blobHashes: new bytes32[](0), // to be initialised later
-                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,
                 proposer: params.proposer,
                 proposedIn: uint64(block.number),
@@ -179,6 +177,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // Data for the L2 anchor transaction, shared by all blocks in the batch
                 anchorBlockId: anchorBlockId,
                 anchorBlockHash: blockhash(anchorBlockId),
+                baseFeeSharingPctg: config.baseFeeConfig.sharingPctg,
                 baseFeeConfig: config.baseFeeConfig
             });
             {
