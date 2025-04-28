@@ -8,7 +8,6 @@ import "src/shared/common/EssentialContract.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import "src/layer1/preconf/libs/LibMerkleTree.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 
 /// @title PreconfRouter2
@@ -16,7 +15,7 @@ import "@eth-fabric/urc/IRegistry.sol";
 contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     ILookaheadStore public immutable lookaheadStore;
     IPreconfWhitelist public immutable preconfWhitelist;
-    IProposeBatch public immutable proposeBatchEntrypoint;
+    IProposeBatch public immutable proposeEntrypoint;
     IRegistry public immutable urc;
     address public immutable preconfSlasher;
     address public immutable fallbackPreconfer;
@@ -27,7 +26,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         address _resolver,
         address _lookaheadStore,
         address _preconfWhitelist,
-        address _proposeBatchEntrypoint,
+        address _proposeEntrypoint,
         address _preconfSlasher,
         address _urc,
         address _fallbackPreconfer
@@ -36,7 +35,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     {
         lookaheadStore = ILookaheadStore(_lookaheadStore);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
-        proposeBatchEntrypoint = IProposeBatch(_proposeBatchEntrypoint);
+        proposeEntrypoint = IProposeBatch(_proposeEntrypoint);
         preconfSlasher = _preconfSlasher;
         urc = IRegistry(_urc);
         fallbackPreconfer = _fallbackPreconfer;
@@ -46,29 +45,52 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc IPreconfRouter2
-    function proposeBatch(
-        bytes calldata _lookahead,
+    /// @inheritdoc IProposeBatch
+    function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata _lookaheadData
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
-        bytes32 lookaheadRoot = lookaheadStore.getLookaheadRoot(epochTimestamp);
+        bytes32 currentLookaheadHash = lookaheadStore.getLookaheadHash(epochTimestamp);
 
-        if (lookaheadRoot == keccak256(abi.encode(epochTimestamp))) {
+        if (currentLookaheadHash == keccak256(abi.encode(epochTimestamp))) {
+            // The current lookahead is empty, so we use a whitelisted preconfer
+
             _validateWhitelistPreconfer();
         } else {
-            (ILookaheadStore.LookaheadLeaf memory lookaheadLeaf, bytes32[] memory proof) =
-                abi.decode(_lookahead, (ILookaheadStore.LookaheadLeaf, bytes32[]));
+            // We validate the provided lookahead data and confirm if the sender is the preconfer
+            // within the lookahead
 
-            _validateLookaheadPreconfer(lookaheadLeaf, lookaheadRoot, proof);
+            (
+                uint256 currentLookaheadIndex,
+                ILookaheadStore.LookaheadSlot[] memory previousLookahead,
+                ILookaheadStore.LookaheadSlot[] memory currentLookahead
+            ) = abi.decode(
+                _lookaheadData,
+                (uint256, ILookaheadStore.LookaheadSlot[], ILookaheadStore.LookaheadSlot[])
+            );
+
+            ILookaheadStore.LookaheadSlot memory lookaheadSlot =
+                currentLookahead[currentLookaheadIndex];
+
+            _validatePreconfingPeriod(
+                epochTimestamp,
+                currentLookaheadIndex,
+                currentLookaheadHash,
+                previousLookahead,
+                currentLookahead,
+                lookaheadSlot
+            );
+
+            _validateLookaheadPreconfer(lookaheadSlot);
         }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for IProposeBatch.
-        (info_, meta_) = proposeBatchEntrypoint.v4ProposeBatch(_params, _txList);
+        (info_, meta_) = proposeEntrypoint.v4ProposeBatch(_params, _txList, hex"");
 
         // Verify that the sender had set itself as the proposer
         require(info_.proposer == msg.sender, ProposerIsNotPreconfer());
@@ -85,40 +107,102 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         }
     }
 
-    function _validateLookaheadPreconfer(
-        ILookaheadStore.LookaheadLeaf memory _lookaheadLeaf,
-        bytes32 _lookaheadRoot,
-        bytes32[] memory _proof
+    function _validateLookaheadPreconfer(ILookaheadStore.LookaheadSlot memory _lookaheadSlot)
+        internal
+        view
+    {
+        // Validate that the sender is the preconfer for the current precofing period
+        require(msg.sender == _lookaheadSlot.committer, ProposerIsNotPreconfer());
+
+        // Ensure that the associated operator is active and opted into the preconf slasher
+        IRegistry.OperatorData memory operatorData =
+            urc.getOperatorData(_lookaheadSlot.operatorRegistrationRoot);
+        require(operatorData.slashedAt == 0, OperatorIsSlashed());
+        require(operatorData.unregisteredAt == 0, OperatorIsUnregistered());
+        require(
+            urc.isOptedIntoSlasher(_lookaheadSlot.operatorRegistrationRoot, preconfSlasher),
+            OperatorIsNotOptedIn()
+        );
+    }
+
+    /// @dev Validates if the provided lookahead data points to the current preconfing period.
+    function _validatePreconfingPeriod(
+        uint256 _epochTimestamp,
+        uint256 _currentLookaheadIndex,
+        bytes32 _currentLookaheadHash,
+        ILookaheadStore.LookaheadSlot[] memory _previousLookahead,
+        ILookaheadStore.LookaheadSlot[] memory _currentLookahead,
+        ILookaheadStore.LookaheadSlot memory _lookaheadSlot
     )
         internal
         view
     {
-        // Validate the lookahead against the retrieved lookahead root
+        // Validate the current lookahead data
         require(
-            LibMerkleTree.verifyProof(
-                _lookaheadRoot, keccak256(abi.encode(_lookaheadLeaf)), _lookaheadLeaf.index, _proof
-            ),
-            InvalidLookaheadProof()
+            keccak256(abi.encode(_currentLookahead)) == _currentLookaheadHash,
+            InvalidCurrentLookahead()
         );
 
-        // Validate that the sender is the preconfer for the current precofing period
-        require(msg.sender == _lookaheadLeaf.committer, ProposerIsNotPreconfer());
+        if (_currentLookaheadIndex != 0) {
+            // This is the case when the preconfer does not have the first preconfing slot in this
+            // epoch.
+            //
+            // Eg: [ x x x x Pa x x x Pb x x x]
+            // - Pb is our preconfer for this epoch.
+            // - Pa is the preconfer at `previousLookaheadSlot`.
+            // - x represents empty slots with no opted in preconfer.
 
-        // Validate the preconfing period
-        require(
-            block.timestamp > _lookaheadLeaf.prevTimestamp
-                && block.timestamp <= _lookaheadLeaf.timestamp,
-            InvalidLookaheadTimestamp()
-        );
+            ILookaheadStore.LookaheadSlot memory previousLookaheadSlot =
+                _currentLookahead[_currentLookaheadIndex - 1];
 
-        // Ensure that the associated operator is active and opted into the preconf slasher
-        IRegistry.OperatorData memory operatorData =
-            urc.getOperatorData(_lookaheadLeaf.operatorRegistrationRoot);
-        require(operatorData.slashedAt == 0, OperatorIsSlashed());
-        require(operatorData.unregisteredAt == 0, OperatorIsUnregistered());
-        require(
-            urc.isOptedIntoSlasher(_lookaheadLeaf.operatorRegistrationRoot, preconfSlasher),
-            OperatorIsNotOptedIn()
-        );
+            // Validate the preconfing period
+            require(
+                block.timestamp > previousLookaheadSlot.timestamp
+                    && block.timestamp <= _lookaheadSlot.timestamp,
+                InvalidLookaheadTimestamp()
+            );
+        } else {
+            // This is the case when the preconfer does have the first preconfing slot in this
+            // epoch.
+            //
+            // Eg: [ prev-epoch ] [ x x x Pa x x x ]
+            // - Pa is our preconfer for this epoch.
+            // - x represents empty slots with no opted in preconfer.
+            //
+            // This opens up three scenarios:
+            // 1. prev-epoch lookahead had 1 or more preconfers
+            // 2. prev-epoch lookahead was empty
+            // 3. prev-epoch lookahead was not posted
+            //
+            // For case 2 and 3, we leave _previousLookahead as an empty array.
+
+            if (_previousLookahead.length != 0) {
+                // Validate previous lookahead data
+                bytes32 previousLookaheadHash = lookaheadStore.getLookaheadHash(
+                    _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+                );
+                require(
+                    keccak256(abi.encode(_previousLookahead)) == previousLookaheadHash,
+                    InvalidPreviousLookahead()
+                );
+
+                ILookaheadStore.LookaheadSlot memory previousLookaheadSlot =
+                    _previousLookahead[_previousLookahead.length - 1];
+
+                // Validate the preconfing period for case 1
+                require(
+                    block.timestamp > previousLookaheadSlot.timestamp
+                        && block.timestamp <= _lookaheadSlot.timestamp,
+                    InvalidLookaheadTimestamp()
+                );
+            } else {
+                // Validate the preconfing period case 2 and 3
+                require(
+                    block.timestamp >= _epochTimestamp
+                        && block.timestamp <= _lookaheadSlot.timestamp,
+                    InvalidLookaheadTimestamp()
+                );
+            }
+        }
     }
 }
