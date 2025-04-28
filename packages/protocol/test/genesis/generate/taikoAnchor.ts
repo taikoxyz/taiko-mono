@@ -880,6 +880,7 @@ function replaceImmutableValue(artifact: any, id: any, value: string): any {
     const offsets = artifact.deployedBytecode.immutableReferences[`${id}`];
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);
+
     if (value.startsWith("0x")) value = value.substring(2);
 
     for (const { start, length } of offsets) {
