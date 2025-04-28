@@ -59,4 +59,17 @@ library LibPreconfUtils {
     function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint256) {
         return getEpochTimestamp() + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH;
     }
+
+    /// @notice Calculates the block height at a given timestamp.
+    /// @param _timestamp The timestamp for which the block height is to be retrieved.
+    /// @return The block height at the given timestamp.
+    function getBlockHeightAtTimestamp(uint256 _timestamp) internal view returns (uint256) {
+        if (_timestamp < block.timestamp) {
+            return
+                block.number - (block.timestamp - _timestamp) / LibPreconfConstants.SECONDS_IN_SLOT;
+        } else {
+            return
+                block.number + (_timestamp - block.timestamp) / LibPreconfConstants.SECONDS_IN_SLOT;
+        }
+    }
 }
