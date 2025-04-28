@@ -96,7 +96,7 @@ interface ILookaheadStore {
      * @param _epochTimestamp The timestamp of the epoch.
      * @return The lookahead hash.
      */
-    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes32);
+    function getLookaheadHash(uint48 _epochTimestamp) external view returns (bytes26);
 
     /**
      * @notice Returns the configuration of the lookahead store.
