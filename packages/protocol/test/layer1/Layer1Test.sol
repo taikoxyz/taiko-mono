@@ -15,7 +15,7 @@ import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
 contract ConfigurableInbox is TaikoInbox {
-    ITaikoInbox.Config private __config;
+   bytes private __config;
 
     constructor(
         address _wrapper,
@@ -36,11 +36,12 @@ contract ConfigurableInbox is TaikoInbox {
         initializer
     {
         __Taiko_init(_owner, _genesisBlockHash);
-        __config = _config;
+        // We cannot use `__config = _config` because the config is a struct that contains a dynamic array.
+        __config = abi.encode(_config);
     }
 
     function v4GetConfig() public view override returns (ITaikoInbox.Config memory) {
-        return __config;
+        return abi.decode(__config, (ITaikoInbox.Config));
     }
 
     function _calculateTxsHash(
