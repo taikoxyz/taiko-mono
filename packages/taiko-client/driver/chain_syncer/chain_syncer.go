@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -25,7 +25,7 @@ type L2ChainSyncer struct {
 
 	// Syncers
 	beaconSyncer *beaconsync.Syncer
-	blobSyncer   *blob.Syncer
+	eventSyncer  *event.Syncer
 
 	// Preconfirmation server
 	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
@@ -51,7 +51,7 @@ func New(
 	go tracker.Track(ctx)
 
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
-	blobSyncer, err := blob.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint)
+	eventSyncer, err := event.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func New(
 		rpc:             rpc,
 		state:           state,
 		beaconSyncer:    beaconSyncer,
-		blobSyncer:      blobSyncer,
+		eventSyncer:     eventSyncer,
 		progressTracker: tracker,
 		p2pSync:         p2pSync,
 	}, nil
@@ -99,19 +99,19 @@ func (s *L2ChainSyncer) Sync() error {
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
 
-		if err := s.SetUpBlobSync(); err != nil {
-			return fmt.Errorf("failed to set up blob synchronization: %w", err)
+		if err := s.SetUpEventSync(); err != nil {
+			return fmt.Errorf("failed to set up event synchronization: %w", err)
 		}
 	}
 
 	// Insert the proposed batches one by one.
-	return s.blobSyncer.ProcessL1Blocks(s.ctx)
+	return s.eventSyncer.ProcessL1Blocks(s.ctx)
 }
 
-// SetUpBlobSync resets the L1Current cursor to the latest L2 execution engine's chain head,
+// SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head,
 // and tries to import the pending preconfirmation blocks from the cache,  this method should only be
 // called after the L2 execution engine's chain has just finished a beacon sync.
-func (s *L2ChainSyncer) SetUpBlobSync() error {
+func (s *L2ChainSyncer) SetUpEventSync() error {
 	// Get the execution engine's chain head.
 	l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, nil)
 	if err != nil {
@@ -227,9 +227,9 @@ func (s *L2ChainSyncer) BeaconSyncer() *beaconsync.Syncer {
 	return s.beaconSyncer
 }
 
-// BlobSyncer returns the inner blob syncer.
-func (s *L2ChainSyncer) BlobSyncer() *blob.Syncer {
-	return s.blobSyncer
+// EventSyncer returns the inner event syncer.
+func (s *L2ChainSyncer) EventSyncer() *event.Syncer {
+	return s.eventSyncer
 }
 
 // SetPreconfBlockServer sets the preconfirmation block server.

@@ -119,7 +119,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfHandoverSkipSlots,
 			d.TaikoL2Address,
-			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
+			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
 		); err != nil {
 			return err
