@@ -52,4 +52,11 @@ library LibPreconfUtils {
 
         return genesisTimestamp + timePassedUptoCurrentEpoch;
     }
+
+    /// @notice Calculates the timestamp of a future epoch based on the genesis timestamp.
+    /// @param _epochOffset The offset from the current epoch.
+    /// @return The timestamp of the future epoch.
+    function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint256) {
+        return getEpochTimestamp() + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH;
+    }
 }
