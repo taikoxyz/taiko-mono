@@ -42,11 +42,17 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     {
         // Sender must be the selected operator for the epoch
         address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
-        if (preconfer != address(0)) {
-            require(msg.sender == preconfer, NotPreconfer());
-        } else if (fallbackPreconfer != address(0)) {
-            require(msg.sender == fallbackPreconfer, NotFallbackPreconfer());
+        bool isValid = false;
+
+        if (preconfer != address(0) && msg.sender == preconfer) {
+            isValid = true;
         }
+
+        if (fallbackPreconfer != address(0) && msg.sender == fallbackPreconfer) {
+            isValid = true;
+        }
+
+        require(isValid, NotPreconferOrFallback());
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
         (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);
