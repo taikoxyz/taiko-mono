@@ -49,7 +49,7 @@ contract MainnetInbox is TaikoInbox {
             cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            baseFeeSharings: _getBaseFeeSharings(),
+            baseFeeSharings: new ITaikoInbox.BaseFeeSharing[](0), // TODO
             forkHeights: _getForkHeights()
         });
     }
