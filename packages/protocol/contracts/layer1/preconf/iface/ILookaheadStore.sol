@@ -73,10 +73,10 @@ interface ILookaheadStore {
     /**
      * @notice Allows a registered operator to post the lookahead for the next epoch.
      * @param _registrationRoot The registration root of the posting-operator in the URC.
-     * @param _payload The signed commitment containing the lookahead data, or the lookahead data if
+     * @param _data The signed commitment containing the lookahead data, or the lookahead data if
      * posted by the guardian.
      */
-    function updateLookahead(bytes32 _registrationRoot, bytes calldata _payload) external;
+    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external;
 
     /**
      * @notice Returns true if the lookahead is required for the next epoch.

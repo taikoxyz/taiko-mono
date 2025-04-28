@@ -38,15 +38,15 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function updateLookahead(bytes32 _registrationRoot, bytes calldata _payload) external {
+    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external {
         bool isPostedByGuardian = msg.sender == guardian;
         LookaheadPayload[] memory lookaheadPayloads;
 
         if (isPostedByGuardian) {
-            lookaheadPayloads = abi.decode(_payload, (LookaheadPayload[]));
+            lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
         } else if (isLookaheadRequired()) {
             ISlasher.SignedCommitment memory signedCommitment =
-                abi.decode(_payload, (ISlasher.SignedCommitment));
+                abi.decode(_data, (ISlasher.SignedCommitment));
 
             // Validate the lookahead poster's operator status within the URC
             _validateLookaheadPoster(_registrationRoot, signedCommitment);
