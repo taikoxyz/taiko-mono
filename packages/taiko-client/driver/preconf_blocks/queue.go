@@ -115,3 +115,15 @@ func (q *payloadQueue) has(id uint64, hash common.Hash) bool {
 	}
 	return false
 }
+
+// getLatestPayload retrieves the latest payload stored in the queue.
+func (q *payloadQueue) getLatestPayload() *eth.ExecutionPayload {
+	q.lock.RLock()
+	defer q.lock.RUnlock()
+
+	if q.payloads[0] == nil {
+		return nil
+	}
+
+	return q.payloads[0].payload
+}

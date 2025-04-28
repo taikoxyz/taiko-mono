@@ -125,6 +125,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		c.Request().Context(),
 		[]*eth.ExecutionPayload{executablePayload},
+		false,
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
@@ -134,20 +135,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	header := headers[0]
-
-	log.Info(
-		"⏰ New preconfirmation L2 block inserted",
-		"blockID", header.Number,
-		"hash", header.Hash(),
-		"coinbase", header.Coinbase.Hex(),
-		"timestamp", header.Time,
-		"gasLimit", header.GasLimit,
-		"gasUsed", header.GasUsed,
-		"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
-		"extraData", common.Bytes2Hex(header.Extra),
-		"baseFee", utils.WeiToGWei(header.BaseFee),
-		"parentHash", header.ParentHash.Hex(),
-	)
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.

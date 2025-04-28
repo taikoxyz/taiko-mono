@@ -229,6 +229,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	ctx context.Context,
 	executionPayloads []*eth.ExecutionPayload,
+	fromCache bool,
 ) ([]*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
@@ -239,6 +240,19 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert preconf block: %w", err)
 		}
+		log.Info(
+			"⏰ New preconfirmation L2 block inserted",
+			"blockID", header.Number,
+			"hash", header.Hash(),
+			"coinbase", header.Coinbase.Hex(),
+			"timestamp", header.Time,
+			"baseFee", utils.WeiToGWei(header.BaseFee),
+			"withdrawalsHash", header.WithdrawalsHash,
+			"gasLimit", header.GasLimit,
+			"gasUsed", header.GasUsed,
+			"parentHash", header.ParentHash,
+			"fromCache", fromCache,
+		)
 		headers[j] = header
 	}
 
