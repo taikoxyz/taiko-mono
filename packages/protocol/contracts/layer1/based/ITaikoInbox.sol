@@ -68,7 +68,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     }
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
     /// does not include data necessary for batch proving.
-
     struct BatchInfo {
         bytes32 txsHash;
         // Data to build L2 blocks
