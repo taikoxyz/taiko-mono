@@ -62,13 +62,13 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         BlockParams[] blocks;
     }
 
-
     struct BaseFeeSharing {
         address account;
         uint8 percentage;
     }
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
     /// does not include data necessary for batch proving.
+
     struct BatchInfo {
         bytes32 txsHash;
         // Data to build L2 blocks
@@ -190,7 +190,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         /// @notice The maximum number of blocks per batch.
         uint16 maxBlocksPerBatch;
         /// @notice The base fee sharing percentage.
-         BaseFeeSharing[] baseFeeSharings;
+        BaseFeeSharing[] baseFeeSharings;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
