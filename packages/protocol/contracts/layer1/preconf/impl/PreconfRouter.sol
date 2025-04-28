@@ -14,7 +14,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
     uint256[50] private __gap;
 
-    modifier onlyFromEpochOperatorOrFallback() {
+    modifier onlyFromPreconferOrFallback() {
         require(
             msg.sender == fallbackPreconfer
                 || msg.sender == preconfWhitelist.getOperatorForCurrentEpoch(),
@@ -47,7 +47,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         bytes calldata _txList
     )
         external
-        onlyFromEpochOperatorOrFallback
+        onlyFromPreconferOrFallback
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
