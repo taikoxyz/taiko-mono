@@ -46,7 +46,7 @@ interface ILookaheadStore {
         uint80 minCollateralForPreconfing;
     }
 
-    error CommittmentSignerMismatch();
+    error CommitmentSignerMismatch();
     error InvalidLookaheadEpoch();
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();

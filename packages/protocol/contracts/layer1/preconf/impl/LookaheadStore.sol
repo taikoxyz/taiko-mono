@@ -183,7 +183,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
-        require(committer == slashingCommitment.committer, CommittmentSignerMismatch());
+        require(committer == slashingCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
     }
 
