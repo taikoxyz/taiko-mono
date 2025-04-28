@@ -57,12 +57,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             revert LookaheadNotRequired();
         }
 
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
-
-        (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
-            _updateLookahead(nextEpochTimestamp, lookaheadPayloads);
-
-        emit LookaheadPosted(isPostedByGuardian, nextEpochTimestamp, lookaheadHash, lookaheadSlots);
+        _updateLookahead(
+            LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian
+        );
     }
 
     // View functions --------------------------------------------------------------------------
@@ -95,19 +92,20 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     function _updateLookahead(
         uint256 _nextEpochTimestamp,
-        LookaheadPayload[] memory _lookaheadPayloads
+        LookaheadPayload[] memory _lookaheadPayloads,
+        bool _isPostedByGuardian
     )
         internal
-        returns (bytes32, LookaheadSlot[] memory)
     {
+        bytes32 lookaheadHash;
+        LookaheadSlot[] memory lookaheadSlots;
+
         if (_lookaheadPayloads.length == 0) {
             // The poster claims that the lookahead for the next epoch has no preconfers
-            bytes32 emptyLookaheadHash = _calculateEmptyLookaheadHash(_nextEpochTimestamp);
-            _setLookaheadHash(_nextEpochTimestamp, emptyLookaheadHash);
-
-            return (emptyLookaheadHash, new LookaheadSlot[](0));
+            lookaheadSlots = new LookaheadSlot[](0);
+            lookaheadHash = _calculateEmptyLookaheadHash(_nextEpochTimestamp);
         } else {
-            LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
+            lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
@@ -142,11 +140,13 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             );
 
             // Hash the lookahead slots and update the lookahead hash for next epoch
-            bytes32 lookaheadHash = _calculateLookaheadHash(lookaheadSlots);
-            _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
-
-            return (lookaheadHash, lookaheadSlots);
+            lookaheadHash = _calculateLookaheadHash(lookaheadSlots);
         }
+
+        _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
+        emit LookaheadPosted(
+            _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
+        );
     }
 
     function _validateLookaheadPoster(
