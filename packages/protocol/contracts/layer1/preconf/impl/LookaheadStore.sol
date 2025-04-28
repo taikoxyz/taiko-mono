@@ -131,9 +131,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
-                uint256 epochTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
-                address committer =
-                    _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
+                address committer = _validateOperatorInLookaheadPayload(
+                    lookaheadPayload, _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+                );
 
                 lookaheadSlots[i] = LookaheadSlot({
                     committer: committer,
