@@ -44,8 +44,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         external
     {
-        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
-        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
 
         // Only proceed if lookahead is required
         require(isLookaheadRequired(), LookaheadNotRequired());
@@ -57,7 +56,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
 
         (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
-            _updateLookahead(lookaheadPayloads, epochTimestamp, nextEpochTimestamp);
+            _updateLookahead(lookaheadPayloads, nextEpochTimestamp);
 
         emit LookaheadPosted(nextEpochTimestamp, lookaheadSlots);
         emit LookaheadHashUpdated(nextEpochTimestamp, lookaheadHash);
@@ -68,11 +67,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         external
         onlyFrom(guardian)
     {
-        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
-        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
 
         (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
-            _updateLookahead(_lookaheadPayloads, epochTimestamp, nextEpochTimestamp);
+            _updateLookahead(_lookaheadPayloads, nextEpochTimestamp);
 
         emit LookaheadPostedByGuardian(nextEpochTimestamp, lookaheadSlots);
         emit LookaheadHashUpdatedByGuardian(nextEpochTimestamp, lookaheadHash);
@@ -82,8 +80,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
-        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
-        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
 
         return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
     }
@@ -109,7 +106,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     function _updateLookahead(
         LookaheadPayload[] memory _lookaheadPayloads,
-        uint256 _epochTimestamp,
         uint256 _nextEpochTimestamp
     )
         internal
@@ -122,7 +118,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             return (emptyLookaheadHash, new LookaheadSlot[](0));
         } else {
-            LookaheadSlot[] memory lookaheadSlots = new bytes32[](_lookaheadPayloads.length);
+            LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
             uint256 _prevTimestamp = 0;
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
@@ -134,8 +130,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     _nextEpochTimestamp
                 );
 
+                // Validate the operator in the lookahead payload with the current epoch as
+                // reference
+                uint256 epochTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
                 address committer =
-                    _validateOperatorInLookaheadPayload(lookaheadPayload, _epochTimestamp);
+                    _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
 
                 LookaheadSlot memory lookaheadSlot = LookaheadSlot({
                     timestamp: lookaheadPayload.slotTimestamp,
