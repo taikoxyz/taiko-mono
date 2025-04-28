@@ -559,7 +559,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         params.proposer = Alice;
 
         vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         vm.startPrank(deployer);
         address operator = Bob;
@@ -579,7 +579,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
@@ -644,7 +644,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
@@ -719,7 +719,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
@@ -784,7 +784,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"));
+            inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
         uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
 
         // Check if Alice's bond is correctly deducted - only liveness bond base
