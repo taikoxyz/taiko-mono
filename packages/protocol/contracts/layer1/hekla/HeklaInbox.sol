@@ -97,7 +97,7 @@ contract HeklaInbox is MainnetInbox {
     function _getBaseFeeSharings()
         internal
         pure
-        virtual
+        override
         returns (ITaikoInbox.BaseFeeSharing[] memory baseFeeSharings_)
     {
         baseFeeSharings_ = new ITaikoInbox.BaseFeeSharing[](1);
