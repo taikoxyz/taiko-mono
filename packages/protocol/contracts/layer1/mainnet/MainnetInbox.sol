@@ -24,12 +24,11 @@ contract MainnetInbox is TaikoInbox {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 1_000_000
+        (uint64 maxUnverifiedBatches_, uint64 batchRingBufferSize_) = _getRingbufferParams();
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            // Ring buffers are being reused on the mainnet, therefore the following two
-            // configuration values must NEVER be changed!!!
-            maxUnverifiedBatches: 324_000, // DO NOT CHANGE!!!
-            batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
+            maxUnverifiedBatches: maxUnverifiedBatches_,
+            batchRingBufferSize: batchRingBufferSize_,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 50e18, // 50 Taiko token per batch
@@ -47,12 +46,7 @@ contract MainnetInbox is TaikoInbox {
             cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({
-                ontake: 538_304,
-                pacaya: 538_304 * 10, // TODO
-                shasta: 0,
-                unzen: 0
-            })
+            forkHeights: _getForkHeights()
         });
     }
 
@@ -62,5 +56,26 @@ contract MainnetInbox is TaikoInbox {
 
     function _loadReentryLock() internal view override returns (uint8) {
         return LibFasterReentryLock.loadReentryLock();
+    }
+
+    // Ring buffers are being reused on the mainnet, therefore the following two
+    // configuration values must NEVER change!!!
+    function _getRingbufferParams()
+        internal
+        pure
+        virtual
+        returns (uint64 maxUnverifiedBatches_, uint64 batchRingBufferSize_)
+    {
+        maxUnverifiedBatches_ = 324_000; // DO NOT CHANGE!!!
+        batchRingBufferSize_ = 360_000; // DO NOT CHANGE!!!
+    }
+
+    function _getForkHeights() internal pure virtual returns (ITaikoInbox.ForkHeights memory) {
+        return ITaikoInbox.ForkHeights({
+            ontake: 538_304,
+            pacaya: type(uint64).max, // TODO
+            shasta: 0,
+            unzen: 0
+        });
     }
 }
