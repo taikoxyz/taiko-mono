@@ -38,42 +38,31 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function updateLookahead(
-        bytes32 _registrationRoot,
-        ISlasher.SignedCommitment calldata _signedCommitment
-    )
-        external
-    {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
+    function updateLookahead(bytes32 _registrationRoot, bytes calldata _payload) external {
+        bool isPostedByGuardian = msg.sender == guardian;
+        LookaheadPayload[] memory lookaheadPayloads;
 
-        // Only proceed if lookahead is required
-        require(isLookaheadRequired(), LookaheadNotRequired());
+        if (isPostedByGuardian) {
+            lookaheadPayloads = abi.decode(_payload, (LookaheadPayload[]));
+        } else if (isLookaheadRequired()) {
+            ISlasher.SignedCommitment memory signedCommitment =
+                abi.decode(_payload, (ISlasher.SignedCommitment));
 
-        // Validate the lookahead poster's operator status within the URC
-        _validateLookaheadPoster(_registrationRoot, _signedCommitment);
+            // Validate the lookahead poster's operator status within the URC
+            _validateLookaheadPoster(_registrationRoot, signedCommitment);
 
-        LookaheadPayload[] memory lookaheadPayloads =
-            abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
+            lookaheadPayloads =
+                abi.decode(signedCommitment.commitment.payload, (LookaheadPayload[]));
+        } else {
+            revert LookaheadNotRequired();
+        }
 
-        (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
-            _updateLookahead(lookaheadPayloads, nextEpochTimestamp);
-
-        emit LookaheadPosted(nextEpochTimestamp, lookaheadSlots);
-        emit LookaheadHashUpdated(nextEpochTimestamp, lookaheadHash);
-    }
-
-    /// @inheritdoc ILookaheadStore
-    function overwriteLookahead(LookaheadPayload[] calldata _lookaheadPayloads)
-        external
-        onlyFrom(guardian)
-    {
         uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
 
         (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
-            _updateLookahead(_lookaheadPayloads, nextEpochTimestamp);
+            _updateLookahead(nextEpochTimestamp, lookaheadPayloads);
 
-        emit LookaheadPostedByGuardian(nextEpochTimestamp, lookaheadSlots);
-        emit LookaheadHashUpdatedByGuardian(nextEpochTimestamp, lookaheadHash);
+        emit LookaheadPosted(isPostedByGuardian, nextEpochTimestamp, lookaheadHash, lookaheadSlots);
     }
 
     // View functions --------------------------------------------------------------------------
@@ -105,8 +94,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     // Internal functions ----------------------------------------------------------------------
 
     function _updateLookahead(
-        LookaheadPayload[] memory _lookaheadPayloads,
-        uint256 _nextEpochTimestamp
+        uint256 _nextEpochTimestamp,
+        LookaheadPayload[] memory _lookaheadPayloads
     )
         internal
         returns (bytes32, LookaheadSlot[] memory)
@@ -227,19 +216,19 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         uint256 blockHeightAtEpochTimestamp =
             LibPreconfUtils.getBlockHeightAtTimestamp(_epochTimestamp);
 
-        IRegistry.OperatorData memory OperatorData =
+        IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadPayload.registrationRoot);
         require(
-            OperatorData.unregisteredAt == 0
-                || OperatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
+            operatorData.unregisteredAt == 0
+                || operatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            OperatorData.slashedAt == 0 || OperatorData.slashedAt >= blockHeightAtEpochTimestamp,
+            operatorData.slashedAt == 0 || operatorData.slashedAt >= blockHeightAtEpochTimestamp,
             OperatorHasBeenSlashed()
         );
         require(
-            _lookaheadPayload.validatorLeafIndex < OperatorData.numKeys, InvalidValidatorLeafIndex()
+            _lookaheadPayload.validatorLeafIndex < operatorData.numKeys, InvalidValidatorLeafIndex()
         );
 
         uint256 collateralAtEpochTimestamp =
