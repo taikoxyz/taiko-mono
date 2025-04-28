@@ -28,7 +28,6 @@ contract MockTaikoInbox is EssentialContract {
             blobHashes: new bytes32[](0),
             blobByteOffset: 0,
             blobByteSize: 0,
-            extraData: 0,
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             proposer: params.proposer,
             gasLimit: 0, // Mock value
@@ -39,9 +38,9 @@ contract MockTaikoInbox is EssentialContract {
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             blocks: params.blocks,
+            baseFeeSharings: new ITaikoInbox.BaseFeeSharing[](0),
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
-                sharingPctg: 0,
                 gasIssuancePerSecond: 0,
                 minGasExcess: 0,
                 maxGasIssuancePerBlock: 0

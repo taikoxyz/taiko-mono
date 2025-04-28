@@ -25,12 +25,14 @@ contract MainnetInbox is TaikoInbox {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 1_000_000
+        (uint64 maxUnverifiedBatches_, uint64 batchRingBufferSize_) = _getRingBufferConfig();
+
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!
-            maxUnverifiedBatches: 324_000, // DO NOT CHANGE!!!
-            batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
+            maxUnverifiedBatches: maxUnverifiedBatches_, // DO NOT CHANGE!!!
+            batchRingBufferSize: batchRingBufferSize_, // DO NOT CHANGE!!!
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 50e18, // 50 Taiko token per batch
@@ -39,7 +41,6 @@ contract MainnetInbox is TaikoInbox {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
@@ -48,12 +49,8 @@ contract MainnetInbox is TaikoInbox {
             cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({
-                ontake: 538_304,
-                pacaya: 538_304 * 10, // TODO
-                shasta: 0,
-                unzen: 0
-            })
+            baseFeeSharings: _getBaseFeeSharings(),
+            forkHeights: _getForkHeights()
         });
     }
 
@@ -63,5 +60,34 @@ contract MainnetInbox is TaikoInbox {
 
     function _loadReentryLock() internal view override returns (uint8) {
         return LibFasterReentryLock.loadReentryLock();
+    }
+
+    function _getRingBufferConfig()
+        internal
+        pure
+        virtual
+        returns (uint64 maxUnverifiedBatches_, uint64 batchRingBufferSize_)
+    {
+        maxUnverifiedBatches_ = 324_000;
+        batchRingBufferSize_ = 360_000;
+    }
+
+    function _getForkHeights() internal pure virtual returns (ITaikoInbox.ForkHeights memory) {
+        return ITaikoInbox.ForkHeights({
+            ontake: 538_304,
+            pacaya: type(uint64).max,
+            shasta: 0,
+            unzen: 0
+        });
+    }
+
+    function _getBaseFeeSharings()
+        internal
+        pure
+        virtual
+        returns (ITaikoInbox.BaseFeeSharing[] memory)
+    {
+        // TODO
+        return new ITaikoInbox.BaseFeeSharing[](0);
     }
 }

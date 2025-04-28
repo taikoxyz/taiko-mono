@@ -159,7 +159,6 @@ contract TestTaikoAnchor is Layer2Test {
         bytes32 anchorStateRoot = randBytes32();
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: 8,
-            sharingPctg: 75,
             gasIssuancePerSecond: 5_000_000,
             minGasExcess: 1_340_000_000,
             maxGasIssuancePerBlock: 600_000_000 // two minutes

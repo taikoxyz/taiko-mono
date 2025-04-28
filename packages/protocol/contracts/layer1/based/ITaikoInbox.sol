@@ -62,6 +62,11 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         BlockParams[] blocks;
     }
 
+    struct BaseFeeSharing {
+        address recipient;
+        uint8 pecertage;
+    }
+
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
     /// does not include data necessary for batch proving.
     struct BatchInfo {
@@ -69,7 +74,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // Data to build L2 blocks
         BlockParams[] blocks;
         bytes32[] blobHashes;
-        bytes32 extraData;
         address coinbase;
         address proposer;
         uint64 proposedIn; // Used by node/client
@@ -85,6 +89,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
         LibSharedData.BaseFeeConfig baseFeeConfig;
+        BaseFeeSharing[] baseFeeSharings;
     }
 
     /// @dev This struct holds batch metadata essential for proving the batch.
@@ -184,6 +189,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
         uint16 maxBlocksPerBatch;
+        /// @notice How to share base fees
+        BaseFeeSharing[] baseFeeSharings;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
