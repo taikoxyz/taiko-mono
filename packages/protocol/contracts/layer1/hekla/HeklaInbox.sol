@@ -97,9 +97,13 @@ contract HeklaInbox is MainnetInbox {
     function _getBaseFeeSharings()
         internal
         pure
-        override
-        returns (ITaikoInbox.BaseFeeSharing[] memory)
+        virtual
+        returns (ITaikoInbox.BaseFeeSharing[] memory baseFeeSharings_)
     {
-        return new ITaikoInbox.BaseFeeSharing[](0);
+        baseFeeSharings_ = new ITaikoInbox.BaseFeeSharing[](1);
+        baseFeeSharings_[0] = ITaikoInbox.BaseFeeSharing({
+            account: 0x0000000000000000000000000000000000000000, // TODO(david): update this address
+            percentage: 50
+        });
     }
 }
