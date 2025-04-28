@@ -94,7 +94,6 @@ contract HeklaInbox is TaikoInbox {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
@@ -103,6 +102,7 @@ contract HeklaInbox is TaikoInbox {
             cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
+            baseFeeSharings: new ITaikoInbox.BaseFeeSharing[](0),
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 840_512,
                 pacaya: 1_299_888,
