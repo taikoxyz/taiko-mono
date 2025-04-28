@@ -165,7 +165,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // Data to build L2 blocks
                 blocks: params.blocks,
                 blobHashes: new bytes32[](0), // to be initialised later
-                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+                extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
                 coinbase: params.coinbase,
                 proposer: params.proposer,
                 proposedIn: uint64(block.number),
@@ -860,6 +860,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 ParentMetaHashMismatch()
             );
         }
+    }
+
+    function _encodeBaseFeeSharings(uint8[2] memory _baseFeeSharings)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return bytes32(uint256(_baseFeeSharings[0]) << 8 | uint256(_baseFeeSharings[1]));
     }
 
     // Memory-only structs ----------------------------------------------------------------------
