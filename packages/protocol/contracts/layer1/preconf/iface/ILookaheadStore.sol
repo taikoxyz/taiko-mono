@@ -18,9 +18,7 @@ interface ILookaheadStore {
         uint256 validatorLeafIndex;
     }
 
-    struct LookaheadLeaf {
-        // Index of the lookahead leaf.
-        uint256 index;
+    struct LookaheadSlot {
         // Timestamp of the slot.
         uint256 timestamp;
         // Pointer to the last entry's timestamp.
@@ -36,11 +34,11 @@ interface ILookaheadStore {
         uint256 validatorLeafIndex;
     }
 
-    struct LookaheadRoot {
+    struct LookaheadHash {
         // The timestamp of the epoch.
         uint256 epochTimestamp;
-        // The lookahead root.
-        bytes32 root;
+        // Keccak hash of the lookahead slots for the epoch.
+        bytes32 lookaheadHash;
     }
 
     struct Config {
@@ -57,7 +55,7 @@ interface ILookaheadStore {
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
-    error LookaheadRootNotFound();
+    error LookaheadHashNotFound();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
     error OperatorHasNotOptedIntoPreconfSlasher();
@@ -69,26 +67,27 @@ interface ILookaheadStore {
     error SlasherIsNotGuardian();
     error SlotTimestampIsNotIncrementing();
 
-    event LookaheadRootUpdated(uint256 epochTimestamp, bytes32 lookaheadRoot);
-    event LookaheadLeafPosted(uint256 indexed timestamp, LookaheadLeaf lookaheadLeaf);
+    event LookaheadHashUpdated(uint256 epochTimestamp, bytes32 lookaheadHash);
+    event LookaheadPosted(uint256 indexed timestamp, LookaheadSlot[] lookaheadSlot);
+    event LookaheadPostedByGuardian(uint256 indexed timestamp, LookaheadSlot[] lookaheadSlot);
+    event LookaheadHashUpdatedByGuardian(uint256 indexed timestamp, bytes32 lookaheadHash);
 
     /**
      * @notice Allows a registered operator to post the lookahead for the next epoch.
-     * @param registrationRoot The registration root of the posting-operator in the URC.
-     * @param signedCommitment The signed commitment containing the lookahead data.
+     * @param _registrationRoot The registration root of the posting-operator in the URC.
+     * @param _signedCommitment The signed commitment containing the lookahead data.
      */
     function updateLookahead(
-        bytes32 registrationRoot,
-        ISlasher.SignedCommitment memory signedCommitment
+        bytes32 _registrationRoot,
+        ISlasher.SignedCommitment calldata _signedCommitment
     )
         external;
 
     /**
-     * @notice Called by the guardian to overwrite the lookahead root for an epoch.
-     * @param epochTimestamp The timestamp of the epoch.
-     * @param lookaheadRoot The lookahead root.
+     * @notice Called by the guardian to overwrite the lookahead hash for an epoch.
+     * @param _lookaheadPayloads The lookahead payloads.
      */
-    function overwriteLookahead(uint256 epochTimestamp, bytes32 lookaheadRoot) external;
+    function overwriteLookahead(LookaheadPayload[] calldata _lookaheadPayloads) external;
 
     /**
      * @notice Returns true if the lookahead is required for the next epoch.
@@ -97,11 +96,11 @@ interface ILookaheadStore {
     function isLookaheadRequired() external view returns (bool);
 
     /**
-     * @notice Returns the lookahead root for an epoch.
-     * @param epochTimestamp The timestamp of the epoch.
-     * @return The lookahead root.
+     * @notice Returns the lookahead hash for an epoch.
+     * @param _epochTimestamp The timestamp of the epoch.
+     * @return The lookahead hash.
      */
-    function getLookaheadRoot(uint256 epochTimestamp) external view returns (bytes32);
+    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes32);
 
     /**
      * @notice Returns the configuration of the lookahead store.
