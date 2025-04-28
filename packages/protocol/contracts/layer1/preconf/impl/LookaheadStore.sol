@@ -206,7 +206,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         }
 
         require(
-            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp) % 12 == 0,
+            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
             InvalidSlotTimestamp()
         );
     }
