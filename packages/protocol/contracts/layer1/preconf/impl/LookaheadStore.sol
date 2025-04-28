@@ -136,9 +136,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
 
                 LookaheadSlot memory lookaheadSlot = LookaheadSlot({
-                    timestamp: lookaheadPayload.slotTimestamp,
                     committer: committer,
-                    operatorRegistrationRoot: lookaheadPayload.registrationRoot,
+                    slotTimestamp: lookaheadPayload.slotTimestamp,
+                    registrationRoot: lookaheadPayload.registrationRoot,
                     validatorLeafIndex: lookaheadPayload.validatorLeafIndex
                 });
 
@@ -147,7 +147,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                lookaheadSlots[lookaheadSlots.length - 1].timestamp
+                lookaheadSlots[lookaheadSlots.length - 1].slotTimestamp
                     <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
