@@ -135,14 +135,12 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                 address committer =
                     _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
 
-                LookaheadSlot memory lookaheadSlot = LookaheadSlot({
+                lookaheadSlots[i] = LookaheadSlot({
                     committer: committer,
                     slotTimestamp: lookaheadPayload.slotTimestamp,
                     registrationRoot: lookaheadPayload.registrationRoot,
                     validatorLeafIndex: lookaheadPayload.validatorLeafIndex
                 });
-
-                lookaheadSlots[i] = lookaheadSlot;
             }
 
             // Validate that the last slot timestamp is within the next epoch
