@@ -153,6 +153,7 @@ interface IPreconfSlasher is ISlasher {
     error InvalidViolationType();
     error NotEndOfPreconfirmation();
     error ParentHashMismatch();
+    error PossibleReorgOfAnchorBlock();
     error PreconfirmationIsValid();
     error SenderIsNotUrc();
 
