@@ -88,8 +88,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
+        // BaseFeeSharing[] baseFeeSharings;
         LibSharedData.BaseFeeConfig baseFeeConfig;
-        BaseFeeSharing[] baseFeeSharings;
     }
 
     /// @dev This struct holds batch metadata essential for proving the batch.

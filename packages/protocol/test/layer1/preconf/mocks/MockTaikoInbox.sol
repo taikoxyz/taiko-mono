@@ -39,7 +39,7 @@ contract MockTaikoInbox is EssentialContract {
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             blocks: params.blocks,
-            baseFeeSharings: new ITaikoInbox.BaseFeeSharing[](0),
+            // baseFeeSharings: new ITaikoInbox.BaseFeeSharing[](0),
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 gasIssuancePerSecond: 0,
