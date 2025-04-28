@@ -168,7 +168,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
             (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-                inbox.v4ProposeBatch(abi.encode(batchParams), txList);
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
             _saveMetadataAndInfo(meta, info);
             batchIds[i] = meta.batchId;
         }

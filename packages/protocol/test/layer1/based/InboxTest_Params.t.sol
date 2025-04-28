@@ -41,7 +41,8 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
 
-        (ITaikoInbox.BatchInfo memory info,) = inbox.v4ProposeBatch(abi.encode(params), "txList");
+        (ITaikoInbox.BatchInfo memory info,) =
+            inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         // Assert that the default anchorBlockId was set correctly
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
@@ -63,7 +64,7 @@ contract InboxTest_Params is InboxTestBase {
         params.anchorBlockId = uint64(block.number - config.maxAnchorHeightOffset - 1);
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooSmall.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_too_large()
@@ -76,7 +77,7 @@ contract InboxTest_Params is InboxTestBase {
         params.anchorBlockId = uint64(block.number);
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_smaller_than_parent()
@@ -99,7 +100,7 @@ contract InboxTest_Params is InboxTestBase {
         params.anchorBlockId = parent.anchorBlockId - 1;
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     function test_validateParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
@@ -107,7 +108,8 @@ contract InboxTest_Params is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.anchorBlockId = uint64(block.number - 1);
 
-        (ITaikoInbox.BatchInfo memory info,) = inbox.v4ProposeBatch(abi.encode(params), "txList");
+        (ITaikoInbox.BatchInfo memory info,) =
+            inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
         assertEq(info.anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
@@ -119,7 +121,7 @@ contract InboxTest_Params is InboxTestBase {
         params.lastBlockTimestamp = uint64(block.timestamp + 1);
 
         vm.expectRevert(ITaikoInbox.TimestampTooLarge.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     function test_validateParams_reverts_when_first_block_time_shift_not_zero()
@@ -129,16 +131,16 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.lastBlockTimestamp = uint64(block.timestamp);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         params.lastBlockTimestamp = uint64(block.timestamp - 1);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         params.blocks[0].timeShift = 1;
         params.lastBlockTimestamp = uint64(block.timestamp);
         vm.expectRevert(ITaikoInbox.FirstBlockTimeShiftNotZero.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     function test_validateParams_reverts_when_timestamp_smaller_than_parent()
@@ -148,15 +150,15 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](2);
         params.lastBlockTimestamp = uint64(block.timestamp);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         params.lastBlockTimestamp = uint64(block.timestamp - 1);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         params.blocks[1].timeShift = 1;
         params.lastBlockTimestamp = uint64(block.timestamp);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList");
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 }

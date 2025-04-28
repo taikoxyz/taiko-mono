@@ -28,13 +28,14 @@ contract ProverSet is ProverSetBase, IProposeBatch {
     /// @notice Propose a batch of Taiko blocks.
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata _additionalData
     )
         external
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        return IProposeBatch(entrypoint).v4ProposeBatch(_params, _txList);
+        return IProposeBatch(entrypoint).v4ProposeBatch(_params, _txList, _additionalData);
     }
 
     /// @notice Proves multiple Taiko batches.
