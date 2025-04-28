@@ -56,7 +56,7 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 
 // RaikoProofDataV2 represents the JSON body of the response of the proof requests.
 type RaikoProofDataV2 struct {
-	Proof  *ProofDataV2 `json:"proof"` //nolint:revive,stylecheck
+	Proof  *ProofDataV2 `json:"proof"`
 	Status string       `json:"status"`
 }
 
