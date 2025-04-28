@@ -10,7 +10,7 @@ interface ILookaheadStore {
     // lookahead commitment.
     struct LookaheadPayload {
         // Timestamp of the L1 slot
-        uint256 slotTimestamp;
+        uint48 slotTimestamp;
         // Registration root of the operator in the URC
         bytes32 registrationRoot;
         // Index of the Operator's registration merkle tree leaf that contains the validator
@@ -20,7 +20,7 @@ interface ILookaheadStore {
 
     struct LookaheadSlot {
         // Timestamp of the slot.
-        uint256 timestamp;
+        uint48 timestamp;
         // The preconfer operator's committer address that is fetched from the slashing commitment.
         address committer;
         // URC registration root of the operator
@@ -32,9 +32,9 @@ interface ILookaheadStore {
 
     struct LookaheadHash {
         // The timestamp of the epoch.
-        uint256 epochTimestamp;
+        uint48 epochTimestamp;
         // Keccak hash of the lookahead slots for the epoch.
-        bytes32 lookaheadHash;
+        bytes26 lookaheadHash;
     }
 
     struct Config {

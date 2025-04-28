@@ -44,7 +44,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         external
     {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
+        uint48 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
 
         // Only proceed if lookahead is required
         require(isLookaheadRequired(), LookaheadNotRequired());
@@ -55,7 +55,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         LookaheadPayload[] memory lookaheadPayloads =
             abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
 
-        (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
+        (bytes26 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
             _updateLookahead(lookaheadPayloads, nextEpochTimestamp);
 
         emit LookaheadPosted(nextEpochTimestamp, lookaheadSlots);
@@ -67,9 +67,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         external
         onlyFrom(guardian)
     {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
+        uint48 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
 
-        (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
+        (bytes26 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
             _updateLookahead(_lookaheadPayloads, nextEpochTimestamp);
 
         emit LookaheadPostedByGuardian(nextEpochTimestamp, lookaheadSlots);
@@ -106,14 +106,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     function _updateLookahead(
         LookaheadPayload[] memory _lookaheadPayloads,
-        uint256 _nextEpochTimestamp
+        uint48 _nextEpochTimestamp
     )
         internal
-        returns (bytes32, LookaheadSlot[] memory)
+        returns (bytes26, LookaheadSlot[] memory)
     {
         if (_lookaheadPayloads.length == 0) {
             // The poster claims that the lookahead for the next epoch has no preconfers
-            bytes32 emptyLookaheadHash = _calculateEmptyLookaheadHash(_nextEpochTimestamp);
+            bytes26 emptyLookaheadHash = _calculateEmptyLookaheadHash(_nextEpochTimestamp);
             _setLookaheadHash(_nextEpochTimestamp, emptyLookaheadHash);
 
             return (emptyLookaheadHash, new LookaheadSlot[](0));
@@ -153,7 +153,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             );
 
             // Hash the lookahead slots and update the lookahead hash for next epoch
-            bytes32 lookaheadHash = _calculateLookaheadHash(lookaheadSlots);
+            bytes26 lookaheadHash = _calculateLookaheadHash(lookaheadSlots);
             _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
 
             return (lookaheadHash, lookaheadSlots);
@@ -264,7 +264,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return slashingCommitment.committer;
     }
 
-    function _setLookaheadHash(uint256 _epochTimestamp, bytes32 _hash) internal {
+    function _setLookaheadHash(uint48 _epochTimestamp, bytes26 _hash) internal {
         LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
         lookaheadHash.epochTimestamp = _epochTimestamp;
         lookaheadHash.lookaheadHash = _hash;
@@ -281,16 +281,12 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     function _calculateLookaheadHash(LookaheadSlot[] memory _lookaheadSlots)
         internal
         pure
-        returns (bytes32)
+        returns (bytes26)
     {
-        return keccak256(abi.encode(_lookaheadSlots));
+        return bytes26(keccak256(abi.encode(_lookaheadSlots)));
     }
 
-    function _calculateEmptyLookaheadHash(uint256 _epochTimestamp)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_epochTimestamp));
+    function _calculateEmptyLookaheadHash(uint48 _epochTimestamp) internal pure returns (bytes26) {
+        return bytes26(keccak256(abi.encode(_epochTimestamp)));
     }
 }
