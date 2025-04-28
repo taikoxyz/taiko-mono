@@ -120,7 +120,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         } else {
             LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
-            uint256 _prevTimestamp = 0;
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
@@ -138,19 +137,18 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 LookaheadSlot memory lookaheadSlot = LookaheadSlot({
                     timestamp: lookaheadPayload.slotTimestamp,
-                    prevTimestamp: _prevTimestamp,
                     committer: committer,
                     operatorRegistrationRoot: lookaheadPayload.registrationRoot,
                     validatorLeafIndex: lookaheadPayload.validatorLeafIndex
                 });
 
-                _prevTimestamp = lookaheadPayload.slotTimestamp;
                 lookaheadSlots[i] = lookaheadSlot;
             }
 
-            // Validate that the last recorded slot timestamp is within the next epoch
+            // Validate that the last slot timestamp is within the next epoch
             require(
-                _prevTimestamp <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
+                lookaheadSlots[lookaheadSlots.length - 1].timestamp
+                    <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
 

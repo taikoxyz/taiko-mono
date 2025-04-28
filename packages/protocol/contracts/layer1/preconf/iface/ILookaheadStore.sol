@@ -21,10 +21,6 @@ interface ILookaheadStore {
     struct LookaheadSlot {
         // Timestamp of the slot.
         uint256 timestamp;
-        // Pointer to the last entry's timestamp.
-        // For the first lookahead entry in the epoch, this points to the global
-        // `lastRecordedSlotTimestamp`
-        uint256 prevTimestamp;
         // The preconfer operator's committer address that is fetched from the slashing commitment.
         address committer;
         // URC registration root of the operator
