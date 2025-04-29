@@ -470,12 +470,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return nil
 	}
 
-	// only respond if you are the current sequencer
-	if s.lookahead.CurrOperator.Hex() != s.preconfOperatorAddress.Hex() {
+	// only respond if you are the current sequencer.
+	if err := s.checkLookaheadHandover(s.preconfOperatorAddress, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 		log.Debug(
-			"Ignore the message from the current P2P node",
+			"Ignoring OnUnsafeL2Request, not the current sequencer",
 			"peer", from,
 			"currOperator", s.lookahead.CurrOperator.Hex(),
+			"nextOperator", s.lookahead.NextOperator.Hex(),
 			"preconfOperatorAddress", s.preconfOperatorAddress.Hex(),
 		)
 
