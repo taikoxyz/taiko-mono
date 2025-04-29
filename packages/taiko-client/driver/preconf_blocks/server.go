@@ -325,6 +325,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		"timestamp", uint64(msg.ExecutionPayload.Timestamp),
 		"coinbase", msg.ExecutionPayload.FeeRecipient.Hex(),
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
+		"transactions", len(msg.ExecutionPayload.Transactions),
 	)
 
 	metrics.DriverPreconfP2PResponseEnvelopeCounter.Inc()
