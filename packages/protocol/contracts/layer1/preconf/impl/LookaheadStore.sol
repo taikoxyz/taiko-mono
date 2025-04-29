@@ -103,7 +103,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         if (_lookaheadPayloads.length == 0) {
             // The poster claims that the lookahead for the next epoch has no preconfers
             lookaheadSlots = new LookaheadSlot[](0);
-            lookaheadHash = _calculateEmptyLookaheadHash(_nextEpochTimestamp);
+            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         } else {
             lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
@@ -138,7 +138,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             );
 
             // Hash the lookahead slots and update the lookahead hash for next epoch
-            lookaheadHash = _calculateLookaheadHash(lookaheadSlots);
+            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         }
 
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
@@ -266,15 +266,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return lookahead[_epochTimestamp % getConfig().lookaheadBufferSize];
     }
 
-    function _calculateLookaheadHash(LookaheadSlot[] memory _lookaheadSlots)
+    function _calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
         internal
         pure
         returns (bytes26)
     {
-        return bytes26(keccak256(abi.encode(_lookaheadSlots)));
-    }
-
-    function _calculateEmptyLookaheadHash(uint48 _epochTimestamp) internal pure returns (bytes26) {
-        return bytes26(keccak256(abi.encode(_epochTimestamp)));
+        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
     }
 }
