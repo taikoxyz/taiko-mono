@@ -105,7 +105,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 
 func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 	s.NotNil(s.s.BeaconSyncer())
-	s.NotNil(s.s.BlobSyncer())
+	s.NotNil(s.s.EventSyncer())
 }
 
 func (s *ChainSyncerTestSuite) TestSync() {

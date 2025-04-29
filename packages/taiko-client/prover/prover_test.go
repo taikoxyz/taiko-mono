@@ -156,7 +156,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 	// Valid block
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
@@ -201,7 +201,7 @@ func (s *ProverTestSuite) TestOnBatchesVerified() {
 }
 
 func (s *ProverTestSuite) TestProveOp() {
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
 	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
@@ -246,7 +246,7 @@ func (s *ProverTestSuite) TestProveOp() {
 }
 
 func (s *ProverTestSuite) TestProveMultiBlobBatch() {
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.True(m.IsPacaya())
 
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
@@ -282,7 +282,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 		}
 
 		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
-		s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+		s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 	}
 
 	proposeMultiBlockBatch()
@@ -352,7 +352,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
-		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
@@ -408,7 +408,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
-		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
 
 	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
@@ -462,7 +462,7 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize-1; i++ {
-		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
 
 	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
@@ -519,7 +519,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.True(m.IsPacaya())
 	s.Nil(s.p.proveOp())
 

@@ -101,10 +101,10 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 
 	// Propose a valid L2 block
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -112,7 +112,7 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
 	// Empty blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 	s.Nil(err)
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -151,9 +151,9 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	s.Nil(err)
 
 	// Propose two L2 blocks
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -176,7 +176,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	// Because of evm_revert operation, the nonce of the proposer need to be adjusted.
 	// Propose ten blocks on another fork
 	for i := 0; i < 10; i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	}
 
 	l1Head4, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -205,9 +205,9 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Nil(err)
 
 	// Propose two L2 blocks
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	time.Sleep(3 * time.Second)
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -240,7 +240,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Greater(l1Head4.Number.Uint64(), l1Head3.Number.Uint64())
 	s.Less(l1Head4.Number.Uint64(), l1Head2.Number.Uint64())
 
-	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -262,9 +262,9 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	s.Nil(err)
 
 	// Propose two L2 blocks
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	time.Sleep(3 * time.Second)
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -298,7 +298,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 
 	s.Greater(l1Head4.Number.Uint64(), l1Head3.Number.Uint64())
 
-	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -360,7 +360,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 
 	// Propose an empty batch, should with another batch with the forced inclusion tx.
 	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head1.Number.Uint64(), common.Hash{}))
-	s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
+	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -377,7 +377,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
 	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head2.Number().Uint64(), common.Hash{}))
-	s.Nil(s.d.l2ChainSyncer.BlobSyncer().ProcessL1Blocks(context.Background()))
+	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -387,7 +387,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 
 func (s *DriverTestSuite) TestL1Current() {
 	// propose and insert a block
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 	// reset L1 current with increased height
 	s.Nil(s.d.state.ResetL1Current(s.d.ctx, common.Big1))
 }
@@ -445,7 +445,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Equal(l2Head2.Hash(), l2Head4.Hash())
 
 	// Propose 3 valid L2 blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -522,7 +522,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	// Propose some valid L2 blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -659,7 +659,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksWithReorg() {
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
 	// Propose some valid L2 blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -717,7 +717,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	)
 
 	for i := 0; i < lenForkA; i++ {
-		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	}
 
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -743,7 +743,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	snapshotID = s.SetL1Snapshot()
 
 	for i := 0; i < lenForkB; i++ {
-		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 	}
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -834,7 +834,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	// Propose some valid L2 blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l2Head1, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -846,7 +846,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	snapshotID := s.SetL1Snapshot()
 
 	for i := 0; i < rand.Intn(6)+5; i++ {
-		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 	}
 
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -1027,7 +1027,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	// Propose some valid L2 blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l2Head1, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -1039,7 +1039,7 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	snapshotID := s.SetL1Snapshot()
 
 	for i := 0; i < rand.Intn(3)+2; i++ {
-		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 	}
 
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -1083,7 +1083,7 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number().Uint64(), headL1Origin.BlockID.Uint64())
 
-	s.Nil(s.d.ChainSyncer().SetUpBlobSync())
+	s.Nil(s.d.ChainSyncer().SetUpEventSync())
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -1154,7 +1154,7 @@ func (s *DriverTestSuite) proposePreconfBatch(
 	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{TxData: data, Blobs: nil, To: to}))
 	s.Nil(
 		backoff.Retry(func() error {
-			return s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background())
+			return s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background())
 		}, backoff.NewExponentialBackOff()))
 }
 

@@ -23,5 +23,5 @@ func (s *EventHandlerTestSuite) TestBatchProposedHandle() {
 		ContesterMode:         true,
 		ProveUnassignedBlocks: true,
 	})
-	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer), func() {}))
+	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer), func() {}))
 }
