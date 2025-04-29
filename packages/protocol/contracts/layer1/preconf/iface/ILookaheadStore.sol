@@ -10,7 +10,7 @@ interface ILookaheadStore {
     // lookahead commitment.
     struct LookaheadPayload {
         // Timestamp of the L1 slot
-        uint256 slotTimestamp;
+        uint48 slotTimestamp;
         // Registration root of the operator in the URC
         bytes32 registrationRoot;
         // Index of the Operator's registration merkle tree leaf that contains the validator
@@ -32,9 +32,9 @@ interface ILookaheadStore {
 
     struct LookaheadHash {
         // The timestamp of the epoch.
-        uint256 epochTimestamp;
+        uint48 epochTimestamp;
         // Keccak hash of the lookahead slots for the epoch.
-        bytes32 lookaheadHash;
+        bytes26 lookaheadHash;
     }
 
     struct Config {
@@ -89,7 +89,7 @@ interface ILookaheadStore {
      * @param _epochTimestamp The timestamp of the epoch.
      * @return The lookahead hash.
      */
-    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes32);
+    function getLookaheadHash(uint48 _epochTimestamp) external view returns (bytes26);
 
     /**
      * @notice Returns the configuration of the lookahead store.

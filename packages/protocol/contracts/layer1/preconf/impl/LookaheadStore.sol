@@ -72,7 +72,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes32) {
+    function getLookaheadHash(uint48 _epochTimestamp) external view returns (bytes26) {
         LookaheadHash memory lookaheadHash = _getLookaheadHash(_epochTimestamp);
         require(lookaheadHash.epochTimestamp == _epochTimestamp, LookaheadHashNotFound());
         return lookaheadHash.lookaheadHash;
@@ -252,7 +252,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return slashingCommitment.committer;
     }
 
-    function _setLookaheadHash(uint256 _epochTimestamp, bytes32 _hash) internal {
+    function _setLookaheadHash(uint48 _epochTimestamp, bytes26 _hash) internal {
         LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
         lookaheadHash.epochTimestamp = _epochTimestamp;
         lookaheadHash.lookaheadHash = _hash;
@@ -269,16 +269,12 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     function _calculateLookaheadHash(LookaheadSlot[] memory _lookaheadSlots)
         internal
         pure
-        returns (bytes32)
+        returns (bytes26)
     {
-        return keccak256(abi.encode(_lookaheadSlots));
+        return bytes26(keccak256(abi.encode(_lookaheadSlots)));
     }
 
-    function _calculateEmptyLookaheadHash(uint256 _epochTimestamp)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_epochTimestamp));
+    function _calculateEmptyLookaheadHash(uint48 _epochTimestamp) internal pure returns (bytes26) {
+        return bytes26(keccak256(abi.encode(_epochTimestamp)));
     }
 }
