@@ -491,7 +491,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		}
 
 		// convert block to execution envlope
-		log.Info("Publishing L2RequestResponse")
+		log.Info("Publishing L2RequestResponse", "hash", hash.Hex())
 
 		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, &eth.ExecutionPayloadEnvelope{
 			ExecutionPayload: &eth.ExecutionPayload{
