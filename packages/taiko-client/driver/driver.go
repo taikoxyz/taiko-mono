@@ -118,6 +118,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfHandoverSkipSlots,
+			d.PreconfOperatorAddress,
 			d.TaikoL2Address,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,

@@ -148,26 +148,29 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				"baseFee", header.BaseFee,
 			)
 		} else {
-			if err := s.p2pNode.GossipOut().PublishL2Payload(
-				c.Request().Context(),
-				&eth.ExecutionPayloadEnvelope{
-					ExecutionPayload: &eth.ExecutionPayload{
-						BaseFeePerGas: eth.Uint256Quantity(u256),
-						ParentHash:    header.ParentHash,
-						FeeRecipient:  header.Coinbase,
-						ExtraData:     header.Extra,
-						PrevRandao:    eth.Bytes32(header.MixDigest),
-						BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
-						GasLimit:      eth.Uint64Quantity(header.GasLimit),
-						GasUsed:       eth.Uint64Quantity(header.GasUsed),
-						Timestamp:     eth.Uint64Quantity(header.Time),
-						BlockHash:     header.Hash(),
-						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+			// publish every 2nd payload to test the block missing syncing.
+			if header.Number.Uint64()%2 == 0 {
+				if err := s.p2pNode.GossipOut().PublishL2Payload(
+					c.Request().Context(),
+					&eth.ExecutionPayloadEnvelope{
+						ExecutionPayload: &eth.ExecutionPayload{
+							BaseFeePerGas: eth.Uint256Quantity(u256),
+							ParentHash:    header.ParentHash,
+							FeeRecipient:  header.Coinbase,
+							ExtraData:     header.Extra,
+							PrevRandao:    eth.Bytes32(header.MixDigest),
+							BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+							GasLimit:      eth.Uint64Quantity(header.GasLimit),
+							GasUsed:       eth.Uint64Quantity(header.GasUsed),
+							Timestamp:     eth.Uint64Quantity(header.Time),
+							BlockHash:     header.Hash(),
+							Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+						},
 					},
-				},
-				s.p2pSigner,
-			); err != nil {
-				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
+					s.p2pSigner,
+				); err != nil {
+					log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
+				}
 			}
 		}
 	} else {
