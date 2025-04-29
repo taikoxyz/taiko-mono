@@ -10,7 +10,7 @@ interface ILookaheadStore {
     // lookahead commitment.
     struct LookaheadPayload {
         // Timestamp of the L1 slot
-        uint256 slotTimestamp;
+        uint48 slotTimestamp;
         // Registration root of the operator in the URC
         bytes32 registrationRoot;
         // Index of the Operator's registration merkle tree leaf that contains the validator
@@ -32,9 +32,9 @@ interface ILookaheadStore {
 
     struct LookaheadHash {
         // The timestamp of the epoch.
-        uint256 epochTimestamp;
+        uint48 epochTimestamp;
         // Keccak hash of the lookahead slots for the epoch.
-        bytes32 lookaheadHash;
+        bytes26 lookaheadHash;
     }
 
     struct Config {
@@ -63,27 +63,20 @@ interface ILookaheadStore {
     error SlasherIsNotGuardian();
     error SlotTimestampIsNotIncrementing();
 
-    event LookaheadHashUpdated(uint256 epochTimestamp, bytes32 lookaheadHash);
-    event LookaheadPosted(uint256 indexed timestamp, LookaheadSlot[] lookaheadSlot);
-    event LookaheadPostedByGuardian(uint256 indexed timestamp, LookaheadSlot[] lookaheadSlot);
-    event LookaheadHashUpdatedByGuardian(uint256 indexed timestamp, bytes32 lookaheadHash);
+    event LookaheadPosted(
+        bool indexed isPostedByGuardian,
+        uint256 indexed epochTimestamp,
+        bytes32 lookaheadHash,
+        LookaheadSlot[] lookaheadSlot
+    );
 
     /**
      * @notice Allows a registered operator to post the lookahead for the next epoch.
      * @param _registrationRoot The registration root of the posting-operator in the URC.
-     * @param _signedCommitment The signed commitment containing the lookahead data.
+     * @param _data The signed commitment containing the lookahead data, or the lookahead data if
+     * posted by the guardian.
      */
-    function updateLookahead(
-        bytes32 _registrationRoot,
-        ISlasher.SignedCommitment calldata _signedCommitment
-    )
-        external;
-
-    /**
-     * @notice Called by the guardian to overwrite the lookahead hash for an epoch.
-     * @param _lookaheadPayloads The lookahead payloads.
-     */
-    function overwriteLookahead(LookaheadPayload[] calldata _lookaheadPayloads) external;
+    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external;
 
     /**
      * @notice Returns true if the lookahead is required for the next epoch.
@@ -96,7 +89,7 @@ interface ILookaheadStore {
      * @param _epochTimestamp The timestamp of the epoch.
      * @return The lookahead hash.
      */
-    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes32);
+    function getLookaheadHash(uint48 _epochTimestamp) external view returns (bytes26);
 
     /**
      * @notice Returns the configuration of the lookahead store.
