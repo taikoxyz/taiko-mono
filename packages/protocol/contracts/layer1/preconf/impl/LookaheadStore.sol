@@ -131,23 +131,21 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
-                uint256 epochTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
-                address committer =
-                    _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
+                address committer = _validateOperatorInLookaheadPayload(
+                    lookaheadPayload, _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+                );
 
-                LookaheadSlot memory lookaheadSlot = LookaheadSlot({
-                    timestamp: lookaheadPayload.slotTimestamp,
+                lookaheadSlots[i] = LookaheadSlot({
                     committer: committer,
-                    operatorRegistrationRoot: lookaheadPayload.registrationRoot,
+                    slotTimestamp: lookaheadPayload.slotTimestamp,
+                    registrationRoot: lookaheadPayload.registrationRoot,
                     validatorLeafIndex: lookaheadPayload.validatorLeafIndex
                 });
-
-                lookaheadSlots[i] = lookaheadSlot;
             }
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                lookaheadSlots[lookaheadSlots.length - 1].timestamp
+                lookaheadSlots[lookaheadSlots.length - 1].slotTimestamp
                     <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
@@ -185,7 +183,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
-        require(committer == slashingCommitment.committer, CommittmentSignerMismatch());
+        require(committer == slashingCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
     }
 
@@ -208,7 +206,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         }
 
         require(
-            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp) % 12 == 0,
+            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
             InvalidSlotTimestamp()
         );
     }
