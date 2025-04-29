@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 /// exploited by malicious key opinion leaders (KOLs) who might rapidly deplete the TAIKO token
 /// treasury.
 /// The contract is intentionally designed to be non-upgradable and should be owned by the
-/// MinimalOwner contract.
+/// IntermediateOwner contract.
 /// @custom:security-contact security@taiko.xyz
 contract TokenLocker is Ownable, ReentrancyGuard {
     error AlreadyInitialized();
