@@ -466,6 +466,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"currOperator", s.lookahead.CurrOperator.Hex(),
 			"preconfOperatorAddress", s.preconfOperatorAddress.Hex(),
 		)
+
 		return nil
 	}
 
