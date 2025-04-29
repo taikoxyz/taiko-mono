@@ -490,7 +490,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		}
 
 		// convert block to execution envlope
-		s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, &eth.ExecutionPayloadEnvelope{
+		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, &eth.ExecutionPayloadEnvelope{
 			ExecutionPayload: &eth.ExecutionPayload{
 				BaseFeePerGas: eth.Uint256Quantity(u256),
 				ParentHash:    block.ParentHash(),
@@ -504,7 +504,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 				BlockHash:     block.Hash(),
 				Transactions:  []eth.Data{hexutil.Bytes(txs)},
 			},
-		}, s.p2pSigner)
+		}, s.p2pSigner); err != nil {
+			log.Warn("Failed to publish L2 request response", "error", err)
+		}
 	}
 
 	return nil
