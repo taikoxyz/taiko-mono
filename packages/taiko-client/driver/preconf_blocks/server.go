@@ -332,7 +332,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Check if the payload is valid.
 	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
 		log.Warn(
-			"Invalid preconfirmation block payload",
+			"Invalid preconfirmation block response payload",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -485,7 +485,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"baseFee", block.BaseFee,
 		)
 	} else {
-		txs, err := rlp.EncodeToBytes(block.Transactions())
+		txs, err := utils.EncodeAndCompressTxList(block.Transactions())
 		if err != nil {
 			return err
 		}
