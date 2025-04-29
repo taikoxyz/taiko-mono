@@ -663,6 +663,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if err != nil {
 		return fmt.Errorf("invalid zlib bytes for transactions: %w", err)
 	}
+
 	if err := rlp.DecodeBytes(b, &txs); err != nil {
 		return fmt.Errorf("invalid RLP bytes for transactions: %w", err)
 	}
