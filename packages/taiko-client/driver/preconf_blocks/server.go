@@ -491,6 +491,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		}
 
 		// convert block to execution envlope
+		log.Info("Publishing L2RequestResponse")
+
 		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, &eth.ExecutionPayloadEnvelope{
 			ExecutionPayload: &eth.ExecutionPayload{
 				BaseFeePerGas: eth.Uint256Quantity(u256),
@@ -535,6 +537,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
 			// TODO; add signer
+			log.Info("Publishing L2Request", "hash", currentPayload.ParentHash.Hex())
+
 			if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.ParentHash); err != nil {
 				log.Warn("Failed to publish L2 hash request", "error", err, "hash", currentPayload.BlockHash.Hex())
 			}
