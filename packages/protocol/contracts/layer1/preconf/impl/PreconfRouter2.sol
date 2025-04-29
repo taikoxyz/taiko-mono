@@ -55,16 +55,14 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
-        bytes32 currentLookaheadHash = lookaheadStore.getLookaheadHash(epochTimestamp);
+        bytes26 currentLookaheadHash = lookaheadStore.getLookaheadHash(epochTimestamp);
 
-        if (currentLookaheadHash == keccak256(abi.encode(epochTimestamp))) {
+        if (_isEmptyLookahead(epochTimestamp, currentLookaheadHash)) {
             // The current lookahead is empty, so we use a whitelisted preconfer
-
             _validateWhitelistPreconfer();
         } else {
             // We validate the provided lookahead data and confirm if the sender is the preconfer
             // within the lookahead
-
             (
                 uint256 currentLookaheadIndex,
                 ILookaheadStore.LookaheadSlot[] memory previousLookahead,
@@ -204,5 +202,19 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
                 );
             }
         }
+    }
+
+    function _isEmptyLookahead(
+        uint256 _epochTimestamp,
+        bytes26 _lookaheadHash
+    )
+        internal
+        view
+        returns (bool)
+    {
+        return _lookaheadHash
+            == lookaheadStore.calculateLookaheadHash(
+                _epochTimestamp, new ILookaheadStore.LookaheadSlot[](0)
+            );
     }
 }
