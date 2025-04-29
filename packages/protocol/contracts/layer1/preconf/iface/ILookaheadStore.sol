@@ -79,6 +79,20 @@ interface ILookaheadStore {
     function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external;
 
     /**
+     * @notice Calculates the lookahead hash for a given epoch and lookahead slots.
+     * @param _epochTimestamp The timestamp of the epoch.
+     * @param _lookaheadSlots The lookahead slots.
+     * @return The lookahead hash.
+     */
+    function calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
+        external
+        pure
+        returns (bytes26);
+
+    /**
      * @notice Returns true if the lookahead is required for the next epoch.
      * @return True if the lookahead is required for the next epoch, false otherwise.
      */
@@ -89,7 +103,7 @@ interface ILookaheadStore {
      * @param _epochTimestamp The timestamp of the epoch.
      * @return The lookahead hash.
      */
-    function getLookaheadHash(uint48 _epochTimestamp) external view returns (bytes26);
+    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26);
 
     /**
      * @notice Returns the configuration of the lookahead store.

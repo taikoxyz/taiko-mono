@@ -62,7 +62,20 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
     }
 
-    // View functions --------------------------------------------------------------------------
+    // View and Pure functions
+    // --------------------------------------------------------------------------
+
+    /// @inheritdoc ILookaheadStore
+    function calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
+        external
+        pure
+        returns (bytes26)
+    {
+        return _calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
+    }
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
@@ -72,7 +85,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function getLookaheadHash(uint48 _epochTimestamp) external view returns (bytes26) {
+    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26) {
         LookaheadHash memory lookaheadHash = _getLookaheadHash(_epochTimestamp);
         require(lookaheadHash.epochTimestamp == _epochTimestamp, LookaheadHashNotFound());
         return lookaheadHash.lookaheadHash;
@@ -88,7 +101,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         });
     }
 
-    // Internal functions ----------------------------------------------------------------------
+    // Internal functions
+    // --------------------------------------------------------------------------
 
     function _updateLookahead(
         uint256 _nextEpochTimestamp,
