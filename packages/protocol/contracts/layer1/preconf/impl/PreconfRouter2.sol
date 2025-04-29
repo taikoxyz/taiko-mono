@@ -114,11 +114,11 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
 
         // Ensure that the associated operator is active and opted into the preconf slasher
         IRegistry.OperatorData memory operatorData =
-            urc.getOperatorData(_lookaheadSlot.operatorRegistrationRoot);
+            urc.getOperatorData(_lookaheadSlot.registrationRoot);
         require(operatorData.slashedAt == 0, OperatorIsSlashed());
         require(operatorData.unregisteredAt == 0, OperatorIsUnregistered());
         require(
-            urc.isOptedIntoSlasher(_lookaheadSlot.operatorRegistrationRoot, preconfSlasher),
+            urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher),
             OperatorIsNotOptedIn()
         );
     }
@@ -155,8 +155,8 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
 
             // Validate the preconfing period
             require(
-                block.timestamp > previousLookaheadSlot.timestamp
-                    && block.timestamp <= _lookaheadSlot.timestamp,
+                block.timestamp > previousLookaheadSlot.slotTimestamp
+                    && block.timestamp <= _lookaheadSlot.slotTimestamp,
                 InvalidLookaheadTimestamp()
             );
         } else {
@@ -189,15 +189,15 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
 
                 // Validate the preconfing period for case 1
                 require(
-                    block.timestamp > previousLookaheadSlot.timestamp
-                        && block.timestamp <= _lookaheadSlot.timestamp,
+                    block.timestamp > previousLookaheadSlot.slotTimestamp
+                        && block.timestamp <= _lookaheadSlot.slotTimestamp,
                     InvalidLookaheadTimestamp()
                 );
             } else {
                 // Validate the preconfing period case 2 and 3
                 require(
                     block.timestamp >= _epochTimestamp
-                        && block.timestamp <= _lookaheadSlot.timestamp,
+                        && block.timestamp <= _lookaheadSlot.slotTimestamp,
                     InvalidLookaheadTimestamp()
                 );
             }
