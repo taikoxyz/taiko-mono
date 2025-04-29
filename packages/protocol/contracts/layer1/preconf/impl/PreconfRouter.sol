@@ -14,6 +14,15 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
     uint256[50] private __gap;
 
+    modifier onlyFromPreconferOrFallback() {
+        require(
+            msg.sender == fallbackPreconfer
+                || msg.sender == preconfWhitelist.getOperatorForCurrentEpoch(),
+            NotPreconferOrFallback()
+        );
+        _;
+    }
+
     constructor(
         address _proposeBatchEntrypoint, // TaikoInbox or TaikoWrapper
         address _preconfWhitelist,
@@ -38,16 +47,9 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         bytes calldata _txList
     )
         external
+        onlyFromPreconferOrFallback
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
-        // Sender must be the selected operator for the epoch
-        address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
-        if (preconfer != address(0)) {
-            require(msg.sender == preconfer, NotPreconfer());
-        } else if (fallbackPreconfer != address(0)) {
-            require(msg.sender == fallbackPreconfer, NotFallbackPreconfer());
-        }
-
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
         (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);
 
