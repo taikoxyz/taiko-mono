@@ -26,6 +26,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
         shastaForkHeight = _shastaForkHeight;
     }
 
+    modifier recordTxGasUsed() {
+        uint256 _gasleft = gasleft();
+        _;
+        lastAnchorGasUsed = uint32(_gasleft - gasleft());
+    }
+
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev The gas limit for this transaction must be set to 1,000,000 gas.
@@ -46,6 +52,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bytes32[] calldata _signalSlots
     )
         external
+        recordTxGasUsed
         nonZeroBytes32(_anchorStateRoot)
         nonZeroValue(_anchorBlockId)
         nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
