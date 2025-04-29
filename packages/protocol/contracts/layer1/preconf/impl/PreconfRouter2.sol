@@ -127,7 +127,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     function _validatePreconfingPeriod(
         uint256 _epochTimestamp,
         uint256 _currentLookaheadIndex,
-        bytes32 _currentLookaheadHash,
+        bytes26 _currentLookaheadHash,
         ILookaheadStore.LookaheadSlot[] memory _previousLookahead,
         ILookaheadStore.LookaheadSlot[] memory _currentLookahead,
         ILookaheadStore.LookaheadSlot memory _lookaheadSlot
@@ -137,7 +137,8 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     {
         // Validate the current lookahead data
         require(
-            keccak256(abi.encode(_currentLookahead)) == _currentLookaheadHash,
+            lookaheadStore.calculateLookaheadHash(_epochTimestamp, _currentLookahead)
+                == _currentLookaheadHash,
             InvalidCurrentLookahead()
         );
 
@@ -176,11 +177,14 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
 
             if (_previousLookahead.length != 0) {
                 // Validate previous lookahead data
-                bytes32 previousLookaheadHash = lookaheadStore.getLookaheadHash(
-                    _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
-                );
+                uint256 previousEpochTimestamp =
+                    _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
+                bytes26 previousLookaheadHash =
+                    lookaheadStore.getLookaheadHash(previousEpochTimestamp);
                 require(
-                    keccak256(abi.encode(_previousLookahead)) == previousLookaheadHash,
+                    lookaheadStore.calculateLookaheadHash(
+                        previousEpochTimestamp, _previousLookahead
+                    ) == previousLookaheadHash,
                     InvalidPreviousLookahead()
                 );
 
