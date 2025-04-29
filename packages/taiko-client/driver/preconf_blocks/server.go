@@ -342,23 +342,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return nil
 	}
 
-	// ensure it doesnt already exist in the chain
-	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return fmt.Errorf("failed to fetch header by hash: %w", err)
-	}
-
-	if head != nil {
-		log.Debug("Payload already exists in the canonical chain, skip p2p response",
-			"blockID",
-			uint64(msg.ExecutionPayload.BlockNumber),
-			"blockHash",
-			msg.ExecutionPayload.BlockHash.Hex(),
-		)
-		// already exists
-		return nil
-	}
-
 	// ensure it doesnt already exist in the cache
 	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Debug("Payload already exists in the cache, skip p2p response",
