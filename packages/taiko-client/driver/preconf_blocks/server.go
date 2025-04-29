@@ -540,7 +540,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		)
 
 		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
-			log.Warn("Failed to publish L2 request response", "error", err, "hash", hash.Hex())
+			log.Warn("Failed to publish L2 request response",
+				"error", err,
+				"hash", hash.Hex(),
+				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+			)
 		}
 	}
 
@@ -732,6 +736,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
+
 	log.Info(
 		"Operator addresses as P2P sequencer",
 		"current", s.lookahead.CurrOperator.Hex(),
