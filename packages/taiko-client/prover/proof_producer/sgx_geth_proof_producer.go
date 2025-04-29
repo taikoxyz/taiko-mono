@@ -51,6 +51,7 @@ func (s *SgxGethProofProducer) RequestProof(
 		false,
 		ProofTypeSgxGeth,
 		requestAt,
+		opts.PacayaOptions().IsGethProofGenerated,
 	)
 	if err != nil {
 		return nil, err
@@ -103,6 +104,7 @@ func (s *SgxGethProofProducer) Aggregate(
 		true,
 		ProofTypeSgxGeth,
 		requestAt,
+		items[0].Opts.PacayaOptions().IsGethProofAggregationGenerated,
 	)
 	if err != nil {
 		return nil, err
@@ -119,6 +121,7 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	isAggregation bool,
 	proofType ProofType,
 	requestAt time.Time,
+	alreadyGenerated bool,
 ) (*RaikoRequestProofBodyResponseV2, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
@@ -155,8 +158,10 @@ func (s *SgxGethProofProducer) requestBatchProof(
 		"time", time.Since(requestAt),
 	)
 
-	// Update metrics.
-	updateProvingMetrics(proofType, requestAt, isAggregation)
+	if !alreadyGenerated {
+		// Update metrics.
+		updateProvingMetrics(proofType, requestAt, isAggregation)
+	}
 
 	return output, nil
 }

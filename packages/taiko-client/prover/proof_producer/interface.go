@@ -79,11 +79,15 @@ func (o *ProofRequestOptionsOntake) GetRawBlockHash() common.Hash {
 
 // ProofRequestOptionsPacaya contains all options that need to be passed to a backend proof producer service.
 type ProofRequestOptionsPacaya struct {
-	BatchID            *big.Int
-	Headers            []*types.Header
-	ProverAddress      common.Address
-	ProposeBlockTxHash common.Hash
-	EventL1Hash        common.Hash
+	BatchID                         *big.Int
+	Headers                         []*types.Header
+	ProverAddress                   common.Address
+	ProposeBlockTxHash              common.Hash
+	EventL1Hash                     common.Hash
+	IsGethProofGenerated            bool
+	IsGethProofAggregationGenerated bool
+	IsRethProofGenerated            bool
+	IsRethProofAggregationGenerated bool
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.
