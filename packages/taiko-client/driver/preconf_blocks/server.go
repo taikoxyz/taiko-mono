@@ -548,7 +548,6 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
-			// TODO; add signer
 			log.Info("Publishing L2Request", "hash", currentPayload.ParentHash.Hex())
 
 			if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.ParentHash); err != nil {
