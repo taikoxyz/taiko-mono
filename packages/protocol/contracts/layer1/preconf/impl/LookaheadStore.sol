@@ -97,7 +97,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
     {
-        bytes32 lookaheadHash;
+        bytes26 lookaheadHash;
         LookaheadSlot[] memory lookaheadSlots;
 
         if (_lookaheadPayloads.length == 0) {
@@ -252,9 +252,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return slashingCommitment.committer;
     }
 
-    function _setLookaheadHash(uint48 _epochTimestamp, bytes26 _hash) internal {
+    function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
         LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
-        lookaheadHash.epochTimestamp = _epochTimestamp;
+        lookaheadHash.epochTimestamp = uint48(_epochTimestamp);
         lookaheadHash.lookaheadHash = _hash;
     }
 
