@@ -38,42 +38,28 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function updateLookahead(
-        bytes32 _registrationRoot,
-        ISlasher.SignedCommitment calldata _signedCommitment
-    )
-        external
-    {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
+    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external {
+        bool isPostedByGuardian = msg.sender == guardian;
+        LookaheadPayload[] memory lookaheadPayloads;
 
-        // Only proceed if lookahead is required
-        require(isLookaheadRequired(), LookaheadNotRequired());
+        if (isPostedByGuardian) {
+            lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
+        } else if (isLookaheadRequired()) {
+            ISlasher.SignedCommitment memory signedCommitment =
+                abi.decode(_data, (ISlasher.SignedCommitment));
 
-        // Validate the lookahead poster's operator status within the URC
-        _validateLookaheadPoster(_registrationRoot, _signedCommitment);
+            // Validate the lookahead poster's operator status within the URC
+            _validateLookaheadPoster(_registrationRoot, signedCommitment);
 
-        LookaheadPayload[] memory lookaheadPayloads =
-            abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
+            lookaheadPayloads =
+                abi.decode(signedCommitment.commitment.payload, (LookaheadPayload[]));
+        } else {
+            revert LookaheadNotRequired();
+        }
 
-        (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
-            _updateLookahead(lookaheadPayloads, nextEpochTimestamp);
-
-        emit LookaheadPosted(nextEpochTimestamp, lookaheadSlots);
-        emit LookaheadHashUpdated(nextEpochTimestamp, lookaheadHash);
-    }
-
-    /// @inheritdoc ILookaheadStore
-    function overwriteLookahead(LookaheadPayload[] calldata _lookaheadPayloads)
-        external
-        onlyFrom(guardian)
-    {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
-
-        (bytes32 lookaheadHash, LookaheadSlot[] memory lookaheadSlots) =
-            _updateLookahead(_lookaheadPayloads, nextEpochTimestamp);
-
-        emit LookaheadPostedByGuardian(nextEpochTimestamp, lookaheadSlots);
-        emit LookaheadHashUpdatedByGuardian(nextEpochTimestamp, lookaheadHash);
+        _updateLookahead(
+            LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian
+        );
     }
 
     // View functions --------------------------------------------------------------------------
@@ -86,7 +72,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes32) {
+    function getLookaheadHash(uint48 _epochTimestamp) external view returns (bytes26) {
         LookaheadHash memory lookaheadHash = _getLookaheadHash(_epochTimestamp);
         require(lookaheadHash.epochTimestamp == _epochTimestamp, LookaheadHashNotFound());
         return lookaheadHash.lookaheadHash;
@@ -105,20 +91,21 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     // Internal functions ----------------------------------------------------------------------
 
     function _updateLookahead(
+        uint256 _nextEpochTimestamp,
         LookaheadPayload[] memory _lookaheadPayloads,
-        uint256 _nextEpochTimestamp
+        bool _isPostedByGuardian
     )
         internal
-        returns (bytes32, LookaheadSlot[] memory)
     {
+        bytes26 lookaheadHash;
+        LookaheadSlot[] memory lookaheadSlots;
+
         if (_lookaheadPayloads.length == 0) {
             // The poster claims that the lookahead for the next epoch has no preconfers
-            bytes32 emptyLookaheadHash = _calculateEmptyLookaheadHash(_nextEpochTimestamp);
-            _setLookaheadHash(_nextEpochTimestamp, emptyLookaheadHash);
-
-            return (emptyLookaheadHash, new LookaheadSlot[](0));
+            lookaheadSlots = new LookaheadSlot[](0);
+            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         } else {
-            LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
+            lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
@@ -131,33 +118,33 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
-                uint256 epochTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
-                address committer =
-                    _validateOperatorInLookaheadPayload(lookaheadPayload, epochTimestamp);
+                address committer = _validateOperatorInLookaheadPayload(
+                    lookaheadPayload, _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+                );
 
-                LookaheadSlot memory lookaheadSlot = LookaheadSlot({
-                    timestamp: lookaheadPayload.slotTimestamp,
+                lookaheadSlots[i] = LookaheadSlot({
                     committer: committer,
-                    operatorRegistrationRoot: lookaheadPayload.registrationRoot,
+                    slotTimestamp: lookaheadPayload.slotTimestamp,
+                    registrationRoot: lookaheadPayload.registrationRoot,
                     validatorLeafIndex: lookaheadPayload.validatorLeafIndex
                 });
-
-                lookaheadSlots[i] = lookaheadSlot;
             }
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                lookaheadSlots[lookaheadSlots.length - 1].timestamp
+                lookaheadSlots[lookaheadSlots.length - 1].slotTimestamp
                     <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
 
             // Hash the lookahead slots and update the lookahead hash for next epoch
-            bytes32 lookaheadHash = _calculateLookaheadHash(lookaheadSlots);
-            _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
-
-            return (lookaheadHash, lookaheadSlots);
+            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         }
+
+        _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
+        emit LookaheadPosted(
+            _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
+        );
     }
 
     function _validateLookaheadPoster(
@@ -185,7 +172,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
-        require(committer == slashingCommitment.committer, CommittmentSignerMismatch());
+        require(committer == slashingCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
     }
 
@@ -208,7 +195,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         }
 
         require(
-            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp) % 12 == 0,
+            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
             InvalidSlotTimestamp()
         );
     }
@@ -227,19 +215,19 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         uint256 blockHeightAtEpochTimestamp =
             LibPreconfUtils.getBlockHeightAtTimestamp(_epochTimestamp);
 
-        IRegistry.OperatorData memory OperatorData =
+        IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadPayload.registrationRoot);
         require(
-            OperatorData.unregisteredAt == 0
-                || OperatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
+            operatorData.unregisteredAt == 0
+                || operatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            OperatorData.slashedAt == 0 || OperatorData.slashedAt >= blockHeightAtEpochTimestamp,
+            operatorData.slashedAt == 0 || operatorData.slashedAt >= blockHeightAtEpochTimestamp,
             OperatorHasBeenSlashed()
         );
         require(
-            _lookaheadPayload.validatorLeafIndex < OperatorData.numKeys, InvalidValidatorLeafIndex()
+            _lookaheadPayload.validatorLeafIndex < operatorData.numKeys, InvalidValidatorLeafIndex()
         );
 
         uint256 collateralAtEpochTimestamp =
@@ -264,9 +252,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return slashingCommitment.committer;
     }
 
-    function _setLookaheadHash(uint256 _epochTimestamp, bytes32 _hash) internal {
+    function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
         LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
-        lookaheadHash.epochTimestamp = _epochTimestamp;
+        lookaheadHash.epochTimestamp = uint48(_epochTimestamp);
         lookaheadHash.lookaheadHash = _hash;
     }
 
@@ -278,19 +266,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return lookahead[_epochTimestamp % getConfig().lookaheadBufferSize];
     }
 
-    function _calculateLookaheadHash(LookaheadSlot[] memory _lookaheadSlots)
+    function _calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
         internal
         pure
-        returns (bytes32)
+        returns (bytes26)
     {
-        return keccak256(abi.encode(_lookaheadSlots));
-    }
-
-    function _calculateEmptyLookaheadHash(uint256 _epochTimestamp)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_epochTimestamp));
+        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
     }
 }

@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "./LibPreconfConstants.sol";
 
 /// @title LibPreconfUtils
 /// @custom:security-contact security@taiko.xyz
 library LibPreconfUtils {
+    using SafeCastUpgradeable for uint256;
+
     uint256 private constant _MAX_QUERIES = 32;
 
     /// @notice Retrieves the beacon block root that was posted to the execution layer at or after a
@@ -44,13 +47,36 @@ library LibPreconfUtils {
     ///      the time passed since the genesis, and determines the timestamp for the start of
     ///      the current epoch by rounding down to the nearest epoch boundary.
     /// @return The timestamp of the current epoch.
-    function getEpochTimestamp() internal view returns (uint256) {
+    function getEpochTimestamp() internal view returns (uint48) {
+        return getEpochTimestamp(0);
+    }
+
+    /// @notice Calculates the timestamp of a future epoch based on the genesis timestamp.
+    /// @param _epochOffset The offset from the current epoch.
+    /// @return The timestamp of the future epoch.
+    function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint48) {
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 timePassed = block.timestamp - genesisTimestamp;
         uint256 timePassedUptoCurrentEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
             * LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        return genesisTimestamp + timePassedUptoCurrentEpoch;
+        return (
+            genesisTimestamp + timePassedUptoCurrentEpoch
+                + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH
+        ).toUint48();
+    }
+
+    /// @notice Calculates the block height at a given timestamp.
+    /// @param _timestamp The timestamp for which the block height is to be retrieved.
+    /// @return The block height at the given timestamp.
+    function getBlockHeightAtTimestamp(uint256 _timestamp) internal view returns (uint256) {
+        if (_timestamp < block.timestamp) {
+            return
+                block.number - (block.timestamp - _timestamp) / LibPreconfConstants.SECONDS_IN_SLOT;
+        } else {
+            return
+                block.number + (_timestamp - block.timestamp) / LibPreconfConstants.SECONDS_IN_SLOT;
+        }
     }
 
     /// @notice Calculates the timestamp of a future epoch based on the genesis timestamp.
