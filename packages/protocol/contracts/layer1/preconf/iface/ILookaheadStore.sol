@@ -19,12 +19,12 @@ interface ILookaheadStore {
     }
 
     struct LookaheadSlot {
-        // Timestamp of the slot.
-        uint48 timestamp;
         // The preconfer operator's committer address that is fetched from the slashing commitment.
         address committer;
+        // Timestamp of the slot.
+        uint256 slotTimestamp;
         // URC registration root of the operator
-        bytes32 operatorRegistrationRoot;
+        bytes32 registrationRoot;
         // Index of the Operator's registration merkle tree leaf that contains the validator for the
         // slot.
         uint256 validatorLeafIndex;
@@ -46,7 +46,7 @@ interface ILookaheadStore {
         uint80 minCollateralForPreconfing;
     }
 
-    error CommittmentSignerMismatch();
+    error CommitmentSignerMismatch();
     error InvalidLookaheadEpoch();
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();
