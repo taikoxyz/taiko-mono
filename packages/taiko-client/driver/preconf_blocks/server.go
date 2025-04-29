@@ -359,6 +359,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
 	}
+
 	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 		return fmt.Errorf(
 			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
