@@ -506,7 +506,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 				Transactions:  []eth.Data{hexutil.Bytes(txs)},
 			},
 		}, s.p2pSigner); err != nil {
-			log.Warn("Failed to publish L2 request response", "error", err)
+			log.Warn("Failed to publish L2 request response", "error", err, "hash", hash.Hex())
 		}
 	}
 
