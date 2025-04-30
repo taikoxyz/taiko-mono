@@ -237,6 +237,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadPayload.registrationRoot);
+
         require(
             operatorData.unregisteredAt == 0 || operatorData.unregisteredAt >= _epochTimestamp,
             OperatorHasUnregistered()
@@ -251,6 +252,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         uint256 collateralAtEpochTimestamp =
             urc.getHistoricalCollateral(_lookaheadPayload.registrationRoot, _epochTimestamp);
+
         require(
             collateralAtEpochTimestamp >= getConfig().minCollateralForPreconfing,
             OperatorHasInsufficientCollateral()
@@ -259,12 +261,20 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         // Validate the operator's slashing commitment
         IRegistry.SlasherCommitment memory slashingCommitment =
             urc.getSlasherCommitment(_lookaheadPayload.registrationRoot, preconfSlasher);
+
         require(
-            slashingCommitment.optedInAt < _epochTimestamp
-                && (
-                    slashingCommitment.optedOutAt == 0
-                        || slashingCommitment.optedOutAt >= _epochTimestamp
-                ),
+            slashingCommitment.optedInAt < _epochTimestamp, OperatorHasNotOptedIntoPreconfSlasher()
+        );
+        require(
+            slashingCommitment.optedOutAt == 0 || slashingCommitment.optedOutAt >= _epochTimestamp,
+            OperatorHasNotOptedIntoPreconfSlasher()
+        );
+        require(
+            slashingCommitment.optedInAt < _epochTimestamp, OperatorHasNotOptedIntoPreconfSlasher()
+        );
+
+        require(
+            slashingCommitment.optedOutAt == 0 || slashingCommitment.optedOutAt >= _epochTimestamp,
             OperatorHasNotOptedIntoPreconfSlasher()
         );
 
