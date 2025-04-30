@@ -45,10 +45,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         if (isPostedByGuardian) {
             lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
         } else if (isLookaheadRequired()) {
+            ISlasher.SignedCommitment memory signedCommitment =
+                abi.decode(_data, (ISlasher.SignedCommitment));
+
             // Validate the lookahead poster's operator status within the URC
-            lookaheadPayloads = _validateLookaheadPoster(
-                _registrationRoot, abi.decode(_data, (ISlasher.SignedCommitment))
-            );
+            _validateLookaheadPoster(_registrationRoot, signedCommitment);
+
+            lookaheadPayloads =
+                abi.decode(signedCommitment.commitment.payload, (LookaheadPayload[]));
         } else {
             revert LookaheadNotRequired();
         }
@@ -66,11 +70,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         uint256 _epochTimestamp,
         LookaheadSlot[] memory _lookaheadSlots
     )
-        public
+        external
         pure
         returns (bytes26)
     {
-        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
+        return _calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
     }
 
     /// @inheritdoc ILookaheadStore
@@ -107,27 +111,24 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
     {
-        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
+        bytes26 lookaheadHash;
+        LookaheadSlot[] memory lookaheadSlots;
 
-        unchecked {
-            // Set this value to the last slot timestamp of the previous epoch
-            uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+        if (_lookaheadPayloads.length == 0) {
+            // The poster claims that the lookahead for the next epoch has no preconfers
+            lookaheadSlots = new LookaheadSlot[](0);
+            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+        } else {
+            lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
-                require(
-                    lookaheadPayload.slotTimestamp > prevSlotTimestamp,
-                    SlotTimestampIsNotIncrementing()
+                _validateSlotTimestamp(
+                    lookaheadPayload,
+                    i > 0 ? _lookaheadPayloads[i - 1].slotTimestamp : 0,
+                    _nextEpochTimestamp
                 );
-
-                require(
-                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
-                        % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
-                    InvalidSlotTimestamp()
-                );
-
-                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
@@ -145,16 +146,16 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                prevSlotTimestamp <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
+                lookaheadSlots[lookaheadSlots.length - 1].slotTimestamp
+                    <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
+
+            // Hash the lookahead slots and update the lookahead hash for next epoch
+            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         }
 
-        // Hash the lookahead slots and update the lookahead hash for next epoch
-        bytes26 lookaheadHash = calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
-
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
-
         emit LookaheadPosted(
             _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
@@ -166,7 +167,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
         view
-        returns (LookaheadPayload[] memory)
     {
         // Validate the lookahead poster's operator status within the URC
         IRegistry.OperatorData memory operatorData = urc.getOperatorData(_registrationRoot);
@@ -178,18 +178,41 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
 
         // Validate the slashing commitment of the lookahead poster
-        IRegistry.SlasherCommitment memory slasherCommitment =
+        IRegistry.SlasherCommitment memory slashingCommitment =
             urc.getSlasherCommitment(_registrationRoot, guardian);
-        require(slasherCommitment.optedOutAt < slasherCommitment.optedInAt, PosterHasNotOptedIn());
+        require(slashingCommitment.optedOutAt < slashingCommitment.optedInAt, PosterHasNotOptedIn());
 
         // Validate the lookahead poster's signed commitment
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
-        require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
+        require(committer == slashingCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
+    }
 
-        return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
+    /// @dev Validates if the timestamp belongs to a valid slot in the next epoch
+    function _validateSlotTimestamp(
+        LookaheadPayload memory _lookaheadPayload,
+        uint256 _previousSlotTimestamp,
+        uint256 _nextEpochTimestamp
+    )
+        internal
+        pure
+    {
+        if (_previousSlotTimestamp == 0) {
+            require(_lookaheadPayload.slotTimestamp >= _nextEpochTimestamp, InvalidLookaheadEpoch());
+        } else {
+            require(
+                _lookaheadPayload.slotTimestamp > _previousSlotTimestamp,
+                SlotTimestampIsNotIncrementing()
+            );
+        }
+
+        require(
+            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
+            InvalidSlotTimestamp()
+        );
     }
 
     /// @dev Validates if the operator is registered and has not been slashed at the given epoch
@@ -225,17 +248,18 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
 
         // Validate the operator's slashing commitment
-        IRegistry.SlasherCommitment memory slasherCommitment =
+        IRegistry.SlasherCommitment memory slashingCommitment =
             urc.getSlasherCommitment(_lookaheadPayload.registrationRoot, preconfSlasher);
         require(
-            slasherCommitment.optedInAt < _epochTimestamp
+            slashingCommitment.optedInAt < _epochTimestamp
                 && (
-                    slasherCommitment.optedOutAt == 0 || slasherCommitment.optedOutAt >= _epochTimestamp
+                    slashingCommitment.optedOutAt == 0
+                        || slashingCommitment.optedOutAt >= _epochTimestamp
                 ),
             OperatorHasNotOptedIntoPreconfSlasher()
         );
 
-        return slasherCommitment.committer;
+        return slashingCommitment.committer;
     }
 
     function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
@@ -250,5 +274,16 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         returns (LookaheadHash storage)
     {
         return lookahead[_epochTimestamp % getConfig().lookaheadBufferSize];
+    }
+
+    function _calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
+        internal
+        pure
+        returns (bytes26)
+    {
+        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
     }
 }
