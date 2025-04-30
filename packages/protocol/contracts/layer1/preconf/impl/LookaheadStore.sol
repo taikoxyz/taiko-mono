@@ -153,8 +153,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                lookaheadSlots[lookaheadSlots.length - 1].slotTimestamp
-                    <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
+                prevSlotTimestamp <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
         }
