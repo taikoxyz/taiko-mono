@@ -111,62 +111,54 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
     {
-        bytes26 lookaheadHash;
-        LookaheadSlot[] memory lookaheadSlots;
+        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
-        if (_lookaheadPayloads.length == 0) {
-            // The poster claims that the lookahead for the next epoch has no preconfers
-            lookaheadHash = calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
-        } else {
-            unchecked {
-                lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
+        unchecked {
+            // Set this value to the last slot timestamp of the previous epoch
+            uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
-                // Set this value to the last slot timestamp of the previous epoch
-                uint256 prevSlotTimestamp =
-                    _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+            for (uint256 i; i < _lookaheadPayloads.length; ++i) {
+                LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
-                for (uint256 i; i < _lookaheadPayloads.length; ++i) {
-                    LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
-
-                    require(
-                        lookaheadPayload.slotTimestamp > prevSlotTimestamp,
-                        SlotTimestampIsNotIncrementing()
-                    );
-
-                    require(
-                        (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
-                            % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
-                        InvalidSlotTimestamp()
-                    );
-
-                    prevSlotTimestamp = lookaheadPayload.slotTimestamp;
-
-                    // Validate the operator in the lookahead payload with the current epoch as
-                    // reference
-                    address committer = _validateOperatorInLookaheadPayload(
-                        lookaheadPayload, _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
-                    );
-
-                    lookaheadSlots[i] = LookaheadSlot({
-                        committer: committer,
-                        slotTimestamp: lookaheadPayload.slotTimestamp,
-                        registrationRoot: lookaheadPayload.registrationRoot,
-                        validatorLeafIndex: lookaheadPayload.validatorLeafIndex
-                    });
-                }
-
-                // Validate that the last slot timestamp is within the next epoch
                 require(
-                    prevSlotTimestamp <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
-                    InvalidLookaheadEpoch()
+                    lookaheadPayload.slotTimestamp > prevSlotTimestamp,
+                    SlotTimestampIsNotIncrementing()
                 );
 
-                // Hash the lookahead slots and update the lookahead hash for next epoch
-                lookaheadHash = calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+                require(
+                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                        % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
+                    InvalidSlotTimestamp()
+                );
+
+                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
+
+                // Validate the operator in the lookahead payload with the current epoch as
+                // reference
+                address committer = _validateOperatorInLookaheadPayload(
+                    lookaheadPayload, _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+                );
+
+                lookaheadSlots[i] = LookaheadSlot({
+                    committer: committer,
+                    slotTimestamp: lookaheadPayload.slotTimestamp,
+                    registrationRoot: lookaheadPayload.registrationRoot,
+                    validatorLeafIndex: lookaheadPayload.validatorLeafIndex
+                });
             }
+
+            // Validate that the last slot timestamp is within the next epoch
+            require(
+                prevSlotTimestamp <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
+                InvalidLookaheadEpoch()
+            );
         }
 
+        // Hash the lookahead slots and update the lookahead hash for next epoch
+        bytes26 lookaheadHash = calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
+        
         emit LookaheadPosted(
             _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
