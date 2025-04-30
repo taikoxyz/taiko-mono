@@ -45,14 +45,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         if (isPostedByGuardian) {
             lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
         } else if (isLookaheadRequired()) {
-            ISlasher.SignedCommitment memory signedCommitment =
-                abi.decode(_data, (ISlasher.SignedCommitment));
-
             // Validate the lookahead poster's operator status within the URC
-            _validateLookaheadPoster(_registrationRoot, signedCommitment);
-
-            lookaheadPayloads =
-                abi.decode(signedCommitment.commitment.payload, (LookaheadPayload[]));
+            lookaheadPayloads = _validateLookaheadPoster(
+                _registrationRoot, abi.decode(_data, (ISlasher.SignedCommitment))
+            );
         } else {
             revert LookaheadNotRequired();
         }
@@ -170,6 +166,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
         view
+        returns (LookaheadPayload[] memory)
     {
         // Validate the lookahead poster's operator status within the URC
         IRegistry.OperatorData memory operatorData = urc.getOperatorData(_registrationRoot);
@@ -192,6 +189,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
+
+        return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
     }
 
     /// @dev Validates if the operator is registered and has not been slashed at the given epoch
