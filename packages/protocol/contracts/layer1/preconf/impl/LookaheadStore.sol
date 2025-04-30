@@ -179,26 +179,17 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         view
         returns (LookaheadPayload[] memory)
     {
-        // Validate the lookahead poster's operator status within the URC
-        IRegistry.OperatorData memory operatorData = urc.getOperatorData(_registrationRoot);
-        require(operatorData.unregisteredAt == 0, PosterHasUnregistered());
-        require(operatorData.slashedAt == 0, PosterHasBeenSlashed());
-        require(
-            operatorData.collateralWei >= getConfig().minCollateralForPosting,
-            PosterHasInsufficientCollateral()
+        require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
+        
+        (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
+            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, guardian
         );
-
-        // Validate the slashing commitment of the lookahead poster
-        IRegistry.SlasherCommitment memory slasherCommitment =
-            urc.getSlasherCommitment(_registrationRoot, guardian);
-        require(slasherCommitment.optedOutAt < slasherCommitment.optedInAt, PosterHasNotOptedIn());
 
         // Validate the lookahead poster's signed commitment
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
-        require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
 
         return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
     }
