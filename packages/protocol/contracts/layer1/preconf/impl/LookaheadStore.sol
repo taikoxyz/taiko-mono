@@ -167,7 +167,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         // Hash the lookahead slots and update the lookahead hash for next epoch
         bytes26 lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
-        
+
         emit LookaheadPosted(
             _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
@@ -225,9 +225,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
 
+        require(slasherCommitment_.optedInAt < _timestamp, OperatorHasNotOptedIntoPreconfSlasher());
+
         require(
-            slasherCommitment_.optedInAt < _timestamp
-                && (slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt >= _timestamp),
+            slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt >= _timestamp,
             OperatorHasNotOptedIntoPreconfSlasher()
         );
     }
