@@ -10,7 +10,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 /// @dev This contract regulates the spending rate of TAIKO tokens to prevent the DAO from being
 /// exploited by malicious key opinion leaders (KOLs) who might rapidly deplete the TAIKO token
 /// treasury.
-/// The contract is intentionally designed to be non-upgradable.
+/// The contract is intentionally designed to be non-upgradable and should be owned by the
+/// IntermediateOwner contract.
 /// @custom:security-contact security@taiko.xyz
 contract TokenLocker is Ownable, ReentrancyGuard {
     error AlreadyInitialized();
