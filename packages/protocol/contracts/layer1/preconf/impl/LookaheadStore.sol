@@ -117,19 +117,17 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
-                _validateSlotTimestamp(
-                    lookaheadPayload,
-                    i > 0 ? _lookaheadPayloads[i - 1].slotTimestamp : 0,
-                    _nextEpochTimestamp
+                require(
+                    lookaheadPayload.slotTimestamp > prevSlotTimestamp,
+                    SlotTimestampIsNotIncrementing()
                 );
-                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
-
 
                 require(
-                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                    (lookaheadPayload.slotTimestamp - prevSlotTimestamp)
                         % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
                     InvalidSlotTimestamp()
                 );
+                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
@@ -189,31 +187,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
-    }
-
-    /// @dev Validates if the timestamp belongs to a valid slot in the next epoch
-    function _validateSlotTimestamp(
-        LookaheadPayload memory _lookaheadPayload,
-        uint256 _previousSlotTimestamp,
-        uint256 _nextEpochTimestamp
-    )
-        internal
-        pure
-    {
-        if (_previousSlotTimestamp == 0) {
-            require(_lookaheadPayload.slotTimestamp >= _nextEpochTimestamp, InvalidLookaheadEpoch());
-        } else {
-            require(
-                _lookaheadPayload.slotTimestamp > _previousSlotTimestamp,
-                SlotTimestampIsNotIncrementing()
-            );
-        }
-
-        require(
-            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
-                % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
-            InvalidSlotTimestamp()
-        );
     }
 
     function _validateOperator(
