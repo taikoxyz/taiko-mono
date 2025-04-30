@@ -322,6 +322,21 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return nil
 	}
 
+	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return fmt.Errorf("failed to fetch header by hash: %w", err)
+	}
+
+	if head != nil {
+		log.Debug("Ignore the response for already known block", "peer", from)
+		return nil
+	}
+
+	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+		log.Debug("Ignore the response for already known block", "peer", from)
+		return nil
+	}
+
 	log.Info(
 		"📢 New preconfirmation response block payload from P2P network",
 		"peer", from,
