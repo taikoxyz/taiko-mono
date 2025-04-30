@@ -181,15 +181,16 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
 
         // Validate the slashing commitment of the lookahead poster
-        IRegistry.SlasherCommitment memory slashingCommitment =
+        // The guardian is the slasher
+        IRegistry.SlasherCommitment memory slasherCommitment =
             urc.getSlasherCommitment(_registrationRoot, guardian);
-        require(slashingCommitment.optedOutAt < slashingCommitment.optedInAt, PosterHasNotOptedIn());
+        require(slasherCommitment.optedOutAt < slasherCommitment.optedInAt, PosterHasNotOptedIn());
 
         // Validate the lookahead poster's signed commitment
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
-        require(committer == slashingCommitment.committer, CommitmentSignerMismatch());
+        require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
     }
 
@@ -226,18 +227,17 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
 
         // Validate the operator's slashing commitment
-        IRegistry.SlasherCommitment memory slashingCommitment =
+        IRegistry.SlasherCommitment memory slasherCommitment =
             urc.getSlasherCommitment(_lookaheadPayload.registrationRoot, preconfSlasher);
         require(
-            slashingCommitment.optedInAt < _epochTimestamp
+            slasherCommitment.optedInAt < _epochTimestamp
                 && (
-                    slashingCommitment.optedOutAt == 0
-                        || slashingCommitment.optedOutAt >= _epochTimestamp
+                    slasherCommitment.optedOutAt == 0 || slasherCommitment.optedOutAt >= _epochTimestamp
                 ),
             OperatorHasNotOptedIntoPreconfSlasher()
         );
 
-        return slashingCommitment.committer;
+        return slasherCommitment.committer;
     }
 
     function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
