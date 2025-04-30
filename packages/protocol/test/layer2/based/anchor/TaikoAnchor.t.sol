@@ -88,8 +88,7 @@ contract TestTaikoAnchor is Layer2Test {
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
         uint32 _maxGasIssuancePerBlock,
-        uint8 _adjustmentQuotient,
-        uint8 _sharingPctg
+        uint8 _adjustmentQuotient
     )
         external
         onTaiko
@@ -113,8 +112,7 @@ contract TestTaikoAnchor is Layer2Test {
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
         uint32 _maxGasIssuancePerBlock,
-        uint8 _adjustmentQuotient,
-        uint8 _sharingPctg
+        uint8 _adjustmentQuotient
     )
         external
         onTaiko
