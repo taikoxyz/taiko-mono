@@ -151,6 +151,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
+
+            // Hash the lookahead slots and update the lookahead hash for next epoch
+            lookaheadHash = calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
