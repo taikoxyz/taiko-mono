@@ -611,7 +611,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 
 		payloadsToImport = append([]*eth.ExecutionPayload{parentPayload}, payloadsToImport...)
 
-		delete(s.blockRequests, parentPayload.BlockHash)
+		s.blockRequests.Remove(parentPayload.BlockHash)
 
 		// Check if the found parent payload is in the canonical chain,
 		// if it is not, continue to find the parent payload.
