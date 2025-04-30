@@ -45,14 +45,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         if (isPostedByGuardian) {
             lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
         } else if (isLookaheadRequired()) {
-            ISlasher.SignedCommitment memory signedCommitment =
-                abi.decode(_data, (ISlasher.SignedCommitment));
-
             // Validate the lookahead poster's operator status within the URC
-            _validateLookaheadPoster(_registrationRoot, signedCommitment);
-
-            lookaheadPayloads =
-                abi.decode(signedCommitment.commitment.payload, (LookaheadPayload[]));
+            lookaheadPayloads = _validateLookaheadPoster(
+                _registrationRoot, abi.decode(_data, (ISlasher.SignedCommitment))
+            );
         } else {
             revert LookaheadNotRequired();
         }
@@ -114,6 +110,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
         unchecked {
+            // Set this value to the last slot timestamp of the previous epoch
+            uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
@@ -173,19 +172,30 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
         view
+        returns (LookaheadPayload[] memory)
     {
-        require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
-
         // Validate the lookahead poster's operator status within the URC
-        (, IRegistry.SlasherCommitment memory slasherCommitment,) = _validateOperator(
-            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, guardian
+        IRegistry.OperatorData memory operatorData = urc.getOperatorData(_registrationRoot);
+        require(operatorData.unregisteredAt == 0, PosterHasUnregistered());
+        require(operatorData.slashedAt == 0, PosterHasBeenSlashed());
+        require(
+            operatorData.collateralWei >= getConfig().minCollateralForPosting,
+            PosterHasInsufficientCollateral()
         );
+
+        // Validate the slashing commitment of the lookahead poster
+        IRegistry.SlasherCommitment memory slasherCommitment =
+            urc.getSlasherCommitment(_registrationRoot, guardian);
+        require(slasherCommitment.optedOutAt < slasherCommitment.optedInAt, PosterHasNotOptedIn());
 
         // Validate the lookahead poster's signed commitment
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
+        require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
+
+        return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
     }
 
     function _validateOperator(
