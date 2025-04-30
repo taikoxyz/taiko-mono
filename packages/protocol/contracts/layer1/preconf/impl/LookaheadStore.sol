@@ -124,13 +124,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
-                _validateSlotTimestamp(
-                    lookaheadPayload,
-                    i > 0 ? _lookaheadPayloads[i - 1].slotTimestamp : 0,
-                    _nextEpochTimestamp
+                require(
+                    lookaheadPayload.slotTimestamp > prevSlotTimestamp,
+                    SlotTimestampIsNotIncrementing()
                 );
                 prevSlotTimestamp = lookaheadPayload.slotTimestamp;
-
 
                 require(
                     (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
@@ -158,7 +156,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
-
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
