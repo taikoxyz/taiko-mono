@@ -226,18 +226,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         view
         returns (address committer)
     {
-        uint256 blockHeightAtEpochTimestamp =
-            LibPreconfUtils.getBlockHeightAtTimestamp(_epochTimestamp);
-
         IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadPayload.registrationRoot);
         require(
-            operatorData.unregisteredAt == 0
-                || operatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
+            operatorData.unregisteredAt == 0 || operatorData.unregisteredAt >= _epochTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            operatorData.slashedAt == 0 || operatorData.slashedAt >= blockHeightAtEpochTimestamp,
+            operatorData.slashedAt == 0 || operatorData.slashedAt >= _epochTimestamp,
             OperatorHasBeenSlashed()
         );
         require(
@@ -255,10 +251,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         IRegistry.SlasherCommitment memory slashingCommitment =
             urc.getSlasherCommitment(_lookaheadPayload.registrationRoot, preconfSlasher);
         require(
-            slashingCommitment.optedInAt < blockHeightAtEpochTimestamp
+            slashingCommitment.optedInAt < _epochTimestamp
                 && (
                     slashingCommitment.optedOutAt == 0
-                        || slashingCommitment.optedOutAt >= blockHeightAtEpochTimestamp
+                        || slashingCommitment.optedOutAt >= _epochTimestamp
                 ),
             OperatorHasNotOptedIntoPreconfSlasher()
         );
