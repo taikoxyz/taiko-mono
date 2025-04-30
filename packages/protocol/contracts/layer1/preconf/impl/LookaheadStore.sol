@@ -178,7 +178,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
 
         // Validate the slashing commitment of the lookahead poster
-        // The guardian is the slasher
         IRegistry.SlasherCommitment memory slasherCommitment =
             urc.getSlasherCommitment(_registrationRoot, guardian);
         require(slasherCommitment.optedOutAt < slasherCommitment.optedInAt, PosterHasNotOptedIn());
