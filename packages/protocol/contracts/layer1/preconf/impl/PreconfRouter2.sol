@@ -22,15 +22,6 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
 
     uint256[50] private __gap;
 
-    modifier onlyFromPreconferOrFallback() {
-        require(
-            msg.sender == fallbackPreconfer
-                || msg.sender == preconfWhitelist.getOperatorForCurrentEpoch(),
-            NotPreconferOrFallback()
-        );
-        _;
-    }
-
     constructor(
         address _resolver,
         address _lookaheadStore,
@@ -105,7 +96,13 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
 
     // Internal functions ----------------------------------------------------------------------
 
-    function _validateWhitelistPreconfer() internal view onlyFromPreconferOrFallback { }
+    function _validateWhitelistPreconfer() internal view {
+        require(
+            msg.sender == fallbackPreconfer
+                || msg.sender == preconfWhitelist.getOperatorForCurrentEpoch(),
+            NotPreconferOrFallback()
+        );
+    }
 
     function _validateLookaheadPreconfer(ILookaheadStore.LookaheadSlot memory _lookaheadSlot)
         internal
