@@ -23,6 +23,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/libp2p/go-libp2p/core/peer"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -65,7 +66,7 @@ type PreconfBlockAPIServer struct {
 	handoverSlots          uint64
 	preconfOperatorAddress common.Address
 	mu                     sync.Mutex
-	blockRequests          map[common.Hash]struct{}
+	blockRequests          *lru.Cache[common.Hash, struct{}]
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -83,6 +84,11 @@ func New(
 		return nil, err
 	}
 
+	blockRequestsCache, err := lru.New[common.Hash, struct{}](maxTrackedPayloads)
+	if err != nil {
+		return nil, err
+	}
+
 	server := &PreconfBlockAPIServer{
 		echo:                   echo.New(),
 		anchorValidator:        anchorValidator,
@@ -93,7 +99,7 @@ func New(
 		preconfOperatorAddress: preconfOperatorAddress,
 		lookahead:              &Lookahead{},
 		mu:                     sync.Mutex{},
-		blockRequests:          make(map[common.Hash]struct{}),
+		blockRequests:          blockRequestsCache,
 	}
 
 	server.echo.HideBanner = true
@@ -585,7 +591,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
-			if _, ok := s.blockRequests[currentPayload.ParentHash]; !ok {
+			if !s.blockRequests.Contains(currentPayload.ParentHash) {
 				log.Info("Publishing L2Request",
 					"hash", currentPayload.ParentHash.Hex(),
 					"blockID", uint64(currentPayload.BlockNumber-1),
@@ -595,7 +601,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					log.Warn("Failed to publish L2 hash request", "error", err, "hash", currentPayload.BlockHash.Hex())
 				}
 
-				s.blockRequests[currentPayload.ParentHash] = struct{}{}
+				s.blockRequests.Add(currentPayload.ParentHash, struct{}{})
 			}
 
 			return fmt.Errorf("failed to find parent payload in the cache, number %d, hash %s.",
