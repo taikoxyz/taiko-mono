@@ -792,7 +792,7 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 	}
 
 	// If not in any range
-	log.Warn(
+	log.Debug(
 		"Slot out of sequencing window",
 		"slot", globalSlot,
 		"currRanges", la.CurrRanges,
