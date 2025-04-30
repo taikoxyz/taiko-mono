@@ -112,6 +112,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+            uint256 currentEpochTimestamp =
+                _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
 
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
@@ -135,7 +137,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateOperator(
                     lookaheadPayload.registrationRoot,
-                    _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH,
+                    currentEpochTimestamp,
                     getConfig().minCollateralForPreconfing,
                     preconfSlasher
                 );
