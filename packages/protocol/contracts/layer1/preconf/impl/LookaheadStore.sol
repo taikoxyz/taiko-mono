@@ -66,11 +66,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         uint256 _epochTimestamp,
         LookaheadSlot[] memory _lookaheadSlots
     )
-        public
+        external
         pure
         returns (bytes26)
     {
-        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
+        return _calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
     }
 
     /// @inheritdoc ILookaheadStore
@@ -148,6 +148,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                 prevSlotTimestamp <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
+
+           
+
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
@@ -250,5 +253,16 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         returns (LookaheadHash storage)
     {
         return lookahead[_epochTimestamp % getConfig().lookaheadBufferSize];
+    }
+
+    function _calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
+        internal
+        pure
+        returns (bytes26)
+    {
+        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
     }
 }
