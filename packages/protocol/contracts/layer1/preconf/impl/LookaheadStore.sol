@@ -224,9 +224,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
-
         require(slasherCommitment_.optedInAt < _timestamp, OperatorHasNotOptedIntoPreconfSlasher());
-
         require(
             slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt >= _timestamp,
             OperatorHasNotOptedIntoPreconfSlasher()
