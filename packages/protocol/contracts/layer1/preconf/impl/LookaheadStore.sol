@@ -122,6 +122,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     i > 0 ? _lookaheadPayloads[i - 1].slotTimestamp : 0,
                     _nextEpochTimestamp
                 );
+                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
+
+
+                require(
+                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                        % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
+                    InvalidSlotTimestamp()
+                );
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
