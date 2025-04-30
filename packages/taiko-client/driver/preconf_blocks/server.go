@@ -760,7 +760,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
-	log.Info(
+	log.Debug(
 		"Operator addresses as P2P sequencer",
 		"current", s.lookahead.CurrOperator.Hex(),
 		"next", s.lookahead.NextOperator.Hex(),
