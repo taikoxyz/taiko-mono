@@ -54,10 +54,9 @@ interface ILookaheadStore {
     error LookaheadHashNotFound();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
-    error OperatorHasNotOptedIntoPreconfSlasher();
+    error OperatorHasNotOptedIn();
     error OperatorHasUnregistered();
     error PosterHasBeenSlashed();
-    error PosterHasInsufficientCollateral();
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
     error SlasherIsNotGuardian();
