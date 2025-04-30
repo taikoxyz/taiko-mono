@@ -130,7 +130,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
-                (IRegistry.OperatorData memory operatorData,, address committer) = _validateOperator(
+                (
+                    IRegistry.OperatorData memory operatorData,
+                    IRegistry.SlasherCommitment memory slasherCommitment
+                ) = _validateOperator(
                     lookaheadPayload.registrationRoot,
                     _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH,
                     getConfig().minCollateralForPreconfing,
@@ -143,7 +146,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                 );
 
                 lookaheadSlots[i] = LookaheadSlot({
-                    committer: committer,
+                    committer: slasherCommitment.committer,
                     slotTimestamp: lookaheadPayload.slotTimestamp,
                     registrationRoot: lookaheadPayload.registrationRoot,
                     validatorLeafIndex: lookaheadPayload.validatorLeafIndex
@@ -208,8 +211,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         view
         returns (
             IRegistry.OperatorData memory operatorData_,
-            IRegistry.SlasherCommitment memory slasherCommitment_,
-            address committer
+            IRegistry.SlasherCommitment memory slasherCommitment_
         )
     {
         operatorData_ = urc.getOperatorData(_registrationRoot);
@@ -233,8 +235,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                 && (slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt >= _timestamp),
             OperatorHasNotOptedIntoPreconfSlasher()
         );
-
-        committer = slasherCommitment_.committer;
     }
 
     function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
