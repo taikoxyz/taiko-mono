@@ -97,12 +97,11 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     // Internal functions ----------------------------------------------------------------------
 
     function _validateWhitelistPreconfer() internal view {
-        address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
-        if (preconfer != address(0)) {
-            require(msg.sender == preconfer, NotPreconfer());
-        } else if (fallbackPreconfer != address(0)) {
-            require(msg.sender == fallbackPreconfer, NotFallbackPreconfer());
-        }
+        require(
+            msg.sender == fallbackPreconfer
+                || msg.sender == preconfWhitelist.getOperatorForCurrentEpoch(),
+            NotPreconferOrFallback()
+        );
     }
 
     function _validateLookaheadPreconfer(ILookaheadStore.LookaheadSlot memory _lookaheadSlot)
@@ -137,7 +136,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     {
         // Validate the current lookahead data
         require(
-            lookaheadStore.calculateLookaheadHash(_epochTimestamp, _currentLookahead)
+            LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _currentLookahead)
                 == _currentLookaheadHash,
             InvalidCurrentLookahead()
         );
@@ -182,7 +181,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
                 bytes26 previousLookaheadHash =
                     lookaheadStore.getLookaheadHash(previousEpochTimestamp);
                 require(
-                    lookaheadStore.calculateLookaheadHash(
+                    LibPreconfUtils.calculateLookaheadHash(
                         previousEpochTimestamp, _previousLookahead
                     ) == previousLookaheadHash,
                     InvalidPreviousLookahead()
@@ -213,11 +212,11 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         bytes26 _lookaheadHash
     )
         internal
-        view
+        pure
         returns (bool)
     {
         return _lookaheadHash
-            == lookaheadStore.calculateLookaheadHash(
+            == LibPreconfUtils.calculateLookaheadHash(
                 _epochTimestamp, new ILookaheadStore.LookaheadSlot[](0)
             );
     }

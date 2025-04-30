@@ -8,7 +8,7 @@ import "src/layer1/based/ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfRouter2 is IProposeBatch {
     error ForcedInclusionNotSupported();
-    error NotFallbackPreconfer();
+    error NotPreconferOrFallback();
     error NotPreconfer();
     error ProposerIsNotPreconfer();
     error InvalidLookaheadProof();
