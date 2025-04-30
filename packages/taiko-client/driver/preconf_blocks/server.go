@@ -65,6 +65,7 @@ type PreconfBlockAPIServer struct {
 	handoverSlots          uint64
 	preconfOperatorAddress common.Address
 	mu                     sync.Mutex
+	blockRequests          map[common.Hash]struct{}
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -92,6 +93,7 @@ func New(
 		preconfOperatorAddress: preconfOperatorAddress,
 		lookahead:              &Lookahead{},
 		mu:                     sync.Mutex{},
+		blockRequests:          make(map[common.Hash]struct{}),
 	}
 
 	server.echo.HideBanner = true
@@ -585,8 +587,12 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		if parentPayload == nil {
 			log.Info("Publishing L2Request", "hash", currentPayload.ParentHash.Hex())
 
-			if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.ParentHash); err != nil {
-				log.Warn("Failed to publish L2 hash request", "error", err, "hash", currentPayload.BlockHash.Hex())
+			if _, ok := s.blockRequests[currentPayload.ParentHash]; !ok {
+				if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.ParentHash); err != nil {
+					log.Warn("Failed to publish L2 hash request", "error", err, "hash", currentPayload.BlockHash.Hex())
+				}
+			} else {
+				s.blockRequests[currentPayload.ParentHash] = struct{}{}
 			}
 
 			return fmt.Errorf("failed to find parent payload in the cache, number %d, hash %s.",
