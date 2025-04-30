@@ -10,6 +10,11 @@ import "./PacayaAnchor.sol";
 abstract contract ShastaAnchor is PacayaAnchor {
     error InvalidForkHeight();
 
+    // The v4Anchor's transaction gas limit, this value must be enforced by the node and prover.
+    // When there are 16 signals in v4Anchor's parameter, the estimated gas cost is actually
+    // around 361,579 gas.  We set the limit to 1,000,000 to be safe.
+    uint256 public constant ANCHOR_GAS_LIMIT = 1_000_000;
+
     uint256[50] private __gap;
 
     constructor(
@@ -24,12 +29,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
         );
         shastaForkHeight = _shastaForkHeight;
-    }
-
-    modifier recordTxGasUsed() {
-        uint256 _gasleft = gasleft();
-        _;
-        lastAnchorGasUsed = uint32(_gasleft - gasleft());
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -52,7 +51,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bytes32[] calldata _signalSlots
     )
         external
-        recordTxGasUsed
         nonZeroBytes32(_anchorStateRoot)
         nonZeroValue(_anchorBlockId)
         nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
@@ -69,6 +67,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _updateParentHashAndTimestamp(parentId);
 
         signalService.receiveSignals(_signalSlots);
+
+        lastAnchorGasUsed = uint32(ANCHOR_GAS_LIMIT - gasleft());
     }
 
     function v4GetBaseFee(
