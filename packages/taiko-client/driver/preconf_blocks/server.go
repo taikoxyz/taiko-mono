@@ -64,6 +64,7 @@ type PreconfBlockAPIServer struct {
 	lookaheadMutex         sync.Mutex
 	handoverSlots          uint64
 	preconfOperatorAddress common.Address
+	mu                     sync.Mutex
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -90,6 +91,7 @@ func New(
 		payloadsCache:          newPayloadQueue(),
 		preconfOperatorAddress: preconfOperatorAddress,
 		lookahead:              &Lookahead{},
+		mu:                     sync.Mutex{},
 	}
 
 	server.echo.HideBanner = true
@@ -164,6 +166,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -308,6 +312,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -466,6 +472,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	from peer.ID,
 	hash common.Hash,
 ) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)

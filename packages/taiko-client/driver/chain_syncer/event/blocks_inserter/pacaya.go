@@ -291,7 +291,9 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	}
 
 	// Decompress the transactions list.
-	if executableData.Transactions[0], err = utils.DecompressPacaya(executableData.Transactions[0]); err != nil {
+	decompressedTxs, err := utils.DecompressPacaya(executableData.Transactions[0])
+
+	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 
@@ -316,7 +318,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			BaseFee:     u256BaseFee.ToBig(),
 			Withdrawals: make([]*types.Withdrawal, 0),
 		},
-		executableData.Transactions[0],
+		decompressedTxs,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
