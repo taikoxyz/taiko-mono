@@ -115,6 +115,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             uint256 currentEpochTimestamp =
                 _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
 
+            uint256 minCollateralForPreconfing = getConfig().minCollateralForPreconfing;
+
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
@@ -138,7 +140,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                 ) = _validateOperator(
                     lookaheadPayload.registrationRoot,
                     currentEpochTimestamp,
-                    getConfig().minCollateralForPreconfing,
+                    minCollateralForPreconfing,
                     preconfSlasher
                 );
 
@@ -180,7 +182,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         returns (LookaheadPayload[] memory)
     {
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
-        
+
         (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
             _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, guardian
         );
