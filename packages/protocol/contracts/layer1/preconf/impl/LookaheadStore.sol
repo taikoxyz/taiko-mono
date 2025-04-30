@@ -166,8 +166,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
         bytes26 lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
-
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
+        
         emit LookaheadPosted(
             _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
