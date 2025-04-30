@@ -68,7 +68,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         signalService.receiveSignals(_signalSlots);
 
-        lastAnchorGasUsed = uint32(ANCHOR_GAS_LIMIT - gasleft());
+        // We need to add one SSTORE from non-zero to non-zero (5000), one addition (3), and one
+        // subtraction (3).
+        lastAnchorGasUsed = uint32(ANCHOR_GAS_LIMIT - gasleft() + 5006);
     }
 
     function v4GetBaseFee(
