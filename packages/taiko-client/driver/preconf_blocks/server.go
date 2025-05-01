@@ -204,6 +204,28 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"endOfSequencing", msg.EndOfSequencing,
 	)
 
+	// Check if the L2 execution engine is syncing from L1.
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	if err != nil {
+		return err
+	}
+
+	if progress.IsSyncing() {
+		if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+			log.Info(
+				"L2ExecutionEngine syncing: payload is cached",
+				"peer", from,
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			)
+
+			s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
+		}
+
+		return nil
+	}
+
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
 
 	// Check if the payload is valid.
