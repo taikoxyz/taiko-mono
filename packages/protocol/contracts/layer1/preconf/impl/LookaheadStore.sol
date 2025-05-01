@@ -181,7 +181,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
         view
-        returns (LookaheadPayload[] memory)
+        returns (LookaheadPayload[] memory lookaheadPayloads)
     {
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
 
@@ -195,6 +195,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
+
+        return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
     }
 
     /// @dev Validates if the operator is registered and has not been slashed at the given epoch
