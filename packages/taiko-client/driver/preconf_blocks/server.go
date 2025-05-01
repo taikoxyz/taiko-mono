@@ -63,8 +63,14 @@ type PreconfBlockAPIServer struct {
 	payloadsCache           *payloadQueue
 	lookahead               *Lookahead
 	lookaheadMutex          sync.Mutex
-	handoverSlots           uint64
-	preconfOperatorAddress  common.Address
+	p2pNode                       *p2p.NodeP2P
+	p2pSigner                     p2p.Signer
+	payloadsCache                 *payloadQueue
+	lookahead                     *Lookahead
+	lookaheadMutex                sync.Mutex
+	handoverSlots                 uint64
+	highestUnsafeL2PayloadBlockID uint64
+  preconfOperatorAddress  common.Address
 	mu                      sync.Mutex
 	blockRequests           *lru.Cache[common.Hash, struct{}]
 	sequencingEndedForEpoch *lru.Cache[uint64, struct{}]
@@ -119,10 +125,12 @@ func New(
 	return server, nil
 }
 
+// SetP2PNode sets the P2P node for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
 	s.p2pNode = p2pNode
 }
 
+// SetP2PSigner sets the P2P signer for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
 	s.p2pSigner = p2pSigner
 }
@@ -172,6 +180,7 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.GET("/endOfSequencing", s.EndOfSequencingStatus)
+	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 }
@@ -189,6 +198,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	// a new L2 EE chain has just finished a beacon-sync.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
+	if msg == nil || msg.ExecutionPayload == nil {
+		log.Warn("Empty preconfirmation block payload", "peer", from)
 		return nil
 	}
 
@@ -252,6 +266,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			msg.ExecutionPayload.BlockNumber,
 			headL1Origin.BlockID,
 		)
+	}
+
+	// If the block number is greater than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
+		s.highestUnsafeL2PayloadBlockID = uint64(msg.ExecutionPayload.BlockNumber)
 	}
 
 	// Check if the parent block is in the canonical chain, if not, we try to

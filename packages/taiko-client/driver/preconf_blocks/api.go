@@ -305,6 +305,36 @@ func (s *PreconfBlockAPIServer) HealthCheck(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+// Status represents the current status of the preconfirmation block server.
+type Status struct {
+	// @param lookahead Lookahead the current lookahead information.
+	Lookahead *Lookahead `json:"lookahead"`
+	// @param totalCached uint64 the total number of cached payloads after the start of the server.
+	TotalCached uint64 `json:"totalCached"`
+	// @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
+	// @param has received from the P2P network, if its zero, it means the current server has not received
+	// @param any preconfirmation block from the P2P network yet.
+	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
+}
+
+// GetStatus returns the current status of the preconfirmation block server.
+//
+//	@Summary		Get current preconfirmation block server status
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object} Status
+//	@Router			/status [get]
+func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	return c.JSON(http.StatusOK, Status{
+		Lookahead:                     s.lookahead,
+		TotalCached:                   s.payloadsCache.getTotalCached(),
+		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
+	})
+}
+
 // returnError is a helper function to return an error response.
 func (s *PreconfBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
 	return c.JSON(statusCode, map[string]string{"error": err.Error()})
