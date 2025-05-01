@@ -218,10 +218,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             operatorData_.slashedAt == 0 || operatorData_.slashedAt >= _timestamp,
             OperatorHasBeenSlashed()
         );
-        require(
-            urc.getHistoricalCollateral(_registrationRoot, _timestamp) >= _collateral,
-            OperatorHasInsufficientCollateral()
-        );
+        require(operatorData_.collateralWei >= _collateral, OperatorHasInsufficientCollateral());
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
         require(slasherCommitment_.optedInAt < _timestamp, OperatorHasNotOptedIn());
