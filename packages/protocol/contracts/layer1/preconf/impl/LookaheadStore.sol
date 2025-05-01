@@ -174,7 +174,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
         view
-        returns (LookaheadPayload[] memory lookaheadPayloads)
+        returns (LookaheadPayload[] memory)
     {
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
 
