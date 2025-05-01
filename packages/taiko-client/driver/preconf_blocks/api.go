@@ -276,6 +276,10 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 // EndOfSequencingStatus returns whether we’ve seen an EndOfSequencing
 // block for the current sequencer.
 func (s *PreconfBlockAPIServer) EndOfSequencingStatus(c echo.Context) error {
+	if s.rpc.L1Beacon == nil {
+		return s.returnError(c, http.StatusInternalServerError, errors.New("L1 beacon is not available"))
+	}
+
 	_, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
 
 	return c.JSON(http.StatusOK, map[string]bool{

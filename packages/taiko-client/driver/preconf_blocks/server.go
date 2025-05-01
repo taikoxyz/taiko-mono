@@ -320,7 +320,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
 	}
 
-	if msg.EndOfSequencing != nil && *msg.EndOfSequencing {
+	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
 		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), struct{}{})
 	}
 
