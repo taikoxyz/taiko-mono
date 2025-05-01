@@ -112,8 +112,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
-            uint256 currentEpochTimestamp =
-                _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
 
             uint256 minCollateralForPreconfing = getConfig().minCollateralForPreconfing;
 
@@ -132,17 +130,13 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
-
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
                 (
                     IRegistry.OperatorData memory operatorData,
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateOperator(
-                    lookaheadPayload.registrationRoot,
-                    currentEpochTimestamp,
-                    minCollateralForPreconfing,
-                    preconfSlasher
+                    lookaheadPayload.registrationRoot, minCollateralForPreconfing, preconfSlasher
                 );
 
                 require(
@@ -184,9 +178,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
 
-        (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
-            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, guardian
-        );
+        (, IRegistry.SlasherCommitment memory slasherCommitment) =
+            _validateOperator(_registrationRoot, getConfig().minCollateralForPosting, guardian);
 
         // Validate the lookahead poster's signed commitment
         address committer = ECDSA.recover(
@@ -201,9 +194,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     /// @dev Validates if the operator is registered and has not been slashed at the given epoch
     /// timestamp. We use the epoch timestamp of the epoch in which the lookahead is posted to
     /// validate the registration and slashing status.
-    function _validateOperatorInLookaheadPayload(
-        LookaheadPayload memory _lookaheadPayload,
-        uint256 _epochTimestamp
+    function _validateOperator(
+        bytes32 _registrationRoot,
+        uint256 _collateral,
+        address _slasher
     )
         internal
         view
@@ -212,21 +206,25 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             IRegistry.SlasherCommitment memory slasherCommitment_
         )
     {
+        uint256 referenceTimestamp = block.timestamp;
+
         operatorData_ = urc.getOperatorData(_registrationRoot);
         require(
-            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt >= _timestamp,
+            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt >= referenceTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            operatorData_.slashedAt == 0 || operatorData_.slashedAt >= _timestamp,
+            operatorData_.slashedAt == 0 || operatorData_.slashedAt >= referenceTimestamp,
             OperatorHasBeenSlashed()
         );
         require(operatorData_.collateralWei >= _collateral, OperatorHasInsufficientCollateral());
+
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
-        require(slasherCommitment_.optedInAt < _timestamp, OperatorHasNotOptedIn());
+        require(slasherCommitment_.optedInAt < referenceTimestamp, OperatorHasNotOptedIn());
         require(
-            slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt >= _timestamp,
+            slasherCommitment_.optedOutAt == 0
+                || slasherCommitment_.optedOutAt >= referenceTimestamp,
             OperatorHasNotOptedIn()
         );
     }

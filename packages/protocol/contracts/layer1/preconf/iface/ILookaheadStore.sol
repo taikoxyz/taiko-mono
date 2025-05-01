@@ -57,6 +57,7 @@ interface ILookaheadStore {
     error OperatorHasNotOptedIn();
     error OperatorHasUnregistered();
     error PosterHasBeenSlashed();
+    error PosterHasInsufficientCollateral();
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
     error SlasherIsNotGuardian();
