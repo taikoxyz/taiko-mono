@@ -598,7 +598,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				}
 
 				if progress.IsSyncing() {
-					log.Warn("Parent payload not in the cache, but the node is syncing, skip publishing L2Request")
+					log.Debug("Parent payload not in the cache, but the node is syncing, skip publishing L2Request")
 					return nil
 				}
 
