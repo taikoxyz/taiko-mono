@@ -58,11 +58,6 @@ type PreconfBlockAPIServer struct {
 	rpc             *rpc.Client
 	anchorValidator *validator.AnchorTxValidator
 	// P2P network for preconf block propagation
-	p2pNode                 *p2p.NodeP2P
-	p2pSigner               p2p.Signer
-	payloadsCache           *payloadQueue
-	lookahead               *Lookahead
-	lookaheadMutex          sync.Mutex
 	p2pNode                       *p2p.NodeP2P
 	p2pSigner                     p2p.Signer
 	payloadsCache                 *payloadQueue
@@ -70,10 +65,10 @@ type PreconfBlockAPIServer struct {
 	lookaheadMutex                sync.Mutex
 	handoverSlots                 uint64
 	highestUnsafeL2PayloadBlockID uint64
-  preconfOperatorAddress  common.Address
-	mu                      sync.Mutex
-	blockRequests           *lru.Cache[common.Hash, struct{}]
-	sequencingEndedForEpoch *lru.Cache[uint64, struct{}]
+	preconfOperatorAddress        common.Address
+	mu                            sync.Mutex
+	blockRequests                 *lru.Cache[common.Hash, struct{}]
+	sequencingEndedForEpoch       *lru.Cache[uint64, struct{}]
 }
 
 // New creates a new preconf block server instance, and starts the server.
