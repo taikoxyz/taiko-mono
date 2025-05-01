@@ -174,7 +174,6 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
-	s.echo.GET("/endOfSequencing", s.EndOfSequencingStatus)
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
