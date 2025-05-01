@@ -539,18 +539,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return nil
 	}
 
-	log.Info("New block request from p2p network", "peer", from, "hash", hash.Hex())
+	log.Info("OnUnsafeL2Request New block request from p2p network", "peer", from, "hash", hash.Hex())
 
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
-		log.Warn("Failed to fetch block by hash", "hash", hash.Hex(), "error", err)
+		log.Warn("OnUnsafeL2Request Failed to fetch block by hash", "hash", hash.Hex(), "error", err)
 		return err
 	}
 
 	var u256 uint256.Int
 	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
 		log.Warn(
-			"Failed to convert base fee to uint256, skip propagating the preconfirmation block",
+			"OnUnsafeL2Request Failed to convert base fee to uint256, skip propagating the preconfirmation block",
 			"baseFee", block.BaseFee,
 		)
 	} else {
@@ -577,7 +577,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 
 		if err := s.ValidateExecutionPayload(envelope.ExecutionPayload); err != nil {
 			log.Warn(
-				"Invalid preconfirmation block payload",
+				"OnUnsafeL2Request Invalid preconfirmation block payload",
 				"peer", from,
 				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
 				"hash", envelope.ExecutionPayload.BlockHash.Hex(),
@@ -587,14 +587,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			return nil
 		}
 
-		// convert block to execution envlope
-		log.Info("Publishing L2RequestResponse",
+		log.Info("OnUnsafeL2Request publishing response",
 			"hash", hash.Hex(),
 			"blockID", block.NumberU64(),
 		)
 
 		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
-			log.Warn("Failed to publish L2 request response",
+			log.Warn("OnUnsafeL2Request failed to publish",
 				"error", err,
 				"hash", hash.Hex(),
 				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
