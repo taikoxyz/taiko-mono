@@ -273,26 +273,6 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 	})
 }
 
-// EndOfSequencingStatusResponseBody represents a response body
-// for checking if a current epoch is done sequencing.
-type EndOfSequencingStatusResponseBody struct {
-	Finished bool `json:"finished"`
-}
-
-// EndOfSequencingStatus returns whether we’ve seen an EndOfSequencing
-// block for the current sequencer.
-func (s *PreconfBlockAPIServer) EndOfSequencingStatus(c echo.Context) error {
-	if s.rpc.L1Beacon == nil {
-		return s.returnError(c, http.StatusInternalServerError, errors.New("L1 beacon is not available"))
-	}
-
-	_, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
-
-	return c.JSON(http.StatusOK, EndOfSequencingStatusResponseBody{
-		Finished: ok,
-	})
-}
-
 // HealthCheck is the endpoints for probes.
 //
 //	@Summary		Get current server health status
@@ -315,6 +295,7 @@ type Status struct {
 	// @param has received from the P2P network, if its zero, it means the current server has not received
 	// @param any preconfirmation block from the P2P network yet.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
+	EndOfSequencingMarkerReceived bool
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -328,10 +309,20 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
+	endOfSequencingMarkerReceived := false
+
+	if s.rpc.L1Beacon == nil {
+		_, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
+		if ok {
+			endOfSequencingMarkerReceived = true
+		}
+	}
+
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.payloadsCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
+		EndOfSequencingMarkerReceived: endOfSequencingMarkerReceived,
 	})
 }
 
