@@ -592,6 +592,16 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
 			if !s.blockRequests.Contains(currentPayload.ParentHash) {
+				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+				if err != nil {
+					return err
+				}
+
+				if progress.IsSyncing() {
+					log.Warn("Parent payload not in the cache, but the node is syncing, skip publishing L2Request")
+					return nil
+				}
+
 				log.Info("Publishing L2Request",
 					"hash", currentPayload.ParentHash.Hex(),
 					"blockID", uint64(currentPayload.BlockNumber-1),
