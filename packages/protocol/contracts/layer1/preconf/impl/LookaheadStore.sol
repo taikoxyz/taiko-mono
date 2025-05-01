@@ -136,7 +136,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     IRegistry.OperatorData memory operatorData,
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateOperator(
-                    lookaheadPayload.registrationRoot, minCollateralForPreconfing, preconfSlasher
+                    lookaheadPayload.registrationRoot,
+                    lookaheadPayload.slotTimestamp,
+                    minCollateralForPreconfing,
+                    preconfSlasher
                 );
 
                 require(
@@ -178,8 +181,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
 
-        (, IRegistry.SlasherCommitment memory slasherCommitment) =
-            _validateOperator(_registrationRoot, getConfig().minCollateralForPosting, guardian);
+        (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
+            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, guardian
+        );
 
         // Validate the lookahead poster's signed commitment
         address committer = ECDSA.recover(
@@ -196,6 +200,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     /// validate the registration and slashing status.
     function _validateOperator(
         bytes32 _registrationRoot,
+        uint256 _referenceTimestamp,
         uint256 _collateral,
         address _slasher
     )
@@ -206,25 +211,23 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             IRegistry.SlasherCommitment memory slasherCommitment_
         )
     {
-        uint256 referenceTimestamp = block.timestamp;
-
         operatorData_ = urc.getOperatorData(_registrationRoot);
         require(
-            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt >= referenceTimestamp,
+            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt >= _referenceTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            operatorData_.slashedAt == 0 || operatorData_.slashedAt >= referenceTimestamp,
+            operatorData_.slashedAt == 0 || operatorData_.slashedAt >= _referenceTimestamp,
             OperatorHasBeenSlashed()
         );
         require(operatorData_.collateralWei >= _collateral, OperatorHasInsufficientCollateral());
 
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
-        require(slasherCommitment_.optedInAt < referenceTimestamp, OperatorHasNotOptedIn());
+        require(slasherCommitment_.optedInAt < _referenceTimestamp, OperatorHasNotOptedIn());
         require(
             slasherCommitment_.optedOutAt == 0
-                || slasherCommitment_.optedOutAt >= referenceTimestamp,
+                || slasherCommitment_.optedOutAt >= _referenceTimestamp,
             OperatorHasNotOptedIn()
         );
     }
