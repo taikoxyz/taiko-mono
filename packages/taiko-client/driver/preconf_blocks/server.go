@@ -361,27 +361,27 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
 	if from != "" && s.p2pNode.Host().ID() == from {
-		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		log.Debug("OnUnsafeL2Response Ignore the message from the current P2P node", "peer", from)
 		return nil
 	}
 
 	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch header by hash: %w", err)
+		return fmt.Errorf("OnUnsafeL2Response failed to fetch header by hash: %w", err)
 	}
 
 	if head != nil {
-		log.Debug("Ignore the response for already known block", "peer", from)
+		log.Debug("OnUnsafeL2Response Ignore the for already known block", "peer", from)
 		return nil
 	}
 
 	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-		log.Debug("Ignore the response for already known block", "peer", from)
+		log.Debug("OnUnsafeL2Response Ignore the for already known block", "peer", from)
 		return nil
 	}
 
 	log.Info(
-		"📢 New preconfirmation response block payload from P2P network",
+		"📢 New preconfirmation OnUnsafeL2Response block payload from P2P network",
 		"peer", from,
 		"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 		"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -397,7 +397,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Check if the payload is valid.
 	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
 		log.Warn(
-			"Invalid preconfirmation block response payload",
+			"OnUnsafeL2Response Invalid preconfirmation block payload",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -410,12 +410,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
+		return fmt.Errorf("OnUnsafeL2Response failed to fetch head L1 origin: %w", err)
 	}
 
 	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 		return fmt.Errorf(
-			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
+			"OnUnsafeL2Response preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
 			msg.ExecutionPayload.BlockNumber,
 			headL1Origin.BlockID,
 		)
@@ -428,15 +428,15 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
 	)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch parent header by number: %w", err)
+		return fmt.Errorf("OnUnsafeL2Response failed to fetch parent header by number: %w", err)
 	}
 	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch parent header by hash: %w", err)
+		return fmt.Errorf("OnUnsafeL2Response failed to fetch parent header by hash: %w", err)
 	}
 	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
 		log.Info(
-			"Parent block not in L2 canonical / fork chain",
+			"OnUnsafeL2Response Parent block not in L2 canonical / fork chain",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -445,7 +445,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		// Try to find all the missing ancients from the cache and import them.
 		if err := s.ImportMissingAncientsFromCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
 			log.Info(
-				"Unable to find all the missing ancients from the cache, cache the current payload",
+				"OnUnsafeL2Response unable to find all the missing ancients from the cache, cache the current payload",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -454,7 +454,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			)
 			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 				log.Info(
-					"Payload is cached",
+					"OnUnsafeL2Response Payload is cached",
 					"peer", from,
 					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -475,7 +475,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	if header != nil {
 		if header.Hash() == msg.ExecutionPayload.BlockHash {
 			log.Info(
-				"Preconfirmation block already exists",
+				"OnUnsafeL2Response Preconfirmation block already exists",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -484,7 +484,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			return nil
 		} else {
 			log.Info(
-				"Preconfirmation block already exists with different hash",
+				"OnUnsafeL2Response Preconfirmation block already exists with different hash",
 				"peer", from,
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -501,12 +501,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		[]*eth.ExecutionPayload{msg.ExecutionPayload},
 		false,
 	); err != nil {
-		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
+		return fmt.Errorf("OnUnsafeL2Response failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
 	// Try to import the child blocks from the cache, if any.
 	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
-		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
+		return fmt.Errorf("OnUnsafeL2Response failed to try importing child blocks from cache: %w", err)
 	}
 
 	return nil
