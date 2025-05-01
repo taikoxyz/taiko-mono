@@ -132,7 +132,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
-                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
