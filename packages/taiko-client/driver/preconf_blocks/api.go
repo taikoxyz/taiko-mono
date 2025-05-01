@@ -295,7 +295,7 @@ type Status struct {
 	// @param has received from the P2P network, if its zero, it means the current server has not received
 	// @param any preconfirmation block from the P2P network yet.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
-	EndOfSequencingMarkerReceived bool
+	EndOfSequencingMarkerReceived bool   `json:"endOfSequencingMarkerReceived"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
