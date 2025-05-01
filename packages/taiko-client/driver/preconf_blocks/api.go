@@ -276,7 +276,6 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 // EndOfSequencingStatusResponseBody represents a response body
 // for checking if a current epoch is done sequencing.
 type EndOfSequencingStatusResponseBody struct {
-	// @param blockHeader types.Header of the preconf block
 	Finished bool `json:"finished"`
 }
 
