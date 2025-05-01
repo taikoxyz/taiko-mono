@@ -132,6 +132,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
+                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
+
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
                 (
@@ -192,15 +194,15 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
-
-        return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
+        require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
     }
 
-    function _validateOperator(
-        bytes32 _registrationRoot,
-        uint256 _timestamp,
-        uint256 _collateral,
-        address _slasher
+    /// @dev Validates if the operator is registered and has not been slashed at the given epoch
+    /// timestamp. We use the epoch timestamp of the epoch in which the lookahead is posted to
+    /// validate the registration and slashing status.
+    function _validateOperatorInLookaheadPayload(
+        LookaheadPayload memory _lookaheadPayload,
+        uint256 _epochTimestamp
     )
         internal
         view
