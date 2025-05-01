@@ -36,7 +36,8 @@ type ExecutableData struct {
 // preconf blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
-	ExecutableData *ExecutableData `json:"executableData"`
+	ExecutableData  *ExecutableData `json:"executableData"`
+	EndOfSequencing *bool           `json:"endOfSequencing"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconf
@@ -269,6 +270,16 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		LastBlockID:         newHead.Number.Uint64(),
 		LastProposedBlockID: lastBlockID,
 		HeadsRemoved:        currentHead.Number.Uint64() - newHead.Number.Uint64(),
+	})
+}
+
+// EndOfSequencingStatus returns whether we’ve seen an EndOfSequencing
+// block for the current sequencer.
+func (s *PreconfBlockAPIServer) EndOfSequencingStatus(c echo.Context) error {
+	_, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
+
+	return c.JSON(http.StatusOK, map[string]bool{
+		"received": ok,
 	})
 }
 

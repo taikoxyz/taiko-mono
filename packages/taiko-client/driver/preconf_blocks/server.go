@@ -58,15 +58,16 @@ type PreconfBlockAPIServer struct {
 	rpc             *rpc.Client
 	anchorValidator *validator.AnchorTxValidator
 	// P2P network for preconf block propagation
-	p2pNode                *p2p.NodeP2P
-	p2pSigner              p2p.Signer
-	payloadsCache          *payloadQueue
-	lookahead              *Lookahead
-	lookaheadMutex         sync.Mutex
-	handoverSlots          uint64
-	preconfOperatorAddress common.Address
-	mu                     sync.Mutex
-	blockRequests          *lru.Cache[common.Hash, struct{}]
+	p2pNode                 *p2p.NodeP2P
+	p2pSigner               p2p.Signer
+	payloadsCache           *payloadQueue
+	lookahead               *Lookahead
+	lookaheadMutex          sync.Mutex
+	handoverSlots           uint64
+	preconfOperatorAddress  common.Address
+	mu                      sync.Mutex
+	blockRequests           *lru.Cache[common.Hash, struct{}]
+	sequencingEndedForEpoch *lru.Cache[uint64, struct{}]
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -89,17 +90,23 @@ func New(
 		return nil, err
 	}
 
+	endOfSequencingCache, err := lru.New[uint64, struct{}](maxTrackedPayloads)
+	if err != nil {
+		return nil, err
+	}
+
 	server := &PreconfBlockAPIServer{
-		echo:                   echo.New(),
-		anchorValidator:        anchorValidator,
-		chainSyncer:            chainSyncer,
-		handoverSlots:          handoverSlots,
-		rpc:                    cli,
-		payloadsCache:          newPayloadQueue(),
-		preconfOperatorAddress: preconfOperatorAddress,
-		lookahead:              &Lookahead{},
-		mu:                     sync.Mutex{},
-		blockRequests:          blockRequestsCache,
+		echo:                    echo.New(),
+		anchorValidator:         anchorValidator,
+		chainSyncer:             chainSyncer,
+		handoverSlots:           handoverSlots,
+		rpc:                     cli,
+		payloadsCache:           newPayloadQueue(),
+		preconfOperatorAddress:  preconfOperatorAddress,
+		lookahead:               &Lookahead{},
+		mu:                      sync.Mutex{},
+		blockRequests:           blockRequestsCache,
+		sequencingEndedForEpoch: endOfSequencingCache,
 	}
 
 	server.echo.HideBanner = true
@@ -164,6 +171,7 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
+	s.echo.GET("/endOfSequencing", s.EndOfSequencingStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 }
@@ -193,6 +201,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"timestamp", uint64(msg.ExecutionPayload.Timestamp),
 		"coinbase", msg.ExecutionPayload.FeeRecipient.Hex(),
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
+		"endOfSequencing", msg.EndOfSequencing,
 	)
 
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
@@ -309,6 +318,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	// Try to import the child blocks from the cache, if any.
 	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
 		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
+	}
+
+	if msg.EndOfSequencing != nil && *msg.EndOfSequencing {
+		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), struct{}{})
 	}
 
 	return nil
