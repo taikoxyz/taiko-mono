@@ -204,47 +204,58 @@ func isBatchPreconfirmed(
 	txListBytes []byte,
 	parent *types.Header,
 ) (*types.Header, error) {
+	var (
+		headers = make([]*types.Header, len(metadata.Pacaya().GetBlocks()))
+		g       = new(errgroup.Group)
+	)
+
 	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
-		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
-			ctx,
-			rpc,
-			anchorConstructor,
-			metadata,
-			allTxs,
-			parent,
-			i,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
-		}
+		g.Go(func() error {
+			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
+			if err != nil {
+				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
+			}
 
-		b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
-		if err != nil {
-			return nil, fmt.Errorf("failed to RLP encode tx list: %w", err)
-		}
+			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
+				ctx,
+				rpc,
+				anchorConstructor,
+				metadata,
+				allTxs,
+				parentHeader,
+				i,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
+			}
 
-		header, err := isBlockPreconfirmed(
-			ctx,
-			rpc,
-			&createPayloadAndSetHeadMetaData{
-				createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-				AnchorBlockID:                   new(big.Int).SetUint64(metadata.Pacaya().GetAnchorBlockID()),
-				AnchorBlockHash:                 metadata.Pacaya().GetAnchorBlockHash(),
-				BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
-				Parent:                          parent,
-			},
-			b,
-			anchorTx,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check if block is preconfirmed: %w", err)
-		}
+			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+			if err != nil {
+				return fmt.Errorf("failed to RLP encode tx list: %w", err)
+			}
 
-		parent = header
+			if headers[i], err = isBlockPreconfirmed(
+				ctx,
+				rpc,
+				&createPayloadAndSetHeadMetaData{
+					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
+					AnchorBlockID:                   new(big.Int).SetUint64(metadata.Pacaya().GetAnchorBlockID()),
+					AnchorBlockHash:                 metadata.Pacaya().GetAnchorBlockHash(),
+					BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
+					Parent:                          parentHeader,
+				},
+				b,
+				anchorTx,
+			); err != nil {
+				return fmt.Errorf("failed to check if block is preconfirmed: %w", err)
+			}
+
+			return nil
+		})
 	}
 
-	return parent, nil
+	return headers[len(headers)-1], g.Wait()
 }
 
 // isBlockPreconfirmed checks if the block is preconfirmed.
