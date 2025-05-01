@@ -3,14 +3,14 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-/// @title MinimalOwner
+/// @title IntermediateOwner
 /// @notice
 ///   A minimal contract that can:
 ///   1) Own other contracts (receive ownership transfers),
 ///   2) Transfer ownership (for example, to Taiko DAO),
 ///   3) Forward arbitrary calls (execute) to any address, restricted by onlyOwner.
 /// @custom:security-contact security@taiko.xyz
-contract MinimalOwner is ReentrancyGuard {
+contract IntermediateOwner is ReentrancyGuard {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     error NotOwner();
@@ -41,7 +41,7 @@ contract MinimalOwner is ReentrancyGuard {
     }
 
     /// @notice Forward arbitrary calls to another contract.
-    ///         This lets MinimalOwner directly interact with contracts it owns.
+    ///         This lets IntermediateOwner directly interact with contracts it owns.
     ///
     /// @param target The contract to call
     /// @param data   Encoded function call + arguments
