@@ -40,6 +40,25 @@ definitions:
           type: integer
         type: array
     type: object
+  preconfblocks.Lookahead:
+    properties:
+      currOperator:
+        type: string
+      currRanges:
+        description: slots allowed for CurrOperator (0..threshold-1)
+        items:
+          $ref: '#/definitions/preconfblocks.SlotRange'
+        type: array
+      nextOperator:
+        type: string
+      nextRanges:
+        description: slots allowed for NextOperator (threshold..slotsPerEpoch-1)
+        items:
+          $ref: '#/definitions/preconfblocks.SlotRange'
+        type: array
+      updatedAt:
+        type: string
+    type: object
   preconfblocks.RemovePreconfBlocksRequestBody:
     properties:
       newLastBlockId:
@@ -60,6 +79,30 @@ definitions:
       lastProposedBlockID:
         description: '@param lastProposedBlockID uint64 Highest block ID of the cnonical
           chain'
+        type: integer
+    type: object
+  preconfblocks.SlotRange:
+    properties:
+      end:
+        type: integer
+      start:
+        type: integer
+    type: object
+  preconfblocks.Status:
+    properties:
+      highestUnsafeL2PayloadBlockID:
+        description: |-
+          @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
+          @param has received from the P2P network, if its zero, it means the current server has not received
+          @param any preconfirmation block from the P2P network yet.
+        type: integer
+      lookahead:
+        allOf:
+        - $ref: '#/definitions/preconfblocks.Lookahead'
+        description: '@param lookahead Lookahead the current lookahead information.'
+      totalCached:
+        description: '@param totalCached uint64 the total number of cached payloads
+          after the start of the server.'
         type: integer
     type: object
   types.Header:
@@ -194,4 +237,16 @@ paths:
           schema:
             $ref: '#/definitions/preconfblocks.BuildPreconfBlockResponseBody'
       summary: Insert a preconfirmation block to the L2 execution engine.
+  /status:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/preconfblocks.Status'
+      summary: Get current preconfirmation block server status
 swagger: "2.0"

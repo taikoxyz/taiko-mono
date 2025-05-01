@@ -102,6 +102,25 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/status": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get current preconfirmation block server status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/preconfblocks.Status"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -170,6 +189,34 @@ const docTemplate = `{
                 }
             }
         },
+        "preconfblocks.Lookahead": {
+            "type": "object",
+            "properties": {
+                "currOperator": {
+                    "type": "string"
+                },
+                "currRanges": {
+                    "description": "slots allowed for CurrOperator (0..threshold-1)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/preconfblocks.SlotRange"
+                    }
+                },
+                "nextOperator": {
+                    "type": "string"
+                },
+                "nextRanges": {
+                    "description": "slots allowed for NextOperator (threshold..slotsPerEpoch-1)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/preconfblocks.SlotRange"
+                    }
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
         "preconfblocks.RemovePreconfBlocksRequestBody": {
             "type": "object",
             "properties": {
@@ -192,6 +239,38 @@ const docTemplate = `{
                 },
                 "lastProposedBlockID": {
                     "description": "@param lastProposedBlockID uint64 Highest block ID of the cnonical chain",
+                    "type": "integer"
+                }
+            }
+        },
+        "preconfblocks.SlotRange": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "integer"
+                }
+            }
+        },
+        "preconfblocks.Status": {
+            "type": "object",
+            "properties": {
+                "highestUnsafeL2PayloadBlockID": {
+                    "description": "@param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server\n@param has received from the P2P network, if its zero, it means the current server has not received\n@param any preconfirmation block from the P2P network yet.",
+                    "type": "integer"
+                },
+                "lookahead": {
+                    "description": "@param lookahead Lookahead the current lookahead information.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/preconfblocks.Lookahead"
+                        }
+                    ]
+                },
+                "totalCached": {
+                    "description": "@param totalCached uint64 the total number of cached payloads after the start of the server.",
                     "type": "integer"
                 }
             }
