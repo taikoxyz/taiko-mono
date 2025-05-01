@@ -273,6 +273,13 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 	})
 }
 
+// EndOfSequencingStatusResponseBody represents a response body
+// for checking if a current epoch is done sequencing.
+type EndOfSequencingStatusResponseBody struct {
+	// @param blockHeader types.Header of the preconf block
+	Finished bool `json:"finished"`
+}
+
 // EndOfSequencingStatus returns whether we’ve seen an EndOfSequencing
 // block for the current sequencer.
 func (s *PreconfBlockAPIServer) EndOfSequencingStatus(c echo.Context) error {
@@ -282,8 +289,8 @@ func (s *PreconfBlockAPIServer) EndOfSequencingStatus(c echo.Context) error {
 
 	_, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
 
-	return c.JSON(http.StatusOK, map[string]bool{
-		"received": ok,
+	return c.JSON(http.StatusOK, EndOfSequencingStatusResponseBody{
+		Finished: ok,
 	})
 }
 
