@@ -200,6 +200,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"error", err,
 		)
+		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
 		return nil
 	}
 
@@ -209,6 +210,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
 	}
 	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+		metrics.DriverPreconfP2POutdatedEnvelopeCounter.Inc()
 		return fmt.Errorf(
 			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
 			msg.ExecutionPayload.BlockNumber,
@@ -263,6 +265,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				)
 
 				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
+				metrics.DriverPreconfP2PEnvelopeCachedCounter.Inc()
 			}
 			return nil
 		}
