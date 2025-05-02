@@ -54,7 +54,7 @@
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "risc0-ethereum": "github:risc0/risc0-ethereum#v2.0.2",
     "solady": "github:Vectorized/solady#v0.0.231",
-    "urc": "github:dantaik/urc#use_time_instead_if_height",
+    "urc": "github:eth-fabric/urc#main",
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v4.0.0"
   }
 }
