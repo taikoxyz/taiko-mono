@@ -33,9 +33,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     }
 
     struct BlobParams {
-        // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
+        // The blob reference hash. Note that if blobRefHash is non-zero, `firstBlobIndex` and
         // `numBlobs` must be 0.
-        bytes32[] blobHashes;
+        bytes32 blobRefHash;
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently

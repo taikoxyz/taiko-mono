@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/blobs/IBlobRefRegistry.sol";
+
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
     struct ForcedInclusion {
-        bytes32 blobHash;
+        bytes32 blobRefHash;
         uint64 feeInGwei;
         uint64 createdAtBatchId;
         uint32 blobByteOffset;
         uint32 blobByteSize;
-        uint64 blobCreatedIn;
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
@@ -18,8 +19,6 @@ interface IForcedInclusionStore {
     /// @dev Event emitted when a forced inclusion is consumed.
     event ForcedInclusionConsumed(ForcedInclusion forcedInclusion);
 
-    /// @dev Error thrown when a blob is not found.
-    error BlobNotFound();
     /// @dev Error thrown when the parameters are invalid.
     error InvalidParams();
     /// @dev Error thrown when the fee is incorrect.

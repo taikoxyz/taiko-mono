@@ -6,6 +6,7 @@ import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/prover-market/ProverMarket.sol";
 import "src/layer1/token/TaikoToken.sol";
+import "src/layer1/blobs/BlobRefRegistry.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -22,7 +23,8 @@ contract ConfigurableInbox is TaikoInbox {
         address _verifier,
         address _bondToken,
         address _signalService,
-        address _proverMarket
+        address _proverMarket,
+        address _blobRefRegistry
     )
         TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
     { }
@@ -63,6 +65,7 @@ abstract contract Layer1Test is CommonTest {
         address _bondToken,
         address _signalService,
         address _proverMarket,
+        address _blobRefRegistry,
         ITaikoInbox.Config memory _config
     )
         internal
@@ -73,7 +76,12 @@ abstract contract Layer1Test is CommonTest {
                 name: "taiko",
                 impl: address(
                     new ConfigurableInbox(
-                        address(0), _verifier, _bondToken, _signalService, _proverMarket
+                        address(0),
+                        _verifier,
+                        _bondToken,
+                        _signalService,
+                        _proverMarket,
+                        _blobRefRegistry
                     )
                 ),
                 data: abi.encodeCall(

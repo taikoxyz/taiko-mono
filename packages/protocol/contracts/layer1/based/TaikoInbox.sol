@@ -11,6 +11,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "src/layer1/prover-market/IProverMarket.sol";
+import "src/layer1/blobs/IBlobRefRegistry.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
 
@@ -100,7 +101,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     params.proposer = msg.sender;
 
                     // blob hashes are only accepted if the caller is trusted.
-                    require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+                    require(params.blobParams.blobRefHash == 0, InvalidBlobParams());
                     require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
                     params.blobParams.createdIn = uint64(block.number);
                 } else {
@@ -125,7 +126,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             if (calldataUsed) {
                 // calldata is used for data availability
                 params.blobParams.createdIn = 0;
-            } else if (params.blobParams.blobHashes.length == 0) {
+            } else if (params.blobParams.blobRefHash == 0) {
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
                 require(params.blobParams.numBlobs != 0, BlobNotSpecified());
@@ -602,25 +603,29 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         internal
         view
         virtual
-        returns (bytes32 hash_, bytes32[] memory blobHashes_)
+        returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
-        if (_blobParams.blobHashes.length != 0) {
-            blobHashes_ = _blobParams.blobHashes;
-        } else {
-            uint256 numBlobs = _blobParams.numBlobs;
-            blobHashes_ = new bytes32[](numBlobs);
-            for (uint256 i; i < numBlobs; ++i) {
-                unchecked {
-                    blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
-                }
-            }
-        }
+        //     if (_blobParams.blobHashes.length != 0) {
+        //         hash_ = _blobParams.blobHashes;
+        //     } else {
+        //         uint256 numBlobs = _blobParams.numBlobs;
+        //         blobHashes_ = new bytes32[](numBlobs);
+        //         for (uint256 i; i < numBlobs; ++i) {
+        //             unchecked {
+        //                 blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
+        //             }
+        //         }
+        //     }
 
-        uint256 bloblHashesLength = blobHashes_.length;
-        for (uint256 i; i < bloblHashesLength; ++i) {
-            require(blobHashes_[i] != 0, BlobNotFound());
-        }
-        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
+        //     uint256 bloblHashesLength = blobHashes_.length;
+        //     for (uint256 i; i < bloblHashesLength; ++i) {
+        //         require(blobHashes_[i] != 0, BlobNotFound());
+        //     }
+
+        //     bytes32 blobRefHash =
+        //         keccak256(abi.encode(IBlobRefRegistry.BlobRef(block.number, blobHashes_)));
+
+        //     txsHash_ = keccak256(abi.encode(_txListHash, blobRefHash));
     }
 
     // Private functions -----------------------------------------------------------------------
