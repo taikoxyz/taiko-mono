@@ -45,14 +45,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         if (isPostedByGuardian) {
             lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
         } else if (isLookaheadRequired()) {
-            ISlasher.SignedCommitment memory signedCommitment =
-                abi.decode(_data, (ISlasher.SignedCommitment));
-
             // Validate the lookahead poster's operator status within the URC
-            _validateLookaheadPoster(_registrationRoot, signedCommitment);
-
-            lookaheadPayloads =
-                abi.decode(signedCommitment.commitment.payload, (LookaheadPayload[]));
+            lookaheadPayloads = _validateLookaheadPoster(
+                _registrationRoot, abi.decode(_data, (ISlasher.SignedCommitment))
+            );
         } else {
             revert LookaheadNotRequired();
         }
@@ -111,24 +107,25 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
     {
-        bytes26 lookaheadHash;
-        LookaheadSlot[] memory lookaheadSlots;
+        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
-        if (_lookaheadPayloads.length == 0) {
-            // The poster claims that the lookahead for the next epoch has no preconfers
-            lookaheadSlots = new LookaheadSlot[](0);
-            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
-        } else {
-            lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
+        unchecked {
+            uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
                 LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
 
-                _validateSlotTimestamp(
-                    lookaheadPayload,
-                    i > 0 ? _lookaheadPayloads[i - 1].slotTimestamp : 0,
-                    _nextEpochTimestamp
+                require(
+                    lookaheadPayload.slotTimestamp > prevSlotTimestamp,
+                    SlotTimestampIsNotIncrementing()
                 );
+                require(
+                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                        % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
+                    InvalidSlotTimestamp()
+                );
+
+                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
@@ -146,16 +143,15 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                lookaheadSlots[lookaheadSlots.length - 1].slotTimestamp
-                    <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
+                prevSlotTimestamp < _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
-
-            // Hash the lookahead slots and update the lookahead hash for next epoch
-            lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         }
 
+        // Hash the lookahead slots and update the lookahead hash for next epoch
+        bytes26 lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
+
         emit LookaheadPosted(
             _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
@@ -167,6 +163,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
         view
+        returns (LookaheadPayload[] memory lookaheadPayloads)
     {
         // Validate the lookahead poster's operator status within the URC
         IRegistry.OperatorData memory operatorData = urc.getOperatorData(_registrationRoot);
@@ -178,41 +175,18 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
 
         // Validate the slashing commitment of the lookahead poster
-        IRegistry.SlasherCommitment memory slashingCommitment =
+        IRegistry.SlasherCommitment memory slasherCommitment =
             urc.getSlasherCommitment(_registrationRoot, guardian);
-        require(slashingCommitment.optedOutAt < slashingCommitment.optedInAt, PosterHasNotOptedIn());
+        require(slasherCommitment.optedOutAt < slasherCommitment.optedInAt, PosterHasNotOptedIn());
 
         // Validate the lookahead poster's signed commitment
         address committer = ECDSA.recover(
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
-        require(committer == slashingCommitment.committer, CommitmentSignerMismatch());
+        require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
-    }
 
-    /// @dev Validates if the timestamp belongs to a valid slot in the next epoch
-    function _validateSlotTimestamp(
-        LookaheadPayload memory _lookaheadPayload,
-        uint256 _previousSlotTimestamp,
-        uint256 _nextEpochTimestamp
-    )
-        internal
-        pure
-    {
-        if (_previousSlotTimestamp == 0) {
-            require(_lookaheadPayload.slotTimestamp >= _nextEpochTimestamp, InvalidLookaheadEpoch());
-        } else {
-            require(
-                _lookaheadPayload.slotTimestamp > _previousSlotTimestamp,
-                SlotTimestampIsNotIncrementing()
-            );
-        }
-
-        require(
-            (_lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
-                % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
-            InvalidSlotTimestamp()
-        );
+        return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
     }
 
     /// @dev Validates if the operator is registered and has not been slashed at the given epoch
@@ -226,18 +200,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         view
         returns (address committer)
     {
-        uint256 blockHeightAtEpochTimestamp =
-            LibPreconfUtils.getBlockHeightAtTimestamp(_epochTimestamp);
-
         IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadPayload.registrationRoot);
         require(
-            operatorData.unregisteredAt == 0
-                || operatorData.unregisteredAt >= blockHeightAtEpochTimestamp,
+            operatorData.unregisteredAt == 0 || operatorData.unregisteredAt >= _epochTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            operatorData.slashedAt == 0 || operatorData.slashedAt >= blockHeightAtEpochTimestamp,
+            operatorData.slashedAt == 0 || operatorData.slashedAt >= _epochTimestamp,
             OperatorHasBeenSlashed()
         );
         require(
@@ -252,18 +222,17 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
 
         // Validate the operator's slashing commitment
-        IRegistry.SlasherCommitment memory slashingCommitment =
+        IRegistry.SlasherCommitment memory slasherCommitment =
             urc.getSlasherCommitment(_lookaheadPayload.registrationRoot, preconfSlasher);
         require(
-            slashingCommitment.optedInAt < blockHeightAtEpochTimestamp
+            slasherCommitment.optedInAt < _epochTimestamp
                 && (
-                    slashingCommitment.optedOutAt == 0
-                        || slashingCommitment.optedOutAt >= blockHeightAtEpochTimestamp
+                    slasherCommitment.optedOutAt == 0 || slasherCommitment.optedOutAt >= _epochTimestamp
                 ),
             OperatorHasNotOptedIntoPreconfSlasher()
         );
 
-        return slashingCommitment.committer;
+        return slasherCommitment.committer;
     }
 
     function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
