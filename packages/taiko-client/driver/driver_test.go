@@ -877,7 +877,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
 
-	ok, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsInCanonicalChain(
+	ok, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 		context.Background(),
 		&eth.ExecutionPayload{
 			BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
@@ -889,7 +889,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.True(ok)
 
-	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsInCanonicalChain(
+	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 		context.Background(),
 		&eth.ExecutionPayload{
 			BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
@@ -902,7 +902,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.True(ok)
 
 	if isInForkA {
-		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsInCanonicalChain(
+		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 			context.Background(),
 			&eth.ExecutionPayload{
 				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
@@ -914,7 +914,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.Nil(err)
 		s.False(ok)
 	} else {
-		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsInCanonicalChain(
+		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 			context.Background(),
 			&eth.ExecutionPayload{
 				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),

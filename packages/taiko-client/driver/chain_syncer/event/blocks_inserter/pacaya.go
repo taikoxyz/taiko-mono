@@ -287,7 +287,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			)
 		}
 
-		ok, err := i.IsInCanonicalChain(ctx, executableData, headL1Origin)
+		ok, err := i.IsBasedOnCanonicalChain(ctx, executableData, headL1Origin)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to check if preconfirmation block (%d, %s) is in canonical chain: %w",
@@ -370,8 +370,8 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	return nil
 }
 
-// IsInCanonicalChain checks if the given executable data is in the canonical chain.
-func (i *BlocksInserterPacaya) IsInCanonicalChain(
+// IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
+func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 	headL1Origin *rawdb.L1Origin,
