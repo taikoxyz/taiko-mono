@@ -9,7 +9,7 @@ import "../iface/IPreconfWhitelist.sol";
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IProposeBatch {
-    IProposeBatch public immutable iProposeBatch;
+    IProposeBatch public immutable  iProposeBatch;
     IPreconfWhitelist public immutable preconfWhitelist;
     address public immutable fallbackPreconfer;
 
