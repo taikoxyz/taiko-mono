@@ -35,6 +35,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     address public immutable verifier;
     address internal immutable bondToken;
     ISignalService public immutable signalService;
+    IBlobRefRegistry public immutable blobRefRegistry;
     IProverMarket public immutable proverMarket;
 
     State public state; // storage layout much match Ontake fork
@@ -98,14 +99,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 if (inboxWrapper == address(0)) {
                     require(params.proposer == address(0), CustomProposerNotAllowed());
                     params.proposer = msg.sender;
-
-                    // blob hashes are only accepted if the caller is trusted.
-                    require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-                    require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                    params.blobParams.createdIn = uint64(block.number);
                 } else {
-                    require(msg.sender == inboxWrapper, NotInboxWrapper());
                     require(params.proposer != address(0), CustomProposerMissing());
+                    require(msg.sender == inboxWrapper, NotInboxWrapper());
                 }
 
                 // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
@@ -124,16 +120,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             if (calldataUsed) {
                 // calldata is used for data availability
-                params.blobParams.createdIn = 0;
-            } else if (params.blobParams.blobHashes.length == 0) {
-                // this is a normal batch, blobs are created and used in the current batches.
-                // firstBlobIndex can be non-zero.
-                require(params.blobParams.numBlobs != 0, BlobNotSpecified());
-            } else {
-                // this is a forced-inclusion batch, blobs were created in early blocks and are used
-                // in the current batches
-                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(params.blobParams.refHash == 0, InvalidBlobParams());
                 require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+            } else if (params.blobParams.refHash != 0) {
+                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+
+                require(
+                    blobRefRegistry.isRefRegistered(params.blobParams.refHash), InvalidBlobParams()
+                );
+            } else {
+                require(params.blobParams.numBlobs != 0, InvalidBlobParams());
             }
 
             // Keep track of last batch's information.
@@ -164,12 +162,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 //
                 // Data to build L2 blocks
                 blocks: params.blocks,
-                blobHashes: new bytes32[](0), // to be initialised later
                 extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
                 coinbase: params.coinbase,
                 proposer: params.proposer,
                 proposedIn: uint64(block.number),
-                blobCreatedIn: params.blobParams.createdIn,
+                blobHashes: new bytes32[](0), // to be initialised later
+                blobRefHash: params.blobParams.refHash,
                 blobByteOffset: params.blobParams.byteOffset,
                 blobByteSize: params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,
@@ -191,7 +189,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     : lastBatch.lastBlockId + nBlocks;
 
                 (info_.txsHash, info_.blobHashes) =
-                    _calculateTxsHash(keccak256(_txList), params.blobParams);
+                    _calculateTxsHash(keccak256(_txList), info_.blobRefHash, params.blobParams);
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
@@ -597,30 +595,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     function _calculateTxsHash(
         bytes32 _txListHash,
+        bytes32 _blobRefHash,
         BlobParams memory _blobParams
     )
         internal
         view
         virtual
-        returns (bytes32 hash_, bytes32[] memory blobHashes_)
+        returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
-        if (_blobParams.blobHashes.length != 0) {
-            blobHashes_ = _blobParams.blobHashes;
-        } else {
-            uint256 numBlobs = _blobParams.numBlobs;
+        uint256 numBlobs = _blobParams.numBlobs;
+        if (numBlobs != 0) {
             blobHashes_ = new bytes32[](numBlobs);
             for (uint256 i; i < numBlobs; ++i) {
                 unchecked {
                     blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
+                    require(blobHashes_[i] != 0, BlobNotFound());
                 }
             }
         }
 
-        uint256 bloblHashesLength = blobHashes_.length;
-        for (uint256 i; i < bloblHashesLength; ++i) {
-            require(blobHashes_[i] != 0, BlobNotFound());
-        }
-        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
+        txsHash_ = keccak256(abi.encode(_txListHash, _blobRefHash, blobHashes_));
     }
 
     // Private functions -----------------------------------------------------------------------

@@ -45,14 +45,16 @@ contract ConfigurableInbox is TaikoInbox {
 
     function _calculateTxsHash(
         bytes32 _txListHash,
+        bytes32 _blobRefHash,
         BlobParams memory _blobParams
     )
         internal
         pure
         override
-        returns (bytes32, bytes32[] memory)
+        returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
-        return (_txListHash, new bytes32[](_blobParams.numBlobs));
+        blobHashes_ = new bytes32[](_blobParams.numBlobs);
+        txsHash_ = keccak256(abi.encode(_txListHash, _blobRefHash, blobHashes_));
     }
 }
 

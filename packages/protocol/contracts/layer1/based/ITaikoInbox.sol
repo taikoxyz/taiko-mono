@@ -34,17 +34,10 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     }
 
     ///@notice This struct holds blob information essential for data availability.
-    /// @dev Constraints for blob parameters:
-    /// - If `refHash` is non-zero:
-    ///   - `blobHashes` must be empty.
-    ///   - `firstBlobIndex` and `numBlobs` must be zero.
-    /// - If `blobHashes` is not empty:
-    ///   - `firstBlobIndex` and `numBlobs` must be zero.
+    /// @dev Constraints for blob parameters: if `refHash` is non-zero, then both `firstBlobIndex`
+    /// and `numBlobs` must be zero.
     struct BlobParams {
         bytes32 refHash;
-        // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
-        // `numBlobs` must be 0.
-        bytes32[] blobHashes;
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
@@ -54,8 +47,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint32 byteOffset;
         // The byte size of the blob.
         uint32 byteSize;
-        // The block number when the blob was created.
-        uint64 createdIn;
     }
 
     struct BatchParams {
@@ -77,12 +68,12 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 txsHash;
         // Data to build L2 blocks
         BlockParams[] blocks;
-        bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
         address proposer;
         uint64 proposedIn; // Used by node/client
-        uint64 blobCreatedIn;
+        bytes32[] blobHashes;
+        bytes32 blobRefHash;
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
