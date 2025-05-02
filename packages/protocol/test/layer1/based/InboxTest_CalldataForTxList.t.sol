@@ -33,8 +33,8 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             assertEq(info.txsHash, keccak256(abi.encode(txList, 0, info.blobInfo.hashes)));
         }
 
-        // vm.prank(Alice);
-        // _proveBatchesWithCorrectTransitions(batchIds);
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds);
     }
 
     function test_batch_rejection_due_to_missing_txlist_and_blobindex() external {

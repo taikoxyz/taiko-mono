@@ -125,11 +125,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
             deployPreconfContracts(
-                contractOwner,
-                rollupResolver,
-                sharedResolver,
-                address(taikoInbox),
-                proofVerifier
+                contractOwner, rollupResolver, sharedResolver, address(taikoInbox), proofVerifier
             );
         }
 
@@ -269,7 +265,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupResolver, _sharedResolver, "bond_token");
         copyRegister(rollupResolver, _sharedResolver, "signal_service");
         copyRegister(rollupResolver, _sharedResolver, "bridge");
-        
+
         // Proof verifier
         proofVerifier = deployProxy({
             name: "proof_verifier",

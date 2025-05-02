@@ -164,16 +164,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 //
                 // Data to build L2 blocks
                 blocks: params.blocks,
-                extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
-                coinbase: params.coinbase,
-                proposer: params.proposer,
-                proposedIn: uint64(block.number),
                 blobInfo: BlobInfo({
                     hashes: new bytes32[](0), // to be initialised later
                     refHash: params.blobParams.refHash,
                     byteOffset: params.blobParams.byteOffset,
                     byteSize: params.blobParams.byteSize
                 }),
+                extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
+                coinbase: params.coinbase,
+                proposer: params.proposer,
+                proposedIn: uint64(block.number),
                 gasLimit: config.blockMaxGasLimit,
                 lastBlockId: 0, // to be initialised later
                 lastBlockTimestamp: lastBlockTimestamp,

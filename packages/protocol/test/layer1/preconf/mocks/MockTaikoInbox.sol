@@ -24,14 +24,11 @@ contract MockTaikoInbox is EssentialContract {
         // Decode the batch params
         ITaikoInbox.BatchParams memory params = abi.decode(_params, (ITaikoInbox.BatchParams));
 
+        ITaikoInbox.BlobInfo memory emptyBlobInfo;
+
         info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
-            blobInfo: ITaikoInbox.BlobInfo({
-                hashes: new bytes32[](0),
-                refHash: 0,
-                byteOffset: 0,
-                byteSize: 0
-            }),
+            blobInfo: emptyBlobInfo,
             extraData: 0,
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             proposer: params.proposer,

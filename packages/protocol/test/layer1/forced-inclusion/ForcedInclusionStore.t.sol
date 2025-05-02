@@ -11,24 +11,6 @@ contract MockBlobRefRegistry is BlobRefRegistry {
     }
 }
 
-contract ForcedInclusionStoreForTest is ForcedInclusionStore {
-    constructor(
-        uint8 _inclusionDelay,
-        uint64 _feeInGwei,
-        address _blobRefRegistry,
-        address _taikoInbox,
-        address _taikoInboxWrapper
-    )
-        ForcedInclusionStore(
-            _inclusionDelay,
-            _feeInGwei,
-            _blobRefRegistry,
-            _taikoInbox,
-            _taikoInboxWrapper
-        )
-    { }
-}
-
 contract MockInbox {
     uint64 public numBatches;
 
@@ -62,7 +44,7 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
             deploy({
                 name: LibStrings.B_FORCED_INCLUSION_STORE,
                 impl: address(
-                    new ForcedInclusionStoreForTest(
+                    new ForcedInclusionStore(
                         inclusionDelay,
                         feeInGwei,
                         address(blobRefRegistry),
@@ -158,16 +140,6 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(Bob.balance, _feeInGwei * 1 gwei);
     }
 
-    function _calcBlobRefHash(bytes32 _blobhash) internal view returns (bytes32) {
-        bytes32[] memory blobhashes = new bytes32[](1);
-        blobhashes[0] = _blobhash;
-        return keccak256(
-            abi.encode(
-                IBlobRefRegistry.BlobRef({ blockNumber: block.number, blobhashes: blobhashes })
-            )
-        );
-    }
-
     function test_storeConsumeForcedInclusion_notOperator() public {
         vm.deal(Alice, 1 ether);
         uint64 _feeInGwei = store.feeInGwei();
@@ -232,5 +204,15 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         // the head request should have been deleted
         vm.expectRevert(IForcedInclusionStore.InvalidIndex.selector);
         inclusion = store.getForcedInclusion(0);
+    }
+
+    function _calcBlobRefHash(bytes32 _blobhash) internal view returns (bytes32) {
+        bytes32[] memory blobhashes = new bytes32[](1);
+        blobhashes[0] = _blobhash;
+        return keccak256(
+            abi.encode(
+                IBlobRefRegistry.BlobRef({ blockNumber: block.number, blobhashes: blobhashes })
+            )
+        );
     }
 }
