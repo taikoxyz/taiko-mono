@@ -168,10 +168,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 coinbase: params.coinbase,
                 proposer: params.proposer,
                 proposedIn: uint64(block.number),
-                blobHashes: new bytes32[](0), // to be initialised later
-                blobRefHash: params.blobParams.refHash,
-                blobByteOffset: params.blobParams.byteOffset,
-                blobByteSize: params.blobParams.byteSize,
+                blobInfo: BlobInfo({
+                    hashes: new bytes32[](0), // to be initialised later
+                    refHash: params.blobParams.refHash,
+                    byteOffset: params.blobParams.byteOffset,
+                    byteSize: params.blobParams.byteSize
+                }),
                 gasLimit: config.blockMaxGasLimit,
                 lastBlockId: 0, // to be initialised later
                 lastBlockTimestamp: lastBlockTimestamp,
@@ -190,8 +192,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     ? stats2.numBatches + nBlocks - 1
                     : lastBatch.lastBlockId + nBlocks;
 
-                (info_.txsHash, info_.blobHashes) =
-                    _calculateTxsHash(_txList, info_.blobRefHash, params.blobParams);
+                (info_.txsHash, info_.blobInfo.hashes) =
+                    _calculateTxsHash(_txList, info_.blobInfo.refHash, params.blobParams);
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),

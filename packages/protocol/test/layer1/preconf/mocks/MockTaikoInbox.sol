@@ -26,10 +26,12 @@ contract MockTaikoInbox is EssentialContract {
 
         info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
-            blobHashes: new bytes32[](0),
-            blobRefHash: 0,
-            blobByteOffset: 0,
-            blobByteSize: 0,
+            blobInfo: ITaikoInbox.BlobInfo({
+                hashes: new bytes32[](0),
+                refHash: 0,
+                byteOffset: 0,
+                byteSize: 0
+            }),
             extraData: 0,
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             proposer: params.proposer,

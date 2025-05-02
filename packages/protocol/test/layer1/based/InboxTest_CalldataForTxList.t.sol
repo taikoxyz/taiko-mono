@@ -28,9 +28,9 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(batchIds[i]);
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
-            assertEq(info.blobHashes.length, 0);
-            assertEq(info.blobRefHash, 0);
-            assertEq(info.txsHash, keccak256(abi.encode(txList, 0, info.blobHashes)));
+            assertEq(info.blobInfo.hashes.length, 0);
+            assertEq(info.blobInfo.refHash, 0);
+            assertEq(info.txsHash, keccak256(abi.encode(txList, 0, info.blobInfo.hashes)));
         }
 
         // vm.prank(Alice);

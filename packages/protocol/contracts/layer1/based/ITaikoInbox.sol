@@ -62,20 +62,24 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         BlockParams[] blocks;
     }
 
+    struct BlobInfo {
+        bytes32[] hashes;
+        bytes32 refHash;
+        uint32 byteOffset;
+        uint32 byteSize;
+    }
+
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
     /// does not include data necessary for batch proving.
     struct BatchInfo {
         bytes32 txsHash;
         // Data to build L2 blocks
         BlockParams[] blocks;
+        BlobInfo blobInfo;
         bytes32 extraData;
         address coinbase;
         address proposer;
         uint64 proposedIn; // Used by node/client
-        bytes32[] blobHashes;
-        bytes32 blobRefHash;
-        uint32 blobByteOffset;
-        uint32 blobByteSize;
         uint32 gasLimit;
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
