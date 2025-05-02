@@ -58,6 +58,10 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm clean && forge fmt
 
+      - name: Shared-Unit tests
+        working-directory: ./packages/protocol
+        run: pnpm compile:shared && pnpm test:shared && pnpm layout:shared
+
       - name: L2-Unit tests
         working-directory: ./packages/protocol
         run: pnpm compile:l2 && pnpm test:l2 && pnpm layout:l2
