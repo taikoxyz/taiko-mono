@@ -3,8 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from
-    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibStrings.sol";
@@ -30,9 +29,9 @@ import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
-import "src/layer1/verifiers/Risc0Verifier.sol";
-import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
+import "src/layer1/verifiers/TaikoSP1Verifier.sol";
+import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
@@ -445,10 +444,19 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId = TaikoInbox(payable(taikoInboxAddr)).v4GetConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
+        address sgxImpl =
+            address(new TaikoSgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, automataProxy));
+
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new SgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, automataProxy)),
-            data: abi.encodeCall(SgxVerifier.init, owner),
+            impl: sgxImpl,
+            data: abi.encodeCall(TaikoSgxVerifier.init, owner),
+            registerTo: rollupResolver
+        });
+        verifiers.sgxGethVerifier = deployProxy({
+            name: "sgx_geth_verifier",
+            impl: sgxImpl,
+            data: abi.encodeCall(TaikoSgxVerifier.init, owner),
             registerTo: rollupResolver
         });
 
@@ -471,9 +479,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
             impl: address(
-                new SgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
+                new TaikoSgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
             ),
-            data: abi.encodeCall(SgxVerifier.init, owner),
+            data: abi.encodeCall(TaikoSgxVerifier.init, owner),
             registerTo: rollupResolver
         });
         return verifiers;
@@ -494,19 +502,19 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
-            impl: address(new Risc0Verifier(l2ChainId, address(verifier))),
-            data: abi.encodeCall(Risc0Verifier.init, (owner)),
+            impl: address(new TaikoRisc0Verifier(l2ChainId, address(verifier))),
+            data: abi.encodeCall(TaikoRisc0Verifier.init, (owner)),
             registerTo: rollupResolver
         });
 
         // Deploy sp1 plonk verifier
-        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
+        SP1Verifier succinctVerifier = new SP1Verifier();
         register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
 
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
-            impl: address(new SP1Verifier(l2ChainId, address(succinctVerifier))),
-            data: abi.encodeCall(SP1Verifier.init, (owner)),
+            impl: address(new TaikoSP1Verifier(l2ChainId, address(succinctVerifier))),
+            data: abi.encodeCall(TaikoSP1Verifier.init, (owner)),
             registerTo: rollupResolver
         });
     }
