@@ -46,6 +46,8 @@ contract DeployProtocolOnL1 is DeployCapability {
     uint24 constant PRECONF_COOLDOWN_WINDOW = 0 hours;
     uint24 constant DEVNET_COOLDOWN_WINDOW = 2 hours;
 
+    address internal blobRefRegistry = vm.envAddress("CONTRACT_OWNER");
+
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "invalid private key");
@@ -117,7 +119,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             deployAuxContracts();
         }
 
-        address blobRefRegistry = vm.envAddress("CONTRACT_OWNER");
         if (blobRefRegistry == address(0)) {
             blobRefRegistry = address(new BlobRefRegistry());
         }
@@ -256,8 +257,6 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
-
-        address blobRefRegistry = address(new BlobRefRegistry());
 
         rollupResolver = deployProxy({
             name: "rollup_address_resolver",
