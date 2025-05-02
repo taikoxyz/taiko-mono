@@ -285,7 +285,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			)
 		}
 	}
-	// Ensure the preconfirmation block number is in the canonical chain.
+	// Ensure the preconfirmation block is in the canonical chain.
 	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber-1)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch canonical parent block: %w", err)
