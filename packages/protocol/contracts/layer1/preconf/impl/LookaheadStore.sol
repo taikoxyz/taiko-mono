@@ -130,6 +130,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
                 prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
+                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
+
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
                 (
@@ -157,7 +159,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                prevSlotTimestamp <= _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
+                prevSlotTimestamp < _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
         }
