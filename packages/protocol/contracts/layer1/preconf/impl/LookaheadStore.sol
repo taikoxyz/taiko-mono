@@ -200,7 +200,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     /// validate the registration and slashing status.
     function _validateOperator(
         bytes32 _registrationRoot,
-        uint256 _referenceTimestamp,
+        uint256 _timestamp,
         uint256 _collateral,
         address _slasher
     )
@@ -213,21 +213,20 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         operatorData_ = urc.getOperatorData(_registrationRoot);
         require(
-            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt >= _referenceTimestamp,
+            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt >= _timestamp,
             OperatorHasUnregistered()
         );
         require(
-            operatorData_.slashedAt == 0 || operatorData_.slashedAt >= _referenceTimestamp,
+            operatorData_.slashedAt == 0 || operatorData_.slashedAt >= _timestamp,
             OperatorHasBeenSlashed()
         );
         require(operatorData_.collateralWei >= _collateral, OperatorHasInsufficientCollateral());
 
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
-        require(slasherCommitment_.optedInAt < _referenceTimestamp, OperatorHasNotOptedIn());
+        require(slasherCommitment_.optedInAt < _timestamp, OperatorHasNotOptedIn());
         require(
-            slasherCommitment_.optedOutAt == 0
-                || slasherCommitment_.optedOutAt >= _referenceTimestamp,
+            slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt >= _timestamp,
             OperatorHasNotOptedIn()
         );
     }
