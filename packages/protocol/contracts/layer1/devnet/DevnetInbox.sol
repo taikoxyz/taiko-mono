@@ -16,7 +16,7 @@ contract DevnetInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService, 
+        address _signalService,
         address _blobRefRegistry,
         address _proverMarket
     )

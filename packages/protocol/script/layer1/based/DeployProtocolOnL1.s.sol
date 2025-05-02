@@ -301,7 +301,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false),
-                    blobRefRegistry               ,
+                    blobRefRegistry,
                     address(0) // proverMarket
                 )
             ),

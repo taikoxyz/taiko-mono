@@ -191,7 +191,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     : lastBatch.lastBlockId + nBlocks;
 
                 (info_.txsHash, info_.blobHashes) =
-                    _calculateTxsHash(keccak256(_txList), info_.blobRefHash, params.blobParams);
+                    _calculateTxsHash(_txList, info_.blobRefHash, params.blobParams);
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
@@ -596,7 +596,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     function _calculateTxsHash(
-        bytes32 _txListHash,
+        bytes memory _txList,
         bytes32 _blobRefHash,
         BlobParams memory _blobParams
     )
@@ -606,17 +606,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
         uint256 numBlobs = _blobParams.numBlobs;
-        if (numBlobs != 0) {
-            blobHashes_ = new bytes32[](numBlobs);
-            for (uint256 i; i < numBlobs; ++i) {
-                unchecked {
-                    blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
-                    require(blobHashes_[i] != 0, BlobNotFound());
-                }
+        blobHashes_ = new bytes32[](numBlobs);
+        for (uint256 i; i < numBlobs; ++i) {
+            unchecked {
+                blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
+                require(blobHashes_[i] != 0, BlobNotFound());
             }
         }
 
-        txsHash_ = keccak256(abi.encode(_txListHash, _blobRefHash, blobHashes_));
+        txsHash_ = keccak256(abi.encode(_txList, _blobRefHash, blobHashes_));
     }
 
     // Private functions -----------------------------------------------------------------------

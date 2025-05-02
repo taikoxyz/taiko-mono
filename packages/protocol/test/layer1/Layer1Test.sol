@@ -46,7 +46,7 @@ contract ConfigurableInbox is TaikoInbox {
     }
 
     function _calculateTxsHash(
-        bytes32 _txListHash,
+        bytes memory _txList,
         bytes32 _blobRefHash,
         BlobParams memory _blobParams
     )
@@ -56,7 +56,7 @@ contract ConfigurableInbox is TaikoInbox {
         returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
         blobHashes_ = new bytes32[](_blobParams.numBlobs);
-        txsHash_ = keccak256(abi.encode(_txListHash, _blobRefHash, blobHashes_));
+        txsHash_ = keccak256(abi.encode(_txList, _blobRefHash, blobHashes_));
     }
 }
 
@@ -78,7 +78,12 @@ abstract contract Layer1Test is CommonTest {
                 name: "taiko",
                 impl: address(
                     new ConfigurableInbox(
-                        address(0), _verifier, _bondToken, _signalService, _blobRefRegistry, _proverMarket
+                        address(0),
+                        _verifier,
+                        _bondToken,
+                        _signalService,
+                        _blobRefRegistry,
+                        _proverMarket
                     )
                 ),
                 data: abi.encodeCall(

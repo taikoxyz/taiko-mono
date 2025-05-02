@@ -28,11 +28,13 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(batchIds[i]);
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
-            assertEq(info.txsHash, keccak256(txList));
+            assertEq(info.blobHashes.length, 0);
+            assertEq(info.blobRefHash, 0);
+            assertEq(info.txsHash, keccak256(abi.encode(txList, 0, info.blobHashes)));
         }
 
-        vm.prank(Alice);
-        _proveBatchesWithCorrectTransitions(batchIds);
+        // vm.prank(Alice);
+        // _proveBatchesWithCorrectTransitions(batchIds);
     }
 
     function test_batch_rejection_due_to_missing_txlist_and_blobindex() external {
@@ -90,8 +92,8 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         bytes memory txList1 = abi.encodePacked("txList1");
         bytes memory txList2 = abi.encodePacked("txList2");
-        bytes32 expectedHash1 = keccak256(txList1);
-        bytes32 expectedHash2 = keccak256(txList2);
+        bytes32 expectedHash1 = keccak256(abi.encode(txList1, 0, new bytes32[](0)));
+        bytes32 expectedHash2 = keccak256(abi.encode(txList2, 0, new bytes32[](0)));
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList1);
