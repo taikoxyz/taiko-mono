@@ -32,7 +32,15 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32[] signalSlots;
     }
 
+    ///@notice This struct holds blob information essential for data availability.
+    /// @dev Constraints for blob parameters:
+    /// - If `refHash` is non-zero:
+    ///   - `blobHashes` must be empty.
+    ///   - `firstBlobIndex` and `numBlobs` must be zero.
+    /// - If `blobHashes` is not empty:
+    ///   - `firstBlobIndex` and `numBlobs` must be zero.
     struct BlobParams {
+        // bytes32 refHash;
         // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
         // `numBlobs` must be 0.
         bytes32[] blobHashes;
