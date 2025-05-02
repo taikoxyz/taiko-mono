@@ -889,6 +889,18 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.True(ok)
 
+	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsInCanonicalChain(
+		context.Background(),
+		&eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
+			BlockHash:   forkA[len(forkA)-1].Hash(),
+			ParentHash:  forkA[len(forkA)-1].ParentHash(),
+		},
+		headL1Origin,
+	)
+	s.Nil(err)
+	s.True(ok)
+
 	if isInForkA {
 		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsInCanonicalChain(
 			context.Background(),

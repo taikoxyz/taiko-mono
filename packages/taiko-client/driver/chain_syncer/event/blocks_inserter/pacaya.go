@@ -2,6 +2,7 @@ package blocksinserter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -376,11 +377,11 @@ func (i *BlocksInserterPacaya) IsInCanonicalChain(
 	headL1Origin *rawdb.L1Origin,
 ) (bool, error) {
 	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber-1)))
-	if err != nil {
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch canonical parent block: %w", err)
 	}
 	// If the parent hash of the executable data matches the canonical parent block hash, it is in the canonical chain.
-	if canonicalParent.Hash() == executableData.ParentHash {
+	if canonicalParent != nil && canonicalParent.Hash() == executableData.ParentHash {
 		return true, nil
 	}
 
