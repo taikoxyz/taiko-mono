@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -833,22 +834,24 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.Nil(err)
 		s.GreaterOrEqual(len(block.Transactions()), 1)
 
+		payload := &eth.ExecutionPayload{
+			BlockHash:     block.Hash(),
+			ParentHash:    block.ParentHash(),
+			FeeRecipient:  block.Coinbase(),
+			PrevRandao:    eth.Bytes32(block.MixDigest()),
+			BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+			GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+			Timestamp:     eth.Uint64Quantity(block.Time()),
+			ExtraData:     block.Extra(),
+			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+			Transactions:  []eth.Data{b},
+			Withdrawals:   &types.Withdrawals{},
+		}
+
 		s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
 			context.Background(),
 			peer.ID(testutils.RandomBytes(32)),
-			&eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
-				BlockHash:     block.Hash(),
-				ParentHash:    block.ParentHash(),
-				FeeRecipient:  block.Coinbase(),
-				PrevRandao:    eth.Bytes32(block.MixDigest()),
-				BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
-				GasLimit:      eth.Uint64Quantity(block.GasLimit()),
-				Timestamp:     eth.Uint64Quantity(block.Time()),
-				ExtraData:     block.Extra(),
-				BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-				Transactions:  []eth.Data{b},
-				Withdrawals:   &types.Withdrawals{},
-			}},
+			&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload},
 		))
 	}
 
@@ -873,6 +876,56 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
+
+	ok, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+		context.Background(),
+		&eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
+			BlockHash:   forkB[len(forkB)-1].Hash(),
+			ParentHash:  forkB[len(forkB)-1].ParentHash(),
+		},
+		headL1Origin,
+	)
+	s.Nil(err)
+	s.True(ok)
+
+	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+		context.Background(),
+		&eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
+			BlockHash:   forkA[len(forkA)-1].Hash(),
+			ParentHash:  forkA[len(forkA)-1].ParentHash(),
+		},
+		headL1Origin,
+	)
+	s.Nil(err)
+	s.True(ok)
+
+	if isInForkA {
+		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+			context.Background(),
+			&eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
+				BlockHash:   forkB[len(forkB)-1].Hash(),
+				ParentHash:  forkB[len(forkB)-1].ParentHash(),
+			},
+			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
+		)
+		s.Nil(err)
+		s.False(ok)
+	} else {
+		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+			context.Background(),
+			&eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
+				BlockHash:   forkA[len(forkA)-1].Hash(),
+				ParentHash:  forkA[len(forkA)-1].ParentHash(),
+			},
+			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
+		)
+		s.Nil(err)
+		s.False(ok)
+	}
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingChildren() {
