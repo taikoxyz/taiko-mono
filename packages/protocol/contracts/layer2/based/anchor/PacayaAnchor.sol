@@ -51,6 +51,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     /// @notice The L1's chain ID.
     /// @dev Slot 4.
     uint64 public l1ChainId;
+    uint32 public lastAnchorGasUsed;
 
     uint256[46] private __gap;
 
