@@ -279,23 +279,31 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	if headL1Origin != nil {
 		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 			return nil, fmt.Errorf(
-				"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
+				"preconfirmation block ID (%d, %s) is less than or equal to the current head L1 origin block ID (%d)",
 				executableData.BlockNumber,
+				executableData.BlockHash,
 				headL1Origin.BlockID,
 			)
 		}
-	}
-	// Ensure the preconfirmation block is in the canonical chain.
-	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber-1)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch canonical parent block: %w", err)
-	}
-	if canonicalParent.Hash() != executableData.ParentHash {
-		return nil, fmt.Errorf(
-			"canonical parent block hash (%s) does not match the executable data parent hash (%s)",
-			canonicalParent.Hash().Hex(),
-			executableData.ParentHash.Hex(),
-		)
+
+		ok, err := i.IsInCanonicalChain(ctx, executableData, headL1Origin)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to check if preconfirmation block (%d, %s) is in canonical chain: %w",
+				executableData.BlockNumber,
+				executableData.BlockHash,
+				err,
+			)
+		}
+		if !ok {
+			return nil, fmt.Errorf(
+				"preconfirmation block (%d, %s) is not in the canonical chain, head L1 origin: (%d, %s)",
+				executableData.BlockNumber,
+				executableData.BlockHash,
+				headL1Origin.BlockID,
+				headL1Origin.L2BlockHash,
+			)
+		}
 	}
 
 	if len(executableData.Transactions) == 0 {
@@ -359,4 +367,33 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	}
 
 	return nil
+}
+
+// IsInCanonicalChain checks if the given executable data is in the canonical chain.
+func (i *BlocksInserterPacaya) IsInCanonicalChain(
+	ctx context.Context,
+	executableData *eth.ExecutionPayload,
+	headL1Origin *rawdb.L1Origin,
+) (bool, error) {
+	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber-1)))
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch canonical parent block: %w", err)
+	}
+	// If the parent hash of the executable data matches the canonical parent block hash, it is in the canonical chain.
+	if canonicalParent.Hash() == executableData.ParentHash {
+		return true, nil
+	}
+
+	// Otherwise, we try to connect the L2 ancient blocks to the L2 block in current L1 head Origin.
+	currentParent, err := i.rpc.L2.HeaderByHash(ctx, executableData.ParentHash)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch current parent block (%s): %w", executableData.ParentHash, err)
+	}
+	for currentParent.Number.Cmp(headL1Origin.BlockID) > 0 {
+		if currentParent, err = i.rpc.L2.HeaderByHash(ctx, currentParent.ParentHash); err != nil {
+			return false, fmt.Errorf("failed to fetch current parent block (%s): %w", currentParent.ParentHash, err)
+		}
+	}
+
+	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
 }
