@@ -6,6 +6,7 @@ import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/layer1/based/ITaikoInbox.sol";
+import "src/layer1/blobs/IBlobRefRegistry.sol";
 import "./IForcedInclusionStore.sol";
 
 /// @title ForcedInclusionStore
@@ -19,6 +20,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint8 public immutable inclusionDelay; // measured in the number of batches
     uint64 public immutable feeInGwei;
+    IBlobRefRegistry public immutable blobRefRegistry;
     ITaikoInbox public immutable inbox;
     address public immutable inboxWrapper;
 
@@ -51,17 +53,20 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     constructor(
         uint8 _inclusionDelay,
         uint64 _feeInGwei,
+        address _blobRefRegistry,
         address _inbox,
         address _inboxWrapper
     )
         nonZeroValue(_inclusionDelay)
         nonZeroValue(_feeInGwei)
+        nonZeroAddr(_blobRefRegistry)
         nonZeroAddr(_inbox)
         nonZeroAddr(_inboxWrapper)
         EssentialContract(address(0))
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
+        blobRefRegistry = IBlobRefRegistry(_blobRefRegistry);
         inbox = ITaikoInbox(_inbox);
         inboxWrapper = _inboxWrapper;
     }
@@ -80,17 +85,18 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         onlyStandaloneTx
         whenNotPaused
     {
-        bytes32 blobHash = _blobHash(blobIndex);
-        require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
+        uint256[] memory blobIndices = new uint256[](1);
+        blobIndices[0] = blobIndex;
+        (bytes32 blobRefHash,) = blobRefRegistry.registerRef(blobIndices);
+
         ForcedInclusion memory inclusion = ForcedInclusion({
-            blobHash: blobHash,
+            blobRefHash: blobRefHash,
             feeInGwei: uint64(msg.value / 1 gwei),
             createdAtBatchId: _nextBatchId(),
             blobByteOffset: blobByteOffset,
-            blobByteSize: blobByteSize,
-            blobCreatedIn: uint64(block.number)
+            blobByteSize: blobByteSize
         });
 
         queue[tail++] = inclusion;
@@ -139,11 +145,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     function isOldestForcedInclusionDue() external view returns (bool) {
         uint256 deadline = getOldestForcedInclusionDeadline();
         return deadline != type(uint256).max && _nextBatchId() >= deadline;
-    }
-
-    // @dev Override this function for easier testing blobs
-    function _blobHash(uint8 blobIndex) internal view virtual returns (bytes32) {
-        return blobhash(blobIndex);
     }
 
     function _nextBatchId() private view returns (uint64) {

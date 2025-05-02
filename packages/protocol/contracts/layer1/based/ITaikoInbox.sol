@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
+import "src/layer1/blobs/IBlobRefRegistry.sol";
 import "./IBondManager.sol";
 import "./IProveBatches.sol";
 
@@ -40,7 +41,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// - If `blobHashes` is not empty:
     ///   - `firstBlobIndex` and `numBlobs` must be zero.
     struct BlobParams {
-        // bytes32 refHash;
+        bytes32 refHash;
         // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
         // `numBlobs` must be 0.
         bytes32[] blobHashes;

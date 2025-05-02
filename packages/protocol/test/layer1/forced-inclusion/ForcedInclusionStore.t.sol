@@ -2,21 +2,31 @@
 pragma solidity ^0.8.24;
 
 import "../../shared/CommonTest.sol";
+import "src/layer1/blobs/BlobRefRegistry.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
+
+contract MockBlobRefRegistry is BlobRefRegistry {
+    function _blobHash(uint256 blobIndex) internal view virtual override returns (bytes32) {
+        return bytes32(uint256(blobIndex + 1));
+    }
+}
 
 contract ForcedInclusionStoreForTest is ForcedInclusionStore {
     constructor(
         uint8 _inclusionDelay,
         uint64 _feeInGwei,
+        address _blobRefRegistry,
         address _taikoInbox,
         address _taikoInboxWrapper
     )
-        ForcedInclusionStore(_inclusionDelay, _feeInGwei, _taikoInbox, _taikoInboxWrapper)
+        ForcedInclusionStore(
+            _inclusionDelay,
+            _feeInGwei,
+            _blobRefRegistry,
+            _taikoInbox,
+            _taikoInboxWrapper
+        )
     { }
-
-    function _blobHash(uint8 blobIndex) internal view virtual override returns (bytes32) {
-        return bytes32(uint256(blobIndex + 1));
-    }
 }
 
 contract MockInbox {
@@ -41,17 +51,23 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
     uint8 internal constant inclusionDelay = 12;
     uint64 internal constant feeInGwei = 0.001 ether / 1 gwei;
 
+    BlobRefRegistry internal blobRefRegistry;
     ForcedInclusionStore internal store;
     MockInbox internal mockInbox;
 
     function setUpOnEthereum() internal virtual override {
+        blobRefRegistry = new MockBlobRefRegistry();
         mockInbox = new MockInbox();
         store = ForcedInclusionStore(
             deploy({
                 name: LibStrings.B_FORCED_INCLUSION_STORE,
                 impl: address(
                     new ForcedInclusionStoreForTest(
-                        inclusionDelay, feeInGwei, address(mockInbox), whitelistedProposer
+                        inclusionDelay,
+                        feeInGwei,
+                        address(blobRefRegistry),
+                        address(mockInbox),
+                        whitelistedProposer
                     )
                 ),
                 data: abi.encodeCall(ForcedInclusionStore.init, (storeOwner))
@@ -73,20 +89,18 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         });
 
         (
-            bytes32 blobHash,
+            bytes32 blobRefHash,
             uint64 feeInGwei,
             uint64 createdAt,
             uint32 blobByteOffset,
-            uint32 blobByteSize,
-            uint64 blobCreatedIn
+            uint32 blobByteSize
         ) = store.queue(store.tail() - 1);
 
-        assertEq(blobHash, bytes32(uint256(1))); //  = blobIndex + 1
+        assertEq(blobRefHash, _calcBlobRefHash(bytes32(uint256(1))));
         assertEq(createdAt, uint64(block.timestamp));
         assertEq(feeInGwei, _feeInGwei);
         assertEq(blobByteOffset, 0);
         assertEq(blobByteSize, 1024);
-        assertEq(blobCreatedIn, uint64(block.number));
 
         vm.expectRevert(IForcedInclusionStore.MultipleCallsInOneTx.selector);
         store.storeForcedInclusion{ value: 0 }({
@@ -136,12 +150,22 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         vm.prank(whitelistedProposer);
         inclusion = store.consumeOldestForcedInclusion(Bob);
 
-        assertEq(inclusion.blobHash, bytes32(uint256(1)));
+        assertEq(inclusion.blobRefHash, _calcBlobRefHash(bytes32(uint256(1))));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 1024);
         assertEq(inclusion.feeInGwei, _feeInGwei);
         assertEq(inclusion.createdAtBatchId, 100);
         assertEq(Bob.balance, _feeInGwei * 1 gwei);
+    }
+
+    function _calcBlobRefHash(bytes32 _blobhash) internal view returns (bytes32) {
+        bytes32[] memory blobhashes = new bytes32[](1);
+        blobhashes[0] = _blobhash;
+        return keccak256(
+            abi.encode(
+                IBlobRefRegistry.BlobRef({ blockNumber: block.number, blobhashes: blobhashes })
+            )
+        );
     }
 
     function test_storeConsumeForcedInclusion_notOperator() public {
@@ -188,7 +212,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         // Verify the stored request is correct
         IForcedInclusionStore.ForcedInclusion memory inclusion = store.getForcedInclusion(0);
 
-        assertEq(inclusion.blobHash, bytes32(uint256(1)));
+        assertEq(inclusion.blobRefHash, _calcBlobRefHash(bytes32(uint256(1))));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 1024);
         assertEq(inclusion.createdAtBatchId, mockInbox.numBatches());
@@ -199,7 +223,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         // head request should be consumable
         inclusion = store.consumeOldestForcedInclusion(Bob);
-        assertEq(inclusion.blobHash, bytes32(uint256(1)));
+        assertEq(inclusion.blobRefHash, _calcBlobRefHash(bytes32(uint256(1))));
         assertEq(inclusion.blobByteOffset, 0);
         assertEq(inclusion.blobByteSize, 1024);
         assertEq(inclusion.createdAtBatchId, mockInbox.numBatches());

@@ -17,6 +17,7 @@ import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
+import "src/layer1/blobs/BlobRefRegistry.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
@@ -116,9 +117,19 @@ contract DeployProtocolOnL1 is DeployCapability {
             deployAuxContracts();
         }
 
+        address blobRefRegistry = vm.envAddress("CONTRACT_OWNER");
+        if (blobRefRegistry == address(0)) {
+            blobRefRegistry = address(new BlobRefRegistry());
+        }
+
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
             deployPreconfContracts(
-                contractOwner, rollupResolver, sharedResolver, address(taikoInbox), proofVerifier
+                contractOwner,
+                rollupResolver,
+                sharedResolver,
+                blobRefRegistry,
+                address(taikoInbox),
+                proofVerifier
             );
         }
 
@@ -483,6 +494,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address owner,
         address rollupResolver,
         address sharedResolver,
+        address blobRefRegistry,
         address taikoInbox,
         address verifier
     )
@@ -504,6 +516,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new ForcedInclusionStore(
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    blobRefRegistry,
                     taikoInbox,
                     address(1)
                 )
@@ -582,6 +595,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new ForcedInclusionStore(
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    blobRefRegistry,
                     taikoInbox,
                     taikoWrapper
                 )

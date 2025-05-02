@@ -26,6 +26,7 @@ import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
+import "src/layer1/blobs/BlobRefRegistry.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
@@ -101,6 +102,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         // OP verifier
         address opImpl = address(new OpVerifier(rollupResolver));
+
         address opVerifier = deployProxy({
             name: "op_verifier",
             impl: opImpl,
@@ -108,12 +110,18 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
+        address blobRefRegistry = address(new BlobRefRegistry());
+
         // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
         address store = deployProxy({
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
+                    uint8(inclusionWindow),
+                    uint64(inclusionFeeInGwei),
+                    blobRefRegistry,
+                    taikoInbox,
+                    address(1)
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
@@ -132,7 +140,11 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
+                    uint8(inclusionWindow),
+                    uint64(inclusionFeeInGwei),
+                    blobRefRegistry,
+                    taikoInbox,
+                    taikoWrapper
                 )
             )
         );

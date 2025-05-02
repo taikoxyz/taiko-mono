@@ -116,11 +116,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blocks[0].timeShift == 0, InvalidTimeShift());
         require(p.blocks[0].signalSlots.length == 0, InvalidSignalSlots());
 
-        require(p.blobParams.blobHashes.length == 1, InvalidBlobHashesSize());
-        require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());
+        require(p.blobParams.refHash == inclusion.blobRefHash, InvalidBlobHash());
         require(p.blobParams.byteOffset == inclusion.blobByteOffset, InvalidBlobByteOffset());
         require(p.blobParams.byteSize == inclusion.blobByteSize, InvalidBlobByteSize());
-        require(p.blobParams.createdIn == inclusion.blobCreatedIn, InvalidBlobCreatedIn());
 
         emit ForcedInclusionProcessed(inclusion);
     }

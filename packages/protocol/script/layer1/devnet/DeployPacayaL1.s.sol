@@ -31,6 +31,7 @@ import "src/layer1/hekla/HeklaInbox.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import "src/layer1/blobs/BlobRefRegistry.sol";
 
 contract DeployPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -109,12 +110,18 @@ contract DeployPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
+        address blobRefRegistry = address(new BlobRefRegistry());
+
         // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
         address store = deployProxy({
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
+                    uint8(inclusionWindow),
+                    uint64(inclusionFeeInGwei),
+                    blobRefRegistry,
+                    taikoInbox,
+                    address(1)
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
@@ -133,7 +140,11 @@ contract DeployPacayaL1 is DeployCapability {
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
+                    uint8(inclusionWindow),
+                    uint64(inclusionFeeInGwei),
+                    blobRefRegistry,
+                    taikoInbox,
+                    taikoWrapper
                 )
             )
         );

@@ -6,6 +6,9 @@ import "./IBlobRefRegistry.sol";
 /// @title BlobRefRegistry
 /// @custom:security-contact security@taiko.xyz
 contract BlobRefRegistry is IBlobRefRegistry {
+    error NoBlobsProvided();
+    error BlobNotFound();
+
     /// @dev A mapping of the hash of a blob ref to the timestamp when it was saved
     mapping(bytes32 refHash => uint256 timestamp) private _registeredHashes;
 
@@ -44,14 +47,18 @@ contract BlobRefRegistry is IBlobRefRegistry {
     /// @return The blob ref constructed from the block's number and the list of blob hashes
     function _getRef(uint256[] calldata blobIndices) private view returns (BlobRef memory) {
         uint256 nBlobs = blobIndices.length;
-        require(nBlobs != 0, "No blobs provided");
+        require(nBlobs != 0, NoBlobsProvided());
 
         bytes32[] memory blobhashes = new bytes32[](nBlobs);
         for (uint256 i; i < nBlobs; ++i) {
-            blobhashes[i] = blobhash(blobIndices[i]);
-            require(blobhashes[i] != 0, "Blob not found");
+            blobhashes[i] = _blobHash(blobIndices[i]);
+            require(blobhashes[i] != 0, BlobNotFound());
         }
 
         return BlobRef(block.number, blobhashes);
+    }
+
+    function _blobHash(uint256 blobIndex) internal view virtual returns (bytes32) {
+        return blobhash(blobIndex);
     }
 }
