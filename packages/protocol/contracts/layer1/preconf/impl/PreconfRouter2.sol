@@ -15,7 +15,7 @@ import "@eth-fabric/urc/IRegistry.sol";
 contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     ILookaheadStore public immutable lookaheadStore;
     IPreconfWhitelist public immutable preconfWhitelist;
-    IProposeBatch public immutable proposeEntrypoint;
+    IProposeBatch public immutable iProposeBatch;
     IRegistry public immutable urc;
     address public immutable preconfSlasher;
     address public immutable fallbackPreconfer;
@@ -26,7 +26,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         address _resolver,
         address _lookaheadStore,
         address _preconfWhitelist,
-        address _proposeEntrypoint,
+        address _iProposeBatch,
         address _preconfSlasher,
         address _urc,
         address _fallbackPreconfer
@@ -35,7 +35,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     {
         lookaheadStore = ILookaheadStore(_lookaheadStore);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
-        proposeEntrypoint = IProposeBatch(_proposeEntrypoint);
+        iProposeBatch = IProposeBatch(_iProposeBatch);
         preconfSlasher = _preconfSlasher;
         urc = IRegistry(_urc);
         fallbackPreconfer = _fallbackPreconfer;
@@ -88,7 +88,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for IProposeBatch.
-        (info_, meta_) = proposeEntrypoint.v4ProposeBatch(_params, _txList, hex"");
+        (info_, meta_) = iProposeBatch.v4ProposeBatch(_params, _txList, hex"");
 
         // Verify that the sender had set itself as the proposer
         require(info_.proposer == msg.sender, ProposerIsNotPreconfer());
