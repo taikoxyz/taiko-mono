@@ -444,8 +444,8 @@ importers:
         specifier: github:succinctlabs/sp1-contracts#v4.0.0
         version: sp1-contracts#v4.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/26651fdb1c1d6513443560d42888dedc3f68bde6
       urc:
-        specifier: github:eth-fabric/urc#main
-        version: urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23
+        specifier: github:dantaik/urc#use_time_instead_if_height
+        version: urc#use_time_instead_if_height@https://codeload.github.com/dantaik/urc/tar.gz/35b912d832515dc6d358693b5d919ab3d6ae35a2
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -11430,8 +11430,8 @@ packages:
   uqr@0.1.2:
     resolution: {integrity: sha512-MJu7ypHq6QasgF5YRTjqscSzQp/W11zoUk6kvmlH+fmWEs63Y0Eib13hYFwAzagRJcVY8WVnlV+eBDUGMJ5IbA==}
 
-  urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23:
-    resolution: {tarball: https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23}
+  urc#use_time_instead_if_height@https://codeload.github.com/dantaik/urc/tar.gz/35b912d832515dc6d358693b5d919ab3d6ae35a2:
+    resolution: {tarball: https://codeload.github.com/dantaik/urc/tar.gz/35b912d832515dc6d358693b5d919ab3d6ae35a2}
     version: 0.0.0
 
   uri-js@4.4.1:
@@ -27952,7 +27952,7 @@ snapshots:
 
   uqr@0.1.2: {}
 
-  urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23: {}
+  urc#use_time_instead_if_height@https://codeload.github.com/dantaik/urc/tar.gz/35b912d832515dc6d358693b5d919ab3d6ae35a2: {}
 
   uri-js@4.4.1:
     dependencies:
