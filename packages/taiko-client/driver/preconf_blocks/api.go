@@ -171,6 +171,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 						BlockHash:     header.Hash(),
 						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 					},
+					EndOfSequencing: reqBody.EndOfSequencing,
 				},
 				s.p2pSigner,
 			); err != nil {
