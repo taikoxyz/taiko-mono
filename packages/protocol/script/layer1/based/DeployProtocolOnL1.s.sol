@@ -128,7 +128,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                 contractOwner,
                 rollupResolver,
                 sharedResolver,
-                blobRefRegistry,
                 address(taikoInbox),
                 proofVerifier
             );
@@ -270,7 +269,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         copyRegister(rollupResolver, _sharedResolver, "bond_token");
         copyRegister(rollupResolver, _sharedResolver, "signal_service");
         copyRegister(rollupResolver, _sharedResolver, "bridge");
-        copyRegister(rollupResolver, _sharedResolver, "blob_ref_registry");
+        
         // Proof verifier
         proofVerifier = deployProxy({
             name: "proof_verifier",
@@ -499,7 +498,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         address owner,
         address rollupResolver,
         address sharedResolver,
-        address blobRefRegistry,
         address taikoInbox,
         address verifier
     )
