@@ -285,6 +285,18 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			)
 		}
 	}
+	// Ensure the preconfirmation block number is in the canonical chain.
+	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber-1)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch canonical parent block: %w", err)
+	}
+	if canonicalParent.Hash() != executableData.ParentHash {
+		return nil, fmt.Errorf(
+			"canonical parent block hash (%s) does not match the executable data parent hash (%s)",
+			canonicalParent.Hash().Hex(),
+			executableData.ParentHash.Hex(),
+		)
+	}
 
 	if len(executableData.Transactions) == 0 {
 		return nil, fmt.Errorf("no transactions data in the payload")
