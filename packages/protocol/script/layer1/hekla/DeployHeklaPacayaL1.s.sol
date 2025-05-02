@@ -60,7 +60,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     address public oldFork = vm.envAddress("OLD_FORK");
     address public proverSet = vm.envAddress("PROVER_SET");
     address public proverMarket = vm.envAddress("PROVER_MARKET");
-    address public blobRefRegistry = vm.envAddress("BLOB_REF_REGISTRY");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -118,11 +117,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow),
-                    uint64(inclusionFeeInGwei),
-                    blobRefRegistry,
-                    taikoInbox,
-                    address(1)
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
@@ -141,11 +136,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow),
-                    uint64(inclusionFeeInGwei),
-                    blobRefRegistry,
-                    taikoInbox,
-                    taikoWrapper
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
                 )
             )
         );
@@ -160,14 +151,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
 
         // Register taiko
         address newFork = address(
-            new HeklaInbox(
-                taikoWrapper,
-                proofVerifier,
-                taikoToken,
-                signalService,
-                proverMarket,
-                blobRefRegistry
-            )
+            new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService, proverMarket)
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);

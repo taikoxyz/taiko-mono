@@ -46,7 +46,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
     address public proverMarket = vm.envAddress("PROVER_MARKET");
     address public quotaManager = vm.envAddress("QUOTA_MANAGER");
-    address public blobRefRegistry = vm.envAddress("BLOB_REF_REGISTRY");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -59,7 +58,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(erc721Vault != address(0), "invalid erc721 vault");
         require(erc1155Vault != address(0), "invalid erc1155 vault");
         require(taikoToken != address(0), "invalid taiko token");
-        require(blobRefRegistry != address(0), "invalid blob ref registry");
         vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
@@ -116,11 +114,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             name: "forced_inclusion_store",
             impl: address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow),
-                    uint64(inclusionFeeInGwei),
-                    blobRefRegistry,
-                    taikoInbox,
-                    address(1)
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
@@ -139,11 +133,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
-                    uint8(inclusionWindow),
-                    uint64(inclusionFeeInGwei),
-                    blobRefRegistry,
-                    taikoInbox,
-                    taikoWrapper
+                    uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, taikoWrapper
                 )
             )
         );

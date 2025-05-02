@@ -19,7 +19,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint8 public immutable inclusionDelay; // measured in the number of batches
     uint64 public immutable feeInGwei;
-    IBlobRefRegistry public immutable blobRefRegistry;
     ITaikoInbox public immutable inbox;
     address public immutable inboxWrapper;
 
@@ -52,20 +51,17 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     constructor(
         uint8 _inclusionDelay,
         uint64 _feeInGwei,
-        address _blobRefRegistry,
         address _inbox,
         address _inboxWrapper
     )
         nonZeroValue(_inclusionDelay)
         nonZeroValue(_feeInGwei)
-        nonZeroAddr(_blobRefRegistry)
         nonZeroAddr(_inbox)
         nonZeroAddr(_inboxWrapper)
         EssentialContract(address(0))
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
-        blobRefRegistry = IBlobRefRegistry(_blobRefRegistry);
         inbox = ITaikoInbox(_inbox);
         inboxWrapper = _inboxWrapper;
     }
@@ -81,21 +77,20 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     )
         external
         payable
-        onlyStandaloneTx //??? TODO(daniel)
+        onlyStandaloneTx
         whenNotPaused
     {
+        bytes32 blobHash = _blobHash(blobIndex);
+        require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
-        uint256[] memory blobIndices = new uint256[](1);
-        blobIndices[0] = blobIndex;
-        (bytes32 blobRefHash,) = blobRefRegistry.registerRef(blobIndices);
-
         ForcedInclusion memory inclusion = ForcedInclusion({
-            blobRefHash: blobRefHash,
+            blobHash: blobHash,
             feeInGwei: uint64(msg.value / 1 gwei),
             createdAtBatchId: _nextBatchId(),
             blobByteOffset: blobByteOffset,
-            blobByteSize: blobByteSize
+            blobByteSize: blobByteSize,
+            blobCreatedIn: uint64(block.number)
         });
 
         queue[tail++] = inclusion;

@@ -18,7 +18,6 @@ import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/blobs/BlobRefRegistry.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
@@ -46,7 +45,6 @@ import "test/shared/DeployCapability.sol";
 contract DeployProtocolOnL1 is DeployCapability {
     uint24 constant PRECONF_COOLDOWN_WINDOW = 0 hours;
     uint24 constant DEVNET_COOLDOWN_WINDOW = 2 hours;
-    address public blobRefRegistry;
 
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
@@ -66,11 +64,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Deploy shared contracts
-        blobRefRegistry = vm.envAddress("BLOB_REF_REGISTRY");
-        if (blobRefRegistry == address(0)) {
-            blobRefRegistry = address(new BlobRefRegistry());
-        }
-
         (address sharedResolver) = deploySharedContracts(contractOwner);
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
@@ -512,7 +505,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new ForcedInclusionStore(
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
-                    blobRefRegistry,
                     taikoInbox,
                     address(1)
                 )
@@ -591,7 +583,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new ForcedInclusionStore(
                     uint8(vm.envUint("INCLUSION_WINDOW")),
                     uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
-                    blobRefRegistry,
                     taikoInbox,
                     taikoWrapper
                 )

@@ -92,7 +92,6 @@ abstract contract InboxTestBase is Layer1Test {
             address(bondToken),
             address(signalService),
             proverMarketProxy,
-            address(new BlobRefRegistry()),
             v4GetConfig()
         );
 
