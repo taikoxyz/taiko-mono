@@ -129,12 +129,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             } else if (params.blobParams.refHash != 0) {
                 require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
                 require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-
                 require(
                     blobRefRegistry.isRefRegistered(params.blobParams.refHash), InvalidBlobParams()
                 );
             } else {
-                require(params.blobParams.numBlobs != 0, InvalidBlobParams());
+                require(params.blobParams.numBlobs != 0, BlobNotSpecified());
             }
 
             // Keep track of last batch's information.
