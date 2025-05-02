@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"sync"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/gorilla/websocket"
 	"github.com/holiman/uint256"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -34,6 +36,10 @@ var (
 	errInvalidCurrOperator = errors.New("invalid operator: expected current operator in handover window")
 	errInvalidNextOperator = errors.New("invalid operator: expected next operator in handover window")
 )
+
+var wsUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
 type preconfBlockChainSyncer interface {
@@ -69,6 +75,8 @@ type PreconfBlockAPIServer struct {
 	mu                            sync.Mutex
 	blockRequests                 *lru.Cache[common.Hash, struct{}]
 	sequencingEndedForEpoch       *lru.Cache[uint64, struct{}]
+	wsClients                     map[*websocket.Conn]struct{}
+	wsMutex                       sync.Mutex
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -108,6 +116,8 @@ func New(
 		mu:                      sync.Mutex{},
 		blockRequests:           blockRequestsCache,
 		sequencingEndedForEpoch: endOfSequencingCache,
+		wsClients:               make(map[*websocket.Conn]struct{}),
+		wsMutex:                 sync.Mutex{},
 	}
 
 	server.echo.HideBanner = true
@@ -177,6 +187,34 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
+
+	s.echo.GET("/ws", s.handleWebSocket)
+}
+
+func (s *PreconfBlockAPIServer) handleWebSocket(c echo.Context) error {
+	conn, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		return err
+	}
+	s.wsMutex.Lock()
+	s.wsClients[conn] = struct{}{}
+	s.wsMutex.Unlock()
+
+	defer func() {
+		s.wsMutex.Lock()
+		delete(s.wsClients, conn)
+		s.wsMutex.Unlock()
+		conn.Close()
+	}()
+
+	// keep reading until the client disconnects
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			// ReadMessage will error when the client hangs up
+			break
+		}
+	}
+	return nil
 }
 
 // OnUnsafeL2Payload implements the p2p.GossipIn interface.
@@ -361,6 +399,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
 		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), struct{}{})
+
+		notification := map[string]interface{}{
+			"currentEpoch":    s.rpc.L1Beacon.CurrentEpoch(),
+			"endOfSequencing": true,
+		}
+
+		s.wsMutex.Lock()
+		for conn := range s.wsClients {
+			if err := conn.WriteJSON(notification); err != nil {
+				conn.Close()
+				delete(s.wsClients, conn)
+			}
+		}
+		s.wsMutex.Unlock()
 	}
 
 	return nil
