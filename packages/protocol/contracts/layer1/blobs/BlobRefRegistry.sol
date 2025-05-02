@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-
 import "./IBlobRefRegistry.sol";
 
 /// @title BlobRefRegistry
+/// @custom:security-contact security@taiko.xyz
 contract BlobRefRegistry is IBlobRefRegistry {
     /// @dev A mapping of the hash of a blob ref to the timestamp when it was saved
     mapping(bytes32 refHash => uint256 timestamp) private _registeredHashes;
 
     /// @inheritdoc IBlobRefRegistry
-    function registerRef(uint256[] calldata blobIndices) external returns (bytes32 refHash, BlobRef memory ref) {
+    function registerRef(uint256[] calldata blobIndices)
+        external
+        returns (bytes32 refHash, BlobRef memory ref)
+    {
         ref = _getRef(blobIndices);
         refHash = _registerRefHash(ref);
         emit Registered(refHash, ref);
