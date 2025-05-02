@@ -172,6 +172,7 @@ contract DeployPacayaL1 is DeployCapability {
                 proofVerifier,
                 taikoToken,
                 signalService,
+                blobRefRegistry,
                 proverMarket
             )
         );

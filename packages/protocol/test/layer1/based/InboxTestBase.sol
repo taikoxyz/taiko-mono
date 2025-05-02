@@ -64,6 +64,8 @@ abstract contract InboxTestBase is Layer1Test {
 
         __blocksPerBatch = 1;
 
+        address blobRefRegistry = address(new BlobRefRegistry());
+
         signalService = deploySignalService(address(new SignalService(address(resolver))));
 
         address verifierAddr = address(new Verifier_ToggleStub());
@@ -91,6 +93,7 @@ abstract contract InboxTestBase is Layer1Test {
             verifierAddr,
             address(bondToken),
             address(signalService),
+            blobRefRegistry,
             proverMarketProxy,
             v4GetConfig()
         );

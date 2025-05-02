@@ -158,6 +158,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
                 proofVerifier,
                 taikoToken,
                 signalService,
+                blobRefRegistry,
                 proverMarket
             )
         );

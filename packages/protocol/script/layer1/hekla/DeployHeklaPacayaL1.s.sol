@@ -160,7 +160,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
 
         // Register taiko
         address newFork = address(
-            new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService, proverMarket)
+            new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService, blobRefRegistry, proverMarket)
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);

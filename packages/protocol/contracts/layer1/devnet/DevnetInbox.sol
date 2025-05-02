@@ -16,10 +16,11 @@ contract DevnetInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService,
+        address _signalService, 
+        address _blobRefRegistry,
         address _proverMarket
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _blobRefRegistry, _proverMarket)
     {
         chainId = _chainId;
         cooldownWindow = _cooldownWindow;

@@ -49,16 +49,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         address _verifier,
         address _bondToken,
         address _signalService,
+        address _blobRefRegistry,
         address _proverMarket
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
+        nonZeroAddr(_blobRefRegistry)
         EssentialContract(address(0))
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
+        blobRefRegistry = IBlobRefRegistry(_blobRefRegistry);
         proverMarket = IProverMarket(_proverMarket);
     }
 

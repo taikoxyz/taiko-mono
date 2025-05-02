@@ -18,9 +18,10 @@ contract HeklaInbox is MainnetInbox {
         address _verifier,
         address _bondToken,
         address _signalService,
+        address _blobRefRegistry,
         address _proverMarket
     )
-        MainnetInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
+        MainnetInbox(_wrapper, _verifier, _bondToken, _signalService, _blobRefRegistry, _proverMarket)
     { }
 
     /// @notice Manually write a transition for a batch.
