@@ -42,7 +42,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidBlobHash();
     error InvalidBlobByteOffset();
     error InvalidBlobByteSize();
-    error InvalidBlobCreatedIn();
     error InvalidBlockSize();
     error InvalidTimeShift();
     error InvalidSignalSlots();

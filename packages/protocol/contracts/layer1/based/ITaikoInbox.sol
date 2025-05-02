@@ -265,7 +265,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error FirstBlockTimeShiftNotZero();
     error ForkNotActivated();
     error InsufficientBond();
-    error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidGenesisBlockHash();
     error InvalidParams();
