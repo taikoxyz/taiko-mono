@@ -36,15 +36,45 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     /// @inheritdoc ISlasher
     function slash(
-        Delegation calldata,
+        Delegation calldata _delegation,
+        Commitment calldata _commitment,
+        address _committer,
+        bytes calldata _evidence,
+        address _challenger
+    )
+        external
+        nonReentrant
+        onlyFrom(urc)
+        returns (uint256)
+    {
+        return _validateSlash(_delegation, _commitment, _committer, _evidence, _challenger);
+    }
+
+    // TODO: move below.
+    function _validateSlash(
+        Delegation calldata, /*delegaion*/
         Commitment calldata _commitment,
         address _committer,
         bytes calldata _evidence,
         address /*_challenger*/
     )
         external
-        nonReentrant
-        onlyFrom(urc)
+        view
+        returns (uint256)
+    {
+        return _validateSlash(_delegation, _commitment, _committer, _evidence, _challenger);
+    }
+
+    // TODO: move below.
+    function _validateSlash(
+        Delegation calldata, /*delegaion*/
+        Commitment calldata _commitment,
+        address _committer,
+        bytes calldata _evidence,
+        address /*_challenger*/
+    )
+        internal
+        view
         returns (uint256)
     {
         // Parse the commitment payload
