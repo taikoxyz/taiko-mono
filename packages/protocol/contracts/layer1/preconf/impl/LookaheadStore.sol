@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { LibPreconfConstants as LPC } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { LibPreconfUtils as LPU } from "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
@@ -53,9 +54,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             revert LookaheadNotRequired();
         }
 
-        _updateLookahead(
-            LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian
-        );
+        _updateLookahead(LPU.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian);
     }
 
     // View and Pure functions
@@ -70,12 +69,12 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         pure
         returns (bytes26)
     {
-        return _calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
+        return LPU.calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
     }
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
+        uint256 nextEpochTimestamp = LPU.getEpochTimestamp(1);
 
         return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
     }
@@ -111,7 +110,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
-            uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+            uint256 prevSlotTimestamp = _nextEpochTimestamp - LPC.SECONDS_IN_SLOT;
 
             uint256 minCollateralForPreconfing = getConfig().minCollateralForPreconfing;
 
@@ -123,8 +122,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     SlotTimestampIsNotIncrementing()
                 );
                 require(
-                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
-                        % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
+                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp) % LPC.SECONDS_IN_EPOCH
+                        == 0,
                     InvalidSlotTimestamp()
                 );
 
@@ -157,18 +156,24 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                prevSlotTimestamp < _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
+                prevSlotTimestamp < _nextEpochTimestamp + LPC.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
-        bytes26 lookaheadHash = _calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+        bytes26 lookaheadHash = LPU.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
 
         emit LookaheadPosted(
             _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
+    }
+
+    function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
+        LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
+        lookaheadHash.epochTimestamp = uint48(_epochTimestamp);
+        lookaheadHash.lookaheadHash = _hash;
     }
 
     function _validateLookaheadPoster(
@@ -201,7 +206,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     function _validateOperator(
         bytes32 _registrationRoot,
         uint256 _timestamp,
-        uint256 _collateral,
+        uint256 _minCollateral,
         address _slasher
     )
         internal
@@ -213,28 +218,29 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         operatorData_ = urc.getOperatorData(_registrationRoot);
         require(
-            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt >= _timestamp,
+            operatorData_.registeredAt != 0 && operatorData_.registeredAt <= _timestamp,
+            OperatorHasNotRegistered()
+        );
+        require(
+            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt > _timestamp,
             OperatorHasUnregistered()
         );
         require(
-            operatorData_.slashedAt == 0 || operatorData_.slashedAt >= _timestamp,
+            operatorData_.slashedAt == 0 || operatorData_.slashedAt > _timestamp,
             OperatorHasBeenSlashed()
         );
-        require(operatorData_.collateralWei >= _collateral, OperatorHasInsufficientCollateral());
+        require(operatorData_.collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
-        require(slasherCommitment_.optedInAt < _timestamp, OperatorHasNotOptedIn());
         require(
-            slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt >= _timestamp,
+            slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt <= _timestamp,
             OperatorHasNotOptedIn()
         );
-    }
-
-    function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
-        LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
-        lookaheadHash.epochTimestamp = uint48(_epochTimestamp);
-        lookaheadHash.lookaheadHash = _hash;
+        require(
+            slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt > _timestamp,
+            OperatorHasNotOptedIn()
+        );
     }
 
     function _getLookaheadHash(uint256 _epochTimestamp)
@@ -243,16 +249,5 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         returns (LookaheadHash storage)
     {
         return lookahead[_epochTimestamp % getConfig().lookaheadBufferSize];
-    }
-
-    function _calculateLookaheadHash(
-        uint256 _epochTimestamp,
-        LookaheadSlot[] memory _lookaheadSlots
-    )
-        internal
-        pure
-        returns (bytes26)
-    {
-        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
     }
 }
