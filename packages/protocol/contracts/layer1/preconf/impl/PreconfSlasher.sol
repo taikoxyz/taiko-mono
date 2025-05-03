@@ -42,14 +42,11 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         bytes calldata _evidence,
         address /*_challenger*/
     )
-     
-
         external
         nonReentrant
         onlyFrom(urc)
         returns (uint256)
     {
-
         // Parse the commitment payload
         CommitmentPayload memory parsedPayload =
             abi.decode(_commitment.payload, (CommitmentPayload));
@@ -66,11 +63,15 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
                 abi.decode(_evidence[1:], (EvidenceInvalidPreconfirmation));
             _validateBlockHeader(evidence.preconfedBlockHeader, parsedPayload.blockHash);
             return _slashPreconfirmationViolation(_committer, parsedPayload, evidence);
-        } else if (violationType == ViolationType.InvalidEOP) {
+        }
+
+        if (violationType == ViolationType.InvalidEOP) {
             EvidenceInvalidEOP memory evidence = abi.decode(_evidence[1:], (EvidenceInvalidEOP));
             _validateBlockHeader(evidence.preconfedBlockHeader, parsedPayload.blockHash);
             return _slashInvalidEOP(_committer, parsedPayload, evidence);
-        } else if (violationType == ViolationType.MissingEOP) {
+        }
+
+        if (violationType == ViolationType.MissingEOP) {
             EvidenceMissingEOP memory evidence = abi.decode(_evidence[1:], (EvidenceMissingEOP));
             _validateBlockHeader(evidence.preconfedBlockHeader, parsedPayload.blockHash);
             return _slashMissingEOP(_committer, parsedPayload, evidence);
