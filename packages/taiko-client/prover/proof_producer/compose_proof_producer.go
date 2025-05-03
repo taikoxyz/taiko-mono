@@ -269,16 +269,16 @@ func (s *ComposeProofProducer) requestBatchProof(
 		)
 	}
 
-	proofType = output.ProofType
-	log.Info(
-		"Batch proof generated",
-		"isAggregation", isAggregation,
-		"proofType", proofType,
-		"start", batches[0].BatchID,
-		"end", batches[len(batches)-1].BatchID,
-		"time", time.Since(requestAt),
-	)
 	if !alreadyGenerated {
+		proofType = output.ProofType
+		log.Info(
+			"Batch proof generated",
+			"isAggregation", isAggregation,
+			"proofType", proofType,
+			"start", batches[0].BatchID,
+			"end", batches[len(batches)-1].BatchID,
+			"time", time.Since(requestAt),
+		)
 		// Update metrics.
 		updateProvingMetrics(proofType, requestAt, isAggregation)
 	}

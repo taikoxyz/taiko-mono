@@ -149,16 +149,15 @@ func (s *SgxGethProofProducer) requestBatchProof(
 		)
 	}
 
-	log.Info(
-		"Batch proof generated",
-		"start", batches[0].BatchID,
-		"end", batches[len(batches)-1].BatchID,
-		"isAggregation", isAggregation,
-		"proofType", proofType,
-		"time", time.Since(requestAt),
-	)
-
 	if !alreadyGenerated {
+		log.Info(
+			"Batch proof generated",
+			"start", batches[0].BatchID,
+			"end", batches[len(batches)-1].BatchID,
+			"isAggregation", isAggregation,
+			"proofType", proofType,
+			"time", time.Since(requestAt),
+		)
 		// Update metrics.
 		updateProvingMetrics(proofType, requestAt, isAggregation)
 	}
