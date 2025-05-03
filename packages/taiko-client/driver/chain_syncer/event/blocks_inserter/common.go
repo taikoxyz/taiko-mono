@@ -291,7 +291,7 @@ func isBlockPreconfirmed(
 	)
 	executableData, err := rpc.L2Engine.GetPayload(ctx, &id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get payload: %w", err)
+		return nil, fmt.Errorf("failed to get payload for blockID %v: %w", block.NumberU64(), err)
 	}
 
 	defer func() {
