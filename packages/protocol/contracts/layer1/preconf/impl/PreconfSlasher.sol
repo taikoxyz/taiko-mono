@@ -97,7 +97,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     function _slashPreconfirmationViolation(
         address _committer,
         CommitmentPayload memory _payload,
-        EvidenceInvalidPreconfirmation memory _parsedEvidence
+        EvidenceInvalidPreconfirmation memory _evidence
     )
         internal
         returns (uint256)
@@ -111,26 +111,24 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Validate the pre-images in the evidence
         require(
-            keccak256(abi.encode(_parsedEvidence.batchMetadata)) == batch.metaHash,
-            InvalidBatchMetadata()
+            keccak256(abi.encode(_evidence.batchMetadata)) == batch.metaHash, InvalidBatchMetadata()
         );
         require(
-            keccak256(abi.encode(_parsedEvidence.batchInfo))
-                == _parsedEvidence.batchMetadata.infoHash,
+            keccak256(abi.encode(_evidence.batchInfo)) == _evidence.batchMetadata.infoHash,
             InvalidBatchInfo()
         );
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
-        if (_payload.anchorId != _parsedEvidence.batchInfo.anchorBlockId) {
+        if (_payload.anchorId != _evidence.batchInfo.anchorBlockId) {
             uint256 slashAmount = getSlashAmount().invalidPreconf;
             emit InvalidPreconfirmationSlashed(_committer, _payload, slashAmount);
             return slashAmount;
         }
 
         // Check for reorgs if the committer missed the proposal
-        if (_parsedEvidence.batchInfo.proposer != _committer) {
-            (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
+        if (_evidence.batchInfo.proposer != _committer) {
+            (bool success,) = LPC.getBeaconBlockRootContract().staticcall(
                 abi.encode(_payload.preconferSlotTimestamp)
             );
 
@@ -145,23 +143,22 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Ensure that the anchor block has not been reorged out
         require(
-            _payload.anchorHash == _parsedEvidence.batchInfo.anchorBlockHash,
-            PossibleReorgOfAnchorBlock()
+            _payload.anchorHash == _evidence.batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock()
         );
 
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
         uint256 heightOfFirstBlockInBatch =
-            _parsedEvidence.batchInfo.lastBlockId - _parsedEvidence.batchInfo.blocks.length;
-        if (_parsedEvidence.preconfedBlockHeader.number == heightOfFirstBlockInBatch) {
+            _evidence.batchInfo.lastBlockId - _evidence.batchInfo.blocks.length;
+        if (_evidence.preconfedBlockHeader.number == heightOfFirstBlockInBatch) {
             // If the preconfirmed block is the first block in the batch, we compare the parent hash
             // against the verified block hash of the previous batch, since the "batch blockhash" is
             // basically the hash of the last block.
             ITaikoInbox.TransitionState memory parentTransition =
                 taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId - 1));
             require(
-                parentTransition.blockHash == _parsedEvidence.preconfedBlockHeader.parentHash,
+                parentTransition.blockHash == _evidence.preconfedBlockHeader.parentHash,
                 ParentHashMismatch()
             );
         } else {
@@ -170,22 +167,22 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             // Slot within the TaikoAnchor contract that contains the blockhash of the parent of the
             // preconfirmed block.
             bytes32 parentBlockhashSlot =
-                keccak256(abi.encode(_parsedEvidence.preconfedBlockHeader.number - 1, bytes32(0)));
+                keccak256(abi.encode(_evidence.preconfedBlockHeader.number - 1, bytes32(0)));
 
             LibTrieProof.verifyMerkleProof(
                 transition.stateRoot,
                 resolve(l2ChainId, LibStrings.B_TAIKO, false),
                 parentBlockhashSlot,
-                _parsedEvidence.preconfedBlockHeader.parentHash,
-                _parsedEvidence.parentBlockhashProofs.accountProof,
-                _parsedEvidence.parentBlockhashProofs.storageProof
+                _evidence.preconfedBlockHeader.parentHash,
+                _evidence.parentBlockhashProofs.accountProof,
+                _evidence.parentBlockhashProofs.storageProof
             );
         }
 
         // Slot within the TaikoAnchor contract that contains the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         bytes32 blockhashSlot =
-            keccak256(abi.encode(_parsedEvidence.preconfedBlockHeader.number, bytes32(0)));
+            keccak256(abi.encode(_evidence.preconfedBlockHeader.number, bytes32(0)));
 
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
         // at the same height as the preconfirmed block.
@@ -193,16 +190,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             transition.stateRoot,
             resolve(l2ChainId, LibStrings.B_TAIKO, false),
             blockhashSlot,
-            _parsedEvidence.blockhashProofs.value,
-            _parsedEvidence.blockhashProofs.accountProof,
-            _parsedEvidence.blockhashProofs.storageProof
+            _evidence.blockhashProofs.value,
+            _evidence.blockhashProofs.accountProof,
+            _evidence.blockhashProofs.storageProof
         );
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
-        require(
-            _parsedEvidence.blockhashProofs.value != _payload.blockHash, PreconfirmationIsValid()
-        );
+        require(_evidence.blockhashProofs.value != _payload.blockHash, PreconfirmationIsValid());
 
         uint256 __slashAmount = getSlashAmount().invalidPreconf;
         emit InvalidPreconfirmationSlashed(_committer, _payload, __slashAmount);
@@ -212,7 +207,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     function _slashInvalidEOP(
         address _committer,
         CommitmentPayload memory _payload,
-        EvidenceInvalidEOP memory _parsedEvidence
+        EvidenceInvalidEOP memory _evidence
     )
         internal
         returns (uint256)
@@ -223,7 +218,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
 
         // Slash if another block was proposed after EOP in the same batch
-        if (_parsedEvidence.preconfedBlockHeader.number != batch.lastBlockId) {
+        if (_evidence.preconfedBlockHeader.number != batch.lastBlockId) {
             uint256 slashAmount = getSlashAmount().invalidEOP;
             emit InvalidEOPSlashed(_committer, _payload, slashAmount);
             return slashAmount;
@@ -231,7 +226,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
         require(
-            keccak256(abi.encode(nextBatch.metaHash)) == _parsedEvidence.nextBatchMetadata.infoHash,
+            keccak256(abi.encode(nextBatch.metaHash)) == _evidence.nextBatchMetadata.infoHash,
             InvalidNextBatchMetadata()
         );
 
@@ -239,8 +234,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // We validate this by comparing the proposal timestamp to the timestamp of the preconfer's
         // lookahead slot.
         require(
-            _parsedEvidence.nextBatchMetadata.proposedAt <= _payload.preconferSlotTimestamp,
-            EOPIsValid()
+            _evidence.nextBatchMetadata.proposedAt <= _payload.preconferSlotTimestamp, EOPIsValid()
         );
 
         uint256 _slashAmount = getSlashAmount().invalidEOP;
@@ -251,7 +245,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     function _slashMissingEOP(
         address _committer,
         CommitmentPayload memory _payload,
-        EvidenceMissingEOP memory _parsedEvidence
+        EvidenceMissingEOP memory _evidence
     )
         internal
         returns (uint256)
@@ -261,15 +255,15 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
         require(
-            keccak256(abi.encode(nextBatch.metaHash)) == _parsedEvidence.nextBatchMetadata.infoHash,
+            keccak256(abi.encode(nextBatch.metaHash)) == _evidence.nextBatchMetadata.infoHash,
             InvalidNextBatchMetadata()
         );
 
         // The block with missing EOP should be the last block in the batch and the next batch
         // should have been proposed after the lookahead slot.
         require(
-            _parsedEvidence.preconfedBlockHeader.number == nextBatch.lastBlockId
-                && _parsedEvidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
+            _evidence.preconfedBlockHeader.number == nextBatch.lastBlockId
+                && _evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
             EOPIsNotMissing()
         );
 
