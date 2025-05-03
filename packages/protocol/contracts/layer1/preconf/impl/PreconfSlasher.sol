@@ -215,7 +215,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         returns (uint256)
     {
         // Validate that the commitment is an EOP
-        require(_parsedPayload.eop == true, NotEndOfPreconfirmation());
+        require(_parsedPayload.blockType == BlockType.BatchEndAndEOP, InvalidBlockType());
 
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_parsedPayload.batchId));
 
@@ -255,7 +255,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         returns (uint256)
     {
         // Validate that the commitment is not an EOP
-        require(_parsedPayload.eop == false, EOPIsPresent());
+        require(_parsedPayload.blockType != BlockType.BatchEndAndEOP, InvalidBlockType());
 
         ITaikoInbox.Batch memory nextBatch =
             taikoInbox.v4GetBatch(uint64(_parsedPayload.batchId + 1));
