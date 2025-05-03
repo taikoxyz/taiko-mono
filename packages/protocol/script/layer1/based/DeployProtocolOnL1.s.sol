@@ -418,7 +418,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         address sgxImpl =
-            address(new TaikoSgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
+            address(new TaikoSgxVerifier(taikoInbox, taikoProofVerifier, automataProxy));
         sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
             impl: sgxImpl,
