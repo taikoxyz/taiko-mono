@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/preconf/iface/IPreconfSlasher.sol";
-import "src/shared/common/EssentialContract.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibTrieProof.sol";
 import "solady/src/utils/LibRLP.sol";
@@ -43,9 +43,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         address
     )
         external
+        nonReentrant
+        onlyFrom(urc)
         returns (uint256)
     {
-        require(msg.sender == urc, SenderIsNotUrc());
 
         // Parse the commitment payload
         CommitmentPayload memory parsedPayload =

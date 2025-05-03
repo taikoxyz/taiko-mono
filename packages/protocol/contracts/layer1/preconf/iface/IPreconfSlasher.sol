@@ -155,7 +155,6 @@ interface IPreconfSlasher is ISlasher {
     error ParentHashMismatch();
     error PossibleReorgOfAnchorBlock();
     error PreconfirmationIsValid();
-    error SenderIsNotUrc();
 
     /// @notice Returns the slash amount for each violation type
     /// @return slashAmount The slash amount for each violation type
