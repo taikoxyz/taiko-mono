@@ -239,7 +239,7 @@ contract DeployPacayaL1 is DeployCapability {
     {
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(l2ChainId, taikoInbox, proofVerifier, automata)),
+            impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automata)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
