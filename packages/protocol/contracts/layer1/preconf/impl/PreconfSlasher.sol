@@ -7,7 +7,7 @@ import { LibPreconfConstants as LPC } from "src/layer1/preconf/libs/LibPreconfCo
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibTrieProof.sol";
-import "solady/src/utils/LibRLP.sol";
+import "../libs/LibBlockHeader.sol";
 
 /// @title PreconfSlasher
 /// @custom:security-contact security@taiko.xyz
@@ -45,7 +45,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         external
         nonReentrant
         onlyFrom(urc)
-        returns (uint256)
+        returns (uint256 slashAmount_)
     {
         // Parse the commitment payload
         CommitmentPayload memory payload = abi.decode(_commitment.payload, (CommitmentPayload));
@@ -57,27 +57,29 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Parse the violation type from the first byte
         ViolationType violationType = ViolationType(uint8(_evidence[0]));
 
+        LibBlockHeader.BlockHeader memory blockHeader;
         // Parse the evidence based on violation type
         if (violationType == ViolationType.InvalidPreconfirmation) {
             EvidenceInvalidPreconfirmation memory evidence =
                 abi.decode(_evidence[1:], (EvidenceInvalidPreconfirmation));
-            _validateBlockHeader(evidence.preconfedBlockHeader, payload.blockHash);
-            return _slashPreconfirmationViolation(_committer, payload, evidence);
-        }
-
-        if (violationType == ViolationType.InvalidEOP) {
+            blockHeader = evidence.preconfedBlockHeader;
+            slashAmount_ = _slashPreconfirmationViolation(_committer, payload, evidence);
+        } else if (violationType == ViolationType.InvalidEOP) {
             EvidenceInvalidEOP memory evidence = abi.decode(_evidence[1:], (EvidenceInvalidEOP));
-            _validateBlockHeader(evidence.preconfedBlockHeader, payload.blockHash);
-            return _slashInvalidEOP(_committer, payload, evidence);
-        }
-
-        if (violationType == ViolationType.MissingEOP) {
+            blockHeader = evidence.preconfedBlockHeader;
+            slashAmount_ = _slashInvalidEOP(_committer, payload, evidence);
+        } else if (violationType == ViolationType.MissingEOP) {
             EvidenceMissingEOP memory evidence = abi.decode(_evidence[1:], (EvidenceMissingEOP));
-            _validateBlockHeader(evidence.preconfedBlockHeader, payload.blockHash);
-            return _slashMissingEOP(_committer, payload, evidence);
+            blockHeader = evidence.preconfedBlockHeader;
+            slashAmount_ = _slashMissingEOP(_committer, payload, evidence);
+        } else {
+            revert InvalidViolationType();
         }
 
-        revert InvalidViolationType();
+        require(
+            keccak256(LibBlockHeader.rlpEncodeBlockHeader(blockHeader)) == payload.blockHash,
+            InvalidBlockHeader()
+        );
     }
 
     // View functions --------------------------------------------------------------------------
@@ -270,37 +272,5 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         uint256 slashAmount = getSlashAmount().missingEOP;
         emit MissingEOPSlashed(_committer, _payload, slashAmount);
         return slashAmount;
-    }
-
-    function _validateBlockHeader(
-        BlockHeader memory _header,
-        bytes32 _expectedHash
-    )
-        internal
-        pure
-    {
-        LibRLP.List memory headerList = LibRLP.l();
-        headerList = LibRLP.p(headerList, uint256(_header.parentHash));
-        headerList = LibRLP.p(headerList, uint256(_header.ommersHash));
-        headerList = LibRLP.p(headerList, _header.coinbase);
-        headerList = LibRLP.p(headerList, uint256(_header.stateRoot));
-        headerList = LibRLP.p(headerList, uint256(_header.transactionsRoot));
-        headerList = LibRLP.p(headerList, uint256(_header.receiptRoot));
-        headerList = LibRLP.p(headerList, _header.bloom);
-        headerList = LibRLP.p(headerList, _header.difficulty);
-        headerList = LibRLP.p(headerList, _header.number);
-        headerList = LibRLP.p(headerList, _header.gasLimit);
-        headerList = LibRLP.p(headerList, _header.gasUsed);
-        headerList = LibRLP.p(headerList, _header.timestamp);
-        headerList = LibRLP.p(headerList, _header.extraData);
-        headerList = LibRLP.p(headerList, uint256(_header.prevRandao));
-        headerList = LibRLP.p(headerList, uint64(_header.nonce));
-        headerList = LibRLP.p(headerList, _header.baseFeePerGas);
-        headerList = LibRLP.p(headerList, uint256(_header.withdrawalsRoot));
-        headerList = LibRLP.p(headerList, _header.blobGasUsed);
-        headerList = LibRLP.p(headerList, _header.excessBlobGas);
-        headerList = LibRLP.p(headerList, uint256(_header.parentBeaconBlockRoot));
-
-        require(keccak256(LibRLP.encode(headerList)) == _expectedHash, InvalidBlockHeader());
     }
 }
