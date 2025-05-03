@@ -39,7 +39,13 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external {
+    function updateLookahead(
+        bytes32 _registrationRoot,
+        bytes calldata _data
+    )
+        external
+        nonReentrant
+    {
         bool isPostedByGuardian = msg.sender == guardian;
         LookaheadPayload[] memory lookaheadPayloads;
 
