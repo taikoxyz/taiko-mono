@@ -40,8 +40,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         Commitment calldata _commitment,
         address _committer,
         bytes calldata _evidence,
-        address
+        address /*_challenger*/
     )
+     
+
         external
         nonReentrant
         onlyFrom(urc)
