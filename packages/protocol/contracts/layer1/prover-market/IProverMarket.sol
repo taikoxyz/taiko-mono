@@ -9,7 +9,12 @@ interface IProverMarket {
 
     /// @notice Returns the current winning prover and proving fee per batch.
     /// @dev address(0) and 0 will be returned if there is no current prover.
+    /// @param _proposer The address of the current proposer to check against the prover's
+    /// blacklist. If the value is address(0), the prover's blacklist will not be checked.
     /// @return prover_ The address of the current winning prover.
     /// @return fee_ The proving fee per batch.
-    function getCurrentProver() external view returns (address prover_, uint256 fee_);
+    function getCurrentProver(address _proposer)
+        external
+        view
+        returns (address prover_, uint256 fee_);
 }

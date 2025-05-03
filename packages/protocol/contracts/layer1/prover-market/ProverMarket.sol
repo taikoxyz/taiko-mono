@@ -6,6 +6,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 import "./IProverMarket.sol";
+import "./IProverBlacklist.sol";
 
 /// @title ProverMarket
 /// @custom:security-contact security@taiko.xyz
@@ -29,6 +30,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     ITaikoInbox public immutable inbox;
+    IProverBlacklist public immutable proverBlacklist;
     /// @dev If a prover’s available bond balance is below this threshold, they are not eligible
     /// to participate in the bidding process.
     uint256 public immutable biddingThreshold;
@@ -58,6 +60,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     constructor(
         address _inbox,
+        address _proverBlacklist,
         uint256 _biddingThreshold,
         uint256 _outbidThreshold,
         uint256 _provingThreshold,
@@ -72,6 +75,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         require(_provingThreshold > 0, InvalidThresholds());
 
         inbox = ITaikoInbox(_inbox);
+        proverBlacklist = IProverBlacklist(_proverBlacklist);
 
         biddingThreshold = _biddingThreshold;
         outbidThreshold = _outbidThreshold;
@@ -129,10 +133,18 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @inheritdoc IProverMarket
-    function getCurrentProver() public view returns (address, uint256) {
+    function getCurrentProver(address _proposer) public view returns (address, uint256) {
         (address currentProver, uint64 currentFeeInGwei) = _getCurrentProverAndFeeInGwei();
-        return
-            currentProver == address(0) ? (address(0), 0) : (currentProver, currentFeeInGwei * GWEI);
+        if (currentProver == address(0)) {
+            return (address(0), 0);
+        } else if (
+            _proposer != address(0) && address(proverBlacklist) != address(0)
+                && proverBlacklist.isBlacklistedBy(_proposer, currentProver)
+        ) {
+            return (address(0), 0);
+        } else {
+            return (currentProver, currentFeeInGwei * GWEI);
+        }
     }
 
     function _getCurrentProverAndFeeInGwei() internal view returns (address, uint64) {

@@ -203,8 +203,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             if (address(proverMarket) != address(0) && params.optInProverMarket) {
                 uint256 proverFee;
-                (meta_.prover, proverFee) = proverMarket.getCurrentProver();
+                (meta_.prover, proverFee) = proverMarket.getCurrentProver(info_.proposer);
                 require(meta_.prover != address(0), NoProverAvailable());
+
                 if (info_.proposer == meta_.prover) {
                     // proposer is the same as the prover, no need to pay the prover fee.
                     _debitBond(meta_.prover, config.livenessBondBase);
@@ -410,7 +411,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @inheritdoc IBondManager
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
         if (address(proverMarket) != address(0)) {
-            (address currentProver,) = proverMarket.getCurrentProver();
+            (address currentProver,) = proverMarket.getCurrentProver(address(0));
             require(msg.sender != currentProver, CurrentProverCannotWithdraw());
         }
 

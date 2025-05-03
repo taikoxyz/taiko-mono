@@ -75,6 +75,7 @@ abstract contract InboxTestBase is Layer1Test {
         address proverMarketImpl = address(
             new ProverMarket(
                 dummyInboxAddress,
+                address(0), // prover blacklist,
                 200 ether, //BIDDING_THRESHOLD
                 100 ether, //OUTBID_THRESHOLD
                 50 ether, // PROVING_THRESHOLD
@@ -98,6 +99,7 @@ abstract contract InboxTestBase is Layer1Test {
         address realProverMarketImpl = address(
             new ProverMarket(
                 address(inbox),
+                address(0), // prover blacklist,
                 200 ether, //BIDDING_THRESHOLD
                 100 ether, //OUTBID_THRESHOLD
                 50 ether, // PROVING_THRESHOLD

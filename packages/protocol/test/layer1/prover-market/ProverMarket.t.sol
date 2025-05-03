@@ -34,6 +34,7 @@ contract ProverMarketTest is CommonTest {
 
         market = new ProverMarket(
             address(mockInbox),
+            address(0), // prover blacklist,
             BIDDING_THRESHOLD,
             OUTBID_THRESHOLD,
             PROVING_THRESHOLD,
@@ -50,7 +51,7 @@ contract ProverMarketTest is CommonTest {
         vm.prank(PROVER1);
         market.bid(fee, exitTimestamp);
 
-        (address currentProver, uint256 currentFee) = market.getCurrentProver();
+        (address currentProver, uint256 currentFee) = market.getCurrentProver(address(0));
         assertEq(currentProver, PROVER1);
         assertEq(currentFee, fee);
     }
@@ -84,7 +85,7 @@ contract ProverMarketTest is CommonTest {
         vm.prank(PROVER2);
         market.bid(fee2, exitTimestamp2);
 
-        (address currentProver, uint256 currentFee) = market.getCurrentProver();
+        (address currentProver, uint256 currentFee) = market.getCurrentProver(address(0));
         assertEq(currentProver, PROVER2);
         assertEq(currentFee, fee2);
     }
@@ -114,7 +115,7 @@ contract ProverMarketTest is CommonTest {
         vm.prank(PROVER2);
         market.bid(fee2, exitTimestamp2);
 
-        (address currentProver, uint256 currentFee) = market.getCurrentProver();
+        (address currentProver, uint256 currentFee) = market.getCurrentProver(address(0));
         assertEq(currentProver, PROVER2);
         assertEq(currentFee, fee2);
     }
@@ -137,7 +138,7 @@ contract ProverMarketTest is CommonTest {
         vm.prank(PROVER2);
         market.bid(fee2, exitTimestamp2);
 
-        (address currentProver, uint256 currentFee) = market.getCurrentProver();
+        (address currentProver, uint256 currentFee) = market.getCurrentProver(address(0));
         assertEq(currentProver, PROVER2);
         assertEq(currentFee, fee2);
     }
@@ -162,7 +163,9 @@ contract ProverMarketTest is CommonTest {
 
     function test_invalidThresholds_reverts() public {
         vm.expectRevert(ProverMarket.InvalidThresholds.selector);
-        new ProverMarket(address(mockInbox), 100 ether, 200 ether, 50 ether, MIN_EXIT_DELAY);
+        new ProverMarket(
+            address(mockInbox), address(0), 100 ether, 200 ether, 50 ether, MIN_EXIT_DELAY
+        );
     }
 
     function test_cannotFitToUint64_reverts() public {
