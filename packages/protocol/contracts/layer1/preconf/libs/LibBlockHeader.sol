@@ -31,27 +31,27 @@ library LibBlockHeader {
     }
 
     function encodeRLP(BlockHeader memory _blockHeader) internal pure returns (bytes memory) {
-        LibRLP.List memory headerList = LibRLP.l();
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.parentHash));
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.ommersHash));
-        headerList = LibRLP.p(headerList, _blockHeader.coinbase);
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.stateRoot));
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.transactionsRoot));
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.receiptRoot));
-        headerList = LibRLP.p(headerList, _blockHeader.bloom);
-        headerList = LibRLP.p(headerList, _blockHeader.difficulty);
-        headerList = LibRLP.p(headerList, _blockHeader.number);
-        headerList = LibRLP.p(headerList, _blockHeader.gasLimit);
-        headerList = LibRLP.p(headerList, _blockHeader.gasUsed);
-        headerList = LibRLP.p(headerList, _blockHeader.timestamp);
-        headerList = LibRLP.p(headerList, _blockHeader.extraData);
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.prevRandao));
-        headerList = LibRLP.p(headerList, uint64(_blockHeader.nonce));
-        headerList = LibRLP.p(headerList, _blockHeader.baseFeePerGas);
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.withdrawalsRoot));
-        headerList = LibRLP.p(headerList, _blockHeader.blobGasUsed);
-        headerList = LibRLP.p(headerList, _blockHeader.excessBlobGas);
-        headerList = LibRLP.p(headerList, uint256(_blockHeader.parentBeaconBlockRoot));
-        return LibRLP.encode(headerList);
+        LibRLP.List memory list = LibRLP.l();
+        list = LibRLP.p(list, uint256(_blockHeader.parentHash));
+        list = LibRLP.p(list, uint256(_blockHeader.ommersHash));
+        list = LibRLP.p(list, _blockHeader.coinbase);
+        list = LibRLP.p(list, uint256(_blockHeader.stateRoot));
+        list = LibRLP.p(list, uint256(_blockHeader.transactionsRoot));
+        list = LibRLP.p(list, uint256(_blockHeader.receiptRoot));
+        list = LibRLP.p(list, _blockHeader.bloom);
+        list = LibRLP.p(list, _blockHeader.difficulty);
+        list = LibRLP.p(list, _blockHeader.number);
+        list = LibRLP.p(list, _blockHeader.gasLimit);
+        list = LibRLP.p(list, _blockHeader.gasUsed);
+        list = LibRLP.p(list, _blockHeader.timestamp);
+        list = LibRLP.p(list, _blockHeader.extraData);
+        list = LibRLP.p(list, uint256(_blockHeader.prevRandao));
+        list = LibRLP.p(list, uint64(_blockHeader.nonce));
+        list = LibRLP.p(list, _blockHeader.baseFeePerGas);
+        list = LibRLP.p(list, uint256(_blockHeader.withdrawalsRoot));
+        list = LibRLP.p(list, _blockHeader.blobGasUsed);
+        list = LibRLP.p(list, _blockHeader.excessBlobGas);
+        list = LibRLP.p(list, uint256(_blockHeader.parentBeaconBlockRoot));
+        return LibRLP.encode(list);
     }
 }

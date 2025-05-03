@@ -49,17 +49,15 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         onlyFrom(urc)
         returns (uint256 slashAmount_)
     {
-        // Parse the commitment payload
+        // Parse and validate the commitment payload
         CommitmentPayload memory payload = abi.decode(_commitment.payload, (CommitmentPayload));
-
-        // Validate the commitment payload
         require(payload.chainId == l2ChainId, InvalidChainId());
         require(payload.domainSeparator == LPC.PRECONF_DOMAIN_SEPARATOR, InvalidDomainSeparator());
 
         // Parse the violation type from the first byte
         ViolationType violationType = ViolationType(uint8(_evidence[0]));
-
         LibBlockHeader.BlockHeader memory blockHeader;
+
         // Parse the evidence based on violation type
         if (violationType == ViolationType.InvalidPreconfirmation) {
             EvidenceInvalidPreconfirmation memory evidence =
