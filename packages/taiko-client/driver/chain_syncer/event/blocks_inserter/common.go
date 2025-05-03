@@ -292,11 +292,11 @@ func isBlockPreconfirmed(
 	executableData, err := rpc.L2Engine.GetPayload(ctx, &id)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to get payload for blockID: %v, blockHash: %v, metaParentHash: %v id: %v: %w",
+			"failed to get payload for blockID: %v, blockHash: %v, metaParentHash: %v timestamp: %v: %w",
 			block.NumberU64(),
 			block.Hash().Hex(),
 			meta.Parent.Hash(),
-			id.String(),
+			block.Time(),
 			err,
 		)
 	}
