@@ -12,6 +12,8 @@ import "../libs/LibBlockHeader.sol";
 /// @title PreconfSlasher
 /// @custom:security-contact security@taiko.xyz
 contract PreconfSlasher is IPreconfSlasher, EssentialContract {
+    using LibBlockHeader for LibBlockHeader.BlockHeader;
+
     address public immutable urc;
     ITaikoInbox public immutable taikoInbox;
     uint64 public immutable l2ChainId;
@@ -76,10 +78,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             revert InvalidViolationType();
         }
 
-        require(
-            keccak256(LibBlockHeader.rlpEncodeBlockHeader(blockHeader)) == payload.blockHash,
-            InvalidBlockHeader()
-        );
+        require(keccak256(blockHeader.encodeRLP()) == payload.blockHash, InvalidBlockHeader());
     }
 
     // View functions --------------------------------------------------------------------------

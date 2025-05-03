@@ -30,11 +30,7 @@ library LibBlockHeader {
         bytes32 parentBeaconBlockRoot;
     }
 
-    function rlpEncodeBlockHeader(BlockHeader memory _blockHeader)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function encodeRLP(BlockHeader memory _blockHeader) internal pure returns (bytes memory) {
         LibRLP.List memory headerList = LibRLP.l();
         headerList = LibRLP.p(headerList, uint256(_blockHeader.parentHash));
         headerList = LibRLP.p(headerList, uint256(_blockHeader.ommersHash));
