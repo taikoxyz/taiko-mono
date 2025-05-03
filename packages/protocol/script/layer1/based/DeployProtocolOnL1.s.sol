@@ -445,8 +445,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         require(l2ChainId != block.chainid, "same chainid");
 
         address sgxImpl =
-            address(new TaikoSgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, automataProxy));
-
+            address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy));
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
             impl: sgxImpl,
@@ -478,9 +477,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
-            impl: address(
-                new TaikoSgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
-            ),
+            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner),
             registerTo: rollupResolver
         });

@@ -254,7 +254,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
