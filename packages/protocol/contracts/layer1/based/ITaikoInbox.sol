@@ -127,8 +127,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // The ID of the transaction that is used to verify this batch. However, if this batch is
         // not verified as the last one in a transaction, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
-         uint8 reserved5;
-        
+        uint8 reserved5;
     }
 
     /// @notice Forge is only able to run coverage in case the contracts by default capable of
