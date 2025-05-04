@@ -195,7 +195,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
-                    prover: info_.proposer,
+                    prover: info_.proposer, // this value may change below
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp)
                 });
@@ -239,6 +239,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 batch.nextTransitionId = 1;
                 batch.verifiedTransitionId = 0;
                 batch.reserved4 = 0;
+                batch.reserved5 = 0;
                 // SSTORE }}
 
                 // SSTORE #3 {{
