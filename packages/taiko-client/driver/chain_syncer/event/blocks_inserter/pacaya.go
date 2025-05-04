@@ -244,7 +244,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	for j, executableData := range executionPayloads {
 		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert preconf block %v: %w", executableData.BlockNumber, err)
+			return nil, fmt.Errorf("failed to insert preconf block %d: %w", executableData.BlockNumber, err)
 		}
 		log.Info(
 			"⏰ New preconfirmation L2 block inserted",
