@@ -226,12 +226,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     /// @dev Validates if the operator is registered and has not been slashed at the given epoch
     /// timestamp. We use the epoch timestamp of the epoch in which the lookahead is posted to
-    /// validate the registration and sloashing status.
-    /// @param _registrationRoot The registration root of the operator
-    /// @param _operationTimestamp The timestamp of the operation (posting or preconfing)
-    /// @param _collateralTimestamp The timestamp for querying the collateral balance
-    /// @param _minCollateral The minimum collateral required for the operation
-    /// @param _slasher The slasher address
+    /// validate the registration and slashing status.
     function _validateOperator(
         bytes32 _registrationRoot,
         uint256 _operationTimestamp,
