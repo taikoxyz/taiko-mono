@@ -200,8 +200,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 if (params.proverAuth.length != 0) {
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
+                    bytes32 paramsHash = keccak256(abi.encode(params));
                     (address prover, uint96 proverFee) = LibProverAuth.validateProverAuth(
-                        keccak256(abi.encode(params, txListHash)), params.proverAuth
+                        config.chainId, paramsHash, txListHash, params.proverAuth
                     );
 
                     require(prover != address(0), InvalidProverAuth());

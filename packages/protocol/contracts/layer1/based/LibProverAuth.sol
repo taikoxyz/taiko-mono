@@ -13,14 +13,23 @@ library LibProverAuth {
 
     struct ProverAuth {
         uint96 fee;
-        uint64 validUntil;
+        uint64 validUntil; // Optional expiration
+        uint64 chainId; // Replay protection across chains
+        bytes32 batchParamsHash; // hash of batch parameters
+        bytes32 txListHash; // hash of the tx list
         bytes signature;
     }
 
     error InvalidValidUntil();
+    error MismatchingBatchParamsHash();
+    error MismatchingChainId();
+    error MismatchingTxListHash();
 
     function validateProverAuth(
-        bytes32 _dataHash,
+        uint64 _chainId,
+        bytes32 _batchParamsHash,
+        bytes32 _txListHash, // basically the "TX" (location) identifier of some sort. Same as
+            // return value of: _calculateTxsHash(txListHash, params.blobParams)
         bytes calldata _proverAuth
     )
         public
@@ -29,11 +38,32 @@ library LibProverAuth {
     {
         ProverAuth memory auth = abi.decode(_proverAuth, (ProverAuth));
 
-        require(auth.validUntil == 0 || auth.validUntil >= block.timestamp, InvalidValidUntil());
+        // If `validUntil` is used, make sure it's still valid
+        if (auth.validUntil != 0 && auth.validUntil < block.timestamp) {
+            revert InvalidValidUntil();
+        }
 
+        if (auth.chainId != _chainId) {
+            revert MismatchingChainId();
+        }
+
+        if (auth.batchParamsHash != _batchParamsHash) {
+            revert MismatchingBatchParamsHash();
+        }
+
+        if (auth.txListHash != _txListHash) {
+            revert MismatchingTxListHash();
+        }
+
+        // Save the signature
         bytes memory signature = auth.signature;
+        // The payload what the prover signed had obviously no signature before so clear the
+        // signature before hashing
         auth.signature = ""; // clear the signature before hashing
-        prover_ = keccak256(abi.encode("PROVER_AUTHENTICATION", auth, _dataHash)).recover(signature);
+
+        bytes32 digest = keccak256(abi.encode("PROVER_AUTHENTICATION", auth));
+
+        prover_ = digest.recover(signature);
         fee_ = auth.fee;
     }
 }
