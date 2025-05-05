@@ -12,6 +12,7 @@ library LibProverAuth {
     using ECDSA for bytes32;
 
     struct ProverAuth {
+        address feeToken;
         uint96 fee;
         uint64 validUntil; // optional, for expiration
         uint64 chainId; // replay protection across chains
@@ -34,7 +35,7 @@ library LibProverAuth {
     )
         public
         view
-        returns (address prover_, uint96 fee_)
+        returns (address prover_, uint96 fee_, address feeToken_)
     {
         ProverAuth memory auth = abi.decode(_proverAuth, (ProverAuth));
 
@@ -65,5 +66,6 @@ library LibProverAuth {
 
         prover_ = digest.recover(signature);
         fee_ = auth.fee;
+        feeToken_ = auth.feeToken;
     }
 }
