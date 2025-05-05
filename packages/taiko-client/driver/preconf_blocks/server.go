@@ -1054,17 +1054,28 @@ func (s *PreconfBlockAPIServer) startHandoverMonitor(ctx context.Context) {
 
 			// on transition from non‑sequencer -> sequencer:
 			if isSequencer && !wasSequencer {
+				log.Debug("startHandoverMonitor transitioning from not sequencer to sequencing, checking for end of sequencing")
 				epoch := s.rpc.L1Beacon.CurrentEpoch()
 
 				// only fire if we haven't seen an EndOfSequencing for this epoch
-				if _, seen := s.sequencingEndedForEpoch.Get(epoch); !seen {
+				hash, seen := s.sequencingEndedForEpoch.Get(epoch)
+
+				if !seen {
+					log.Debug("startHandoverMonitor requesting end of sequencing for epoch", "epoch", epoch)
+
 					if err := s.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(context.Background(), epoch); err != nil {
 						log.Warn(
-							"handover‑monitor: failed to publish end‑of‑sequencing request",
+							"startHandoverMonitor failed to publish end‑of‑sequencing request",
 							"epoch", epoch,
 							"error", err,
 						)
 					}
+				} else {
+					log.Debug(
+						"startHandoverMonitor end of sequencing already seen",
+						"epoch", epoch,
+						"hash", hash.Hex(),
+					)
 				}
 			}
 
