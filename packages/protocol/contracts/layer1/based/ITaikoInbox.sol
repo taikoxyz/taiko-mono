@@ -49,13 +49,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 createdIn;
     }
 
-    struct ProverAuth {
-        uint96 fee;
-        uint64 validForBatchId;
-        uint64 validUntil;
-        bytes signature;
-    }
-
     struct BatchParams {
         address proposer;
         address coinbase;
@@ -271,8 +264,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error InvalidBlobParams();
     error InvalidGenesisBlockHash();
     error InvalidParams();
-    error InvalidProverAuthBatchId();
-    error InvalidProverAuthValidUntil();
+    error InvalidProverAuth();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();

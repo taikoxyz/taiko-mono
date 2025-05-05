@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
@@ -13,6 +13,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
+import "./LibProverAuth.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -198,29 +199,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 });
 
                 if (params.proverAuth.length != 0) {
-                    ProverAuth memory auth = abi.decode(params.proverAuth, (ProverAuth));
-                    require(
-                        auth.validForBatchId == 0 || auth.validForBatchId == stats2.numBatches,
-                        InvalidProverAuthBatchId()
-                    );
-                    require(
-                        auth.validUntil == 0 || auth.validUntil >= block.timestamp,
-                        InvalidProverAuthValidUntil()
+                    (address prover, uint96 proverFee) = LibProverAuth.validateProverAuth(
+                        keccak256(abi.encode(params, txListHash)), params.proverAuth
                     );
 
-                    bytes memory signature = auth.signature;
-                    auth.signature = ""; // clear the signature before hashing
-
-                    meta_.prover = keccak256(
-                        abi.encode("PROVER_AUTHENTICATION", auth, params, txListHash)
-                    ).recover(signature);
+                    require(prover != address(0), InvalidProverAuth());
 
                     // proposer pay the prover fee.
-                    _debitBond(info_.proposer, auth.fee);
+                    _debitBond(info_.proposer, proverFee);
 
                     // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
                     // if not then add the diff to the bond balance
-                    int256 bondDelta = int96(auth.fee) - int96(config.livenessBondBase);
+                    int256 bondDelta = int96(proverFee) - int96(config.livenessBondBase);
 
                     if (bondDelta < 0) {
                         _debitBond(meta_.prover, uint256(-bondDelta));
