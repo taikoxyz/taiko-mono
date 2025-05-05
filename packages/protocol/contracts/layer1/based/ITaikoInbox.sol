@@ -50,7 +50,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     }
 
     struct ProverAuth {
-        uint256 fee;
+        uint96 fee;
         uint64 validUntil;
         bytes signature;
     }
