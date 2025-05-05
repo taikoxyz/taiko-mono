@@ -117,6 +117,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LPC.SECONDS_IN_SLOT;
+            uint256 currentEpochTimestamp = _nextEpochTimestamp - LPC.SECONDS_IN_EPOCH;
 
             uint256 minCollateralForPreconfing = getConfig().minCollateralForPreconfing;
 
@@ -142,7 +143,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateOperator(
                     lookaheadPayload.registrationRoot,
-                    lookaheadPayload.slotTimestamp,
+                    currentEpochTimestamp,
                     minCollateralForPreconfing,
                     preconfSlasher
                 );
@@ -235,7 +236,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             operatorData_.slashedAt == 0 || operatorData_.slashedAt > _timestamp,
             OperatorHasBeenSlashed()
         );
-        require(operatorData_.collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
+
+        uint256 collateralWei = _timestamp >= block.timestamp
+            ? operatorData_.collateralWei
+            : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
+        require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
