@@ -60,7 +60,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             revert LookaheadNotRequired();
         }
 
-        _updateLookahead(LPU.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian);
+        _updateLookahead(LPU.getEpochTimestamp(0), lookaheadPayloads, isPostedByGuardian);
     }
 
     // View and Pure functions
@@ -106,18 +106,18 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     // --------------------------------------------------------------------------
 
     function _updateLookahead(
-        uint256 _nextEpochTimestamp,
+        uint256 _currentEpochTimestamp,
         LookaheadPayload[] memory _lookaheadPayloads,
         bool _isPostedByGuardian
     )
         internal
     {
-        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
-
         unchecked {
-            // Set this value to the last slot timestamp of the previous epoch
-            uint256 prevSlotTimestamp = _nextEpochTimestamp - LPC.SECONDS_IN_SLOT;
+            LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
+            // Set this value to the last slot timestamp of the previous epoch
+            uint256 nextEpochTimestamp = _currentEpochTimestamp + LPC.SECONDS_IN_EPOCH;
+            uint256 prevSlotTimestamp = nextEpochTimestamp - LPC.SECONDS_IN_SLOT;
             uint256 minCollateralForPreconfing = getConfig().minCollateralForPreconfing;
 
             for (uint256 i; i < _lookaheadPayloads.length; ++i) {
@@ -128,7 +128,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     SlotTimestampIsNotIncrementing()
                 );
                 require(
-                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp) % LPC.SECONDS_IN_EPOCH
+                    (lookaheadPayload.slotTimestamp - nextEpochTimestamp) % LPC.SECONDS_IN_EPOCH
                         == 0,
                     InvalidSlotTimestamp()
                 );
@@ -136,13 +136,26 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                 prevSlotTimestamp = lookaheadPayload.slotTimestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
-                // reference
+                // reference.
+                // We use the current epoch's start timestamp `_currentEpochTimestamp` as the
+                // reference time instead of the preconferrer's slot timestamp. This approach
+                // prevents the poster from being unfairly slashed due to increasing collateral
+                // balance between the time of posting this lookahead and the slot timestamp. If
+                // the preconferrer's slot timestamp were used and their collateral balance
+                // increased during this period, the poster could be unjustly penalized.
+                //
+                // It's important to note that a preconfer's collateral balance might decrease
+                // during this period, leading to their removal from the URC. Consequently, when
+                // verifying preconfer permissions, we must ensure not only that they are the
+                // designated preconfer for a specific slot in the lookahead but also that they
+                // remain a registered operator in the URC at the time of their proposal.
                 (
                     IRegistry.OperatorData memory operatorData,
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateOperator(
                     lookaheadPayload.registrationRoot,
                     lookaheadPayload.slotTimestamp,
+                    _currentEpochTimestamp,
                     minCollateralForPreconfing,
                     preconfSlasher
                 );
@@ -162,18 +175,18 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                prevSlotTimestamp < _nextEpochTimestamp + LPC.SECONDS_IN_EPOCH,
+                prevSlotTimestamp < nextEpochTimestamp + LPC.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
+
+            // Hash the lookahead slots and update the lookahead hash for next epoch
+            bytes26 lookaheadHash = LPU.calculateLookaheadHash(nextEpochTimestamp, lookaheadSlots);
+            _setLookaheadHash(nextEpochTimestamp, lookaheadHash);
+
+            emit LookaheadPosted(
+                _isPostedByGuardian, nextEpochTimestamp, lookaheadHash, lookaheadSlots
+            );
         }
-
-        // Hash the lookahead slots and update the lookahead hash for next epoch
-        bytes26 lookaheadHash = LPU.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
-        _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
-
-        emit LookaheadPosted(
-            _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
-        );
     }
 
     function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {
@@ -192,8 +205,13 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
 
+        uint256 currentTimestamp = block.timestamp;
         (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
-            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, guardian
+            _registrationRoot,
+            currentTimestamp,
+            currentTimestamp,
+            getConfig().minCollateralForPosting,
+            guardian
         );
 
         // Validate the lookahead poster's signed commitment
@@ -211,7 +229,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     /// validate the registration and slashing status.
     function _validateOperator(
         bytes32 _registrationRoot,
-        uint256 _timestamp,
+        uint256 _operationTimestamp,
+        uint256 _collateralTimestamp,
         uint256 _minCollateral,
         address _slasher
     )
@@ -224,32 +243,33 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         operatorData_ = urc.getOperatorData(_registrationRoot);
         require(
-            operatorData_.registeredAt != 0 && operatorData_.registeredAt <= _timestamp,
+            operatorData_.registeredAt != 0 && operatorData_.registeredAt <= _operationTimestamp,
             OperatorHasNotRegistered()
         );
         require(
-            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt > _timestamp,
+            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt > _operationTimestamp,
             OperatorHasUnregistered()
         );
         require(
-            operatorData_.slashedAt == 0 || operatorData_.slashedAt > _timestamp,
+            operatorData_.slashedAt == 0 || operatorData_.slashedAt > _operationTimestamp,
             OperatorHasBeenSlashed()
         );
 
-        uint256 collateralWei = _timestamp >= block.timestamp
+        uint256 collateralWei = _collateralTimestamp >= block.timestamp
             ? operatorData_.collateralWei
-            : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
+            : urc.getHistoricalCollateral(_registrationRoot, _collateralTimestamp);
 
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
         require(
-            slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt <= _timestamp,
+            slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt <= _operationTimestamp,
             OperatorHasNotOptedIn()
         );
         require(
-            slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt > _timestamp,
+            slasherCommitment_.optedOutAt == 0
+                || slasherCommitment_.optedOutAt > _operationTimestamp,
             OperatorHasNotOptedIn()
         );
     }
