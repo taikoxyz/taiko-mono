@@ -74,7 +74,7 @@ type PreconfBlockAPIServer struct {
 	preconfOperatorAddress        common.Address
 	mu                            sync.Mutex
 	blockRequests                 *lru.Cache[common.Hash, struct{}]
-	sequencingEndedForEpoch       *lru.Cache[uint64, struct{}]
+	sequencingEndedForEpoch       *lru.Cache[uint64, common.Hash]
 	wsClients                     map[*websocket.Conn]struct{}
 	wsMutex                       sync.Mutex
 }
@@ -99,7 +99,7 @@ func New(
 		return nil, err
 	}
 
-	endOfSequencingCache, err := lru.New[uint64, struct{}](maxTrackedPayloads)
+	endOfSequencingCache, err := lru.New[uint64, common.Hash](maxTrackedPayloads)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +398,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
-		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), struct{}{})
+		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), msg.ExecutionPayload.BlockHash)
 
 		notification := map[string]interface{}{
 			"currentEpoch":    s.rpc.L1Beacon.CurrentEpoch(),
@@ -665,6 +665,97 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			log.Warn("OnUnsafeL2Request failed to publish",
 				"error", err,
 				"hash", hash.Hex(),
+				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+			)
+		}
+	}
+
+	return nil
+}
+
+// OnUnsafeL2EndOfSequencingRequest implements the p2p.GossipIn interface.
+func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
+	ctx context.Context,
+	from peer.ID,
+	epoch uint64,
+) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Ignore the message if it is from the current P2P node.
+	if from != "" && s.p2pNode.Host().ID() == from {
+		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
+	// only respond if you are the current sequencer, *not* the active sequencer in the slot.
+	if s.preconfOperatorAddress.Hex() != s.lookahead.CurrOperator.Hex() {
+		log.Debug("Ignore the message from the current P2P node, not current operator", "peer", from)
+		return nil
+	}
+
+	log.Info("OnUnsafeL2EndOfSequencingRequest New block request from p2p network", "peer", from, "epoch", epoch)
+
+	hash, ok := s.sequencingEndedForEpoch.Get(epoch)
+	if !ok {
+		err := fmt.Errorf("OnUnsafeL2EndOfSequencingRequest No block hash found for the given epoch", "epoch", epoch)
+		return err
+	}
+
+	block, err := s.rpc.L2.BlockByHash(ctx, hash)
+	if err != nil {
+		log.Warn("OnUnsafeL2EndOfSequencingRequest Failed to fetch block by hash", "hash", hash.Hex(), "error", err)
+		return err
+	}
+
+	var u256 uint256.Int
+	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
+		log.Warn(
+			"OnUnsafeL2EndOfSequencingRequest Failed to convert base fee to uint256, skip propagating the preconfirmation block",
+			"baseFee", block.BaseFee,
+		)
+	} else {
+		txs, err := utils.EncodeAndCompressTxList(block.Transactions())
+		if err != nil {
+			return err
+		}
+
+		envelope := &eth.ExecutionPayloadEnvelope{
+			ExecutionPayload: &eth.ExecutionPayload{
+				BaseFeePerGas: eth.Uint256Quantity(u256),
+				ParentHash:    block.ParentHash(),
+				FeeRecipient:  block.Coinbase(),
+				ExtraData:     block.Extra(),
+				PrevRandao:    eth.Bytes32(block.MixDigest()),
+				BlockNumber:   eth.Uint64Quantity(block.NumberU64()),
+				GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+				GasUsed:       eth.Uint64Quantity(block.GasUsed()),
+				Timestamp:     eth.Uint64Quantity(block.Time()),
+				BlockHash:     block.Hash(),
+				Transactions:  []eth.Data{hexutil.Bytes(txs)},
+			},
+		}
+
+		if err := s.ValidateExecutionPayload(envelope.ExecutionPayload); err != nil {
+			log.Warn(
+				"OnUnsafeL2EndOfSequencingRequest Invalid preconfirmation block payload",
+				"peer", from,
+				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+				"hash", envelope.ExecutionPayload.BlockHash.Hex(),
+				"parentHash", envelope.ExecutionPayload.ParentHash.Hex(),
+				"error", err,
+			)
+			return nil
+		}
+
+		log.Info("OnUnsafeL2EndOfSequencingRequest publishing response",
+			"epoch", epoch,
+			"blockID", block.NumberU64(),
+		)
+
+		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
+			log.Warn("OnUnsafeL2EndOfSequencingRequest failed to publish",
+				"error", err,
+				"epoch", epoch,
 				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
 			)
 		}

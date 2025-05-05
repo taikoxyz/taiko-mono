@@ -303,7 +303,7 @@ type Status struct {
 	// @param any preconfirmation block from the P2P network yet.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
 	// @param whether the current epoch has received an end of sequencing block marker
-	EndOfSequencingMarkerReceived bool `json:"endOfSequencingMarkerReceived"`
+	EndOfSequencingBlockHash string `json:"EndOfSequencingBlockHash"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -317,12 +317,12 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
-	endOfSequencingMarkerReceived := false
+	endOfSequencingBlockHash := common.Hash{}
 
 	if s.rpc.L1Beacon == nil {
-		_, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
+		hash, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
 		if ok {
-			endOfSequencingMarkerReceived = true
+			endOfSequencingBlockHash = hash
 		}
 	}
 
@@ -330,7 +330,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.payloadsCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
-		EndOfSequencingMarkerReceived: endOfSequencingMarkerReceived,
+		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
 	})
 }
 
