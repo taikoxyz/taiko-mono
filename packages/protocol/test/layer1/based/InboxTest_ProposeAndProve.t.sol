@@ -586,6 +586,6 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         );
 
         console2.log(str);
-        vm.writeFile("./gas-reports/inbox.txt", str);
+        vm.writeFile("inbox_without_provermarket.txt", str);
     }
 }
