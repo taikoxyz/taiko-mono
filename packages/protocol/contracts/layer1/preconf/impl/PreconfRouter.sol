@@ -9,7 +9,7 @@ import "../iface/IPreconfWhitelist.sol";
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IProposeBatch {
-    IProposeBatch public immutable proposeEntrypoint;
+    IProposeBatch public immutable iProposeBatch;
     IPreconfWhitelist public immutable preconfWhitelist;
     address public immutable fallbackPreconfer;
 
@@ -21,15 +21,15 @@ contract PreconfRouter is EssentialContract, IProposeBatch {
     uint256[50] private __gap;
 
     constructor(
-        address _proposeEntrypoint, // TaikoInbox or TaikoWrapper
+        address _iProposeBatch, // TaikoInbox or TaikoWrapper
         address _preconfWhitelist,
         address _fallbackPreconfer
     )
-        nonZeroAddr(_proposeEntrypoint)
+        nonZeroAddr(_iProposeBatch)
         nonZeroAddr(_preconfWhitelist)
         EssentialContract(address(0))
     {
-        proposeEntrypoint = IProposeBatch(_proposeEntrypoint);
+        iProposeBatch = IProposeBatch(_iProposeBatch);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
         fallbackPreconfer = _fallbackPreconfer;
     }
@@ -56,7 +56,7 @@ contract PreconfRouter is EssentialContract, IProposeBatch {
         }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for IProposeBatch.
-        (info_, meta_) = proposeEntrypoint.v4ProposeBatch(_params, _txList, "");
+        (info_, meta_) = iProposeBatch.v4ProposeBatch(_params, _txList, "");
 
         // Verify that the sender had set itself as the proposer
         require(info_.proposer == msg.sender, ProposerIsNotPreconfer());

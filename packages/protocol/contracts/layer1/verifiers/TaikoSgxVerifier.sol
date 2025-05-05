@@ -83,15 +83,14 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_PROOF();
 
     constructor(
-        uint64 _taikoChainId,
         address _taikoInbox,
         address _taikoProofVerifier,
         address _automataDcapAttestation
     )
         EssentialContract(address(0))
     {
-        taikoChainId = _taikoChainId;
         taikoInbox = _taikoInbox;
+        taikoChainId = ITaikoInbox(_taikoInbox).v4GetConfig().chainId;
         taikoProofVerifier = _taikoProofVerifier;
         automataDcapAttestation = _automataDcapAttestation;
     }
