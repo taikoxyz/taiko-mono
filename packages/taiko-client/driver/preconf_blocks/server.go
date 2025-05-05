@@ -129,6 +129,8 @@ func New(
 		server.echo.Use(echojwt.JWT(jwtSecret))
 	}
 
+	go server.startHandoverMonitor(ctx)
+
 	return server, nil
 }
 
