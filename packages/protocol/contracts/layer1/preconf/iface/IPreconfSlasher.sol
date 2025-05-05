@@ -15,7 +15,7 @@ interface IPreconfSlasher is ISlasher {
         // Chainid of Taiko
         uint256 chainId;
         // Timestamp of the L1 slot in which the preconfer is the proposer.
-        // In the case of falback preconfer, this will be the timestamp of the last slot of the
+        // In the case of fallback preconfer, this will be the timestamp of the last slot of the
         // epoch.
         uint256 preconferSlotTimestamp;
         // Height of the L1 anchor block
