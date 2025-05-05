@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import "../iface/ILookaheadStore.sol";
 import "./LibPreconfConstants.sol";
 
 /// @title LibPreconfUtils
@@ -10,6 +11,21 @@ library LibPreconfUtils {
     using SafeCastUpgradeable for uint256;
 
     uint256 private constant _MAX_QUERIES = 32;
+
+    /// @notice Calculates the lookahead hash.
+    /// @param _epochTimestamp The timestamp of the epoch.
+    /// @param _lookaheadSlots The lookahead slots array.
+    /// @return The hash of the abi.encoded timestamp and lookahed slots.
+    function calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
+    )
+        internal
+        pure
+        returns (bytes26)
+    {
+        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
+    }
 
     /// @notice Retrieves the beacon block root that was posted to the execution layer at or after a
     /// given timestamp.
