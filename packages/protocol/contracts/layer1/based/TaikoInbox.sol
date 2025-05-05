@@ -211,9 +211,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     bytes memory signature = auth.signature;
                     auth.signature = ""; // clear the signature before hashing
 
-                    bytes32 authHash =
-                        keccak256(abi.encode("PROVER_AUTHENTICATION", auth, params, txListHash));
-                    meta_.prover = authHash.recover(signature);
+                    meta_.prover = keccak256(
+                        abi.encode("PROVER_AUTHENTICATION", auth, params, txListHash)
+                    ).recover(signature);
 
                     // proposer pay the prover fee.
                     _debitBond(info_.proposer, auth.fee);
