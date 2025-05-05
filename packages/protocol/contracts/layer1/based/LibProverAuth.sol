@@ -2,26 +2,29 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 /// @title LibProverAuth
 /// @notice This library is used to validate the prover authentication.
-/// @dev This library's validateProverAuth function is made public to reduce TaikoInbox's code size
-/// .
+/// @dev This library's validateProverAuth function is made public to reduce TaikoInbox's code size.
 /// @custom:security-contact security@taiko.xyz
 library LibProverAuth {
     using ECDSA for bytes32;
+    using SignatureChecker for address;
 
     struct ProverAuth {
-        address feeToken; //Slot1
+        address feeToken;
         uint96 fee;
-        address proverAddress; //Slot2: proverAddress encoded to compare against the real signer
+        address proverAddress; //proverAddress encoded to compare against the real signer
         uint64 validUntil; // optional, for expiration
-        uint64 chainId; // Slot 3: replay protection across chains
-        bytes32 batchParamsHash; //Slot4:  hash of batch parameters
-        bytes32 txListHash; //Slot5: hash of the tx list
+        uint64 chainId; // replay protection across chains
+        bytes32 batchParamsHash; // hash of batch parameters
+        bytes32 txListHash; // hash of the tx list, should be same as _calculateTxsHash(txListHash,
+            // params.blobParams)
         bytes signature;
     }
 
+    error InvalidSignature();
     error InvalidValidUntil();
     error MismatchingBatchParamsHash();
     error MismatchingChainId();
@@ -30,8 +33,7 @@ library LibProverAuth {
     function validateProverAuth(
         uint64 _chainId,
         bytes32 _batchParamsHash,
-        bytes32 _txListHash, // basically the "TX" (location) identifier of some sort. Same as
-            // return value of: _calculateTxsHash(txListHash, params.blobParams)
+        bytes32 _txListHash,
         bytes calldata _proverAuth
     )
         public
@@ -65,7 +67,10 @@ library LibProverAuth {
 
         bytes32 digest = keccak256(abi.encode("PROVER_AUTHENTICATION", auth));
 
-        //Todo: add IsValidSignatureNow()
+        if (!auth.proverAddress.isValidSignatureNow(digest, signature)) {
+            revert InvalidSignature();
+        }
+
         prover_ = digest.recover(signature);
         fee_ = auth.fee;
         feeToken_ = auth.feeToken;

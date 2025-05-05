@@ -206,6 +206,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     require(prover != address(0), InvalidProverAuth());
 
+                    meta_.prover = prover;
+
                     if (feeToken == bondToken && bondToken != address(0)) {
                         // proposer pay the prover fee with bond tokens
                         _debitBond(info_.proposer, proverFee);
@@ -223,10 +225,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                         // proposer directly pays the prover with an ERC20
                         IERC20(feeToken).safeTransferFrom(info_.proposer, address(this), proverFee);
                     } else {
-                        (bool success,) = prover.call{ value: proverFee }("");
-                        if (!success) {
-                            revert InsufficientBond();
-                        }
+                        // Pay in ether
+                        LibAddress.sendEtherAndVerify(prover, proverFee);
                     }
                 } else {
                     // proposer is the prover
