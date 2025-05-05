@@ -181,7 +181,7 @@ func (d *Driver) Start() error {
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
-		log.Info("P2P starting discovery process and lookahead loop")
+		log.Info("P2P starting discovery process")
 
 		go d.p2pNode.DiscoveryProcess(
 			d.ctx,
@@ -189,11 +189,11 @@ func (d *Driver) Start() error {
 			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
 			d.p2pSetup.TargetPeers(),
 		)
-
-		go d.cacheLookaheadLoop()
 	} else {
-		log.Warn("P2P skipping discovery process and lookahead loop")
+		log.Warn("P2P skipping discovery process")
 	}
+
+	go d.cacheLookaheadLoop()
 
 	return nil
 }
