@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -81,6 +82,7 @@ type PreconfBlockAPIServer struct {
 
 // New creates a new preconf block server instance, and starts the server.
 func New(
+	ctx context.Context,
 	cors string,
 	jwtSecret []byte,
 	handoverSlots uint64,
@@ -1030,4 +1032,44 @@ func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Addre
 // PutPayloadsCache puts the given payload into the payload cache queue, should ONLY be used in testing.
 func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.ExecutionPayload) {
 	s.payloadsCache.put(id, payload)
+}
+
+// startHandoverMonitor starts the handover monitor to check if the sequencer has changed, and if so,
+// it will check to see if an end of sequencing block has been received. If not, it requests it.
+func (s *PreconfBlockAPIServer) startHandoverMonitor(ctx context.Context) {
+	var wasSequencer bool
+
+	ticker := time.NewTicker(time.Duration(s.rpc.L1Beacon.SecondsPerSlot) / 3)
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("Handover monitor stopped")
+			return
+		case <-ticker.C:
+			slot := s.rpc.L1Beacon.CurrentSlot()
+
+			err := s.checkLookaheadHandover(s.preconfOperatorAddress, slot)
+			isSequencer := err == nil
+
+			// on transition from non‑sequencer -> sequencer:
+			if isSequencer && !wasSequencer {
+				epoch := s.rpc.L1Beacon.CurrentEpoch()
+
+				// only fire if we haven't seen an EndOfSequencing for this epoch
+				if _, seen := s.sequencingEndedForEpoch.Get(epoch); !seen {
+					if err := s.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(context.Background(), epoch); err != nil {
+						log.Warn(
+							"handover‑monitor: failed to publish end‑of‑sequencing request",
+							"epoch", epoch,
+							"error", err,
+						)
+					}
+				}
+			}
+
+			// update state so when we drop out and come back in, it retriggers
+			wasSequencer = isSequencer
+		}
+	}
 }
