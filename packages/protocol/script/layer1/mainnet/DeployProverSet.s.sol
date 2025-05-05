@@ -10,7 +10,7 @@ contract DeployProverSet is BaseScript {
         address admin = vm.envOr("ADMIN", msg.sender);
 
         address taikoToken = vm.envAddress("TAIKO_TOKEN");
-        address entrypoint = vm.envAddress("ENTRYPOINT");
+        address iProposeBatch = vm.envAddress("IPROPOSE_BATCH");
         address inbox = vm.envAddress("INBOX");
 
         require(owner != address(0), "OWNER not set");
@@ -18,7 +18,7 @@ contract DeployProverSet is BaseScript {
 
         address impl = vm.envOr(
             "PROVER_SET_IMPL",
-            address(new ProverSet(address(resolver), inbox, taikoToken, entrypoint))
+            address(new ProverSet(address(resolver), inbox, taikoToken, iProposeBatch))
         );
 
         deploy({ name: "", impl: impl, data: abi.encodeCall(ProverSetBase.init, (owner, admin)) });
