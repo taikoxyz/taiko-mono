@@ -82,7 +82,6 @@ type PreconfBlockAPIServer struct {
 
 // New creates a new preconf block server instance, and starts the server.
 func New(
-	ctx context.Context,
 	cors string,
 	jwtSecret []byte,
 	handoverSlots uint64,
@@ -128,8 +127,6 @@ func New(
 	if jwtSecret != nil {
 		server.echo.Use(echojwt.JWT(jwtSecret))
 	}
-
-	go server.startHandoverMonitor(ctx)
 
 	return server, nil
 }
@@ -1036,9 +1033,9 @@ func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.Executi
 	s.payloadsCache.put(id, payload)
 }
 
-// startHandoverMonitor starts the handover monitor to check if the sequencer has changed, and if so,
+// StartHandoverMonitor starts the handover monitor to check if the sequencer has changed, and if so,
 // it will check to see if an end of sequencing block has been received. If not, it requests it.
-func (s *PreconfBlockAPIServer) startHandoverMonitor(ctx context.Context) {
+func (s *PreconfBlockAPIServer) StartHandoverMonitor(ctx context.Context) {
 	var wasSequencer bool
 
 	ticker := time.NewTicker(time.Duration(s.rpc.L1Beacon.SecondsPerSlot) / 3)

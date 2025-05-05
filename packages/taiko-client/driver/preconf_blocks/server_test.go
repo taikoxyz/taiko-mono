@@ -21,8 +21,7 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New(context.Background(),
-		"*",
+	server, err := New("*",
 		nil,
 		0,
 		common.Address{},

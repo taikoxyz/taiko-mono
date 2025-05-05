@@ -115,7 +115,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	if d.PreconfBlockServerPort > 0 {
 		// Initialize the preconf block server.
 		if d.preconfBlockServer, err = preconfBlocks.New(
-			d.ctx,
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfHandoverSkipSlots,
@@ -178,6 +177,8 @@ func (d *Driver) Start() error {
 				log.Crit("Failed to start preconfirmation block server", "error", err)
 			}
 		}()
+
+		go d.preconfBlockServer.StartHandoverMonitor(d.ctx)
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
