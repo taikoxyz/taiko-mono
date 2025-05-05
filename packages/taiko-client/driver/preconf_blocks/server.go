@@ -61,7 +61,6 @@ type PreconfBlockAPIServer struct {
 	payloadsCache                 *payloadQueue
 	lookahead                     *Lookahead
 	lookaheadMutex                sync.Mutex
-	handoverSlots                 uint64
 	highestUnsafeL2PayloadBlockID uint64
 }
 
@@ -69,7 +68,6 @@ type PreconfBlockAPIServer struct {
 func New(
 	cors string,
 	jwtSecret []byte,
-	handoverSlots uint64,
 	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
@@ -83,7 +81,6 @@ func New(
 		echo:            echo.New(),
 		anchorValidator: anchorValidator,
 		chainSyncer:     chainSyncer,
-		handoverSlots:   handoverSlots,
 		rpc:             cli,
 		payloadsCache:   newPayloadQueue(),
 		lookahead:       &Lookahead{},

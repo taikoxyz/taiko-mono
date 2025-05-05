@@ -21,7 +21,7 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*", nil, 0, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), nil, s.RPCClient)
+	server, err := New("*", nil, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), nil, s.RPCClient)
 	s.Nil(err)
 	s.s = server
 	go func() {
@@ -34,8 +34,6 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	curr := common.HexToAddress("0xAAA0000000000000000000000000000000000000")
 	next := common.HexToAddress("0xBBB0000000000000000000000000000000000000")
-
-	s.s.handoverSlots = 4
 
 	la := &Lookahead{
 		CurrOperator: curr,
