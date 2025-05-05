@@ -697,7 +697,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 
 	hash, ok := s.sequencingEndedForEpoch.Get(epoch)
 	if !ok {
-		err := fmt.Errorf("OnUnsafeL2EndOfSequencingRequest No block hash found for the given epoch", "epoch", epoch)
+		err := fmt.Errorf("OnUnsafeL2EndOfSequencingRequest No block hash found for the given epoch: %d", epoch)
 		return err
 	}
 
