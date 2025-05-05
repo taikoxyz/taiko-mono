@@ -64,6 +64,7 @@ library LibProverAuth {
 
         bytes32 digest = keccak256(abi.encode("PROVER_AUTHENTICATION", auth));
 
+        //Todo: add IsValidSignatureNow()
         prover_ = digest.recover(signature);
         fee_ = auth.fee;
         feeToken_ = auth.feeToken;
