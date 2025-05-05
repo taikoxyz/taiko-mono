@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title LibProverAuth
 /// @notice This library is used to validate the prover authentication.
-/// @dev This libarary's validateProverAuth function is made public to reduce TaikoInbox's code size
+/// @dev This library's validateProverAuth function is made public to reduce TaikoInbox's code size
 /// .
 /// @custom:security-contact security@taiko.xyz
 library LibProverAuth {
@@ -13,8 +13,8 @@ library LibProverAuth {
 
     struct ProverAuth {
         uint96 fee;
-        uint64 validUntil; // Optional expiration
-        uint64 chainId; // Replay protection across chains
+        uint64 validUntil; // optional, for expiration
+        uint64 chainId; // replay protection across chains
         bytes32 batchParamsHash; // hash of batch parameters
         bytes32 txListHash; // hash of the tx list
         bytes signature;
