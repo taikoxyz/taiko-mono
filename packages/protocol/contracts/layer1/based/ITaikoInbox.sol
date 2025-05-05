@@ -49,6 +49,12 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 createdIn;
     }
 
+    struct ProverAuth {
+        uint256 fee;
+        uint64 validUntil;
+        bytes signature;
+    }
+
     struct BatchParams {
         address proposer;
         address coinbase;
@@ -59,6 +65,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
+        bytes proverAuth;
     }
 
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
@@ -250,8 +257,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error BatchVerified();
     error BeyondCurrentFork();
     error BlobNotFound();
-    error BlockNotFound();
     error BlobNotSpecified();
+    error BlockNotFound();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
@@ -273,6 +280,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error NotFirstProposal();
     error NotInboxWrapper();
     error ParentMetaHashMismatch();
+    error ProverAuthExpired();
     error SameTransition();
     error SignalNotSent();
     error TimestampSmallerThanParent();

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
@@ -27,6 +28,7 @@ import "./IProposeBatch.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
+    using ECDSA for bytes32;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -153,30 +155,30 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // use
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-
-            info_ = BatchInfo({
-                txsHash: bytes32(0), // to be initialised later
-                //
-                // Data to build L2 blocks
-                blocks: params.blocks,
-                blobHashes: new bytes32[](0), // to be initialised later
-                extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
-                coinbase: params.coinbase,
-                proposer: params.proposer,
-                proposedIn: uint64(block.number),
-                blobCreatedIn: params.blobParams.createdIn,
-                blobByteOffset: params.blobParams.byteOffset,
-                blobByteSize: params.blobParams.byteSize,
-                gasLimit: config.blockMaxGasLimit,
-                lastBlockId: 0, // to be initialised later
-                lastBlockTimestamp: lastBlockTimestamp,
-                //
-                // Data for the L2 anchor transaction, shared by all blocks in the batch
-                anchorBlockId: anchorBlockId,
-                anchorBlockHash: blockhash(anchorBlockId),
-                baseFeeConfig: config.baseFeeConfig
-            });
             {
+                info_ = BatchInfo({
+                    txsHash: bytes32(0), // to be initialised later
+                    //
+                    // Data to build L2 blocks
+                    blocks: params.blocks,
+                    blobHashes: new bytes32[](0), // to be initialised later
+                    extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
+                    coinbase: params.coinbase,
+                    proposer: params.proposer,
+                    proposedIn: uint64(block.number),
+                    blobCreatedIn: params.blobParams.createdIn,
+                    blobByteOffset: params.blobParams.byteOffset,
+                    blobByteSize: params.blobParams.byteSize,
+                    gasLimit: config.blockMaxGasLimit,
+                    lastBlockId: 0, // to be initialised later
+                    lastBlockTimestamp: lastBlockTimestamp,
+                    //
+                    // Data for the L2 anchor transaction, shared by all blocks in the batch
+                    anchorBlockId: anchorBlockId,
+                    anchorBlockHash: blockhash(anchorBlockId),
+                    baseFeeConfig: config.baseFeeConfig
+                });
+
                 uint64 nBlocks = uint64(params.blocks.length);
 
                 require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
@@ -185,8 +187,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     ? stats2.numBatches + nBlocks - 1
                     : lastBatch.lastBlockId + nBlocks;
 
-                (info_.txsHash, info_.blobHashes) =
-                    _calculateTxsHash(keccak256(_txList), params.blobParams);
+                bytes32 txListHash = keccak256(_txList);
+                (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
@@ -194,9 +196,36 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp)
                 });
-            }
 
-            _debitBond(meta_.prover, config.livenessBondBase);
+                if (params.proverAuth.length != 0) {
+                    ProverAuth memory auth = abi.decode(params.proverAuth, (ProverAuth));
+                    require(
+                        auth.validUntil == 0 || auth.validUntil >= block.timestamp,
+                        ProverAuthExpired()
+                    );
+
+                    bytes32 authHash = keccak256(
+                        abi.encode("PROVER_AUTHENTICATION", params, txListHash, auth.validUntil, auth.fee)
+                    );
+                    meta_.prover = authHash.toEthSignedMessageHash().recover(auth.signature);
+
+                    // proposer pay the prover fee.
+                    _debitBond(info_.proposer, auth.fee);
+
+                    // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
+                    // if not then add the diff to the bond balance
+                    int256 bondDelta = int256(auth.fee) - int256(uint256(config.livenessBondBase));
+
+                    if (bondDelta < 0) {
+                        _debitBond(meta_.prover, uint256(-bondDelta));
+                    } else {
+                        _creditBond(meta_.prover, uint256(bondDelta));
+                    }
+                } else {
+                    // proposer is the prover
+                    _debitBond(meta_.prover, config.livenessBondBase);
+                }
+            }
 
             {
                 Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];

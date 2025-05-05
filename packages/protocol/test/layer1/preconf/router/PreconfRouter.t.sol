@@ -47,7 +47,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
             blobParams: blobParams,
-            blocks: blockParams
+            blocks: blockParams,
+            proverAuth: ""
         });
 
         // Warp to arbitrary slot in epoch 2
@@ -133,7 +134,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
             blobParams: blobParams,
-            blocks: blockParams
+            blocks: blockParams,
+            proverAuth: ""
         });
 
         // Warp to arbitrary slot in epoch 2
