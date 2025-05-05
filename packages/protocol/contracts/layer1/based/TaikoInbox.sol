@@ -200,8 +200,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 if (params.proverAuth.length != 0) {
                     ProverAuth memory auth = abi.decode(params.proverAuth, (ProverAuth));
                     require(
+                        auth.validForBatchId == 0 || auth.validForBatchId == stats2.numBatches,
+                        InvalidProverAuthBatchId()
+                    );
+                    require(
                         auth.validUntil == 0 || auth.validUntil >= block.timestamp,
-                        ProverAuthExpired()
+                        InvalidProverAuthValidUntil()
                     );
 
                     bytes32 authHash = keccak256(

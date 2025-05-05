@@ -51,6 +51,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
 
     struct ProverAuth {
         uint96 fee;
+        uint64 validForBatchId;
         uint64 validUntil;
         bytes signature;
     }
@@ -270,6 +271,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error InvalidBlobParams();
     error InvalidGenesisBlockHash();
     error InvalidParams();
+    error InvalidProverAuthBatchId();
+    error InvalidProverAuthValidUntil();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
@@ -280,7 +283,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error NotFirstProposal();
     error NotInboxWrapper();
     error ParentMetaHashMismatch();
-    error ProverAuthExpired();
     error SameTransition();
     error SignalNotSent();
     error TimestampSmallerThanParent();
