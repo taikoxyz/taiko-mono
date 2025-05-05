@@ -12,12 +12,13 @@ library LibProverAuth {
     using ECDSA for bytes32;
 
     struct ProverAuth {
-        address feeToken;
+        address feeToken; //Slot1
         uint96 fee;
+        address proverAddress; //Slot2: proverAddress encoded to compare against the real signer
         uint64 validUntil; // optional, for expiration
-        uint64 chainId; // replay protection across chains
-        bytes32 batchParamsHash; // hash of batch parameters
-        bytes32 txListHash; // hash of the tx list
+        uint64 chainId; // Slot 3: replay protection across chains
+        bytes32 batchParamsHash; //Slot4:  hash of batch parameters
+        bytes32 txListHash; //Slot5: hash of the tx list
         bytes signature;
     }
 
