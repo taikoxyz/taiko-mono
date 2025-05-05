@@ -178,7 +178,11 @@ func (d *Driver) Start() error {
 			}
 		}()
 
-		go d.preconfBlockServer.StartHandoverMonitor(d.ctx)
+		go func() {
+			d.wg.Add(1)
+
+			d.preconfBlockServer.StartHandoverMonitor(d.ctx)
+		}()
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
