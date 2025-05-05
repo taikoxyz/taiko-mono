@@ -33,7 +33,7 @@ library LibProverAuth {
 
         bytes memory signature = auth.signature;
         auth.signature = ""; // clear the signature before hashing
-        
+
         prover_ = keccak256(abi.encode("PROVER_AUTHENTICATION", auth, _dataHash)).recover(signature);
         fee_ = auth.fee;
     }
