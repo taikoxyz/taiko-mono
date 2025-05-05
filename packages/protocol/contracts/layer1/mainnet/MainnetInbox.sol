@@ -15,10 +15,9 @@ contract MainnetInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService,
-        address _proverMarket
+        address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     { }
 
     function v4GetConfig() public pure virtual override returns (ITaikoInbox.Config memory) {

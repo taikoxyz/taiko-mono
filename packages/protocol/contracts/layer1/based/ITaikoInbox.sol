@@ -56,7 +56,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
-        bool optInProverMarket;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
@@ -254,7 +253,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error BlockNotFound();
     error BlobNotSpecified();
     error ContractPaused();
-    error CurrentProverCannotWithdraw();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();

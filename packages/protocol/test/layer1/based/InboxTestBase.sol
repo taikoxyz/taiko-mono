@@ -10,7 +10,6 @@ abstract contract InboxTestBase is Layer1Test {
 
     ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
-    ProverMarket internal proverMarket;
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
     uint256 genesisBlockProposedIn;
@@ -69,44 +68,13 @@ abstract contract InboxTestBase is Layer1Test {
         address verifierAddr = address(new Verifier_ToggleStub());
         resolver.registerAddress(block.chainid, "proof_verifier", verifierAddr);
 
-        // Firs prover market impl. deployment without the known inbox address - cause there is a
-        // circular dependency at deployment. ProverMarket needs Inbox, Inbox needs ProverMarket.
-        address dummyInboxAddress = address(0x1); // Just a placeholder
-        address proverMarketImpl = address(
-            new ProverMarket(
-                dummyInboxAddress,
-                200 ether, //BIDDING_THRESHOLD
-                100 ether, //OUTBID_THRESHOLD
-                50 ether, // PROVING_THRESHOLD
-                1 days //MIN_EXIT_DELAY
-            )
-        );
-
-        address proverMarketProxy = address(
-            new ERC1967Proxy(proverMarketImpl, abi.encodeCall(ProverMarket.init, (address(0))))
-        );
-
         inbox = deployInbox(
             correctBlockhash(0),
             verifierAddr,
             address(bondToken),
             address(signalService),
-            proverMarketProxy,
             v4GetConfig()
         );
-
-        address realProverMarketImpl = address(
-            new ProverMarket(
-                address(inbox),
-                200 ether, //BIDDING_THRESHOLD
-                100 ether, //OUTBID_THRESHOLD
-                50 ether, // PROVING_THRESHOLD
-                1 days //MIN_EXIT_DELAY
-            )
-        );
-
-        UUPSUpgradeable(proverMarketProxy).upgradeTo(realProverMarketImpl);
-        proverMarket = ProverMarket(proverMarketProxy);
 
         signalService.authorize(address(inbox), true);
 
