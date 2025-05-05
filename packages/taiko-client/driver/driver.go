@@ -115,6 +115,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	if d.PreconfBlockServerPort > 0 {
 		// Initialize the preconf block server.
 		if d.preconfBlockServer, err = preconfBlocks.New(
+			d.ctx,
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfHandoverSkipSlots,
