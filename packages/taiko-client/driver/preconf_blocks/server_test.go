@@ -92,7 +92,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 				SlotsPerEpoch: 32,
 			}
 
-			s.Equal(tt.wantErr, s.s.checkLookaheadHandover(tt.feeRecipient, tt.globalSlot))
+			s.Equal(tt.wantErr, s.s.CheckLookaheadHandover(tt.feeRecipient, tt.globalSlot))
 		})
 	}
 }

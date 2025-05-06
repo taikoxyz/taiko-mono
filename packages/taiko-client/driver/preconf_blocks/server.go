@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -597,7 +596,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	// only respond if you are the current sequencer.
-	if err := s.checkLookaheadHandover(s.preconfOperatorAddress, s.rpc.L1Beacon.CurrentSlot()); err != nil {
+	if err := s.CheckLookaheadHandover(s.preconfOperatorAddress, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 		log.Debug(
 			"Ignoring OnUnsafeL2Request, not the current sequencer",
 			"peer", from,
@@ -989,8 +988,10 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 	s.lookahead = l
 }
 
-// checkLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
-func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
+// CheckLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
+// and checks the  handover window to see if we need to request the end of sequencing
+// block.
+func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
 	s.lookaheadMutex.Lock()
 	la := s.lookahead
 	s.lookaheadMutex.Unlock()
@@ -1033,53 +1034,6 @@ func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.Executi
 	s.payloadsCache.put(id, payload)
 }
 
-// StartHandoverMonitor starts the handover monitor to check if the sequencer has changed, and if so,
-// it will check to see if an end of sequencing block has been received. If not, it requests it.
-func (s *PreconfBlockAPIServer) StartHandoverMonitor(ctx context.Context) {
-	var wasSequencer bool
-
-	ticker := time.NewTicker(time.Duration(s.rpc.L1Beacon.SecondsPerSlot) / 3)
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info("Handover monitor stopped")
-			return
-		case <-ticker.C:
-			slot := s.rpc.L1Beacon.CurrentSlot()
-
-			err := s.checkLookaheadHandover(s.preconfOperatorAddress, slot)
-			isSequencer := err == nil
-
-			// on transition from non‑sequencer -> sequencer:
-			if isSequencer && !wasSequencer {
-				log.Debug("startHandoverMonitor transitioning from not sequencer to sequencing, checking for end of sequencing")
-				epoch := s.rpc.L1Beacon.CurrentEpoch()
-
-				// only fire if we haven't seen an EndOfSequencing for this epoch
-				hash, seen := s.sequencingEndedForEpoch.Get(epoch)
-
-				if !seen {
-					log.Debug("startHandoverMonitor requesting end of sequencing for epoch", "epoch", epoch)
-
-					if err := s.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(context.Background(), epoch); err != nil {
-						log.Warn(
-							"startHandoverMonitor failed to publish end‑of‑sequencing request",
-							"epoch", epoch,
-							"error", err,
-						)
-					}
-				} else {
-					log.Debug(
-						"startHandoverMonitor end of sequencing already seen",
-						"epoch", epoch,
-						"hash", hash.Hex(),
-					)
-				}
-			}
-
-			// update state so when we drop out and come back in, it retriggers
-			wasSequencer = isSequencer
-		}
-	}
+func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common.Hash, bool) {
+	return s.sequencingEndedForEpoch.Get(epoch)
 }

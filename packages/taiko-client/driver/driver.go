@@ -177,12 +177,6 @@ func (d *Driver) Start() error {
 				log.Crit("Failed to start preconfirmation block server", "error", err)
 			}
 		}()
-
-		go func() {
-			d.wg.Add(1)
-
-			d.preconfBlockServer.StartHandoverMonitor(d.ctx)
-		}()
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
@@ -397,6 +391,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			d.PreconfHandoverSkipSlots,
 			d.rpc.L1Beacon.SlotsPerEpoch,
 		)
+		wasSequencer bool = false
 	)
 
 	for {
@@ -478,6 +473,39 @@ func (d *Driver) cacheLookaheadLoop() {
 				"currRanges", currRanges,
 				"nextRanges", nextRanges,
 			)
+
+			err = d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, currentSlot)
+			isSequencer := err == nil
+
+			if isSequencer && !wasSequencer {
+				log.Info("lookahead transitioning to sequencing for operator")
+
+				// only fire if we haven't seen an EndOfSequencing for this epoch
+				hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(currentEpoch)
+
+				if !seen {
+					log.Info("lookahead requesting end of sequencing for epoch", "epoch", currentEpoch)
+
+					if err := d.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(
+						context.Background(),
+						currentEpoch,
+					); err != nil {
+						log.Warn(
+							"failed to publish end of sequencing request",
+							"currentEpoch", currentEpoch,
+							"error", err,
+						)
+					}
+				} else {
+					log.Info(
+						"end of sequencing already seen",
+						"epoch", currentEpoch,
+						"hash", hash.Hex(),
+					)
+				}
+			}
+
+			wasSequencer = isSequencer
 		}
 	}
 }
