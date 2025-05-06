@@ -381,12 +381,12 @@ func (d *Driver) cacheLookaheadLoop() {
 
 	ticker := time.NewTicker(time.Second * time.Duration(d.rpc.L1Beacon.SecondsPerSlot) / 3)
 	d.wg.Add(1)
-
 	defer func() {
 		ticker.Stop()
 		d.wg.Done()
 	}()
 
+	// carry-over state
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
@@ -397,112 +397,42 @@ func (d *Driver) cacheLookaheadLoop() {
 		wasSequencer bool = false
 	)
 
-	checkHandover := func(epoch, slot uint64, wasSequencer *bool) {
-		if d.p2pNode == nil {
+	// factor out all of your “on‑tick” work into a single function
+	doLookahead := func() {
+		currentEpoch := d.rpc.L1Beacon.CurrentEpoch()
+		currentSlot := d.rpc.L1Beacon.CurrentSlot()
+		slotInEpoch := d.rpc.L1Beacon.SlotInEpoch()
+		slotsLeftInEpoch := d.rpc.L1Beacon.SlotsPerEpoch - slotInEpoch
+
+		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
+		if err != nil {
+			log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
+			checkHandover(currentEpoch, currentSlot, &wasSequencer)
 			return
 		}
 
-		err := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot)
-		isSequencer := err == nil
-
-		if isSequencer && !*wasSequencer {
-			log.Info("lookahead transitioning to sequencing for operator")
-
-			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
-			if !seen {
-				log.Info("lookahead requesting end of sequencing for epoch", "epoch", epoch)
-				if err := d.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(
-					context.Background(),
-					epoch,
-				); err != nil {
-					log.Warn(
-						"failed to publish end of sequencing request",
-						"currentEpoch", epoch,
-						"error", err,
-					)
-				}
-			} else {
-				log.Info(
-					"end of sequencing already seen",
-					"epoch", epoch,
-					"hash", hash.Hex(),
-				)
-			}
-		}
-
-		*wasSequencer = isSequencer
-	}
-
-	for {
-		select {
-		case <-d.ctx.Done():
-			return
-		case <-ticker.C:
-			var (
-				currentEpoch     = d.rpc.L1Beacon.CurrentEpoch()
-				currentSlot      = d.rpc.L1Beacon.CurrentSlot()
-				slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
-				slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
-			)
-
-			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
-			if err != nil {
-				log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
-
-				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
-			}
-
-			if latestSeenBlockNumber == seenBlockNumber {
-				// Leave some grace period for the block to arrive.
-				if lastSlot != currentSlot &&
-					uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
-					log.Warn(
-						"Lookahead possible missed slot detected",
-						"currentSlot", currentSlot,
-						"latestSeenBlockNumber", latestSeenBlockNumber,
-					)
-
-					lastSlot = currentSlot
-				}
-
-				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
-			}
-
+		if latestSeenBlockNumber != seenBlockNumber {
 			lastSlot = currentSlot
 			seenBlockNumber = latestSeenBlockNumber
 
 			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Could not fetch current operator", "err", err)
-
 				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
+				return
 			}
-
 			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Could not fetch next operator", "err", err)
-
 				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
+				return
 			}
 
-			// push into our 3‑epoch ring
 			opWin.Push(currentEpoch, currOp, nextOp)
+			opWin.Push(currentEpoch+1, nextOp, common.Address{})
 
-			// Push next epoch (nextOp becomes currOp at next epoch)
-			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
-
-			var (
-				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
-			)
+			currRanges := opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
+			nextRanges := opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
 
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
 				CurrOperator: currOp,
@@ -523,8 +453,22 @@ func (d *Driver) cacheLookaheadLoop() {
 				"currRanges", currRanges,
 				"nextRanges", nextRanges,
 			)
+		}
 
-			checkHandover(currentEpoch, currentSlot, &wasSequencer)
+		// always do your handover check, even if blockNumber didn't change
+		checkHandover(currentEpoch, currentSlot, &wasSequencer)
+	}
+
+	// run it once immediately
+	doLookahead()
+
+	// then run it on every tick
+	for {
+		select {
+		case <-d.ctx.Done():
+			return
+		case <-ticker.C:
+			doLookahead()
 		}
 	}
 }
