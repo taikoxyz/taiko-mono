@@ -43,6 +43,7 @@ contracts_layer1=(
 "contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
+"contracts/layer1/preconf/impl/PreconfSlasher.sol:PreconfSlasher"
 "contracts/layer1/governance/TaikoTreasuryVault.sol:TaikoTreasuryVault"
 )
 
