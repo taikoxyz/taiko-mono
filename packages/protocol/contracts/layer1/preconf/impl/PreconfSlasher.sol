@@ -88,14 +88,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             );
             return _slashMissingEOP(_committer, payload, evidence);
         }
-        
+
         revert InvalidViolationType();
     }
 
     // View functions --------------------------------------------------------------------------
 
     /// @inheritdoc IPreconfSlasher
-    function getSlashAmount() public pure returns (SlashAmount memory slashAmount) {
+    function getSlashAmount() public pure returns (SlashAmount memory) {
         return SlashAmount({
             invalidPreconf: 1 ether,
             invalidEOP: 0.5 ether,
@@ -222,7 +222,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         EvidenceInvalidEOP memory _evidence
     )
         internal
-        returns (uint256)
+        returns (uint256 slashAmount_)
     {
         // Validate that the commitment is an EOP
         require(_payload.eop == true, NotEndOfPreconfirmation());
@@ -231,9 +231,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Slash if another block was proposed after EOP in the same batch
         if (_evidence.preconfedBlockHeader.number != batch.lastBlockId) {
-            uint256 slashAmount = getSlashAmount().invalidEOP;
-            emit InvalidEOPSlashed(_committer, _payload, slashAmount);
-            return slashAmount;
+            slashAmount_ = getSlashAmount().invalidEOP;
+            emit InvalidEOPSlashed(_committer, _payload, slashAmount_);
+            return slashAmount_;
         }
 
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
@@ -249,9 +249,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             _evidence.nextBatchMetadata.proposedAt <= _payload.preconferSlotTimestamp, EOPIsValid()
         );
 
-        uint256 _slashAmount = getSlashAmount().invalidEOP;
-        emit InvalidEOPSlashed(_committer, _payload, _slashAmount);
-        return _slashAmount;
+        slashAmount_ = getSlashAmount().invalidEOP;
+        emit InvalidEOPSlashed(_committer, _payload, slashAmount_);
     }
 
     function _slashMissingEOP(
@@ -260,7 +259,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         EvidenceMissingEOP memory _evidence
     )
         internal
-        returns (uint256)
+        returns (uint256 slashAmount_)
     {
         // Validate that the commitment is not an EOP
         require(_payload.eop == false, EOPIsPresent());
@@ -279,8 +278,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             EOPIsNotMissing()
         );
 
-        uint256 slashAmount = getSlashAmount().missingEOP;
-        emit MissingEOPSlashed(_committer, _payload, slashAmount);
-        return slashAmount;
+        slashAmount_ = getSlashAmount().missingEOP;
+        emit MissingEOPSlashed(_committer, _payload, slashAmount_);
     }
 }
