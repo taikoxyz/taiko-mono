@@ -515,7 +515,13 @@ func (d *Driver) cacheLookaheadLoop() {
 	}
 
 	// run once initially, so we dont have to wait for ticker
-	cacheLookahead(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot())
+	if err := cacheLookahead(
+		d.rpc.L1Beacon.CurrentEpoch(),
+		d.rpc.L1Beacon.CurrentSlot(),
+	); err != nil {
+		log.Warn("Failed to cache initial lookahead", "error", err)
+	}
+
 	checkHandover(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot(), &wasSequencer)
 
 	for {
