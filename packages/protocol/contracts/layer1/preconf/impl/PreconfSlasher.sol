@@ -265,8 +265,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // should have been proposed after the lookahead slot.
         require(
             evidence.preconfedBlockHeader.number == nextBatch.lastBlockId
-            /// Q: why this matters?
-            && evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
+                && evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
             EOPIsNotMissing()
         );
 
