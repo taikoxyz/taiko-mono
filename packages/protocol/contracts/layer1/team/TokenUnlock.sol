@@ -64,6 +64,7 @@ contract TokenUnlock is EssentialContract {
     error NOT_WITHDRAWABLE();
     error NOT_PROVER_SET();
     error PERMISSION_DENIED();
+    error REVEST_DISABLED();
     error TAIKO_TOKEN_NOT_USED_AS_BOND_TOKEN();
 
     modifier onlyRecipient() {
@@ -112,6 +113,7 @@ contract TokenUnlock is EssentialContract {
     }
 
     function reVestAll() external onlyRecipientOrOwner {
+        require(block.timestamp > tgeTimestamp + ONE_YEAR, REVEST_DISABLED());
         amountVested = tko().balanceOf(address(this));
         emit TokenReVested(amountVested);
     }
