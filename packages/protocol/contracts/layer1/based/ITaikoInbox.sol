@@ -56,10 +56,10 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
-        bool optInProverMarket;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
+        bytes proverAuth;
     }
 
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
@@ -166,10 +166,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
-        uint96 livenessBondBase;
-        /// @notice The amount of Taiko token as a prover liveness bond per block. This field is
-        /// deprecated and its value will be ignored.
-        uint96 livenessBondPerBlock;
+        uint96 livenessBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -251,10 +248,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error BatchVerified();
     error BeyondCurrentFork();
     error BlobNotFound();
-    error BlockNotFound();
     error BlobNotSpecified();
+    error BlockNotFound();
     error ContractPaused();
-    error CurrentProverCannotWithdraw();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();

@@ -15,10 +15,9 @@ contract MainnetInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService,
-        address _proverMarket
+        address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     { }
 
     function v4GetConfig() public pure virtual override returns (ITaikoInbox.Config memory) {
@@ -35,8 +34,7 @@ contract MainnetInbox is TaikoInbox {
             batchRingBufferSize: batchRingBufferSize_,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 50e18, // 50 Taiko token per batch
-            livenessBondPerBlock: 0, // deprecated
+            livenessBond: 50e18, // 50 Taiko token per batch
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
