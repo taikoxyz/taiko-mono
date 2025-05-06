@@ -52,6 +52,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         bytes calldata _lookaheadData
     )
         external
+        nonReentrant
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
@@ -90,7 +91,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
                 lookaheadSlot
             );
 
-            _validateLookaheadPreconfer(lookaheadSlot);
+            _validateProposer(lookaheadSlot);
         }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for IProposeBatch.
@@ -110,11 +111,10 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         );
     }
 
-    function _validateLookaheadPreconfer(ILookaheadStore.LookaheadSlot memory _lookaheadSlot)
-        internal
-        view
-    {
-        // Validate that the sender is the preconfer for the current precofing period
+    /// @dev Validates if the sender has proposing rights for the current slot
+    function _validateProposer(ILookaheadStore.LookaheadSlot memory _lookaheadSlot) internal view {
+        // Sender must be the expected committer (i.e the preconfer) for the current preconfing
+        // period
         require(msg.sender == _lookaheadSlot.committer, ProposerIsNotPreconfer());
 
         // Ensure that the associated operator is active and opted into the preconf slasher
