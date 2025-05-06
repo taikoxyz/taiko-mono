@@ -198,7 +198,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         return getSlashAmount().invalidPreconf;
     }
 
-    // I'm looking at this function!
     function _validateInvalidEOP(
         CommitmentPayload memory _payload,
         bytes calldata _evidenceData
@@ -217,15 +216,13 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(_payload.eop == true, NotEndOfPreconfirmation());
 
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
-
-        // Slash if another block was proposed after EOP in the same batch
-        if (evidence.preconfedBlockHeader.number != batch.lastBlockId) {
-            return getSlashAmount().invalidEOP;
-        }
+        require(evidence.preconfedBlockHeader.number > batch.lastBlockId, EOPIsValid());
 
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
+        require(evidence.preconfedBlockHeader.number < nextBatch.lastBlockId, EOPIsValid());
+
         require(
-            keccak256(abi.encode(nextBatch.metaHash)) == evidence.nextBatchMetadata.infoHash,
+            keccak256(abi.encode(evidence.nextBatchMetadata)) == nextBatch.metaHash,
             InvalidNextBatchMetadata()
         );
 
