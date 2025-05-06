@@ -113,7 +113,7 @@ contract TokenUnlock is EssentialContract {
     }
 
     function reVestAll() external onlyRecipientOrOwner {
-        require(block.timestamp > tgeTimestamp + ONE_YEAR, REVEST_DISABLED());
+        require(block.timestamp <= tgeTimestamp + ONE_YEAR, REVEST_DISABLED());
         amountVested = tko().balanceOf(address(this));
         emit TokenReVested(amountVested);
     }
