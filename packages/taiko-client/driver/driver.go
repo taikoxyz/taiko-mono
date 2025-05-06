@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -433,96 +434,103 @@ func (d *Driver) cacheLookaheadLoop() {
 		*wasSequencer = isSequencer
 	}
 
+	cacheLookahead := func(currentEpoch, currentSlot uint64) error {
+		var (
+			slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
+			slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
+		)
+
+		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
+		if err != nil {
+			log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
+
+			return err
+		}
+
+		if latestSeenBlockNumber == seenBlockNumber {
+			// Leave some grace period for the block to arrive.
+			if lastSlot != currentSlot &&
+				uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
+				log.Warn(
+					"Lookahead possible missed slot detected",
+					"currentSlot", currentSlot,
+					"latestSeenBlockNumber", latestSeenBlockNumber,
+				)
+
+				lastSlot = currentSlot
+			}
+
+			return errors.New("no new L1 head")
+		}
+
+		lastSlot = currentSlot
+		seenBlockNumber = latestSeenBlockNumber
+
+		currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
+		if err != nil {
+			log.Warn("Could not fetch current operator", "err", err)
+
+			return err
+		}
+
+		nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
+		if err != nil {
+			log.Warn("Could not fetch next operator", "err", err)
+
+			return err
+		}
+
+		// push into our 3‑epoch ring
+		opWin.Push(currentEpoch, currOp, nextOp)
+
+		// Push next epoch (nextOp becomes currOp at next epoch)
+		opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
+
+		var (
+			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
+			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+		)
+
+		d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
+			CurrOperator: currOp,
+			NextOperator: nextOp,
+			CurrRanges:   currRanges,
+			NextRanges:   nextRanges,
+			UpdatedAt:    time.Now().UTC(),
+		})
+
+		log.Info(
+			"Lookahead information refreshed",
+			"currentSlot", currentSlot,
+			"currentEpoch", currentEpoch,
+			"slotsLeftInEpoch", slotsLeftInEpoch,
+			"slotInEpoch", slotInEpoch,
+			"currOp", currOp.Hex(),
+			"nextOp", nextOp.Hex(),
+			"currRanges", currRanges,
+			"nextRanges", nextRanges,
+		)
+
+		return nil
+	}
+
+	// run once initially, so we dont have to wait for ticker
+	cacheLookahead(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot())
+	checkHandover(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot(), &wasSequencer)
+
 	for {
 		select {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
 			var (
-				currentEpoch     = d.rpc.L1Beacon.CurrentEpoch()
-				currentSlot      = d.rpc.L1Beacon.CurrentSlot()
-				slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
-				slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
+				currentEpoch = d.rpc.L1Beacon.CurrentEpoch()
+				currentSlot  = d.rpc.L1Beacon.CurrentSlot()
 			)
 
-			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
-			if err != nil {
-				log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
-
-				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
+			if err := cacheLookahead(currentEpoch, currentSlot); err != nil {
+				log.Warn("Failed to cache lookahead", "error", err)
 			}
-
-			if latestSeenBlockNumber == seenBlockNumber {
-				// Leave some grace period for the block to arrive.
-				if lastSlot != currentSlot &&
-					uint64(time.Now().UTC().Unix())-d.rpc.L1Beacon.TimestampOfSlot(currentSlot) > 6 {
-					log.Warn(
-						"Lookahead possible missed slot detected",
-						"currentSlot", currentSlot,
-						"latestSeenBlockNumber", latestSeenBlockNumber,
-					)
-
-					lastSlot = currentSlot
-				}
-
-				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
-			}
-
-			lastSlot = currentSlot
-			seenBlockNumber = latestSeenBlockNumber
-
-			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
-			if err != nil {
-				log.Warn("Could not fetch current operator", "err", err)
-
-				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
-			}
-
-			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
-			if err != nil {
-				log.Warn("Could not fetch next operator", "err", err)
-
-				checkHandover(currentEpoch, currentSlot, &wasSequencer)
-
-				continue
-			}
-
-			// push into our 3‑epoch ring
-			opWin.Push(currentEpoch, currOp, nextOp)
-
-			// Push next epoch (nextOp becomes currOp at next epoch)
-			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
-
-			var (
-				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
-			)
-
-			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
-				CurrOperator: currOp,
-				NextOperator: nextOp,
-				CurrRanges:   currRanges,
-				NextRanges:   nextRanges,
-				UpdatedAt:    time.Now().UTC(),
-			})
-
-			log.Info(
-				"Lookahead information refreshed",
-				"currentSlot", currentSlot,
-				"currentEpoch", currentEpoch,
-				"slotsLeftInEpoch", slotsLeftInEpoch,
-				"slotInEpoch", slotInEpoch,
-				"currOp", currOp.Hex(),
-				"nextOp", nextOp.Hex(),
-				"currRanges", currRanges,
-				"nextRanges", nextRanges,
-			)
 
 			checkHandover(currentEpoch, currentSlot, &wasSequencer)
 		}
