@@ -247,7 +247,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"timestamp", uint64(msg.ExecutionPayload.Timestamp),
 		"coinbase", msg.ExecutionPayload.FeeRecipient.Hex(),
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
-		"endOfSequencing", msg.EndOfSequencing,
+		"endOfSequencing", msg.EndOfSequencing != nil,
 	)
 
 	// Check if the L2 execution engine is syncing from L1.
