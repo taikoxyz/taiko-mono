@@ -255,7 +255,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the commitment is not an EOP
         require(_payload.eop == false, EOPIsPresent());
 
-        ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
         require(
             keccak256(abi.encode(evidence.nextBatchMetadata)) == nextBatch.metaHash,
