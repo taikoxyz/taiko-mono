@@ -47,7 +47,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         external
         nonReentrant
         onlyFrom(urc)
-        returns (uint256 slashAmount_)
+        returns (uint256)
     {
         // Parse and validate the commitment payload
         CommitmentPayload memory payload = abi.decode(_commitment.payload, (CommitmentPayload));
@@ -59,27 +59,36 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Parse the violation type from the first byte
         ViolationType violationType = ViolationType(uint8(_evidence[0]));
-        LibBlockHeader.BlockHeader memory blockHeader;
 
         // Parse the evidence based on violation type
         if (violationType == ViolationType.InvalidPreconfirmation) {
             EvidenceInvalidPreconfirmation memory evidence =
                 abi.decode(_evidence[1:], (EvidenceInvalidPreconfirmation));
-            blockHeader = evidence.preconfedBlockHeader;
-            slashAmount_ = _slashPreconfirmationViolation(_committer, payload, evidence);
-        } else if (violationType == ViolationType.InvalidEOP) {
-            EvidenceInvalidEOP memory evidence = abi.decode(_evidence[1:], (EvidenceInvalidEOP));
-            blockHeader = evidence.preconfedBlockHeader;
-            slashAmount_ = _slashInvalidEOP(_committer, payload, evidence);
-        } else if (violationType == ViolationType.MissingEOP) {
-            EvidenceMissingEOP memory evidence = abi.decode(_evidence[1:], (EvidenceMissingEOP));
-            blockHeader = evidence.preconfedBlockHeader;
-            slashAmount_ = _slashMissingEOP(_committer, payload, evidence);
-        } else {
-            revert InvalidViolationType();
+            require(
+                keccak256(evidence.preconfedBlockHeader.encodeRLP()) == payload.blockHash,
+                InvalidBlockHeader()
+            );
+            return _slashPreconfirmationViolation(_committer, payload, evidence);
         }
 
-        require(keccak256(blockHeader.encodeRLP()) == payload.blockHash, InvalidBlockHeader());
+        if (violationType == ViolationType.InvalidEOP) {
+            EvidenceInvalidEOP memory evidence = abi.decode(_evidence[1:], (EvidenceInvalidEOP));
+            require(
+                keccak256(evidence.preconfedBlockHeader.encodeRLP()) == payload.blockHash,
+                InvalidBlockHeader()
+            );
+            return _slashInvalidEOP(_committer, payload, evidence);
+        }
+
+        if (violationType == ViolationType.MissingEOP) {
+            EvidenceMissingEOP memory evidence = abi.decode(_evidence[1:], (EvidenceMissingEOP));
+            require(
+                keccak256(evidence.preconfedBlockHeader.encodeRLP()) == payload.blockHash,
+                InvalidBlockHeader()
+            );
+            return _slashMissingEOP(_committer, payload, evidence);
+        }
+        revert InvalidViolationType();
     }
 
     // View functions --------------------------------------------------------------------------
