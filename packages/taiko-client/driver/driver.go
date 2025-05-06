@@ -369,7 +369,10 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 	}
 }
 
-// cacheLookaheadLoop keeps updating the lookahead info for the preconf block server.
+// cacheLookaheadLoop keeps updating the lookahead info for the preconf block server, and
+// checks if the operator is transitioning to being the sequencer. If it is, it makes sure
+// it has seen an EndOfSequencing block. If it hasn't, it requests it via the p2p network
+// which the currentOperator will return.
 func (d *Driver) cacheLookaheadLoop() {
 	if d.rpc.L1Beacon == nil {
 		log.Warn("`--l1.beacon` flag value is empty, skipping lookahead cache")
