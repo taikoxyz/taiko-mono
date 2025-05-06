@@ -256,21 +256,18 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the commitment is not an EOP
         require(_payload.eop == false, EOPIsPresent());
 
-        // Get the batch that contains the block in question
-        ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
-        // Check the block is the batch's last block
-        require(evidence.preconfedBlockHeader.number == batch.lastBlockId, EOPIsValid());
-
-        // An extra batch should be proposed after the EOP
-        // We validate this by comparing the proposal timestamp to the timestamp of the preconfer's
-        // lookahead slot.
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
         require(
-            keccak256(abi.encode(evidence.nextBatchMetadata)) == nextBatch.metaHash,
+            keccak256(abi.encode(nextBatch.metaHash)) == evidence.nextBatchMetadata.infoHash,
             InvalidNextBatchMetadata()
         );
+
+        // The block with missing EOP should be the last block in the batch and the next batch
+        // should have been proposed after the lookahead slot.
         require(
-            evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp, EOPIsValid()
+            evidence.preconfedBlockHeader.number == nextBatch.lastBlockId
+                && evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
+            EOPIsNotMissing()
         );
 
         return getSlashAmount().missingEOP;
