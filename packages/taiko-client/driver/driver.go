@@ -444,7 +444,9 @@ func (d *Driver) cacheLookaheadLoop() {
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 			if err != nil {
 				log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
+
 				checkHandover(currentEpoch, currentSlot, &wasSequencer)
+
 				continue
 			}
 
@@ -460,7 +462,9 @@ func (d *Driver) cacheLookaheadLoop() {
 
 					lastSlot = currentSlot
 				}
+
 				checkHandover(currentEpoch, currentSlot, &wasSequencer)
+
 				continue
 			}
 
@@ -470,14 +474,18 @@ func (d *Driver) cacheLookaheadLoop() {
 			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Could not fetch current operator", "err", err)
+
 				checkHandover(currentEpoch, currentSlot, &wasSequencer)
+
 				continue
 			}
 
 			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Could not fetch next operator", "err", err)
+
 				checkHandover(currentEpoch, currentSlot, &wasSequencer)
+
 				continue
 			}
 
