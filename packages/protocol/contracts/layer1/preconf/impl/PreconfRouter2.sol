@@ -61,7 +61,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         // This call fails if the lookahead for next epoch is not posted, thus requiring the first
         // preconfer to post the next epoch's lookahead before proposing a batch in the current
         // epoch.
-        lookaheadStore.getLookahead(epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        lookaheadStore.getLookaheadHash(epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
 
         if (_isEmptyLookahead(epochTimestamp, currentLookaheadHash)) {
             // The current lookahead is empty, so we use a whitelisted preconfer
