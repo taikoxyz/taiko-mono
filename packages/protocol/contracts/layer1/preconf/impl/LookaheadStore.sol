@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibPreconfConstants as LPC } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import { LibPreconfUtils as LPU } from "src/layer1/preconf/libs/LibPreconfUtils.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
@@ -60,7 +60,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             revert LookaheadNotRequired();
         }
 
-        _updateLookahead(LPU.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian);
+        _updateLookahead(
+            LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian
+        );
     }
 
     // View and Pure functions
@@ -75,12 +77,12 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         pure
         returns (bytes26)
     {
-        return LPU.calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
+        return LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
     }
 
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
-        uint256 nextEpochTimestamp = LPU.getEpochTimestamp(1);
+        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
 
         return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
     }
@@ -116,8 +118,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
-            uint256 prevSlotTimestamp = _nextEpochTimestamp - LPC.SECONDS_IN_SLOT;
-            uint256 currentEpochTimestamp = _nextEpochTimestamp - LPC.SECONDS_IN_EPOCH;
+            uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+            uint256 currentEpochTimestamp =
+                _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
 
             uint256 minCollateralForPreconfing = getConfig().minCollateralForPreconfing;
 
@@ -129,8 +132,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     SlotTimestampIsNotIncrementing()
                 );
                 require(
-                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp) % LPC.SECONDS_IN_EPOCH
-                        == 0,
+                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                        % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
                     InvalidSlotTimestamp()
                 );
 
@@ -163,13 +166,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             // Validate that the last slot timestamp is within the next epoch
             require(
-                prevSlotTimestamp < _nextEpochTimestamp + LPC.SECONDS_IN_EPOCH,
+                prevSlotTimestamp < _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
                 InvalidLookaheadEpoch()
             );
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
-        bytes26 lookaheadHash = LPU.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+        bytes26 lookaheadHash =
+            LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
 
         emit LookaheadPosted(
