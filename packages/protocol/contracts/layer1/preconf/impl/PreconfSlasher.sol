@@ -262,8 +262,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             InvalidNextBatchMetadata()
         );
 
-        // The block with missing EOP should be the last block in the batch and the next batch
-        // should have been proposed after the lookahead slot.
+        // The block with missing EOP should be the last block in its batch and the next
+        // batch should have been proposed in a future lookahead
         require(
             evidence.preconfedBlockHeader.number == nextBatch.lastBlockId
                 && evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
