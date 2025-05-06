@@ -319,7 +319,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 
 	endOfSequencingBlockHash := common.Hash{}
 
-	if s.rpc.L1Beacon == nil {
+	if s.rpc.L1Beacon != nil {
 		hash, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
 		if ok {
 			endOfSequencingBlockHash = hash
