@@ -205,6 +205,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Circular dependency so zero it out. (BatchParams has proverAuth but
                     // proverAuth has also batchParamsHash)
                     params.proverAuth = "";
+
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
                     LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(

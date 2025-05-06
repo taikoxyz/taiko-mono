@@ -67,7 +67,6 @@ library LibProverAuth {
         returns (bytes32)
     {
         _auth.signature = "";
-
         return keccak256(
             abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _txListHash, _auth)
         );
