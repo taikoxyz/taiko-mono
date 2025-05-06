@@ -4,6 +4,7 @@
   "private": true,
   "devDependencies": {
     "lefthook": "^1.6.10",
-    "prettier": "^3.2.5"
+    "prettier": "^3.2.5",
+    "solhint": "5.1.0"
   }
 }
