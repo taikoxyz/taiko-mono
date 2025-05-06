@@ -107,14 +107,11 @@ interface IPreconfSlasher is ISlasher {
     }
 
     event SlashAmountUpdated(uint256 newAmount);
-    event InvalidPreconfirmationSlashed(
-        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
-    );
-    event InvalidEOPSlashed(
-        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
-    );
-    event MissingEOPSlashed(
-        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
+    event Slashed(
+        address indexed committer,
+        ViolationType indexed violationType,
+        CommitmentPayload commitmentPayload,
+        uint256 slashAmount
     );
 
     error BatchNotVerified();
