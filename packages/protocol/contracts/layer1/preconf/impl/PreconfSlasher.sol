@@ -253,6 +253,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         emit InvalidEOPSlashed(_committer, _payload, slashAmount_);
     }
 
+// I'm looking at this function!
     function _slashMissingEOP(
         address _committer,
         CommitmentPayload memory _payload,
