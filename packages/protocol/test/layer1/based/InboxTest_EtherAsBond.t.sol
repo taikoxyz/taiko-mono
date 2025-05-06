@@ -7,7 +7,7 @@ import "./InboxTestBase.sol";
 contract InboxTest_EtherAsBond is InboxTestBase {
     function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory config_) {
         config_ = super.v4GetConfig();
-        config_.livenessBondBase = 1 ether;
+        config_.livenessBond = 1 ether;
     }
 
     function setUpOnEthereum() internal override {
