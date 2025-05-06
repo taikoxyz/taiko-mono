@@ -35,7 +35,7 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
-    address public immutable taikoInbox;
+    ITaikoInbox public immutable taikoInbox;
     address public immutable taikoProofVerifier;
     address public immutable automataDcapAttestation;
 
@@ -89,8 +89,8 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
     )
         EssentialContract(address(0))
     {
-        taikoInbox = _taikoInbox;
-        taikoChainId = ITaikoInbox(_taikoInbox).v4GetConfig().chainId;
+        taikoInbox = ITaikoInbox(_taikoInbox);
+        taikoChainId = taikoInbox.v4GetConfig().chainId;
         taikoProofVerifier = _taikoProofVerifier;
         automataDcapAttestation = _automataDcapAttestation;
     }
@@ -149,7 +149,7 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyFromEither(taikoInbox, taikoProofVerifier)
+        onlyFromEither(address(taikoInbox), taikoProofVerifier)
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
