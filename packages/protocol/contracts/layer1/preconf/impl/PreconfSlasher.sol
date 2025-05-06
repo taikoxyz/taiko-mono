@@ -215,12 +215,17 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the commitment is an EOP
         require(_payload.eop == true, NotEndOfPreconfirmation());
 
+        // Get the batch that contains the block in question
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
-        require(evidence.preconfedBlockHeader.number > batch.lastBlockId, EOPIsValid());
+        // Check the block is part of the batch but not the last one
+        require(evidence.preconfedBlockHeader.number < batch.lastBlockId, EOPIsValid());
 
+        // Check the block is after the previous batch's last block
+        ITaikoInbox.Batch memory previousBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId - 1));
+        require(evidence.preconfedBlockHeader.number > previousBatch.lastBlockId, EOPIsValid());
+
+        // Check the block is part of the next batch
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
-        require(evidence.preconfedBlockHeader.number < nextBatch.lastBlockId, EOPIsValid());
-
         require(
             keccak256(abi.encode(evidence.nextBatchMetadata)) == nextBatch.metaHash,
             InvalidNextBatchMetadata()
