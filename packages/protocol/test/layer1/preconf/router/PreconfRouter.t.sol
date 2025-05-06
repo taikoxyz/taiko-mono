@@ -46,9 +46,9 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
-            optInProverMarket: false,
             blobParams: blobParams,
-            blocks: blockParams
+            blocks: blockParams,
+            proverAuth: ""
         });
 
         // Warp to arbitrary slot in epoch 2
@@ -133,9 +133,9 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
-            optInProverMarket: false,
             blobParams: blobParams,
-            blocks: blockParams
+            blocks: blockParams,
+            proverAuth: ""
         });
 
         // Warp to arbitrary slot in epoch 2
