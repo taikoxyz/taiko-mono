@@ -194,19 +194,18 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		)
 	}
 
-	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing {
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing && s.rpc.L1Beacon != nil {
 		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
-		if s.rpc.L1Beacon != nil {
-			s.sequencingEndedForEpoch.Set(
-				currentEpoch,
-				header.Hash(),
-			)
-		}
+		s.sequencingEndedForEpoch.Add(
+			currentEpoch,
+			header.Hash(),
+		)
 		log.Info("End of sequencing block marker created",
 			"blockID", header.Number.Uint64(),
 			"hash", header.Hash().Hex(),
 			"currentEpoch", currentEpoch,
 		)
+
 	}
 
 	return c.JSON(http.StatusOK, BuildPreconfBlockResponseBody{BlockHeader: header})

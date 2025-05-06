@@ -719,6 +719,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 			return err
 		}
 
+		endOfSequencing := true
+
 		envelope := &eth.ExecutionPayloadEnvelope{
 			ExecutionPayload: &eth.ExecutionPayload{
 				BaseFeePerGas: eth.Uint256Quantity(u256),
@@ -733,6 +735,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 				BlockHash:     block.Hash(),
 				Transactions:  []eth.Data{hexutil.Bytes(txs)},
 			},
+			EndOfSequencing: &endOfSequencing,
 		}
 
 		if err := s.ValidateExecutionPayload(envelope.ExecutionPayload); err != nil {
