@@ -198,6 +198,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         return getSlashAmount().invalidPreconf;
     }
 
+    // I'm looking at this function!
     function _validateInvalidEOP(
         CommitmentPayload memory _payload,
         bytes calldata _evidenceData
@@ -238,7 +239,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         return getSlashAmount().invalidEOP;
     }
 
-    // I'm looking at this function!
     function _validateMissingEOP(
         CommitmentPayload memory _payload,
         bytes calldata _evidenceData
