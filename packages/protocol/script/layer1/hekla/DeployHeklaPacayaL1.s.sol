@@ -58,7 +58,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     address public automata = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
     address public oldFork = vm.envAddress("OLD_FORK");
     address public proverSet = vm.envAddress("PROVER_SET");
-    address public proverMarket = vm.envAddress("PROVER_MARKET");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -149,9 +148,8 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         });
 
         // Register taiko
-        address newFork = address(
-            new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService, proverMarket)
-        );
+        address newFork =
+            address(new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
 

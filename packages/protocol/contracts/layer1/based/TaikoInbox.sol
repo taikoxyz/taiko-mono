@@ -10,9 +10,9 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "src/layer1/prover-market/IProverMarket.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
+import "./LibProverAuth.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -28,6 +28,7 @@ import "./IProposeBatch.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
+    using ECDSA for bytes32;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -35,20 +36,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     address public immutable verifier;
     address internal immutable bondToken;
     ISignalService public immutable signalService;
-    IProverMarket public immutable proverMarket;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
 
     // External functions ------------------------------------------------------------------------
 
-    /// @dev proverMarket is optional, so we can pass in address(0)
     constructor(
         address _inboxWrapper,
         address _verifier,
         address _bondToken,
-        address _signalService,
-        address _proverMarket
+        address _signalService
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
@@ -58,7 +56,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         verifier = _verifier;
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
-        proverMarket = IProverMarket(_proverMarket);
     }
 
     function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {
@@ -158,30 +155,30 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // use
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-
-            info_ = BatchInfo({
-                txsHash: bytes32(0), // to be initialised later
-                //
-                // Data to build L2 blocks
-                blocks: params.blocks,
-                blobHashes: new bytes32[](0), // to be initialised later
-                extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
-                coinbase: params.coinbase,
-                proposer: params.proposer,
-                proposedIn: uint64(block.number),
-                blobCreatedIn: params.blobParams.createdIn,
-                blobByteOffset: params.blobParams.byteOffset,
-                blobByteSize: params.blobParams.byteSize,
-                gasLimit: config.blockMaxGasLimit,
-                lastBlockId: 0, // to be initialised later
-                lastBlockTimestamp: lastBlockTimestamp,
-                //
-                // Data for the L2 anchor transaction, shared by all blocks in the batch
-                anchorBlockId: anchorBlockId,
-                anchorBlockHash: blockhash(anchorBlockId),
-                baseFeeConfig: config.baseFeeConfig
-            });
             {
+                info_ = BatchInfo({
+                    txsHash: bytes32(0), // to be initialised later
+                    //
+                    // Data to build L2 blocks
+                    blocks: params.blocks,
+                    blobHashes: new bytes32[](0), // to be initialised later
+                    extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
+                    coinbase: params.coinbase,
+                    proposer: params.proposer,
+                    proposedIn: uint64(block.number),
+                    blobCreatedIn: params.blobParams.createdIn,
+                    blobByteOffset: params.blobParams.byteOffset,
+                    blobByteSize: params.blobParams.byteSize,
+                    gasLimit: config.blockMaxGasLimit,
+                    lastBlockId: 0, // to be initialised later
+                    lastBlockTimestamp: lastBlockTimestamp,
+                    //
+                    // Data for the L2 anchor transaction, shared by all blocks in the batch
+                    anchorBlockId: anchorBlockId,
+                    anchorBlockHash: blockhash(anchorBlockId),
+                    baseFeeConfig: config.baseFeeConfig
+                });
+
                 uint64 nBlocks = uint64(params.blocks.length);
 
                 require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
@@ -190,8 +187,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     ? stats2.numBatches + nBlocks - 1
                     : lastBatch.lastBlockId + nBlocks;
 
-                (info_.txsHash, info_.blobHashes) =
-                    _calculateTxsHash(keccak256(_txList), params.blobParams);
+                bytes32 txListHash = keccak256(_txList);
+                (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
@@ -199,31 +196,46 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp)
                 });
-            }
 
-            if (address(proverMarket) != address(0) && params.optInProverMarket) {
-                uint256 proverFee;
-                (meta_.prover, proverFee) = proverMarket.getCurrentProver();
-                require(meta_.prover != address(0), NoProverAvailable());
-                if (info_.proposer == meta_.prover) {
-                    // proposer is the same as the prover, no need to pay the prover fee.
-                    _debitBond(meta_.prover, config.livenessBondBase);
+                if (params.proverAuth.length == 0) {
+                    // proposer is the prover
+                    _debitBond(meta_.prover, config.livenessBond);
                 } else {
-                    // proposer pay the prover fee.
-                    _debitBond(info_.proposer, proverFee);
+                    // Outsource the prover authentication to the LibProverAuth library to reduce
+                    // this contract's code size.
+                    LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(
+                        config.chainId,
+                        stats2.numBatches,
+                        keccak256(abi.encode(params)),
+                        txListHash,
+                        params.proverAuth
+                    );
 
-                    // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
-                    // if not then add the diff to the bond balance
-                    int256 bondDelta = int256(proverFee) - int256(uint256(config.livenessBondBase));
+                    meta_.prover = auth.prover;
 
-                    if (bondDelta < 0) {
-                        _debitBond(meta_.prover, uint256(-bondDelta));
+                    if (auth.feeToken == bondToken) {
+                        // proposer pay the prover fee with bond tokens
+                        _debitBond(info_.proposer, auth.fee);
+
+                        // if bondDelta is negative (proverFee < livenessBond), deduct the diff
+                        // if not then add the diff to the bond balance
+                        int256 bondDelta = int96(auth.fee) - int96(config.livenessBond);
+
+                        if (bondDelta < 0) {
+                            _debitBond(meta_.prover, uint256(-bondDelta));
+                        } else {
+                            _creditBond(meta_.prover, uint256(bondDelta));
+                        }
                     } else {
-                        _creditBond(meta_.prover, uint256(bondDelta));
+                        _debitBond(meta_.prover, config.livenessBond);
+
+                        if (info_.proposer != meta_.prover) {
+                            IERC20(auth.feeToken).safeTransferFrom(
+                                info_.proposer, meta_.prover, auth.fee
+                            );
+                        }
                     }
                 }
-            } else {
-                _debitBond(meta_.prover, config.livenessBondBase);
             }
 
             {
@@ -244,7 +256,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE #3 {{
                 batch.lastBlockId = info_.lastBlockId;
                 batch.reserved3 = 0;
-                batch.livenessBond = config.livenessBondBase;
+                batch.livenessBond = config.livenessBond;
                 // SSTORE }}
             }
             stats2.numBatches += 1;
@@ -409,11 +421,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc IBondManager
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
-        if (address(proverMarket) != address(0)) {
-            (address currentProver,) = proverMarket.getCurrentProver();
-            require(msg.sender != currentProver, CurrentProverCannotWithdraw());
-        }
-
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
 
