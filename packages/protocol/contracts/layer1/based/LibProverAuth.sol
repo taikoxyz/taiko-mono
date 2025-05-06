@@ -63,17 +63,9 @@ library LibProverAuth {
         pure
         returns (bytes32)
     {
+        _auth.signature = "";
         return keccak256(
-            abi.encode(
-                "PROVER_AUTHENTICATION",
-                _chainId,
-                _batchParamsHash,
-                _txListHash,
-                _auth.prover,
-                _auth.feeToken,
-                _auth.fee,
-                _auth.validUntil
-            )
+            abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _txListHash, _auth)
         );
     }
 }
