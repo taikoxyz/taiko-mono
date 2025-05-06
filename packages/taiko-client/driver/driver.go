@@ -397,6 +397,38 @@ func (d *Driver) cacheLookaheadLoop() {
 		wasSequencer bool = false
 	)
 
+	checkHandover := func(epoch, slot uint64, wasSequencer *bool) {
+		err := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot)
+		isSequencer := err == nil
+
+		if isSequencer && !*wasSequencer {
+			log.Info("lookahead transitioning to sequencing for operator")
+
+			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
+			if !seen {
+				log.Info("lookahead requesting end of sequencing for epoch", "epoch", epoch)
+				if err := d.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(
+					context.Background(),
+					epoch,
+				); err != nil {
+					log.Warn(
+						"failed to publish end of sequencing request",
+						"currentEpoch", epoch,
+						"error", err,
+					)
+				}
+			} else {
+				log.Info(
+					"end of sequencing already seen",
+					"epoch", epoch,
+					"hash", hash.Hex(),
+				)
+			}
+		}
+
+		*wasSequencer = isSequencer
+	}
+
 	for {
 		select {
 		case <-d.ctx.Done():
@@ -412,6 +444,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 			if err != nil {
 				log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
+				checkHandover(currentEpoch, currentSlot, &wasSequencer)
 				continue
 			}
 
@@ -427,7 +460,7 @@ func (d *Driver) cacheLookaheadLoop() {
 
 					lastSlot = currentSlot
 				}
-
+				checkHandover(currentEpoch, currentSlot, &wasSequencer)
 				continue
 			}
 
@@ -437,12 +470,14 @@ func (d *Driver) cacheLookaheadLoop() {
 			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Could not fetch current operator", "err", err)
+				checkHandover(currentEpoch, currentSlot, &wasSequencer)
 				continue
 			}
 
 			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
 				log.Warn("Could not fetch next operator", "err", err)
+				checkHandover(currentEpoch, currentSlot, &wasSequencer)
 				continue
 			}
 
@@ -477,38 +512,7 @@ func (d *Driver) cacheLookaheadLoop() {
 				"nextRanges", nextRanges,
 			)
 
-			err = d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, currentSlot)
-			isSequencer := err == nil
-
-			if isSequencer && !wasSequencer {
-				log.Info("lookahead transitioning to sequencing for operator")
-
-				// only fire if we haven't seen an EndOfSequencing for this epoch
-				hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(currentEpoch)
-
-				if !seen {
-					log.Info("lookahead requesting end of sequencing for epoch", "epoch", currentEpoch)
-
-					if err := d.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(
-						context.Background(),
-						currentEpoch,
-					); err != nil {
-						log.Warn(
-							"failed to publish end of sequencing request",
-							"currentEpoch", currentEpoch,
-							"error", err,
-						)
-					}
-				} else {
-					log.Info(
-						"end of sequencing already seen",
-						"epoch", currentEpoch,
-						"hash", hash.Hex(),
-					)
-				}
-			}
-
-			wasSequencer = isSequencer
+			checkHandover(currentEpoch, currentSlot, &wasSequencer)
 		}
 	}
 }
