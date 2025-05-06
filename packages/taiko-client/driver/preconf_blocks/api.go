@@ -205,7 +205,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"hash", header.Hash().Hex(),
 			"currentEpoch", currentEpoch,
 		)
-
 	}
 
 	return c.JSON(http.StatusOK, BuildPreconfBlockResponseBody{BlockHeader: header})
