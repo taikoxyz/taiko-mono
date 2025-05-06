@@ -206,7 +206,7 @@ contract TokenUnlock is EssentialContract {
         return _amountVested * (_tgeTimestamp + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
     }
 
-    function tko() internal view returns (IERC20) {
+    function tko() private view returns (IERC20) {
         return IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
     }
 }
