@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title LibProverAuth
 /// @notice This library is used to validate the prover authentication.
-/// @dev This libarary's validateProverAuth function is made public to reduce TaikoInbox's code size
+/// @dev This library's validateProverAuth function is made public to reduce TaikoInbox's code size
 /// .
 /// @custom:security-contact security@taiko.xyz
 library LibProverAuth {
