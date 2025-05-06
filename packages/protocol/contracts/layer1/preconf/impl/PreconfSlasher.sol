@@ -88,6 +88,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             );
             return _slashMissingEOP(_committer, payload, evidence);
         }
+        
         revert InvalidViolationType();
     }
 
