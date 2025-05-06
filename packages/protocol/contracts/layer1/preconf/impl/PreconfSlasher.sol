@@ -76,14 +76,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
                 InvalidBlockHeader()
             );
 
-            slashAmount_ = _validateInvalidEOP(_committer, payload, evidence);
+            slashAmount_ = _validateInvalidEOP(payload, evidence);
         } else if (violationType == ViolationType.MissingEOP) {
             EvidenceMissingEOP memory evidence = abi.decode(_evidence[1:], (EvidenceMissingEOP));
             require(
                 keccak256(evidence.preconfedBlockHeader.encodeRLP()) == payload.blockHash,
                 InvalidBlockHeader()
             );
-            slashAmount_ = _validateMissingEOP(_committer, payload, evidence);
+            slashAmount_ = _validateMissingEOP(payload, evidence);
         } else {
             revert InvalidViolationType();
         }
@@ -211,7 +211,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     }
 
     function _validateInvalidEOP(
-        address, /*_committer*/
         CommitmentPayload memory _payload,
         EvidenceInvalidEOP memory _evidence
     )
@@ -248,7 +247,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 // I'm looking at this function!
     // I'm looking at this function!
     function _validateMissingEOP(
-        address, /*_committer*/
         CommitmentPayload memory _payload,
         EvidenceMissingEOP memory _evidence
     )
@@ -261,7 +259,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
         require(
-            keccak256(abi.encode(nextBatch.metaHash)) == _evidence.nextBatchMetadata.infoHash,
+            keccak256(abi.encode(_evidence.nextBatchMetadata)) == nextBatch.metaHash,
             InvalidNextBatchMetadata()
         );
 
@@ -269,7 +267,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // should have been proposed after the lookahead slot.
         require(
             _evidence.preconfedBlockHeader.number == nextBatch.lastBlockId
-                && _evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
+            /// Q: why this matters?
+            && _evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
             EOPIsNotMissing()
         );
 
