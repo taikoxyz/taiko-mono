@@ -398,6 +398,10 @@ func (d *Driver) cacheLookaheadLoop() {
 	)
 
 	checkHandover := func(epoch, slot uint64, wasSequencer *bool) {
+		if d.p2pNode == nil {
+			return
+		}
+
 		err := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot)
 		isSequencer := err == nil
 

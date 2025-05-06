@@ -79,6 +79,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas)),
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
+		"endOfSequencing", reqBody.EndOfSequencing,
 	)
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
@@ -190,6 +191,21 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
 			"extraData", common.Bytes2Hex(header.Extra),
 			"baseFee", utils.WeiToEther(header.BaseFee),
+		)
+	}
+
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing {
+		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
+		if s.rpc.L1Beacon != nil {
+			s.sequencingEndedForEpoch.Set(
+				currentEpoch,
+				header.Hash(),
+			)
+		}
+		log.Info("End of sequencing block marker created",
+			"blockID", header.Number.Uint64(),
+			"hash", header.Hash().Hex(),
+			"currentEpoch", currentEpoch,
 		)
 	}
 
