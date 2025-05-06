@@ -34,8 +34,7 @@ contract MainnetInbox is TaikoInbox {
             batchRingBufferSize: batchRingBufferSize_,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 50e18, // 50 Taiko token per batch
-            livenessBondPerBlock: 0, // deprecated
+            livenessBond: 50e18, // 50 Taiko token per batch
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

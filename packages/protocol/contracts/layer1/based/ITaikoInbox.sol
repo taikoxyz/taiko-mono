@@ -166,10 +166,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
-        uint96 livenessBondBase;
-        /// @notice The amount of Taiko token as a prover liveness bond per block. This field is
-        /// deprecated and its value will be ignored.
-        uint96 livenessBondPerBlock;
+        uint96 livenessBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -264,7 +261,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error InvalidBlobParams();
     error InvalidGenesisBlockHash();
     error InvalidParams();
-    error InvalidProverAuth();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();

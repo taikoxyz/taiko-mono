@@ -13,66 +13,63 @@ library LibProverAuth {
     using SignatureChecker for address;
 
     struct ProverAuth {
+        address prover;
         address feeToken;
         uint96 fee;
-        address proverAddress; //proverAddress encoded to compare against the real signer
-        uint64 validUntil; // optional, for expiration
-        uint64 chainId; // replay protection across chains
-        bytes32 batchParamsHash; // hash of batch parameters
-        bytes32 txListHash; // hash of the tx list, should be same as _calculateTxsHash(txListHash,
-            // params.blobParams)
+        uint64 validUntil; // optional
+        uint64 batchId; // optional
         bytes signature;
     }
 
+    error InvalidBatchId();
     error InvalidSignature();
     error InvalidValidUntil();
-    error MismatchingBatchParamsHash();
-    error MismatchingChainId();
-    error MismatchingTxListHash();
+    error InvalidProver();
+    error EtherAsFeeTokenNotSupportedYet();
 
     function validateProverAuth(
         uint64 _chainId,
+        uint64 _batchId,
         bytes32 _batchParamsHash,
         bytes32 _txListHash,
         bytes calldata _proverAuth
     )
         public
         view
-        returns (address prover_, uint96 fee_, address feeToken_)
+        returns (ProverAuth memory auth_)
     {
-        ProverAuth memory auth = abi.decode(_proverAuth, (ProverAuth));
+        auth_ = abi.decode(_proverAuth, (ProverAuth));
 
-        // If `validUntil` is used, make sure it's still valid
-        if (auth.validUntil != 0 && auth.validUntil < block.timestamp) {
-            revert InvalidValidUntil();
-        }
+        require(auth_.prover != address(0), InvalidProver());
+        require(auth_.feeToken != address(0), EtherAsFeeTokenNotSupportedYet());
+        require(auth_.validUntil == 0 || auth_.validUntil >= block.timestamp, InvalidValidUntil());
+        require(auth_.batchId == 0 || auth_.batchId == _batchId, InvalidBatchId());
 
-        if (auth.chainId != _chainId) {
-            revert MismatchingChainId();
-        }
+        bytes32 digest = computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth_);
+        require(auth_.prover.isValidSignatureNow(digest, auth_.signature), InvalidSignature());
+    }
 
-        if (auth.batchParamsHash != _batchParamsHash) {
-            revert MismatchingBatchParamsHash();
-        }
-
-        if (auth.txListHash != _txListHash) {
-            revert MismatchingTxListHash();
-        }
-
-        // Save the signature
-        bytes memory signature = auth.signature;
-        // The payload what the prover signed had obviously no signature before so clear the
-        // signature before hashing
-        auth.signature = ""; // clear the signature before hashing
-
-        bytes32 digest = keccak256(abi.encode("PROVER_AUTHENTICATION", auth));
-
-        if (!auth.proverAddress.isValidSignatureNow(digest, signature)) {
-            revert InvalidSignature();
-        }
-
-        prover_ = digest.recover(signature);
-        fee_ = auth.fee;
-        feeToken_ = auth.feeToken;
+    function computeProverAuthDigest(
+        uint64 _chainId,
+        bytes32 _batchParamsHash,
+        bytes32 _txListHash,
+        ProverAuth memory _auth
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                "PROVER_AUTHENTICATION",
+                _chainId,
+                _batchParamsHash,
+                _txListHash,
+                _auth.prover,
+                _auth.feeToken,
+                _auth.fee,
+                _auth.validUntil
+            )
+        );
     }
 }

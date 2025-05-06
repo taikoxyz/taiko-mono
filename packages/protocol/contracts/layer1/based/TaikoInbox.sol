@@ -197,40 +197,44 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     proposedAt: uint64(block.timestamp)
                 });
 
-                if (params.proverAuth.length != 0) {
+                if (params.proverAuth.length == 0) {
+                    // proposer is the prover
+                    _debitBond(meta_.prover, config.livenessBond);
+                } else {
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
-                    bytes32 paramsHash = keccak256(abi.encode(params));
-                    (address prover, uint96 proverFee, address feeToken) = LibProverAuth
-                        .validateProverAuth(config.chainId, paramsHash, txListHash, params.proverAuth);
+                    LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(
+                        config.chainId,
+                        stats2.numBatches,
+                        keccak256(abi.encode(params)),
+                        txListHash,
+                        params.proverAuth
+                    );
 
-                    require(prover != address(0), InvalidProverAuth());
+                    meta_.prover = auth.prover;
 
-                    meta_.prover = prover;
-
-                    if (feeToken == bondToken && bondToken != address(0)) {
+                    if (auth.feeToken == bondToken) {
                         // proposer pay the prover fee with bond tokens
-                        _debitBond(info_.proposer, proverFee);
+                        _debitBond(info_.proposer, auth.fee);
 
-                        // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
+                        // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                         // if not then add the diff to the bond balance
-                        int256 bondDelta = int96(proverFee) - int96(config.livenessBondBase);
+                        int256 bondDelta = int96(auth.fee) - int96(config.livenessBond);
 
                         if (bondDelta < 0) {
                             _debitBond(meta_.prover, uint256(-bondDelta));
                         } else {
                             _creditBond(meta_.prover, uint256(bondDelta));
                         }
-                    } else if (feeToken != bondToken && bondToken != address(0)) {
-                        // proposer directly pays the prover with an ERC20
-                        IERC20(feeToken).safeTransferFrom(info_.proposer, address(this), proverFee);
                     } else {
-                        // Pay in ether
-                        LibAddress.sendEtherAndVerify(prover, proverFee);
+                        _debitBond(meta_.prover, config.livenessBond);
+
+                        if (info_.proposer != meta_.prover) {
+                            IERC20(auth.feeToken).safeTransferFrom(
+                                info_.proposer, meta_.prover, auth.fee
+                            );
+                        }
                     }
-                } else {
-                    // proposer is the prover
-                    _debitBond(meta_.prover, config.livenessBondBase);
                 }
             }
 
@@ -252,7 +256,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE #3 {{
                 batch.lastBlockId = info_.lastBlockId;
                 batch.reserved3 = 0;
-                batch.livenessBond = config.livenessBondBase;
+                batch.livenessBond = config.livenessBond;
                 // SSTORE }}
             }
             stats2.numBatches += 1;
