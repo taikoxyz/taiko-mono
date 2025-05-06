@@ -285,7 +285,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	defer cancel()
 	composeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
-		return fmt.Errorf("failed to get compose verifier address: %w", err)
+		return fmt.Errorf("failed to retrieve compose verifier address: %w", err)
 	}
 	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
 	if err != nil {
