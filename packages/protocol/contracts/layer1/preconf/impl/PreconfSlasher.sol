@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/preconf/iface/IPreconfSlasher.sol";
-import { LibPreconfConstants as LPC } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibTrieProof.sol";
@@ -52,7 +52,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Parse and validate the commitment payload
         CommitmentPayload memory payload = abi.decode(_commitment.payload, (CommitmentPayload));
         require(payload.chainId == l2ChainId, InvalidChainId());
-        require(payload.domainSeparator == LPC.PRECONF_DOMAIN_SEPARATOR, InvalidDomainSeparator());
+        require(
+            payload.domainSeparator == LibPreconfConstants.PRECONF_DOMAIN_SEPARATOR,
+            InvalidDomainSeparator()
+        );
 
         // Parse the violation type from the first byte
         ViolationType violationType = ViolationType(uint8(_evidence[0]));
@@ -127,7 +130,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Check for reorgs if the committer missed the proposal
         if (_evidence.batchInfo.proposer != _committer) {
-            (bool success,) = LPC.getBeaconBlockRootContract().staticcall(
+            (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
                 abi.encode(_payload.preconferSlotTimestamp)
             );
 
