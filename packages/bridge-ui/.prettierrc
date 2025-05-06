@@ -6,7 +6,6 @@
   "singleQuote": true,
   "trailingComma": "all",
   "bracketSameLine": true,
-  "plugins": ["prettier-plugin-svelte"],
   "overrides": [
     {
       "files": "*.svelte",
