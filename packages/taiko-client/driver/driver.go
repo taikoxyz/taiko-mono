@@ -379,7 +379,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		return
 	}
 
-	ticker := time.NewTicker(time.Duration(d.rpc.L1Beacon.SecondsPerSlot) / 3)
+	ticker := time.NewTicker(time.Second * time.Duration(d.rpc.L1Beacon.SecondsPerSlot) / 3)
 	d.wg.Add(1)
 
 	defer func() {
