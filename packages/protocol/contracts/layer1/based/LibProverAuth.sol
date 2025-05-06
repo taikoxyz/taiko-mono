@@ -40,8 +40,12 @@ library LibProverAuth {
     {
         auth_ = abi.decode(_proverAuth, (ProverAuth));
 
-        require(auth_.prover != address(0), InvalidProver());
+        // Supporting Ether as fee token will require making ITaikoInbox's proposing function
+        // payable. We try to avoid this as much as possible. And since most proposers may simply
+        // use USD stablecoins as fee token, we decided not to support Ether as fee token for now.
         require(auth_.feeToken != address(0), EtherAsFeeTokenNotSupportedYet());
+
+        require(auth_.prover != address(0), InvalidProver());
         require(auth_.validUntil == 0 || auth_.validUntil >= block.timestamp, InvalidValidUntil());
         require(auth_.batchId == 0 || auth_.batchId == _batchId, InvalidBatchId());
 
