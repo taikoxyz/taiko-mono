@@ -54,7 +54,8 @@ interface ILookaheadStore {
     error LookaheadHashNotFound();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
-    error OperatorHasNotOptedIntoPreconfSlasher();
+    error OperatorHasNotOptedIn();
+    error OperatorHasNotRegistered();
     error OperatorHasUnregistered();
     error PosterHasBeenSlashed();
     error PosterHasInsufficientCollateral();
@@ -70,20 +71,16 @@ interface ILookaheadStore {
         LookaheadSlot[] lookaheadSlot
     );
 
-    /**
-     * @notice Allows a registered operator to post the lookahead for the next epoch.
-     * @param _registrationRoot The registration root of the posting-operator in the URC.
-     * @param _data The signed commitment containing the lookahead data, or the lookahead data if
-     * posted by the guardian.
-     */
+    /// @notice Allows a registered operator to post the lookahead for the next epoch.
+    /// @param _registrationRoot The registration root of the posting-operator in the URC.
+    /// @param _data The signed commitment containing the lookahead data, or the lookahead data if
+    /// posted by the guardian.
     function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external;
 
-    /**
-     * @notice Calculates the lookahead hash for a given epoch and lookahead slots.
-     * @param _epochTimestamp The timestamp of the epoch.
-     * @param _lookaheadSlots The lookahead slots.
-     * @return The lookahead hash.
-     */
+    /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.
+    /// @param _epochTimestamp The timestamp of the epoch.
+    /// @param _lookaheadSlots The lookahead slots.
+    /// @return The lookahead hash.
     function calculateLookaheadHash(
         uint256 _epochTimestamp,
         LookaheadSlot[] memory _lookaheadSlots
@@ -92,22 +89,16 @@ interface ILookaheadStore {
         pure
         returns (bytes26);
 
-    /**
-     * @notice Returns true if the lookahead is required for the next epoch.
-     * @return True if the lookahead is required for the next epoch, false otherwise.
-     */
+    /// @notice Returns true if the lookahead is required for the next epoch.
+    /// @return True if the lookahead is required for the next epoch, false otherwise.
     function isLookaheadRequired() external view returns (bool);
 
-    /**
-     * @notice Returns the lookahead hash for an epoch.
-     * @param _epochTimestamp The timestamp of the epoch.
-     * @return The lookahead hash.
-     */
+    /// @notice Returns the lookahead hash for an epoch.
+    /// @param _epochTimestamp The timestamp of the epoch.
+    /// @return The lookahead hash.
     function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26);
 
-    /**
-     * @notice Returns the configuration of the lookahead store.
-     * @return The configuration of the lookahead store.
-     */
+    /// @notice Returns the configuration of the lookahead store.
+    /// @return The configuration of the lookahead store.
     function getConfig() external pure returns (Config memory);
 }
