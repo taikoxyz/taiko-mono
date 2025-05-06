@@ -36,12 +36,12 @@ interface IPreconfSlasher is ISlasher {
     // - Remaining bytes: ABI-encoded struct based on the violation type
 
     struct EvidenceInvalidPreconfirmation {
+        // Header of the preconfirmed block at height X
+        LibBlockHeader.BlockHeader preconfedBlockHeader;
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
-        // Header of the preconfirmed block at height X
-        LibBlockHeader.BlockHeader preconfedBlockHeader;
         // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
         // This is the blockhash of the block that was proposed at height X,
         // but does not match with the blockhash of the preconfirmed block at the same height.
@@ -55,25 +55,23 @@ interface IPreconfSlasher is ISlasher {
     }
 
     struct EvidenceInvalidEOP {
+        // Header of the preconfirmed block at height X
+        LibBlockHeader.BlockHeader preconfedBlockHeader;
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
         // This is the BatchMetadata of the next batch that contains the block at height X + 1
         ITaikoInbox.BatchMetadata nextBatchMetadata;
-        // Header of the preconfirmed block at height X
-        LibBlockHeader.BlockHeader preconfedBlockHeader;
     }
 
     struct EvidenceMissingEOP {
+        // This is the BatchMetadata of the next batch that contains the block at height X + 1
+        ITaikoInbox.BatchMetadata nextBatchMetadata;
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
-        // This is the BatchMetadata of the next batch that contains the block at height X + 1
-        ITaikoInbox.BatchMetadata nextBatchMetadata;
-        // Header of the preconfirmed block at height X
-        LibBlockHeader.BlockHeader preconfedBlockHeader;
     }
 
     // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
