@@ -49,8 +49,11 @@ library LibProverAuth {
         require(auth_.validUntil == 0 || auth_.validUntil >= block.timestamp, InvalidValidUntil());
         require(auth_.batchId == 0 || auth_.batchId == _batchId, InvalidBatchId());
 
+        // Save and use later, before nullifying in computeProverAuthDigest()
+        bytes memory signature = auth_.signature;
         bytes32 digest = computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth_);
-        require(auth_.prover.isValidSignatureNow(digest, auth_.signature), InvalidSignature());
+
+        require(auth_.prover.isValidSignatureNow(digest, signature), InvalidSignature());
     }
 
     function computeProverAuthDigest(
@@ -64,6 +67,7 @@ library LibProverAuth {
         returns (bytes32)
     {
         _auth.signature = "";
+
         return keccak256(
             abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _txListHash, _auth)
         );
