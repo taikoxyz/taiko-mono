@@ -224,18 +224,16 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         ITaikoInbox.Batch memory previousBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId - 1));
         require(evidence.preconfedBlockHeader.number > previousBatch.lastBlockId, EOPIsValid());
 
-        // Check the block is part of the next batch
+        // An extra batch should be proposed after the EOP
+        // We validate this by comparing the proposal timestamp to the timestamp of the preconfer's
+        // lookahead slot.
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
         require(
             keccak256(abi.encode(evidence.nextBatchMetadata)) == nextBatch.metaHash,
             InvalidNextBatchMetadata()
         );
-
-        // An extra batch should be proposed after the EOP
-        // We validate this by comparing the proposal timestamp to the timestamp of the preconfer's
-        // lookahead slot.
         require(
-            evidence.nextBatchMetadata.proposedAt <= _payload.preconferSlotTimestamp, EOPIsValid()
+            evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp, EOPIsValid()
         );
 
         return getSlashAmount().invalidEOP;
@@ -258,19 +256,21 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the commitment is not an EOP
         require(_payload.eop == false, EOPIsPresent());
 
+        // Get the batch that contains the block in question
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
+        // Check the block is the batch's last block
+        require(evidence.preconfedBlockHeader.number == batch.lastBlockId, EOPIsValid());
+
+        // An extra batch should be proposed after the EOP
+        // We validate this by comparing the proposal timestamp to the timestamp of the preconfer's
+        // lookahead slot.
         ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
         require(
-            keccak256(abi.encode(nextBatch.metaHash)) == evidence.nextBatchMetadata.infoHash,
+            keccak256(abi.encode(evidence.nextBatchMetadata)) == nextBatch.metaHash,
             InvalidNextBatchMetadata()
         );
-
-        // The block with missing EOP should be the last block in its batch and the next
-        // batch should have been proposed in a future lookahead slot.
         require(
-            evidence.preconfedBlockHeader.number == nextBatch.lastBlockId
-                && evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
-            EOPIsNotMissing()
+            evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp, EOPIsValid()
         );
 
         return getSlashAmount().missingEOP;
