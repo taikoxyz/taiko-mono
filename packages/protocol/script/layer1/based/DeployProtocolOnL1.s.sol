@@ -287,8 +287,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     address(0),
                     proofVerifier,
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
-                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false),
-                    address(0) // proverMarket
+                    IResolver(_sharedResolver).resolve(uint64(block.chainid), "signal_service", false)
                 )
             ),
             data: abi.encodeCall(TaikoInbox.v4Init, (owner, vm.envBytes32("L2_GENESIS_HASH")))
@@ -305,8 +304,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(_sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
-                    ),
-                    address(0) // proverMarket
+                    )
                 )
             );
         }
@@ -322,8 +320,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(_sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
-                    ),
-                    address(0) // proverMarket
+                    )
                 )
             );
         } else {
@@ -336,8 +333,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(_sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
-                    ),
-                    address(0) // proverMarket
+                    )
                 )
             );
         }
@@ -359,7 +355,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Other verifiers
         // Initializable the proxy for proofVerifier to get the contract address at first.
         (address sgxRethVerifier, address sgxGethVerifier) =
-            deploySgxVerifier(owner, rollupResolver, l2ChainId, address(taikoInbox), proofVerifier);
+            deploySgxVerifier(owner, rollupResolver, address(taikoInbox), proofVerifier);
 
         (address risc0RethVerifier, address sp1RethVerifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
@@ -394,7 +390,6 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deploySgxVerifier(
         address owner,
         address rollupResolver,
-        uint64 l2ChainId,
         address taikoInbox,
         address taikoProofVerifier
     )
@@ -418,7 +413,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         address sgxImpl =
-            address(new TaikoSgxVerifier(l2ChainId, taikoInbox, taikoProofVerifier, automataProxy));
+            address(new TaikoSgxVerifier(taikoInbox, taikoProofVerifier, automataProxy));
         sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
             impl: sgxImpl,
@@ -530,8 +525,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
-                    ),
-                    address(0) // proverMarket
+                    )
                 )
             );
         }
@@ -548,8 +542,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
-                    ),
-                    address(0) // proverMarket
+                    )
                 )
             );
         } else {
@@ -562,8 +555,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     IResolver(sharedResolver).resolve(
                         uint64(block.chainid), "signal_service", false
-                    ),
-                    address(0) // proverMarket
+                    )
                 )
             );
         }

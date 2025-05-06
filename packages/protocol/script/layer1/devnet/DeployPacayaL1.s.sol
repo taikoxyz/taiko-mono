@@ -52,7 +52,6 @@ contract DeployPacayaL1 is DeployCapability {
     address public automata = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
     address public oldFork = vm.envAddress("OLD_FORK");
     address public proverSet = vm.envAddress("PROVER_SET");
-    address public proverMarket = vm.envAddress("PROVER_MARKET");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -160,8 +159,7 @@ contract DeployPacayaL1 is DeployCapability {
                 taikoWrapper,
                 proofVerifier,
                 taikoToken,
-                signalService,
-                proverMarket
+                signalService
             )
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
@@ -239,7 +237,7 @@ contract DeployPacayaL1 is DeployCapability {
     {
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(l2ChainId, taikoInbox, proofVerifier, automata)),
+            impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automata)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: rollupResolver
         });

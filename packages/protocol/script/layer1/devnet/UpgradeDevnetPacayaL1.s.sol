@@ -43,7 +43,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    address public proverMarket = vm.envAddress("PROVER_MARKET");
     address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
@@ -145,8 +144,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
                 taikoWrapper,
                 proofVerifier,
                 taikoToken,
-                signalService,
-                proverMarket
+                signalService
             )
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
@@ -180,7 +178,8 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        deployTEEVerifiers(rollupResolver, proofVerifier, l2ChainId);
+        deployTEEVerifiers(rollupResolver, proofVerifier);
+
         (address risc0RethVerifier, address sp1RethVerifier) =
             deployZKVerifiers(rollupResolver, l2ChainId);
 
@@ -230,8 +229,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
     function deployTEEVerifiers(
         address rollupResolver,
-        address proofVerifier,
-        uint64 l2ChainId
+        address proofVerifier
     )
         internal
         returns (address sgxVerifier)
@@ -254,7 +252,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(l2ChainId, taikoInbox, proofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: rollupResolver
         });

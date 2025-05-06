@@ -16,10 +16,9 @@ contract DevnetInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService,
-        address _proverMarket
+        address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     {
         chainId = _chainId;
         cooldownWindow = _cooldownWindow;
@@ -33,8 +32,7 @@ contract DevnetInbox is TaikoInbox {
             batchRingBufferSize: 360_000,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 0, // deprecated
+            livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
