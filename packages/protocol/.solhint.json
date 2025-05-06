@@ -16,7 +16,6 @@
     "gas-custom-errors": "off",
     "immutable-vars-naming": "off",
     "import-path-check": "off",
-    "no-unused-vars": "off",
     "one-contract-per-file": "off"
   }
 }
