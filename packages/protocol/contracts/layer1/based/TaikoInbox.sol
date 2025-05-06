@@ -200,23 +200,33 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 if (params.proverAuth.length != 0) {
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
-                    (address prover, uint96 proverFee) = LibProverAuth.validateProverAuth(
-                        keccak256(abi.encode(params, txListHash)), params.proverAuth
-                    );
+                    bytes32 paramsHash = keccak256(abi.encode(params));
+                    (address prover, uint96 proverFee, address feeToken) = LibProverAuth
+                        .validateProverAuth(config.chainId, paramsHash, txListHash, params.proverAuth);
 
                     require(prover != address(0), InvalidProverAuth());
 
-                    // proposer pay the prover fee.
-                    _debitBond(info_.proposer, proverFee);
+                    meta_.prover = prover;
 
-                    // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
-                    // if not then add the diff to the bond balance
-                    int256 bondDelta = int96(proverFee) - int96(config.livenessBondBase);
+                    if (feeToken == bondToken && bondToken != address(0)) {
+                        // proposer pay the prover fee with bond tokens
+                        _debitBond(info_.proposer, proverFee);
 
-                    if (bondDelta < 0) {
-                        _debitBond(meta_.prover, uint256(-bondDelta));
+                        // if bondDelta is negative (proverFee < livenessBondBase), deduct the diff
+                        // if not then add the diff to the bond balance
+                        int256 bondDelta = int96(proverFee) - int96(config.livenessBondBase);
+
+                        if (bondDelta < 0) {
+                            _debitBond(meta_.prover, uint256(-bondDelta));
+                        } else {
+                            _creditBond(meta_.prover, uint256(bondDelta));
+                        }
+                    } else if (feeToken != bondToken && bondToken != address(0)) {
+                        // proposer directly pays the prover with an ERC20
+                        IERC20(feeToken).safeTransferFrom(info_.proposer, address(this), proverFee);
                     } else {
-                        _creditBond(meta_.prover, uint256(bondDelta));
+                        // Pay in ether
+                        LibAddress.sendEtherAndVerify(prover, proverFee);
                     }
                 } else {
                     // proposer is the prover
