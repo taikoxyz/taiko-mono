@@ -11,6 +11,8 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 (token.taiko.eth)
 /// @custom:security-contact security@taiko.xyz
 contract TaikoToken is TaikoTokenBase {
+    error TT_NON_VOTING_ACCOUNT();
+
     // Bond tokens deposited to Taiko Inbox are not eligible for voting
     address private constant _TAIKO_INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
 
@@ -69,7 +71,7 @@ contract TaikoToken is TaikoTokenBase {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         // Special checks to avoid reading from storage slots
         for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (msg.sender == nonVotingAccounts[i]) revert TT_INVALID_PARAM();
+            if (msg.sender == nonVotingAccounts[i]) revert TT_NON_VOTING_ACCOUNT();
         }
         super.delegate(account);
     }
