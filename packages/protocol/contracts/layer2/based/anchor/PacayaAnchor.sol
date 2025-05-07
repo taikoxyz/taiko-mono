@@ -82,9 +82,11 @@ abstract contract PacayaAnchor is OntakeAnchor {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-   modifier onlyGoldenTouchOr77702Delegated() {
+    modifier onlyGoldenTouchOr77702Delegated() {
         require(
-            msg.sender == address(this) || msg.sender == GOLDEN_TOUCH_ADDRESS, L2_INVALID_SENDER()
+            msg.sender == address(this) // The sender EOA delegated to this contract
+                || msg.sender == GOLDEN_TOUCH_ADDRESS,
+            L2_INVALID_SENDER()
         );
         _;
     }
