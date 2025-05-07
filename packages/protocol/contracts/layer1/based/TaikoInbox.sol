@@ -187,7 +187,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     ? stats2.numBatches + nBlocks - 1
                     : lastBatch.lastBlockId + nBlocks;
 
-                bytes32 txListHash = keccak256(_txList);
+                bytes32 txListHash = _txList.length == 0 ? bytes32(0) : keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
 
                 meta_ = BatchMetadata({
