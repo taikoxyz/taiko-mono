@@ -11,8 +11,26 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 (token.taiko.eth)
 /// @custom:security-contact security@taiko.xyz
 contract TaikoToken is TaikoTokenBase {
-    address private constant _TAIKO_L1 = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+    // Bond tokens deposited to Taiko Inbox are not eligible for voting
+    address private constant _TAIKO_INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+
+    // Tokens bridged to Taiko mainnet are not eligible for voting
     address private constant _ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
+
+    // Tokens deposited to Taiko Treasury Vault are not eligible for voting
+    address private constant _TAIKO_FOUNDATION_TREASURY_VAULT =
+        0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
+
+    // Tokens managed by the Taiko DAO are not eligible for voting
+    address private constant _TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
+
+    // This is a Taiko TokenLocker contract to force DAO owne'd TAIKO token to be released linearly.
+    address private constant _TAIKO_DAO_TREASURY_TOKEN_LOCKER =
+        0x0000000000000000000000000000000000000000;
+
+    // This is a TaikoTreasuryVault contract to manage the DAO's ERC20 tokens, including some TAIKO
+    // tokens.
+    address private constant _TAIKO_DAO_TREASURY_VAULT = 0x0000000000000000000000000000000000000000;
 
     error TT_INVALID_PARAM();
 
@@ -47,9 +65,40 @@ contract TaikoToken is TaikoTokenBase {
         return true;
     }
 
-    function delegates(address account) public view virtual override returns (address) {
+    function delegates(address account) public view override returns (address) {
+        address[] memory nonVotingAccounts = getNonVotingAccounts();
         // Special checks to avoid reading from storage slots
-        if (account == _TAIKO_L1 || account == _ERC20_VAULT) return address(0);
-        else return super.delegates(account);
+        for (uint256 i; i < nonVotingAccounts.length; ++i) {
+            if (account == nonVotingAccounts[i]) return address(0);
+        }
+        return super.delegates(account);
+    }
+
+    function delegate(address account) public override {
+        address[] memory nonVotingAccounts = getNonVotingAccounts();
+        // Special checks to avoid reading from storage slots
+        for (uint256 i; i < nonVotingAccounts.length; ++i) {
+            if (msg.sender == nonVotingAccounts[i]) revert TT_INVALID_PARAM();
+        }
+        super.delegate(account);
+    }
+
+    function getPastTotalSupply(uint256 timepoint) public view override returns (uint256) {
+        address[] memory nonVotingAccounts = getNonVotingAccounts();
+        uint256 nonVotingSupply;
+        for (uint256 i; i < nonVotingAccounts.length; ++i) {
+            nonVotingSupply += balanceOf(nonVotingAccounts[i]);
+        }
+        return super.getPastTotalSupply(timepoint) - nonVotingSupply;
+    }
+
+    function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
+        accounts_ = new address[](6);
+        accounts_[0] = _TAIKO_INBOX;
+        accounts_[1] = _ERC20_VAULT;
+        accounts_[2] = _TAIKO_FOUNDATION_TREASURY_VAULT;
+        accounts_[3] = _TAIKO_DAO;
+        accounts_[4] = _TAIKO_DAO_TREASURY_TOKEN_LOCKER;
+        accounts_[5] = _TAIKO_DAO_TREASURY_VAULT;
     }
 }
