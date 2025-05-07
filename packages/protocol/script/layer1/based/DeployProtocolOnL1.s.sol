@@ -428,6 +428,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Log addresses for the user to register sgx instance
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
+
         address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
         address automataProxy = deployProxy({
             name: "automata_dcap_attestation",
@@ -439,44 +440,49 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         uint64 l2ChainId = TaikoInbox(payable(taikoInboxAddr)).v4GetConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
-
-        address sgxImpl =
-            address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy));
-        verifiers.sgxRethVerifier = deployProxy({
-            name: "sgx_reth_verifier",
-            impl: sgxImpl,
-            data: abi.encodeCall(TaikoSgxVerifier.init, owner),
-            registerTo: rollupResolver
-        });
-        verifiers.sgxGethVerifier = deployProxy({
-            name: "sgx_geth_verifier",
-            impl: sgxImpl,
-            data: abi.encodeCall(TaikoSgxVerifier.init, owner),
-            registerTo: rollupResolver
-        });
+        {
+            address sgxImpl =
+                address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy));
+            verifiers.sgxRethVerifier = deployProxy({
+                name: "sgx_reth_verifier",
+                impl: sgxImpl,
+                data: abi.encodeCall(TaikoSgxVerifier.init, owner),
+                registerTo: rollupResolver
+            });
+            verifiers.sgxGethVerifier = deployProxy({
+                name: "sgx_geth_verifier",
+                impl: sgxImpl,
+                data: abi.encodeCall(TaikoSgxVerifier.init, owner),
+                registerTo: rollupResolver
+            });
+        }
 
         (verifiers.risc0RethVerifier, verifiers.sp1RethVerifier) =
             deployZKVerifiers(owner, rollupResolver, l2ChainId);
+
         verifiers.opGethVerifier = deployProxy({
             name: "op_geth_verifier",
             impl: opImplAddr,
             data: abi.encodeCall(OpVerifier.init, (owner)),
             registerTo: rollupResolver
         });
-        address sgxGethAutomataProxy = deployProxy({
-            name: "sgx_geth_automata",
-            impl: automataDcapV3AttestationImpl,
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
-            ),
-            registerTo: rollupResolver
-        });
-        verifiers.sgxGethVerifier = deployProxy({
-            name: "sgx_geth_verifier",
-            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
-            data: abi.encodeCall(TaikoSgxVerifier.init, owner),
-            registerTo: rollupResolver
-        });
+        {
+            address sgxGethAutomataProxy = deployProxy({
+                name: "sgx_geth_automata",
+                impl: automataDcapV3AttestationImpl,
+                data: abi.encodeCall(
+                    AutomataDcapV3Attestation.init,
+                    (owner, address(sigVerifyLib), address(pemCertChainLib))
+                ),
+                registerTo: rollupResolver
+            });
+            verifiers.sgxGethVerifier = deployProxy({
+                name: "sgx_geth_verifier",
+                impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
+                data: abi.encodeCall(TaikoSgxVerifier.init, owner),
+                registerTo: rollupResolver
+            });
+        }
         return verifiers;
     }
 
