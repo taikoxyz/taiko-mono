@@ -49,7 +49,7 @@ contract TaikoToken is TaikoTokenBase {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         // Special checks to avoid reading from storage slots
         for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (msg.sender == nonVotingAccounts[i]) revert TT_NON_VOTING_ACCOUNT();
+            require(msg.sender != nonVotingAccounts[i], TT_NON_VOTING_ACCOUNT());
         }
         super.delegate(account);
     }
@@ -67,7 +67,7 @@ contract TaikoToken is TaikoTokenBase {
     }
 
     /// @notice Returns the list of accounts that are not eligible for voting.
-    /// @return accounts_ The list of accounts that are not eligible for voting. 
+    /// @return accounts_ The list of accounts that are not eligible for voting.
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
         accounts_ = new address[](2);
 
