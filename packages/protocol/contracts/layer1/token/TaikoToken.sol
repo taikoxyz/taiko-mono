@@ -60,14 +60,14 @@ contract TaikoToken is TaikoTokenBase {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         uint256 nonVotingSupply;
         for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (nonVotingAccounts[i] == address(0)) break;
             nonVotingSupply += balanceOf(nonVotingAccounts[i]);
         }
+            nonVotingSupply += balanceOf(address(0));
         return super.getPastTotalSupply(timepoint) - nonVotingSupply;
     }
 
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
-        accounts_ = new address[](6);
+        accounts_ = new address[](4);
 
         // Bond tokens deposited to Taiko Inbox are not eligible for voting
         accounts_[0] = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a; // TaikoInbox contract
@@ -83,10 +83,10 @@ contract TaikoToken is TaikoTokenBase {
 
         // This is a Taiko TokenLocker contract to force DAO owne'd TAIKO token to be released
         // linearly
-        accounts_[4] = 0x0000000000000000000000000000000000000000;
+        // accounts_[4] = 0x0000000000000000000000000000000000000000;
 
         // This is a TaikoTreasuryVault contract to manage the DAO's ERC20 tokens, including some
         // TAIKO tokens
-        accounts_[5] = 0x0000000000000000000000000000000000000000;
+        // accounts_[5] = 0x0000000000000000000000000000000000000000;
     }
 }
