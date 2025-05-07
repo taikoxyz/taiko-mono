@@ -9,23 +9,15 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
     uint256 constant PROVER_PRIVATE_KEY = 0x12345678;
     uint256 constant WRONG_PRIVATE_KEY = 0x98765432;
-    address prover;
-    address wrongSigner;
+    address prover = vm.addr(PROVER_PRIVATE_KEY);
 
     function setUpOnEthereum() internal override {
-        // Derive the prover address from the private key
-        prover = vm.addr(PROVER_PRIVATE_KEY);
-        wrongSigner = vm.addr(WRONG_PRIVATE_KEY);
-
-        console2.log("Setting up Ethereum environment");
-        // Deploy the base test contracts
         bondToken = deployBondToken();
         super.setUpOnEthereum();
     }
 
     function test_proverAuth_validSignature() external transactBy(Alice) {
-        bondToken.transfer(Alice, 10_000 ether);
-        bondToken.transfer(prover, 5000 ether);
+        _distributeBonds();
 
         // Create batch params
         ITaikoInbox.BatchParams memory batchParams;
@@ -104,8 +96,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
     }
 
     function test_proverAuth_invalidSignature() external transactBy(Alice) {
-        bondToken.transfer(Alice, 10_000 ether);
-        bondToken.transfer(prover, 5000 ether);
+        _distributeBonds();
 
         // Create batch params
         ITaikoInbox.BatchParams memory batchParams;
@@ -161,6 +152,359 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         // Expect revert due to invalid signature
         vm.expectRevert(LibProverAuth.InvalidSignature.selector);
         inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+    }
+
+    function test_proverAuth_invalidBatchId() external transactBy(Alice) {
+        _distributeBonds();
+
+        // Create batch params
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.proposer = Alice;
+
+        // Deposit bond for both Alice and prover
+        vm.startPrank(prover);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+
+        // Create a ProverAuth struct with incorrect batchId
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = prover;
+        auth.feeToken = address(bondToken);
+        auth.fee = 5 ether;
+        auth.validUntil = uint64(block.timestamp + 1 hours);
+        auth.batchId = 999; // Incorrect batchId
+
+        // Calculate tx list hash
+        bytes memory txList = abi.encodePacked("txList");
+        bytes32 txListHash = keccak256(txList);
+
+        // Get the current chain ID
+        uint64 chainId = uint64(167_000);
+
+        batchParams.coinbase = Alice;
+        bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+        batchParams.proposer = address(0);
+
+        // Sign the digest
+        auth.signature = _signDigest(
+            keccak256(
+                abi.encode(
+                    "PROVER_AUTHENTICATION",
+                    chainId,
+                    batchParamsHash,
+                    txListHash,
+                    _getAuthWithoutSignature(auth)
+                )
+            ),
+            PROVER_PRIVATE_KEY
+        );
+
+        // Encode the auth for passing it to the contract
+        batchParams.proverAuth = abi.encode(auth);
+
+        // Expect revert due to invalid batchId
+        vm.expectRevert(LibProverAuth.InvalidBatchId.selector);
+        inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+    }
+
+    function test_proverAuth_expiredValidUntil() external transactBy(Alice) {
+        _distributeBonds();
+
+        // Create batch params
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.proposer = Alice;
+
+        // Deposit bond for both Alice and prover
+        vm.startPrank(prover);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+
+        // Create a ProverAuth struct with expired validUntil
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = prover;
+        auth.feeToken = address(bondToken);
+        auth.fee = 5 ether;
+        auth.validUntil = uint64(block.timestamp - 1); // Expired timestamp
+        auth.batchId = 1;
+
+        // Calculate tx list hash
+        bytes memory txList = abi.encodePacked("txList");
+        bytes32 txListHash = keccak256(txList);
+
+        // Get the current chain ID
+        uint64 chainId = uint64(167_000);
+
+        batchParams.coinbase = Alice;
+        bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+        batchParams.proposer = address(0);
+
+        // Sign the digest
+        auth.signature = _signDigest(
+            keccak256(
+                abi.encode(
+                    "PROVER_AUTHENTICATION",
+                    chainId,
+                    batchParamsHash,
+                    txListHash,
+                    _getAuthWithoutSignature(auth)
+                )
+            ),
+            PROVER_PRIVATE_KEY
+        );
+
+        // Encode the auth for passing it to the contract
+        batchParams.proverAuth = abi.encode(auth);
+
+        // Expect revert due to expired validUntil
+        vm.expectRevert(LibProverAuth.InvalidValidUntil.selector);
+        inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+    }
+
+    function test_proverAuth_zeroAddressProver() external transactBy(Alice) {
+        _distributeBonds();
+
+        // Create batch params
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.proposer = Alice;
+        batchParams.coinbase = Alice;
+
+        vm.startPrank(Alice);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+
+        // Create a ProverAuth struct with zero address
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = address(0); // Zero address
+        auth.feeToken = address(bondToken);
+        auth.fee = 5 ether;
+        auth.validUntil = uint64(block.timestamp + 1 hours);
+        auth.batchId = 1;
+
+        // Create a dummy signature
+        auth.signature = bytes("dummy");
+        batchParams.proposer = address(0);
+
+        // Encode the auth for passing it to the contract
+        batchParams.proverAuth = abi.encode(auth);
+
+        // Expect revert due to zero address prover
+        vm.expectRevert(LibProverAuth.InvalidProver.selector);
+        inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
+    }
+
+    function test_proverAuth_etherAsFeeToken() external transactBy(Alice) {
+        _distributeBonds();
+
+        // Create batch params
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.proposer = Alice;
+
+        // Deposit bond for both Alice and prover
+        vm.startPrank(prover);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+
+        // Create a ProverAuth struct with ETH as fee token
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = prover;
+        auth.feeToken = address(0); // ETH address
+        auth.fee = 5 ether;
+        auth.validUntil = uint64(block.timestamp + 1 hours);
+        auth.batchId = 1;
+
+        // Create a dummy signature
+        auth.signature = bytes("dummy");
+
+        // Calculate and set params hash
+        batchParams.coinbase = Alice;
+        batchParams.proposer = address(0);
+
+        // Encode the auth for passing it to the contract
+        batchParams.proverAuth = abi.encode(auth);
+
+        // Expect revert due to ETH as fee token
+        vm.expectRevert(LibProverAuth.EtherAsFeeTokenNotSupportedYet.selector);
+        inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
+    }
+
+    function test_proverAuth_feeGreaterThanLivenessBond() external transactBy(Alice) {
+        ITaikoInbox.Config memory config = v4GetConfig();
+        uint96 feeLargerThanBond = uint96(config.livenessBond + 10 ether);
+
+        _distributeBonds();
+
+        // Create batch params
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.proposer = Alice;
+
+        // Deposit bond for both Alice and prover
+        vm.startPrank(prover);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+
+        // Create a ProverAuth struct with fee greater than liveness bond
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = prover;
+        auth.feeToken = address(bondToken);
+        auth.fee = feeLargerThanBond;
+        auth.validUntil = uint64(block.timestamp + 1 hours);
+        auth.batchId = 1;
+
+        // Calculate tx list hash
+        bytes memory txList = abi.encodePacked("txList");
+        bytes32 txListHash = keccak256(txList);
+
+        // Get the current chain ID
+        uint64 chainId = uint64(167_000);
+
+        batchParams.coinbase = Alice;
+        bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+        batchParams.proposer = address(0);
+
+        // Sign the digest
+        auth.signature = _signDigest(
+            keccak256(
+                abi.encode(
+                    "PROVER_AUTHENTICATION",
+                    chainId,
+                    batchParamsHash,
+                    txListHash,
+                    _getAuthWithoutSignature(auth)
+                )
+            ),
+            PROVER_PRIVATE_KEY
+        );
+
+        // Encode the auth for passing it to the contract
+        batchParams.proverAuth = abi.encode(auth);
+
+        // Record initial bond balances
+        uint256 aliceInitialBond = inbox.v4BondBalanceOf(Alice);
+        uint256 proverInitialBond = inbox.v4BondBalanceOf(prover);
+
+        // Execute the propose batch operation
+        (, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+        // Verify prover was set correctly
+        assertEq(meta.prover, auth.prover, "Prover should match");
+
+        // Verify bond balances
+        // Prover: initial balance - livenessBond + fee
+        uint256 expectedProverBond = proverInitialBond + (feeLargerThanBond - config.livenessBond);
+        // Alice: initial balance - fee
+        uint256 expectedAliceBond = aliceInitialBond - feeLargerThanBond;
+
+        assertEq(inbox.v4BondBalanceOf(prover), expectedProverBond, "Incorrect prover bond balance");
+        assertEq(inbox.v4BondBalanceOf(Alice), expectedAliceBond, "Incorrect proposer bond balance");
+    }
+
+    function test_proverAuth_feeSmallerThanLivenessBond() external transactBy(Alice) {
+        ITaikoInbox.Config memory config = v4GetConfig();
+        uint96 feeSmallerThanBond = uint96(config.livenessBond - 10 ether);
+
+        _distributeBonds();
+
+        // Create batch params
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.proposer = Alice;
+
+        // Deposit bond for both Alice and prover
+        vm.startPrank(prover);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+
+        // Create a ProverAuth struct with fee smaller than liveness bond
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = prover;
+        auth.feeToken = address(bondToken);
+        auth.fee = feeSmallerThanBond;
+        auth.validUntil = uint64(block.timestamp + 1 hours);
+        auth.batchId = 1;
+
+        // Calculate tx list hash
+        bytes memory txList = abi.encodePacked("txList");
+        bytes32 txListHash = keccak256(txList);
+
+        // Get the current chain ID
+        uint64 chainId = uint64(167_000);
+
+        batchParams.coinbase = Alice;
+        bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+        batchParams.proposer = address(0);
+
+        // Sign the digest
+        auth.signature = _signDigest(
+            keccak256(
+                abi.encode(
+                    "PROVER_AUTHENTICATION",
+                    chainId,
+                    batchParamsHash,
+                    txListHash,
+                    _getAuthWithoutSignature(auth)
+                )
+            ),
+            PROVER_PRIVATE_KEY
+        );
+
+        // Encode the auth for passing it to the contract
+        batchParams.proverAuth = abi.encode(auth);
+
+        // Record initial bond balances
+        uint256 aliceInitialBond = inbox.v4BondBalanceOf(Alice);
+        uint256 proverInitialBond = inbox.v4BondBalanceOf(prover);
+
+        // Execute the propose batch operation
+        (, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+        // Verify prover was set correctly
+        assertEq(meta.prover, auth.prover, "Prover should match");
+
+        // Verify bond balances
+        // Prover needs to pay the difference between livenessBond and fee
+        uint256 expectedProverBond = proverInitialBond - (config.livenessBond - feeSmallerThanBond);
+        // Alice pays the fee
+        uint256 expectedAliceBond = aliceInitialBond - feeSmallerThanBond;
+
+        assertEq(inbox.v4BondBalanceOf(prover), expectedProverBond, "Incorrect prover bond balance");
+        assertEq(inbox.v4BondBalanceOf(Alice), expectedAliceBond, "Incorrect proposer bond balance");
+    }
+
+    function _distributeBonds() internal {
+        bondToken.transfer(Alice, 10_000 ether);
+        bondToken.transfer(prover, 5000 ether);
     }
 
     // Helper functions to create a valid signature
