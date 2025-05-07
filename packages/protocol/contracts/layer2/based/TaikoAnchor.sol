@@ -86,8 +86,10 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    modifier onlyGoldenTouch() {
-        require(msg.sender == GOLDEN_TOUCH_ADDRESS, L2_INVALID_SENDER());
+    modifier onlyGoldenTouchOr77702Delegated() {
+        require(
+            msg.sender == address(this) || msg.sender == GOLDEN_TOUCH_ADDRESS, L2_INVALID_SENDER()
+        );
         _;
     }
 
@@ -159,7 +161,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         nonZeroValue(_anchorBlockId)
         nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
         nonZeroValue(_baseFeeConfig.adjustmentQuotient)
-        onlyGoldenTouch
+        onlyGoldenTouchOr77702Delegated
         nonReentrant
     {
         require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
@@ -194,7 +196,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         nonZeroValue(_anchorBlockId)
         nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
         nonZeroValue(_baseFeeConfig.adjustmentQuotient)
-        onlyGoldenTouch
+        onlyGoldenTouchOr77702Delegated
         nonReentrant
     {
         require(block.number < pacayaForkHeight, L2_FORK_ERROR());
