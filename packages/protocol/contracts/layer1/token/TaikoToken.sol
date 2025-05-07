@@ -54,6 +54,8 @@ contract TaikoToken is TaikoTokenBase {
         super.delegate(account);
     }
 
+    /// @notice This override modifies the return value to reflect the past total supply eligible
+    /// for voting.
     function getPastTotalSupply(uint256 timepoint) public view override returns (uint256) {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         uint256 nonVotingSupply;
