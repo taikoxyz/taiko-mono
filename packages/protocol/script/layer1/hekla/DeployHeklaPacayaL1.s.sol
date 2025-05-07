@@ -197,7 +197,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         returns (address risc0Verifier, address sp1Verifier)
     {
         risc0Verifier = deployProxy({
-            name: "risc0_verifier",
+            name: "risc0_reth_verifier",
             impl: address(new TaikoRisc0Verifier(l2ChainId, risc0Groth16Verifier)),
             data: abi.encodeCall(TaikoRisc0Verifier.init, (address(0))),
             registerTo: rollupResolver
@@ -205,7 +205,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
 
         // Deploy sp1 verifier
         sp1Verifier = deployProxy({
-            name: "sp1_verifier",
+            name: "sp1_reth_verifier",
             impl: address(new TaikoSP1Verifier(l2ChainId, sp1RemoteVerifier)),
             data: abi.encodeCall(TaikoSP1Verifier.init, (address(0))),
             registerTo: rollupResolver
@@ -220,7 +220,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         returns (address sgxVerifier)
     {
         sgxVerifier = deployProxy({
-            name: "sgx_verifier",
+            name: "sgx_reth_verifier",
             impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automata)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: rollupResolver
