@@ -55,7 +55,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         nonZeroValue(_anchorBlockId)
         nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
         nonZeroValue(_baseFeeConfig.adjustmentQuotient)
-        onlyGoldenTouch
+        onlyGoldenTouchOr77702Delegated
         nonReentrant
     {
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
