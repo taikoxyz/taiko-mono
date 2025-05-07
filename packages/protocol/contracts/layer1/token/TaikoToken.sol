@@ -58,9 +58,9 @@ contract TaikoToken is TaikoTokenBase {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         uint256 nonVotingSupply;
         for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (nonVotingAccounts[i] == address(0)) break;
             nonVotingSupply += balanceOf(nonVotingAccounts[i]);
         }
+        nonVotingSupply += balanceOf(address(0));
         return super.getPastTotalSupply(timepoint) - nonVotingSupply;
     }
 
