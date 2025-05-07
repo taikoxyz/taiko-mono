@@ -3,6 +3,13 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract NonBondToken is ERC20 {
+    constructor() ERC20("Test Token", "TST") {
+        _mint(msg.sender, 1_000_000 * 10**18); // Mint 1 million tokens
+    }
+}
 
 contract InboxTest_OffchainProverAuth is InboxTestBase {
     using ECDSA for bytes32;
@@ -500,6 +507,105 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
         assertEq(inbox.v4BondBalanceOf(prover), expectedProverBond, "Incorrect prover bond balance");
         assertEq(inbox.v4BondBalanceOf(Alice), expectedAliceBond, "Incorrect proposer bond balance");
+    }
+
+    function test_proverAuth_differentFeeToken() external transactBy(Alice) {
+        // Deploy an ERC20 token to use as fee token
+        NonBondToken differentFeeToken = new NonBondToken();
+        
+        // Fund accounts with bond tokens
+        bondToken.transfer(Alice, 10_000 ether);
+        bondToken.transfer(prover, 5000 ether);
+        
+        // Fund Alice with the different fee token
+        differentFeeToken.transfer(Alice, 10_000 ether);
+
+        // Create batch params
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        batchParams.proposer = Alice;
+
+        // Deposit bond for both Alice and prover (using bond token)
+        vm.startPrank(prover);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(1000 ether);
+        
+        // Approve the different fee token for the inbox to spend
+        differentFeeToken.approve(address(inbox), type(uint256).max);
+
+        // Create a ProverAuth struct using the different fee token
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = prover;
+        auth.feeToken = address(differentFeeToken);
+        auth.fee = 5 ether; // 5 tokens fee
+        auth.validUntil = uint64(block.timestamp + 1 hours);
+        auth.batchId = 1; // Has to be known in advance (revert protection)
+
+        // Calculate tx list hash
+        bytes memory txList = abi.encodePacked("txList");
+        bytes32 txListHash = keccak256(txList);
+
+        // Get the current chain ID
+        uint64 chainId = uint64(167_000);
+
+        batchParams.coinbase = Alice;
+
+        // Calculate hash with Alice as proposer for signature
+        bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+        
+        // Now set proposer to address(0) as the contract expects
+        batchParams.proposer = address(0);
+
+        // Sign the digest
+        auth.signature = _signDigest(
+            keccak256(
+                abi.encode(
+                    "PROVER_AUTHENTICATION",
+                    chainId,
+                    batchParamsHash,
+                    txListHash,
+                    _getAuthWithoutSignature(auth)
+                )
+            ),
+            PROVER_PRIVATE_KEY
+        );
+
+        // Encode the auth for passing it to the contract
+        batchParams.proverAuth = abi.encode(auth);
+
+        // Check balances before
+        uint256 aliceInitialBond = inbox.v4BondBalanceOf(Alice);
+        uint256 proverInitialBond = inbox.v4BondBalanceOf(prover);
+        uint256 aliceInitialDifferentToken = differentFeeToken.balanceOf(Alice);
+        uint256 proverInitialDifferentToken = differentFeeToken.balanceOf(prover);
+
+        // Execute the propose batch operation
+        (, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+        // Verify prover was set correctly
+        assertEq(meta.prover, auth.prover, "Prover should match");
+
+        // Verify bond balances
+        ITaikoInbox.Config memory config = v4GetConfig();
+        
+        // For this case, prover should just have livenessBond deducted from bond balance
+        uint256 expectedProverBond = proverInitialBond - config.livenessBond;
+        
+        // Alice bond balance should remain unchanged since fee is in different token
+        uint256 expectedAliceBond = aliceInitialBond;
+        
+        assertEq(inbox.v4BondBalanceOf(prover), expectedProverBond, "Incorrect prover bond balance");
+        assertEq(inbox.v4BondBalanceOf(Alice), expectedAliceBond, "Incorrect proposer bond balance");
+        
+        // The fee token should be transferred from Alice to the prover
+        assertEq(differentFeeToken.balanceOf(Alice), aliceInitialDifferentToken - auth.fee, "Incorrect Alice fee token balance");
+        assertEq(differentFeeToken.balanceOf(prover), proverInitialDifferentToken + auth.fee, "Incorrect prover fee token balance");
     }
 
     function _distributeBonds() internal {
