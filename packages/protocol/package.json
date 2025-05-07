@@ -56,5 +56,6 @@
     "solady": "github:Vectorized/solady#v0.0.231",
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v4.0.0",
     "urc": "github:eth-fabric/urc#main"
-  }
+  },
+  "type": "module"
 }
