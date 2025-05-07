@@ -16,7 +16,7 @@ interface IForcedInclusionStore {
     /// @dev Event emitted when a forced inclusion is stored.
     event ForcedInclusionStored(ForcedInclusion forcedInclusion);
     /// @dev Event emitted when a forced inclusion is consumed.
-    event ForcedInclusionConsumed(ForcedInclusion forcedInclusion);
+    event ForcedInclusionConsumedForcedInclusionConsumed(uint64 indexed batchId, ForcedInclusion forcedInclusion);
 
     /// @dev Error thrown when a blob is not found.
     error BlobNotFound();

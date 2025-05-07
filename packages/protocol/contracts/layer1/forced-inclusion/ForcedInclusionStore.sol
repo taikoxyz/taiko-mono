@@ -110,13 +110,14 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         inclusion_ = inclusion;
 
-        lastProcessedAtBatchId = _nextBatchId();
+        uint64 batchId = _nextBatchId();
+        lastProcessedAtBatchId = batchId;
 
         unchecked {
             delete queue[head++];
             _feeRecipient.sendEtherAndVerify(inclusion_.feeInGwei * 1 gwei);
         }
-        emit ForcedInclusionConsumed(inclusion_);
+        emit ForcedInclusionConsumed(batchId, inclusion_);
     }
 
     function getForcedInclusion(uint256 index) external view returns (ForcedInclusion memory) {
