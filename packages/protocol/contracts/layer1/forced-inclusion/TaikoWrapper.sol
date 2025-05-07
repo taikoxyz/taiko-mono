@@ -94,6 +94,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
+        ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
+        require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
+        require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
         return inbox.v4ProposeBatch(bytesY, _txList, "");
     }
 

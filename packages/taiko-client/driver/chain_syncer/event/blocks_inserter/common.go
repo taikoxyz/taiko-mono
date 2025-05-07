@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -203,50 +202,60 @@ func isBatchPreconfirmed(
 	metadata metadata.TaikoProposalMetaData,
 	allTxs []*types.Transaction,
 	txListBytes []byte,
+	parent *types.Header,
 ) (*types.Header, error) {
-	// Get the parent block of the last block in this batch.
-	parent, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(metadata.Pacaya().GetLastBlockID()-1))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return nil, fmt.Errorf("failed to get parent block: %w", err)
-	}
-	// If we can't find the parent block, then its not preconfirmed.
-	if parent == nil {
-		log.Debug("Parent block not found, batch is not preconfirmed", "batchID", metadata.Pacaya().GetBatchID())
-		return nil, nil
-	}
-
-	// Then we check if the last block in this batch is preconfirmed.
-	createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
-		ctx,
-		rpc,
-		anchorConstructor,
-		metadata,
-		allTxs,
-		parent,
-		len(metadata.Pacaya().GetBlocks())-1,
+	var (
+		headers = make([]*types.Header, len(metadata.Pacaya().GetBlocks()))
+		g       = new(errgroup.Group)
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
+
+	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
+	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
+		g.Go(func() error {
+			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
+			if err != nil {
+				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
+			}
+
+			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
+				ctx,
+				rpc,
+				anchorConstructor,
+				metadata,
+				allTxs,
+				parentHeader,
+				i,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
+			}
+
+			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+			if err != nil {
+				return fmt.Errorf("failed to RLP encode tx list: %w", err)
+			}
+
+			if headers[i], err = isBlockPreconfirmed(
+				ctx,
+				rpc,
+				&createPayloadAndSetHeadMetaData{
+					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
+					AnchorBlockID:                   new(big.Int).SetUint64(metadata.Pacaya().GetAnchorBlockID()),
+					AnchorBlockHash:                 metadata.Pacaya().GetAnchorBlockHash(),
+					BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
+					Parent:                          parentHeader,
+				},
+				b,
+				anchorTx,
+			); err != nil {
+				return fmt.Errorf("failed to check if block is preconfirmed: %w", err)
+			}
+
+			return nil
+		})
 	}
 
-	b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
-	if err != nil {
-		return nil, fmt.Errorf("failed to RLP encode tx list: %w", err)
-	}
-
-	return isBlockPreconfirmed(
-		ctx,
-		rpc,
-		&createPayloadAndSetHeadMetaData{
-			createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-			AnchorBlockID:                   new(big.Int).SetUint64(metadata.Pacaya().GetAnchorBlockID()),
-			AnchorBlockHash:                 metadata.Pacaya().GetAnchorBlockHash(),
-			BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
-			Parent:                          parent,
-		},
-		b,
-		anchorTx,
-	)
+	return headers[len(headers)-1], g.Wait()
 }
 
 // isBlockPreconfirmed checks if the block is preconfirmed.
