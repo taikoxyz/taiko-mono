@@ -13,27 +13,6 @@ import "src/shared/token/TaikoTokenBase.sol";
 contract TaikoToken is TaikoTokenBase {
     error TT_NON_VOTING_ACCOUNT();
 
-    // Bond tokens deposited to Taiko Inbox are not eligible for voting
-    address private constant _TAIKO_INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
-
-    // Tokens bridged to Taiko mainnet are not eligible for voting
-    address private constant _ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
-
-    // Tokens deposited to Taiko Treasury Vault are not eligible for voting
-    address private constant _TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
-
-    // Tokens managed by the Taiko DAO are not eligible for voting
-    address private constant _TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
-
-    // This is a Taiko TokenLocker contract to force DAO owne'd TAIKO token to be released linearly.
-    address private constant _TAIKO_DAO_TOKEN_LOCKER = 0x0000000000000000000000000000000000000000;
-
-    // This is a TaikoTreasuryVault contract to manage the DAO's ERC20 tokens, including some TAIKO
-    // tokens.
-    address private constant _TAIKO_DAO_VAULT = 0x0000000000000000000000000000000000000000;
-
-    error TT_INVALID_PARAM();
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _recipient The address to receive initial token minting.
