@@ -1,23 +1,29 @@
 coverage:
-  ignore:
-    - "packages/relayer/bindings/**/*"
-    - "packages/eventindexer/contracts/**/*"
-    - "packages/relayer/pkg/mock/**/*"
-    - "packages/relayer/cmd/**/*"
   status:
-    project: off
-    patch: off
+    default_rules:
+      flag_coverage_not_uploaded_behavior: exclude
+    project: false
+    patch: false
 
 flag_management:
   default_rules:
     carryforward: true
   individual_flags:
-    - name: protocol
+    - name: taiko-client
       paths:
-        - packages/protocol/**/*
+        - packages/taiko-client/
+    - name: eventindexer
+      paths:
+        - packages/eventindexer/
     - name: relayer
       paths:
-        - packages/relayer/**/*
+        - packages/relayer/
 
 comment:
   show_carryforward_flags: true
+  layout: "header, files, footer"
+  hide_project_coverage: false
+
+ignore:
+  - packages/taiko-client/bindings
+  - packages/relayer/bindings

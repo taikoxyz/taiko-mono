@@ -20,6 +20,7 @@ contract PreconfRouter is EssentialContract, IProposeBatch {
 
     uint256[50] private __gap;
 
+
     constructor(
         address _iProposeBatch, // TaikoInbox or TaikoWrapper
         address _preconfWhitelist,

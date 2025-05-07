@@ -1,6 +1,10 @@
 name: "CI"
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/taiko-client/**"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -86,3 +90,6 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: packages/taiko-client/coverage.out
+          flags: taiko-client
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
