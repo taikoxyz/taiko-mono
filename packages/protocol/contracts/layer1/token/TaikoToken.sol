@@ -20,19 +20,17 @@ contract TaikoToken is TaikoTokenBase {
     address private constant _ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
 
     // Tokens deposited to Taiko Treasury Vault are not eligible for voting
-    address private constant _TAIKO_FOUNDATION_TREASURY_VAULT =
-        0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
+    address private constant _TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
 
     // Tokens managed by the Taiko DAO are not eligible for voting
     address private constant _TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
 
     // This is a Taiko TokenLocker contract to force DAO owne'd TAIKO token to be released linearly.
-    address private constant _TAIKO_DAO_TREASURY_TOKEN_LOCKER =
-        0x0000000000000000000000000000000000000000;
+    address private constant _TAIKO_DAO_TOKEN_LOCKER = 0x0000000000000000000000000000000000000000;
 
     // This is a TaikoTreasuryVault contract to manage the DAO's ERC20 tokens, including some TAIKO
     // tokens.
-    address private constant _TAIKO_DAO_TREASURY_VAULT = 0x0000000000000000000000000000000000000000;
+    address private constant _TAIKO_DAO_VAULT = 0x0000000000000000000000000000000000000000;
 
     error TT_INVALID_PARAM();
 
@@ -89,9 +87,9 @@ contract TaikoToken is TaikoTokenBase {
         accounts_ = new address[](6);
         accounts_[0] = _TAIKO_INBOX;
         accounts_[1] = _ERC20_VAULT;
-        accounts_[2] = _TAIKO_FOUNDATION_TREASURY_VAULT;
+        accounts_[2] = _TAIKO_FOUNDATION_TREASURY;
         accounts_[3] = _TAIKO_DAO;
-        accounts_[4] = _TAIKO_DAO_TREASURY_TOKEN_LOCKER;
-        accounts_[5] = _TAIKO_DAO_TREASURY_VAULT;
+        accounts_[4] = _TAIKO_DAO_TOKEN_LOCKER;
+        accounts_[5] = _TAIKO_DAO_VAULT;
     }
 }
