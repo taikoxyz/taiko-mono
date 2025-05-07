@@ -65,15 +65,6 @@ contract TaikoToken is TaikoTokenBase {
         return true;
     }
 
-    function delegates(address account) public view override returns (address) {
-        address[] memory nonVotingAccounts = getNonVotingAccounts();
-        // Special checks to avoid reading from storage slots
-        for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (account == nonVotingAccounts[i]) return address(0);
-        }
-        return super.delegates(account);
-    }
-
     function delegate(address account) public override {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         // Special checks to avoid reading from storage slots
