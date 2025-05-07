@@ -82,7 +82,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    modifier onlyGoldenTouchOr77702Delegated() {
+    modifier onlyGoldenTouchOr7702Delegated() {
         require(
             msg.sender == address(this) // The sender EOA delegated to this contract
                 || msg.sender == GOLDEN_TOUCH_ADDRESS,
@@ -125,7 +125,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         nonZeroValue(_anchorBlockId)
         nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
         nonZeroValue(_baseFeeConfig.adjustmentQuotient)
-        onlyGoldenTouchOr77702Delegated
+        onlyGoldenTouchOr7702Delegated
         nonReentrant
     {
         require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
