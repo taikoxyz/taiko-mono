@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract NonBondToken is ERC20 {
     constructor() ERC20("Test Token", "TST") {
-        _mint(msg.sender, 1_000_000 * 10**18); // Mint 1 million tokens
+        _mint(msg.sender, 1_000_000 * 10 ** 18); // Mint 1 million tokens
     }
 }
 
@@ -512,11 +512,11 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
     function test_proverAuth_differentFeeToken() external transactBy(Alice) {
         // Deploy an ERC20 token to use as fee token
         NonBondToken differentFeeToken = new NonBondToken();
-        
+
         // Fund accounts with bond tokens
         bondToken.transfer(Alice, 10_000 ether);
         bondToken.transfer(prover, 5000 ether);
-        
+
         // Fund Alice with the different fee token
         differentFeeToken.transfer(Alice, 10_000 ether);
 
@@ -534,7 +534,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         vm.startPrank(Alice);
         bondToken.approve(address(inbox), 1000 ether);
         inbox.v4DepositBond(1000 ether);
-        
+
         // Approve the different fee token for the inbox to spend
         differentFeeToken.approve(address(inbox), type(uint256).max);
 
@@ -557,7 +557,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
         // Calculate hash with Alice as proposer for signature
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
-        
+
         // Now set proposer to address(0) as the contract expects
         batchParams.proposer = address(0);
 
@@ -593,19 +593,27 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
         // Verify bond balances
         ITaikoInbox.Config memory config = v4GetConfig();
-        
+
         // For this case, prover should just have livenessBond deducted from bond balance
         uint256 expectedProverBond = proverInitialBond - config.livenessBond;
-        
+
         // Alice bond balance should remain unchanged since fee is in different token
         uint256 expectedAliceBond = aliceInitialBond;
-        
+
         assertEq(inbox.v4BondBalanceOf(prover), expectedProverBond, "Incorrect prover bond balance");
         assertEq(inbox.v4BondBalanceOf(Alice), expectedAliceBond, "Incorrect proposer bond balance");
-        
+
         // The fee token should be transferred from Alice to the prover
-        assertEq(differentFeeToken.balanceOf(Alice), aliceInitialDifferentToken - auth.fee, "Incorrect Alice fee token balance");
-        assertEq(differentFeeToken.balanceOf(prover), proverInitialDifferentToken + auth.fee, "Incorrect prover fee token balance");
+        assertEq(
+            differentFeeToken.balanceOf(Alice),
+            aliceInitialDifferentToken - auth.fee,
+            "Incorrect Alice fee token balance"
+        );
+        assertEq(
+            differentFeeToken.balanceOf(prover),
+            proverInitialDifferentToken + auth.fee,
+            "Incorrect prover fee token balance"
+        );
     }
 
     function _distributeBonds() internal {
