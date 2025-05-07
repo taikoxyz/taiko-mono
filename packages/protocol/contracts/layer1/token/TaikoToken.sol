@@ -67,16 +67,16 @@ contract TaikoToken is TaikoTokenBase {
         accounts_ = new address[](6);
 
         // Bond tokens deposited to Taiko Inbox are not eligible for voting
-        accounts_[0] = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+        accounts_[0] = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a; // TaikoInbox contract
 
         // Tokens bridged to Taiko mainnet are not eligible for voting
-        accounts_[1] = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
+        accounts_[1] = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab; // ERC20Vault contract
 
-        // Tokens deposited to Taiko Treasury Vault are not eligible for voting
-        accounts_[2] = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
+        // Tokens deposited to Taiko Foundation Vault are not eligible for voting
+        accounts_[2] = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // Gnosis Safe Multisig
 
         // Tokens managed by the Taiko DAO are not eligible for voting
-        accounts_[3] = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
+        accounts_[3] = 0x9CDf589C941ee81D75F34d3755671d614f7cf261; // Taiko DAO contract
 
         // This is a Taiko TokenLocker contract to force DAO owne'd TAIKO token to be released
         // linearly
