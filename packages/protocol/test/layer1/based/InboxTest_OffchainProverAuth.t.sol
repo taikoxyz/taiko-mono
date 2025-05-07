@@ -14,7 +14,6 @@ contract NonBondToken is ERC20 {
 contract InboxTest_OffchainProverAuth is InboxTestBase {
     using ECDSA for bytes32;
 
-    uint256 constant PROVER_PRIVATE_KEY = 0x12345678;
     uint256 constant WRONG_PRIVATE_KEY = 0x98765432;
     address prover = vm.addr(PROVER_PRIVATE_KEY);
 
@@ -619,29 +618,5 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
     function _distributeBonds() internal {
         bondToken.transfer(Alice, 10_000 ether);
         bondToken.transfer(prover, 5000 ether);
-    }
-
-    // Helper functions to create a valid signature
-    function _signDigest(
-        bytes32 _digest,
-        uint256 _privateKey
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, _digest);
-        return abi.encodePacked(r, s, v);
-    }
-
-    // Helper to get auth struct without signature for proper digest calculation
-    function _getAuthWithoutSignature(LibProverAuth.ProverAuth memory _auth)
-        internal
-        pure
-        returns (LibProverAuth.ProverAuth memory)
-    {
-        LibProverAuth.ProverAuth memory authCopy = _auth;
-        authCopy.signature = "";
-        return authCopy;
     }
 }
