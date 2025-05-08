@@ -77,10 +77,10 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 	select {
 	case i.syncInProgress <- struct{}{}:
-	default:
-		return fmt.Errorf("chain sync already in progress")
+		// acquired, continue
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-
 	defer func() { <-i.syncInProgress }()
 
 	var (
