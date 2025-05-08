@@ -10,8 +10,8 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./libs/LibVerification.sol";
 import "./libs/LibProverAuth.sol";
+import "./libs/LibVerification.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
 
