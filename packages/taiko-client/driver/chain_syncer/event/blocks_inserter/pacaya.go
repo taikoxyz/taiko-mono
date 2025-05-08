@@ -37,6 +37,8 @@ type BlocksInserterPacaya struct {
 	calldataFetcher    txlistFetcher.TxListFetcher
 	blobFetcher        txlistFetcher.TxListFetcher
 	mutex              sync.Mutex
+	// a 1‑slot semaphore: empty means “not syncing”
+	syncInProgress chan struct{}
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -57,6 +59,7 @@ func NewBlocksInserterPacaya(
 		anchorConstructor:  anchorConstructor,
 		calldataFetcher:    calldataFetcher,
 		blobFetcher:        blobFetcher,
+		syncInProgress:     make(chan struct{}, 1),
 	}
 }
 
@@ -71,6 +74,14 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
+
+	select {
+	case i.syncInProgress <- struct{}{}:
+	default:
+		return fmt.Errorf("chain sync already in progress")
+	}
+
+	defer func() { <-i.syncInProgress }()
 
 	var (
 		meta        = metadata.Pacaya()
@@ -398,4 +409,8 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	}
 
 	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
+}
+
+func (i *BlocksInserterPacaya) IsSyncing() bool {
+	return len(i.syncInProgress) > 0
 }

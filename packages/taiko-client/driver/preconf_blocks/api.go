@@ -61,6 +61,10 @@ type BuildPreconfBlockResponseBody struct {
 //		@Success	200		{object} BuildPreconfBlockResponseBody
 //		@Router		/preconfBlocks [post]
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
+	if s.chainSyncer.IsSyncing() {
+		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
+	}
+
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {

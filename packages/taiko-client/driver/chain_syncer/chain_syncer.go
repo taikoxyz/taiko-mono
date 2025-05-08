@@ -36,6 +36,9 @@ type L2ChainSyncer struct {
 	// If this flag is activated, will try P2P beacon sync if current node is behind of the protocol's
 	// the latest verified block head
 	p2pSync bool
+
+	// a 1‑slot semaphore: empty means “not syncing”
+	syncInProgress chan struct{}
 }
 
 // New creates a new chain syncer instance.
@@ -64,6 +67,7 @@ func New(
 		eventSyncer:     eventSyncer,
 		progressTracker: tracker,
 		p2pSync:         p2pSync,
+		syncInProgress:  make(chan struct{}, 1),
 	}, nil
 }
 

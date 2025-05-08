@@ -45,6 +45,7 @@ var wsUpgrader = websocket.Upgrader{
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload, bool) ([]*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
+	IsSyncing() bool
 }
 
 // @title Taiko Preconfirmation Block Server API
