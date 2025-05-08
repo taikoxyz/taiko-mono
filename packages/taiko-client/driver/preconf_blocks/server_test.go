@@ -28,6 +28,7 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		nil,
 		s.RPCClient,
+		nil,
 	)
 	s.Nil(err)
 	s.s = server

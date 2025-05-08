@@ -29,16 +29,15 @@ import (
 
 // BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
 type BlocksInserterPacaya struct {
-	rpc                *rpc.Client
-	progressTracker    *beaconsync.SyncProgressTracker
-	blobDatasource     *rpc.BlobDataSource
-	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
-	calldataFetcher    txlistFetcher.TxListFetcher
-	blobFetcher        txlistFetcher.TxListFetcher
-	mutex              sync.Mutex
-	// a 1‑slot semaphore: empty means “not syncing”
-	syncInProgress chan struct{}
+	rpc                        *rpc.Client
+	progressTracker            *beaconsync.SyncProgressTracker
+	blobDatasource             *rpc.BlobDataSource
+	txListDecompressor         *txListDecompressor.TxListDecompressor   // Transactions list decompressor
+	anchorConstructor          *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	calldataFetcher            txlistFetcher.TxListFetcher
+	blobFetcher                txlistFetcher.TxListFetcher
+	mutex                      sync.Mutex
+	latestBlockIDSeenInEventCh chan uint64
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -50,16 +49,17 @@ func NewBlocksInserterPacaya(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	calldataFetcher txlistFetcher.TxListFetcher,
 	blobFetcher txlistFetcher.TxListFetcher,
+	latestBlockIDSeenInEventCh chan uint64,
 ) *BlocksInserterPacaya {
 	return &BlocksInserterPacaya{
-		rpc:                rpc,
-		progressTracker:    progressTracker,
-		blobDatasource:     blobDatasource,
-		txListDecompressor: txListDecompressor,
-		anchorConstructor:  anchorConstructor,
-		calldataFetcher:    calldataFetcher,
-		blobFetcher:        blobFetcher,
-		syncInProgress:     make(chan struct{}, 1),
+		rpc:                        rpc,
+		progressTracker:            progressTracker,
+		blobDatasource:             blobDatasource,
+		txListDecompressor:         txListDecompressor,
+		anchorConstructor:          anchorConstructor,
+		calldataFetcher:            calldataFetcher,
+		blobFetcher:                blobFetcher,
+		latestBlockIDSeenInEventCh: latestBlockIDSeenInEventCh,
 	}
 }
 
@@ -74,14 +74,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-
-	select {
-	case i.syncInProgress <- struct{}{}:
-		// acquired, continue
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	defer func() { <-i.syncInProgress }()
 
 	var (
 		meta        = metadata.Pacaya()
@@ -148,6 +140,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"hash", parent.Hash(),
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
+
+		// update lastBlockID
+		if i.latestBlockIDSeenInEventCh != nil {
+			i.latestBlockIDSeenInEventCh <- meta.GetLastBlockID()
+		}
 
 		// If this is the first block in the batch, we check if the whole batch has been preconfirmed by
 		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
@@ -409,8 +406,4 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	}
 
 	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
-}
-
-func (i *BlocksInserterPacaya) IsSyncing() bool {
-	return len(i.syncInProgress) > 0
 }

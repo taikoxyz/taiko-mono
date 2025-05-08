@@ -89,6 +89,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
+	latestBlockIDSeenInEventCh := make(chan uint64)
 	if d.l2ChainSyncer, err = chainSyncer.New(
 		d.ctx,
 		d.rpc,
@@ -96,6 +97,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
+		latestBlockIDSeenInEventCh,
 	); err != nil {
 		return err
 	}
@@ -123,6 +125,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.TaikoL2Address,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
+			latestBlockIDSeenInEventCh,
 		); err != nil {
 			return err
 		}
@@ -178,6 +181,8 @@ func (d *Driver) Start() error {
 				log.Crit("Failed to start preconfirmation block server", "error", err)
 			}
 		}()
+
+		go d.preconfBlockServer.LatestBlockIDSeenInEventLoop(d.ctx)
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {

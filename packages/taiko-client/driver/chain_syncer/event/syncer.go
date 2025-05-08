@@ -52,6 +52,7 @@ func NewSyncer(
 	state *state.State,
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobServerEndpoint *url.URL,
+	latestBlockIDSeenInEventCh chan uint64,
 ) (*Syncer, error) {
 	constructor, err := anchorTxConstructor.New(client)
 	if err != nil {
@@ -101,6 +102,7 @@ func NewSyncer(
 			constructor,
 			txListFetcherCalldata,
 			txListFetcherBlob,
+			latestBlockIDSeenInEventCh,
 		),
 	}, nil
 }

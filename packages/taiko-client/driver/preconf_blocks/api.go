@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 
@@ -61,10 +62,6 @@ type BuildPreconfBlockResponseBody struct {
 //		@Success	200		{object} BuildPreconfBlockResponseBody
 //		@Router		/preconfBlocks [post]
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
-	if s.chainSyncer.IsSyncing() {
-		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
-	}
-
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
@@ -72,6 +69,24 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 	if reqBody.ExecutableData == nil {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
+	}
+
+	parent, err := s.rpc.L2.HeaderByHash(c.Request().Context(), reqBody.ExecutableData.ParentHash)
+	if err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	if parent.Number.Uint64() < s.latestBlockIDSeenInEvent {
+		log.Warn("The parent block ID is smaller than the latest block ID seen in event",
+			"parentBlockID", parent.Number.Uint64(),
+			"latestBlockIDSeenInEvent", s.latestBlockIDSeenInEvent,
+		)
+		return s.returnError(c, http.StatusBadRequest,
+			fmt.Errorf("latestBatchProposalBlockID: %v, parentBlockID: %v",
+				s.latestBlockIDSeenInEvent,
+				parent.Number.Uint64(),
+			),
+		)
 	}
 
 	endOfSequencing := false

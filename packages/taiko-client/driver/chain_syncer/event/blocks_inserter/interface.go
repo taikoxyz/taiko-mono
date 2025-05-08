@@ -20,7 +20,6 @@ type Inserter interface {
 		metadata metadata.TaikoProposalMetaData,
 		endIter eventIterator.EndBlockProposedEventIterFunc,
 	) error
-	IsSyncing() bool
 }
 
 // createExecutionPayloadsMetaData is a struct that contains all the necessary metadata

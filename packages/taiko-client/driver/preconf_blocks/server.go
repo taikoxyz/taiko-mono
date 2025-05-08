@@ -45,7 +45,6 @@ var wsUpgrader = websocket.Upgrader{
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload, bool) ([]*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
-	IsSyncing() bool
 }
 
 // @title Taiko Preconfirmation Block Server API
@@ -78,6 +77,8 @@ type PreconfBlockAPIServer struct {
 	sequencingEndedForEpoch       *lru.Cache[uint64, common.Hash]
 	wsClients                     map[*websocket.Conn]struct{}
 	wsMutex                       sync.Mutex
+	latestBlockIDSeenInEventCh    chan uint64
+	latestBlockIDSeenInEvent      uint64
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -89,6 +90,7 @@ func New(
 	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
+	latestBlockIDSeenInEventCh chan uint64,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
 	if err != nil {
@@ -106,19 +108,20 @@ func New(
 	}
 
 	server := &PreconfBlockAPIServer{
-		echo:                    echo.New(),
-		anchorValidator:         anchorValidator,
-		chainSyncer:             chainSyncer,
-		handoverSlots:           handoverSlots,
-		rpc:                     cli,
-		payloadsCache:           newPayloadQueue(),
-		preconfOperatorAddress:  preconfOperatorAddress,
-		lookahead:               &Lookahead{},
-		mu:                      sync.Mutex{},
-		blockRequests:           blockRequestsCache,
-		sequencingEndedForEpoch: endOfSequencingCache,
-		wsClients:               make(map[*websocket.Conn]struct{}),
-		wsMutex:                 sync.Mutex{},
+		echo:                       echo.New(),
+		anchorValidator:            anchorValidator,
+		chainSyncer:                chainSyncer,
+		handoverSlots:              handoverSlots,
+		rpc:                        cli,
+		payloadsCache:              newPayloadQueue(),
+		preconfOperatorAddress:     preconfOperatorAddress,
+		lookahead:                  &Lookahead{},
+		mu:                         sync.Mutex{},
+		blockRequests:              blockRequestsCache,
+		sequencingEndedForEpoch:    endOfSequencingCache,
+		wsClients:                  make(map[*websocket.Conn]struct{}),
+		wsMutex:                    sync.Mutex{},
+		latestBlockIDSeenInEventCh: latestBlockIDSeenInEventCh,
 	}
 
 	server.echo.HideBanner = true
@@ -1041,4 +1044,19 @@ func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.Executi
 
 func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common.Hash, bool) {
 	return s.sequencingEndedForEpoch.Get(epoch)
+}
+
+func (s *PreconfBlockAPIServer) LatestBlockIDSeenInEventLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("Stopping latest block ID seen in event loop")
+			return
+		case blockID := <-s.latestBlockIDSeenInEventCh:
+			log.Info("Received latest block ID seen in event", "blockID", blockID)
+			s.mu.Lock()
+			s.latestBlockIDSeenInEvent = blockID
+			s.mu.Unlock()
+		}
+	}
 }
