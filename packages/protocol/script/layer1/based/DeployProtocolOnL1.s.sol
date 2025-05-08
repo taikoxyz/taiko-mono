@@ -443,7 +443,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier( taikoInboxAddr, proofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner),
             registerTo: rollupResolver
         });
@@ -466,9 +466,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
-            impl: address(
-                new TaikoSgxVerifier( taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
-            ),
+            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner),
             registerTo: rollupResolver
         });
