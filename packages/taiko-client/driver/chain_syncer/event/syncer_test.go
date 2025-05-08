@@ -1,4 +1,4 @@
-package blob
+package event
 
 import (
 	"context"
@@ -28,13 +28,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 )
 
-type BlobSyncerTestSuite struct {
+type EventSyncerTestSuite struct {
 	testutils.ClientTestSuite
 	s *Syncer
 	p testutils.Proposer
 }
 
-func (s *BlobSyncerTestSuite) SetupTest() {
+func (s *EventSyncerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
 	state2, err := state.New(context.Background(), s.RPCClient)
@@ -53,7 +53,7 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 	s.initProposer()
 }
 
-func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
+func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	ctx := context.Background()
 
 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
@@ -147,16 +147,16 @@ func (s *BlobSyncerTestSuite) TestBlobSyncRobustness() {
 	step3(step2(step1(step0())))
 }
 
-func (s *BlobSyncerTestSuite) TestProcessL1Blocks() {
+func (s *EventSyncerTestSuite) TestProcessL1Blocks() {
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 }
 
-func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
+func (s *EventSyncerTestSuite) TestProcessL1BlocksReorg() {
 	s.ProposeAndInsertEmptyBlocks(s.p, s.s)
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 }
 
-func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
+func (s *EventSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
 		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 0}},
@@ -169,7 +169,7 @@ func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	))
 }
 
-func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
+func (s *EventSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
@@ -191,7 +191,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 	s.Equal(1, balanceAfter.Cmp(balance))
 }
 
-func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
+func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
@@ -220,7 +220,9 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 		s.RPCClient.PacayaClients.ForkHeight,
 	)
 
-	cfg, err := s.RPCClient.GetProtocolConfigs(nil)
+	pacayaCfg, err := s.RPCClient.GetProtocolConfigs(nil)
+	s.Nil(err)
+	ontakeCfg, err := s.RPCClient.OntakeClients.TaikoL1.GetConfig(nil)
 	s.Nil(err)
 
 	for i := headBefore + 1; i <= headAfter; i++ {
@@ -239,16 +241,17 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 			s.Nil(err)
 
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
-			if chainConfig.IsOntake(block.Number()) {
-				feeCoinbase := new(big.Int).Div(
-					new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(cfg.BaseFeeConfig().SharingPctg))),
-					new(big.Int).SetUint64(100),
-				)
-				feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
-				balance = new(big.Int).Add(balance, feeTreasury)
-			} else {
-				balance = new(big.Int).Add(balance, fee)
+			sharingPctg := uint64(ontakeCfg.BaseFeeConfig.SharingPctg)
+			if chainConfig.IsPacaya(block.Number()) {
+				sharingPctg = uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
 			}
+
+			feeCoinbase := new(big.Int).Div(
+				new(big.Int).Mul(fee, new(big.Int).SetUint64(sharingPctg)),
+				new(big.Int).SetUint64(100),
+			)
+			feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
+			balance = new(big.Int).Add(balance, feeTreasury)
 		}
 	}
 
@@ -256,7 +259,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.Zero(balanceAfter.Cmp(balance))
 }
 
-func (s *BlobSyncerTestSuite) initProposer() {
+func (s *EventSyncerTestSuite) initProposer() {
 	var (
 		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
 		prop              = new(proposer.Proposer)
@@ -319,6 +322,6 @@ func (s *BlobSyncerTestSuite) initProposer() {
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 }
 
-func TestBlobSyncerTestSuite(t *testing.T) {
-	suite.Run(t, new(BlobSyncerTestSuite))
+func TestEventSyncerTestSuite(t *testing.T) {
+	suite.Run(t, new(EventSyncerTestSuite))
 }

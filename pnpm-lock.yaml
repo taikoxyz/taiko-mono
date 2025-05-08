@@ -419,9 +419,6 @@ importers:
       '@openzeppelin/contracts-upgradeable':
         specifier: 4.9.6
         version: 4.9.6
-      ds-test:
-        specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.9.5
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/b93cf4bc34ff214c099dc970b153f85ade8c9f66
