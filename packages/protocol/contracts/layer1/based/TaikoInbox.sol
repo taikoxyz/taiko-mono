@@ -12,6 +12,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
+import "./LibVerification.sol";
 import "./LibProverAuth.sol";
 
 /// @title TaikoInbox
@@ -29,6 +30,7 @@ import "./LibProverAuth.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
+    using LibVerification for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
     address public immutable inboxWrapper;
@@ -233,7 +235,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                         if (bondDelta < 0) {
                             _debitBond(meta_.prover, uint256(-bondDelta));
                         } else {
-                            _creditBond(meta_.prover, uint256(bondDelta));
+                            state.creditBond(meta_.prover, uint256(bondDelta));
                         }
                     } else {
                         _debitBond(meta_.prover, config.livenessBond);
@@ -278,7 +280,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchProposed(info_, meta_, _txList);
         } // end-of-unchecked
 
-        _verifyBatches(config, stats2, 1);
+        state.verifyBatches(config, stats2, signalService, 1);
     }
 
     /// @inheritdoc IProveBatches
@@ -409,7 +411,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             _pause();
             emit Paused(verifier);
         } else {
-            _verifyBatches(config, stats2, metasLength);
+            state.verifyBatches(config, stats2, signalService, metasLength);
         }
     }
 
@@ -420,7 +422,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         nonReentrant
         whenNotPaused
     {
-        _verifyBatches(v4GetConfig(), state.stats2, _length);
+        state.verifyBatches(v4GetConfig(), state.stats2, signalService, _length);
     }
 
     /// @inheritdoc IBondManager
@@ -641,121 +643,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     // Private functions -----------------------------------------------------------------------
 
-    function _verifyBatches(
-        Config memory _config,
-        Stats2 memory _stats2,
-        uint256 _length
-    )
-        private
-    {
-        uint64 batchId = _stats2.lastVerifiedBatchId;
-
-        bool canVerifyBlocks;
-        unchecked {
-            uint64 pacayaForkHeight = _config.forkHeights.pacaya;
-            canVerifyBlocks = pacayaForkHeight == 0 || batchId >= pacayaForkHeight - 1;
-        }
-
-        if (canVerifyBlocks) {
-            uint256 slot = batchId % _config.batchRingBufferSize;
-            Batch storage batch = state.batches[slot];
-            uint24 tid = batch.verifiedTransitionId;
-            bytes32 blockHash = state.transitions[slot][tid].blockHash;
-
-            SyncBlock memory synced;
-
-            uint256 stopBatchId;
-            unchecked {
-                stopBatchId = (
-                    _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
-                ).min(_stats2.numBatches);
-
-                if (_config.forkHeights.shasta != 0) {
-                    stopBatchId = stopBatchId.min(_config.forkHeights.shasta);
-                }
-            }
-
-            for (++batchId; batchId < stopBatchId; ++batchId) {
-                slot = batchId % _config.batchRingBufferSize;
-                batch = state.batches[slot];
-                uint24 nextTransitionId = batch.nextTransitionId;
-
-                if (paused()) break;
-                if (nextTransitionId <= 1) break;
-
-                TransitionState storage ts = state.transitions[slot][1];
-                if (ts.parentHash == blockHash) {
-                    tid = 1;
-                } else if (nextTransitionId > 2) {
-                    uint24 _tid = state.transitionIds[batchId][blockHash];
-                    if (_tid == 0) break;
-                    tid = _tid;
-                    ts = state.transitions[slot][tid];
-                } else {
-                    break;
-                }
-
-                bytes32 _blockHash = ts.blockHash;
-                // This transition has been invalidated due to conflicting proof
-                if (_blockHash == 0) break;
-
-                unchecked {
-                    if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
-                        break;
-                    }
-                }
-
-                blockHash = _blockHash;
-
-                uint96 bondToReturn =
-                    ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
-                _creditBond(ts.prover, bondToReturn);
-
-                if (batchId % _config.stateRootSyncInternal == 0) {
-                    synced.batchId = batchId;
-                    synced.blockId = batch.lastBlockId;
-                    synced.tid = tid;
-                    synced.stateRoot = ts.stateRoot;
-                }
-            }
-
-            unchecked {
-                --batchId;
-            }
-
-            if (_stats2.lastVerifiedBatchId != batchId) {
-                _stats2.lastVerifiedBatchId = batchId;
-
-                batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
-                batch.verifiedTransitionId = tid;
-                emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
-
-                if (synced.batchId != 0) {
-                    if (synced.batchId != _stats2.lastVerifiedBatchId) {
-                        // We write the synced batch's verifiedTransitionId to storage
-                        batch = state.batches[synced.batchId % _config.batchRingBufferSize];
-                        batch.verifiedTransitionId = synced.tid;
-                    }
-
-                    Stats1 memory stats1 = state.stats1;
-                    stats1.lastSyncedBatchId = batch.batchId;
-                    stats1.lastSyncedAt = uint64(block.timestamp);
-                    state.stats1 = stats1;
-
-                    emit Stats1Updated(stats1);
-
-                    // Ask signal service to write cross chain signal
-                    signalService.syncChainData(
-                        _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
-                    );
-                }
-            }
-        }
-
-        state.stats2 = _stats2;
-        emit Stats2Updated(_stats2);
-    }
-
     function _debitBond(address _user, uint256 _amount) private {
         if (_amount == 0) return;
 
@@ -772,14 +659,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             revert InsufficientBond();
         }
         emit BondDebited(_user, _amount);
-    }
-
-    function _creditBond(address _user, uint256 _amount) private {
-        if (_amount == 0) return;
-        unchecked {
-            state.bondBalance[_user] += _amount;
-        }
-        emit BondCredited(_user, _amount);
     }
 
     function _handleDeposit(
@@ -884,14 +763,5 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (bytes32)
     {
         return bytes32(uint256(_baseFeeSharings[1]) << 8 | uint256(_baseFeeSharings[0]));
-    }
-
-    // Memory-only structs ----------------------------------------------------------------------
-
-    struct SyncBlock {
-        uint64 batchId;
-        uint64 blockId;
-        uint24 tid;
-        bytes32 stateRoot;
     }
 }
