@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 /// @title LibProverAuth
 /// @notice This library is used to validate the prover authentication.
-/// @dev This library's validateProverAuth function is made public to reduce TaikoInbox's code size.
 /// @custom:security-contact security@taiko.xyz
 library LibProverAuth {
-    using ECDSA for bytes32;
     using SignatureChecker for address;
 
     struct ProverAuth {
@@ -33,9 +30,9 @@ library LibProverAuth {
         uint64 _batchId,
         bytes32 _batchParamsHash,
         bytes32 _txListHash,
-        bytes calldata _proverAuth
+        bytes memory _proverAuth
     )
-        public
+        public // reduce code size
         view
         returns (ProverAuth memory auth_)
     {
