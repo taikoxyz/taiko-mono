@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 /// @title LibProverAuth
 /// @notice This library is used to validate the prover authentication.
-/// @dev This library's validateProverAuth function is made public to reduce TaikoInbox's code size.
 /// @custom:security-contact security@taiko.xyz
 library LibProverAuth {
     using SignatureChecker for address;
@@ -33,7 +32,7 @@ library LibProverAuth {
         bytes32 _txListHash,
         bytes calldata _proverAuth
     )
-        public
+        internal
         view
         returns (ProverAuth memory auth_)
     {
