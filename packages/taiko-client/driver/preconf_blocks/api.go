@@ -70,6 +70,11 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
 	}
 
+	endOfSequencing := false
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing {
+		endOfSequencing = true
+	}
+
 	log.Info(
 		"New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
@@ -79,7 +84,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas)),
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
-		"endOfSequencing", reqBody.EndOfSequencing != nil,
+		"endOfSequencing", endOfSequencing,
 	)
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
