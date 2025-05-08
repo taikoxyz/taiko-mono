@@ -81,7 +81,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (BatchInfo memory info_, BatchMetadata memory meta_)
     {
         Stats2 memory stats2 = state.stats2;
-        Config memory config = v4GetConfig();
+        Config memory config = _getConfig();
         require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
@@ -280,7 +280,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchProposed(info_, meta_, _txList);
         } // end-of-unchecked
 
-        state.verifyBatches(config, stats2, signalService,  1);
+        state.verifyBatches(config, stats2, signalService, 1);
     }
 
     /// @inheritdoc IProveBatches
@@ -295,7 +295,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Stats2 memory stats2 = state.stats2;
         require(!stats2.paused, ContractPaused());
 
-        Config memory config = v4GetConfig();
+        Config memory config = _getConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metasLength);
 
         bool hasConflictingProof;
@@ -411,7 +411,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             _pause();
             emit Paused(verifier);
         } else {
-            state.verifyBatches(config, stats2, signalService,  metasLength);
+            state.verifyBatches(config, stats2, signalService, metasLength);
         }
     }
 
@@ -422,7 +422,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         nonReentrant
         whenNotPaused
     {
-        state.verifyBatches(v4GetConfig(), state.stats2, signalService,  _length);
+        state.verifyBatches(_getConfig(), state.stats2, signalService, _length);
     }
 
     /// @inheritdoc IBondManager
@@ -470,8 +470,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (TransitionState memory)
     {
-        Config memory config = v4GetConfig();
-        uint256 slot = _batchId % config.batchRingBufferSize;
+        uint256 slot = _batchId % _getConfig().batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
         require(_tid != 0, TransitionNotFound());
@@ -488,8 +487,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (TransitionState memory)
     {
-        Config memory config = v4GetConfig();
-        uint256 slot = _batchId % config.batchRingBufferSize;
+        uint256 slot = _batchId % _getConfig().batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
 
@@ -518,7 +516,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
-        require(batchId_ >= v4GetConfig().forkHeights.pacaya, BatchNotFound());
+        require(batchId_ >= _getConfig().forkHeights.pacaya, BatchNotFound());
         blockId_ = v4GetBatch(batchId_).lastBlockId;
         ts_ = v4GetBatchVerifyingTransition(batchId_);
     }
@@ -555,9 +553,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc ITaikoInbox
     function v4GetBatch(uint64 _batchId) public view returns (Batch memory batch_) {
-        Config memory config = v4GetConfig();
-
-        batch_ = state.batches[_batchId % config.batchRingBufferSize];
+        batch_ = state.batches[_batchId % _getConfig().batchRingBufferSize];
         require(batch_.batchId == _batchId, BatchNotFound());
     }
 
@@ -567,9 +563,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (TransitionState memory ts_)
     {
-        Config memory config = v4GetConfig();
-
-        uint64 slot = _batchId % config.batchRingBufferSize;
+        uint64 slot = _batchId % _getConfig().batchRingBufferSize;
         Batch storage batch = state.batches[slot];
         require(batch.batchId == _batchId, BatchNotFound());
 
@@ -579,7 +573,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function v4GetConfig() public view virtual returns (Config memory);
+    function v4GetConfig() external view virtual returns (Config memory) {
+        return _getConfig();
+    }
 
     // Internal functions ----------------------------------------------------------------------
 
@@ -640,6 +636,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
         hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
     }
+
+    function _getConfig() internal view virtual returns (Config memory);
 
     // Private functions -----------------------------------------------------------------------
 

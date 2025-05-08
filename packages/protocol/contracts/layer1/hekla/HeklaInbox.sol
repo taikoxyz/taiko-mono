@@ -33,7 +33,7 @@ contract HeklaInbox is MainnetInbox {
     {
         LibWriteTransition.writeTransition(
             state,
-            v4GetConfig(),
+            _getConfig(),
             _batchId,
             _parentHash,
             _blockHash,
