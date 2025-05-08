@@ -130,8 +130,6 @@ abstract contract CommonTest is Test, Script {
         returns (address proxy)
     {
         proxy = address(new ERC1967Proxy(impl, data));
-        string memory _name = Strings.toString(uint256(name));
-
         console2.log(">", string.concat("'", bytes32ToString(name), "'"));
         console2.log("  proxy   :", proxy);
         console2.log("  impl    :", impl);
