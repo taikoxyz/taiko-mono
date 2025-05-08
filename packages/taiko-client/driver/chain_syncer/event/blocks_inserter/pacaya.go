@@ -102,6 +102,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		lastPayloadData *engine.ExecutableData
 	)
 
+	// update lastBlockID
+	if i.latestBlockIDSeenInEventCh != nil {
+		i.latestBlockIDSeenInEventCh <- meta.GetLastBlockID()
+	}
+
 	for j := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 		// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
@@ -140,11 +145,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"hash", parent.Hash(),
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
-
-		// update lastBlockID
-		if i.latestBlockIDSeenInEventCh != nil {
-			i.latestBlockIDSeenInEventCh <- meta.GetLastBlockID()
-		}
 
 		// If this is the first block in the batch, we check if the whole batch has been preconfirmed by
 		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
