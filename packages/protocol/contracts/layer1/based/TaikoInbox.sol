@@ -290,6 +290,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         uint256 metasLength = metas.length;
         require(metasLength != 0, NoBlocksToProve());
+        require(metasLength <= type(uint8).max, TooManyBlocksToProve());
         require(metasLength == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
@@ -411,12 +412,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             _pause();
             emit Paused(verifier);
         } else {
-            state.verifyBatches(config, stats2, signalService, metasLength);
+            state.verifyBatches(config, stats2, signalService, uint8(metasLength));
         }
     }
 
     /// @inheritdoc ITaikoInbox
-    function v4VerifyBatches(uint64 _length)
+    function v4VerifyBatches(uint8 _length)
         external
         nonZeroValue(_length)
         nonReentrant

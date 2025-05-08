@@ -23,7 +23,7 @@ library LibVerification {
         ITaikoInbox.Config memory _config,
         ITaikoInbox.Stats2 memory _stats2,
         ISignalService _signalService,
-        uint256 _length
+        uint8 _count
     )
         public // reduce code size
     {
@@ -38,8 +38,8 @@ library LibVerification {
 
                 SyncBlock memory synced;
 
-                uint256 stopBatchId = (
-                    _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
+                uint256 stopBatchId = uint(
+                    _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
 
                 if (_config.forkHeights.shasta != 0) {
