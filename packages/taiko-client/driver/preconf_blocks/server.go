@@ -35,7 +35,7 @@ var (
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
 type preconfBlockChainSyncer interface {
-	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload) ([]*types.Header, error)
+	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload, bool) ([]*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
@@ -56,12 +56,13 @@ type PreconfBlockAPIServer struct {
 	rpc             *rpc.Client
 	anchorValidator *validator.AnchorTxValidator
 	// P2P network for preconf block propagation
-	p2pNode        *p2p.NodeP2P
-	p2pSigner      p2p.Signer
-	payloadsCache  *payloadQueue
-	lookahead      *Lookahead
-	lookaheadMutex sync.Mutex
-	handoverSlots  uint64
+	p2pNode                       *p2p.NodeP2P
+	p2pSigner                     p2p.Signer
+	payloadsCache                 *payloadQueue
+	lookahead                     *Lookahead
+	lookaheadMutex                sync.Mutex
+	handoverSlots                 uint64
+	highestUnsafeL2PayloadBlockID uint64
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -98,10 +99,12 @@ func New(
 	return server, nil
 }
 
+// SetP2PNode sets the P2P node for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
 	s.p2pNode = p2pNode
 }
 
+// SetP2PSigner sets the P2P signer for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
 	s.p2pSigner = p2pSigner
 }
@@ -150,6 +153,7 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
+	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 }
@@ -160,9 +164,16 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
-	// Ignore the message if it is from the current P2P node.
-	if s.p2pNode.Host().ID() == from {
+	// Ignore the message if it is from the current P2P node, when `from` is empty,
+	// it means the message is for importing the pending blocks from the cache after
+	// a new L2 EE chain has just finished a beacon-sync.
+	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
+	if msg == nil || msg.ExecutionPayload == nil {
+		log.Warn("Empty preconfirmation block payload", "peer", from)
 		return nil
 	}
 
@@ -189,6 +200,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"error", err,
 		)
+		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
 		return nil
 	}
 
@@ -198,11 +210,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
 	}
 	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+		metrics.DriverPreconfP2POutdatedEnvelopeCounter.Inc()
 		return fmt.Errorf(
 			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
 			msg.ExecutionPayload.BlockNumber,
 			headL1Origin.BlockID,
 		)
+	}
+
+	// If the block number is greater than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
+		s.highestUnsafeL2PayloadBlockID = uint64(msg.ExecutionPayload.BlockNumber)
 	}
 
 	// Check if the parent block is in the canonical chain, if not, we try to
@@ -246,6 +265,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				)
 
 				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
+				metrics.DriverPreconfP2PEnvelopeCachedCounter.Inc()
 			}
 			return nil
 		}
@@ -283,6 +303,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		ctx,
 		[]*eth.ExecutionPayload{msg.ExecutionPayload},
+		false,
 	); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
@@ -305,6 +326,15 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	// Try searching the missing ancients in the cache.
 	payloadsToImport := make([]*eth.ExecutionPayload, 0)
 	for {
+		if headL1Origin != nil && currentPayload.ParentHash == headL1Origin.L2BlockHash {
+			log.Debug(
+				"Reached canonical chain head, skip searching for ancients in cache",
+				"currentNumber", uint64(currentPayload.BlockNumber),
+				"currentHash", currentPayload.ParentHash.Hex(),
+			)
+			break
+		}
+
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
 			return fmt.Errorf(
@@ -313,6 +343,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				currentPayload.ParentHash.Hex(),
 			)
 		}
+
 		payloadsToImport = append([]*eth.ExecutionPayload{parentPayload}, payloadsToImport...)
 
 		// Check if the found parent payload is in the canonical chain,
@@ -324,7 +355,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		if parentHeader == nil || parentHeader.Hash() != parentPayload.BlockHash {
 			log.Debug(
 				"Parent block not in L2 canonical chain, continue to search cached payloads",
-				"blockID", parentPayload.BlockNumber,
+				"blockID", uint64(parentPayload.BlockNumber),
 				"hash", parentPayload.BlockHash.Hex(),
 			)
 			if headL1Origin != nil && uint64(parentPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
@@ -347,7 +378,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	)
 
 	// If all ancient payloads are found, try to import them.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport); err != nil {
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport, true); err != nil {
 		return fmt.Errorf("failed to insert ancient preconfirmation blocks from cache: %w", err)
 	}
 
@@ -371,7 +402,7 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	)
 
 	// Try to import all available child payloads.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, childPayloads); err != nil {
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, childPayloads, true); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 
@@ -380,6 +411,13 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 
 // ValidateExecutionPayload validates the execution payload.
 func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionPayload) error {
+	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeight) {
+		return fmt.Errorf(
+			"block number %d is less than the Pacaya fork height %d",
+			payload.BlockNumber,
+			s.rpc.PacayaClients.ForkHeight,
+		)
+	}
 	if payload.Timestamp == 0 {
 		return errors.New("non-zero timestamp is required")
 	}
@@ -421,6 +459,25 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	return nil
 }
 
+// ImportPendingBlocksFromCache tries to insert pending blocks from the cache,
+// if there is no payload in the cache, it will skip the operation.
+func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
+	latestPayload := s.payloadsCache.getLatestPayload()
+	if latestPayload == nil {
+		log.Info("No payloads in cache, skip importing from cache")
+		return nil
+	}
+
+	log.Info(
+		"Found pending payloads in the cache, try importing",
+		"latestPayloadNumber", uint64(latestPayload.BlockNumber),
+		"latestPayloadBlockHash", latestPayload.BlockHash.Hex(),
+		"latestPayloadParentHash", latestPayload.ParentHash.Hex(),
+	)
+
+	return s.OnUnsafeL2Payload(ctx, "", &eth.ExecutionPayloadEnvelope{ExecutionPayload: latestPayload})
+}
+
 // P2PSequencerAddress implements the p2p.GossipRuntimeConfig interface.
 func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	operatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
@@ -457,53 +514,46 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 	s.lookahead = l
 }
 
-// checkLookaheadHandover checks if the current operator is in the handover window.
-func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address, slotInEpoch uint64) error {
-	if s.lookahead == nil || s.rpc.L1Beacon == nil {
-		log.Warn("Lookahead has not been cached yet, skipping handover check")
-		return nil
-	}
-
+// checkLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
+func (s *PreconfBlockAPIServer) checkLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
 	s.lookaheadMutex.Lock()
-	defer s.lookaheadMutex.Unlock()
+	la := s.lookahead
+	s.lookaheadMutex.Unlock()
 
-	var (
-		handoverSlots = s.handoverSlots
-		slotsPerEpoch = s.rpc.L1Beacon.SlotsPerEpoch
-	)
-
-	// If the current operator is the same as the next operator, no need to check.
-	if s.lookahead.CurrOperator.Hex() == s.lookahead.NextOperator.Hex() {
+	if la == nil || s.rpc.L1Beacon == nil {
+		log.Warn("Lookahead information not initialized, allowing by default")
 		return nil
 	}
 
-	// Calculate the threshold for handover slots.
-	threshold := slotsPerEpoch - handoverSlots
+	// Check Current ranges first
+	for _, r := range la.CurrRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			return nil
+		}
+	}
 
-	log.Debug(
-		"Check lookahead handover",
-		"handoverSlots", handoverSlots,
-		"slotsPerEpoch", slotsPerEpoch,
-		"slotInEpoch", slotInEpoch,
-		"threshold", threshold,
-		"currOperator", s.lookahead.CurrOperator.Hex(),
-		"nextOperator", s.lookahead.NextOperator.Hex(),
-		"feeRecipient", feeRecipient.Hex(),
+	for _, r := range la.NextRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			return nil
+		}
+	}
+
+	// If not in any range
+	log.Warn(
+		"Slot out of sequencing window",
+		"slot", globalSlot,
+		"currRanges", la.CurrRanges,
+		"nextRanges", la.NextRanges,
 	)
 
-	if slotInEpoch < threshold {
-		// For slots [0, threshold-1], only the current operator is allowed.
-		if s.lookahead.CurrOperator.Hex() != feeRecipient.Hex() {
-			return errInvalidCurrOperator
-		}
-
-		return nil
-	} else {
-		// For slots [threshold, slotsPerEpoch-1], only the next operator is allowed.
-		if s.lookahead.NextOperator.Hex() != feeRecipient.Hex() {
-			return errInvalidNextOperator
-		}
-
-		return nil
+	if feeRecipient == la.CurrOperator {
+		return errInvalidCurrOperator
 	}
+
+	return errInvalidNextOperator
+}
+
+// PutPayloadsCache puts the given payload into the payload cache queue, should ONLY be used in testing.
+func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.ExecutionPayload) {
+	s.payloadsCache.put(id, payload)
 }

@@ -94,6 +94,9 @@ contract TokenUnlock is EssentialContract {
 
         recipient = _recipient;
         tgeTimestamp = _tgeTimestamp;
+
+        // Bydefault, always delegate to the recipient
+        ERC20VotesUpgradeable(_taikoToken()).delegate(_recipient);
     }
 
     /// @notice Vests certain tokens to this contract.
@@ -104,15 +107,13 @@ contract TokenUnlock is EssentialContract {
         amountVested += _amount;
         emit TokenVested(_amount);
 
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransferFrom(
-            msg.sender, address(this), _amount
-        );
+        IERC20(_taikoToken()).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /// @notice Create a new prover set.
     function createProverSet() external onlyRecipient returns (address proverSet_) {
         require(
-            resolve(LibStrings.B_BOND_TOKEN, false) == resolve(LibStrings.B_TAIKO_TOKEN, false),
+            resolve(LibStrings.B_BOND_TOKEN, false) == _taikoToken(),
             TAIKO_TOKEN_NOT_USED_AS_BOND_TOKEN()
         );
 
@@ -134,7 +135,7 @@ contract TokenUnlock is EssentialContract {
         if (!isProverSet[_proverSet]) revert NOT_PROVER_SET();
 
         emit DepositToProverSet(_proverSet, _amount);
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_proverSet, _amount);
+        IERC20(_taikoToken()).safeTransfer(_proverSet, _amount);
     }
 
     /// @notice Withdraws tokens by the recipient.
@@ -152,14 +153,14 @@ contract TokenUnlock is EssentialContract {
     {
         if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
         emit TokenWithdrawn(_to, _amount);
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_to, _amount);
+        IERC20(_taikoToken()).safeTransfer(_to, _amount);
     }
 
     /// @notice Withdraws all tokens to the recipient address.
     function withdraw() external nonReentrant {
         uint256 amount = amountWithdrawable();
         emit TokenWithdrawn(recipient, amount);
-        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
+        IERC20(_taikoToken()).safeTransfer(recipient, amount);
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
@@ -169,19 +170,19 @@ contract TokenUnlock is EssentialContract {
 
         emit RecipientChanged(recipient, _newRecipient);
         recipient = _newRecipient;
+        ERC20VotesUpgradeable(_taikoToken()).delegate(_newRecipient);
     }
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyRecipient nonReentrant {
-        ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
+        ERC20VotesUpgradeable(_taikoToken()).delegate(_delegatee);
     }
 
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
     function amountWithdrawable() public view returns (uint256) {
-        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
-        uint256 balance = tko.balanceOf(address(this));
+        uint256 balance = IERC20(_taikoToken()).balanceOf(address(this));
         uint256 locked = _getAmountLocked();
 
         return balance.max(locked) - locked;
@@ -196,5 +197,9 @@ contract TokenUnlock is EssentialContract {
         if (block.timestamp < _tgeTimestamp + ONE_YEAR) return _amountVested;
         if (block.timestamp >= _tgeTimestamp + FOUR_YEARS) return 0;
         return _amountVested * (_tgeTimestamp + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
+    }
+
+    function _taikoToken() private view returns (address) {
+        return resolve(LibStrings.B_TAIKO_TOKEN, false);
     }
 }
