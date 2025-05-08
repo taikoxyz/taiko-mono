@@ -227,6 +227,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         });
     }
 
+
     function deployTEEVerifiers(
         address rollupResolver,
         address proofVerifier
