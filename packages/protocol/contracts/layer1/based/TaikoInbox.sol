@@ -10,10 +10,10 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
+import "./libs/LibVerification.sol";
+import "./libs/LibProverAuth.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
-import "./LibVerification.sol";
-import "./LibProverAuth.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
-import "./ITaikoInbox.sol";
+import "../ITaikoInbox.sol";
 
 /// @title LibVerification
 /// @custom:security-contact security@taiko.xyz
