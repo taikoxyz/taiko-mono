@@ -28,7 +28,6 @@ import "./LibProverAuth.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
-    using ECDSA for bytes32;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
