@@ -47,7 +47,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
             blobParams: blobParams,
-            blocks: blockParams
+            blocks: blockParams,
+            proverAuth: ""
         });
 
         // Warp to arbitrary slot in epoch 2
@@ -55,10 +56,10 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        (, ITaikoInbox.BatchMetadata memory meta) = router.proposeBatch(abi.encode(params), "");
+        (ITaikoInbox.BatchInfo memory info,) = router.v4ProposeBatch(abi.encode(params), "", "");
 
         // Assert the proposer was set correctly in the metadata
-        assertEq(meta.proposer, Carol);
+        assertEq(info.proposer, Carol);
     }
 
     function test_preconfRouter_proposeBatch_notOperator() external {
@@ -88,8 +89,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
-        vm.expectRevert(IPreconfRouter.NotPreconferOrFallback.selector);
-        router.proposeBatch("", "");
+        vm.expectRevert(PreconfRouter.NotPreconfer.selector);
+        router.v4ProposeBatch("", "", "");
     }
 
     function test_preconfRouter_proposeBatch_proposerNotSender() external {
@@ -133,7 +134,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
             blobParams: blobParams,
-            blocks: blockParams
+            blocks: blockParams,
+            proverAuth: ""
         });
 
         // Warp to arbitrary slot in epoch 2
@@ -141,7 +143,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
-        vm.expectRevert(IPreconfRouter.ProposerIsNotPreconfer.selector);
-        router.proposeBatch(abi.encode(params), "");
+        vm.expectRevert(PreconfRouter.ProposerIsNotPreconfer.selector);
+        router.v4ProposeBatch(abi.encode(params), "", "");
     }
 }
