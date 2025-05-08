@@ -395,12 +395,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 	// iterate through from the starting block (i.latestIndexedBlockNumber) through the
 	// latest block (endBlockID) in batches of i.blockBatchSize until we are finished.
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
-		end := i.latestIndexedBlockNumber + i.blockBatchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
-		if end > endBlockID {
-			end = endBlockID
-		}
+		end := min(i.latestIndexedBlockNumber+i.blockBatchSize, endBlockID)
 
 		slog.Info("block batch", "start", j, "end", end)
 
