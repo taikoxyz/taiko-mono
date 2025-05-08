@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
+import "./IBondManager.sol";
+import "./IProveBatches.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -16,15 +18,15 @@ import "src/shared/based/LibSharedData.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoInbox {
+interface ITaikoInbox is IBondManager, IProveBatches {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
-        // transactions in calldata or blobs, the block will contains as many transactions as
+        // transactions in calldata or blobs, the block will contain as many transactions as
         // possible.
         uint16 numTransactions;
         // The time difference (in seconds) between the timestamp of this block and
         // the timestamp of the parent block in the same batch. For the first block in a batch,
-        // there is not parent block in the same batch, so the time shift should be 0.
+        // there is no parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
@@ -58,6 +60,7 @@ interface ITaikoInbox {
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
+        bytes proverAuth;
     }
 
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
@@ -69,6 +72,7 @@ interface ITaikoInbox {
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
+        address proposer;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;
         uint32 blobByteOffset;
@@ -87,7 +91,7 @@ interface ITaikoInbox {
     /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
         bytes32 infoHash;
-        address proposer;
+        address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
     }
@@ -144,10 +148,10 @@ interface ITaikoInbox {
     }
 
     struct ForkHeights {
-        uint64 ontake; // measured with block number.
-        uint64 pacaya; // measured with the batch Id, not block number.
-        uint64 shasta; // measured with the batch Id, not block number.
-        uint64 unzen; // measured with the batch Id, not block number.
+        uint64 ontake; // v2, measured with block number.
+        uint64 pacaya; // v3, measured with the batch Id, not block number.
+        uint64 shasta; // v4, measured with the batch Id, not block number.
+        uint64 unzen; // v5, measured with the batch Id, not block number.
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
@@ -163,10 +167,7 @@ interface ITaikoInbox {
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
-        uint96 livenessBondBase;
-        /// @notice The amount of Taiko token as a prover liveness bond per block. This field is
-        /// deprecated and its value will be ignored.
-        uint96 livenessBondPerBlock;
+        uint96 livenessBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -181,6 +182,12 @@ interface ITaikoInbox {
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
         uint16 maxBlocksPerBatch;
+        /// @notice Specifies the base fee sharing percentages. The addresses are predefined in the
+        /// node software.
+        /// If address(0) is specified, the base fee will be burned. This allows for distributing
+        /// the base fee in three ways: for instance, 40% to address-1, 10% to address-2, and the
+        /// remaining 50% to the coinbase.
+        uint8[2] baseFeeSharings;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
@@ -202,26 +209,6 @@ interface ITaikoInbox {
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
     }
-
-    /// @notice Emitted when tokens are deposited into a user's bond balance.
-    /// @param user The address of the user who deposited the tokens.
-    /// @param amount The amount of tokens deposited.
-    event BondDeposited(address indexed user, uint256 amount);
-
-    /// @notice Emitted when tokens are withdrawn from a user's bond balance.
-    /// @param user The address of the user who withdrew the tokens.
-    /// @param amount The amount of tokens withdrawn.
-    event BondWithdrawn(address indexed user, uint256 amount);
-
-    /// @notice Emitted when a token is credited back to a user's bond balance.
-    /// @param user The address of the user whose bond balance is credited.
-    /// @param amount The amount of tokens credited.
-    event BondCredited(address indexed user, uint256 amount);
-
-    /// @notice Emitted when a token is debited from a user's bond balance.
-    /// @param user The address of the user whose bond balance is debited.
-    /// @param amount The amount of tokens debited.
-    event BondDebited(address indexed user, uint256 amount);
 
     /// @notice Emitted when a batch is synced.
     /// @param stats1 The Stats1 data structure.
@@ -262,8 +249,8 @@ interface ITaikoInbox {
     error BatchVerified();
     error BeyondCurrentFork();
     error BlobNotFound();
-    error BlockNotFound();
     error BlobNotSpecified();
+    error BlockNotFound();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
@@ -291,6 +278,7 @@ interface ITaikoInbox {
     error TimestampTooSmall();
     error TooManyBatches();
     error TooManyBlocks();
+    error TooManyBatchesToProve();
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
@@ -299,59 +287,42 @@ interface ITaikoInbox {
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
+    /// @param _additionalData Additional data to be included in the batch.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The metadata of the proposed batch.
-    function proposeBatch(
+    function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata _additionalData
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
 
-    /// @notice Proves state transitions for multiple batches with a single aggregated proof.
-    /// @param _params ABI-encoded parameter containing:
-    /// - metas: Array of metadata for each batch being proved.
-    /// - transitions: Array of batch transitions to be proved.
-    /// @param _proof The aggregated cryptographic proof proving the batches transitions.
-    function proveBatches(bytes calldata _params, bytes calldata _proof) external;
-
-    /// @notice Deposits TAIKO tokens into the contract to be used as liveness bond.
-    /// @param _amount The amount of TAIKO tokens to deposit.
-    function depositBond(uint256 _amount) external payable;
-
-    /// @notice Withdraws a specified amount of TAIKO tokens from the contract.
-    /// @param _amount The amount of TAIKO tokens to withdraw.
-    function withdrawBond(uint256 _amount) external;
-
-    /// @notice Returns the TAIKO token balance of a specific user.
-    /// @param _user The address of the user.
-    /// @return The TAIKO token balance of the user.
-    function bondBalanceOf(address _user) external view returns (uint256);
-
-    /// @notice Retrieves the Bond token address. If Ether is used as bond, this function returns
-    /// address(0).
-    /// @return The Bond token address.
-    function bondToken() external view returns (address);
+    /// @notice Verify batches by providing the length of the batches to verify.
+    /// @dev This function is necessary to upgrade from this fork to the next one.
+    /// @param _count Specifis how many batches to verify. The max number of batches to verify is
+    /// `v4GetConfig().maxBatchesToVerify * _count`.
+    function v4VerifyBatches(uint8 _count) external;
 
     /// @notice Retrieves the first set of protocol statistics.
     /// @return Stats1 structure containing the statistics.
-    function getStats1() external view returns (Stats1 memory);
+    function v4GetStats1() external view returns (Stats1 memory);
 
     /// @notice Retrieves the second set of protocol statistics.
     /// @return Stats2 structure containing the statistics.
-    function getStats2() external view returns (Stats2 memory);
+    function v4GetStats2() external view returns (Stats2 memory);
 
     /// @notice Retrieves data about a specific batch.
     /// @param _batchId The ID of the batch to retrieve.
     /// @return batch_ The batch data.
-    function getBatch(uint64 _batchId) external view returns (Batch memory batch_);
+    function v4GetBatch(uint64 _batchId) external view returns (Batch memory batch_);
 
     /// @notice Retrieves a specific transition by batch ID and transition ID. This function may
     /// revert if the transition is not found.
     /// @param _batchId The batch ID.
     /// @param _tid The transition ID.
     /// @return The specified transition state.
-    function getTransitionById(
+    function v4GetTransitionById(
         uint64 _batchId,
         uint24 _tid
     )
@@ -364,7 +335,7 @@ interface ITaikoInbox {
     /// @param _batchId The batch ID.
     /// @param _parentHash The parent hash.
     /// @return The specified transition state.
-    function getTransitionByParentHash(
+    function v4GetTransitionByParentHash(
         uint64 _batchId,
         bytes32 _parentHash
     )
@@ -376,7 +347,7 @@ interface ITaikoInbox {
     /// @return batchId_ The batch ID of the last verified transition.
     /// @return blockId_ The block ID of the last verified block.
     /// @return ts_ The last verified transition.
-    function getLastVerifiedTransition()
+    function v4GetLastVerifiedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
@@ -385,7 +356,7 @@ interface ITaikoInbox {
     /// @return batchId_ The batch ID of the last synced transition.
     /// @return blockId_ The block ID of the last synced block.
     /// @return ts_ The last synced transition.
-    function getLastSyncedTransition()
+    function v4GetLastSyncedTransition()
         external
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
@@ -393,12 +364,12 @@ interface ITaikoInbox {
     /// @notice Retrieves the transition used for verifying a batch.
     /// @param _batchId The batch ID.
     /// @return The transition used for verifying the batch.
-    function getBatchVerifyingTransition(uint64 _batchId)
+    function v4GetBatchVerifyingTransition(uint64 _batchId)
         external
         view
         returns (TransitionState memory);
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
-    function pacayaConfig() external view returns (Config memory);
+    function v4GetConfig() external view returns (Config memory);
 }

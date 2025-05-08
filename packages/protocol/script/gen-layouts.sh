@@ -23,9 +23,9 @@ contracts_shared=(
 contracts_layer1=(
 "contracts/layer1/token/TaikoToken.sol:TaikoToken"
 "contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol:SgxAndZkVerifier"
-"contracts/layer1/verifiers/Risc0Verifier.sol:Risc0Verifier"
-"contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
-"contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
+"contracts/layer1/verifiers/TaikoRisc0Verifier.sol:TaikoRisc0Verifier"
+"contracts/layer1/verifiers/TaikoSP1Verifier.sol:TaikoSP1Verifier"
+"contracts/layer1/verifiers/TaikoSgxVerifier.sol:TaikoSgxVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/based/TaikoInbox.sol:TaikoInbox"
 "contracts/layer1/hekla/HeklaInbox.sol:HeklaInbox"
@@ -42,6 +42,7 @@ contracts_layer1=(
 "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol:ForcedInclusionStore"
 "contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
+"contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/governance/TaikoTreasuryVault.sol:TaikoTreasuryVault"
 )
 
@@ -49,24 +50,27 @@ contracts_layer1=(
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/DelegateOwner.sol:DelegateOwner"
-"contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
+"contracts/layer2/based/anchor/TaikoAnchor.sol:TaikoAnchor"
 )
 
 profile=$1
 
-if [ "$profile" == "layer1" ]; then
+if [ "$profile" == "shared" ]; then
+    echo "Generating shared contract layouts..."
+    contracts=("${contracts_shared[@]}")
+elif [ "$profile" == "layer1" ]; then
     echo "Generating layer 1 contract layouts..."
-    contracts=("${contracts_shared[@]}" "${contracts_layer1[@]}")
+    contracts=("${contracts_layer1[@]}")
 elif [ "$profile" == "layer2" ]; then
     echo "Generating layer 2 contract layouts..."
-    contracts=("${contracts_shared[@]}" "${contracts_layer2[@]}")
+    contracts=("${contracts_layer2[@]}")
 else
-    echo "Invalid profile. Please enter either 'layer1' or 'layer2'."
+    echo "Invalid profile. Please enter either 'shared','layer1' or 'layer2'."
     exit 1
 fi
 
 # Empty the output file initially
-output_file="layout/${profile}-contracts.md"
+output_file="layout/${profile}-contracts.txt"
 > $output_file
 
 # Loop over each contract
