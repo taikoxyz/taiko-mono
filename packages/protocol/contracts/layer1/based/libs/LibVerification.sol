@@ -38,7 +38,7 @@ library LibVerification {
 
                 SyncBlock memory synced;
 
-                uint256 stopBatchId = uint(
+                uint256 stopBatchId = uint256(
                     _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
 
@@ -129,6 +129,24 @@ library LibVerification {
         }
     }
 
+    function getBatchVerifyingTransition(
+        ITaikoInbox.State storage _state,
+        ITaikoInbox.Config memory _config,
+        uint64 _batchId
+    )
+        public
+        view
+        returns (ITaikoInbox.TransitionState memory ts_)
+    {
+        uint64 slot = _batchId % _config.batchRingBufferSize;
+        ITaikoInbox.Batch storage batch = _state.batches[slot];
+        require(batch.batchId == _batchId, ITaikoInbox.BatchNotFound());
+
+        if (batch.verifiedTransitionId != 0) {
+            ts_ = _state.transitions[slot][batch.verifiedTransitionId];
+        }
+    }
+
     function creditBond(
         ITaikoInbox.State storage _state,
         address _user,
@@ -141,5 +159,18 @@ library LibVerification {
             _state.bondBalance[_user] += _amount;
         }
         emit IBondManager.BondCredited(_user, _amount);
+    }
+
+    function getBatch(
+        ITaikoInbox.State storage _state,
+        ITaikoInbox.Config memory _config,
+        uint64 _batchId
+    )
+        internal
+        view
+        returns (ITaikoInbox.Batch memory batch_)
+    {
+        batch_ = _state.batches[_batchId % _config.batchRingBufferSize];
+        require(batch_.batchId == _batchId, ITaikoInbox.BatchNotFound());
     }
 }

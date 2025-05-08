@@ -517,9 +517,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats2.lastVerifiedBatchId;
-        require(batchId_ >= _getConfig().forkHeights.pacaya, BatchNotFound());
-        blockId_ = v4GetBatch(batchId_).lastBlockId;
-        ts_ = v4GetBatchVerifyingTransition(batchId_);
+
+        ITaikoInbox.Config memory config = _getConfig();
+        require(batchId_ >= config.forkHeights.pacaya, BatchNotFound());
+
+        blockId_ = state.getBatch(config, batchId_).lastBlockId;
+        ts_ = state.getBatchVerifyingTransition(config, batchId_);
     }
 
     /// @inheritdoc ITaikoInbox
@@ -529,8 +532,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
         batchId_ = state.stats1.lastSyncedBatchId;
-        blockId_ = v4GetBatch(batchId_).lastBlockId;
-        ts_ = v4GetBatchVerifyingTransition(batchId_);
+        ITaikoInbox.Config memory config = _getConfig();
+        blockId_ = state.getBatch(config, batchId_).lastBlockId;
+        ts_ = state.getBatchVerifyingTransition(config, batchId_);
     }
 
     /// @inheritdoc IBondManager
@@ -553,24 +557,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaikoInbox
-    function v4GetBatch(uint64 _batchId) public view returns (Batch memory batch_) {
-        batch_ = state.batches[_batchId % _getConfig().batchRingBufferSize];
-        require(batch_.batchId == _batchId, BatchNotFound());
+    function v4GetBatch(uint64 _batchId) external view returns (Batch memory) {
+        return state.getBatch(_getConfig(), _batchId);
     }
 
     /// @inheritdoc ITaikoInbox
     function v4GetBatchVerifyingTransition(uint64 _batchId)
-        public
+        external
         view
-        returns (TransitionState memory ts_)
+        returns (TransitionState memory)
     {
-        uint64 slot = _batchId % _getConfig().batchRingBufferSize;
-        Batch storage batch = state.batches[slot];
-        require(batch.batchId == _batchId, BatchNotFound());
-
-        if (batch.verifiedTransitionId != 0) {
-            ts_ = state.transitions[slot][batch.verifiedTransitionId];
-        }
+        return state.getBatchVerifyingTransition(_getConfig(), _batchId);
     }
 
     /// @inheritdoc ITaikoInbox
