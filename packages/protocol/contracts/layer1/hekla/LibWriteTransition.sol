@@ -3,18 +3,17 @@ pragma solidity ^0.8.24;
 
 import "../based/ITaikoInbox.sol";
 
-/// @title LibProverAuth
-/// @notice This library is used to validate the prover authentication.
-/// @dev This library's validateProverAuth function is made public to reduce TaikoInbox's code size.
+/// @title LibWriteTransition
+/// @dev This library's writeTransition function is made public to reduce HeklaInbox's code size.
 /// @custom:security-contact security@taiko.xyz
 library LibWriteTransition {
+    error InvalidParams();
+
     /// @notice Emitted when a transition is written to the state by the owner.
     /// @param batchId The ID of the batch containing the transition.
     /// @param tid The ID of the transition within the batch.
     /// @param ts The transition state written.
     event TransitionWritten(uint64 batchId, uint24 tid, ITaikoInbox.TransitionState ts);
-
-    error InvalidParams();
 
     /// @dev This function is supposed to be used by the owner to force prove a transition for a
     /// block that has not been verified.
@@ -28,7 +27,7 @@ library LibWriteTransition {
         address _prover,
         bool _inProvingWindow
     )
-        public
+        public // reduce code size
     {
         require(_blockHash != 0, InvalidParams());
         require(_parentHash != 0, InvalidParams());

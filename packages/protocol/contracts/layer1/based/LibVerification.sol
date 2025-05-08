@@ -25,7 +25,7 @@ library LibVerification {
         ISignalService _signalService,
         uint256 _length
     )
-        public
+        public // reduce code size
     {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
