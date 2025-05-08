@@ -341,7 +341,7 @@ type Status struct {
 	// @param any preconfirmation block from the P2P network yet.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
 	// @param whether the current epoch has received an end of sequencing block marker
-	EndOfSequencingBlockHash string `json:"EndOfSequencingBlockHash"`
+	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
