@@ -290,7 +290,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
         uint256 metasLength = metas.length;
         require(metasLength != 0, NoBlocksToProve());
-        require(metasLength <= type(uint8).max, TooManyBlocksToProve());
+        require(metasLength <= type(uint8).max, TooManyBatchesToProve());
         require(metasLength == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;

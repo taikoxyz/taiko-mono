@@ -278,7 +278,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error TimestampTooSmall();
     error TooManyBatches();
     error TooManyBlocks();
-    error TooManyBlocksToProve();
+    error TooManyBatchesToProve();
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
