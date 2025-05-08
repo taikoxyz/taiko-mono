@@ -38,7 +38,7 @@ library LibVerification {
 
                 SyncBlock memory synced;
 
-                uint256 stopBatchId = uint(
+                uint256 stopBatchId = uint256(
                     _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
 
