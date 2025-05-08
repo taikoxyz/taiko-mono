@@ -22,6 +22,9 @@ type ProposeBlocksTransactionBuilder interface {
 		forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 		minTxsPerForcedInclusion *big.Int,
 		parentMetahash common.Hash,
+		anchorBlockId uint64,
+		lastBlockTimestamp uint64,
+		headers []*types.Header,
 	) (*txmgr.TxCandidate, error)
 }
 

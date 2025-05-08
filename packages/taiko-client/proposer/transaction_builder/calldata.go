@@ -131,6 +131,9 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
+	anchorBlockId uint64,
+	lastBlockTimestamp uint64,
+	headers []*types.Header,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
@@ -156,6 +159,8 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
 			BlobParams:               *blobParams,
 			Blocks:                   blockParams,
+			AnchorBlockId:            anchorBlockId,
+			LastBlockTimestamp:       lastBlockTimestamp,
 		}
 	}
 

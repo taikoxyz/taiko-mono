@@ -27,6 +27,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/lookahead"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
@@ -67,7 +68,7 @@ type PreconfBlockAPIServer struct {
 	p2pNode                       *p2p.NodeP2P
 	p2pSigner                     p2p.Signer
 	payloadsCache                 *payloadQueue
-	lookahead                     *Lookahead
+	lookahead                     *lookahead.Lookahead
 	lookaheadMutex                sync.Mutex
 	handoverSlots                 uint64
 	highestUnsafeL2PayloadBlockID uint64
@@ -112,7 +113,7 @@ func New(
 		rpc:                     cli,
 		payloadsCache:           newPayloadQueue(),
 		preconfOperatorAddress:  preconfOperatorAddress,
-		lookahead:               &Lookahead{},
+		lookahead:               &lookahead.Lookahead{},
 		mu:                      sync.Mutex{},
 		blockRequests:           blockRequestsCache,
 		sequencingEndedForEpoch: endOfSequencingCache,
@@ -986,7 +987,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 }
 
 // UpdateLookahead updates the lookahead information.
-func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
+func (s *PreconfBlockAPIServer) UpdateLookahead(l *lookahead.Lookahead) {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 	s.lookahead = l

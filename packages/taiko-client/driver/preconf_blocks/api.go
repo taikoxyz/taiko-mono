@@ -16,6 +16,7 @@ import (
 	"github.com/modern-go/reflect2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/lookahead"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -309,7 +310,7 @@ func (s *PreconfBlockAPIServer) HealthCheck(c echo.Context) error {
 // Status represents the current status of the preconfirmation block server.
 type Status struct {
 	// @param lookahead Lookahead the current lookahead information.
-	Lookahead *Lookahead `json:"lookahead"`
+	Lookahead *lookahead.Lookahead `json:"lookahead"`
 	// @param totalCached uint64 the total number of cached payloads after the start of the server.
 	TotalCached uint64 `json:"totalCached"`
 	// @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server

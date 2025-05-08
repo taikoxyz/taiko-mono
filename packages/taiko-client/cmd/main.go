@@ -12,6 +12,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/sequencer"
 )
 
 func main() {
@@ -47,6 +48,13 @@ func main() {
 			Usage:       "Starts the prover software",
 			Description: "Taiko prover software",
 			Action:      utils.SubcommandAction(new(prover.Prover)),
+		},
+		{
+			Name:        "sequencer",
+			Flags:       flags.SequencerFlags,
+			Usage:       "Starts the preconfirmation sequencer software",
+			Description: "Taiko sequencer software",
+			Action:      utils.SubcommandAction(new(sequencer.Sequencer)),
 		},
 	}
 

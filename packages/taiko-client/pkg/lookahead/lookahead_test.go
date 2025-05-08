@@ -1,36 +1,41 @@
-package preconfblocks
+package lookahead
 
 import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
-func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesEmpty() {
+type LookaheadTestSuite struct {
+	testutils.ClientTestSuite
+}
+
+func (s *LookaheadTestSuite) TestLookheadMergeRangesEmpty() {
 	s.Len(mergeRanges([]SlotRange{}), 0, "expected empty slice")
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesNonOverlapping() {
+func (s *LookaheadTestSuite) TestLookheadMergeRangesNonOverlapping() {
 	input := []SlotRange{{Start: 0, End: 5}, {Start: 10, End: 15}}
 	got := mergeRanges(input)
 	s.True(reflect.DeepEqual(got, input), "expected %v, got %v", input, got)
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesOverlapping() {
+func (s *LookaheadTestSuite) TestLookheadMergeRangesOverlapping() {
 	input := []SlotRange{{Start: 0, End: 5}, {Start: 3, End: 10}, {Start: 8, End: 12}}
 	want := []SlotRange{{Start: 0, End: 12}}
 	got := mergeRanges(input)
 	s.True(reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestLookheadMergeRangesAdjacent() {
+func (s *LookaheadTestSuite) TestLookheadMergeRangesAdjacent() {
 	input := []SlotRange{{Start: 0, End: 5}, {Start: 5, End: 8}}
 	want := []SlotRange{{Start: 0, End: 8}}
 	got := mergeRanges(input)
 	s.True(reflect.DeepEqual(got, want), "expected %v, got %v", want, got)
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplit() {
+func (s *LookaheadTestSuite) TestLookheadSequencingWindowSplit() {
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 
@@ -47,7 +52,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplit() {
 	s.True(reflect.DeepEqual(nextRanges, []SlotRange{{Start: 60, End: 64}}), "nextRanges = %v", nextRanges)
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitWithDualEpochPush() {
+func (s *LookaheadTestSuite) TestLookheadSequencingWindowSplitWithDualEpochPush() {
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 
@@ -71,7 +76,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitWithDu
 	}), "nextRanges = %v", nextRanges)
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitCurrRange() {
+func (s *LookaheadTestSuite) TestLookheadSequencingWindowSplitCurrRange() {
 	handoverSlots := uint64(4)
 	slotsPerEpoch := uint64(32)
 

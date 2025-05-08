@@ -146,6 +146,9 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
+	anchorBlockId uint64,
+	lastBlockTimestamp uint64,
+	headers []*types.Header,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
@@ -172,16 +175,44 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
 			BlobParams:               *blobParams,
 			Blocks:                   blockParams,
+			AnchorBlockId:            anchorBlockId,
+			LastBlockTimestamp:       lastBlockTimestamp,
 		}
 	}
 
-	for _, txs := range txBatch {
-		allTxs = append(allTxs, txs...)
-		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
-			NumTransactions: uint16(len(txs)),
-			TimeShift:       0,
-			SignalSlots:     make([][32]byte, 0),
-		})
+	// headers will be nil if we are not submitting preconf'd blocks
+	if headers == nil {
+		for _, txs := range txBatch {
+			allTxs = append(allTxs, txs...)
+			blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
+				NumTransactions: uint16(len(txs)),
+				TimeShift:       0,
+				SignalSlots:     make([][32]byte, 0),
+			})
+		}
+	} else {
+		// start from lastBlockTimestamp, then diff each header to compute shifts
+		prevTS := lastBlockTimestamp
+		for i, txs := range txBatch {
+			h := headers[i]
+			// header.Time is the on‑chain timestamp (uint64)
+			var shift uint8
+			if h.Time > prevTS {
+				delta := h.Time - prevTS
+				// clamp or error if delta > 255s; here we just cast
+				shift = uint8(delta)
+			}
+
+			allTxs = append(allTxs, txs...)
+			blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
+				NumTransactions: uint16(len(txs)),
+				TimeShift:       shift,
+				SignalSlots:     make([][32]byte, 0),
+			})
+
+			// next block’s prevTS is this header’s time
+			prevTS = h.Time
+		}
 	}
 
 	txListsBytes, err := utils.EncodeAndCompressTxList(allTxs)

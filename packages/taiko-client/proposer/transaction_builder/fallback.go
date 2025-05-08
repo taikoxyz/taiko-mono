@@ -165,16 +165,35 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	forcedInclusion *pacaya.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
+	anchorBlockId uint64,
+	lastBlockTimestamp uint64,
+	headers []*types.Header,
 ) (*txmgr.TxCandidate, error) {
 	// If calldata is the only option, just use it.
 	if b.blobTransactionBuilder == nil {
 		return b.calldataTransactionBuilder.BuildPacaya(
-			ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash,
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+			parentMetahash,
+			anchorBlockId,
+			lastBlockTimestamp,
+			headers,
 		)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
 	if !b.fallback {
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+		return b.blobTransactionBuilder.BuildPacaya(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+			parentMetahash,
+			anchorBlockId,
+			lastBlockTimestamp,
+			headers,
+		)
 	}
 
 	// Otherwise, compare the cost, and choose the cheaper option.
@@ -194,6 +213,9 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 			forcedInclusion,
 			minTxsPerForcedInclusion,
 			parentMetahash,
+			anchorBlockId,
+			lastBlockTimestamp,
+			headers,
 		); err != nil {
 			return fmt.Errorf("failed to build type-2 transaction: %w", err)
 		}
@@ -209,6 +231,9 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 			forcedInclusion,
 			minTxsPerForcedInclusion,
 			parentMetahash,
+			anchorBlockId,
+			lastBlockTimestamp,
+			headers,
 		); err != nil {
 			return fmt.Errorf("failed to build type-3 transaction: %w", err)
 		}
@@ -222,7 +247,16 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
 		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+		return b.blobTransactionBuilder.BuildPacaya(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+			parentMetahash,
+			anchorBlockId,
+			lastBlockTimestamp,
+			headers,
+		)
 	}
 
 	var (

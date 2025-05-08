@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/lookahead"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -44,13 +45,13 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 
 	s.s.handoverSlots = 4
 
-	la := &Lookahead{
+	la := &lookahead.Lookahead{
 		CurrOperator: curr,
 		NextOperator: next,
-		CurrRanges: []SlotRange{
+		CurrRanges: []lookahead.SlotRange{
 			{Start: 0, End: 32}, // Full epoch 0
 		},
-		NextRanges: []SlotRange{
+		NextRanges: []lookahead.SlotRange{
 			{Start: 32, End: 64}, // Next epoch 1
 		},
 		UpdatedAt: time.Now().UTC(),

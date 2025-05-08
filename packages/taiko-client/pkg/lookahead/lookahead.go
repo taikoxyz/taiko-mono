@@ -1,4 +1,4 @@
-package preconfblocks
+package lookahead
 
 import (
 	"sort"

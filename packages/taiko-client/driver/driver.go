@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/lookahead"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -391,7 +392,7 @@ func (d *Driver) cacheLookaheadLoop() {
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
-		opWin                  = preconfBlocks.NewOpWindow(
+		opWin                  = lookahead.NewOpWindow(
 			d.PreconfHandoverSkipSlots,
 			d.rpc.L1Beacon.SlotsPerEpoch,
 		)
@@ -491,7 +492,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
 		)
 
-		d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
+		d.preconfBlockServer.UpdateLookahead(&lookahead.Lookahead{
 			CurrOperator: currOp,
 			NextOperator: nextOp,
 			CurrRanges:   currRanges,
