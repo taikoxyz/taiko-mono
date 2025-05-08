@@ -32,7 +32,7 @@ library LibProverAuth {
         bytes32 _txListHash,
         bytes memory _proverAuth
     )
-        internal
+        public // reduce code size
         view
         returns (ProverAuth memory auth_)
     {
