@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -465,7 +464,7 @@ func (d *Driver) cacheLookaheadLoop() {
 				lastSlot = currentSlot
 			}
 
-			return errors.New("no new L1 head")
+			return nil
 		}
 
 		lastSlot = currentSlot
