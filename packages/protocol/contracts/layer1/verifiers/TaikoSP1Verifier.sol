@@ -8,9 +8,9 @@ import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
-/// @title SP1Verifier
+/// @title TaikoSP1Verifier
 /// @custom:security-contact security@taiko.xyz
-contract SP1Verifier is EssentialContract, IVerifier {
+contract TaikoSP1Verifier is EssentialContract, IVerifier {
     bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
 
     uint64 public immutable taikoChainId;

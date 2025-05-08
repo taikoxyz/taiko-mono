@@ -4,25 +4,18 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
-import "./LibEIP1559.sol";
-import "./LibL2Config.sol";
-import "./IBlockHashProvider.sol";
-import "./TaikoAnchorDeprecated.sol";
+import "../eip1559/LibEIP1559.sol";
+import "./OntakeAnchor.sol";
 
-/// @title TaikoAnchor
-/// @notice Taiko L2 is a smart contract that handles cross-layer message
-/// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
-/// It is used to anchor the latest L1 block details to L2 for cross-layer
-/// communication, manage EIP-1559 parameters for gas pricing, and store
-/// verified L1 block information.
+/// @title PacayaAnchor
+/// @notice Anchoring functions for the Pacaya fork.
 /// @custom:security-contact security@taiko.xyz
-contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprecated {
+abstract contract PacayaAnchor is OntakeAnchor {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -32,10 +25,11 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     ISignalService public immutable signalService;
     uint64 public immutable pacayaForkHeight;
+    uint64 public immutable shastaForkHeight;
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) private _blockhashes;
+    mapping(uint256 blockId => bytes32 blockHash) internal _blockhashes;
 
     /// @notice A hash to check the integrity of public inputs.
     /// @dev Slot 2.
@@ -55,7 +49,9 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
+    /// @dev Slot 4.
     uint64 public l1ChainId;
+    uint32 public lastAnchorGasUsed;
 
     uint256[46] private __gap;
 
@@ -102,40 +98,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         pacayaForkHeight = _pacayaForkHeight;
     }
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _l1ChainId The ID of the base layer.
-    /// @param _initialGasExcess The initial parentGasExcess.
-    function init(
-        address _owner,
-        uint64 _l1ChainId,
-        uint64 _initialGasExcess
-    )
-        external
-        initializer
-    {
-        __Essential_init(_owner);
-
-        require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
-        require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());
-        require(block.chainid > 1, L2_INVALID_L2_CHAIN_ID());
-        require(block.chainid <= type(uint64).max, L2_INVALID_L2_CHAIN_ID());
-
-        if (block.number == 0) {
-            // This is the case in real L2 genesis
-        } else if (block.number == 1) {
-            // This is the case in tests
-            uint256 parentHeight = block.number - 1;
-            _blockhashes[parentHeight] = blockhash(parentHeight);
-        } else {
-            revert L2_TOO_LATE();
-        }
-
-        l1ChainId = _l1ChainId;
-        parentGasExcess = _initialGasExcess;
-        (publicInputHash,) = _calcPublicInputHash(block.number);
-    }
-
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev The gas limit for this transaction must be set to 1,000,000 gas.
@@ -163,6 +125,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         nonReentrant
     {
         require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
+        require(shastaForkHeight == 0 || block.number < shastaForkHeight, L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
@@ -171,39 +134,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         _updateParentHashAndTimestamp(parentId);
 
         signalService.receiveSignals(_signalSlots);
-    }
-
-    /// @notice Anchors the latest L1 block details to L2 for cross-layer
-    /// message verification.
-    /// @dev The gas limit for this transaction must be set to 250,000 gas.
-    /// @dev This function can be called freely as the golden touch private key is publicly known,
-    /// but the Taiko node guarantees the first transaction of each block is always this anchor
-    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
-    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
-    /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _baseFeeConfig The base fee configuration.
-    function anchorV2(
-        uint64 _anchorBlockId,
-        bytes32 _anchorStateRoot,
-        uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
-    )
-        external
-        nonZeroBytes32(_anchorStateRoot)
-        nonZeroValue(_anchorBlockId)
-        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
-        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
-        onlyGoldenTouch
-        nonReentrant
-    {
-        require(block.number < pacayaForkHeight, L2_FORK_ERROR());
-
-        uint256 parentId = block.number - 1;
-        _verifyAndUpdatePublicInputHash(parentId);
-        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
-        _syncChainData(_anchorBlockId, _anchorStateRoot);
-        _updateParentHashAndTimestamp(parentId);
     }
 
     /// @notice Withdraw token or Ether from this address.
@@ -276,7 +206,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
     /// Layer 2 (L2).
     /// @return True if the contract is operating on L1, false if on L2.
-    function isOnL1() external pure returns (bool) {
+    function v4IsOnL1() external pure returns (bool) {
         return false;
     }
 
@@ -289,7 +219,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @dev Synchronizes chain data with the given anchor block ID and state root.
     /// @param _anchorBlockId The ID of the anchor block.
     /// @param _anchorStateRoot The state root of the anchor block.
-    function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) private {
+    function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) internal {
         /// @dev If the anchor block ID is less than or equal to the last synced block, return
         /// early.
         if (_anchorBlockId <= lastSyncedBlock) return;
@@ -306,7 +236,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     /// @dev Updates the parent block hash and timestamp.
     /// @param _parentId The ID of the parent block.
-    function _updateParentHashAndTimestamp(uint256 _parentId) private {
+    function _updateParentHashAndTimestamp(uint256 _parentId) internal {
         // Get the block hash of the parent block.
         bytes32 parentHash = blockhash(_parentId);
 
@@ -322,7 +252,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     /// @dev Verifies the current ancestor block hash and updates it with a new aggregated hash.
     /// @param _parentId The ID of the parent block.
-    function _verifyAndUpdatePublicInputHash(uint256 _parentId) private {
+    function _verifyAndUpdatePublicInputHash(uint256 _parentId) internal {
         // Calculate the current and new ancestor hashes based on the parent block ID.
         (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_) =
             _calcPublicInputHash(_parentId);
@@ -341,7 +271,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
-        private
+        internal
     {
         (uint256 basefee, uint64 newGasTarget, uint64 newGasExcess) =
             getBasefeeV2(_parentGasUsed, uint64(block.timestamp), _baseFeeConfig);
@@ -362,7 +292,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @return currPublicInputHash_ The public input hash for the previous state.
     /// @return newPublicInputHash_ The public input hash for the new state.
     function _calcPublicInputHash(uint256 _blockId)
-        private
+        internal
         view
         returns (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_)
     {
