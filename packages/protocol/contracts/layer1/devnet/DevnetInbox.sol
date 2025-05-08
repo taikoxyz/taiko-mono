@@ -24,8 +24,7 @@ contract DevnetInbox is TaikoInbox {
         cooldownWindow = _cooldownWindow;
     }
 
-    /// @inheritdoc ITaikoInbox
-    function v4GetConfig() public view override returns (ITaikoInbox.Config memory) {
+    function _getConfig() internal view override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: chainId,
             maxUnverifiedBatches: 324_000,
