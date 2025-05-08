@@ -280,7 +280,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchProposed(info_, meta_, _txList);
         } // end-of-unchecked
 
-        state.verifyBatches(config, stats2, signalService, 1);
+        state.verifyBatches(config, stats2, signalService,  1);
     }
 
     /// @inheritdoc IProveBatches
@@ -411,7 +411,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             _pause();
             emit Paused(verifier);
         } else {
-            state.verifyBatches(config, stats2, signalService, metasLength);
+            state.verifyBatches(config, stats2, signalService,  metasLength);
         }
     }
 
@@ -422,7 +422,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         nonReentrant
         whenNotPaused
     {
-        state.verifyBatches(v4GetConfig(), state.stats2, signalService, _length);
+        state.verifyBatches(v4GetConfig(), state.stats2, signalService,  _length);
     }
 
     /// @inheritdoc IBondManager
