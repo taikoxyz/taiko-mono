@@ -481,9 +481,11 @@ func (d *Driver) cacheLookaheadLoop() {
 		}
 
 		// push into our 3‑epoch ring
+		log.Debug("Pushing into window", "epoch", currentEpoch, "currOp", currOp.Hex(), "nextOp", nextOp.Hex())
 		opWin.Push(currentEpoch, currOp, nextOp)
 
 		// Push next epoch (nextOp becomes currOp at next epoch)
+		log.Debug("Pushing into window", "epoch", currentEpoch+1, "currOp", nextOp.Hex(), "nextOp", common.Address{})
 		opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
 
 		var (
