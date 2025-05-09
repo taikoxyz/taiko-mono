@@ -69,7 +69,6 @@ type PreconfBlockAPIServer struct {
 	payloadsCache                 *payloadQueue
 	lookahead                     *Lookahead
 	lookaheadMutex                sync.Mutex
-	handoverSlots                 uint64
 	highestUnsafeL2PayloadBlockID uint64
 	preconfOperatorAddress        common.Address
 	mu                            sync.Mutex

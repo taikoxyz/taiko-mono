@@ -87,13 +87,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _;
     }
 
-    constructor(
-        address _resolver,
-        address _signalService,
-        uint64 _pacayaForkHeight
-    )
-        EssentialContract(_resolver)
-    {
+    constructor(address _signalService, uint64 _pacayaForkHeight) EssentialContract(address(0)) {
         signalService = ISignalService(_signalService);
         pacayaForkHeight = _pacayaForkHeight;
     }
@@ -148,7 +142,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         external
         nonZeroAddr(_to)
         whenNotPaused
-        onlyFromOwnerOrNamed(LibStrings.B_WITHDRAWER)
+        onlyOwner
         nonReentrant
     {
         if (_token == address(0)) {

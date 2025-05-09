@@ -12,12 +12,11 @@ import "./ShastaAnchor.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TaikoAnchor is ShastaAnchor {
     constructor(
-        address _resolver,
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight
     )
-        ShastaAnchor(_resolver, _signalService, _pacayaForkHeight, _shastaForkHeight)
+        ShastaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
     { }
 
     /// @notice Initializes the contract.
