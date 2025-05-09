@@ -6,7 +6,7 @@ import "src/layer1/governance/TaikoTreasuryVault.sol";
 import "src/layer1/governance/TokenLocker.sol";
 import "script/BaseScript.sol";
 
-contract DeployProverSet is BaseScript {
+contract DeployGovernanceSet is BaseScript {
     function run() external broadcast {
         address dao = vm.envOr("OWNER", msg.sender);
         address taikoToken = vm.envAddress("TAIKO_TOKEN");
