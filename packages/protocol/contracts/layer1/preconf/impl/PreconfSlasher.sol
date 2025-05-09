@@ -99,21 +99,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
         evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
-        ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
+        _getBatchAndVerify(_payload.batchId, evidence.batchInfo, evidence.batchMetadata);
+
         ITaikoInbox.TransitionState memory transition =
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
 
         // Validate that the batch has been verified
-        require(transition.blockHash != bytes32(0), BatchNotVerified());
-
-        // Validate the pre-images in the evidence
-        require(
-            keccak256(abi.encode(evidence.batchMetadata)) == batch.metaHash, InvalidBatchMetadata()
-        );
-        require(
-            keccak256(abi.encode(evidence.batchInfo)) == evidence.batchMetadata.infoHash,
-            InvalidBatchInfo()
-        );
+        require(transition.blockHash != bytes32(0), BatchNotVerified()); // TODO(daniel): is this
+            // necessary?
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
@@ -225,9 +218,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             );
         } else {
             // Check if the block is not the last one in the batch
-            ITaikoInbox.Batch memory prevBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId - 1));
             require(
-                evidence.preconfedBlockHeader.number > prevBatch.lastBlockId
+                evidence.preconfedBlockHeader.number
+                    > batch.lastBlockId - evidence.batchInfo.blocks.length
                     && evidence.preconfedBlockHeader.number < batch.lastBlockId,
                 BlockNotInBatch()
             );
