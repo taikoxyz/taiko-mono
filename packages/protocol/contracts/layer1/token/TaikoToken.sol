@@ -11,6 +11,11 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 (token.taiko.eth)
 /// @custom:security-contact security@taiko.xyz
 contract TaikoToken is TaikoTokenBase {
+    address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
+    address public constant TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
+    // TODO(bernet): what's the address?
+    address public constant TAIKO_DAO_CONTROLLER = 0x0000000000000000000000000000000000000000;
+
     error TT_INVALID_PARAM();
     error TT_NON_VOTING_ACCOUNT();
 
@@ -68,20 +73,9 @@ contract TaikoToken is TaikoTokenBase {
     /// @notice Returns the list of accounts that are not eligible for voting.
     /// @return accounts_ The list of accounts that are not eligible for voting.
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
-        accounts_ = new address[](2);
-
-        // Tokens deposited to Taiko Foundation Vault are not eligible for voting
-        accounts_[0] = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // Gnosis Safe Multisig
-
-        // Tokens managed by the Taiko DAO are not eligible for voting
-        accounts_[1] = 0x9CDf589C941ee81D75F34d3755671d614f7cf261; // Taiko DAO contract
-
-        // This is a Taiko TokenLocker contract to force DAO owne'd TAIKO token to be released
-        // linearly
-        // accounts_[4] = 0x0000000000000000000000000000000000000000;
-
-        // This is a TaikoTreasuryVault contract to manage the DAO's ERC20 tokens, including some
-        // TAIKO tokens
-        // accounts_[5] = 0x0000000000000000000000000000000000000000;
+        accounts_ = new address[](3);
+        accounts_[0] = TAIKO_FOUNDATION_TREASURY;
+        accounts_[1] = TAIKO_DAO;
+        accounts_[2] = TAIKO_DAO_CONTROLLER;
     }
 }
