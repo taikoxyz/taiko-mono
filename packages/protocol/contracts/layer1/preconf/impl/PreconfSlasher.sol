@@ -240,28 +240,30 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (uint256)
     {
-        EvidenceMissingEOP memory evidence = abi.decode(_evidenceData, (EvidenceMissingEOP));
-        evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
-
         // Validate that the commitment is not an EOP
         require(_payload.eop == false, EOPIsPresent());
 
-        ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
-        ITaikoInbox.Batch memory nextBatch =
-            _getBatchAndValidateMetadata(_payload.batchId + 1, evidence.nextBatchMetadata);
+        EvidenceMissingEOP memory evidence = abi.decode(_evidenceData, (EvidenceMissingEOP));
+        evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
-        // The block with missing EOP should be the last block in its batch and the next
-        // batch should have been proposed in a future lookahead slot.
+        ITaikoInbox.Batch memory batch = _getBatchVerifyInfoAndMetadata(
+            _payload.batchId, evidence.batchInfo, evidence.batchMetadata
+        );
+        require(evidence.preconfedBlockHeader.number == batch.lastBlockId, BlockNotLastInBatch());
+
+        // Validate that the next batch exists
+        _getBatchVerifyInfoAndMetadata(
+            _payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata
+        );
         require(
-            evidence.preconfedBlockHeader.number == batch.lastBlockId
-                && evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
-            EOPIsNotMissing()
+            evidence.nextBatchInfo.proposer != evidence.batchInfo.proposer,
+            NextBatchProposedBySameProposer()
         );
 
         return getSlashAmount().missingEOP;
     }
 
-    function _getBatchAndValidateMetadata(
+    function _getBatchVerifyMetadata(
         uint256 _batchId,
         ITaikoInbox.BatchMetadata memory _metadata
     )
@@ -272,4 +274,21 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         batch_ = taikoInbox.v4GetBatch(uint64(_batchId));
         require(keccak256(abi.encode(_metadata)) == batch_.metaHash, InvalidBatchMetadata());
     }
+
+    function _getBatchVerifyInfoAndMetadata(
+        uint256 _batchId,
+        ITaikoInbox.BatchInfo memory _info,
+        ITaikoInbox.BatchMetadata memory _metadata
+    )
+        internal
+        view
+        returns (ITaikoInbox.Batch memory batch_)
+    {
+        require(keccak256(abi.encode(_info)) == _metadata.infoHash, InvalidBatchInfo());
+        return _getBatchVerifyMetadata(_batchId, _metadata);
+    }
+
+    // TODO(daniel): move errors to the interface
+    error BlockNotLastInBatch();
+    error NextBatchProposedBySameProposer();
 }
