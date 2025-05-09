@@ -243,7 +243,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the next batch exists
         _verifyBatchData(_payload.batchId + 1, e.nextBatchMetadata);
 
-        // l1ProposalSlotTimestamp represents each of the “preconfing window”
         require(
             e.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
             NextBatchProposedInTheSamePreconfWindow()
@@ -261,8 +260,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (ITaikoInbox.Batch memory batch_)
     {
-        batch_ = taikoInbox.v4GetBatch(uint64(_batchId));
-        require(keccak256(abi.encode(_metadata)) == batch_.metaHash, InvalidBatchMetadata());
+        batch_ = _verifyBatchData(_batchId, _metadata);
         require(keccak256(abi.encode(_info)) == _metadata.infoHash, InvalidBatchInfo());
     }
 
