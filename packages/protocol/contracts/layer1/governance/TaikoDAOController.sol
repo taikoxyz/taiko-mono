@@ -46,4 +46,11 @@ contract TaikoDAOController is EssentialContract {
         (success, result_) = _target.call{ value: msg.value }(_data);
         require(success, CallFailed());
     }
+
+    /// @notice Accept ownership of the given contract.
+    /// @dev This function is overridden to allow accepting ownership without going through the DAO.
+    function acceptOwnershipOf(address _ownedContract) external {
+        Ownable2StepUpgradeable(_ownedContract).acceptOwnership();
+    }
+
 }

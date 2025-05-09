@@ -10,12 +10,20 @@ contract DummyContract {
     }
 }
 
+contract DummyEssentialContract is EssentialContract {
+    constructor()EssentialContract(address(0)) {}
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+}
+
 contract TestTaikoDAOController is Layer1Test {
     TaikoDAOController internal daoController;
     address owner = address(0x123);
     address newOwner = address(0x456);
     address target = address(new DummyContract());
     bytes data = abi.encodeWithSignature("someFunction()");
+    DummyEssentialContract dummyEssentialContract;
 
     function setUpOnEthereum() internal override {
         super.setUpOnEthereum();
@@ -26,6 +34,12 @@ contract TestTaikoDAOController is Layer1Test {
                 data: abi.encodeCall(TaikoDAOController.init, (owner))
             })
         );
+
+        dummyEssentialContract = DummyEssentialContract(deploy({    
+            name: "DummyEssentialContract",
+            impl: address(new DummyEssentialContract()),
+            data: abi.encodeCall(DummyEssentialContract.init, (Bob))
+        }));
     }
 
     function test_TaikoDAOController_InitialOwner() public view {
@@ -80,5 +94,16 @@ contract TestTaikoDAOController is Layer1Test {
         vm.startPrank(owner);
         vm.expectRevert(TaikoDAOController.InvalidTarget.selector);
         daoController.execute(address(0x999), data);
+    }
+
+    function test_TaikoDAOController_acceptOwnershipOf() public {
+
+        vm.startPrank(Bob);
+        dummyEssentialContract.transferOwnership(address(daoController));
+        assertEq(dummyEssentialContract.owner(), Bob);
+
+        
+        daoController.acceptOwnershipOf(address(dummyEssentialContract));
+        assertEq(dummyEssentialContract.owner(), address(daoController));
     }
 }
