@@ -8,7 +8,7 @@ import "script/BaseScript.sol";
 
 contract DeployGovernanceSet is BaseScript {
     function run() external broadcast {
-        address dao = vm.envOr("OWNER", msg.sender);
+        address dao = vm.envOr("TAIKO_DAO", msg.sender);
         address taikoToken = vm.envAddress("TAIKO_TOKEN");
         uint256 duration = 416 weeks; // 8 years
 
