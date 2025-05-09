@@ -26,25 +26,6 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
-    /// @notice Batch transfers tokens
-    /// @param recipients The list of addresses to transfer tokens to.
-    /// @param amounts The list of amounts for transfer.
-    /// @return true if the transfer is successful.
-    function batchTransfer(
-        address[] calldata recipients,
-        uint256[] calldata amounts
-    )
-        external
-        returns (bool)
-    {
-        uint256 size = recipients.length;
-        if (size != amounts.length) revert TT_INVALID_PARAM();
-        for (uint256 i; i < size; ++i) {
-            _transfer(msg.sender, recipients[i], amounts[i]);
-        }
-        return true;
-    }
-
     function delegate(address account) public override {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         // Special checks to avoid reading from storage slots
