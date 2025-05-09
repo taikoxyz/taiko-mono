@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import { SP1Verifier as SuccinctVerifier } from
+    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibStrings.sol";
@@ -404,7 +405,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deployVerifiers(
         address owner,
         address rollupResolver,
-        address taikoProofVerifier,
+        address proofVerifier,
         address taikoInboxAddr,
         address opImplAddr
     )
@@ -442,7 +443,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(taikoInboxAddr, taikoProofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner),
             registerTo: rollupResolver
         });
@@ -465,9 +466,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
-            impl: address(
-                new TaikoSgxVerifier(taikoInboxAddr, taikoProofVerifier, sgxGethAutomataProxy)
-            ),
+            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner),
             registerTo: rollupResolver
         });
@@ -495,7 +494,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         // Deploy sp1 plonk verifier
-        SP1Verifier succinctVerifier = new SP1Verifier();
+        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
         register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
 
         sp1Verifier = deployProxy({

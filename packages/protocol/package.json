@@ -9,7 +9,7 @@
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
     "compile:genesis": "FOUNDRY_PROFILE=genesis forge build --build-info --extra-output storage-layout",
     "compile:shared": "FOUNDRY_PROFILE=shared forge build --build-info --extra-output storage-layout",
-    "compile": "pnpm compile:l1 && pnpm compile:l2",
+    "compile": "pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2",
     "test:l1": "FOUNDRY_PROFILE=layer1 forge test --extra-output storage-layout --match-path 'test/layer1/**/*.t.sol'",
     "test:l2": "FOUNDRY_PROFILE=layer2 forge test --extra-output storage-layout --match-path 'test/layer2/**/*.t.sol'",
     "test:shared": "FOUNDRY_PROFILE=shared forge test --extra-output storage-layout --match-path 'test/shared/**/*.t.sol'",
@@ -47,6 +47,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "4.9.6",
     "@openzeppelin/contracts-upgradeable": "4.9.6",
+    "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.5",
     "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
