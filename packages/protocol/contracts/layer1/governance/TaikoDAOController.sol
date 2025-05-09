@@ -48,7 +48,8 @@ contract TaikoDAOController is EssentialContract {
     }
 
     /// @notice Accept ownership of the given contract.
-    /// @dev This function is overridden to allow accepting ownership without going through the DAO.
+    /// @dev This function is callable by anyone to accept ownership without going through
+    /// the TaikoDAO.
     /// @param _contractToOwn The contract to accept ownership of.
     function acceptOwnershipOf(address _contractToOwn) external {
         Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
