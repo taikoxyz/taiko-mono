@@ -106,7 +106,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // TODO(daniel): is this necessary?
         require(transition.blockHash != bytes32(0), BatchNotVerified());
 
-        _verifyBatchData(_payload.batchId, e.batchInfo, e.batchMetadata);
+        _verifyBatchData(_payload.batchId, e.batchMetadata, e.batchInfo);
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
@@ -199,20 +199,20 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
         ITaikoInbox.Batch memory batch =
-            _verifyBatchData(_payload.batchId, e.batchInfo, e.batchMetadata);
+            _verifyBatchData(_payload.batchId, e.batchMetadata, e.batchInfo);
 
         if (e.preconfedBlockHeader.number == batch.lastBlockId) {
             // Now, we need to check if the proposer of the next batch is different from the
             // proposer of the current batch.
-            _verifyBatchData(_payload.batchId + 1, e.nextBatchInfo, e.nextBatchMetadata);
+            _verifyBatchData(_payload.batchId + 1, e.nextBatchMetadata);
 
             require(
-                e.batchInfo.proposer == e.nextBatchInfo.proposer,
-                NextBatchProposedByDifferentProposer()
+                e.nextBatchMetadata.proposedAt <= _payload.preconferSlotTimestamp,
+                NextBatchProposedInNextPreconfWindow()
             );
         } else {
             // Check if the block is not the last one in the batch
-            uint256 lastBlockInPreviousBatch = e.batchInfo.lastBlockId - e.batchInfo.blocks.length;
+            uint256 lastBlockInPreviousBatch = batch.lastBlockId - e.batchInfo.blocks.length;
             require(
                 e.preconfedBlockHeader.number > lastBlockInPreviousBatch
                     && e.preconfedBlockHeader.number < batch.lastBlockId,
@@ -237,8 +237,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         EvidenceMissingEOP memory e = abi.decode(_evidenceData, (EvidenceMissingEOP));
         e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
-        ITaikoInbox.Batch memory batch =
-            _verifyBatchData(_payload.batchId, e.batchInfo, e.batchMetadata);
+        ITaikoInbox.Batch memory batch = _verifyBatchData(_payload.batchId, e.batchMetadata);
         require(e.preconfedBlockHeader.number == batch.lastBlockId, BlockNotLastInBatch());
 
         // Validate that the next batch exists
@@ -255,8 +254,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     function _verifyBatchData(
         uint256 _batchId,
-        ITaikoInbox.BatchInfo memory _info,
-        ITaikoInbox.BatchMetadata memory _metadata
+        ITaikoInbox.BatchMetadata memory _metadata,
+        ITaikoInbox.BatchInfo memory _info
     )
         internal
         view
@@ -283,6 +282,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     error BlockNotLastInBatch();
     error BlockNotInBatch();
     error NextBatchProposedBySameProposer();
-    error NextBatchProposedByDifferentProposer();
+    error NextBatchProposedInNextPreconfWindow();
     error NextBatchProposedInTheSamePreconfWindow();
 }
