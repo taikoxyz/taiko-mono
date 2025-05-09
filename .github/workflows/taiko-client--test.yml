@@ -95,9 +95,7 @@ jobs:
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
-        run:
-          OLD_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${OLD_FORK_TAIKO_MONO_DIR} \
-          PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
+        run: OLD_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${OLD_FORK_TAIKO_MONO_DIR}  PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v5
