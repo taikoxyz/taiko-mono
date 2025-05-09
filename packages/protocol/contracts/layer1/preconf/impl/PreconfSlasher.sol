@@ -99,14 +99,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
         evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
-        _getBatchAndVerify(_payload.batchId, evidence.batchInfo, evidence.batchMetadata);
-
         ITaikoInbox.TransitionState memory transition =
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
 
         // Validate that the batch has been verified
         // TODO(daniel): is this necessary?
-        require(transition.blockHash != bytes32(0), BatchNotVerified()); 
+        require(transition.blockHash != bytes32(0), BatchNotVerified());
+
+        _getBatchAndVerify(_payload.batchId, evidence.batchInfo, evidence.batchMetadata);
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
@@ -136,7 +136,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
         uint256 heightOfFirstBlockInBatch =
-            evidence.batchInfo.lastBlockId - evidence.batchInfo.blocks.length;
+            evidence.batchInfo.lastBlockId + 1 - evidence.batchInfo.blocks.length;
         if (evidence.preconfedBlockHeader.number == heightOfFirstBlockInBatch) {
             // If the preconfirmed block is the first block in the batch, we compare the parent hash
             // against the verified block hash of the previous batch, since the "batch blockhash" is
@@ -218,9 +218,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             );
         } else {
             // Check if the block is not the last one in the batch
+            uint256 lastBlockInPreviousBatch =
+                evidence.batchInfo.lastBlockId - evidence.batchInfo.blocks.length;
             require(
-                evidence.preconfedBlockHeader.number
-                    > batch.lastBlockId - evidence.batchInfo.blocks.length
+                evidence.preconfedBlockHeader.number > lastBlockInPreviousBatch
                     && evidence.preconfedBlockHeader.number < batch.lastBlockId,
                 BlockNotInBatch()
             );
