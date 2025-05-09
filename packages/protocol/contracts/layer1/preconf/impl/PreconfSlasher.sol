@@ -89,14 +89,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     function _validatePreconfirmationViolation(
         address _committer,
         CommitmentPayload memory _payload,
-        bytes calldata _eData
+        bytes calldata _evidenceData
     )
         internal
         view
         returns (uint256)
     {
         EvidenceInvalidPreconfirmation memory e =
-            abi.decode(_eData, (EvidenceInvalidPreconfirmation));
+            abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
         e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
         ITaikoInbox.TransitionState memory transition =
@@ -186,7 +186,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     function _validateInvalidEOP(
         CommitmentPayload memory _payload,
-        bytes calldata _eData
+        bytes calldata _evidenceData
     )
         internal
         view
@@ -195,7 +195,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the commitment is an EOP
         require(_payload.eop == true, NotEndOfPreconfirmation());
 
-        EvidenceInvalidEOP memory e = abi.decode(_eData[1:], (EvidenceInvalidEOP));
+        EvidenceInvalidEOP memory e = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
         e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
         ITaikoInbox.Batch memory batch =
@@ -225,7 +225,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     function _validateMissingEOP(
         CommitmentPayload memory _payload,
-        bytes calldata _eData
+        bytes calldata _evidenceData
     )
         internal
         view
@@ -234,7 +234,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the commitment is not an EOP
         require(_payload.eop == false, EOPIsPresent());
 
-        EvidenceMissingEOP memory e = abi.decode(_eData, (EvidenceMissingEOP));
+        EvidenceMissingEOP memory e = abi.decode(_evidenceData, (EvidenceMissingEOP));
         e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
         ITaikoInbox.Batch memory batch =
