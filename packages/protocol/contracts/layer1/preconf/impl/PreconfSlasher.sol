@@ -209,30 +209,30 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
         evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
-        ITaikoInbox.Batch memory prevBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId - 1));
-        ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
+        ITaikoInbox.Batch memory batch = _getBatchVerifyInfoAndMetadata(
+            _payload.batchId, evidence.batchInfo, evidence.batchMetadata
+        );
 
-        // Slash the preconfer if any block, other than the last one in the batch, is marked as EOP.
-        if (
-            evidence.preconfedBlockHeader.number > prevBatch.lastBlockId
-                && evidence.preconfedBlockHeader.number < batch.lastBlockId
-        ) {
-            return getSlashAmount().invalidEOP;
+        if (evidence.preconfedBlockHeader.number == batch.lastBlockId) {
+            // Now, we need to check if the proposer of the next batch is different from the
+            // proposer of the current batch.
+            _getBatchVerifyInfoAndMetadata(
+                _payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata
+            );
+
+            require(
+                evidence.batchInfo.proposer == evidence.nextBatchInfo.proposer,
+                NextBatchProposedByDifferentProposer()
+            );
+        } else {
+            // Check if the block is not the last one in the batch
+            ITaikoInbox.Batch memory prevBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId - 1));
+            require(
+                evidence.preconfedBlockHeader.number > prevBatch.lastBlockId
+                    && evidence.preconfedBlockHeader.number < batch.lastBlockId,
+                BlockNotInBatch()
+            );
         }
-
-        // Check the block is the last one in the batch.
-        require(evidence.preconfedBlockHeader.number == batch.lastBlockId, BlockNotInBatch());
-
-        // Now, we need to check if the proposer of the next batch is different from the proposer of
-        // the current batch.
-        _getBatchVerifyInfoAndMetadata(
-            _payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata
-        );
-
-        require(
-            evidence.batchInfo.proposer == evidence.nextBatchInfo.proposer,
-            NextBatchProposedByDifferentProposer()
-        );
 
         return getSlashAmount().invalidEOP;
     }
