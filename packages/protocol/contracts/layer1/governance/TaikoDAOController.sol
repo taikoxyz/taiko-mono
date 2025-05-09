@@ -52,5 +52,4 @@ contract TaikoDAOController is EssentialContract {
     function acceptOwnershipOf(address _ownedContract) external {
         Ownable2StepUpgradeable(_ownedContract).acceptOwnership();
     }
-
 }
