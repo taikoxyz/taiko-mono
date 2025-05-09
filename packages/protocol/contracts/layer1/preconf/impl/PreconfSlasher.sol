@@ -97,10 +97,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     {
         EvidenceInvalidPreconfirmation memory evidence =
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
-        require(
-            keccak256(evidence.preconfedBlockHeader.encodeRLP()) == _payload.blockHash,
-            InvalidBlockHeader()
-        );
+        evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
         ITaikoInbox.TransitionState memory transition =
@@ -207,10 +204,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         returns (uint256)
     {
         EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
-        require(
-            keccak256(evidence.preconfedBlockHeader.encodeRLP()) == _payload.blockHash,
-            InvalidBlockHeader()
-        );
+        evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
         // Validate that the commitment is an EOP
         require(_payload.eop == true, NotEndOfPreconfirmation());
@@ -247,29 +241,35 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         returns (uint256)
     {
         EvidenceMissingEOP memory evidence = abi.decode(_evidenceData, (EvidenceMissingEOP));
-        require(
-            keccak256(evidence.preconfedBlockHeader.encodeRLP()) == _payload.blockHash,
-            InvalidBlockHeader()
-        );
+        evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
         // Validate that the commitment is not an EOP
         require(_payload.eop == false, EOPIsPresent());
 
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
-        ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
-        require(
-            keccak256(abi.encode(nextBatch.metaHash)) == evidence.nextBatchMetadata.infoHash,
-            InvalidNextBatchMetadata()
-        );
+        ITaikoInbox.Batch memory nextBatch =
+            _getBatchAndValidateMetadata(_payload.batchId + 1, evidence.nextBatchMetadata);
 
         // The block with missing EOP should be the last block in its batch and the next
         // batch should have been proposed in a future lookahead slot.
         require(
-            evidence.preconfedBlockHeader.number == nextBatch.lastBlockId
+            evidence.preconfedBlockHeader.number == batch.lastBlockId
                 && evidence.nextBatchMetadata.proposedAt > _payload.preconferSlotTimestamp,
             EOPIsNotMissing()
         );
 
         return getSlashAmount().missingEOP;
+    }
+
+    function _getBatchAndValidateMetadata(
+        uint256 _batchId,
+        ITaikoInbox.BatchMetadata memory _metadata
+    )
+        internal
+        view
+        returns (ITaikoInbox.Batch memory batch_)
+    {
+        batch_ = taikoInbox.v4GetBatch(uint64(_batchId));
+        require(keccak256(abi.encode(_metadata)) == batch_.metaHash, InvalidBatchMetadata());
     }
 }
