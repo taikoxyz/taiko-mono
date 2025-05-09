@@ -31,7 +31,6 @@ library LibStrings {
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");
-    bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");
 }

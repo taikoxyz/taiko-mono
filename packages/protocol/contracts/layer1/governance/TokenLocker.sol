@@ -33,12 +33,13 @@ contract TokenLocker is Ownable, ReentrancyGuard {
 
     bool public initialized;
 
-    constructor(address _token, uint256 _durationYears) {
+    constructor(address _owner, address _token, uint256 _durationYears) {
         require(_token != address(0), InvalidToken());
         require(_durationYears != 0, InvalidDuration());
         token = IERC20(_token);
         startTime = block.timestamp;
         endTime = startTime + _durationYears * 365 days;
+        _transferOwnership(_owner);
     }
 
     function lock(uint256 amount) external onlyOwner nonReentrant {

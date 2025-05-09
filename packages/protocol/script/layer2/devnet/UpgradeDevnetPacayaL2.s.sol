@@ -65,9 +65,7 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
 
         // Taiko Anchor
         UUPSUpgradeable(taikoAnchor).upgradeTo(
-            address(
-                new TaikoAnchor(sharedResolver, signalService, pacayaForkHeight, shastaForkHeight)
-            )
+            address(new TaikoAnchor(signalService, pacayaForkHeight, shastaForkHeight))
         );
     }
 }

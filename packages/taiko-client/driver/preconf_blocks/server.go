@@ -26,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -69,7 +70,6 @@ type PreconfBlockAPIServer struct {
 	payloadsCache                 *payloadQueue
 	lookahead                     *Lookahead
 	lookaheadMutex                sync.Mutex
-	handoverSlots                 uint64
 	highestUnsafeL2PayloadBlockID uint64
 	preconfOperatorAddress        common.Address
 	mu                            sync.Mutex
@@ -111,7 +111,6 @@ func New(
 		echo:                       echo.New(),
 		anchorValidator:            anchorValidator,
 		chainSyncer:                chainSyncer,
-		handoverSlots:              handoverSlots,
 		rpc:                        cli,
 		payloadsCache:              newPayloadQueue(),
 		preconfOperatorAddress:     preconfOperatorAddress,

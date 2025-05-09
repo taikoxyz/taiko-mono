@@ -43,8 +43,6 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	curr := common.HexToAddress("0xAAA0000000000000000000000000000000000000")
 	next := common.HexToAddress("0xBBB0000000000000000000000000000000000000")
 
-	s.s.handoverSlots = 4
-
 	la := &Lookahead{
 		CurrOperator: curr,
 		NextOperator: next,
