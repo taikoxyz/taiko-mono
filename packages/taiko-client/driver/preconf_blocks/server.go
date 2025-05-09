@@ -1054,9 +1054,7 @@ func (s *PreconfBlockAPIServer) LatestBlockIDSeenInEventLoop(ctx context.Context
 			return
 		case blockID := <-s.latestBlockIDSeenInEventCh:
 			log.Info("Received latest block ID seen in event", "blockID", blockID)
-			s.mu.Lock()
 			s.latestBlockIDSeenInEvent = blockID
-			s.mu.Unlock()
 		}
 	}
 }
