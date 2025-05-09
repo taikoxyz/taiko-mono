@@ -209,14 +209,13 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
         evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
-        ITaikoInbox.Batch memory batch = _getBatchVerifyInfoAndMetadata(
-            _payload.batchId, evidence.batchInfo, evidence.batchMetadata
-        );
+        ITaikoInbox.Batch memory batch =
+            _getBatchAndVerify(_payload.batchId, evidence.batchInfo, evidence.batchMetadata);
 
         if (evidence.preconfedBlockHeader.number == batch.lastBlockId) {
             // Now, we need to check if the proposer of the next batch is different from the
             // proposer of the current batch.
-            _getBatchVerifyInfoAndMetadata(
+            _getBatchAndVerify(
                 _payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata
             );
 
@@ -251,15 +250,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         EvidenceMissingEOP memory evidence = abi.decode(_evidenceData, (EvidenceMissingEOP));
         evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
 
-        ITaikoInbox.Batch memory batch = _getBatchVerifyInfoAndMetadata(
-            _payload.batchId, evidence.batchInfo, evidence.batchMetadata
-        );
+        ITaikoInbox.Batch memory batch =
+            _getBatchAndVerify(_payload.batchId, evidence.batchInfo, evidence.batchMetadata);
         require(evidence.preconfedBlockHeader.number == batch.lastBlockId, BlockNotLastInBatch());
 
         // Validate that the next batch exists
-        _getBatchVerifyInfoAndMetadata(
-            _payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata
-        );
+        _getBatchAndVerify(_payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata);
         require(
             evidence.nextBatchInfo.proposer != evidence.batchInfo.proposer,
             NextBatchProposedBySameProposer()
@@ -268,7 +264,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         return getSlashAmount().missingEOP;
     }
 
-    function _getBatchVerifyInfoAndMetadata(
+    function _getBatchAndVerify(
         uint256 _batchId,
         ITaikoInbox.BatchInfo memory _info,
         ITaikoInbox.BatchMetadata memory _metadata
