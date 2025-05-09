@@ -140,7 +140,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
 
             // Keep track of last batch's information.
-            Batch storage lastBatch =
+            Batch memory lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
