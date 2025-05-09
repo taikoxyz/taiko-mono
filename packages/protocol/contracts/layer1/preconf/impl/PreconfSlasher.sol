@@ -203,30 +203,29 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (uint256)
     {
-        EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
-        evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
-
         // Validate that the commitment is an EOP
         require(_payload.eop == true, NotEndOfPreconfirmation());
 
+        EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
+        evidence.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
+
+        ITaikoInbox.Batch memory prevBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId - 1));
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
 
         // Slash if another block was proposed after EOP in the same batch
-        if (evidence.preconfedBlockHeader.number != batch.lastBlockId) {
+        uint256 blockNumber = evidence.preconfedBlockHeader.number;
+        if (blockNumber > prevBatch.lastBlockId && blockNumber < batch.lastBlockId) {
             return getSlashAmount().invalidEOP;
         }
 
-        ITaikoInbox.Batch memory nextBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId + 1));
-        require(
-            keccak256(abi.encode(nextBatch.metaHash)) == evidence.nextBatchMetadata.infoHash,
-            InvalidNextBatchMetadata()
+        _getBatchVerifyInfoAndMetadata(
+            _payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata
         );
 
-        // An extra batch should be proposed after the EOP
-        // We validate this by comparing the proposal timestamp to the timestamp of the preconfer's
-        // lookahead slot.
         require(
-            evidence.nextBatchMetadata.proposedAt <= _payload.preconferSlotTimestamp, EOPIsValid()
+            blockNumber == batch.lastBlockId
+                && evidence.batchInfo.proposer != evidence.nextBatchInfo.proposer,
+            EOPIsValid()
         );
 
         return getSlashAmount().invalidEOP;
