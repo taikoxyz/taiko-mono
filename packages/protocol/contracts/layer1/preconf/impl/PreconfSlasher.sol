@@ -41,7 +41,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         Delegation calldata, /*_delegation*/
         Commitment calldata _commitment,
         address _committer,
-        bytes calldata _e,
+        bytes calldata _evidence,
         address /*_challenger*/
     )
         external
@@ -58,13 +58,13 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         );
 
         // Parse the violation type from the first byte
-        ViolationType violationType = ViolationType(uint8(_e[0]));
+        ViolationType violationType = ViolationType(uint8(_evidence[0]));
         if (violationType == ViolationType.InvalidPreconfirmation) {
-            slashAmount_ = _validatePreconfirmationViolation(_committer, payload, _e[1:]);
+            slashAmount_ = _validatePreconfirmationViolation(_committer, payload, _evidence[1:]);
         } else if (violationType == ViolationType.InvalidEOP) {
-            slashAmount_ = _validateInvalidEOP(payload, _e[1:]);
+            slashAmount_ = _validateInvalidEOP(payload, _evidence[1:]);
         } else if (violationType == ViolationType.MissingEOP) {
-            slashAmount_ = _validateMissingEOP(payload, _e[1:]);
+            slashAmount_ = _validateMissingEOP(payload, _evidence[1:]);
         } else {
             revert InvalidViolationType();
         }
