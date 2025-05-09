@@ -74,8 +74,6 @@ interface IPreconfSlasher is ISlasher {
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
-        // This is the BatchInfo of the batch that contains the block at height X + 1
-        ITaikoInbox.BatchInfo nextBatchInfo;
         // This is the BatchMetadata of the next batch that contains the block at height X + 1
         ITaikoInbox.BatchMetadata nextBatchMetadata;
     }
