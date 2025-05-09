@@ -56,12 +56,13 @@ type PreconfBlockAPIServer struct {
 	rpc             *rpc.Client
 	anchorValidator *validator.AnchorTxValidator
 	// P2P network for preconf block propagation
-	p2pNode        *p2p.NodeP2P
-	p2pSigner      p2p.Signer
-	payloadsCache  *payloadQueue
-	lookahead      *Lookahead
-	lookaheadMutex sync.Mutex
-	handoverSlots  uint64
+	p2pNode                       *p2p.NodeP2P
+	p2pSigner                     p2p.Signer
+	payloadsCache                 *payloadQueue
+	lookahead                     *Lookahead
+	lookaheadMutex                sync.Mutex
+	handoverSlots                 uint64
+	highestUnsafeL2PayloadBlockID uint64
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -98,10 +99,12 @@ func New(
 	return server, nil
 }
 
+// SetP2PNode sets the P2P node for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
 	s.p2pNode = p2pNode
 }
 
+// SetP2PSigner sets the P2P signer for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
 	s.p2pSigner = p2pSigner
 }
@@ -150,6 +153,7 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
+	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 }
@@ -165,6 +169,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	// a new L2 EE chain has just finished a beacon-sync.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		return nil
+	}
+
+	if msg == nil || msg.ExecutionPayload == nil {
+		log.Warn("Empty preconfirmation block payload", "peer", from)
 		return nil
 	}
 
@@ -191,6 +200,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"error", err,
 		)
+		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
 		return nil
 	}
 
@@ -200,11 +210,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
 	}
 	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+		metrics.DriverPreconfP2POutdatedEnvelopeCounter.Inc()
 		return fmt.Errorf(
 			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
 			msg.ExecutionPayload.BlockNumber,
 			headL1Origin.BlockID,
 		)
+	}
+
+	// If the block number is greater than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
+		s.highestUnsafeL2PayloadBlockID = uint64(msg.ExecutionPayload.BlockNumber)
 	}
 
 	// Check if the parent block is in the canonical chain, if not, we try to
@@ -248,6 +265,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				)
 
 				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
+				metrics.DriverPreconfP2PEnvelopeCachedCounter.Inc()
 			}
 			return nil
 		}

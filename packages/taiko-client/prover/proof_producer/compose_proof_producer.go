@@ -69,8 +69,13 @@ func (s *ComposeProofProducer) RequestProof(
 	)
 
 	g.Go(func() error {
-		_, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt)
-		return err
+		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+			return err
+		} else {
+			// Note: we mark the `IsGethProofGenerated` with true to record if it is first time generated
+			opts.PacayaOptions().IsGethProofGenerated = true
+			return nil
+		}
 	})
 	g.Go(func() error {
 		if s.Dummy {
@@ -88,10 +93,13 @@ func (s *ComposeProofProducer) RequestProof(
 				false,
 				s.ProofType,
 				requestAt,
+				opts.PacayaOptions().IsRethProofGenerated,
 			); err != nil {
 				return err
 			} else {
 				proofType = resp.ProofType
+				// Note: we mark the `IsRethProofGenerated` with true to record if it is first time generated
+				opts.PacayaOptions().IsRethProofGenerated = true
 				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 				if ProofTypeZKSP1 != proofType {
 					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
@@ -154,8 +162,12 @@ func (s *ComposeProofProducer) Aggregate(
 	g.Go(func() error {
 		if sgxGethBatchProofs, err = s.SgxGethProducer.Aggregate(ctx, items, requestAt); err != nil {
 			return err
+		} else {
+			// Note: we mark the `IsGethProofAggregationGenerated` in the first item with true
+			// to record if it is first time generated
+			items[0].Opts.PacayaOptions().IsGethProofAggregationGenerated = true
+			return nil
 		}
-		return nil
 	})
 	g.Go(func() error {
 		if s.Dummy {
@@ -170,9 +182,13 @@ func (s *ComposeProofProducer) Aggregate(
 				true,
 				proofType,
 				requestAt,
+				items[0].Opts.PacayaOptions().IsRethProofAggregationGenerated,
 			); err != nil {
 				return err
 			} else {
+				// Note: we mark the `IsRethProofAggregationGenerated` in the first item with true
+				// to record if it is first time generated
+				items[0].Opts.PacayaOptions().IsRethProofAggregationGenerated = true
 				batchProofs = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 			}
 		}
@@ -209,6 +225,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 	isAggregation bool,
 	proofType ProofType,
 	requestAt time.Time,
+	alreadyGenerated bool,
 ) (*RaikoRequestProofBodyResponseV2, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
@@ -243,18 +260,19 @@ func (s *ComposeProofProducer) requestBatchProof(
 		)
 	}
 
-	proofType = output.ProofType
-	log.Info(
-		"Batch proof generated",
-		"isAggregation", isAggregation,
-		"proofType", proofType,
-		"start", batches[0].BatchID,
-		"end", batches[len(batches)-1].BatchID,
-		"time", time.Since(requestAt),
-	)
-
-	// Update metrics.
-	updateProvingMetrics(proofType, requestAt, isAggregation)
+	if !alreadyGenerated {
+		proofType = output.ProofType
+		log.Info(
+			"Batch proof generated",
+			"isAggregation", isAggregation,
+			"proofType", proofType,
+			"start", batches[0].BatchID,
+			"end", batches[len(batches)-1].BatchID,
+			"time", time.Since(requestAt),
+		)
+		// Update metrics.
+		updateProvingMetrics(proofType, requestAt, isAggregation)
+	}
 
 	return output, nil
 }

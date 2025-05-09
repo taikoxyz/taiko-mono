@@ -43,7 +43,8 @@ interface ITaikoInbox {
         uint32 byteOffset;
         // The byte size of the blob.
         uint32 byteSize;
-        // The block number when the blob was created.
+        // The block number when the blob was created. This value is only non-zero when
+        // `blobHashes` are non-empty.
         uint64 createdIn;
     }
 
