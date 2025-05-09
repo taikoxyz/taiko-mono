@@ -268,18 +268,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         return getSlashAmount().missingEOP;
     }
 
-    function _getBatchVerifyMetadata(
-        uint256 _batchId,
-        ITaikoInbox.BatchMetadata memory _metadata
-    )
-        internal
-        view
-        returns (ITaikoInbox.Batch memory batch_)
-    {
-        batch_ = taikoInbox.v4GetBatch(uint64(_batchId));
-        require(keccak256(abi.encode(_metadata)) == batch_.metaHash, InvalidBatchMetadata());
-    }
-
     function _getBatchVerifyInfoAndMetadata(
         uint256 _batchId,
         ITaikoInbox.BatchInfo memory _info,
@@ -289,8 +277,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (ITaikoInbox.Batch memory batch_)
     {
+        batch_ = taikoInbox.v4GetBatch(uint64(_batchId));
+        require(keccak256(abi.encode(_metadata)) == batch_.metaHash, InvalidBatchMetadata());
         require(keccak256(abi.encode(_info)) == _metadata.infoHash, InvalidBatchInfo());
-        return _getBatchVerifyMetadata(_batchId, _metadata);
     }
 
     // TODO(daniel): move errors to the interface
