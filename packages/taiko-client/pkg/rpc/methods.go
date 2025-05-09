@@ -1212,31 +1212,55 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 // GetOPVerifierPacaya resolves the Pacaya op verifier address.
 func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
 }
 
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
 func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0RethVerifier)
 }
 
 // GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
 func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1RethVerifier)
 }
 
 // GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
 func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
 }
 
 // GetPreconfRouterPacaya resolves the preconf router address.
 func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.TaikoWrapper == nil {
+		return common.Address{}, errors.New("taikoWrapper contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
 }
 
@@ -1246,8 +1270,8 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	opts *bind.CallOpts,
 	resolveFunc T,
 ) (common.Address, error) {
-	if c.PacayaClients.TaikoInbox == nil {
-		return common.Address{}, errors.New("taikoInbox contract is not set")
+	if resolveFunc == nil {
+		return common.Address{}, errors.New("resolver contract is not set")
 	}
 
 	var cancel context.CancelFunc

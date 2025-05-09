@@ -3,8 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from
-    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
@@ -19,9 +18,9 @@ import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/provers/ProverSet.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
-import "src/layer1/verifiers/Risc0Verifier.sol";
-import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/TaikoSgxVerifier.sol";
+import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
+import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
@@ -59,7 +58,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     address public automata = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
     address public oldFork = vm.envAddress("OLD_FORK");
     address public proverSet = vm.envAddress("PROVER_SET");
-    address public proverMarket = vm.envAddress("PROVER_MARKET");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -150,9 +148,8 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         });
 
         // Register taiko
-        address newFork = address(
-            new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService, proverMarket)
-        );
+        address newFork =
+            address(new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
         register(rollupResolver, "taiko", taikoInbox);
 
@@ -200,17 +197,17 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         returns (address risc0Verifier, address sp1Verifier)
     {
         risc0Verifier = deployProxy({
-            name: "risc0_verifier",
-            impl: address(new Risc0Verifier(l2ChainId, risc0Groth16Verifier)),
-            data: abi.encodeCall(Risc0Verifier.init, (address(0))),
+            name: "risc0_reth_verifier",
+            impl: address(new TaikoRisc0Verifier(l2ChainId, risc0Groth16Verifier)),
+            data: abi.encodeCall(TaikoRisc0Verifier.init, (address(0))),
             registerTo: rollupResolver
         });
 
         // Deploy sp1 verifier
         sp1Verifier = deployProxy({
-            name: "sp1_verifier",
-            impl: address(new SP1Verifier(l2ChainId, sp1RemoteVerifier)),
-            data: abi.encodeCall(SP1Verifier.init, (address(0))),
+            name: "sp1_reth_verifier",
+            impl: address(new TaikoSP1Verifier(l2ChainId, sp1RemoteVerifier)),
+            data: abi.encodeCall(TaikoSP1Verifier.init, (address(0))),
             registerTo: rollupResolver
         });
     }
@@ -223,9 +220,9 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         returns (address sgxVerifier)
     {
         sgxVerifier = deployProxy({
-            name: "sgx_verifier",
-            impl: address(new SgxVerifier(l2ChainId, taikoInbox, proofVerifier, automata)),
-            data: abi.encodeCall(SgxVerifier.init, (address(0))),
+            name: "sgx_reth_verifier",
+            impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automata)),
+            data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
     }

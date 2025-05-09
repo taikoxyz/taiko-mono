@@ -4,11 +4,10 @@ pragma solidity ^0.8.24;
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
-import "src/layer1/prover-market/ProverMarket.sol";
 import "src/layer1/token/TaikoToken.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
-import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/TaikoSgxVerifier.sol";
+import "src/layer1/verifiers/TaikoSP1Verifier.sol";
+import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
 import "src/layer1/team/ERC20Airdrop.sol";
 import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
@@ -21,10 +20,9 @@ contract ConfigurableInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService,
-        address _proverMarket
+        address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     { }
 
     function initWithConfig(
@@ -62,7 +60,6 @@ abstract contract Layer1Test is CommonTest {
         address _verifier,
         address _bondToken,
         address _signalService,
-        address _proverMarket,
         ITaikoInbox.Config memory _config
     )
         internal
@@ -71,11 +68,7 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(
-                    new ConfigurableInbox(
-                        address(0), _verifier, _bondToken, _signalService, _proverMarket
-                    )
-                ),
+                impl: address(new ConfigurableInbox(address(0), _verifier, _bondToken, _signalService)),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )

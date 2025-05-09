@@ -15,7 +15,8 @@ contract MockTaikoInbox is EssentialContract {
 
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata /* _additionalData */
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
@@ -28,7 +29,7 @@ contract MockTaikoInbox is EssentialContract {
             blobHashes: new bytes32[](0),
             blobByteOffset: 0,
             blobByteSize: 0,
-            extraDataList: new bytes32[](params.blocks.length),
+            extraData: 0,
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
             proposer: params.proposer,
             gasLimit: 0, // Mock value
@@ -41,7 +42,6 @@ contract MockTaikoInbox is EssentialContract {
             blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
-                sharingPctg: 0,
                 gasIssuancePerSecond: 0,
                 minGasExcess: 0,
                 maxGasIssuancePerBlock: 0
