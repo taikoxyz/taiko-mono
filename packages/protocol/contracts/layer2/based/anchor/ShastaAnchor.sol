@@ -18,12 +18,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
     uint256[50] private __gap;
 
     constructor(
-        address _resolver,
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight
     )
-        PacayaAnchor(_resolver, _signalService, _pacayaForkHeight)
+        PacayaAnchor(_signalService, _pacayaForkHeight)
     {
         require(
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()

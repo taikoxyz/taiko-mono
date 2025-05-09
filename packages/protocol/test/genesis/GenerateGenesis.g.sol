@@ -126,7 +126,6 @@ contract TestGenerateGenesis is Test {
         taikoAnchorProxy.upgradeTo(
             address(
                 new TaikoAnchor(
-                    getPredeployedContractAddress("RollupResolver"),
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
                     uint64(shastaForkHeight)
