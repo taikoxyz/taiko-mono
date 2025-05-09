@@ -5,9 +5,9 @@ import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/token/TaikoToken.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
-import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/TaikoSgxVerifier.sol";
+import "src/layer1/verifiers/TaikoSP1Verifier.sol";
+import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
 import "src/layer1/team/ERC20Airdrop.sol";
 import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
@@ -37,7 +37,7 @@ contract ConfigurableInbox is TaikoInbox {
         __config = _config;
     }
 
-    function pacayaConfig() public view override returns (ITaikoInbox.Config memory) {
+    function _getConfig() internal view override returns (ITaikoInbox.Config memory) {
         return __config;
     }
 

@@ -8,9 +8,9 @@ import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
-/// @title Risc0Verifier
+/// @title TaikoRisc0Verifier
 /// @custom:security-contact security@taiko.xyz
-contract Risc0Verifier is EssentialContract, IVerifier {
+contract TaikoRisc0Verifier is EssentialContract, IVerifier {
     bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
 
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
