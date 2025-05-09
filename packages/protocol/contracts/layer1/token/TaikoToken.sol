@@ -12,7 +12,6 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TaikoToken is TaikoTokenBase {
     address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
-    address public constant TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
     // TODO(bernet): what's the address?
     address public constant TAIKO_DAO_CONTROLLER = 0x0000000000000000000000000000000000000000;
 
@@ -73,9 +72,8 @@ contract TaikoToken is TaikoTokenBase {
     /// @notice Returns the list of accounts that are not eligible for voting.
     /// @return accounts_ The list of accounts that are not eligible for voting.
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
-        accounts_ = new address[](3);
+        accounts_ = new address[](2);
         accounts_[0] = TAIKO_FOUNDATION_TREASURY;
-        accounts_[1] = TAIKO_DAO;
-        accounts_[2] = TAIKO_DAO_CONTROLLER;
+        accounts_[1] = TAIKO_DAO_CONTROLLER;
     }
 }
