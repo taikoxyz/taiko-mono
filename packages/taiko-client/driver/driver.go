@@ -88,7 +88,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
-	latestBlockIDSeenInEventCh := make(chan uint64)
+	latestBlockIDSeenInEventCh := make(chan uint64, 1024)
 	if d.l2ChainSyncer, err = chainSyncer.New(
 		d.ctx,
 		d.rpc,
