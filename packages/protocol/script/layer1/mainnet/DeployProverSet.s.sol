@@ -18,7 +18,7 @@ contract DeployProverSet is BaseScript {
 
         address impl = vm.envOr(
             "PROVER_SET_IMPL",
-            address(new ProverSet(address(resolver), inbox, taikoToken, iProposeBatch))
+            address(new ProverSet(inbox, taikoToken, iProposeBatch))
         );
 
         deploy({ name: "", impl: impl, data: abi.encodeCall(ProverSetBase.init, (owner, admin)) });
