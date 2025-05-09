@@ -12,13 +12,12 @@ contract ProverSet is ProverSetBase, IProposeBatch {
     error ForcedInclusionParamsNotAllowed();
 
     constructor(
-        address _resolver,
         address _inbox,
         address _bondToken,
         address _iProposeBatch
     )
         nonZeroAddr(_iProposeBatch)
-        ProverSetBase(_resolver, _inbox, _bondToken)
+        ProverSetBase(_inbox, _bondToken)
     {
         iProposeBatch = IProposeBatch(_iProposeBatch);
     }

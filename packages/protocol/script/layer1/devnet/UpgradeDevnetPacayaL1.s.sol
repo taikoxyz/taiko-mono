@@ -75,16 +75,16 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
         // Rollup resolver
-        address rollupResolver = deployProxy({
-            name: "rollup_address_resolver",
-            impl: address(new DefaultResolver()),
-            data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        });
-        // register copy
-        copyRegister(rollupResolver, sharedResolver, "taiko_token");
-        copyRegister(rollupResolver, sharedResolver, "bond_token");
-        copyRegister(rollupResolver, sharedResolver, "signal_service");
-        copyRegister(rollupResolver, sharedResolver, "bridge");
+        // address rollupResolver = deployProxy({
+        //     name: "rollup_address_resolver",
+        //     impl: address(new DefaultResolver()),
+        //     data: abi.encodeCall(DefaultResolver.init, (address(0)))
+        // });
+        // // register copy
+        // copyRegister(rollupResolver, sharedResolver, "taiko_token");
+        // copyRegister(rollupResolver, sharedResolver, "bond_token");
+        // copyRegister(rollupResolver, sharedResolver, "signal_service");
+        // copyRegister(rollupResolver, sharedResolver, "bridge");
 
         // Proof verifier
         address proofVerifier = deployProxy({
@@ -99,7 +99,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         });
 
         // OP verifier
-        address opImpl = address(new OpVerifier(rollupResolver));
+        address opImpl = address(new OpVerifier(taikoInbox, proofVerifier));
         address opVerifier = deployProxy({
             name: "op_verifier",
             impl: opImpl,
@@ -148,10 +148,10 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             )
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        register(rollupResolver, "taiko", taikoInbox);
+        //register(rollupResolver, "taiko", taikoInbox);
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
+            address(new ProverSet(taikoInbox, taikoToken, taikoWrapper))
         );
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
         uint64 l2ChainId = taikoInboxImpl.v4GetConfig().chainId;
