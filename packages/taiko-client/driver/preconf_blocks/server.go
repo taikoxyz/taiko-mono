@@ -1001,8 +1001,8 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
 // block.
 func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
 	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
 	la := s.lookahead
-	s.lookaheadMutex.Unlock()
 
 	if la == nil || s.rpc.L1Beacon == nil {
 		log.Warn("Lookahead information not initialized, allowing by default")

@@ -191,8 +191,3 @@ func (i *BlocksInserterOntake) InsertBlocks(
 
 	return nil
 }
-
-// not used
-func (i *BlocksInserterOntake) IsSyncing() bool {
-	return false
-}

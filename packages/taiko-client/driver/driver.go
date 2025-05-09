@@ -402,7 +402,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		wasSequencer bool = false
 	)
 
-	checkHandover := func(epoch, slot uint64, wasSequencer *bool) {
+	checkHandover := func(epoch, slot uint64) {
 		if d.p2pNode == nil {
 			return
 		}
@@ -410,7 +410,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		err := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot)
 		isSequencer := err == nil
 
-		if isSequencer && !*wasSequencer {
+		if isSequencer && !wasSequencer {
 			log.Info("lookahead transitioning to sequencing for operator")
 
 			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
@@ -435,7 +435,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 		}
 
-		*wasSequencer = isSequencer
+		wasSequencer = isSequencer
 	}
 
 	cacheLookahead := func(currentEpoch, currentSlot uint64) error {
@@ -528,7 +528,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		log.Warn("Failed to cache initial lookahead", "error", err)
 	}
 
-	checkHandover(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot(), &wasSequencer)
+	checkHandover(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot())
 
 	for {
 		select {
@@ -544,7 +544,7 @@ func (d *Driver) cacheLookaheadLoop() {
 				log.Warn("Failed to cache lookahead", "error", err)
 			}
 
-			checkHandover(currentEpoch, currentSlot, &wasSequencer)
+			checkHandover(currentEpoch, currentSlot)
 		}
 	}
 }
