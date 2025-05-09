@@ -16,7 +16,7 @@ contract TestTokenLocker is Test {
         owner = address(this);
         recipient = address(0x123);
         token = new TestERC20("Test Token", "TTK");
-        tokenLocker = new TokenLocker(address(token), 1); // 1 year duration
+        tokenLocker = new TokenLocker(owner, address(token), 1); // 1 year duration
 
         // Mint tokens to the owner
         token.mint(owner, 1000 ether);
