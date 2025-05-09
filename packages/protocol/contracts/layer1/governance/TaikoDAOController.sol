@@ -4,7 +4,10 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 
 /// @title TaikoDAOController
-/// @notice
+/// @notice This contract maintains ownership of all contracts and assets, and is itself owned by
+/// the TaikoDAO. This architecture allows the TaikoDAO to seamlessly transition from one DAO to
+/// another by simply changing the owner of this contract. In essence, the TaikoDAO does not
+/// directly own contracts or any assets.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoDAOController is EssentialContract {
     error CallFailed();
