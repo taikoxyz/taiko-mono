@@ -124,7 +124,6 @@ interface IPreconfSlasher is ISlasher {
     error EOPIsValid();
     error InvalidBatchInfo();
     error InvalidBatchMetadata();
-    error InvalidBlockHeader();
     error InvalidChainId();
     error InvalidDomainSeparator();
     error InvalidNextBatchMetadata();
