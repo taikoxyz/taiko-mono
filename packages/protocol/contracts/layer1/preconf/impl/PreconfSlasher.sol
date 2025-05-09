@@ -212,20 +212,26 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         ITaikoInbox.Batch memory prevBatch = taikoInbox.v4GetBatch(uint64(_payload.batchId - 1));
         ITaikoInbox.Batch memory batch = taikoInbox.v4GetBatch(uint64(_payload.batchId));
 
-        // Slash if another block was proposed after EOP in the same batch
-        uint256 blockNumber = evidence.preconfedBlockHeader.number;
-        if (blockNumber > prevBatch.lastBlockId && blockNumber < batch.lastBlockId) {
+        // Slash the preconfer if any block, other than the last one in the batch, is marked as EOP.
+        if (
+            evidence.preconfedBlockHeader.number > prevBatch.lastBlockId
+                && evidence.preconfedBlockHeader.number < batch.lastBlockId
+        ) {
             return getSlashAmount().invalidEOP;
         }
 
+        // Check the block is the last one in the batch.
+        require(evidence.preconfedBlockHeader.number == batch.lastBlockId, BlockNotInBatch());
+
+        // Now, we need to check if the proposer of the next batch is different from the proposer of
+        // the current batch.
         _getBatchVerifyInfoAndMetadata(
             _payload.batchId + 1, evidence.nextBatchInfo, evidence.nextBatchMetadata
         );
 
         require(
-            blockNumber == batch.lastBlockId
-                && evidence.batchInfo.proposer != evidence.nextBatchInfo.proposer,
-            EOPIsValid()
+            evidence.batchInfo.proposer == evidence.nextBatchInfo.proposer,
+            NextBatchProposedByDifferentProposer()
         );
 
         return getSlashAmount().invalidEOP;
@@ -289,5 +295,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     // TODO(daniel): move errors to the interface
     error BlockNotLastInBatch();
+    error BlockNotInBatch();
     error NextBatchProposedBySameProposer();
+    error NextBatchProposedByDifferentProposer();
 }
