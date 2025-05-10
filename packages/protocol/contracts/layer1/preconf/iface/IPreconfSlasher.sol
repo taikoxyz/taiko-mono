@@ -115,15 +115,21 @@ interface IPreconfSlasher is ISlasher {
     );
 
     error BatchNotVerified();
+    error BlockNotInBatch();
+    error BlockNotLastInBatch();
     error EOPIsNotMissing();
     error EOPIsPresent();
     error EOPIsValid();
     error InvalidBatchInfo();
     error InvalidBatchMetadata();
+    error InvalidBlockHeader();
     error InvalidChainId();
     error InvalidDomainSeparator();
     error InvalidNextBatchMetadata();
     error InvalidViolationType();
+    error NextBatchProposedBySameProposer();
+    error NextBatchProposedInNextPreconfWindow();
+    error NextBatchProposedInTheSamePreconfWindow();
     error NotEndOfPreconfirmation();
     error ParentHashMismatch();
     error PossibleReorgOfAnchorBlock();

@@ -97,7 +97,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     {
         EvidenceInvalidPreconfirmation memory e =
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
-        e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
+        require(e.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         ITaikoInbox.TransitionState memory transition =
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
@@ -196,7 +196,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(_payload.eop == true, NotEndOfPreconfirmation());
 
         EvidenceInvalidEOP memory e = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
-        e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
+        require(e.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         ITaikoInbox.Batch memory batch =
             _verifyBatchData(_payload.batchId, e.batchMetadata, e.batchInfo);
@@ -235,7 +235,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(_payload.eop == false, EOPIsPresent());
 
         EvidenceMissingEOP memory e = abi.decode(_evidenceData, (EvidenceMissingEOP));
-        e.preconfedBlockHeader.verifyBlockHash(_payload.blockHash);
+        require(e.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         ITaikoInbox.Batch memory batch = _verifyBatchData(_payload.batchId, e.batchMetadata);
         require(e.preconfedBlockHeader.number == batch.lastBlockId, BlockNotLastInBatch());
@@ -275,11 +275,4 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         batch_ = taikoInbox.v4GetBatch(uint64(_batchId));
         require(keccak256(abi.encode(_metadata)) == batch_.metaHash, InvalidBatchMetadata());
     }
-
-    // TODO(daniel): move errors to the interface
-    error BlockNotLastInBatch();
-    error BlockNotInBatch();
-    error NextBatchProposedBySameProposer();
-    error NextBatchProposedInNextPreconfWindow();
-    error NextBatchProposedInTheSamePreconfWindow();
 }

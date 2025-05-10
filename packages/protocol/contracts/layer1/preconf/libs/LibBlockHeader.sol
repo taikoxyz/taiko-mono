@@ -6,8 +6,6 @@ import "solady/src/utils/LibRLP.sol";
 /// @title LibBlockHeader
 /// @custom:security-contact security@taiko.xyz
 library LibBlockHeader {
-    error BlockHeaderDoesNotMatchHash();
-
     // Taiko block header
     struct BlockHeader {
         bytes32 parentHash;
@@ -57,7 +55,7 @@ library LibBlockHeader {
         return LibRLP.encode(list);
     }
 
-    function verifyBlockHash(BlockHeader memory _blockHeader, bytes32 _blockHash) internal pure {
-        require(keccak256(encodeRLP(_blockHeader)) == _blockHash, BlockHeaderDoesNotMatchHash());
+    function hash(BlockHeader memory _blockHeader) internal pure returns (bytes32) {
+        return keccak256(encodeRLP(_blockHeader));
     }
 }
