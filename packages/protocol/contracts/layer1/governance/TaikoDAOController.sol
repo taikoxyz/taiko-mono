@@ -25,7 +25,6 @@ contract TaikoDAOController is EssentialContract {
 
     /// @notice Forward arbitrary calls to another contract.
     ///         This lets TaikoDAOController directly interact with contracts it owns.
-    ///
     /// @param _target The contract to call
     /// @param _data   Encoded function call + arguments
     /// @return result_ The raw returned data from the call
