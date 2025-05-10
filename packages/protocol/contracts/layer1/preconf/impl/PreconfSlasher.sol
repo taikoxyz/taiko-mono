@@ -95,6 +95,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (uint256)
     {
+        ///TODO: review the following code
         EvidenceInvalidPreconfirmation memory evidence =
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
