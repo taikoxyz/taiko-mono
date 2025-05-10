@@ -1,7 +1,6 @@
 package transaction
 
 import (
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -15,11 +14,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-)
-
-var (
-	testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddr   = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
 type TransactionTestSuite struct {
@@ -37,8 +31,6 @@ func (s *TransactionTestSuite) SetupTest() {
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		rpc.ZeroAddress,
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 	)
 
 	txmgr, err := txmgr.NewSimpleTxManager(
@@ -64,13 +56,6 @@ func (s *TransactionTestSuite) SetupTest() {
 	s.Nil(err)
 
 	s.sender = NewSender(s.RPCClient, txmgr, txmgr, rpc.ZeroAddress, 0)
-}
-
-func (s *TransactionTestSuite) TestIsSubmitProofTxErrorRetryable() {
-	s.True(isSubmitProofTxErrorRetryable(errors.New(testAddr.String()), common.Big0))
-	s.False(isSubmitProofTxErrorRetryable(errors.New("L1_NOT_SPECIAL_PROVER"), common.Big0))
-	s.False(isSubmitProofTxErrorRetryable(errors.New("L1_DUP_PROVERS"), common.Big0))
-	s.False(isSubmitProofTxErrorRetryable(errors.New("L1_"+testAddr.String()), common.Big0))
 }
 
 func TestTxSenderTestSuite(t *testing.T) {

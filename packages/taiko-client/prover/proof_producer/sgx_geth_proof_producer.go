@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -41,7 +40,7 @@ func (s *SgxGethProofProducer) RequestProof(
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, batchID, meta, s.Tier(), requestAt)
+		return s.DummyProofProducer.RequestProof(opts, batchID, meta, requestAt)
 	}
 
 	resp, err := s.requestBatchProof(
@@ -58,7 +57,7 @@ func (s *SgxGethProofProducer) RequestProof(
 	}
 
 	return &ProofResponse{
-		BlockID: batchID,
+		BatchID: batchID,
 		Meta:    meta,
 		Proof:   common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
 		Opts:    opts,
@@ -79,13 +78,13 @@ func (s *SgxGethProofProducer) Aggregate(
 		"Aggregate batch proofs from raiko-host service",
 		"batchSize", len(items),
 		"proofType", ProofTypeSgxGeth,
-		"firstID", items[0].BlockID,
-		"lastID", items[len(items)-1].BlockID,
+		"firstID", items[0].BatchID,
+		"lastID", items[len(items)-1].BatchID,
 		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
-		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), ProofTypeSgxGeth)
+		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, ProofTypeSgxGeth)
 		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier}, nil
 	}
 
@@ -163,11 +162,6 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	}
 
 	return output, nil
-}
-
-// Tier implements the ProofProducer interface.
-func (s *SgxGethProofProducer) Tier() uint16 {
-	return encoding.TierDeprecated
 }
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.

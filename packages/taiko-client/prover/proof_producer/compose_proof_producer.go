@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -81,7 +80,7 @@ func (s *ComposeProofProducer) RequestProof(
 	g.Go(func() error {
 		if s.Dummy {
 			proofType = s.ProofType
-			if resp, err := s.DummyProofProducer.RequestProof(opts, batchID, meta, s.Tier(), requestAt); err != nil {
+			if resp, err := s.DummyProofProducer.RequestProof(opts, batchID, meta, requestAt); err != nil {
 				return err
 			} else {
 				proof = resp.Proof
@@ -115,11 +114,10 @@ func (s *ComposeProofProducer) RequestProof(
 	}
 
 	return &ProofResponse{
-		BlockID:   batchID,
+		BatchID:   batchID,
 		Meta:      meta,
 		Proof:     proof,
 		Opts:      opts,
-		Tier:      s.Tier(),
 		ProofType: proofType,
 	}, nil
 }
@@ -142,8 +140,8 @@ func (s *ComposeProofProducer) Aggregate(
 		"Aggregate batch proofs from raiko-host service",
 		"proofType", proofType,
 		"batchSize", len(items),
-		"firstID", items[0].BlockID,
-		"lastID", items[len(items)-1].BlockID,
+		"firstID", items[0].BatchID,
+		"lastID", items[len(items)-1].BatchID,
 		"time", time.Since(requestAt),
 	)
 	var (
@@ -174,7 +172,7 @@ func (s *ComposeProofProducer) Aggregate(
 	g.Go(func() error {
 		if s.Dummy {
 			proofType = s.ProofType
-			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.Tier(), s.ProofType)
+			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.ProofType)
 			batchProofs = resp.BatchProof
 		} else {
 			if resp, err := s.requestBatchProof(
@@ -203,13 +201,11 @@ func (s *ComposeProofProducer) Aggregate(
 	return &BatchProofs{
 		ProofResponses:       items,
 		BatchProof:           batchProofs,
-		Tier:                 s.Tier(),
-		BlockIDs:             batchIDs,
+		BatchIDs:             batchIDs,
 		ProofType:            proofType,
 		Verifier:             verifier,
 		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
 		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
-		IsPacaya:             true,
 	}, nil
 }
 
@@ -219,11 +215,6 @@ func (s *ComposeProofProducer) RequestCancel(
 	_ ProofRequestOptions,
 ) error {
 	return fmt.Errorf("RequestCancel is not implemented for Pacaya proof producer")
-}
-
-// Tier implements the ProofProducer interface.
-func (s *ComposeProofProducer) Tier() uint16 {
-	return encoding.TierDeprecated
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.

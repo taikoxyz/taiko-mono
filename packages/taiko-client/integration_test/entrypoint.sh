@@ -2,25 +2,25 @@
 
 set -eou pipefail
 
-# load tool commands.
+# Load tool commands
 source scripts/common.sh
 
-# make sure all the commands are available.
+# Make sure all the commands are available
 check_command "cast"
 check_command "forge"
 check_command "docker"
 
-# start and stop docker compose
+# Start and stop docker-compose
 internal/docker/start.sh
 trap "internal/docker/stop.sh" EXIT INT KILL ERR
 
-# deploy l1 contracts
+# Deploy L1 contracts
 integration_test/deploy_l1_contract.sh
 
-# load environment variables for integration test
+# Load environment variables for the upcoming integration tests
 source integration_test/test_env.sh
 
-# make sure environment variables are set
+# Make sure environment variables are set
 check_env "L1_HTTP"
 check_env "L1_WS"
 check_env "L2_HTTP"
@@ -32,10 +32,7 @@ check_env "FORCED_INCLUSION_STORE"
 check_env "PROVER_SET"
 check_env "TAIKO_ANCHOR"
 check_env "TAIKO_TOKEN"
-check_env "GUARDIAN_PROVER_CONTRACT"
-check_env "GUARDIAN_PROVER_MINORITY"
 check_env "L1_CONTRACT_OWNER_PRIVATE_KEY"
-check_env "L1_SECURITY_COUNCIL_PRIVATE_KEY"
 check_env "L1_PROPOSER_PRIVATE_KEY"
 check_env "L1_PROVER_PRIVATE_KEY"
 check_env "TREASURY"

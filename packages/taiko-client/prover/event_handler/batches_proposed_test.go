@@ -11,15 +11,13 @@ import (
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
 
-func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
-	handler := NewBlockProposedEventHandler(&NewBlockProposedEventHandlerOps{
+func (s *EventHandlerTestSuite) TestBatchProposedHandle() {
+	handler := NewBatchProposedEventHandler(&NewBatchProposedEventHandlerOps{
 		SharedState:           &state.SharedState{},
 		ProverAddress:         common.Address{},
 		RPC:                   s.RPCClient,
-		ProofGenerationCh:     make(chan *proofProducer.ProofResponse),
 		AssignmentExpiredCh:   make(chan metadata.TaikoProposalMetaData),
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
-		ProofContestCh:        make(chan *proofProducer.ContestRequestBody),
 		BackOffRetryInterval:  1 * time.Minute,
 		BackOffMaxRetrys:      5,
 		ContesterMode:         true,

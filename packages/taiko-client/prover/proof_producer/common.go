@@ -48,7 +48,7 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 	// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 	if ProofTypeZKSP1 != res.ProofType &&
 		(res.Data.Proof == nil || len(res.Data.Proof.Proof) == 0) {
-		return errEmptyProof
+		return ErrEmptyProof
 	}
 
 	return nil
@@ -56,7 +56,7 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 
 // RaikoProofDataV2 represents the JSON body of the response of the proof requests.
 type RaikoProofDataV2 struct {
-	Proof  *ProofDataV2 `json:"proof"` //nolint:revive,stylecheck
+	Proof  *ProofDataV2 `json:"proof"`
 	Status string       `json:"status"`
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -43,37 +42,16 @@ func NewSender(
 	}
 }
 
-// Send sends the given proof to the TaikoL1 smart contract with a backoff policy.
-func (s *Sender) Send(
-	ctx context.Context,
-	proofResponse *producer.ProofResponse,
-	buildTx TxBuilder,
-) (err error) {
-	var proofStatus *rpc.BlockProofStatus
-
+// Send sends the given proof to the TaikoInbox smart contract with a backoff policy.
+func (s *Sender) Send(ctx context.Context, proofResponse *producer.ProofResponse, buildTx TxBuilder) (err error) {
 	// Check if the proof has already been submitted.
-	if proofResponse.Meta.IsPacaya() {
-		if proofStatus, err = rpc.GetBatchProofStatus(
-			ctx,
-			s.rpc,
-			proofResponse.Meta.Pacaya().GetBatchID(),
-		); err != nil {
-			return err
-		}
-	} else {
-		if proofStatus, err = rpc.GetBlockProofStatus(
-			ctx,
-			s.rpc,
-			proofResponse.BlockID,
-			proofResponse.Opts.GetProverAddress(),
-			s.proverSetAddress,
-		); err != nil {
-			return err
-		}
+	proofStatus, err := rpc.GetBatchProofStatus(ctx, s.rpc, proofResponse.Meta.Pacaya().GetBatchID())
+	if err != nil {
+		return err
 	}
 
 	if proofStatus.IsSubmitted && !proofStatus.Invalid {
-		return fmt.Errorf("a valid proof for block %d is already submitted", proofResponse.BlockID)
+		return fmt.Errorf("a valid proof for block %d is already submitted", proofResponse.BatchID)
 	}
 
 	// Check if this proof is still needed to be submitted.
@@ -82,7 +60,7 @@ func (s *Sender) Send(
 		return err
 	}
 
-	// Assemble the TaikoL1.proveBlock transaction.
+	// Assemble the TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
 	if err != nil {
 		return err
@@ -101,8 +79,7 @@ func (s *Sender) Send(
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		log.Error(
 			"Failed to submit proof",
-			"blockID", proofResponse.BlockID,
-			"tier", proofResponse.Tier,
+			"blockID", proofResponse.BatchID,
 			"proofType", proofResponse.ProofType,
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
@@ -112,40 +89,24 @@ func (s *Sender) Send(
 		return ErrUnretryableSubmission
 	}
 
-	if proofResponse.Meta.IsPacaya() {
-		log.Info(
-			"💰 Your batch proof was accepted",
-			"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
-			"blocks", len(proofResponse.Meta.Pacaya().GetBlocks()),
-		)
-	} else {
-		log.Info(
-			"💰 Your block proof was accepted",
-			"blockID", proofResponse.BlockID,
-			"parentHash", proofResponse.Opts.OntakeOptions().ParentHash,
-			"hash", proofResponse.Opts.OntakeOptions().BlockHash,
-			"txHash", receipt.TxHash,
-			"tier", proofResponse.Tier,
-			"proofType", proofResponse.ProofType,
-			"isContest", len(proofResponse.Proof) == 0,
-		)
-	}
+	log.Info(
+		"💰 Your batch proof was accepted",
+		"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
+		"blocks", len(proofResponse.Meta.Pacaya().GetBlocks()),
+	)
 
 	metrics.ProverSubmissionAcceptedCounter.Add(1)
 
 	return nil
 }
 
-func (s *Sender) SendBatchProof(
-	ctx context.Context,
-	buildTx TxBuilder,
-	batchProof *producer.BatchProofs,
-) error {
-	// Assemble the TaikoL1.proveBlocks / TaikoInbox.proveBatches transaction.
+func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchProof *producer.BatchProofs) error {
+	// Assemble the TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
 	if err != nil {
 		return err
 	}
+
 	// Send the transaction.
 	txMgr, isPrivate := s.txmgrSelector.Select()
 	receipt, err := txMgr.Send(ctx, *txCandidate)
@@ -170,11 +131,10 @@ func (s *Sender) SendBatchProof(
 	log.Info(
 		fmt.Sprintf("🚚 Your %s batch proofs have been accepted", batchProof.ProofType),
 		"txHash", receipt.TxHash,
-		"tier", batchProof.Tier,
-		"blockIDs", batchProof.BlockIDs,
+		"blockIDs", batchProof.BatchIDs,
 	)
 
-	metrics.ProverSubmissionAcceptedCounter.Add(float64(len(batchProof.BlockIDs)))
+	metrics.ProverSubmissionAcceptedCounter.Add(float64(len(batchProof.BatchIDs)))
 
 	return nil
 }
@@ -191,7 +151,7 @@ func (s *Sender) ValidateProof(
 	if err != nil {
 		log.Warn(
 			"Failed to fetch L1 block",
-			"blockID", proofResponse.BlockID,
+			"blockID", proofResponse.BatchID,
 			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
 			"error", err,
 		)
@@ -200,7 +160,7 @@ func (s *Sender) ValidateProof(
 	if l1Header.Hash() != proofResponse.Opts.GetRawBlockHash() {
 		log.Warn(
 			"Reorg detected, skip the current proof submission",
-			"blockID", proofResponse.BlockID,
+			"blockID", proofResponse.BatchID,
 			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
 			"l1HashOld", proofResponse.Opts.GetRawBlockHash(),
 			"l1HashNew", l1Header.Hash(),
@@ -209,55 +169,23 @@ func (s *Sender) ValidateProof(
 	}
 
 	var verifiedID = latestVerifiedID
-	// 2. Check if latest verified head is ahead of this block proof.
+	// 2. Check if latest verified head is ahead of the current block.
 	if verifiedID == nil {
 		ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 		if err != nil {
-			blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
-			if err != nil {
-				return false, err
-			}
-			verifiedID = new(big.Int).SetUint64(blockInfo.BlockId)
-		} else {
-			verifiedID = new(big.Int).SetUint64(ts.BlockId)
+			return false, err
 		}
+		verifiedID = new(big.Int).SetUint64(ts.BlockId)
 	}
 
-	if proofResponse.Meta.IsPacaya() {
-		if verifiedID.Cmp(new(big.Int).SetUint64(proofResponse.Meta.Pacaya().GetLastBlockID())) >= 0 {
-			log.Info(
-				"Batch is already verified, skip current proof submission",
-				"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
-				"latestVerifiedID", latestVerifiedID,
-			)
-			return false, nil
-		}
-	} else {
-		if verifiedID.Cmp(proofResponse.BlockID) >= 0 {
-			log.Info(
-				"Block is already verified, skip current proof submission",
-				"blockID", proofResponse.BlockID.Uint64(),
-				"latestVerifiedID", latestVerifiedID,
-			)
-			return false, nil
-		}
+	if verifiedID.Cmp(new(big.Int).SetUint64(proofResponse.Meta.Pacaya().GetLastBlockID())) >= 0 {
+		log.Info(
+			"Batch is already verified, skip current proof submission",
+			"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
+			"latestVerifiedID", latestVerifiedID,
+		)
+		return false, nil
 	}
 
 	return true, nil
-}
-
-// isSubmitProofTxErrorRetryable checks whether the error returned by a proof submission transaction
-// is retryable.
-func isSubmitProofTxErrorRetryable(err error, blockID *big.Int) bool {
-	if !strings.HasPrefix(err.Error(), "L1_") {
-		return true
-	}
-
-	if strings.HasPrefix(err.Error(), "L1_NOT_ASSIGNED_PROVER") ||
-		strings.HasPrefix(err.Error(), "L1_INVALID_PAUSE_STATUS") {
-		return true
-	}
-
-	log.Warn("🤷 Unretryable proof submission error", "error", err, "blockID", blockID)
-	return false
 }

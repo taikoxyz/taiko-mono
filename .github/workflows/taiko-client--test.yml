@@ -65,7 +65,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23
+          go-version: 1.24
           cache: true
 
       - name: Install pnpm dependencies
@@ -74,18 +74,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: taikoxyz/taiko-mono
-          path: ${{ env.OLD_FORK_TAIKO_MONO_DIR }}
-          ref: protocol-v1.12.1-devnet
-
-      - uses: actions/checkout@v4
-        with:
-          repository: taikoxyz/taiko-mono
           path: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
-          ref: taiko-alethia-protocol-v2.3.0
-
-      - name: Install pnpm dependencies for old fork taiko-mono
-        working-directory: ${{ env.OLD_FORK_TAIKO_MONO_DIR }}
-        run: cd ./packages/protocol && pnpm install
+          ref: taiko-alethia-protocol-v2.3.0-devnet
 
       - name: Install pnpm dependencies for pacaya fork taiko-mono
         working-directory: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
@@ -95,7 +85,7 @@ jobs:
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
-        run: OLD_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${OLD_FORK_TAIKO_MONO_DIR}  PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
+        run: PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v5

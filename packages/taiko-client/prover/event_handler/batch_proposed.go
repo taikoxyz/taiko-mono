@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -15,27 +17,66 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
 
-// Handle implements the BlockProposedHandler interface.
-func (h *BlockProposedEventHandler) HandlePacaya(
+var (
+	errL1Reorged         = errors.New("L1 reorged")
+	proofExpirationDelay = 6 * 12 * time.Second // 6 ethereum blocks
+)
+
+// BatchProposedEventHandler is responsible for handling the BatchProposed event as a prover.
+type BatchProposedEventHandler struct {
+	sharedState           *state.SharedState
+	proverAddress         common.Address
+	proverSetAddress      common.Address
+	rpc                   *rpc.Client
+	assignmentExpiredCh   chan<- metadata.TaikoProposalMetaData
+	proofSubmissionCh     chan<- *proofProducer.ProofRequestBody
+	backOffRetryInterval  time.Duration
+	backOffMaxRetrys      uint64
+	contesterMode         bool
+	proveUnassignedBlocks bool
+}
+
+// NewBatchProposedEventHandlerOps is the options for creating a new BatchProposedEventHandler.
+type NewBatchProposedEventHandlerOps struct {
+	SharedState           *state.SharedState
+	ProverAddress         common.Address
+	ProverSetAddress      common.Address
+	RPC                   *rpc.Client
+	AssignmentExpiredCh   chan metadata.TaikoProposalMetaData
+	ProofSubmissionCh     chan *proofProducer.ProofRequestBody
+	BackOffRetryInterval  time.Duration
+	BackOffMaxRetrys      uint64
+	ContesterMode         bool
+	ProveUnassignedBlocks bool
+}
+
+// NewBatchProposedEventHandler creates a new BatchProposedEventHandler instance.
+func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchProposedEventHandler {
+	return &BatchProposedEventHandler{
+		opts.SharedState,
+		opts.ProverAddress,
+		opts.ProverSetAddress,
+		opts.RPC,
+		opts.AssignmentExpiredCh,
+		opts.ProofSubmissionCh,
+		opts.BackOffRetryInterval,
+		opts.BackOffMaxRetrys,
+		opts.ContesterMode,
+		opts.ProveUnassignedBlocks,
+	}
+}
+
+// Handle implements the BatchProposedHandler interface.
+func (h *BatchProposedEventHandler) Handle(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	end eventIterator.EndBlockProposedEventIterFunc,
+	end eventIterator.EndBatchProposedEventIterFunc,
 ) error {
-	// If there are newly generated proofs, we need to submit them as soon as possible,
-	// to avoid proof submission timeout.
-	if len(h.proofGenerationCh) > 0 {
-		log.Info("onBlockProposed callback early return", "proofGenerationChannelLength", len(h.proofGenerationCh))
-		end()
-		return nil
-	}
-
 	// Wait for the corresponding L2 block being mined in node.
-	if _, err := h.rpc.WaitL2Header(
-		ctx,
-		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
-	); err != nil {
+	if _, err := h.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())); err != nil {
 		return fmt.Errorf("failed to wait L2 header (eventID %d): %w", meta.Pacaya().GetLastBlockID(), err)
 	}
 
@@ -103,7 +144,7 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 				ctx,
 			),
 		); err != nil {
-			log.Error("Handle new BlockProposed event error", "error", err)
+			log.Error("Handle new BatchProposed event error", "error", err)
 		}
 	}()
 
@@ -112,7 +153,7 @@ func (h *BlockProposedEventHandler) HandlePacaya(
 
 // checkExpirationAndSubmitProofPacaya checks whether the proposed batch's proving window is expired,
 // and submits a new proof if necessary.
-func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
+func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	lastBlockID *big.Int,
@@ -153,7 +194,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		return nil
 	}
 
-	windowExpired, _, timeToExpire, err := IsProvingWindowExpired(h.rpc, meta, nil)
+	windowExpired, _, timeToExpire, err := IsProvingWindowExpired(h.rpc, meta)
 	if err != nil {
 		return fmt.Errorf("failed to check if the proving window is expired: %w", err)
 	}
@@ -165,7 +206,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		meta.GetProposer() != h.proverSetAddress {
 		log.Info(
 			"Proposed batch is not provable by current prover at the moment",
-			"blockOrBatchID", meta.Pacaya().GetBatchID(),
+			"batchID", meta.Pacaya().GetBatchID(),
 			"prover", meta.GetProposer(),
 			"timeToExpire", timeToExpire,
 		)
@@ -211,6 +252,55 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	metrics.ProverProofsAssigned.Add(1)
 
 	h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
+
+	return nil
+}
+
+// checkL1Reorg checks whether the L1 chain has been reorged.
+func (h *BatchProposedEventHandler) checkL1Reorg(
+	ctx context.Context,
+	blockID *big.Int,
+	meta metadata.TaikoProposalMetaData,
+) error {
+	log.Debug("Check L1 reorg", "blockID", blockID)
+
+	// Ensure the L1 header in canonical chain is the same as the one in the event.
+	l1Header, err := h.rpc.L1.HeaderByNumber(ctx, meta.GetRawBlockHeight())
+	if err != nil {
+		return fmt.Errorf("failed to get L1 header, height %d: %w", meta.GetRawBlockHeight(), err)
+	}
+	if l1Header.Hash() != meta.GetRawBlockHash() {
+		log.Warn(
+			"L1 block hash mismatch, will retry",
+			"height", meta.GetRawBlockHeight(),
+			"l1HashInChain", l1Header.Hash(),
+			"l1HashInEvent", meta.GetRawBlockHash(),
+		)
+		return fmt.Errorf("L1 block hash mismatch: %s != %s", l1Header.Hash(), meta.GetRawBlockHash())
+	}
+
+	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
+	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(blockID, common.Big1))
+	if err != nil {
+		return fmt.Errorf("failed to check whether L1 chain was reorged from L2EE (eventID %d): %w", blockID, err)
+	}
+
+	if reorgCheckResult.IsReorged {
+		log.Info(
+			"Reset L1Current cursor due to reorg",
+			"l1CurrentHeightOld", h.sharedState.GetL1Current().Number,
+			"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
+			"lastHandledBlockIDOld", h.sharedState.GetLastHandledBlockID(),
+			"lastHandledBlockIDNew", reorgCheckResult.LastHandledBlockIDToReset,
+		)
+		h.sharedState.SetL1Current(reorgCheckResult.L1CurrentToReset)
+		if reorgCheckResult.LastHandledBlockIDToReset == nil {
+			h.sharedState.SetLastHandledBlockID(0)
+		} else {
+			h.sharedState.SetLastHandledBlockID(reorgCheckResult.LastHandledBlockIDToReset.Uint64())
+		}
+		return errL1Reorged
+	}
 
 	return nil
 }

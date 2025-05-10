@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -29,7 +28,6 @@ type ClientTestSuite struct {
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
-	AddressManager      *ontakeBindings.AddressManager
 	BlobServer          *MemoryBlobServer
 }
 
@@ -59,8 +57,8 @@ func (s *ClientTestSuite) SetupTest() {
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
-		TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
@@ -213,6 +211,8 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
+	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big0)
+	s.Nil(err)
 	s.BlobServer.Close()
 }
 
