@@ -46,12 +46,13 @@ func New(
 	p2pSync bool,
 	p2pSyncTimeout time.Duration,
 	blobServerEndpoint *url.URL,
+	latestBlockIDSeenInEventCh chan uint64,
 ) (*L2ChainSyncer, error) {
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
 
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
-	eventSyncer, err := event.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint)
+	eventSyncer, err := event.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint, latestBlockIDSeenInEventCh)
 	if err != nil {
 		return nil, err
 	}

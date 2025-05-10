@@ -29,14 +29,15 @@ import (
 
 // BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
 type BlocksInserterPacaya struct {
-	rpc                *rpc.Client
-	progressTracker    *beaconsync.SyncProgressTracker
-	blobDatasource     *rpc.BlobDataSource
-	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
-	calldataFetcher    txlistFetcher.TxListFetcher
-	blobFetcher        txlistFetcher.TxListFetcher
-	mutex              sync.Mutex
+	rpc                        *rpc.Client
+	progressTracker            *beaconsync.SyncProgressTracker
+	blobDatasource             *rpc.BlobDataSource
+	txListDecompressor         *txListDecompressor.TxListDecompressor   // Transactions list decompressor
+	anchorConstructor          *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	calldataFetcher            txlistFetcher.TxListFetcher
+	blobFetcher                txlistFetcher.TxListFetcher
+	mutex                      sync.Mutex
+	latestBlockIDSeenInEventCh chan uint64
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -48,15 +49,17 @@ func NewBlocksInserterPacaya(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	calldataFetcher txlistFetcher.TxListFetcher,
 	blobFetcher txlistFetcher.TxListFetcher,
+	latestBlockIDSeenInEventCh chan uint64,
 ) *BlocksInserterPacaya {
 	return &BlocksInserterPacaya{
-		rpc:                rpc,
-		progressTracker:    progressTracker,
-		blobDatasource:     blobDatasource,
-		txListDecompressor: txListDecompressor,
-		anchorConstructor:  anchorConstructor,
-		calldataFetcher:    calldataFetcher,
-		blobFetcher:        blobFetcher,
+		rpc:                        rpc,
+		progressTracker:            progressTracker,
+		blobDatasource:             blobDatasource,
+		txListDecompressor:         txListDecompressor,
+		anchorConstructor:          anchorConstructor,
+		calldataFetcher:            calldataFetcher,
+		blobFetcher:                blobFetcher,
+		latestBlockIDSeenInEventCh: latestBlockIDSeenInEventCh,
 	}
 }
 
@@ -98,6 +101,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		parent          *types.Header
 		lastPayloadData *engine.ExecutableData
 	)
+
+	// update lastBlockID
+	if i.latestBlockIDSeenInEventCh != nil {
+		i.latestBlockIDSeenInEventCh <- meta.GetLastBlockID()
+	}
 
 	for j := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
@@ -152,7 +160,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Debug("Failed to check if batch is preconfirmed", "batchID", meta.GetBatchID(), "err", err)
+				log.Warn("Failed to check if batch is preconfirmed", "batchID", meta.GetBatchID(), "err", err)
 			} else if lastBlockHeader != nil {
 				log.Info(
 					"🧬 The batch is preconfirmed",
@@ -244,7 +252,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	for j, executableData := range executionPayloads {
 		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert preconf block: %w", err)
+			return nil, fmt.Errorf("failed to insert preconf block %d: %w", executableData.BlockNumber, err)
 		}
 		log.Info(
 			"⏰ New preconfirmation L2 block inserted",
@@ -312,7 +320,8 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	}
 
 	// Decompress the transactions list.
-	if executableData.Transactions[0], err = utils.DecompressPacaya(executableData.Transactions[0]); err != nil {
+	decompressedTxs, err := utils.DecompressPacaya(executableData.Transactions[0])
+	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 
@@ -337,7 +346,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			BaseFee:     u256BaseFee.ToBig(),
 			Withdrawals: make([]*types.Withdrawal, 0),
 		},
-		executableData.Transactions[0],
+		decompressedTxs,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)

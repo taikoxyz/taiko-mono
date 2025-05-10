@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 
@@ -36,7 +37,8 @@ type ExecutableData struct {
 // preconf blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
-	ExecutableData *ExecutableData `json:"executableData"`
+	ExecutableData  *ExecutableData `json:"executableData"`
+	EndOfSequencing *bool           `json:"endOfSequencing"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconf
@@ -69,6 +71,29 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
 	}
 
+	parent, err := s.rpc.L2.HeaderByHash(c.Request().Context(), reqBody.ExecutableData.ParentHash)
+	if err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	if parent.Number.Uint64() < s.latestBlockIDSeenInEvent {
+		log.Warn("The parent block ID is smaller than the latest block ID seen in event",
+			"parentBlockID", parent.Number.Uint64(),
+			"latestBlockIDSeenInEvent", s.latestBlockIDSeenInEvent,
+		)
+		return s.returnError(c, http.StatusBadRequest,
+			fmt.Errorf("latestBatchProposalBlockID: %v, parentBlockID: %v",
+				s.latestBlockIDSeenInEvent,
+				parent.Number.Uint64(),
+			),
+		)
+	}
+
+	endOfSequencing := false
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing {
+		endOfSequencing = true
+	}
+
 	log.Info(
 		"New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
@@ -78,11 +103,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas)),
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
+		"endOfSequencing", endOfSequencing,
 	)
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
 	if s.rpc.L1Beacon != nil {
-		if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.CurrentSlot()); err != nil {
+		if err := s.CheckLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 			return s.returnError(c, http.StatusBadRequest, err)
 		}
 	}
@@ -136,6 +162,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	header := headers[0]
 
+	// If the block number is greater than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if header.Number.Uint64() > s.highestUnsafeL2PayloadBlockID {
+		s.highestUnsafeL2PayloadBlockID = header.Number.Uint64()
+	}
+
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
 	if s.p2pNode != nil && !reflect2.IsNil(s.p2pSigner) {
@@ -164,6 +196,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 						BlockHash:     header.Hash(),
 						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 					},
+					EndOfSequencing: reqBody.EndOfSequencing,
 				},
 				s.p2pSigner,
 			); err != nil {
@@ -182,6 +215,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
 			"extraData", common.Bytes2Hex(header.Extra),
 			"baseFee", utils.WeiToEther(header.BaseFee),
+		)
+	}
+
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing && s.rpc.L1Beacon != nil {
+		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
+		s.sequencingEndedForEpoch.Add(
+			currentEpoch,
+			header.Hash(),
+		)
+		log.Info("End of sequencing block marker created",
+			"blockID", header.Number.Uint64(),
+			"hash", header.Hash().Hex(),
+			"currentEpoch", currentEpoch,
 		)
 	}
 
@@ -294,6 +340,8 @@ type Status struct {
 	// @param has received from the P2P network, if its zero, it means the current server has not received
 	// @param any preconfirmation block from the P2P network yet.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
+	// @param whether the current epoch has received an end of sequencing block marker
+	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -307,10 +355,20 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
+	endOfSequencingBlockHash := common.Hash{}
+
+	if s.rpc.L1Beacon != nil {
+		hash, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
+		if ok {
+			endOfSequencingBlockHash = hash
+		}
+	}
+
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.payloadsCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
+		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
 	})
 }
 

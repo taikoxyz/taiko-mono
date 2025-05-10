@@ -21,7 +21,15 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*", nil, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), nil, s.RPCClient)
+	server, err := New("*",
+		nil,
+		0,
+		common.Address{},
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		nil,
+		s.RPCClient,
+		nil,
+	)
 	s.Nil(err)
 	s.s = server
 	go func() {
@@ -83,7 +91,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 				SlotsPerEpoch: 32,
 			}
 
-			s.Equal(tt.wantErr, s.s.checkLookaheadHandover(tt.feeRecipient, tt.globalSlot))
+			s.Equal(tt.wantErr, s.s.CheckLookaheadHandover(tt.feeRecipient, tt.globalSlot))
 		})
 	}
 }

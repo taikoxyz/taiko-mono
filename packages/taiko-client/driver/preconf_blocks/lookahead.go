@@ -81,7 +81,7 @@ func (w *opWindow) SequencingWindowSplit(operator common.Address, curr bool) []S
 		startEpoch := epoch * w.slotsPerEpoch
 
 		if curr {
-			if w.currOps[i] == operator {
+			if w.currOps[i] == operator || w.nextOps[i] == operator {
 				ranges = append(ranges, SlotRange{
 					Start: startEpoch,
 					End:   startEpoch + threshold,
