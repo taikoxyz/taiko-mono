@@ -19,8 +19,10 @@ var (
 
 func TestL2AccountNonce(t *testing.T) {
 	client := newTestClientWithTimeout(t)
+	header, err := client.L2.HeaderByNumber(context.Background(), nil)
+	require.Nil(t, err)
 
-	nonce, err := client.L2AccountNonce(context.Background(), testAddress, common.Big0)
+	nonce, err := client.L2AccountNonce(context.Background(), testAddress, header.Hash())
 
 	require.Nil(t, err)
 	require.Zero(t, nonce)
