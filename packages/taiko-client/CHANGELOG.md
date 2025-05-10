@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.6.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.5.0...taiko-alethia-client-v1.6.0) (2025-05-10)
+
+
+### Features
+
+* **taiko-client:** add checks to ensure preconfirmation blocks are based on canonical chain ([#19379](https://github.com/taikoxyz/taiko-mono/issues/19379)) ([22e8a64](https://github.com/taikoxyz/taiko-mono/commit/22e8a645ffe329c17f74abec8ff1735c21efeb08))
+* **taiko-client:** improve `isBatchPreconfirmed` ([#19373](https://github.com/taikoxyz/taiko-mono/issues/19373)) ([efe2d99](https://github.com/taikoxyz/taiko-mono/commit/efe2d99f85920c7aabcefc36a97761e21c6d5f29))
+* **taiko-client:** introduce `GET /status` for preconfirmation API server ([#19358](https://github.com/taikoxyz/taiko-mono/issues/19358)) ([1dce498](https://github.com/taikoxyz/taiko-mono/commit/1dce498d932455b84c478e6e3acbfd323f1d3c42))
+* **taiko-client:** introduce `ImportPendingBlocksFromCache` in `PreconfBlockAPIServer` ([#19339](https://github.com/taikoxyz/taiko-mono/issues/19339)) ([0da05f5](https://github.com/taikoxyz/taiko-mono/commit/0da05f5e4e1f36b16ad97a90028c5a3cb0ac3623))
+* **taiko-client:** introduce `payloadQueue` for P2P gossip messages ([#19195](https://github.com/taikoxyz/taiko-mono/issues/19195)) ([f981f59](https://github.com/taikoxyz/taiko-mono/commit/f981f59b63b9cdb5a838d0bfa2ced8b295e56710))
+* **taiko-client:** lookahead sliding window ([#19322](https://github.com/taikoxyz/taiko-mono/issues/19322)) ([abcc6a6](https://github.com/taikoxyz/taiko-mono/commit/abcc6a6a6c9d606f3a04b4817d0e75370102098c))
+* **taiko-client:** preconf handover skip slots ([#19271](https://github.com/taikoxyz/taiko-mono/issues/19271)) ([f7fef81](https://github.com/taikoxyz/taiko-mono/commit/f7fef81ecf21ea1565a741fa31a5ae48a74ca2e2))
+* **taiko-client:** run tests post Pacaya fork ([#19313](https://github.com/taikoxyz/taiko-mono/issues/19313)) ([461bf65](https://github.com/taikoxyz/taiko-mono/commit/461bf653dd731240b2b143ff296358ef692bd659))
+
+
+### Bug Fixes
+
+* **repo:** codecov integration fix ([#19326](https://github.com/taikoxyz/taiko-mono/issues/19326)) ([2d6673f](https://github.com/taikoxyz/taiko-mono/commit/2d6673ff4c80871fe26b79e1ae6b29631e94f637))
+* **taiko-client:** a Pacaya height that the mainnet won't reach temporarily ([#19299](https://github.com/taikoxyz/taiko-mono/issues/19299)) ([fe7833b](https://github.com/taikoxyz/taiko-mono/commit/fe7833bf437c716aeb61f919571fea153f61666e))
+* **taiko-client:** fix an issue for inserting `Anchor` block after precomfirmation ([#19425](https://github.com/taikoxyz/taiko-mono/issues/19425)) ([d7b11d1](https://github.com/taikoxyz/taiko-mono/commit/d7b11d1495d26b509e4ae354fc7f19740582bb63))
+* **taiko-client:** fix an issue in `isBatchPreconfirmed` ([#19314](https://github.com/taikoxyz/taiko-mono/issues/19314)) ([17346cf](https://github.com/taikoxyz/taiko-mono/commit/17346cf4f4731f04d221c822db46601f9473f415))
+* **taiko-client:** fix an issue in `RemovePreconfBlocks` when no `HeadL1Origin` in L2 EE ([#19307](https://github.com/taikoxyz/taiko-mono/issues/19307)) ([602bdd3](https://github.com/taikoxyz/taiko-mono/commit/602bdd385cfd3a537ab22b47b48776b208131139))
+* **taiko-client:** fix an issue in missing ancients search ([#19323](https://github.com/taikoxyz/taiko-mono/issues/19323)) ([ac7ba74](https://github.com/taikoxyz/taiko-mono/commit/ac7ba7465ddbf54252755147c32b4ed0cac5f4e6))
+* **taiko-client:** fix an occasional `engine.SYNCING` error when receiving P2P preconf blocks ([#19262](https://github.com/taikoxyz/taiko-mono/issues/19262)) ([23e4bc5](https://github.com/taikoxyz/taiko-mono/commit/23e4bc5624247f5047fc9a7a6b254bef64385b56))
+* **taiko-client:** make metrics about sgx-geth more accurate ([#19352](https://github.com/taikoxyz/taiko-mono/issues/19352)) ([b5c1f96](https://github.com/taikoxyz/taiko-mono/commit/b5c1f96ac326523927cd3ad4822fb4d97cf9e191))
+* **taiko-client:** update slots in epoch for handover ([#19282](https://github.com/taikoxyz/taiko-mono/issues/19282)) ([ea4a197](https://github.com/taikoxyz/taiko-mono/commit/ea4a197924181360b3f3b640bbcbef2c79cce973))
+
+
+### Chores
+
+* **protocol, taiko-client:** general typos fix ([#19272](https://github.com/taikoxyz/taiko-mono/issues/19272)) ([c22e86d](https://github.com/taikoxyz/taiko-mono/commit/c22e86df678537a3416f99c8fff98e08c51352ca))
+* **taiko-client:** add more preconfirmation metrics ([#19342](https://github.com/taikoxyz/taiko-mono/issues/19342)) ([669ab99](https://github.com/taikoxyz/taiko-mono/commit/669ab99e298535aeb7af81f254a2b5480b4a4692))
+* **taiko-client:** improve error messages when initiating pacaya clients ([#19388](https://github.com/taikoxyz/taiko-mono/issues/19388)) ([bb54d0c](https://github.com/taikoxyz/taiko-mono/commit/bb54d0ce80bbef43c265c2ea45dace165bf7c339))
+* **taiko-client:** remove an unused filed in `PreconfBlockAPIServer` ([#19386](https://github.com/taikoxyz/taiko-mono/issues/19386)) ([d8f6a17](https://github.com/taikoxyz/taiko-mono/commit/d8f6a172ea2e329484be7dc5e6f06878bf915c31))
+
+
+### Code Refactoring
+
+* **taiko-client:** refactor generated proof logs ([#19366](https://github.com/taikoxyz/taiko-mono/issues/19366)) ([3e3f295](https://github.com/taikoxyz/taiko-mono/commit/3e3f2955eef84520130065218d5f1b610c686c38))
+* **taiko-client:** rename `blobSyncer` to `eventSyncer` ([#19340](https://github.com/taikoxyz/taiko-mono/issues/19340)) ([74751b9](https://github.com/taikoxyz/taiko-mono/commit/74751b9dc95df1436a783ad02325d23f1bb29099))
+
+
+### Tests
+
+* **taiko-client:** fix `taiko-client` CI tests ([#19422](https://github.com/taikoxyz/taiko-mono/issues/19422)) ([6ff056a](https://github.com/taikoxyz/taiko-mono/commit/6ff056a749ac066ef8840e8a05876e260ff3e682))
+
 ## [1.5.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.4.1...taiko-alethia-client-v1.5.0) (2025-04-11)
 
 
