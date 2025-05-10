@@ -26,10 +26,12 @@ contract TaikoDAOController is EssentialContract {
     /// @notice Forward arbitrary calls to another contract.
     ///         This lets TaikoDAOController directly interact with contracts it owns.
     /// @param _target The contract to call
+    /// @param _value The value to send with the call
     /// @param _data   Encoded function call + arguments
     /// @return result_ The raw returned data from the call
     function execute(
         address _target,
+        uint256 _value,
         bytes calldata _data
     )
         external
@@ -41,10 +43,9 @@ contract TaikoDAOController is EssentialContract {
         require(_target != owner(), InvalidTarget());
         require(_target != address(this), InvalidTarget());
         require(_target != address(0), InvalidTarget());
-        require(_target.code.length != 0, InvalidTarget());
 
         bool success;
-        (success, result_) = _target.call{ value: msg.value }(_data);
+        (success, result_) = _target.call{ value: _value }(_data);
         require(success, CallFailed());
     }
 
