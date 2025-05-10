@@ -15,6 +15,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     using LibBlockHeader for LibBlockHeader.BlockHeader;
 
     address public immutable urc;
+    address public immutable fallbackPreconfer;
     ITaikoInbox public immutable taikoInbox;
     uint64 public immutable l2ChainId;
 
@@ -23,11 +24,13 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     constructor(
         address _resolver,
         address _urc,
+        address _fallbackPreconfer,
         address _taikoInbox
     )
         EssentialContract(_resolver)
     {
         urc = _urc;
+        fallbackPreconfer = _fallbackPreconfer;
         taikoInbox = ITaikoInbox(_taikoInbox);
         l2ChainId = taikoInbox.v4GetConfig().chainId;
     }
@@ -49,6 +52,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         onlyFrom(urc)
         returns (uint256 slashAmount_)
     {
+        require(_committer != fallbackPreconfer, CannotSlashFallbackPreconfer());
+
         // Parse and validate the commitment payload
         CommitmentPayload memory payload = abi.decode(_commitment.payload, (CommitmentPayload));
         require(payload.chainId == l2ChainId, InvalidChainId());

@@ -115,6 +115,7 @@ interface IPreconfSlasher is ISlasher {
     );
 
     error BatchNotVerified();
+    error CannotSlashFallbackPreconfer();
     error EOPIsNotMissing();
     error EOPIsPresent();
     error EOPIsValid();
