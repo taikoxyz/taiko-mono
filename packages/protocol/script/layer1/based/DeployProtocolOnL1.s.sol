@@ -638,14 +638,16 @@ contract DeployProtocolOnL1 is DeployCapability {
         Ownable2StepUpgradeable(store).transferOwnership(owner);
         console2.log("** forced_inclusion_store ownership transferred to:", owner);
 
-        router = deployProxy({
-            name: "preconf_router",
-            impl: address(
-                new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
-            ),
-            data: abi.encodeCall(PreconfRouter.init, (owner)),
-            registerTo: rollupResolver
-        });
+        if (vm.envBool("PRECONF_ROUTER")) {
+            router = deployProxy({
+                name: "preconf_router",
+                impl: address(
+                    new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
+                ),
+                data: abi.encodeCall(PreconfRouter.init, (owner)),
+                registerTo: rollupResolver
+            });
+        }
 
         UUPSUpgradeable(taikoWrapper).upgradeTo({
             newImplementation: address(new TaikoWrapper(taikoInbox, store, router))
