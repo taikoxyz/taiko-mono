@@ -205,8 +205,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
 
         if (evidence.preconfedBlockHeader.number == batch.lastBlockId) {
-            // Now, we need to check if the proposer of the next batch is different from the
-            // proposer of the current batch.
             _verifyBatchData(_payload.batchId + 1, evidence.nextBatchMetadata);
 
             require(
@@ -243,7 +241,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         ITaikoInbox.Batch memory batch = _verifyBatchData(_payload.batchId, evidence.batchMetadata);
         require(evidence.preconfedBlockHeader.number == batch.lastBlockId, BlockNotLastInBatch());
 
-        // Validate that the next batch exists
         _verifyBatchData(_payload.batchId + 1, evidence.nextBatchMetadata);
 
         require(
