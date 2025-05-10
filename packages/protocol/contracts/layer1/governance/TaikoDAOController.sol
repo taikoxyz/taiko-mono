@@ -42,7 +42,6 @@ contract TaikoDAOController is EssentialContract {
     {
         require(_target != owner(), InvalidTarget());
         require(_target != address(this), InvalidTarget());
-        require(_target != address(0), InvalidTarget());
 
         bool success;
         (success, result_) = _target.call{ value: _value }(_data);

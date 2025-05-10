@@ -87,12 +87,6 @@ contract TestTaikoDAOController is Layer1Test {
         vm.stopPrank();
     }
 
-    function test_TaikoDAOController_executeToZeroAddress() public {
-        vm.startPrank(owner);
-        vm.expectRevert(TaikoDAOController.InvalidTarget.selector);
-        daoController.execute(address(0), 0, data);
-    }
-
     function test_TaikoDAOController_executeToOwner() public {
         vm.startPrank(owner);
         vm.expectRevert(TaikoDAOController.InvalidTarget.selector);
