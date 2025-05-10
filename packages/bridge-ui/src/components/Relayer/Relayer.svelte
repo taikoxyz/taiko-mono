@@ -62,13 +62,15 @@
     const gasLimitZero = tx.message?.gasLimit === 0;
     const userIsRecipientOrDestOwner =
       tx.message?.to === $account?.address || tx.message?.destOwner === $account?.address;
-    if (tx.status === MessageStatus.NEW) {
-      if (gasLimitZero && userIsRecipientOrDestOwner) {
+    if (tx.status === MessageStatus.NEW || tx.status === MessageStatus.RETRIABLE) {
+      if (gasLimitZero) {
+        if (userIsRecipientOrDestOwner) {
+          return tx;
+        } else {
+          console.warn('gaslimit set to zero, not claimable by connected wallet', tx);
+        }
+      } else {
         return tx;
-      } else if (!gasLimitZero) {
-        return tx;
-      } else if (gasLimitZero && !userIsRecipientOrDestOwner) {
-        console.warn('gaslimit set to zero, not claimable by connected wallet', tx);
       }
     }
   });
