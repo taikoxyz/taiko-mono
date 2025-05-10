@@ -130,7 +130,7 @@ func (i *BlocksInserterOntake) InsertBlocks(
 		ctx,
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		anchorBlockHeader.Root,
-		parent.GasUsed,
+		parent,
 		meta.GetBaseFeeConfig(),
 		new(big.Int).Add(parent.Number, common.Big1),
 		baseFee,
