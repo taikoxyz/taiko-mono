@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -436,14 +437,19 @@ func (c *Client) GetPoolContent(
 func (c *Client) L2AccountNonce(
 	ctx context.Context,
 	account common.Address,
-	height *big.Int,
+	blockHash common.Hash,
 ) (uint64, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var result hexutil.Uint64
-	err := c.L2.CallContext(ctxWithTimeout, &result, "eth_getTransactionCount", account, hexutil.EncodeBig(height))
-	return uint64(result), err
+	return uint64(result), c.L2.CallContext(
+		ctxWithTimeout,
+		&result,
+		"eth_getTransactionCount",
+		account,
+		rpc.BlockNumberOrHashWithHash(blockHash, false),
+	)
 }
 
 // L2SyncProgress represents the sync progress of a L2 execution engine, `ethereum.SyncProgress` is used to check
