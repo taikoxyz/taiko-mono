@@ -54,4 +54,8 @@ library LibBlockHeader {
         list = LibRLP.p(list, uint256(_blockHeader.parentBeaconBlockRoot));
         return LibRLP.encode(list);
     }
+
+    function hash(BlockHeader memory _blockHeader) internal pure returns (bytes32) {
+        return keccak256(encodeRLP(_blockHeader));
+    }
 }
