@@ -108,7 +108,7 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(dummyEssentialContract.owner(), address(daoController));
     }
 
-    function test_TaikoDAOController_receiveEther() public {
+    function test_TaikoDAOController_receiveAndSendEther() public {
         vm.prank(Carol);
         (bool success,) = payable(address(daoController)).call{ value: 0.1 ether }("");
         require(success);
