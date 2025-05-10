@@ -45,6 +45,7 @@ jobs:
     timeout-minutes: 30
     env:
       OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
+      PACAYA_FORK_TAIKO_MONO_DIR: pacaya-fork-taiko-mono
 
     strategy:
       matrix:
@@ -70,11 +71,21 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      - uses: actions/checkout@v4
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
+          ref: taiko-alethia-protocol-v2.3.0
+
+      - name: Install pnpm dependencies for pacaya fork taiko-mono
+        working-directory: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
+        run: cd ./packages/protocol && pnpm install
+
       - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
-        run: make test
+        run: PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v5
