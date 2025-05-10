@@ -75,22 +75,34 @@ contract TestTaikoDAOController is Layer1Test {
         vm.startPrank(owner);
         (bool success,) = target.call(data);
         require(success);
-        bytes memory result = daoController.execute(target, 0, data);
-        assertEq(result, abi.encode("someFunction"), "Forwarded call should return correct data");
+
+        TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](1);
+        calls[0] = TaikoDAOController.Call({ target: target, value: 0, data: data });
+        bytes[] memory results = daoController.execute(calls);
+
+        assertEq(
+            results[0], abi.encode("someFunction"), "Forwarded call should return correct data"
+        );
         vm.stopPrank();
     }
 
     function test_TaikoDAOController_executeNotOwner() public {
+        TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](1);
+        calls[0] = TaikoDAOController.Call({ target: target, value: 0, data: data });
+
         vm.startPrank(newOwner);
         vm.expectRevert("Ownable: caller is not the owner");
-        daoController.execute(target, 0, data);
+        daoController.execute(calls);
         vm.stopPrank();
     }
 
     function test_TaikoDAOController_executeToOwner() public {
+        TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](1);
+        calls[0] = TaikoDAOController.Call({ target: owner, value: 0, data: data });
+
         vm.startPrank(owner);
         vm.expectRevert(TaikoDAOController.InvalidTarget.selector);
-        daoController.execute(owner, 0, data);
+        daoController.execute(calls);
     }
 
     function test_TaikoDAOController_acceptOwnershipOf() public {
@@ -109,10 +121,15 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(address(daoController).balance, 0.1 ether);
 
         vm.prank(owner);
-        daoController.execute(address(David), 0.1 ether, "");
+        TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](2);
+        calls[0] = TaikoDAOController.Call({ target: address(David), value: 0.01 ether, data: "" });
 
-        assertEq(address(daoController).balance, 0);
-        assertEq(address(David).balance, 0.1 ether);
+        calls[1] = TaikoDAOController.Call({ target: address(Frank), value: 0.02 ether, data: "" });
+        daoController.execute(calls);
+
+        assertEq(address(daoController).balance, 0.07 ether);
+        assertEq(address(David).balance, 0.01 ether);
+        assertEq(address(Frank).balance, 0.02 ether);
     }
 
     function test_TaikoDAOController_transferERC20() public {
@@ -120,11 +137,13 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(erc20.balanceOf(address(daoController)), 1000 ether);
 
         vm.prank(owner);
-        daoController.execute(
-            address(erc20),
-            0,
-            abi.encodeWithSignature("transfer(address,uint256)", address(David), 100 ether)
-        );
+        TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](1);
+        calls[0] = TaikoDAOController.Call({
+            target: address(erc20),
+            value: 0,
+            data: abi.encodeWithSignature("transfer(address,uint256)", address(David), 100 ether)
+        });
+        daoController.execute(calls);
         assertEq(erc20.balanceOf(address(David)), 100 ether);
         assertEq(erc20.balanceOf(address(daoController)), 900 ether);
     }

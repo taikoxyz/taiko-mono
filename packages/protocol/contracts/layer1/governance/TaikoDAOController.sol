@@ -12,6 +12,13 @@ import "src/shared/common/EssentialContract.sol";
 contract TaikoDAOController is EssentialContract {
     error CallFailed();
     error InvalidTarget();
+    error NoCallToExecute();
+
+    struct Call {
+        address target;
+        uint256 value;
+        bytes data;
+    }
 
     bytes32[50] private __gap;
 
@@ -25,26 +32,19 @@ contract TaikoDAOController is EssentialContract {
 
     /// @notice Forward arbitrary calls to another contract.
     ///         This lets TaikoDAOController directly interact with contracts it owns.
-    /// @param _target The contract to call
-    /// @param _value The value to send with the call
-    /// @param _data   Encoded function call + arguments
-    /// @return result_ The raw returned data from the call
-    function execute(
-        address _target,
-        uint256 _value,
-        bytes calldata _data
-    )
+    /// @param _calls The calls to execute
+    /// @return results_ The raw returned data from the call
+    function execute(Call[] calldata _calls)
         external
         nonReentrant
         onlyOwner
-        returns (bytes memory result_)
+        returns (bytes[] memory results_)
     {
-        require(_target != owner(), InvalidTarget());
-        require(_target != address(this), InvalidTarget());
-
-        bool success;
-        (success, result_) = _target.call{ value: _value }(_data);
-        require(success, CallFailed());
+        require(_calls.length != 0, NoCallToExecute());
+        results_ = new bytes[](_calls.length);
+        for (uint256 i; i < _calls.length; ++i) {
+            results_[i] = _executeCall(_calls[i]);
+        }
     }
 
     /// @notice Accept ownership of the given contract.
@@ -53,5 +53,14 @@ contract TaikoDAOController is EssentialContract {
     /// @param _contractToOwn The contract to accept ownership of.
     function acceptOwnershipOf(address _contractToOwn) external {
         Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
+    }
+
+    function _executeCall(Call calldata _call) internal returns (bytes memory result_) {
+        require(_call.target != owner(), InvalidTarget());
+        require(_call.target != address(this), InvalidTarget());
+
+        bool success;
+        (success, result_) = _call.target.call{ value: _call.value }(_call.data);
+        require(success, CallFailed());
     }
 }
