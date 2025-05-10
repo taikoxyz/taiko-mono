@@ -35,7 +35,6 @@ contract TaikoDAOController is EssentialContract {
         bytes calldata _data
     )
         external
-        payable
         nonReentrant
         onlyOwner
         returns (bytes memory result_)

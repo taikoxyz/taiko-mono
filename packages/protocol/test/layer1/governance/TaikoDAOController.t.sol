@@ -109,10 +109,10 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(address(daoController).balance, 0.1 ether);
 
         vm.prank(owner);
-        daoController.execute{ value: 0.2 ether }(address(David), 0.3 ether, "");
+        daoController.execute(address(David), 0.1 ether, "");
 
         assertEq(address(daoController).balance, 0);
-        assertEq(address(David).balance, 0.3 ether);
+        assertEq(address(David).balance, 0.1 ether);
     }
 
     function test_TaikoDAOController_transferERC20() public {
