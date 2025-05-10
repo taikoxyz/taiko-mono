@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../Layer1Test.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "src/layer1/governance/TaikoDAOController.sol";
+import "../Layer1Test.sol";
 
 contract DummyContract {
     function someFunction() public pure returns (string memory) {
@@ -15,6 +16,12 @@ contract DummyEssentialContract is EssentialContract {
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
+    }
+}
+
+contract MyERC20 is ERC20 {
+    constructor(address owner, uint256 balance) ERC20("MyERC20", "MyERC20") {
+        _mint(owner, balance);
     }
 }
 
@@ -112,5 +119,19 @@ contract TestTaikoDAOController is Layer1Test {
 
         assertEq(address(daoController).balance, 0);
         assertEq(address(David).balance, 0.3 ether);
+    }
+
+    function test_TaikoDAOController_transferERC20() public {
+        IERC20 erc20 = new MyERC20(address(daoController), 1000 ether);
+        assertEq(erc20.balanceOf(address(daoController)), 1000 ether);
+
+        vm.prank(owner);
+        daoController.execute(
+            address(erc20),
+            0,
+            abi.encodeWithSignature("transfer(address,uint256)", address(David), 100 ether)
+        );
+        assertEq(erc20.balanceOf(address(David)), 100 ether);
+        assertEq(erc20.balanceOf(address(daoController)), 900 ether);
     }
 }
