@@ -6,7 +6,7 @@ source scripts/common.sh
 source integration_test/l1_env.sh
 
 cd ${PACAYA_FORK_TAIKO_MONO}/packages/protocol &&
-  forge script script/layer1/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
+  PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url "$L1_HTTP" \
     --broadcast \
     --ffi \
