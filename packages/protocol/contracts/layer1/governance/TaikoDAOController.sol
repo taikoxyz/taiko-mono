@@ -21,6 +21,8 @@ contract TaikoDAOController is EssentialContract {
         __Essential_init(_taikoDAO);
     }
 
+    receive() external payable { }
+
     /// @notice Forward arbitrary calls to another contract.
     ///         This lets TaikoDAOController directly interact with contracts it owns.
     ///

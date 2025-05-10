@@ -29,11 +29,13 @@ contract TestTaikoDAOController is Layer1Test {
     function setUpOnEthereum() internal override {
         super.setUpOnEthereum();
         daoController = TaikoDAOController(
-            deploy({
-                name: "TaikoDAOController",
-                impl: address(new TaikoDAOController()),
-                data: abi.encodeCall(TaikoDAOController.init, (owner))
-            })
+            payable(
+                deploy({
+                    name: "TaikoDAOController",
+                    impl: address(new TaikoDAOController()),
+                    data: abi.encodeCall(TaikoDAOController.init, (owner))
+                })
+            )
         );
 
         dummyEssentialContract = DummyEssentialContract(
@@ -106,5 +108,12 @@ contract TestTaikoDAOController is Layer1Test {
 
         daoController.acceptOwnershipOf(address(dummyEssentialContract));
         assertEq(dummyEssentialContract.owner(), address(daoController));
+    }
+
+    function test_TaikoDAOController_receiveEther() public {
+        vm.deal(Alice, 1 ether);
+        (bool success,) = payable(address(daoController)).call{ value: 0.1 ether }("");
+        require(success);
+        assertEq(address(daoController).balance, 0.1 ether);
     }
 }
