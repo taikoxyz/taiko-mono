@@ -182,8 +182,6 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetBatchID().Uint64(), err)
 				}
 
-				// Send the last seen proposal to the channel.
-				go i.sendLatestSeenProposal(latestSeenProposal)
 				return nil
 			}
 		}
