@@ -89,7 +89,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 
 	var (
-		allTxs          = i.txListDecompressor.TryDecompress(i.rpc.L2.ChainID, txListBytes, len(meta.GetBlobHashes()) != 0)
+		allTxs          = i.txListDecompressor.TryDecompress(txListBytes, len(meta.GetBlobHashes()) != 0)
 		parent          *types.Header
 		lastPayloadData *engine.ExecutableData
 	)

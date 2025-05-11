@@ -30,7 +30,7 @@ func (s *State) SetL1Current(h *types.Header) {
 }
 
 // ResetL1Current resets the l1Current cursor to the L1 height which emitted a
-// BatchProposed event with given blockID / blockHash.
+// BatchProposed event with given blockID.
 func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	if blockID == nil {
 		return errors.New("empty block ID")

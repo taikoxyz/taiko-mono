@@ -66,7 +66,6 @@ func NewSyncer(
 	txListDecompressor := txListDecompressor.NewTxListDecompressor(
 		uint64(protocolConfigs.BlockMaxGasLimit()),
 		rpc.BlockMaxTxListBytes,
-		client.L2.ChainID,
 	)
 
 	var (

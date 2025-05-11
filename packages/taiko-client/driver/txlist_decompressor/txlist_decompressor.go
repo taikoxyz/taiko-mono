@@ -1,8 +1,6 @@
 package txlistdecompressor
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -15,20 +13,14 @@ import (
 type TxListDecompressor struct {
 	blockMaxGasLimit  uint64
 	maxBytesPerTxList uint64
-	chainID           *big.Int
 }
 
 // NewTxListDecompressor creates a new TxListDecompressor instance based on giving configurations.
 func NewTxListDecompressor(
 	blockMaxGasLimit uint64,
 	maxBytesPerTxList uint64,
-	chainID *big.Int,
 ) *TxListDecompressor {
-	return &TxListDecompressor{
-		blockMaxGasLimit:  blockMaxGasLimit,
-		maxBytesPerTxList: maxBytesPerTxList,
-		chainID:           chainID,
-	}
+	return &TxListDecompressor{blockMaxGasLimit: blockMaxGasLimit, maxBytesPerTxList: maxBytesPerTxList}
 }
 
 // TryDecompress validates and decompresses whether the transactions list in the TaikoInbox.proposeBatch transaction's
@@ -38,11 +30,7 @@ func NewTxListDecompressor(
 //  1. If the transaction list is using calldata, the compressed bytes of the transaction list must be
 //     less than or equal to maxBytesPerTxList.
 //  2. The transaction list bytes must be able to be RLP decoded into a list of transactions.
-func (v *TxListDecompressor) TryDecompress(
-	chainID *big.Int,
-	txListBytes []byte,
-	blobUsed bool,
-) types.Transactions {
+func (v *TxListDecompressor) TryDecompress(txListBytes []byte, blobUsed bool) types.Transactions {
 	return v.tryDecompress(txListBytes, blobUsed)
 }
 
