@@ -664,14 +664,14 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	log.Info(
-		"Publish preconfirmation block request response",
+		"Publish preconfirmation block response",
 		"blockID", block.NumberU64(),
 		"hash", hash.Hex(),
 	)
 
 	if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
 		log.Warn(
-			"Failed to publish preconfirmation block request response",
+			"Failed to publish preconfirmation block response",
 			"hash", hash.Hex(),
 			"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
 			"error", err,
@@ -702,23 +702,21 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	}
 
 	log.Info(
-		"New block request from P2P network",
+		"🔕 New end of sequencing preconfirmation block request from P2P network",
 		"peer", from,
-		"event", "OnUnsafeL2EndOfSequencingRequest",
 		"epoch", epoch,
 	)
 
 	hash, ok := s.sequencingEndedForEpoch.Get(epoch)
 	if !ok {
-		return fmt.Errorf("no block hash found for the given epoch: %d", epoch)
+		return fmt.Errorf("failed to find the end of sequencing block for the given epoch: %d", epoch)
 	}
 
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
 		log.Warn(
-			"Failed to fetch block by hash",
+			"Failed to fetch the end of sequencing block by hash",
 			"peer", from,
-			"event", "OnUnsafeL2EndOfSequencingRequest",
 			"hash", hash.Hex(),
 			"error", err,
 		)
@@ -728,38 +726,25 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	endOfSequencing := true
 	envelope, err := blockToEnvelope(block, &endOfSequencing)
 	if err != nil {
-		return fmt.Errorf("failed to convert block to envelope: %w", err)
-	}
-
-	if err := s.ValidateExecutionPayload(envelope.ExecutionPayload); err != nil {
-		log.Warn(
-			"Invalid preconfirmation block payload",
-			"peer", from,
-			"event", "OnUnsafeL2EndOfSequencingRequest",
-			"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
-			"hash", envelope.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", envelope.ExecutionPayload.ParentHash.Hex(),
-			"error", err,
-		)
-		return nil
+		return fmt.Errorf("failed to convert the end of sequencing block to envelope: %w", err)
 	}
 
 	log.Info(
-		"Publishing response",
+		"Publish end of sequencing preconfirmation block response",
 		"peer", from,
-		"event", "OnUnsafeL2EndOfSequencingRequest",
 		"epoch", epoch,
 		"blockID", block.NumberU64(),
+		"hash", hash.Hex(),
 	)
 
 	if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
 		log.Warn(
-			"Failed to publish",
+			"Failed to publish end of sequencing preconfirmation block response",
 			"peer", from,
-			"event", "OnUnsafeL2EndOfSequencingRequest",
 			"error", err,
 			"epoch", epoch,
 			"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+			"hash", hash.Hex(),
 		)
 	}
 
