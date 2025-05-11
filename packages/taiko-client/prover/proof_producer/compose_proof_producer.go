@@ -145,12 +145,12 @@ func (s *ComposeProofProducer) Aggregate(
 		"time", time.Since(requestAt),
 	)
 	var (
-		g                  = new(errgroup.Group)
 		sgxGethBatchProofs *BatchProofs
 		batchProofs        []byte
-		err                error
 		batches            = make([]*RaikoBatches, 0, len(items))
 		batchIDs           = make([]*big.Int, 0, len(items))
+		g                  = new(errgroup.Group)
+		err                error
 	)
 	for _, item := range items {
 		batches = append(batches, &RaikoBatches{
@@ -207,14 +207,6 @@ func (s *ComposeProofProducer) Aggregate(
 		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
 		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
 	}, nil
-}
-
-// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
-func (s *ComposeProofProducer) RequestCancel(
-	_ context.Context,
-	_ ProofRequestOptions,
-) error {
-	return fmt.Errorf("RequestCancel is not implemented for Pacaya proof producer")
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.

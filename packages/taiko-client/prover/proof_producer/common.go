@@ -26,7 +26,8 @@ type RaikoRequestProofBodyResponseV2 struct {
 // Validate validates the response of the proof requests.
 func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 	if len(res.ErrorMessage) > 0 || len(res.Error) > 0 {
-		return fmt.Errorf("failed to get proof, err: %s, msg: %s, type: %s",
+		return fmt.Errorf(
+			"failed to get proof, err: %s, msg: %s, type: %s",
 			res.Error,
 			res.ErrorMessage,
 			res.ProofType,

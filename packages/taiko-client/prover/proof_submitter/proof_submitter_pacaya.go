@@ -138,11 +138,10 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 	// Request proof.
 	var (
 		opts = &proofProducer.ProofRequestOptionsPacaya{
-			BatchID:            meta.Pacaya().GetBatchID(),
-			ProverAddress:      s.proverAddress,
-			ProposeBatchTxHash: meta.GetTxHash(),
-			EventL1Hash:        meta.GetRawBlockHash(),
-			Headers:            headers,
+			BatchID:       meta.Pacaya().GetBatchID(),
+			ProverAddress: s.proverAddress,
+			EventL1Hash:   meta.GetRawBlockHash(),
+			Headers:       headers,
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse

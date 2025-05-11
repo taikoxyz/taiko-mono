@@ -47,7 +47,8 @@ type BatchProofs struct {
 
 // ProofProducer is an interface that contains all methods to generate a proof.
 type ProofProducer interface {
-	RequestProof(ctx context.Context,
+	RequestProof(
+		ctx context.Context,
 		opts ProofRequestOptions,
 		batchID *big.Int,
 		meta metadata.TaikoProposalMetaData,

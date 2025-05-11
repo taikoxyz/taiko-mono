@@ -164,11 +164,3 @@ func (s *SgxGethProofProducer) requestBatchProof(
 
 	return output, nil
 }
-
-// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
-func (s *SgxGethProofProducer) RequestCancel(
-	_ context.Context,
-	_ ProofRequestOptions,
-) error {
-	return fmt.Errorf("RequestCancel is not implemented for Pacaya proof producer")
-}
