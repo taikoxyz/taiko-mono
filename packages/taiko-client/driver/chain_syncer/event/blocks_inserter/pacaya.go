@@ -99,10 +99,14 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			len(meta.GetBlobHashes()) != 0,
 			true,
 		)
-		lastestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
-		parent              *types.Header
-		lastPayloadData     *engine.ExecutableData
+		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
+		// to the channel.
+		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
+		parent             *types.Header
+		lastPayloadData    *engine.ExecutableData
 	)
+
+	go i.sendLatestSeenProposal(latestSeenProposal)
 
 	for j := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
@@ -179,7 +183,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				}
 
 				// Send the last seen proposal to the channel.
-				go i.sendLastestSeenProposal(lastestSeenProposal)
+				go i.sendLatestSeenProposal(latestSeenProposal)
 				return nil
 			}
 		}
@@ -241,8 +245,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 
 	// Mark the last seen proposal as not preconfirmed and send it to the channel.
-	lastestSeenProposal.PreconfChainReorged = true
-	go i.sendLastestSeenProposal(lastestSeenProposal)
+	latestSeenProposal.PreconfChainReorged = true
+	go i.sendLatestSeenProposal(latestSeenProposal)
 
 	return nil
 }
@@ -416,8 +420,8 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
 }
 
-// sendLastestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
-func (i *BlocksInserterPacaya) sendLastestSeenProposal(proposal *encoding.LastSeenProposal) {
+// sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
+func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		i.latestSeenProposalCh <- proposal
 	}
