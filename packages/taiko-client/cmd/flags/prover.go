@@ -45,11 +45,11 @@ var (
 		Value:    10 * time.Minute,
 		EnvVars:  []string{"RAIKO_REQUEST_TIMEOUT"},
 	}
-	StartingBlockID = &cli.Uint64Flag{
-		Name:     "prover.startingBlockID",
-		Usage:    "If set, prover will start proving blocks from the block with this ID",
+	StartingBatchID = &cli.Uint64Flag{
+		Name:     "prover.startingBatchID",
+		Usage:    "If set, prover will start proving batches from the batch with this ID",
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_STARTING_BLOCK_ID"},
+		EnvVars:  []string{"PROVER_STARTING_BATCH_ID"},
 	}
 	// Proving strategy.
 	ProveUnassignedBlocks = &cli.BoolFlag{
@@ -137,7 +137,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RaikoHostEndpoint,
 	RaikoJWTPath,
 	L1ProverPrivKey,
-	StartingBlockID,
+	StartingBatchID,
 	Dummy,
 	ProveUnassignedBlocks,
 	ContesterMode,

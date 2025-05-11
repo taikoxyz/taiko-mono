@@ -27,7 +27,7 @@ type Config struct {
 	TaikoTokenAddress         common.Address
 	ProverSetAddress          common.Address
 	L1ProverPrivKey           *ecdsa.PrivateKey
-	StartingBlockID           *big.Int
+	StartingBatchID           *big.Int
 	BackOffMaxRetries         uint64
 	BackOffRetryInterval      time.Duration
 	ProveUnassignedBlocks     bool
@@ -60,9 +60,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
 	}
 
-	var startingBlockID *big.Int
-	if c.IsSet(flags.StartingBlockID.Name) {
-		startingBlockID = new(big.Int).SetUint64(c.Uint64(flags.StartingBlockID.Name))
+	var startingBatchID *big.Int
+	if c.IsSet(flags.StartingBatchID.Name) {
+		startingBatchID = new(big.Int).SetUint64(c.Uint64(flags.StartingBatchID.Name))
 	}
 
 	var allowance = common.Big0
@@ -95,7 +95,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		RaikoZKVMHostEndpoint: c.String(flags.RaikoZKVMHostEndpoint.Name),
 		RaikoJWT:              common.Bytes2Hex(jwtSecret),
 		RaikoRequestTimeout:   c.Duration(flags.RaikoRequestTimeout.Name),
-		StartingBlockID:       startingBlockID,
+		StartingBatchID:       startingBatchID,
 		Dummy:                 c.Bool(flags.Dummy.Name),
 		BackOffMaxRetries:     c.Uint64(flags.BackOffMaxRetries.Name),
 		BackOffRetryInterval:  c.Duration(flags.BackOffRetryInterval.Name),
@@ -106,11 +106,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MaxExpiry:             c.Duration(flags.MaxExpiry.Name),
 		Allowance:             allowance,
 		BlockConfirmations:    c.Uint64(flags.BlockConfirmations.Name),
-		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
-			c.String(flags.L1WSEndpoint.Name),
-			l1ProverPrivKey,
-			c,
-		),
+		TxmgrConfigs:          pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,

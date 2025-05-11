@@ -131,7 +131,7 @@ func InitFromConfig(
 	p.proveNotify = make(chan struct{}, 1)
 	p.batchesAggregationNotify = make(chan proofProducer.ProofType, 1)
 
-	if err := p.initL1Current(cfg.StartingBlockID); err != nil {
+	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
 	}
 

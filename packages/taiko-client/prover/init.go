@@ -244,24 +244,24 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 }
 
 // initL1Current initializes prover's L1Current cursor.
-func (p *Prover) initL1Current(startingBlockID *big.Int) error {
+func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
 		return err
 	}
 
-	if startingBlockID == nil {
+	if startingBatchID == nil {
 		var (
-			lastVerifiedBlockID *big.Int
+			lastVerifiedBatchID *big.Int
 			genesisHeight       *big.Int
 		)
 		stateVars, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: p.ctx})
 		if err != nil {
 			return err
 		}
-		lastVerifiedBlockID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
+		lastVerifiedBatchID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
 		genesisHeight = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
 
-		if lastVerifiedBlockID.Cmp(common.Big0) == 0 {
+		if lastVerifiedBatchID.Cmp(common.Big0) == 0 {
 			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, genesisHeight)
 			if err != nil {
 				return err
@@ -271,17 +271,17 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 			return nil
 		}
 
-		startingBlockID = lastVerifiedBlockID
+		startingBatchID = lastVerifiedBatchID
 	}
 
-	log.Info("Init L1Current cursor", "startingBlockID", startingBlockID)
+	log.Info("Init L1Current cursor", "startingBatchID", startingBatchID)
 
-	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, startingBlockID)
+	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, startingBatchID)
 	if err != nil {
 		if err.Error() == ethereum.NotFound.Error() {
-			batch, err := p.rpc.GetBatchByID(p.ctx, startingBlockID)
+			batch, err := p.rpc.GetBatchByID(p.ctx, startingBatchID)
 			if err != nil {
-				return fmt.Errorf("failed to get batch by ID: %d", startingBlockID)
+				return fmt.Errorf("failed to get batch by ID: %d", startingBatchID)
 			}
 
 			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
