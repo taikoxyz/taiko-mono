@@ -24,8 +24,8 @@ contract TrainingModule2DanielWang is Test {
     address private constant FOO_UPGRADEABLE_V1 = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
     address private constant FOO_UPGRADEABLE_V2 = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
 
-    // FOUNDRY_PROFILE=layer1 forge test --mt test_gen_tx_TrainingModule2DanielWang -vvv
-    function test_gen_tx_TrainingModule2DanielWang() public pure {
+    // FOUNDRY_PROFILE=layer1 forge test --mt test_gentx_0001_TrainingModule2DanielWang -vvv
+    function test_gentx_0001_TrainingModule2DanielWang() public pure {
         TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](4);
 
         // Upgrade FooUpgradeable's implementation from V1 to V2
@@ -70,7 +70,7 @@ contract TrainingModule2DanielWang is Test {
         //   0xc642b5beee8d42daefdaaa540483f4d7cdf1b5142071b683b114f77a1b6a8e1c
     }
 
-    function test_gen_tx_SetDAOReverseName() public pure {
+    function test_gentx_0001_SetDAOReverseName() public pure {
         bytes memory data = abi.encodeCall(IReverseRegistrar.setName, ("dao.taiko.eth"));
 
         console2.log("to:");
