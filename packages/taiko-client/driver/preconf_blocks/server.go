@@ -415,97 +415,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return err
 	}
 
-	// Check if the parent block is in the canonical chain, if not, we try to
-	// find all the missing ancients from the cache and import them, if we can't, then we cache the message.
-	parentInCanonical, err := s.rpc.L2.HeaderByNumber(
-		ctx,
-		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
-	)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch parent header by number: %w", err)
-	}
-	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch parent header by hash: %w", err)
-	}
-	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
-		log.Info(
-			"Parent block not in L2 canonical / fork chain",
-			"peer", from,
-			"event", "OnUnsafeL2Response",
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash,
-		)
-		// Try to find all the missing ancients from the cache and import them.
-		if err := s.ImportMissingAncientsFromCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
-			log.Info(
-				"Unable to find all the missing ancients from the cache, cache the current payload",
-				"peer", from,
-				"event", "OnUnsafeL2Response",
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				"reason", err,
-			)
-			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-				log.Info(
-					"Payload is cached",
-					"peer", from,
-					"event", "OnUnsafeL2Response",
-					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
-					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				)
-
-				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
-			}
-			return nil
-		}
-	}
-
-	// Check if the block already exists in the canonical chain, if it does, we ignore the message.
-	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch header by hash: %w", err)
-	}
-	if header != nil {
-		if header.Hash() == msg.ExecutionPayload.BlockHash {
-			log.Info(
-				"Preconfirmation block already exists",
-				"peer", from,
-				"event", "OnUnsafeL2Response",
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-			)
-			return nil
-		} else {
-			log.Info(
-				"Preconfirmation block already exists with different hash",
-				"peer", from,
-				"event", "OnUnsafeL2Response",
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				"headerHash", header.Hash().Hex(),
-				"headerParentHash", header.ParentHash.Hex(),
-			)
-		}
-	}
-
-	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
-		ctx,
-		[]*eth.ExecutionPayload{msg.ExecutionPayload},
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
-	}
-
-	// Try to import the child blocks from the cache, if any.
-	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
-		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
+	// Try to import the payload into the L2 EE chain, if can't, cache it.
+	if _, err := s.TryImportingPayload(ctx, headL1Origin, msg, from); err != nil {
+		return err
 	}
 
 	return nil
@@ -947,6 +859,7 @@ func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common
 	return s.sequencingEndedForEpoch.Get(epoch)
 }
 
+// LatestBlockIDSeenInEventLoop is a goroutine that listens for the latest block ID seen in the event loop.
 func (s *PreconfBlockAPIServer) LatestBlockIDSeenInEventLoop(ctx context.Context) {
 	for {
 		select {
