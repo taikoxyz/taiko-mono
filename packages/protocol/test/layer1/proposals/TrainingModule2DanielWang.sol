@@ -14,6 +14,7 @@ interface IReverseRegistrar {
 contract TrainingModule2DanielWang is Test {
     address private constant TO_ADDRESS = 0x992E727e73a8b5b31865646Bb16F9DC3955373ae;
 
+    address private constant TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
     address private constant TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
     address private constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
 
@@ -69,4 +70,26 @@ contract TrainingModule2DanielWang is Test {
         //   data hash:
         //   0xc642b5beee8d42daefdaaa540483f4d7cdf1b5142071b683b114f77a1b6a8e1c
     }
+
+    function test_gen_tx_SetDAOReverseName() public pure {
+        bytes memory data = abi.encodeCall(IReverseRegistrar.setName, ("dao.taiko.eth"));
+
+        console2.log("to:");
+        console2.log(TAIKO_DAO);
+        console2.log("value:");
+        console2.logUint(0);
+        console2.log("data:");
+        console2.logBytes(data);
+        console2.log("data hash:");
+        console2.logBytes32(keccak256(data));
+    }
+
+    //   to:
+    //   0x9CDf589C941ee81D75F34d3755671d614f7cf261
+    //   value:
+    //   0
+    //   data:
+    //   0xc47f00270000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d64616f2e7461696b6f2e65746800000000000000000000000000000000000000
+    //   data hash:
+    //   0xd5e6e85e19628b12d1fd47413d0bb7a83b3ba986ec7aa8df6803d48ac2b8bef7
 }
