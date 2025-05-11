@@ -18,7 +18,7 @@ import (
 func blockToEnvelope(block *types.Block, endOfSequencing *bool) (*eth.ExecutionPayloadEnvelope, error) {
 	var u256 uint256.Int
 	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
-		return nil, fmt.Errorf("failed to convert base fee to uint256: %w", overflow)
+		return nil, fmt.Errorf("failed to convert base fee to uint256: %v", overflow)
 	}
 	txs, err := utils.EncodeAndCompressTxList(block.Transactions())
 	if err != nil {
