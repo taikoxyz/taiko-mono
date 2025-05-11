@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -29,15 +30,15 @@ import (
 
 // BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
 type BlocksInserterPacaya struct {
-	rpc                        *rpc.Client
-	progressTracker            *beaconsync.SyncProgressTracker
-	blobDatasource             *rpc.BlobDataSource
-	txListDecompressor         *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor          *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
-	calldataFetcher            txlistFetcher.TxListFetcher
-	blobFetcher                txlistFetcher.TxListFetcher
-	mutex                      sync.Mutex
-	latestBlockIDSeenInEventCh chan uint64
+	rpc                  *rpc.Client
+	progressTracker      *beaconsync.SyncProgressTracker
+	blobDatasource       *rpc.BlobDataSource
+	txListDecompressor   *txListDecompressor.TxListDecompressor   // Transactions list decompressor
+	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	calldataFetcher      txlistFetcher.TxListFetcher
+	blobFetcher          txlistFetcher.TxListFetcher
+	latestSeenProposalCh chan *encoding.LastSeenProposal
+	mutex                sync.Mutex
 }
 
 // NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
@@ -49,17 +50,17 @@ func NewBlocksInserterPacaya(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	calldataFetcher txlistFetcher.TxListFetcher,
 	blobFetcher txlistFetcher.TxListFetcher,
-	latestBlockIDSeenInEventCh chan uint64,
+	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) *BlocksInserterPacaya {
 	return &BlocksInserterPacaya{
-		rpc:                        rpc,
-		progressTracker:            progressTracker,
-		blobDatasource:             blobDatasource,
-		txListDecompressor:         txListDecompressor,
-		anchorConstructor:          anchorConstructor,
-		calldataFetcher:            calldataFetcher,
-		blobFetcher:                blobFetcher,
-		latestBlockIDSeenInEventCh: latestBlockIDSeenInEventCh,
+		rpc:                  rpc,
+		progressTracker:      progressTracker,
+		blobDatasource:       blobDatasource,
+		txListDecompressor:   txListDecompressor,
+		anchorConstructor:    anchorConstructor,
+		calldataFetcher:      calldataFetcher,
+		blobFetcher:          blobFetcher,
+		latestSeenProposalCh: latestSeenProposalCh,
 	}
 }
 
@@ -98,14 +99,10 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			len(meta.GetBlobHashes()) != 0,
 			true,
 		)
-		parent          *types.Header
-		lastPayloadData *engine.ExecutableData
+		lastestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
+		parent              *types.Header
+		lastPayloadData     *engine.ExecutableData
 	)
-
-	// update lastBlockID
-	if i.latestBlockIDSeenInEventCh != nil {
-		i.latestBlockIDSeenInEventCh <- meta.GetLastBlockID()
-	}
 
 	for j := range meta.GetBlocks() {
 		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
@@ -176,7 +173,14 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 					"parentHash", parent.Hash(),
 				)
 
-				return updateL1OriginForBatch(ctx, i.rpc, metadata)
+				// Update the L1 origin for each block in the batch.
+				if err := updateL1OriginForBatch(ctx, i.rpc, metadata); err != nil {
+					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetBatchID().Uint64(), err)
+				}
+
+				// Send the last seen proposal to the channel.
+				go i.sendLastestSeenProposal(lastestSeenProposal)
+				return nil
 			}
 		}
 
@@ -235,6 +239,10 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
+
+	// Mark the last seen proposal as not preconfirmed and send it to the channel.
+	lastestSeenProposal.PreconfChainReorged = true
+	go i.sendLastestSeenProposal(lastestSeenProposal)
 
 	return nil
 }
@@ -406,4 +414,11 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	}
 
 	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
+}
+
+// sendLastestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
+func (i *BlocksInserterPacaya) sendLastestSeenProposal(proposal *encoding.LastSeenProposal) {
+	if i.latestSeenProposalCh != nil {
+		i.latestSeenProposalCh <- proposal
+	}
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/modern-go/reflect2"
 	"github.com/urfave/cli/v2"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -88,7 +89,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
-	latestBlockIDSeenInEventCh := make(chan uint64, 1024)
+	latestSeenProposalCh := make(chan *encoding.LastSeenProposal, 1024)
 	if d.l2ChainSyncer, err = chainSyncer.New(
 		d.ctx,
 		d.rpc,
@@ -96,7 +97,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
-		latestBlockIDSeenInEventCh,
+		latestSeenProposalCh,
 	); err != nil {
 		return err
 	}
@@ -124,7 +125,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.TaikoL2Address,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
-			latestBlockIDSeenInEventCh,
+			latestSeenProposalCh,
 		); err != nil {
 			return err
 		}
@@ -181,7 +182,7 @@ func (d *Driver) Start() error {
 			}
 		}()
 
-		go d.preconfBlockServer.LatestBlockIDSeenInEventLoop(d.ctx)
+		go d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
