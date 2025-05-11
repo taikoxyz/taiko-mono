@@ -15,7 +15,6 @@ func TestProofBuffer(t *testing.T) {
 	require.Zero(t, b.Len())
 	require.Less(t, b.FirstItemAt(), time.Now())
 	require.False(t, b.IsAggregating())
-	require.True(t, b.Enabled())
 
 	// Write items to the buffer.
 	for i := 0; i < bufferSize; i++ {

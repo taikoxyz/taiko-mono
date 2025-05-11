@@ -42,64 +42,7 @@ func NewSender(
 	}
 }
 
-// Send sends the given proof to the TaikoInbox smart contract with a backoff policy.
-func (s *Sender) Send(ctx context.Context, proofResponse *producer.ProofResponse, buildTx TxBuilder) (err error) {
-	// Check if the proof has already been submitted.
-	proofStatus, err := rpc.GetBatchProofStatus(ctx, s.rpc, proofResponse.Meta.Pacaya().GetBatchID())
-	if err != nil {
-		return err
-	}
-
-	if proofStatus.IsSubmitted && !proofStatus.Invalid {
-		return fmt.Errorf("a valid proof for block %d is already submitted", proofResponse.BatchID)
-	}
-
-	// Check if this proof is still needed to be submitted.
-	ok, err := s.ValidateProof(ctx, proofResponse, nil)
-	if err != nil || !ok {
-		return err
-	}
-
-	// Assemble the TaikoInbox.proveBatches transaction.
-	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
-	if err != nil {
-		return err
-	}
-
-	// Send the transaction.
-	txMgr, isPrivate := s.txmgrSelector.Select()
-	receipt, err := txMgr.Send(ctx, *txCandidate)
-	if err != nil {
-		if isPrivate {
-			s.txmgrSelector.RecordPrivateTxMgrFailed()
-		}
-		return encoding.TryParsingCustomError(err)
-	}
-
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		log.Error(
-			"Failed to submit proof",
-			"blockID", proofResponse.BatchID,
-			"proofType", proofResponse.ProofType,
-			"txHash", receipt.TxHash,
-			"isPrivateMempool", isPrivate,
-			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
-		)
-		metrics.ProverSubmissionRevertedCounter.Add(1)
-		return ErrUnretryableSubmission
-	}
-
-	log.Info(
-		"💰 Your batch proof was accepted",
-		"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
-		"blocks", len(proofResponse.Meta.Pacaya().GetBlocks()),
-	)
-
-	metrics.ProverSubmissionAcceptedCounter.Add(1)
-
-	return nil
-}
-
+// SendBatchProof sends the batch proof transaction to the L1 protocol.
 func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchProof *producer.BatchProofs) error {
 	// Assemble the TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})

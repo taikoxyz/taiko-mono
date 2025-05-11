@@ -110,9 +110,3 @@ func (pb *ProofBuffer) MarkAggregating() {
 func (pb *ProofBuffer) IsAggregating() bool {
 	return pb.isAggregating
 }
-
-// Enabled returns if the buffer is enabled.
-// @dev this function would be deprecated after Pacaya fork
-func (pb *ProofBuffer) Enabled() bool {
-	return pb.MaxLength > 1
-}

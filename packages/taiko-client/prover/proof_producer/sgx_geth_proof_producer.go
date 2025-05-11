@@ -141,7 +141,8 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	}
 
 	if err := output.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid Raiko response(start: %d, end: %d): %w",
+		return nil, fmt.Errorf(
+			"invalid Raiko response(start: %d, end: %d): %w",
 			batches[0].BatchID,
 			batches[len(batches)-1].BatchID,
 			err,
