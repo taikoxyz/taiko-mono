@@ -112,6 +112,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 
+	// Batch fetch all block headers.
 	headers, err := s.rpc.L2.BatchHeadersByNumbers(ctx, blockNums)
 	if err != nil {
 		return fmt.Errorf("failed to get batch headers, error: %w", err)
