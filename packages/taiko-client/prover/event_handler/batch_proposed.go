@@ -81,7 +81,7 @@ func (h *BatchProposedEventHandler) Handle(
 	}
 
 	// Check if the L1 chain has reorged at first.
-	if err := h.checkL1Reorg(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()), meta); err != nil {
+	if err := h.checkL1Reorg(ctx, meta.Pacaya().GetBatchID(), meta); err != nil {
 		if err.Error() == errL1Reorged.Error() {
 			end()
 			return nil
@@ -90,8 +90,8 @@ func (h *BatchProposedEventHandler) Handle(
 		return err
 	}
 
-	// If the current block is handled, just skip it.
-	if meta.Pacaya().GetLastBlockID() <= h.sharedState.GetLastHandledBlockID() {
+	// If the current batch is handled, just skip it.
+	if meta.Pacaya().GetBatchID().Uint64() <= h.sharedState.GetLastHandledBatchID() {
 		return nil
 	}
 
@@ -115,24 +115,20 @@ func (h *BatchProposedEventHandler) Handle(
 		return err
 	}
 	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledBlockID(meta.Pacaya().GetLastBlockID())
+	h.sharedState.SetLastHandledBatchID(meta.Pacaya().GetBatchID().Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
 		if err := backoff.Retry(
 			func() error {
-				if err := h.checkExpirationAndSubmitProofPacaya(
-					ctx,
-					meta,
-					new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
-				); err != nil {
+				if err := h.checkExpirationAndSubmitProofPacaya(ctx, meta, meta.Pacaya().GetBatchID()); err != nil {
 					log.Error(
 						"Failed to check proof status and submit proof",
-						"error", err,
 						"batchID", meta.Pacaya().GetBatchID(),
 						"numBlobs", len(meta.Pacaya().GetBlobHashes()),
 						"blocks", len(meta.Pacaya().GetBlocks()),
 						"maxRetrys", h.backOffMaxRetrys,
+						"error", err,
 					)
 					return err
 				}
@@ -156,10 +152,10 @@ func (h *BatchProposedEventHandler) Handle(
 func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	lastBlockID *big.Int,
+	batchID *big.Int,
 ) error {
 	// Check whether the batch has been verified.
-	isVerified, err := isBlockVerified(ctx, h.rpc, lastBlockID)
+	isVerified, err := isBatchVerified(ctx, h.rpc, batchID)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to check if the current L2 batch (%d) is verified: %w",
@@ -259,10 +255,10 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 // checkL1Reorg checks whether the L1 chain has been reorged.
 func (h *BatchProposedEventHandler) checkL1Reorg(
 	ctx context.Context,
-	blockID *big.Int,
+	batchID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 ) error {
-	log.Debug("Check L1 reorg", "blockID", blockID)
+	log.Debug("Check L1 reorg", "batchID", batchID)
 
 	// Ensure the L1 header in canonical chain is the same as the one in the event.
 	l1Header, err := h.rpc.L1.HeaderByNumber(ctx, meta.GetRawBlockHeight())
@@ -280,9 +276,9 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	}
 
 	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
-	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(blockID, common.Big1))
+	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1))
 	if err != nil {
-		return fmt.Errorf("failed to check whether L1 chain was reorged from L2EE (eventID %d): %w", blockID, err)
+		return fmt.Errorf("failed to check whether L1 chain was reorged from L2EE (batchID %d): %w", batchID, err)
 	}
 
 	if reorgCheckResult.IsReorged {
@@ -290,14 +286,14 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 			"Reset L1Current cursor due to reorg",
 			"l1CurrentHeightOld", h.sharedState.GetL1Current().Number,
 			"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
-			"lastHandledBlockIDOld", h.sharedState.GetLastHandledBlockID(),
-			"lastHandledBlockIDNew", reorgCheckResult.LastHandledBlockIDToReset,
+			"lastHandledBatchIDOld", h.sharedState.GetLastHandledBatchID(),
+			"lastHandledBatchIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 		)
 		h.sharedState.SetL1Current(reorgCheckResult.L1CurrentToReset)
-		if reorgCheckResult.LastHandledBlockIDToReset == nil {
-			h.sharedState.SetLastHandledBlockID(0)
+		if reorgCheckResult.LastHandledBatchIDToReset == nil {
+			h.sharedState.SetLastHandledBatchID(0)
 		} else {
-			h.sharedState.SetLastHandledBlockID(reorgCheckResult.LastHandledBlockIDToReset.Uint64())
+			h.sharedState.SetLastHandledBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
 		}
 		return errL1Reorged
 	}

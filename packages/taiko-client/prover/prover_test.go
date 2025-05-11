@@ -582,7 +582,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.False(paused)
 
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBlockID(0)
+	s.p.sharedState.SetLastHandledBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {
@@ -629,7 +629,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 	// Then submit a valid proof again
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBlockID(0)
+	s.p.sharedState.SetLastHandledBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {

@@ -8,7 +8,7 @@ import (
 
 // SharedState represents the internal state of a prover.
 type SharedState struct {
-	lastHandledBlockID atomic.Uint64
+	lastHandledBatchID atomic.Uint64
 	l1Current          atomic.Value
 }
 
@@ -17,14 +17,14 @@ func New() *SharedState {
 	return new(SharedState)
 }
 
-// GetLastHandledBlockID returns the last handled block ID.
-func (s *SharedState) GetLastHandledBlockID() uint64 {
-	return s.lastHandledBlockID.Load()
+// GetLastHandledBatchID returns the last handled batch ID.
+func (s *SharedState) GetLastHandledBatchID() uint64 {
+	return s.lastHandledBatchID.Load()
 }
 
-// SetLastHandledBlockID sets the last handled block ID.
-func (s *SharedState) SetLastHandledBlockID(blockID uint64) {
-	s.lastHandledBlockID.Store(blockID)
+// SetLastHandledBatchID sets the last handled batch ID.
+func (s *SharedState) SetLastHandledBatchID(batchID uint64) {
+	s.lastHandledBatchID.Store(batchID)
 }
 
 // GetL1Current returns the current L1 header cursor.

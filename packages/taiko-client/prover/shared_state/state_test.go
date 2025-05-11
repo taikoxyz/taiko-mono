@@ -19,9 +19,9 @@ func (s *ProverSharedStateTestSuite) SetupTest() {
 
 func (s *ProverSharedStateTestSuite) TestLastHandledBlockID() {
 	newLastHandledBlockID := uint64(1024)
-	s.NotEqual(newLastHandledBlockID, s.state.GetLastHandledBlockID())
-	s.state.SetLastHandledBlockID(newLastHandledBlockID)
-	s.Equal(newLastHandledBlockID, s.state.GetLastHandledBlockID())
+	s.NotEqual(newLastHandledBlockID, s.state.GetLastHandledBatchID())
+	s.state.SetLastHandledBatchID(newLastHandledBlockID)
+	s.Equal(newLastHandledBlockID, s.state.GetLastHandledBatchID())
 }
 
 func (s *ProverSharedStateTestSuite) TestL1Current() {

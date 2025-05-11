@@ -21,11 +21,11 @@ func (s *ProverEventHandlerTestSuite) TestIsBatchVerified() {
 	batch, err := s.RPCClient.PacayaClients.TaikoInbox.GetBatch(nil, state2.LastVerifiedBatchId)
 	s.Nil(err)
 
-	verified, err := isBlockVerified(context.Background(), s.RPCClient, new(big.Int).SetUint64(batch.LastBlockId))
+	verified, err := isBatchVerified(context.Background(), s.RPCClient, new(big.Int).SetUint64(batch.BatchId))
 	s.Nil(err)
 	s.True(verified)
 
-	verified, err = isBlockVerified(context.Background(), s.RPCClient, new(big.Int).SetUint64(batch.LastBlockId+1))
+	verified, err = isBatchVerified(context.Background(), s.RPCClient, new(big.Int).SetUint64(batch.BatchId+1))
 	s.Nil(err)
 	s.False(verified)
 }

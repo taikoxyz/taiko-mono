@@ -196,10 +196,10 @@ func (s *Syncer) onBatchProposed(
 				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
 				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
 				"lastInsertedBlockIDOld", s.lastInsertedBlockID,
-				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBlockIDToReset,
+				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 			)
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBlockID = reorgCheckResult.LastHandledBlockIDToReset
+			s.lastInsertedBlockID = reorgCheckResult.LastHandledBatchIDToReset
 			s.reorgDetectedFlag = true
 			endIter()
 
@@ -318,7 +318,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 			); err != nil {
 				return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
 			}
-			reorgCheckResult.LastHandledBlockIDToReset = header.Number
+			reorgCheckResult.LastHandledBatchIDToReset = header.Number
 			return reorgCheckResult, nil
 		}
 

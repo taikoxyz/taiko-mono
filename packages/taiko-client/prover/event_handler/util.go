@@ -15,14 +15,14 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// isBlockVerified checks whether the given L2 block has been verified.
-func isBlockVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
+// isBatchVerified checks whether the given L2 block has been verified.
+func isBatchVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, error) {
 	lastVerifiedTransition, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	return id.Uint64() <= lastVerifiedTransition.BlockId, nil
+	return id.Uint64() <= lastVerifiedTransition.BatchId, nil
 }
 
 // getMetadataFromBatchPacaya fetches the batch meta from the onchain event by the given batch id.

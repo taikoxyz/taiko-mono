@@ -575,7 +575,7 @@ func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 type ReorgCheckResult struct {
 	IsReorged                 bool
 	L1CurrentToReset          *types.Header
-	LastHandledBlockIDToReset *big.Int
+	LastHandledBatchIDToReset *big.Int
 }
 
 // CheckL1Reorg checks whether the L2 block's corresponding L1 block has been reorged or not.
@@ -589,22 +589,22 @@ type ReorgCheckResult struct {
 // 2. If the L1 information which in the given L2 block's anchor transaction has been reorged
 //
 // And if a reorg is detected, we return a new L1 block cursor which need to reset to.
-func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgCheckResult, error) {
+func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgCheckResult, error) {
 	var (
 		result                 = new(ReorgCheckResult)
 		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	)
 	defer cancel()
 
-	// blockID is zero already, no need to check reorg.
-	if blockID.Cmp(common.Big0) == 0 {
+	// batchID is zero already, no need to check reorg.
+	if batchID.Cmp(common.Big0) == 0 {
 		return result, nil
 	}
 
 	for {
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
-		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
-		if blockID.Cmp(common.Big0) == 0 {
+		// engine for that batch, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
+		if batchID.Cmp(common.Big0) == 0 {
 			genesisHeight, err := c.getGenesisHeight(ctxWithTimeout)
 			if err != nil {
 				return nil, err
@@ -618,13 +618,17 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 			return result, nil
 		}
 
-		// 1. Check whether the L2 block's corresponding L1 block which in L1Origin has been reorged.
-		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, blockID)
+		batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch batch (%d) by ID: %w", batchID, err)
+		}
+		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
+		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
 		if err != nil {
 			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 			// its local database, we skip this check.
 			if err.Error() == ethereum.NotFound.Error() {
-				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "blockID", blockID)
+				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
 				return result, nil
 			}
 
@@ -637,7 +641,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 			// We can not find the L1 header which in the L1Origin, which means that L1 block has been reorged.
 			if err.Error() == ethereum.NotFound.Error() {
 				result.IsReorged = true
-				blockID = new(big.Int).Sub(blockID, common.Big1)
+				batchID = new(big.Int).Sub(batchID, common.Big1)
 				continue
 			}
 			return nil, fmt.Errorf("failed to fetch L1 header (%d): %w", l1Origin.L1BlockHeight, err)
@@ -646,12 +650,12 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		if l1Header.Hash() != l1Origin.L1BlockHash {
 			log.Info(
 				"Reorg detected",
-				"blockID", blockID,
+				"batchID", batchID,
 				"l1Height", l1Origin.L1BlockHeight,
 				"l1HashOld", l1Origin.L1BlockHash,
 				"l1HashNew", l1Header.Hash(),
 			)
-			blockID = new(big.Int).Sub(blockID, common.Big1)
+			batchID = new(big.Int).Sub(batchID, common.Big1)
 			result.IsReorged = true
 			continue
 		}
@@ -659,20 +663,20 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// 2. Check whether the L1 information which in the given L2 block's anchor transaction has been reorged.
 		isSyncedL1SnippetInvalid, err := c.checkSyncedL1SnippetFromAnchor(
 			ctxWithTimeout,
-			blockID,
+			new(big.Int).SetUint64(batch.LastBlockId),
 			l1Origin.L1BlockHeight.Uint64(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check L1 reorg from anchor transaction: %w", err)
 		}
 		if isSyncedL1SnippetInvalid {
-			blockID = new(big.Int).Sub(blockID, common.Big1)
+			batchID = new(big.Int).Sub(batchID, common.Big1)
 			result.IsReorged = true
 			continue
 		}
 
 		result.L1CurrentToReset = l1Header
-		result.LastHandledBlockIDToReset = l1Origin.BlockID
+		result.LastHandledBatchIDToReset = batchID
 		break
 	}
 
@@ -681,7 +685,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		"isReorged", result.IsReorged,
 		"l1CurrentToResetNumber", result.L1CurrentToReset.Number,
 		"l1CurrentToResetHash", result.L1CurrentToReset.Hash(),
-		"blockIDToReset", result.LastHandledBlockIDToReset,
+		"batchIDToReset", result.LastHandledBatchIDToReset,
 	)
 
 	return result, nil
