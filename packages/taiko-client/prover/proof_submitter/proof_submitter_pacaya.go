@@ -107,6 +107,8 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 
 	// Fetch all blocks headers for the given batch.
 	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
+		// Calculate the block number for the current index in the batch.
+		// The formula starts from the last block ID and iterates backward to the first block ID in the batch.
 		blockNums[i] = new(big.Int).SetUint64(
 			meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + uint64(i) + 1,
 		)
