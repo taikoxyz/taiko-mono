@@ -292,17 +292,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
-	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
-	}
-	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
-		metrics.DriverPreconfP2POutdatedEnvelopeCounter.Inc()
-		return fmt.Errorf(
-			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
-			msg.ExecutionPayload.BlockNumber,
-			headL1Origin.BlockID,
-		)
+	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
+	if err != nil {
+		return err
 	}
 
 	// If the block number is greater than the highest unsafe L2 payload block ID,
@@ -311,95 +303,16 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		s.highestUnsafeL2PayloadBlockID = uint64(msg.ExecutionPayload.BlockNumber)
 	}
 
-	// Check if the parent block is in the canonical chain, if not, we try to
-	// find all the missing ancients from the cache and import them, if we can't, then we cache the message.
-	parentInCanonical, err := s.rpc.L2.HeaderByNumber(
-		ctx,
-		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
-	)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch parent header by number: %w", err)
+	// Try to import the payload into the L2 EE chain, if can't, cache it.
+	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
+	if err != nil {
+		return err
 	}
-	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch parent header by hash: %w", err)
-	}
-	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
-		log.Info(
-			"Parent block not in L2 canonical / fork chain",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash,
-		)
-		// Try to find all the missing ancients from the cache and import them.
-		if err := s.ImportMissingAncientsFromCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
-			log.Info(
-				"Unable to find all the missing ancients from the cache, cache the current payload",
-				"peer", from,
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				"reason", err,
-			)
-			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-				log.Info(
-					"Payload is cached",
-					"peer", from,
-					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
-					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				)
-
-				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
-				metrics.DriverPreconfP2PEnvelopeCachedCounter.Inc()
-			}
-			return nil
-		}
+	if cached {
+		return nil
 	}
 
-	// Check if the block already exists in the canonical chain, if it does, we ignore the message.
-	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("failed to fetch header by hash: %w", err)
-	}
-	if header != nil {
-		if header.Hash() == msg.ExecutionPayload.BlockHash {
-			log.Info(
-				"Preconfirmation block already exists",
-				"peer", from,
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-			)
-			return nil
-		} else {
-			log.Info(
-				"Preconfirmation block already exists with different hash",
-				"peer", from,
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				"headerHash", header.Hash().Hex(),
-				"headerParentHash", header.ParentHash.Hex(),
-			)
-		}
-	}
-
-	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
-		ctx,
-		[]*eth.ExecutionPayload{msg.ExecutionPayload},
-		false,
-	); err != nil {
-		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
-	}
-
-	// Try to import the child blocks from the cache, if any.
-	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
-		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
-	}
-
+	// If the payload is an end of sequencing message, we need to notify the clients.
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
 		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), msg.ExecutionPayload.BlockHash)
 
@@ -486,9 +399,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Check if the payload is valid.
 	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
 		log.Warn(
-			"Invalid preconfirmation block payload",
+			"Invalid preconfirmation block payload response",
 			"peer", from,
-			"event", "OnUnsafeL2Response",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
@@ -498,17 +410,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	}
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
-	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
-	}
-
-	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
-		return fmt.Errorf(
-			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
-			msg.ExecutionPayload.BlockNumber,
-			headL1Origin.BlockID,
-		)
+	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
+	if err != nil {
+		return err
 	}
 
 	// Check if the parent block is in the canonical chain, if not, we try to
@@ -1056,4 +960,108 @@ func (s *PreconfBlockAPIServer) LatestBlockIDSeenInEventLoop(ctx context.Context
 			s.mu.Unlock()
 		}
 	}
+}
+
+// TryImportingPayload tries to import the given payload into the L2 EE chain.
+// If the parent block is not in the canonical chain, it will try to find all the missing ancients from the cache
+// and import them. If it can't find all the missing ancients, it will cache the payload.
+// If the block already exists in the canonical chain, it will ignore the message.
+func (s *PreconfBlockAPIServer) TryImportingPayload(
+	ctx context.Context,
+	headL1Origin *rawdb.L1Origin,
+	msg *eth.ExecutionPayloadEnvelope,
+	from peer.ID,
+) (bool, error) {
+	// Check if the parent block is in the canonical chain, if not, we try to
+	// find all the missing ancients from the cache and import them, if we can't, then we cache the message.
+	parentInCanonical, err := s.rpc.L2.HeaderByNumber(
+		ctx,
+		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
+	)
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return false, fmt.Errorf("failed to fetch parent header by number: %w", err)
+	}
+	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return false, fmt.Errorf("failed to fetch parent header by hash: %w", err)
+	}
+	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
+		log.Info(
+			"Parent block not in L2 canonical / fork chain",
+			"peer", from,
+			"event", "OnUnsafeL2Response",
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash,
+		)
+		// Try to find all the missing ancients from the cache and import them.
+		if err := s.ImportMissingAncientsFromCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
+			log.Info(
+				"Unable to find all the missing ancients from the cache, cache the current payload",
+				"peer", from,
+				"event", "OnUnsafeL2Response",
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"hash", msg.ExecutionPayload.BlockHash.Hex(),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+				"reason", err,
+			)
+			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+				log.Info(
+					"Payload is cached",
+					"peer", from,
+					"event", "OnUnsafeL2Response",
+					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
+					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+				)
+
+				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload)
+			}
+			return true, nil
+		}
+	}
+
+	// Check if the block already exists in the canonical chain, if it does, we ignore the message.
+	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return false, fmt.Errorf("failed to fetch header by hash: %w", err)
+	}
+	if header != nil {
+		if header.Hash() == msg.ExecutionPayload.BlockHash {
+			log.Info(
+				"Preconfirmation block already exists",
+				"peer", from,
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"hash", msg.ExecutionPayload.BlockHash.Hex(),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			)
+			return true, nil
+		} else {
+			log.Info(
+				"Preconfirmation block already exists with different hash",
+				"peer", from,
+				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+				"hash", msg.ExecutionPayload.BlockHash.Hex(),
+				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+				"headerHash", header.Hash().Hex(),
+				"headerParentHash", header.ParentHash.Hex(),
+			)
+		}
+	}
+
+	// Insert the preconfirmation block into the L2 EE chain.
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
+		ctx,
+		[]*eth.ExecutionPayload{msg.ExecutionPayload},
+		false,
+	); err != nil {
+		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
+	}
+
+	// Try to import the child blocks from the cache, if any.
+	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
+		return false, fmt.Errorf("failed to try importing child blocks from cache: %w", err)
+	}
+
+	return false, nil
 }
