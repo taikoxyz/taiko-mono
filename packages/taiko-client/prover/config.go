@@ -31,10 +31,8 @@ type Config struct {
 	BackOffMaxRetries         uint64
 	BackOffRetryInterval      time.Duration
 	ProveUnassignedBlocks     bool
-	ContesterMode             bool
 	RPCTimeout                time.Duration
 	ProveBatchesGasLimit      uint64
-	MaxExpiry                 time.Duration
 	Allowance                 *big.Int
 	RaikoHostEndpoint         string
 	RaikoZKVMHostEndpoint     string
@@ -100,10 +98,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffMaxRetries:     c.Uint64(flags.BackOffMaxRetries.Name),
 		BackOffRetryInterval:  c.Duration(flags.BackOffRetryInterval.Name),
 		ProveUnassignedBlocks: c.Bool(flags.ProveUnassignedBlocks.Name),
-		ContesterMode:         c.Bool(flags.ContesterMode.Name),
 		RPCTimeout:            c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:  c.Uint64(flags.TxGasLimit.Name),
-		MaxExpiry:             c.Duration(flags.MaxExpiry.Name),
 		Allowance:             allowance,
 		BlockConfirmations:    c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs:          pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),

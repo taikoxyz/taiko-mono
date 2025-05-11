@@ -35,7 +35,6 @@ type BatchProposedEventHandler struct {
 	proofSubmissionCh     chan<- *proofProducer.ProofRequestBody
 	backOffRetryInterval  time.Duration
 	backOffMaxRetrys      uint64
-	contesterMode         bool
 	proveUnassignedBlocks bool
 }
 
@@ -49,7 +48,6 @@ type NewBatchProposedEventHandlerOps struct {
 	ProofSubmissionCh     chan *proofProducer.ProofRequestBody
 	BackOffRetryInterval  time.Duration
 	BackOffMaxRetrys      uint64
-	ContesterMode         bool
 	ProveUnassignedBlocks bool
 }
 
@@ -64,7 +62,6 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProofSubmissionCh,
 		opts.BackOffRetryInterval,
 		opts.BackOffMaxRetrys,
-		opts.ContesterMode,
 		opts.ProveUnassignedBlocks,
 	}
 }
@@ -185,7 +182,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 			return nil
 		}
 
-		// we need to submit a valid proof.
+		// We need to submit a valid proof.
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 		return nil
 	}

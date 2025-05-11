@@ -20,7 +20,6 @@ func (s *EventHandlerTestSuite) TestBatchProposedHandle() {
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
 		BackOffRetryInterval:  1 * time.Minute,
 		BackOffMaxRetrys:      5,
-		ContesterMode:         true,
 		ProveUnassignedBlocks: true,
 	})
 	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer), func() {}))

@@ -59,21 +59,6 @@ var (
 		Value:    false,
 		EnvVars:  []string{"PROVER_PROVE_UNASSIGNED_BLOCKS"},
 	}
-	// Running mode
-	ContesterMode = &cli.BoolFlag{
-		Name:     "mode.contester",
-		Usage:    "Whether you want to contest wrong transitions with higher tier proofs",
-		Category: proverCategory,
-		Value:    false,
-		EnvVars:  []string{"MODE_CONTESTER"},
-	}
-	MaxExpiry = &cli.DurationFlag{
-		Name:     "http.maxExpiry",
-		Usage:    "Maximum accepted expiry in seconds for accepting proving a block",
-		Value:    1 * time.Hour,
-		Category: proverCategory,
-		EnvVars:  []string{"HTTP_MAX_EXPIRY"},
-	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
 		Name:     "prover.dummy",
@@ -140,8 +125,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	StartingBatchID,
 	Dummy,
 	ProveUnassignedBlocks,
-	ContesterMode,
-	MaxExpiry,
 	TaikoTokenAddress,
 	Allowance,
 	ProofPollingInterval,

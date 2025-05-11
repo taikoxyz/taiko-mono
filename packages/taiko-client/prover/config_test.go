@@ -29,7 +29,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.BoolFlag{Name: flags.ProveUnassignedBlocks.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.Allowance.Name},
-		&cli.StringFlag{Name: flags.ContesterMode.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)

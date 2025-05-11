@@ -17,7 +17,6 @@ type AssignmentExpiredEventHandler struct {
 	proverAddress     common.Address
 	proverSetAddress  common.Address
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
-	contesterMode     bool
 }
 
 // NewAssignmentExpiredEventHandler creates a new AssignmentExpiredEventHandler instance.
@@ -26,14 +25,12 @@ func NewAssignmentExpiredEventHandler(
 	proverAddress common.Address,
 	proverSetAddress common.Address,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-	contesterMode bool,
 ) *AssignmentExpiredEventHandler {
 	return &AssignmentExpiredEventHandler{
 		rpc,
 		proverAddress,
 		proverSetAddress,
 		proofSubmissionCh,
-		contesterMode,
 	}
 }
 
@@ -64,11 +61,11 @@ func (h *AssignmentExpiredEventHandler) Handle(
 
 	// If there is already a proof submitted and there is no need to contest
 	// it, we skip proving this block here.
-	if !proofStatus.Invalid || !h.contesterMode {
+	if !proofStatus.Invalid {
 		return nil
 	}
 
-	// If there is no contester, we submit a contest to protocol.
+	// Submit a proof to protocol.
 	go func() { h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta} }()
 
 	return nil

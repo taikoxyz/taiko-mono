@@ -316,7 +316,6 @@ func (p *Prover) initEventHandlers() error {
 		ProofSubmissionCh:     p.proofSubmissionCh,
 		BackOffRetryInterval:  p.cfg.BackOffRetryInterval,
 		BackOffMaxRetrys:      p.cfg.BackOffMaxRetries,
-		ContesterMode:         p.cfg.ContesterMode,
 		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
 	}
 	p.eventHandlers.batchProposedHandler = handler.NewBatchProposedEventHandler(opts)
@@ -324,7 +323,6 @@ func (p *Prover) initEventHandlers() error {
 	p.eventHandlers.batchesProvedHandler = handler.NewTransitionProvedEventHandler(
 		p.rpc,
 		p.proofSubmissionCh,
-		p.cfg.ContesterMode,
 	)
 	// ------- AssignmentExpired -------
 	p.eventHandlers.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
@@ -332,7 +330,6 @@ func (p *Prover) initEventHandlers() error {
 		p.ProverAddress(),
 		p.cfg.ProverSetAddress,
 		p.proofSubmissionCh,
-		p.cfg.ContesterMode,
 	)
 	// ------- BatchesVerified -------
 	p.eventHandlers.batchesVerifiedHandler = handler.NewBatchesVerifiedEventHandler(p.rpc)

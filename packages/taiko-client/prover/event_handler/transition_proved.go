@@ -18,20 +18,14 @@ import (
 type TransitionProvedEventHandler struct {
 	rpc               *rpc.Client
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
-	contesterMode     bool
 }
 
 // NewTransitionProvedEventHandler creates a new TransitionProvedEventHandler instance.
 func NewTransitionProvedEventHandler(
 	rpc *rpc.Client,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-	contesterMode bool,
 ) *TransitionProvedEventHandler {
-	return &TransitionProvedEventHandler{
-		rpc,
-		proofSubmissionCh,
-		contesterMode,
-	}
+	return &TransitionProvedEventHandler{rpc, proofSubmissionCh}
 }
 
 // Handle implements the TransitionProvedHandler interface.
