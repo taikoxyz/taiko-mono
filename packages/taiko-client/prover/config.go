@@ -44,7 +44,6 @@ type Config struct {
 	ProveBlockGasLimit                      uint64
 	HTTPServerPort                          uint64
 	MinEthBalance                           *big.Int
-	MaxExpiry                               time.Duration
 	Allowance                               *big.Int
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
@@ -152,8 +151,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		EnableLivenessBondProof:                 c.Bool(flags.EnableLivenessBondProof.Name),
 		RPCTimeout:                              c.Duration(flags.RPCTimeout.Name),
 		ProveBlockGasLimit:                      c.Uint64(flags.TxGasLimit.Name),
-		HTTPServerPort:                          c.Uint64(flags.ProverHTTPServerPort.Name),
-		MaxExpiry:                               c.Duration(flags.MaxExpiry.Name),
 		Allowance:                               allowance,
 		L1NodeVersion:                           c.String(flags.L1NodeVersion.Name),
 		L2NodeVersion:                           c.String(flags.L2NodeVersion.Name),
