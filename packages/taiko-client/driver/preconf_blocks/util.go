@@ -51,7 +51,7 @@ func checkMessageBlockNumber(
 	msg *eth.ExecutionPayloadEnvelope,
 ) (*rawdb.L1Origin, error) {
 	headL1Origin, err := rpc.L2.HeadL1Origin(ctx)
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, fmt.Errorf("failed to fetch head L1 origin: %w", err)
 	}
 
