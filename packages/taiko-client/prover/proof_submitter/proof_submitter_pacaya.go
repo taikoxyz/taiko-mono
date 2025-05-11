@@ -104,16 +104,17 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 	if err != nil {
 		return fmt.Errorf("failed to wait for L2 Header, blockID: %d, error: %w", meta.Pacaya().GetLastBlockID(), err)
 	}
-	headers, err := s.rpc.L2.BatchHeadersByNumbers(ctx, blockNums)
-	if err != nil {
-		return fmt.Errorf("failed to get batch headers, error: %w", err)
-	}
 
 	// Fetch all blocks headers for the given batch.
 	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
 		blockNums[i] = new(big.Int).SetUint64(
 			meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + uint64(i) + 1,
 		)
+	}
+
+	headers, err := s.rpc.L2.BatchHeadersByNumbers(ctx, blockNums)
+	if err != nil {
+		return fmt.Errorf("failed to get batch headers, error: %w", err)
 	}
 
 	// Request proof.
