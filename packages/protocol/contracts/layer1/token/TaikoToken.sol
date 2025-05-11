@@ -11,9 +11,10 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 (token.taiko.eth)
 /// @custom:security-contact security@taiko.xyz
 contract TaikoToken is TaikoTokenBase {
+    // treasury.taiko.eth
     address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
-    // TODO(bernet): what's the address?
-    address public constant TAIKO_DAO_CONTROLLER = 0x0000000000000000000000000000000000000000;
+    // daocontroller.taiko.eth
+    address public constant TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
 
     error TT_INVALID_PARAM();
     error TT_NON_VOTING_ACCOUNT();
