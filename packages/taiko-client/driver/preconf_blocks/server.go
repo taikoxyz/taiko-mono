@@ -772,6 +772,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 
 		parentPayload := s.payloadsCache.get(uint64(currentPayload.BlockNumber)-1, currentPayload.ParentHash)
 		if parentPayload == nil {
+			// If the parent payload is not found in the cache and chain is not syncing,
+			// we publish a request to the P2P network.
 			if !s.blockRequests.Contains(currentPayload.ParentHash) {
 				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 				if err != nil {
@@ -783,25 +785,32 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					return nil
 				}
 
-				log.Info("Publishing L2Request",
-					"hash", currentPayload.ParentHash.Hex(),
+				log.Info(
+					"Publish preconfirmation block request",
 					"blockID", uint64(currentPayload.BlockNumber-1),
+					"hash", currentPayload.ParentHash.Hex(),
 				)
 
 				if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.ParentHash); err != nil {
-					log.Warn("Failed to publish L2 hash request", "error", err, "hash", currentPayload.BlockHash.Hex())
+					log.Warn(
+						"Failed to publish preconfirmation block request",
+						"blockID", uint64(currentPayload.BlockNumber-1),
+						"hash", currentPayload.BlockHash.Hex(),
+						"error", err,
+					)
 				}
 
 				s.blockRequests.Add(currentPayload.ParentHash, struct{}{})
 			}
 
-			return fmt.Errorf("failed to find parent payload in the cache, number %d, hash %s",
+			return fmt.Errorf(
+				"failed to find parent payload in the cache, number %d, hash %s",
 				currentPayload.BlockNumber-1,
-				currentPayload.ParentHash.Hex())
+				currentPayload.ParentHash.Hex(),
+			)
 		}
 
 		payloadsToImport = append([]*eth.ExecutionPayload{parentPayload}, payloadsToImport...)
-
 		s.blockRequests.Remove(parentPayload.BlockHash)
 
 		// Check if the found parent payload is in the canonical chain,
@@ -834,6 +843,10 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	log.Info(
 		"Found all missing ancient payloads in the cache, start importing",
 		"count", len(payloadsToImport),
+		"startBlockID", uint64(payloadsToImport[0].BlockNumber),
+		"startBlockHash", payloadsToImport[0].BlockHash.Hex(),
+		"endBlockID", uint64(payloadsToImport[len(payloadsToImport)-1].BlockNumber),
+		"endBlockHash", payloadsToImport[len(payloadsToImport)-1].BlockHash.Hex(),
 	)
 
 	// If all ancient payloads are found, try to import them.
@@ -858,6 +871,10 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	log.Info(
 		"Found available child payloads in the cache, start importing",
 		"count", len(childPayloads),
+		"startBlockID", uint64(childPayloads[0].BlockNumber),
+		"startBlockHash", childPayloads[0].BlockHash.Hex(),
+		"endBlockID", uint64(childPayloads[len(childPayloads)-1].BlockNumber),
+		"endBlockHash", childPayloads[len(childPayloads)-1].BlockHash.Hex(),
 	)
 
 	// Try to import all available child payloads.
