@@ -256,9 +256,7 @@ func (p *Prover) eventLoop() {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
 			}
 		case e := <-batchesProvedCh:
-			p.withRetry(func() error {
-				return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e)
-			})
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) })
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-batchProposedCh:

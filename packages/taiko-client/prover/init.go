@@ -150,7 +150,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		}
 	}
 
-	// Init proof buffers for Pacaya.
+	// Init proof buffers.
 	var proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
@@ -166,17 +166,19 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	}
 
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
-		p.rpc,
 		baseLevelProofProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,
-		p.cfg.ProverSetAddress,
 		p.cfg.TaikoAnchorAddress,
-		p.cfg.ProveBlockGasLimit,
-		p.txmgr,
-		p.privateTxmgr,
+		&proofSubmitter.SenderOptions{
+			RPCClient:        p.rpc,
+			Txmgr:            p.txmgr,
+			PrivateTxmgr:     p.privateTxmgr,
+			ProverSetAddress: p.cfg.ProverSetAddress,
+			GasLimit:         p.cfg.ProveBlockGasLimit,
+		},
 		txBuilder,
 		proofBuffers,
 		p.cfg.ForceBatchProvingInterval,

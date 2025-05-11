@@ -30,59 +30,75 @@ var (
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterPacaya struct {
-	rpc                    *rpc.Client
+	rpc *rpc.Client
+	// Proof producers
 	baseLevelProofProducer proofProducer.ProofProducer
 	zkvmProofProducer      proofProducer.ProofProducer
+	// Channels
 	batchResultCh          chan *proofProducer.BatchProofs
 	batchAggregationNotify chan proofProducer.ProofType
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
-	anchorValidator        *validator.AnchorTxValidator
-	txBuilder              *transaction.ProveBlockTxBuilder
-	sender                 *transaction.Sender
-	proverAddress          common.Address
-	proverSetAddress       common.Address
-	taikoAnchorAddress     common.Address
-	proofPollingInterval   time.Duration
+	// Utilities
+	anchorValidator *validator.AnchorTxValidator
+	txBuilder       *transaction.ProveBlockTxBuilder
+	sender          *transaction.Sender
+	// Addresses
+	proverAddress      common.Address
+	proverSetAddress   common.Address
+	taikoAnchorAddress common.Address
 	// Batch proof related
-	proofBuffers              map[proofProducer.ProofType]*proofProducer.ProofBuffer
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer
+	// Intervals
 	forceBatchProvingInterval time.Duration
+	proofPollingInterval      time.Duration
+}
+
+// SenderOptions is the options for the transaction sender.
+type SenderOptions struct {
+	RPCClient        *rpc.Client
+	Txmgr            txmgr.TxManager
+	PrivateTxmgr     txmgr.TxManager
+	ProverSetAddress common.Address
+	GasLimit         uint64
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
 func NewProofSubmitterPacaya(
-	rpcClient *rpc.Client,
 	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-	proverSetAddress common.Address,
 	taikoAnchorAddress common.Address,
-	gasLimit uint64,
-	txmgr txmgr.TxManager,
-	privateTxmgr txmgr.TxManager,
+	senderOpts *SenderOptions,
 	builder *transaction.ProveBlockTxBuilder,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 	proofPollingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
-	anchorValidator, err := validator.New(taikoAnchorAddress, rpcClient.L2.ChainID, rpcClient)
+	anchorValidator, err := validator.New(taikoAnchorAddress, senderOpts.RPCClient.L2.ChainID, senderOpts.RPCClient)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ProofSubmitterPacaya{
-		rpc:                       rpcClient,
-		baseLevelProofProducer:    baseLevelProver,
-		zkvmProofProducer:         zkvmProofProducer,
-		batchResultCh:             batchResultCh,
-		batchAggregationNotify:    batchAggregationNotify,
-		proofSubmissionCh:         proofSubmissionCh,
-		anchorValidator:           anchorValidator,
-		txBuilder:                 builder,
-		sender:                    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
-		proverAddress:             txmgr.From(),
-		proverSetAddress:          proverSetAddress,
+		rpc:                    senderOpts.RPCClient,
+		baseLevelProofProducer: baseLevelProver,
+		zkvmProofProducer:      zkvmProofProducer,
+		batchResultCh:          batchResultCh,
+		batchAggregationNotify: batchAggregationNotify,
+		proofSubmissionCh:      proofSubmissionCh,
+		anchorValidator:        anchorValidator,
+		txBuilder:              builder,
+		sender: transaction.NewSender(
+			senderOpts.RPCClient,
+			senderOpts.Txmgr,
+			senderOpts.PrivateTxmgr,
+			senderOpts.ProverSetAddress,
+			senderOpts.GasLimit,
+		),
+		proverAddress:             senderOpts.Txmgr.From(),
+		proverSetAddress:          senderOpts.ProverSetAddress,
 		taikoAnchorAddress:        taikoAnchorAddress,
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
