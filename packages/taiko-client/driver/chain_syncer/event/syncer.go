@@ -36,7 +36,7 @@ type Syncer struct {
 	// Blocks inserters
 	blocksInserterPacaya blocksInserter.Inserter // Pacaya blocks inserter
 
-	lastInsertedBlockID *big.Int
+	lastInsertedBatchID *big.Int
 	reorgDetectedFlag   bool
 }
 
@@ -134,7 +134,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		)
 
 		s.state.SetL1Current(newL1Current)
-		s.lastInsertedBlockID = nil
+		s.lastInsertedBatchID = nil
 	}
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
@@ -170,20 +170,18 @@ func (s *Syncer) onBatchProposed(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	var (
-		firstBlockID = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + 1)
-		lastBlockID  = new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID())
-		timestamp    = meta.Pacaya().GetLastBlockTimestamp()
+		timestamp = meta.Pacaya().GetLastBlockTimestamp()
 	)
 
 	// We simply ignore the genesis block's `BatchesProposed` event.
-	if lastBlockID.Cmp(common.Big0) == 0 {
+	if meta.Pacaya().GetBatchID().Cmp(common.Big0) == 0 {
 		return nil
 	}
 
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorg(ctx, firstBlockID)
+		reorgCheckResult, err := s.checkReorg(ctx, meta.Pacaya().GetBatchID())
 		if err != nil {
 			return err
 		}
@@ -195,11 +193,11 @@ func (s *Syncer) onBatchProposed(
 				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
 				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
 				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
-				"lastInsertedBlockIDOld", s.lastInsertedBlockID,
+				"lastInsertedBlockIDOld", s.lastInsertedBatchID,
 				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 			)
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBlockID = reorgCheckResult.LastHandledBatchIDToReset
+			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
 			s.reorgDetectedFlag = true
 			endIter()
 
@@ -207,12 +205,12 @@ func (s *Syncer) onBatchProposed(
 		}
 	}
 
-	// Ignore those already inserted blocks.
-	if s.lastInsertedBlockID != nil && lastBlockID.Cmp(s.lastInsertedBlockID) <= 0 {
+	// Ignore those already inserted blatches.
+	if s.lastInsertedBatchID != nil && meta.Pacaya().GetBatchID().Cmp(s.lastInsertedBatchID) <= 0 {
 		log.Debug(
-			"Skip already inserted block",
-			"blockID", lastBlockID,
-			"lastInsertedBlockID", s.lastInsertedBlockID,
+			"Skip already inserted batch",
+			"batchID", meta.Pacaya().GetBatchID(),
+			"lastInsertedBatchID", s.lastInsertedBatchID,
 		)
 		return nil
 	}
@@ -234,7 +232,7 @@ func (s *Syncer) onBatchProposed(
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 		"batchID", meta.Pacaya().GetBatchID(),
-		"lastBlockID", lastBlockID,
+		"lastBlockID", meta.Pacaya().GetLastBlockID(),
 		"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
 		"blocks", len(meta.Pacaya().GetBlocks()),
 	)
@@ -243,7 +241,7 @@ func (s *Syncer) onBatchProposed(
 	}
 
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
-	s.lastInsertedBlockID = lastBlockID
+	s.lastInsertedBatchID = meta.Pacaya().GetBatchID()
 
 	if s.progressTracker.Triggered() {
 		s.progressTracker.ClearMeta()
@@ -268,7 +266,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 	// If the current L2 chain is behind of the last verified block, we skip the check.
 	if s.state.GetL2Head().Number.Uint64() < ts.BlockId ||
-		(s.lastInsertedBlockID != nil && s.lastInsertedBlockID.Uint64() < ts.BlockId) {
+		(s.lastInsertedBatchID != nil && s.lastInsertedBatchID.Uint64() < ts.BlockId) {
 		return reorgCheckResult, nil
 	}
 
@@ -334,7 +332,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 }
 
 // checkReorg checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
-func (s *Syncer) checkReorg(ctx context.Context, blockID *big.Int) (*rpc.ReorgCheckResult, error) {
+func (s *Syncer) checkReorg(ctx context.Context, batchID *big.Int) (*rpc.ReorgCheckResult, error) {
 	// If the L2 chain is at genesis, we don't need to check L1 reorg.
 	if s.state.GetL1Current().Number == s.state.GenesisL1Height {
 		return new(rpc.ReorgCheckResult), nil
@@ -348,7 +346,7 @@ func (s *Syncer) checkReorg(ctx context.Context, blockID *big.Int) (*rpc.ReorgCh
 
 	// 2. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(blockID, common.Big1)); err != nil {
+		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1)); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
 	}
