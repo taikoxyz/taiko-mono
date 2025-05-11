@@ -38,11 +38,13 @@ func (s *AnchorTxConstructorTestSuite) TestGasLimit() {
 }
 
 func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
 	tx, err := s.c.AssembleAnchorV3Tx(
 		context.Background(),
 		s.l1Height,
 		s.l1Hash,
-		1024,
+		head,
 		&pacayaBindings.LibSharedDataBaseFeeConfig{},
 		[][32]byte{},
 		common.Big1,
@@ -59,7 +61,10 @@ func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
 	c, err := New(s.RPCClient)
 	s.Nil(err)
 
-	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256)
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256, head.Hash())
 	s.Nil(err)
 	s.Equal(true, opts.NoSend)
 	s.Equal(common.Big0, opts.Nonce)
@@ -71,7 +76,11 @@ func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
 func (s *AnchorTxConstructorTestSuite) TestCancelCtxTransactOpts() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	opts, err := s.c.transactOpts(ctx, common.Big1, common.Big256)
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	opts, err := s.c.transactOpts(ctx, common.Big1, common.Big256, head.Hash())
 	s.Nil(opts)
 	s.ErrorContains(err, "context canceled")
 }

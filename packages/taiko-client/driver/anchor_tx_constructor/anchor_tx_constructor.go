@@ -42,14 +42,14 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	// Parameters of the TaikoAnchor.anchorV3 transaction.
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
-	parentGasUsed uint64,
+	parent *types.Header,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	signalSlots [][32]byte,
 	// Height of the L2 block which including the TaikoAnchor.anchorV3 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee)
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,8 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		"l2Height", l2Height,
 		"anchorBlockId", anchorBlockID,
 		"anchorStateRoot", anchorStateRoot,
-		"parentGasUsed", parentGasUsed,
+		"parentGasUsed", parent.GasUsed,
+		"parentHash", parent.Hash(),
 		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
 		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
 		"signalSlots", len(signalSlots),
@@ -70,7 +71,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
-		uint32(parentGasUsed),
+		uint32(parent.GasUsed),
 		*baseFeeConfig,
 		signalSlots,
 	)
@@ -82,14 +83,14 @@ func (c *AnchorTxConstructor) transactOpts(
 	ctx context.Context,
 	l2Height *big.Int,
 	baseFee *big.Int,
+	parentHash common.Hash,
 ) (*bind.TransactOpts, error) {
 	var (
-		signer       = types.LatestSignerForChainID(c.rpc.L2.ChainID)
-		parentHeight = new(big.Int).Sub(l2Height, common.Big1)
+		signer = types.LatestSignerForChainID(c.rpc.L2.ChainID)
 	)
 
 	// Get the nonce of golden touch account at the specified parentHeight.
-	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHeight)
+	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHash)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +99,8 @@ func (c *AnchorTxConstructor) transactOpts(
 		"Golden touch account nonce",
 		"address", consensus.GoldenTouchAccount,
 		"nonce", nonce,
-		"parent", parentHeight,
+		"parent", new(big.Int).Sub(l2Height, common.Big1),
+		"parentHash", parentHash,
 	)
 
 	gasLimit := consensus.AnchorGasLimit
