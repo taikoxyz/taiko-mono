@@ -10,7 +10,7 @@ import (
 )
 
 func (s *EventHandlerTestSuite) TestBatchesVerifiedHandle() {
-	handler := &BatchesVerifiedEventHandler{rpc: s.RPCClient}
+	handler := NewBatchesVerifiedEventHandler(s.RPCClient)
 	id := testutils.RandomHash().Big().Uint64()
 	s.NotPanics(func() {
 		s.NotNil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesVerified{
