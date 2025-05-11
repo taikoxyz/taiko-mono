@@ -18,6 +18,8 @@ contract TrainingModule2DanielWang is Test {
     address private constant TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
     address private constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
 
+    address private constant ENS_REVERSE_REGISTRAR = 0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb;
+
     address private constant FOO_UPGRADEABLE = 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65;
     address private constant FOO_UPGRADEABLE_V1 = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
     address private constant FOO_UPGRADEABLE_V2 = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
@@ -45,7 +47,7 @@ contract TrainingModule2DanielWang is Test {
 
         // Set the reverse name for the DAO controller
         calls[3] = TaikoDAOController.Call({
-            target: 0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb, // ENS Reverse Registrar
+            target: ENS_REVERSE_REGISTRAR,
             value: 0,
             data: abi.encodeCall(IReverseRegistrar.setName, ("daocontroller.taiko.eth"))
         });
@@ -61,6 +63,7 @@ contract TrainingModule2DanielWang is Test {
         console2.log("data hash:");
         console2.logBytes32(keccak256(data));
 
+        // Logs:
         //   to:
         //   0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3
         //   value:
@@ -75,7 +78,7 @@ contract TrainingModule2DanielWang is Test {
         bytes memory data = abi.encodeCall(IReverseRegistrar.setName, ("dao.taiko.eth"));
 
         console2.log("to:");
-        console2.log(TAIKO_DAO);
+        console2.log(ENS_REVERSE_REGISTRAR);
         console2.log("value:");
         console2.logUint(0);
         console2.log("data:");
@@ -84,8 +87,9 @@ contract TrainingModule2DanielWang is Test {
         console2.logBytes32(keccak256(data));
     }
 
+    // Logs:
     //   to:
-    //   0x9CDf589C941ee81D75F34d3755671d614f7cf261
+    //   0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb
     //   value:
     //   0
     //   data:
