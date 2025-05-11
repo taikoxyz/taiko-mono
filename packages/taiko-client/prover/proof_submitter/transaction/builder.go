@@ -23,24 +23,24 @@ var (
 // TxBuilder will build a transaction with the given nonce.
 type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 
-// ProveBlockTxBuilder is responsible for building ProveBlock transactions.
-type ProveBlockTxBuilder struct {
+// ProveBatchesTxBuilder is responsible for building ProveBatches transactions.
+type ProveBatchesTxBuilder struct {
 	rpc               *rpc.Client
 	taikoInboxAddress common.Address
 	proverSetAddress  common.Address
 }
 
-// NewProveBlockTxBuilder creates a new ProveBlockTxBuilder instance.
-func NewProveBlockTxBuilder(
+// NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
+func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
 	taikoInboxAddress common.Address,
 	proverSetAddress common.Address,
-) *ProveBlockTxBuilder {
-	return &ProveBlockTxBuilder{rpc, taikoInboxAddress, proverSetAddress}
+) *ProveBatchesTxBuilder {
+	return &ProveBatchesTxBuilder{rpc, taikoInboxAddress, proverSetAddress}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
-func (a *ProveBlockTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.BatchProofs) TxBuilder {
+func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProducer.BatchProofs) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
 		var (
 			data        []byte

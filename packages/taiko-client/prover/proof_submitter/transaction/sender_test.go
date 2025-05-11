@@ -19,7 +19,7 @@ import (
 type TransactionTestSuite struct {
 	testutils.ClientTestSuite
 	sender  *Sender
-	builder *ProveBlockTxBuilder
+	builder *ProveBatchesTxBuilder
 }
 
 func (s *TransactionTestSuite) SetupTest() {
@@ -27,7 +27,7 @@ func (s *TransactionTestSuite) SetupTest() {
 
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 
-	s.builder = NewProveBlockTxBuilder(
+	s.builder = NewProveBatchesTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		rpc.ZeroAddress,

@@ -57,7 +57,7 @@ func NewBlobTransactionBuilder(
 	}
 }
 
-// BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
+// BuildPacaya implements the ProposeBatchTransactionBuilder interface.
 func (b *BlobTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,

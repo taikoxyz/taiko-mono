@@ -135,7 +135,7 @@ func InitFromConfig(
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
 	}
 
-	txBuilder := transaction.NewProveBlockTxBuilder(
+	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
 		p.cfg.TaikoInboxAddress,
 		p.cfg.ProverSetAddress,

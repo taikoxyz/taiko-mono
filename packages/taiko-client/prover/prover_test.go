@@ -548,9 +548,9 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 		s.txmgr,
 		s.p.privateTxmgr,
 		s.d.ProverSetAddress,
-		s.proposer.ProposeBlockTxGasLimit,
+		s.proposer.ProposeBatchTxGasLimit,
 	)
-	builder := transaction.NewProveBlockTxBuilder(
+	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},

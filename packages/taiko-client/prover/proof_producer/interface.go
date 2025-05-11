@@ -35,7 +35,7 @@ type ProofRequestOptionsPacaya struct {
 	BatchID                         *big.Int
 	Headers                         []*types.Header
 	ProverAddress                   common.Address
-	ProposeBlockTxHash              common.Hash
+	ProposeBatchTxHash              common.Hash
 	EventL1Hash                     common.Hash
 	IsGethProofGenerated            bool
 	IsGethProofAggregationGenerated bool

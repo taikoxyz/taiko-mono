@@ -39,7 +39,7 @@ type Proposer struct {
 	proposingTimer *time.Timer
 
 	// Transaction builder
-	txBuilder builder.ProposeBlocksTransactionBuilder
+	txBuilder builder.ProposeBatchTransactionBuilder
 
 	// Protocol configurations
 	protocolConfigs config.ProtocolConfigs
@@ -122,7 +122,7 @@ func (p *Proposer) InitFromConfig(
 		cfg.TaikoInboxAddress,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
-		cfg.ProposeBlockTxGasLimit,
+		cfg.ProposeBatchTxGasLimit,
 		p.chainConfig,
 		p.txmgrSelector,
 		cfg.RevertProtectionEnabled,

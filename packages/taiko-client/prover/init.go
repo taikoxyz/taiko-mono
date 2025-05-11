@@ -81,7 +81,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 }
 
 // initPacayaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
-func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBuilder) error {
+func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
 		// Proof producers.
 		baseLevelProofType     producer.ProofType
@@ -177,7 +177,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 			Txmgr:            p.txmgr,
 			PrivateTxmgr:     p.privateTxmgr,
 			ProverSetAddress: p.cfg.ProverSetAddress,
-			GasLimit:         p.cfg.ProveBlockGasLimit,
+			GasLimit:         p.cfg.ProveBatchesGasLimit,
 		},
 		txBuilder,
 		proofBuffers,

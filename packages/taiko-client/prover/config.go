@@ -33,7 +33,7 @@ type Config struct {
 	ProveUnassignedBlocks     bool
 	ContesterMode             bool
 	RPCTimeout                time.Duration
-	ProveBlockGasLimit        uint64
+	ProveBatchesGasLimit      uint64
 	MaxExpiry                 time.Duration
 	Allowance                 *big.Int
 	RaikoHostEndpoint         string
@@ -102,7 +102,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProveUnassignedBlocks: c.Bool(flags.ProveUnassignedBlocks.Name),
 		ContesterMode:         c.Bool(flags.ContesterMode.Name),
 		RPCTimeout:            c.Duration(flags.RPCTimeout.Name),
-		ProveBlockGasLimit:    c.Uint64(flags.TxGasLimit.Name),
+		ProveBatchesGasLimit:  c.Uint64(flags.TxGasLimit.Name),
 		MaxExpiry:             c.Duration(flags.MaxExpiry.Name),
 		Allowance:             allowance,
 		BlockConfirmations:    c.Uint64(flags.BlockConfirmations.Name),

@@ -78,7 +78,7 @@ func NewBuilderWithFallback(
 	return builder
 }
 
-// BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
+// BuildPacaya implements the ProposeBatchTransactionBuilder interface.
 func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,

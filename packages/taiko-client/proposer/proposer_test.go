@@ -85,7 +85,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		MinProposingInternal:       0,
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProposeBlockTxGasLimit:     10_000_000,
+		ProposeBatchTxGasLimit:     10_000_000,
 		BlobAllowed:                true,
 		FallbackToCalldata:         true,
 		TxmgrConfigs: &txmgr.CLIConfig{

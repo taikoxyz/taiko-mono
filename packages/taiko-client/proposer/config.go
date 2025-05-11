@@ -31,7 +31,7 @@ type Config struct {
 	MinProposingInternal       time.Duration
 	AllowZeroTipInterval       uint64
 	MaxProposedTxListsPerEpoch uint64
-	ProposeBlockTxGasLimit     uint64
+	ProposeBatchTxGasLimit     uint64
 	BlobAllowed                bool
 	FallbackToCalldata         bool
 	RevertProtectionEnabled    bool
@@ -103,7 +103,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
 		MaxProposedTxListsPerEpoch: maxProposedTxListsPerEpoch,
 		AllowZeroTipInterval:       c.Uint64(flags.AllowZeroTipInterval.Name),
-		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
+		ProposeBatchTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
 		FallbackToCalldata:         c.Bool(flags.FallbackToCalldata.Name),
 		RevertProtectionEnabled:    c.Bool(flags.RevertProtectionEnabled.Name),

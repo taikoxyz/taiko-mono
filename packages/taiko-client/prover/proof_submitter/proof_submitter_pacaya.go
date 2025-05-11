@@ -40,7 +40,7 @@ type ProofSubmitterPacaya struct {
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
 	// Utilities
 	anchorValidator *validator.AnchorTxValidator
-	txBuilder       *transaction.ProveBlockTxBuilder
+	txBuilder       *transaction.ProveBatchesTxBuilder
 	sender          *transaction.Sender
 	// Addresses
 	proverAddress      common.Address
@@ -71,7 +71,7 @@ func NewProofSubmitterPacaya(
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	taikoAnchorAddress common.Address,
 	senderOpts *SenderOptions,
-	builder *transaction.ProveBlockTxBuilder,
+	builder *transaction.ProveBatchesTxBuilder,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 	proofPollingInterval time.Duration,
@@ -106,7 +106,7 @@ func NewProofSubmitterPacaya(
 	}, nil
 }
 
-// RequestProof requests proof for the given Taiko batch after Pacaya fork.
+// RequestProof requests proof for the given Taiko batch.
 func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
 		headers = make([]*types.Header, len(meta.Pacaya().GetBlocks()))
@@ -140,7 +140,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		opts = &proofProducer.ProofRequestOptionsPacaya{
 			BatchID:            meta.Pacaya().GetBatchID(),
 			ProverAddress:      s.proverAddress,
-			ProposeBlockTxHash: meta.GetTxHash(),
+			ProposeBatchTxHash: meta.GetTxHash(),
 			EventL1Hash:        meta.GetRawBlockHash(),
 			Headers:            headers,
 		}
