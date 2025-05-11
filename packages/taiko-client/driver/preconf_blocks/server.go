@@ -36,11 +36,8 @@ import (
 var (
 	errInvalidCurrOperator = errors.New("invalid operator: expected current operator in handover window")
 	errInvalidNextOperator = errors.New("invalid operator: expected next operator in handover window")
+	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
-
-var wsUpgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
 type preconfBlockChainSyncer interface {
@@ -196,6 +193,7 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/ws", s.handleWebSocket)
 }
 
+// handleWebSocket handles the WebSocket connection.
 func (s *PreconfBlockAPIServer) handleWebSocket(c echo.Context) error {
 	conn, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
