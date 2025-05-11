@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -434,27 +433,44 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
 	if from != "" && s.p2pNode.Host().ID() == from {
-		log.Debug("OnUnsafeL2Response Ignore the message from the current P2P node", "peer", from)
+		log.Debug(
+			"Ignore the message from the current P2P node",
+			"peer", from,
+			"event", "OnUnsafeL2Response",
+		)
 		return nil
 	}
 
+	// Ignore the message if it is in the cache already.
+	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+		log.Debug(
+			"Ignore already cahced block",
+			"peer", from,
+			"event", "OnUnsafeL2Response",
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		)
+		return nil
+	}
+
+	// Ignore the message if it has been inserted already.
 	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("OnUnsafeL2Response failed to fetch header by hash: %w", err)
+		return fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
-
 	if head != nil {
-		log.Debug("OnUnsafeL2Response Ignore the for already known block", "peer", from)
-		return nil
-	}
-
-	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-		log.Debug("OnUnsafeL2Response Ignore the for already known block", "peer", from)
+		log.Debug(
+			"Ignore already inserted block",
+			"peer", from,
+			"event", "OnUnsafeL2Response",
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		)
 		return nil
 	}
 
 	log.Info(
-		"📢 New preconfirmation OnUnsafeL2Response block payload from P2P network",
+		"🔔 New preconfirmation block payload response from P2P network",
 		"peer", from,
 		"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 		"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -470,8 +486,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Check if the payload is valid.
 	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
 		log.Warn(
-			"OnUnsafeL2Response Invalid preconfirmation block payload",
+			"Invalid preconfirmation block payload",
 			"peer", from,
+			"event", "OnUnsafeL2Response",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
@@ -483,12 +500,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return fmt.Errorf("OnUnsafeL2Response failed to fetch head L1 origin: %w", err)
+		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
 	}
 
 	if headL1Origin != nil && uint64(msg.ExecutionPayload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 		return fmt.Errorf(
-			"OnUnsafeL2Response preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
+			"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
 			msg.ExecutionPayload.BlockNumber,
 			headL1Origin.BlockID,
 		)
@@ -501,16 +518,17 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
 	)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("OnUnsafeL2Response failed to fetch parent header by number: %w", err)
+		return fmt.Errorf("failed to fetch parent header by number: %w", err)
 	}
 	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return fmt.Errorf("OnUnsafeL2Response failed to fetch parent header by hash: %w", err)
+		return fmt.Errorf("failed to fetch parent header by hash: %w", err)
 	}
 	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
 		log.Info(
-			"OnUnsafeL2Response Parent block not in L2 canonical / fork chain",
+			"Parent block not in L2 canonical / fork chain",
 			"peer", from,
+			"event", "OnUnsafeL2Response",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"parentHash", msg.ExecutionPayload.ParentHash,
@@ -518,8 +536,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		// Try to find all the missing ancients from the cache and import them.
 		if err := s.ImportMissingAncientsFromCache(ctx, msg.ExecutionPayload, headL1Origin); err != nil {
 			log.Info(
-				"OnUnsafeL2Response unable to find all the missing ancients from the cache, cache the current payload",
+				"Unable to find all the missing ancients from the cache, cache the current payload",
 				"peer", from,
+				"event", "OnUnsafeL2Response",
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
@@ -527,8 +546,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			)
 			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 				log.Info(
-					"OnUnsafeL2Response Payload is cached",
+					"Payload is cached",
 					"peer", from,
+					"event", "OnUnsafeL2Response",
 					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
 					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
@@ -548,8 +568,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	if header != nil {
 		if header.Hash() == msg.ExecutionPayload.BlockHash {
 			log.Info(
-				"OnUnsafeL2Response Preconfirmation block already exists",
+				"Preconfirmation block already exists",
 				"peer", from,
+				"event", "OnUnsafeL2Response",
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
@@ -557,8 +578,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			return nil
 		} else {
 			log.Info(
-				"OnUnsafeL2Response Preconfirmation block already exists with different hash",
+				"Preconfirmation block already exists with different hash",
 				"peer", from,
+				"event", "OnUnsafeL2Response",
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
@@ -574,12 +596,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		[]*eth.ExecutionPayload{msg.ExecutionPayload},
 		false,
 	); err != nil {
-		return fmt.Errorf("OnUnsafeL2Response failed to insert preconfirmation block from P2P network: %w", err)
+		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
 	// Try to import the child blocks from the cache, if any.
 	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
-		return fmt.Errorf("OnUnsafeL2Response failed to try importing child blocks from cache: %w", err)
+		return fmt.Errorf("failed to try importing child blocks from cache: %w", err)
 	}
 
 	return nil
@@ -595,15 +617,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	defer s.mu.Unlock()
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
-		log.Debug("Ignore the message from the current P2P node", "peer", from)
+		log.Debug(
+			"Ignore the message from the current P2P node",
+			"peer", from,
+			"event", "OnUnsafeL2Request",
+		)
 		return nil
 	}
 
-	// only respond if you are the current sequencer.
+	// Only respond the preconfirmation block request if you are the current operator.
 	if err := s.CheckLookaheadHandover(s.preconfOperatorAddress, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 		log.Debug(
-			"Ignoring OnUnsafeL2Request, not the current sequencer",
+			"Ignoring the preconfirmation block request, not the current operator",
 			"peer", from,
+			"event", "OnUnsafeL2Request",
 			"currOperator", s.lookahead.CurrOperator.Hex(),
 			"nextOperator", s.lookahead.NextOperator.Hex(),
 			"preconfOperatorAddress", s.preconfOperatorAddress.Hex(),
@@ -612,66 +639,43 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return nil
 	}
 
-	log.Info("OnUnsafeL2Request New block request from p2p network", "peer", from, "hash", hash.Hex())
+	log.Info(
+		"🔊 New preconfirmation block request from P2P network",
+		"peer", from,
+		"hash", hash.Hex(),
+	)
 
+	// Fetch the block from L2 EE and gossip it out.
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
-		log.Warn("OnUnsafeL2Request Failed to fetch block by hash", "hash", hash.Hex(), "error", err)
+		log.Warn(
+			"Failed to fetch block by hash",
+			"peer", from,
+			"event", "OnUnsafeL2Request",
+			"hash", hash.Hex(),
+			"error", err,
+		)
 		return err
 	}
 
-	var u256 uint256.Int
-	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
+	envelope, err := blockToEnvelope(block, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert block to envelope: %w", err)
+	}
+
+	log.Info(
+		"Publish preconfirmation block request response",
+		"blockID", block.NumberU64(),
+		"hash", hash.Hex(),
+	)
+
+	if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
 		log.Warn(
-			"OnUnsafeL2Request Failed to convert base fee to uint256, skip propagating the preconfirmation block",
-			"baseFee", block.BaseFee,
-		)
-	} else {
-		txs, err := utils.EncodeAndCompressTxList(block.Transactions())
-		if err != nil {
-			return err
-		}
-
-		envelope := &eth.ExecutionPayloadEnvelope{
-			ExecutionPayload: &eth.ExecutionPayload{
-				BaseFeePerGas: eth.Uint256Quantity(u256),
-				ParentHash:    block.ParentHash(),
-				FeeRecipient:  block.Coinbase(),
-				ExtraData:     block.Extra(),
-				PrevRandao:    eth.Bytes32(block.MixDigest()),
-				BlockNumber:   eth.Uint64Quantity(block.NumberU64()),
-				GasLimit:      eth.Uint64Quantity(block.GasLimit()),
-				GasUsed:       eth.Uint64Quantity(block.GasUsed()),
-				Timestamp:     eth.Uint64Quantity(block.Time()),
-				BlockHash:     block.Hash(),
-				Transactions:  []eth.Data{hexutil.Bytes(txs)},
-			},
-		}
-
-		if err := s.ValidateExecutionPayload(envelope.ExecutionPayload); err != nil {
-			log.Warn(
-				"OnUnsafeL2Request Invalid preconfirmation block payload",
-				"peer", from,
-				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
-				"hash", envelope.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", envelope.ExecutionPayload.ParentHash.Hex(),
-				"error", err,
-			)
-			return nil
-		}
-
-		log.Info("OnUnsafeL2Request publishing response",
+			"Failed to publish preconfirmation block request response",
 			"hash", hash.Hex(),
-			"blockID", block.NumberU64(),
+			"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+			"error", err,
 		)
-
-		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
-			log.Warn("OnUnsafeL2Request failed to publish",
-				"error", err,
-				"hash", hash.Hex(),
-				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
-			)
-		}
 	}
 
 	return nil
@@ -688,85 +692,75 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
-
 		return nil
 	}
 
-	// only respond if you are the current sequencer, *not* the active sequencer in the slot.
+	// Only respond if you are the current sequencer, *not* the active sequencer in the slot.
 	if s.preconfOperatorAddress.Hex() != s.lookahead.CurrOperator.Hex() {
 		log.Debug("Ignore the message from the current P2P node, not current operator", "peer", from)
 		return nil
 	}
 
-	log.Info("OnUnsafeL2EndOfSequencingRequest New block request from p2p network", "peer", from, "epoch", epoch)
+	log.Info(
+		"New block request from P2P network",
+		"peer", from,
+		"event", "OnUnsafeL2EndOfSequencingRequest",
+		"epoch", epoch,
+	)
 
 	hash, ok := s.sequencingEndedForEpoch.Get(epoch)
 	if !ok {
-		err := fmt.Errorf("OnUnsafeL2EndOfSequencingRequest No block hash found for the given epoch: %d", epoch)
-		return err
+		return fmt.Errorf("no block hash found for the given epoch: %d", epoch)
 	}
 
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
-		log.Warn("OnUnsafeL2EndOfSequencingRequest Failed to fetch block by hash", "hash", hash.Hex(), "error", err)
+		log.Warn(
+			"Failed to fetch block by hash",
+			"peer", from,
+			"event", "OnUnsafeL2EndOfSequencingRequest",
+			"hash", hash.Hex(),
+			"error", err,
+		)
 		return err
 	}
 
-	var u256 uint256.Int
-	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
+	endOfSequencing := true
+	envelope, err := blockToEnvelope(block, &endOfSequencing)
+	if err != nil {
+		return fmt.Errorf("failed to convert block to envelope: %w", err)
+	}
+
+	if err := s.ValidateExecutionPayload(envelope.ExecutionPayload); err != nil {
 		log.Warn(
-			"OnUnsafeL2EndOfSequencingRequest Failed to convert base fee to uint256, skip propagating the preconfirmation block",
-			"baseFee", block.BaseFee,
+			"Invalid preconfirmation block payload",
+			"peer", from,
+			"event", "OnUnsafeL2EndOfSequencingRequest",
+			"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+			"hash", envelope.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", envelope.ExecutionPayload.ParentHash.Hex(),
+			"error", err,
 		)
-	} else {
-		txs, err := utils.EncodeAndCompressTxList(block.Transactions())
-		if err != nil {
-			return err
-		}
+		return nil
+	}
 
-		endOfSequencing := true
+	log.Info(
+		"Publishing response",
+		"peer", from,
+		"event", "OnUnsafeL2EndOfSequencingRequest",
+		"epoch", epoch,
+		"blockID", block.NumberU64(),
+	)
 
-		envelope := &eth.ExecutionPayloadEnvelope{
-			ExecutionPayload: &eth.ExecutionPayload{
-				BaseFeePerGas: eth.Uint256Quantity(u256),
-				ParentHash:    block.ParentHash(),
-				FeeRecipient:  block.Coinbase(),
-				ExtraData:     block.Extra(),
-				PrevRandao:    eth.Bytes32(block.MixDigest()),
-				BlockNumber:   eth.Uint64Quantity(block.NumberU64()),
-				GasLimit:      eth.Uint64Quantity(block.GasLimit()),
-				GasUsed:       eth.Uint64Quantity(block.GasUsed()),
-				Timestamp:     eth.Uint64Quantity(block.Time()),
-				BlockHash:     block.Hash(),
-				Transactions:  []eth.Data{hexutil.Bytes(txs)},
-			},
-			EndOfSequencing: &endOfSequencing,
-		}
-
-		if err := s.ValidateExecutionPayload(envelope.ExecutionPayload); err != nil {
-			log.Warn(
-				"OnUnsafeL2EndOfSequencingRequest Invalid preconfirmation block payload",
-				"peer", from,
-				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
-				"hash", envelope.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", envelope.ExecutionPayload.ParentHash.Hex(),
-				"error", err,
-			)
-			return nil
-		}
-
-		log.Info("OnUnsafeL2EndOfSequencingRequest publishing response",
+	if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
+		log.Warn(
+			"Failed to publish",
+			"peer", from,
+			"event", "OnUnsafeL2EndOfSequencingRequest",
+			"error", err,
 			"epoch", epoch,
-			"blockID", block.NumberU64(),
+			"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
 		)
-
-		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
-			log.Warn("OnUnsafeL2EndOfSequencingRequest failed to publish",
-				"error", err,
-				"epoch", epoch,
-				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
-			)
-		}
 	}
 
 	return nil
@@ -816,7 +810,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				s.blockRequests.Add(currentPayload.ParentHash, struct{}{})
 			}
 
-			return fmt.Errorf("failed to find parent payload in the cache, number %d, hash %s.",
+			return fmt.Errorf("failed to find parent payload in the cache, number %d, hash %s",
 				currentPayload.BlockNumber-1,
 				currentPayload.ParentHash.Hex())
 		}
@@ -1009,7 +1003,7 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Addre
 		return nil
 	}
 
-	// Check Current ranges first
+	// Check current ranges first
 	for _, r := range la.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
 			return nil
@@ -1022,7 +1016,7 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Addre
 		}
 	}
 
-	// If not in any range
+	// If not in any range.
 	log.Debug(
 		"Slot out of sequencing window",
 		"slot", globalSlot,
@@ -1042,6 +1036,7 @@ func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.Executi
 	s.payloadsCache.put(id, payload)
 }
 
+// GetSequencingEndedForEpoch returns the last block's hash for the given epoch.
 func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common.Hash, bool) {
 	return s.sequencingEndedForEpoch.Get(epoch)
 }
