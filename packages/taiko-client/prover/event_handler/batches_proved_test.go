@@ -127,7 +127,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 
 func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
-	handler := NewTransitionProvedEventHandler(s.RPCClient, proofRequestBodyCh)
+	handler := NewBatchesProvedEventHandler(s.RPCClient, proofRequestBodyCh)
 
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(m.IsPacaya())
@@ -150,6 +150,6 @@ func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	s.Equal(m, (<-proofRequestBodyCh).Meta)
 }
 
-func TestTransitionProvedEventHandlerTestSuite(t *testing.T) {
+func TestEventHandlerTestSuite(t *testing.T) {
 	suite.Run(t, new(EventHandlerTestSuite))
 }

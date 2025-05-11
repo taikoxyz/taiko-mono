@@ -14,22 +14,22 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-// TransitionProvedEventHandler is responsible for handling the TransitionProved event.
-type TransitionProvedEventHandler struct {
+// BatchesProvedEventHandler is responsible for handling the BatchesProved event.
+type BatchesProvedEventHandler struct {
 	rpc               *rpc.Client
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
 }
 
-// NewTransitionProvedEventHandler creates a new TransitionProvedEventHandler instance.
-func NewTransitionProvedEventHandler(
+// NewBatchesProvedEventHandler creates a new BatchesProvedEventHandler instance.
+func NewBatchesProvedEventHandler(
 	rpc *rpc.Client,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-) *TransitionProvedEventHandler {
-	return &TransitionProvedEventHandler{rpc, proofSubmissionCh}
+) *BatchesProvedEventHandler {
+	return &BatchesProvedEventHandler{rpc, proofSubmissionCh}
 }
 
-// Handle implements the TransitionProvedHandler interface.
-func (h *TransitionProvedEventHandler) HandlePacaya(
+// Handle implements the BatchesProvedHandler interface.
+func (h *BatchesProvedEventHandler) HandlePacaya(
 	ctx context.Context,
 	e *pacayaBindings.TaikoInboxClientBatchesProved,
 ) error {

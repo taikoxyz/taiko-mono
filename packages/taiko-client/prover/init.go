@@ -320,7 +320,7 @@ func (p *Prover) initEventHandlers() error {
 	}
 	p.eventHandlers.batchProposedHandler = handler.NewBatchProposedEventHandler(opts)
 	// ------- BatchesProved -------
-	p.eventHandlers.batchesProvedHandler = handler.NewTransitionProvedEventHandler(
+	p.eventHandlers.batchesProvedHandler = handler.NewBatchesProvedEventHandler(
 		p.rpc,
 		p.proofSubmissionCh,
 	)
