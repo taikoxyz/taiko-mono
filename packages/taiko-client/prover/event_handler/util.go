@@ -92,8 +92,8 @@ func getMetadataFromBatchPacaya(
 }
 
 // IsProvingWindowExpired returns true as the first return parameter if the assigned prover
-// proving window of the given proposed block is expired, and the second return parameter is the time
-// remaining til proving window is expired.
+// proving window of the given proposed block is expired, the second return parameter is the expired time,
+// and the third return parameter is the time remaining till proving window is expired.
 func IsProvingWindowExpired(
 	rpc *rpc.Client,
 	metadata metadata.TaikoProposalMetaData,
