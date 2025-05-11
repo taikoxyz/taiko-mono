@@ -22,10 +22,7 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 }
 
 // FetchPacaya fetches the txList bytes from the transaction's calldata, by parsing the `BatchProposed` event.
-func (d *CalldataFetcher) FetchPacaya(
-	ctx context.Context,
-	meta metadata.TaikoBatchMetaDataPacaya,
-) ([]byte, error) {
+func (d *CalldataFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchMetaDataPacaya) ([]byte, error) {
 	if len(meta.GetBlobHashes()) != 0 {
 		return nil, pkg.ErrBlobUsed
 	}
@@ -46,9 +43,7 @@ func (d *CalldataFetcher) FetchPacaya(
 	}
 
 	if iter.Error() != nil {
-		return nil, fmt.Errorf(
-			"failed to fetch calldata for batch %d: %w", meta.GetBatchID(), iter.Error(),
-		)
+		return nil, fmt.Errorf("failed to fetch calldata for batch %d: %w", meta.GetBatchID(), iter.Error())
 	}
 
 	return nil, fmt.Errorf("calldata for batch %d not found", meta.GetBatchID())

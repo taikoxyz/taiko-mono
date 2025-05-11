@@ -27,10 +27,7 @@ func NewBlobTxListFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher 
 }
 
 // FetchPacaya implements the TxListFetcher interface.
-func (d *BlobFetcher) FetchPacaya(
-	ctx context.Context,
-	meta metadata.TaikoBatchMetaDataPacaya,
-) ([]byte, error) {
+func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchMetaDataPacaya) ([]byte, error) {
 	if len(meta.GetBlobHashes()) == 0 {
 		return nil, pkg.ErrBlobUnused
 	}
@@ -39,7 +36,7 @@ func (d *BlobFetcher) FetchPacaya(
 	if meta.GetBlobCreatedIn().Int64() == 0 {
 		blockNum = meta.GetProposedIn()
 	} else {
-		blockNum = uint64(meta.GetBlobCreatedIn().Int64())
+		blockNum = meta.GetBlobCreatedIn().Uint64()
 	}
 
 	// Fetch the L1 block header with the given blob.
@@ -48,23 +45,15 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, err
 	}
 
-	var b []byte
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(
-		ctx,
-		l1Header.Time,
-		meta.GetBlobHashes(),
-	)
+	sidecars, err := d.dataSource.GetBlobs(ctx, l1Header.Time, meta.GetBlobHashes())
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info(
-		"Fetch sidecars",
-		"blockNumber", blockNum,
-		"sidecars", len(sidecars),
-	)
+	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(sidecars))
 
+	var b []byte
 	for _, blobHash := range meta.GetBlobHashes() {
 		// Compare the blob hash with the sidecar's kzg commitment.
 		for j, sidecar := range sidecars {
