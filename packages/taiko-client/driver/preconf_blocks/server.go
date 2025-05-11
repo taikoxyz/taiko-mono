@@ -802,10 +802,10 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 }
 
 // UpdateLookahead updates the lookahead information.
-func (s *PreconfBlockAPIServer) UpdateLookahead(l *Lookahead) {
+func (s *PreconfBlockAPIServer) UpdateLookahead(lookahead *Lookahead) {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
-	s.lookahead = l
+	s.lookahead = lookahead
 }
 
 // CheckLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
