@@ -76,7 +76,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	if parent.Number.Uint64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
+	if s.latestSeenProposal != nil && parent.Number.Uint64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
 		log.Warn(
 			"The parent block ID is smaller than the latest block ID seen in event",
 			"parentBlockID", parent.Number.Uint64(),

@@ -1057,18 +1057,23 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Stopping latest block ID seen in event loop")
+			log.Info("Stopping latest batch seen in event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
 			s.mutex.Lock()
-			log.Info("Received latest block ID seen in event", "blockID", proposal.Pacaya().GetLastBlockID())
+			log.Info(
+				"Received latest batch seen in event",
+				"batchID", proposal.Pacaya().GetBatchID(),
+				"lastBlockID", proposal.Pacaya().GetLastBlockID(),
+			)
 			s.latestSeenProposal = proposal
+			// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 			if s.latestSeenProposal.PreconfChainReorged {
 				s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
 				log.Info(
 					"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
 					"batchID", proposal.Pacaya().GetBatchID(),
-					"blockID", s.highestUnsafeL2PayloadBlockID,
+					"lastBlockID", s.highestUnsafeL2PayloadBlockID,
 					"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 				)
 			}
