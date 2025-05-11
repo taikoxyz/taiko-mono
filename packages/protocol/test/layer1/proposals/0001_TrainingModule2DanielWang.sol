@@ -70,6 +70,7 @@ contract TrainingModule2DanielWang is Test {
         //   0xc642b5beee8d42daefdaaa540483f4d7cdf1b5142071b683b114f77a1b6a8e1c
     }
 
+    // FOUNDRY_PROFILE=layer1 forge test --mt test_gentx_0001_SetDAOReverseName -vvv
     function test_gentx_0001_SetDAOReverseName() public pure {
         bytes memory data = abi.encodeCall(IReverseRegistrar.setName, ("dao.taiko.eth"));
 
