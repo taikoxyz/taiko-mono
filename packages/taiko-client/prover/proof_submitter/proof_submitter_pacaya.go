@@ -10,9 +10,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -99,30 +97,23 @@ func NewProofSubmitterPacaya(
 // RequestProof requests proof for the given Taiko batch after Pacaya fork.
 func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
-		headers = make([]*types.Header, len(meta.Pacaya().GetBlocks()))
-		g       = new(errgroup.Group)
+		blockNums = make([]*big.Int, len(meta.Pacaya().GetBlocks()))
 	)
+	// Wait for the last block to be inserted at first.
+	_, err := s.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
+	if err != nil {
+		return fmt.Errorf("failed to wait for L2 Header, blockID: %d, error: %w", meta.Pacaya().GetLastBlockID(), err)
+	}
+	headers, err := s.rpc.L2.BatchHeadersByNumbers(ctx, blockNums)
+	if err != nil {
+		return fmt.Errorf("failed to get batch headers, error: %w", err)
+	}
+
 	// Fetch all blocks headers for the given batch.
 	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
-		g.Go(func() error {
-			header, err := s.rpc.WaitL2Header(
-				ctx,
-				new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()-uint64(len(meta.Pacaya().GetBlocks()))+uint64(i)+1),
-			)
-			if err != nil {
-				return fmt.Errorf("failed to fetch l2 Header, blockID: %d, error: %w", meta.Pacaya().GetLastBlockID(), err)
-			}
-
-			if header.TxHash == types.EmptyTxsHash {
-				return errors.New("no transaction in block")
-			}
-
-			headers[i] = header
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to fetch headers: %w", err)
+		blockNums[i] = new(big.Int).SetUint64(
+			meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + uint64(i) + 1,
+		)
 	}
 
 	// Request proof.
