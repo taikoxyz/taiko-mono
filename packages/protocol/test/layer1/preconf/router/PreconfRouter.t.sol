@@ -19,13 +19,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Current epoch
         uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
-        bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
-
-        vm.etch(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(mockBeacon).code);
-        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
-        );
+        _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
@@ -71,16 +65,9 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Setup mock beacon for operator selection
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         // Current epoch
         uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
-
-        bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
-
-        vm.etch(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(mockBeacon).code);
-        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
-        );
+        _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
         // Warp to arbitrary slot in epoch 2
         vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
@@ -104,13 +91,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Current epoch
         uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
-        bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
-
-        vm.etch(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(mockBeacon).code);
-        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
-            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
-        );
+        _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
@@ -142,5 +123,13 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.prank(Carol);
         vm.expectRevert(PreconfRouter.ProposerIsNotPreconfer.selector);
         router.v4ProposeBatch(abi.encode(params), "", "");
+    }
+
+    function _setupMockBeacon(uint256 epochOneStart, MockBeaconBlockRoot mockBeacon) internal {
+        bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
+        vm.etch(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(mockBeacon).code);
+        MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
+            epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
+        );
     }
 }
