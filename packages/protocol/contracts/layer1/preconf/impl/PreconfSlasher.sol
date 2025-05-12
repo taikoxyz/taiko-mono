@@ -118,8 +118,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             _payload.anchorHash == evidence.batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock()
         );
 
-        // TODO(daniel): figure out why?
-
         // Check for reorgs if the committer missed the proposal
         if (evidence.batchInfo.proposer != _committer) {
             (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
