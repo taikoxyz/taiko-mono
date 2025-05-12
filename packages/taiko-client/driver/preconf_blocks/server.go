@@ -183,12 +183,14 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 
 // configureRoutes contains all routes which will be used by the HTTP server.
 func (s *PreconfBlockAPIServer) configureRoutes() {
+	// HTTP routes
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 
+	// WebSocket routes
 	s.echo.GET("/ws", s.handleWebSocket)
 }
 
@@ -198,21 +200,17 @@ func (s *PreconfBlockAPIServer) handleWebSocket(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	s.wsMutex.Lock()
-	s.wsClients[conn] = struct{}{}
-	s.wsMutex.Unlock()
+	s.recordWSClient(conn)
 
 	defer func() {
-		s.wsMutex.Lock()
-		delete(s.wsClients, conn)
-		s.wsMutex.Unlock()
+		s.releaseWSClient(conn)
 		conn.Close()
 	}()
 
-	// keep reading until the client disconnects
+	// Keep reading until the client disconnects.
 	for {
 		if _, _, err := conn.ReadMessage(); err != nil {
-			// ReadMessage will error when the client hangs up
+			// ReadMessage will return an error when the client hangs up.
 			break
 		}
 	}
@@ -314,20 +312,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	// If the payload is an end of sequencing message, we need to notify the clients.
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
 		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), msg.ExecutionPayload.BlockHash)
-
-		notification := map[string]interface{}{
-			"currentEpoch":    s.rpc.L1Beacon.CurrentEpoch(),
-			"endOfSequencing": true,
-		}
-
-		s.wsMutex.Lock()
-		for conn := range s.wsClients {
-			if err := conn.WriteJSON(notification); err != nil {
-				conn.Close()
-				delete(s.wsClients, conn)
-			}
-		}
-		s.wsMutex.Unlock()
+		s.pushEndOfSequencingNotification(s.rpc.L1Beacon.CurrentEpoch())
 	}
 
 	return nil
@@ -863,28 +848,34 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Stopping latest batch seen in event loop")
+			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
-			s.mutex.Lock()
-			log.Info(
-				"Received latest batch seen in event",
-				"batchID", proposal.Pacaya().GetBatchID(),
-				"lastBlockID", proposal.Pacaya().GetLastBlockID(),
-			)
-			s.latestSeenProposal = proposal
-			// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
-			if s.latestSeenProposal.PreconfChainReorged {
-				s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
-				log.Info(
-					"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
-					"batchID", proposal.Pacaya().GetBatchID(),
-					"lastBlockID", s.highestUnsafeL2PayloadBlockID,
-					"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-				)
-			}
-			s.mutex.Unlock()
+			s.recordLatestSeenProposal(proposal)
 		}
+	}
+}
+
+// recordLatestSeenProposal records the latest seen proposal.
+func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	log.Info(
+		"Received latest batch seen in event",
+		"batchID", proposal.Pacaya().GetBatchID(),
+		"lastBlockID", proposal.Pacaya().GetLastBlockID(),
+	)
+	s.latestSeenProposal = proposal
+	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
+	if s.latestSeenProposal.PreconfChainReorged {
+		s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
+		log.Info(
+			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
+			"batchID", proposal.Pacaya().GetBatchID(),
+			"lastBlockID", s.highestUnsafeL2PayloadBlockID,
+			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
 	}
 }
 
@@ -990,4 +981,36 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	}
 
 	return false, nil
+}
+
+// recordWSClient records the given WebSocket client connection.
+func (s *PreconfBlockAPIServer) recordWSClient(conn *websocket.Conn) {
+	s.wsMutex.Lock()
+	defer s.wsMutex.Unlock()
+	s.wsClients[conn] = struct{}{}
+}
+
+// releaseWSClient releases the given WebSocket client connection.
+func (s *PreconfBlockAPIServer) releaseWSClient(conn *websocket.Conn) {
+	s.wsMutex.Lock()
+	defer s.wsMutex.Unlock()
+	delete(s.wsClients, conn)
+}
+
+// pushEndOfSequencingNotification pushes the end of sequencing notification to all recorded WebSocket clients.
+func (s *PreconfBlockAPIServer) pushEndOfSequencingNotification(epoch uint64) {
+	s.wsMutex.Lock()
+	defer s.wsMutex.Unlock()
+
+	for conn := range s.wsClients {
+		if err := conn.WriteJSON(
+			map[string]interface{}{
+				"currentEpoch":    s.rpc.L1Beacon.CurrentEpoch(),
+				"endOfSequencing": true,
+			},
+		); err != nil {
+			conn.Close()
+			delete(s.wsClients, conn)
+		}
+	}
 }
