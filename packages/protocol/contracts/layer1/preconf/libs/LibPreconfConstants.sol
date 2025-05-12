@@ -31,21 +31,6 @@ library LibPreconfConstants {
         return uint256(0);
     }
 
-    /// @notice Returns the beacon block root for a given timestamp.
-    /// @param _timestamp The timestamp to get the beacon block root for.
-    /// @return beaconBlockRoot_ The beacon block root.
-    function getBeaconBlockRoot(uint256 _timestamp)
-        internal
-        view
-        returns (bytes32 beaconBlockRoot_)
-    {
-        (bool success, bytes memory result) =
-            getBeaconBlockRootContract().staticcall(abi.encode(_timestamp));
-        if (success && result.length > 0) {
-            beaconBlockRoot_ = abi.decode(result, (bytes32));
-        }
-    }
-
     /// @notice Returns the address of the beacon block root contract.
     /// @dev https://eips.ethereum.org/EIPS/eip-4788 enforce to use this address across different
     /// EVM chains.
