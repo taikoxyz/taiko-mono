@@ -120,7 +120,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		if d.preconfBlockServer, err = preconfBlocks.New(
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
-			d.PreconfHandoverSkipSlots,
 			d.PreconfOperatorAddress,
 			d.TaikoL2Address,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
@@ -149,7 +148,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 				return err
 			}
 
-			log.Info("P2PNode", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
+			log.Info("P2P node information", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {

@@ -222,11 +222,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing && s.rpc.L1Beacon != nil {
 		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
-		s.sequencingEndedForEpoch.Add(
-			currentEpoch,
-			header.Hash(),
-		)
-		log.Info("End of sequencing block marker created",
+		s.sequencingEndedForEpochCache.Add(currentEpoch, header.Hash())
+		log.Info(
+			"End of sequencing block marker created",
 			"blockID", header.Number.Uint64(),
 			"hash", header.Hash().Hex(),
 			"currentEpoch", currentEpoch,
@@ -366,7 +364,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	endOfSequencingBlockHash := common.Hash{}
 
 	if s.rpc.L1Beacon != nil {
-		hash, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
+		hash, ok := s.sequencingEndedForEpochCache.Get(s.rpc.L1Beacon.CurrentEpoch())
 		if ok {
 			endOfSequencingBlockHash = hash
 		}

@@ -56,33 +56,36 @@ type preconfBlockChainSyncer interface {
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
-	echo            *echo.Echo
-	chainSyncer     preconfBlockChainSyncer
-	rpc             *rpc.Client
-	anchorValidator *validator.AnchorTxValidator
-	// P2P network for preconf block propagation
-	p2pNode                       *p2p.NodeP2P
-	p2pSigner                     p2p.Signer
-	payloadsCache                 *payloadQueue
-	lookahead                     *Lookahead
-	lookaheadMutex                sync.Mutex
-	handoverSlots                 uint64
+	echo                          *echo.Echo
+	rpc                           *rpc.Client
+	chainSyncer                   preconfBlockChainSyncer
+	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
-	preconfOperatorAddress        common.Address
-	blockRequests                 *lru.Cache[common.Hash, struct{}]
-	sequencingEndedForEpoch       *lru.Cache[uint64, common.Hash]
-	wsClients                     map[*websocket.Conn]struct{}
-	wsMutex                       sync.Mutex
-	latestSeenProposalCh          chan *encoding.LastSeenProposal
-	latestSeenProposal            *encoding.LastSeenProposal
-	mutex                         sync.Mutex
+	// P2P network for preconf block propagation
+	p2pNode   *p2p.NodeP2P
+	p2pSigner p2p.Signer
+	// WebSocket server for preconf block notifications
+	ws *webSocketSever
+	// Lookahead information for the current and next operator
+	lookahead      *Lookahead
+	lookaheadMutex sync.Mutex
+	// Cache
+	payloadsCache                *payloadQueue
+	blockRequestsCache           *lru.Cache[common.Hash, struct{}]
+	sequencingEndedForEpochCache *lru.Cache[uint64, common.Hash]
+	// ConfigureRoutes
+	preconfOperatorAddress common.Address
+	// Last seen proposal
+	latestSeenProposalCh chan *encoding.LastSeenProposal
+	latestSeenProposal   *encoding.LastSeenProposal
+	// Mutex for P2P message handlers
+	mutex sync.Mutex
 }
 
 // New creates a new preconf block server instance, and starts the server.
 func New(
 	cors string,
 	jwtSecret []byte,
-	handoverSlots uint64,
 	preconfOperatorAddress common.Address,
 	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
@@ -94,31 +97,29 @@ func New(
 		return nil, err
 	}
 
+	// Initialize cahces.
 	blockRequestsCache, err := lru.New[common.Hash, struct{}](maxTrackedPayloads)
 	if err != nil {
 		return nil, err
 	}
-
 	endOfSequencingCache, err := lru.New[uint64, common.Hash](maxTrackedPayloads)
 	if err != nil {
 		return nil, err
 	}
 
 	server := &PreconfBlockAPIServer{
-		echo:                    echo.New(),
-		anchorValidator:         anchorValidator,
-		chainSyncer:             chainSyncer,
-		handoverSlots:           handoverSlots,
-		rpc:                     cli,
-		payloadsCache:           newPayloadQueue(),
-		preconfOperatorAddress:  preconfOperatorAddress,
-		lookahead:               &Lookahead{},
-		mutex:                   sync.Mutex{},
-		blockRequests:           blockRequestsCache,
-		sequencingEndedForEpoch: endOfSequencingCache,
-		wsClients:               make(map[*websocket.Conn]struct{}),
-		wsMutex:                 sync.Mutex{},
-		latestSeenProposalCh:    latestSeenProposalCh,
+		echo:                         echo.New(),
+		anchorValidator:              anchorValidator,
+		chainSyncer:                  chainSyncer,
+		ws:                           &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
+		rpc:                          cli,
+		payloadsCache:                newPayloadQueue(),
+		preconfOperatorAddress:       preconfOperatorAddress,
+		lookahead:                    &Lookahead{},
+		mutex:                        sync.Mutex{},
+		blockRequestsCache:           blockRequestsCache,
+		sequencingEndedForEpochCache: endOfSequencingCache,
+		latestSeenProposalCh:         latestSeenProposalCh,
 	}
 
 	server.echo.HideBanner = true
@@ -141,14 +142,10 @@ func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
 	s.p2pSigner = p2pSigner
 }
 
-// LogSkipper implements the `middleware.Skipper` interface.
+// LogSkipper implements the `middleware.Skipper` interface,
+// skip all ECHO logs for the preconfirmation block server.
 func LogSkipper(c echo.Context) bool {
-	switch c.Request().URL.Path {
-	case "/healthz":
-		return true
-	default:
-		return true
-	}
+	return true
 }
 
 // configureMiddleware configures the server middlewares.
@@ -181,7 +178,7 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
-// configureRoutes contains all routes which will be used by the HTTP server.
+// configureRoutes contains all routes which will be used by the HTTP / WS server.
 func (s *PreconfBlockAPIServer) configureRoutes() {
 	// HTTP routes
 	s.echo.GET("/", s.HealthCheck)
@@ -191,31 +188,7 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 
 	// WebSocket routes
-	s.echo.GET("/ws", s.handleWebSocket)
-}
-
-// handleWebSocket handles the WebSocket connection, upgrades the connection
-// to a WebSocket connection, and starts pushing new sequencingEndedForEpoch notification.
-func (s *PreconfBlockAPIServer) handleWebSocket(c echo.Context) error {
-	conn, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
-	if err != nil {
-		return err
-	}
-	s.recordWSClient(conn)
-
-	defer func() {
-		s.releaseWSClient(conn)
-		conn.Close()
-	}()
-
-	// Keep reading until the client disconnects.
-	for {
-		if _, _, err := conn.ReadMessage(); err != nil {
-			// ReadMessage will return an error when the client hangs up.
-			break
-		}
-	}
-	return nil
+	s.echo.GET("/ws", s.ws.handleWebSocket)
 }
 
 // OnUnsafeL2Payload implements the p2p.GossipIn interface.
@@ -313,8 +286,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 	// If the payload is an end of sequencing message, we need to notify the clients.
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
-		s.sequencingEndedForEpoch.Add(s.rpc.L1Beacon.CurrentEpoch(), msg.ExecutionPayload.BlockHash)
-		s.pushEndOfSequencingNotification(s.rpc.L1Beacon.CurrentEpoch())
+		s.sequencingEndedForEpochCache.Add(s.rpc.L1Beacon.CurrentEpoch(), msg.ExecutionPayload.BlockHash)
+		s.ws.pushEndOfSequencingNotification(s.rpc.L1Beacon.CurrentEpoch())
 	}
 
 	return nil
@@ -432,11 +405,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return nil
 	}
 
-	log.Info(
-		"🔊 New preconfirmation block request from P2P network",
-		"peer", from,
-		"hash", hash.Hex(),
-	)
+	log.Info("🔊 New preconfirmation block request from P2P network", "peer", from, "hash", hash.Hex())
 
 	// Fetch the block from L2 EE and gossip it out.
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
@@ -496,7 +465,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 		"epoch", epoch,
 	)
 
-	hash, ok := s.sequencingEndedForEpoch.Get(epoch)
+	hash, ok := s.sequencingEndedForEpochCache.Get(epoch)
 	if !ok {
 		return fmt.Errorf("failed to find the end of sequencing block for the given epoch: %d", epoch)
 	}
@@ -563,7 +532,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		if parentPayload == nil {
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
-			if !s.blockRequests.Contains(currentPayload.ParentHash) {
+			if !s.blockRequestsCache.Contains(currentPayload.ParentHash) {
 				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 				if err != nil {
 					return err
@@ -589,7 +558,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					)
 				}
 
-				s.blockRequests.Add(currentPayload.ParentHash, struct{}{})
+				s.blockRequestsCache.Add(currentPayload.ParentHash, struct{}{})
 			}
 
 			return fmt.Errorf(
@@ -600,7 +569,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		}
 
 		payloadsToImport = append([]*eth.ExecutionPayload{parentPayload}, payloadsToImport...)
-		s.blockRequests.Remove(parentPayload.BlockHash)
+		s.blockRequestsCache.Remove(parentPayload.BlockHash)
 
 		// Check if the found parent payload is in the canonical chain,
 		// if it is not, continue to find the parent payload.
@@ -829,7 +798,7 @@ func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *eth.Executi
 
 // GetSequencingEndedForEpoch returns the last block's hash for the given epoch.
 func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common.Hash, bool) {
-	return s.sequencingEndedForEpoch.Get(epoch)
+	return s.sequencingEndedForEpochCache.Get(epoch)
 }
 
 // LatestSeenProposalEventLoop is a goroutine that listens for the latest seen proposal events
@@ -969,34 +938,67 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	return false, nil
 }
 
-// recordWSClient records the given WebSocket client connection.
-func (s *PreconfBlockAPIServer) recordWSClient(conn *websocket.Conn) {
-	s.wsMutex.Lock()
-	defer s.wsMutex.Unlock()
-	s.wsClients[conn] = struct{}{}
+// webSocketSever is a WebSocket server that handles incoming connections,
+// upgrades them to WebSocket connections, and pushes new sequencingEndedForEpoch notifications.
+type webSocketSever struct {
+	rpc     *rpc.Client
+	clients map[*websocket.Conn]struct{}
+	mutex   sync.Mutex
 }
 
-// releaseWSClient releases the given WebSocket client connection.
-func (s *PreconfBlockAPIServer) releaseWSClient(conn *websocket.Conn) {
-	s.wsMutex.Lock()
-	defer s.wsMutex.Unlock()
-	delete(s.wsClients, conn)
+// handleWebSocket handles the WebSocket connection, upgrades the connection
+// to a WebSocket connection, and starts pushing new sequencingEndedForEpoch notification.
+func (s *webSocketSever) handleWebSocket(c echo.Context) error {
+	// Upgrade the connection to a WebSocket connection, and
+	// record the client connection for later publication.
+	conn, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		return err
+	}
+	s.recordClient(conn)
+
+	defer func() {
+		s.releaseClient(conn)
+		conn.Close()
+	}()
+
+	// Keep reading until the client disconnects.
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			// ReadMessage will return an error when the client hangs up.
+			break
+		}
+	}
+	return nil
+}
+
+// recordClient records the given WebSocket client connection.
+func (s *webSocketSever) recordClient(conn *websocket.Conn) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.clients[conn] = struct{}{}
+}
+
+// releaseClient releases the given WebSocket client connection.
+func (s *webSocketSever) releaseClient(conn *websocket.Conn) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	delete(s.clients, conn)
 }
 
 // pushEndOfSequencingNotification pushes the end of sequencing notification to all recorded WebSocket clients.
-func (s *PreconfBlockAPIServer) pushEndOfSequencingNotification(epoch uint64) {
-	s.wsMutex.Lock()
-	defer s.wsMutex.Unlock()
+func (s *webSocketSever) pushEndOfSequencingNotification(epoch uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	for conn := range s.wsClients {
+	for conn := range s.clients {
 		if err := conn.WriteJSON(
-			map[string]interface{}{
-				"currentEpoch":    s.rpc.L1Beacon.CurrentEpoch(),
-				"endOfSequencing": true,
-			},
+			map[string]interface{}{"currentEpoch": s.rpc.L1Beacon.CurrentEpoch(), "endOfSequencing": true},
 		); err != nil {
 			conn.Close()
-			delete(s.wsClients, conn)
+			delete(s.clients, conn)
 		}
 	}
 }
