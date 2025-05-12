@@ -73,12 +73,6 @@ contract DeployPacayaL1 is DeployCapability {
             impl: address(new DefaultResolver()),
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
-        // Rollup resolver
-        // address rollupResolver = deployProxy({
-        //     name: "rollup_address_resolver",
-        //     impl: address(new DefaultResolver()),
-        //     data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        // });
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
@@ -87,15 +81,6 @@ contract DeployPacayaL1 is DeployCapability {
         register(sharedResolver, "erc20_vault", erc20Vault);
         register(sharedResolver, "erc721_vault", erc721Vault);
         register(sharedResolver, "erc1155_vault", erc1155Vault);
-        // register(rollupResolver, "risc0_groth16_verifier", risc0Groth16Verifier);
-        // register(rollupResolver, "sp1_remote_verifier", sp1RemoteVerifier);
-        // register(rollupResolver, "automata_dcap_attestation", automata);
-
-        // register copy
-        // copyRegister(rollupResolver, sharedResolver, "taiko_token");
-        // copyRegister(rollupResolver, sharedResolver, "bond_token");
-        // copyRegister(rollupResolver, sharedResolver, "signal_service");
-        // copyRegister(rollupResolver, sharedResolver, "bridge");
         // Bridge
         registerBridgedTokenContracts(sharedResolver);
 
@@ -163,7 +148,6 @@ contract DeployPacayaL1 is DeployCapability {
             )
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        // register(rollupResolver, "taiko", taikoInbox);
 
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(

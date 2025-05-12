@@ -74,17 +74,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
-        // Rollup resolver
-        // address rollupResolver = deployProxy({
-        //     name: "rollup_address_resolver",
-        //     impl: address(new DefaultResolver()),
-        //     data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        // });
-        // // register copy
-        // copyRegister(rollupResolver, sharedResolver, "taiko_token");
-        // copyRegister(rollupResolver, sharedResolver, "bond_token");
-        // copyRegister(rollupResolver, sharedResolver, "signal_service");
-        // copyRegister(rollupResolver, sharedResolver, "bridge");
 
         // Proof verifier
         address proofVerifier = deployProxy({
@@ -148,7 +137,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             )
         );
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        //register(rollupResolver, "taiko", taikoInbox);
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(
             address(new ProverSet(taikoInbox, taikoToken, taikoWrapper))
@@ -203,7 +191,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier risc0Groth16Verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-        //register(rollupResolver, "risc0_groth16_verifier", address(risc0Groth16Verifier));
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
             impl: address(new TaikoRisc0Verifier(l2ChainId, address(risc0Groth16Verifier))),
@@ -213,7 +200,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         // Deploy sp1 plonk verifier
         SP1Verifier sp1RemoteVerifier = new SP1Verifier();
-        //register(rollupResolver, "sp1_remote_verifier", address(sp1RemoteVerifier));
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
             impl: address(new TaikoSP1Verifier(l2ChainId, address(sp1RemoteVerifier))),

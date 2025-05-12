@@ -79,12 +79,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
             impl: address(new DefaultResolver()),
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
-        // // Rollup resolver
-        // address rollupResolver = deployProxy({
-        //     name: "rollup_address_resolver",
-        //     impl: address(new DefaultResolver()),
-        //     data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        // });
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
@@ -97,15 +91,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         register(sharedResolver, "erc20_vault", erc20VaultL2, l2ChainId);
         register(sharedResolver, "erc721_vault", erc721VaultL2, l2ChainId);
         register(sharedResolver, "erc1155_vault", erc1155VaultL2, l2ChainId);
-        // register(rollupResolver, "risc0_groth16_verifier", risc0Groth16Verifier);
-        // register(rollupResolver, "sp1_remote_verifier", sp1RemoteVerifier);
-        // register(rollupResolver, "automata_dcap_attestation", automata);
-
-        // // register copy
-        // copyRegister(rollupResolver, sharedResolver, "taiko_token");
-        // copyRegister(rollupResolver, sharedResolver, "bond_token");
-        // copyRegister(rollupResolver, sharedResolver, "signal_service");
-        // copyRegister(rollupResolver, sharedResolver, "bridge");
 
         // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
         address store = deployProxy({
@@ -151,7 +136,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         address newFork =
             address(new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        //register(rollupResolver, "taiko", taikoInbox);
 
         // Prover set
         UUPSUpgradeable(proverSet).upgradeTo(
@@ -210,7 +194,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     }
 
     function deployTEEVerifiers(
-        // address rollupResolver,
         address proofVerifier
     )
         internal

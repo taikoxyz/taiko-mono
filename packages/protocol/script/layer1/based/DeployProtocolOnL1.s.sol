@@ -80,8 +80,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         (address taikoInboxAddr, address proofVerifier) =
             deployRollupContracts(sharedResolver, contractOwner);
 
-        // address taikoInboxAddr =
-        //     IResolver(rollupResolver).resolve(uint64(block.chainid), LibStrings.B_TAIKO, false);
         // Deploy verifiers
         OpVerifier opImpl = new OpVerifier(taikoInboxAddr, proofVerifier);
         VerifierAddresses memory verifiers =
@@ -149,11 +147,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         // ---------------------------------------------------------------
-        // Register L2 addresses
-        //register(rollupResolver, "taiko", vm.envAddress("TAIKO_ANCHOR_ADDRESS"), l2ChainId);
-        //register(rollupResolver, "signal_service", vm.envAddress("L2_SIGNAL_SERVICE"), l2ChainId);
-
-        // ---------------------------------------------------------------
         // Deploy other contracts
         if (block.chainid != 1) {
             deployAuxContracts();
@@ -169,9 +162,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             DefaultResolver(sharedResolver).transferOwnership(contractOwner);
             console2.log("** sharedResolver ownership transferred to:", contractOwner);
         }
-
-        // DefaultResolver(rollupResolver).transferOwnership(contractOwner);
-        // console2.log("** rollupResolver ownership transferred to:", contractOwner);
 
         Ownable2StepUpgradeable(taikoInboxAddr).transferOwnership(contractOwner);
     }
@@ -288,19 +278,6 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
-
-        // rollupResolver = deployProxy({
-        //     name: "rollup_address_resolver",
-        //     impl: address(new DefaultResolver()),
-        //     data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        // });
-
-        // ---------------------------------------------------------------
-        // Register shared contracts in the new rollup resolver
-        // copyRegister(rollupResolver, _sharedResolver, "taiko_token");
-        // copyRegister(rollupResolver, _sharedResolver, "bond_token");
-        // copyRegister(rollupResolver, _sharedResolver, "signal_service");
-        // copyRegister(rollupResolver, _sharedResolver, "bridge");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
@@ -478,7 +455,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-        //register(rollupResolver, "risc0_groth16_verifier", address(verifier));
 
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
@@ -489,7 +465,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy sp1 plonk verifier
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
-        //register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
 
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
