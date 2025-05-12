@@ -157,9 +157,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
-        uint256 firstBlockId =
-            evidence.batchInfo.lastBlockId + 1 - evidence.batchInfo.blocks.length;
-            
+        uint256 firstBlockId = evidence.batchInfo.lastBlockId + 1 - evidence.batchInfo.blocks.length;
+
         if (evidence.preconfedBlockHeader.number == firstBlockId) {
             // If the preconfirmed block is the first block in the batch, we compare the parent hash
             // against the verified block hash of the previous batch, since the "batch blockhash" is
