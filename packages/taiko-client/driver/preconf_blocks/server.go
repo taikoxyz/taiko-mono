@@ -25,6 +25,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -34,11 +35,8 @@ import (
 var (
 	errInvalidCurrOperator = errors.New("invalid operator: expected current operator in handover window")
 	errInvalidNextOperator = errors.New("invalid operator: expected next operator in handover window")
+	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
-
-var wsUpgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
 
 // preconfBlockChainSyncer is an interface for preconf block chain syncer.
 type preconfBlockChainSyncer interface {
@@ -71,13 +69,13 @@ type PreconfBlockAPIServer struct {
 	handoverSlots                 uint64
 	highestUnsafeL2PayloadBlockID uint64
 	preconfOperatorAddress        common.Address
-	mu                            sync.Mutex
 	blockRequests                 *lru.Cache[common.Hash, struct{}]
 	sequencingEndedForEpoch       *lru.Cache[uint64, common.Hash]
 	wsClients                     map[*websocket.Conn]struct{}
 	wsMutex                       sync.Mutex
-	latestBlockIDSeenInEventCh    chan uint64
-	latestBlockIDSeenInEvent      uint64
+	latestSeenProposalCh          chan *encoding.LastSeenProposal
+	latestSeenProposal            *encoding.LastSeenProposal
+	mutex                         sync.Mutex
 }
 
 // New creates a new preconf block server instance, and starts the server.
@@ -89,7 +87,7 @@ func New(
 	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
-	latestBlockIDSeenInEventCh chan uint64,
+	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
 	if err != nil {
@@ -107,20 +105,20 @@ func New(
 	}
 
 	server := &PreconfBlockAPIServer{
-		echo:                       echo.New(),
-		anchorValidator:            anchorValidator,
-		chainSyncer:                chainSyncer,
-		handoverSlots:              handoverSlots,
-		rpc:                        cli,
-		payloadsCache:              newPayloadQueue(),
-		preconfOperatorAddress:     preconfOperatorAddress,
-		lookahead:                  &Lookahead{},
-		mu:                         sync.Mutex{},
-		blockRequests:              blockRequestsCache,
-		sequencingEndedForEpoch:    endOfSequencingCache,
-		wsClients:                  make(map[*websocket.Conn]struct{}),
-		wsMutex:                    sync.Mutex{},
-		latestBlockIDSeenInEventCh: latestBlockIDSeenInEventCh,
+		echo:                    echo.New(),
+		anchorValidator:         anchorValidator,
+		chainSyncer:             chainSyncer,
+		handoverSlots:           handoverSlots,
+		rpc:                     cli,
+		payloadsCache:           newPayloadQueue(),
+		preconfOperatorAddress:  preconfOperatorAddress,
+		lookahead:               &Lookahead{},
+		mutex:                   sync.Mutex{},
+		blockRequests:           blockRequestsCache,
+		sequencingEndedForEpoch: endOfSequencingCache,
+		wsClients:               make(map[*websocket.Conn]struct{}),
+		wsMutex:                 sync.Mutex{},
+		latestSeenProposalCh:    latestSeenProposalCh,
 	}
 
 	server.echo.HideBanner = true
@@ -194,6 +192,7 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/ws", s.handleWebSocket)
 }
 
+// handleWebSocket handles the WebSocket connection.
 func (s *PreconfBlockAPIServer) handleWebSocket(c echo.Context) error {
 	conn, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -226,8 +225,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -340,8 +339,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	from peer.ID,
 	msg *eth.ExecutionPayloadEnvelope,
 ) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -429,8 +428,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	from peer.ID,
 	hash common.Hash,
 ) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug(
@@ -503,8 +502,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	from peer.ID,
 	epoch uint64,
 ) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
@@ -859,18 +858,32 @@ func (s *PreconfBlockAPIServer) GetSequencingEndedForEpoch(epoch uint64) (common
 	return s.sequencingEndedForEpoch.Get(epoch)
 }
 
-// LatestBlockIDSeenInEventLoop is a goroutine that listens for the latest block ID seen in the event loop.
-func (s *PreconfBlockAPIServer) LatestBlockIDSeenInEventLoop(ctx context.Context) {
+// LatestSeenProposalEventLoop is a goroutine that listens for the latest seen proposal events
+func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Stopping latest block ID seen in event loop")
+			log.Info("Stopping latest batch seen in event loop")
 			return
-		case blockID := <-s.latestBlockIDSeenInEventCh:
-			log.Info("Received latest block ID seen in event", "blockID", blockID)
-			s.mu.Lock()
-			s.latestBlockIDSeenInEvent = blockID
-			s.mu.Unlock()
+		case proposal := <-s.latestSeenProposalCh:
+			s.mutex.Lock()
+			log.Info(
+				"Received latest batch seen in event",
+				"batchID", proposal.Pacaya().GetBatchID(),
+				"lastBlockID", proposal.Pacaya().GetLastBlockID(),
+			)
+			s.latestSeenProposal = proposal
+			// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
+			if s.latestSeenProposal.PreconfChainReorged {
+				s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
+				log.Info(
+					"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
+					"batchID", proposal.Pacaya().GetBatchID(),
+					"lastBlockID", s.highestUnsafeL2PayloadBlockID,
+					"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+				)
+			}
+			s.mutex.Unlock()
 		}
 	}
 }

@@ -76,14 +76,16 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	if parent.Number.Uint64() < s.latestBlockIDSeenInEvent {
-		log.Warn("The parent block ID is smaller than the latest block ID seen in event",
+	if s.latestSeenProposal != nil && parent.Number.Uint64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
+		log.Warn(
+			"The parent block ID is smaller than the latest block ID seen in event",
 			"parentBlockID", parent.Number.Uint64(),
-			"latestBlockIDSeenInEvent", s.latestBlockIDSeenInEvent,
+			"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
 		)
 		return s.returnError(c, http.StatusBadRequest,
-			fmt.Errorf("latestBatchProposalBlockID: %v, parentBlockID: %v",
-				s.latestBlockIDSeenInEvent,
+			fmt.Errorf(
+				"latestBatchProposalBlockID: %v, parentBlockID: %v",
+				s.latestSeenProposal.Pacaya().GetLastBlockID(),
 				parent.Number.Uint64(),
 			),
 		)

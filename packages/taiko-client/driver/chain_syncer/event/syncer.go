@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
@@ -52,7 +53,7 @@ func NewSyncer(
 	state *state.State,
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobServerEndpoint *url.URL,
-	latestBlockIDSeenInEventCh chan uint64,
+	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*Syncer, error) {
 	constructor, err := anchorTxConstructor.New(client)
 	if err != nil {
@@ -102,7 +103,7 @@ func NewSyncer(
 			constructor,
 			txListFetcherCalldata,
 			txListFetcherBlob,
-			latestBlockIDSeenInEventCh,
+			latestSeenProposalCh,
 		),
 	}, nil
 }
