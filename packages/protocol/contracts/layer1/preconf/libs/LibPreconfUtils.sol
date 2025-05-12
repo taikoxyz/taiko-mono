@@ -44,12 +44,8 @@ library LibPreconfUtils {
         uint256 currentTimestamp = block.timestamp;
 
         for (uint256 i; i < _MAX_QUERIES && timestamp <= currentTimestamp; ++i) {
-            (bool success, bytes memory result) =
-                LibPreconfConstants.getBeaconBlockRootContract().staticcall(abi.encode(timestamp));
-
-            if (success && result.length > 0) {
-                return abi.decode(result, (bytes32));
-            }
+            bytes32 beaconBlockRoot = LibPreconfConstants.getBeaconBlockRoot(timestamp);
+            if (beaconBlockRoot != 0) return beaconBlockRoot;
 
             unchecked {
                 timestamp += LibPreconfConstants.SECONDS_IN_SLOT;

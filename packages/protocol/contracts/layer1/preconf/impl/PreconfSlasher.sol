@@ -99,15 +99,19 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (uint256)
     {
-        ///TODO: review the following code
+        // Some slashing doesn't relay on the batch to be verified, we can have a different function
+        // for these conditions.
+        // for example:
+        // - the batch that contains the block in question is not proposed by the given preconfer,
+        // - the batch is proposed with different parameters.
         EvidenceInvalidPreconfirmation memory evidence =
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
+        // Validate that the batch has been verified
+        // TODO: why this transition.blockHash is not used later?
         ITaikoInbox.TransitionState memory transition =
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
-
-        // Validate that the batch has been verified
         require(transition.blockHash != bytes32(0), BatchNotVerified());
 
         _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
@@ -120,13 +124,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Check for reorgs if the committer missed the proposal
         if (evidence.batchInfo.proposer != _committer) {
-            (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
-                abi.encode(_payload.preconferSlotTimestamp)
-            );
+            bytes32 beaconBlockRoot =
+                LibPreconfConstants.getBeaconBlockRoot(_payload.preconferSlotTimestamp);
 
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
-            if (!success) {
+            if (beaconBlockRoot == 0) {
                 return getSlashAmount().reorgedPreconf;
             }
         }
