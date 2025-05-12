@@ -84,9 +84,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         //     IResolver(rollupResolver).resolve(uint64(block.chainid), LibStrings.B_TAIKO, false);
         // Deploy verifiers
         OpVerifier opImpl = new OpVerifier(taikoInboxAddr, proofVerifier);
-        VerifierAddresses memory verifiers = deployVerifiers(
-            contractOwner, proofVerifier, taikoInboxAddr, address(opImpl)
-        );
+        VerifierAddresses memory verifiers =
+            deployVerifiers(contractOwner, proofVerifier, taikoInboxAddr, address(opImpl));
         if (vm.envBool("DUMMY_VERIFIERS")) {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
@@ -392,11 +391,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Prover set
         deployProxy({
             name: "prover_set",
-            impl: address(
-                new ProverSet(
-                    taikoInboxAddr, taikoInbox.v4BondToken(), taikoInboxAddr
-                )
-            ),
+            impl: address(new ProverSet(taikoInboxAddr, taikoInbox.v4BondToken(), taikoInboxAddr)),
             data: abi.encodeCall(ProverSetBase.init, (address(0), vm.envAddress("PROVER_SET_ADMIN"))),
             registerTo: _sharedResolver
         });

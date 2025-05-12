@@ -119,10 +119,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @param _address1 The first name to check against.
     /// @param _address2 The second name to check against.
     modifier onlyFromNamedEither(address _address1, address _address2) {
-        require(
-            msg.sender == _address1 || msg.sender == _address2,
-            ACCESS_DENIED()
-        );
+        require(msg.sender == _address1 || msg.sender == _address2, ACCESS_DENIED());
         _;
     }
 
