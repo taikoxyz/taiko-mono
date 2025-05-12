@@ -73,6 +73,8 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 				}
 
 				b = append(b, bytes...)
+				// Exit the loop as the matching sidecar has been found and processed.
+				break
 			}
 		}
 	}
