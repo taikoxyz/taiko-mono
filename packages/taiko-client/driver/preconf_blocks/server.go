@@ -747,6 +747,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 func (s *PreconfBlockAPIServer) UpdateLookahead(lookahead *Lookahead) {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
+
 	s.lookahead = lookahead
 }
 
@@ -756,35 +757,35 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(lookahead *Lookahead) {
 func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
-	la := s.lookahead
 
-	if la == nil || s.rpc.L1Beacon == nil {
+	if s.lookahead == nil || s.rpc.L1Beacon == nil {
 		log.Warn("Lookahead information not initialized, allowing by default")
 		return nil
 	}
 
-	// Check current ranges first
-	for _, r := range la.CurrRanges {
+	// Check if the fee recipient is the current operator.
+	for _, r := range s.lookahead.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
 			return nil
 		}
 	}
 
-	for _, r := range la.NextRanges {
+	// Check if the fee recipient is the next operator.
+	for _, r := range s.lookahead.NextRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
 			return nil
 		}
 	}
 
-	// If not in any range.
+	// If not in any range, we returns an error.
 	log.Debug(
 		"Slot out of sequencing window",
 		"slot", globalSlot,
-		"currRanges", la.CurrRanges,
-		"nextRanges", la.NextRanges,
+		"currRanges", s.lookahead.CurrRanges,
+		"nextRanges", s.lookahead.NextRanges,
 	)
 
-	if feeRecipient == la.CurrOperator {
+	if feeRecipient == s.lookahead.CurrOperator {
 		return errInvalidCurrOperator
 	}
 
