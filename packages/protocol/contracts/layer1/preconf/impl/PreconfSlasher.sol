@@ -143,12 +143,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         require(transition.blockHash != bytes32(0), BatchNotVerified());
 
+        uint256 blockId = evidence.preconfedBlockHeader.number;
+
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         LibTrieProof.verifyMerkleProof(
             transition.blockHash,
             taikoAnchor,
-            _calcBlockHashSlot(evidence.preconfedBlockHeader.number),
+            _calcBlockHashSlot(blockId),
             evidence.blockhashProofs.value,
             evidence.blockhashProofs.accountProof,
             evidence.blockhashProofs.storageProof
@@ -159,7 +161,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // parent.
         uint256 firstBlockId = evidence.batchInfo.lastBlockId + 1 - evidence.batchInfo.blocks.length;
 
-        if (evidence.preconfedBlockHeader.number == firstBlockId) {
+        if (blockId == firstBlockId) {
             // If the preconfirmed block is the first block in the batch, we compare the parent hash
             // against the verified block hash of the previous batch, since the "batch blockhash" is
             // basically the hash of the last block.
@@ -174,7 +176,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             LibTrieProof.verifyMerkleProof(
                 transition.blockHash,
                 taikoAnchor,
-                _calcBlockHashSlot(evidence.preconfedBlockHeader.number - 1),
+                _calcBlockHashSlot(blockId - 1),
                 evidence.preconfedBlockHeader.parentHash,
                 evidence.parentBlockhashProofs.accountProof,
                 evidence.parentBlockhashProofs.storageProof
@@ -201,7 +203,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         ITaikoInbox.Batch memory batch =
             _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
 
-        if (evidence.preconfedBlockHeader.number == batch.lastBlockId) {
+        uint256 blockId = evidence.preconfedBlockHeader.number;
+        if (blockId == batch.lastBlockId) {
             _verifyBatchData(_payload.batchId + 1, evidence.nextBatchMetadata);
 
             require(
@@ -210,12 +213,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             );
         } else {
             // Check if the block is not the last one in the batch
-            uint256 lastBlockInPreviousBatch = batch.lastBlockId - evidence.batchInfo.blocks.length;
-            require(
-                evidence.preconfedBlockHeader.number > lastBlockInPreviousBatch
-                    && evidence.preconfedBlockHeader.number < batch.lastBlockId,
-                BlockNotInBatch()
-            );
+            uint256 firstBlockId = batch.lastBlockId + 1 - evidence.batchInfo.blocks.length;
+            require(blockId >= firstBlockId && blockId < batch.lastBlockId, BlockNotInBatch());
         }
 
         return getSlashAmount().invalidEOP;
