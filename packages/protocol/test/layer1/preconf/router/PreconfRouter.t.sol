@@ -22,7 +22,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
 
-        address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
+        address beaconBlockRootContract = LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT;
         vm.etch(beaconBlockRootContract, address(mockBeacon).code);
         MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
             epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
@@ -78,7 +78,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
 
-        address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
+        address beaconBlockRootContract = LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT;
         vm.etch(beaconBlockRootContract, address(mockBeacon).code);
         MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
             epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
@@ -109,7 +109,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         MockBeaconBlockRoot mockBeacon = new MockBeaconBlockRoot();
         bytes32 mockRoot = bytes32(uint256(1)); // This will select Carol
 
-        address beaconBlockRootContract = LibPreconfConstants.getBeaconBlockRootContract();
+        address beaconBlockRootContract = LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT;
         vm.etch(beaconBlockRootContract, address(mockBeacon).code);
         MockBeaconBlockRoot(payable(beaconBlockRootContract)).set(
             epochOneStart + LibPreconfConstants.SECONDS_IN_SLOT, mockRoot
