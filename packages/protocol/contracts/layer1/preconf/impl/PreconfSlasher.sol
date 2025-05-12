@@ -123,12 +123,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Check for reorgs if the committer missed the proposal
         if (evidence.batchInfo.proposer != _committer) {
-            bytes32 beaconBlockRoot =
-                LibPreconfConstants.getBeaconBlockRoot(_payload.preconferSlotTimestamp);
-
+            (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
+                abi.encode(_payload.preconferSlotTimestamp)
+            );
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
-            if (beaconBlockRoot == 0) {
+            if (!success) {
                 return getSlashAmount().reorgedPreconf;
             }
         }
