@@ -29,6 +29,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     uint256[47] private __gap;
 
+    constructor() EssentialContract() { }
+
     function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
         operatorChangeDelay = _operatorChangeDelay;

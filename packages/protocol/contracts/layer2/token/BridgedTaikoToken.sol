@@ -31,7 +31,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         external
         override
         whenNotPaused
-        onlyFromOwnerOrNamed(erc20Vault)
+        onlyFromOwnerOr(erc20Vault)
         nonReentrant
     {
         _mint(_account, _amount);
@@ -41,7 +41,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         external
         override
         whenNotPaused
-        onlyFromOwnerOrNamed(erc20Vault)
+        onlyFromOwnerOr(erc20Vault)
         nonReentrant
     {
         _burn(msg.sender, _amount);

@@ -22,6 +22,8 @@ contract TaikoDAOController is EssentialContract {
 
     bytes32[50] private __gap;
 
+    constructor() EssentialContract() { }
+
     function init(address _taikoDAO) external initializer {
         __Essential_init(_taikoDAO);
     }

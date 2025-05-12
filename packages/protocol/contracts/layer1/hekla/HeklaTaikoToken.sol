@@ -18,12 +18,13 @@ contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20Vo
     error TKO_INVALID_ADDR();
     error TT_INVALID_PARAM();
 
+    constructor() EssentialContract() { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.
-
     function init(
         address _owner,
         string calldata _name,
