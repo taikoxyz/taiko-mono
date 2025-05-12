@@ -2,18 +2,16 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import "../common/EssentialResolverContract.sol";
+import "../common/EssentialContract.sol";
 import "../libs/LibStrings.sol";
 
 /// @notice TaikoToken was `EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable`.
 /// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent
 /// contract list.
 /// We can simplify the code since we no longer need to maintain upgradability with Hekla.
-abstract contract TaikoTokenBase0 is EssentialResolverContract {
+abstract contract TaikoTokenBase0 is EssentialContract {
     // solhint-disable var-name-mixedcase
     uint256[50] private __slots_previously_used_by_ERC20SnapshotUpgradeable;
-
-    constructor(address _resolver) EssentialResolverContract(_resolver) { }
 }
 
 /// @title TaikoTokenBase
@@ -21,8 +19,6 @@ abstract contract TaikoTokenBase0 is EssentialResolverContract {
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable {
     uint256[50] private __gap;
-
-    constructor(address _resolver) TaikoTokenBase0(_resolver) { }
 
     function clock() public view override returns (uint48) {
         return SafeCastUpgradeable.toUint48(block.timestamp);
