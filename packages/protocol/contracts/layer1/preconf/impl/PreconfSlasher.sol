@@ -18,21 +18,23 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     address public immutable fallbackPreconfer;
     ITaikoInbox public immutable taikoInbox;
     uint64 public immutable l2ChainId;
+    address public immutable taikoAnchor;
 
     uint256[50] private __gap;
 
     constructor(
-        address _resolver,
         address _urc,
         address _fallbackPreconfer,
-        address _taikoInbox
+        address _taikoInbox,
+        address _taikoAnchor
     )
-        EssentialContract(_resolver)
+        EssentialContract(address(0))
     {
         urc = _urc;
         fallbackPreconfer = _fallbackPreconfer;
         taikoInbox = ITaikoInbox(_taikoInbox);
         l2ChainId = taikoInbox.v4GetConfig().chainId;
+        taikoAnchor = _taikoAnchor;
     }
 
     function init(address _owner) external initializer {
@@ -103,12 +105,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
-        ITaikoInbox.TransitionState memory transition =
-            taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
-
-        // Validate that the batch has been verified
-        require(transition.blockHash != bytes32(0), BatchNotVerified());
-
         _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
 
         // Slash if the height of anchor block on the commitment is different from the
@@ -117,12 +113,16 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             return getSlashAmount().invalidPreconf;
         }
 
+        // Ensure that the anchor block has not been reorged out
+        require(
+            _payload.anchorHash == evidence.batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock()
+        );
+
         // Check for reorgs if the committer missed the proposal
         if (evidence.batchInfo.proposer != _committer) {
             (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
                 abi.encode(_payload.preconferSlotTimestamp)
             );
-
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
             if (!success) {
@@ -130,63 +130,40 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             }
         }
 
-        // Ensure that the anchor block has not been reorged out
-        require(
-            _payload.anchorHash == evidence.batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock()
-        );
+        // The preconfirmed blockhash must not match the hash of the proposed block for a
+        // preconfirmation violation
+        bytes32 l2BlockHash = evidence.blockhashProofs.l2BlockHeader.hash();
+        require(_payload.blockHash != l2BlockHash, PreconfirmationIsValid());
+
+        // Validate that the batch has been verified
+        ITaikoInbox.TransitionState memory transition =
+            taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
+        require(transition.blockHash != bytes32(0), BatchNotVerified());
+
+        uint256 blockId = evidence.preconfedBlockHeader.number;
 
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
-        uint256 heightOfFirstBlockInBatch =
-            evidence.batchInfo.lastBlockId + 1 - evidence.batchInfo.blocks.length;
-        if (evidence.preconfedBlockHeader.number == heightOfFirstBlockInBatch) {
-            // If the preconfirmed block is the first block in the batch, we compare the parent hash
-            // against the verified block hash of the previous batch, since the "batch blockhash" is
-            // basically the hash of the last block.
-            ITaikoInbox.TransitionState memory parentTransition =
-                taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId - 1));
-            require(
-                parentTransition.blockHash == evidence.preconfedBlockHeader.parentHash,
-                ParentHashMismatch()
-            );
-        } else {
-            // Else, we compare the parent hash against the blockhash present within TaikoAnchor.
-
-            // Slot within the TaikoAnchor contract that contains the blockhash of the parent of the
-            // preconfirmed block.
-            bytes32 parentBlockhashSlot =
-                keccak256(abi.encode(evidence.preconfedBlockHeader.number - 1, bytes32(0)));
-
-            LibTrieProof.verifyMerkleProof(
-                transition.stateRoot,
-                resolve(l2ChainId, LibStrings.B_TAIKO, false),
-                parentBlockhashSlot,
-                evidence.preconfedBlockHeader.parentHash,
-                evidence.parentBlockhashProofs.accountProof,
-                evidence.parentBlockhashProofs.storageProof
-            );
-        }
-
-        // Slot within the TaikoAnchor contract that contains the blockhash of the block proposed
-        // at the same height as the preconfirmed block.
-        bytes32 blockhashSlot =
-            keccak256(abi.encode(evidence.preconfedBlockHeader.number, bytes32(0)));
+        LibTrieProof.verifyMerkleProof(
+            evidence.preconfedBlockHeader.stateRoot,
+            taikoAnchor,
+            _calcBlockHashSlot(blockId - 1),
+            evidence.preconfedBlockHeader.parentHash,
+            evidence.parentBlockhashProofs.accountProof,
+            evidence.parentBlockhashProofs.storageProof
+        );
 
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         LibTrieProof.verifyMerkleProof(
-            transition.stateRoot,
-            resolve(l2ChainId, LibStrings.B_TAIKO, false),
-            blockhashSlot,
-            evidence.blockhashProofs.value,
+            evidence.blockhashProofs.l2BlockHeader.stateRoot,
+            taikoAnchor,
+            _calcBlockHashSlot(blockId),
+            l2BlockHash,
             evidence.blockhashProofs.accountProof,
             evidence.blockhashProofs.storageProof
         );
-
-        // The preconfirmed blockhash must not match the hash of the proposed block for a
-        // preconfirmation violation
-        require(evidence.blockhashProofs.value != _payload.blockHash, PreconfirmationIsValid());
 
         return getSlashAmount().invalidPreconf;
     }
@@ -208,7 +185,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         ITaikoInbox.Batch memory batch =
             _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
 
-        if (evidence.preconfedBlockHeader.number == batch.lastBlockId) {
+        uint256 blockId = evidence.preconfedBlockHeader.number;
+        if (blockId == batch.lastBlockId) {
             _verifyBatchData(_payload.batchId + 1, evidence.nextBatchMetadata);
 
             require(
@@ -217,12 +195,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             );
         } else {
             // Check if the block is not the last one in the batch
-            uint256 lastBlockInPreviousBatch = batch.lastBlockId - evidence.batchInfo.blocks.length;
-            require(
-                evidence.preconfedBlockHeader.number > lastBlockInPreviousBatch
-                    && evidence.preconfedBlockHeader.number < batch.lastBlockId,
-                BlockNotInBatch()
-            );
+            uint256 firstBlockId = batch.lastBlockId + 1 - evidence.batchInfo.blocks.length;
+            require(blockId >= firstBlockId && blockId < batch.lastBlockId, BlockNotInBatch());
         }
 
         return getSlashAmount().invalidEOP;
@@ -278,5 +252,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     {
         batch_ = taikoInbox.v4GetBatch(uint64(_batchId));
         require(keccak256(abi.encode(_metadata)) == batch_.metaHash, InvalidBatchMetadata());
+    }
+
+    function _calcBlockHashSlot(uint256 _blockId) internal pure returns (bytes32) {
+        // The mapping is in the first slot
+        return keccak256(abi.encode(_blockId, bytes32(0)));
     }
 }

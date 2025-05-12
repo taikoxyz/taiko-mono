@@ -80,7 +80,7 @@ interface IPreconfSlasher is ISlasher {
     // The EVM `slot` containing the blockhash is calculated dynamically based on the block number.
     struct BlockhashProofs {
         // Blockhash value
-        bytes32 value;
+        LibBlockHeader.BlockHeader l2BlockHeader;
         // Patricia trie account proof
         bytes[] accountProof;
         // Patricia trie storage proof
