@@ -23,13 +23,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     uint256[50] private __gap;
 
     constructor(
-        address _resolver,
         address _urc,
         address _fallbackPreconfer,
         address _taikoInbox,
         address _taikoAnchor
     )
-        EssentialContract(_resolver)
+        EssentialContract(address(0))
     {
         urc = _urc;
         fallbackPreconfer = _fallbackPreconfer;
