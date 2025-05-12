@@ -2,7 +2,7 @@ name: Relayer
 
 on:
   push:
-    branches: [main]
+    branches: [main, continue_on_failed_get_process_Tx]
     paths:
       - "packages/relayer/**"
   pull_request:
