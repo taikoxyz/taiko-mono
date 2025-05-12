@@ -193,12 +193,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         });
     }
 
-    function deployTEEVerifiers(
-        address proofVerifier
-    )
-        internal
-        returns (address sgxVerifier)
-    {
+    function deployTEEVerifiers(address proofVerifier) internal returns (address sgxVerifier) {
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
             impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automata)),
