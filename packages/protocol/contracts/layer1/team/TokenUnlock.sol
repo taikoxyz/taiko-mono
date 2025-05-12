@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/EssentialResolverContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 import "../provers/ProverSet.sol";
@@ -18,7 +18,7 @@ import "../provers/ProverSet.sol";
 /// Generation Event (TGE), with no withdrawals allowed during the first year.
 /// A separate instance of this contract is deployed for each recipient.
 /// @custom:security-contact security@taiko.xyz
-contract TokenUnlock is EssentialContract {
+contract TokenUnlock is EssentialResolverContract {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
@@ -72,7 +72,7 @@ contract TokenUnlock is EssentialContract {
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _resolver) EssentialResolverContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.

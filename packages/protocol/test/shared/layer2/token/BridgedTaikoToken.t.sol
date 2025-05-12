@@ -12,7 +12,7 @@ contract BridgedTaikoTokenTest is CommonTest {
         return BridgedTaikoToken(
             deploy({
                 name: "taiko_token",
-                impl: address(new BridgedTaikoToken()),
+                impl: address(new BridgedTaikoToken(address(resolver))),
                 data: abi.encodeCall(BridgedTaikoToken.init, (address(0)))
             })
         );

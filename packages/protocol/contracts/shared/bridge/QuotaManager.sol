@@ -10,8 +10,8 @@ import "./IQuotaManager.sol";
 /// @dev An implementation of IQuotaManager for Ether and ERC20 tokens.
 /// @custom:security-contact security@taiko.xyz
 contract QuotaManager is EssentialContract, IQuotaManager {
-    address immutable bridge;
-    address immutable erc20Vault;
+    address public immutable bridge;
+    address public immutable erc20Vault;
 
     using LibMath for uint256;
 
@@ -32,7 +32,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
 
-    constructor(address _bridge, address _erc20Vault) EssentialContract(address(0)) {
+    constructor(address _bridge, address _erc20Vault) EssentialContract() {
         bridge = _bridge;
         erc20Vault = _erc20Vault;
     }
@@ -64,7 +64,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     )
         external
         whenNotPaused
-        onlyFromNamedEither(bridge, erc20Vault)
+        onlyFromEither(bridge, erc20Vault)
     {
         uint256 available = availableQuota(_token, 0);
         if (available == type(uint256).max) return;

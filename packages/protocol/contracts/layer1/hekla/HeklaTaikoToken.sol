@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/EssentialResolverContract.sol";
 
 /// @title HeklaTaikoToken
 /// @notice Taiko token for Taiko Hekla testnet.
@@ -12,13 +12,17 @@ import "src/shared/common/EssentialContract.sol";
 /// @dev Due to historical reasons, the Taiko Token on Hekla has a different storage layout compared
 /// to the mainnet token contract. Therefore, we need to maintain this file.
 /// @custom:security-contact security@taiko.xyz
-contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
+contract HeklaTaikoToken is
+    EssentialResolverContract,
+    ERC20SnapshotUpgradeable,
+    ERC20VotesUpgradeable
+{
     uint256[50] private __gap;
 
     error TKO_INVALID_ADDR();
     error TT_INVALID_PARAM();
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _resolver) EssentialResolverContract(_resolver) { }
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _name The name of the token.
@@ -49,11 +53,6 @@ contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20Vo
     /// @param _amount The amount of tokens to burn.
     function burn(address _from, uint256 _amount) public onlyOwner {
         return _burn(_from, _amount);
-    }
-
-    /// @notice Creates a new token snapshot.
-    function snapshot() public onlyFromOwnerOrNamed("snapshooter") returns (uint256) {
-        return _snapshot();
     }
 
     /// @notice Transfers tokens to a specified address.
