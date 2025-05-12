@@ -311,6 +311,12 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		lastBlockID = canonicalHeadL1Origin.BlockID.Uint64()
 	}
 
+	// If current block number is less than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if newHead.Number.Uint64() < s.highestUnsafeL2PayloadBlockID {
+		s.highestUnsafeL2PayloadBlockID = newHead.Number.Uint64()
+	}
+
 	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
 		LastBlockID:         newHead.Number.Uint64(),
 		LastProposedBlockID: lastBlockID,
