@@ -95,7 +95,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
                 )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // OP verifier
@@ -104,7 +104,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             name: "op_verifier",
             impl: opImpl,
             data: abi.encodeCall(OpVerifier.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
@@ -116,7 +116,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // TaikoWrapper
@@ -124,7 +124,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             name: "taiko_wrapper",
             impl: address(new TaikoWrapper(taikoInbox, store, address(0))),
             data: abi.encodeCall(TaikoWrapper.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // Upgrade ForcedInclusionStore to use the real TaikoWrapper address.
@@ -158,11 +158,10 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         require(l2ChainId != block.chainid, "same chainid");
 
         // Other verifiers
-        upgradeVerifierContracts(rollupResolver, opVerifier, opImpl, proofVerifier, l2ChainId);
+        upgradeVerifierContracts(opVerifier, opImpl, proofVerifier, l2ChainId);
     }
 
     function upgradeVerifierContracts(
-        address rollupResolver,
         address opProxy,
         address opImpl,
         address proofVerifier,
@@ -175,13 +174,12 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             name: "sgxGeth_verifier",
             impl: opImpl,
             data: abi.encodeCall(OpVerifier.init, address(0)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
-        deployTEEVerifiers(rollupResolver, proofVerifier);
+        deployTEEVerifiers(proofVerifier);
 
-        (address risc0RethVerifier, address sp1RethVerifier) =
-            deployZKVerifiers(rollupResolver, l2ChainId);
+        (address risc0RethVerifier, address sp1RethVerifier) = deployZKVerifiers(l2ChainId);
 
         // In testing, use address(0) as an sgxVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
@@ -198,42 +196,33 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
     }
 
-    function deployZKVerifiers(
-        address rollupResolver,
-        uint64 l2ChainId
-    )
+    function deployZKVerifiers(uint64 l2ChainId)
         internal
         returns (address risc0Verifier, address sp1Verifier)
     {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier risc0Groth16Verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-        register(rollupResolver, "risc0_groth16_verifier", address(risc0Groth16Verifier));
+        //register(rollupResolver, "risc0_groth16_verifier", address(risc0Groth16Verifier));
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
             impl: address(new TaikoRisc0Verifier(l2ChainId, address(risc0Groth16Verifier))),
             data: abi.encodeCall(TaikoRisc0Verifier.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // Deploy sp1 plonk verifier
         SP1Verifier sp1RemoteVerifier = new SP1Verifier();
-        register(rollupResolver, "sp1_remote_verifier", address(sp1RemoteVerifier));
+        //register(rollupResolver, "sp1_remote_verifier", address(sp1RemoteVerifier));
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
             impl: address(new TaikoSP1Verifier(l2ChainId, address(sp1RemoteVerifier))),
             data: abi.encodeCall(TaikoSP1Verifier.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
     }
 
-    function deployTEEVerifiers(
-        address rollupResolver,
-        address proofVerifier
-    )
-        internal
-        returns (address sgxVerifier)
-    {
+    function deployTEEVerifiers(address proofVerifier) internal returns (address sgxVerifier) {
         // Deploy sgx verifier
         P256Verifier p256Verifier = new P256Verifier();
         SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
@@ -247,14 +236,14 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
                 AutomataDcapV3Attestation.init,
                 (address(0), address(sigVerifyLib), address(pemCertChainLib))
             ),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         sgxVerifier = deployProxy({
             name: "sgx_reth_verifier",
             impl: address(new TaikoSgxVerifier(taikoInbox, proofVerifier, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
     }
 

@@ -208,10 +208,7 @@ contract DeployPacayaL1 is DeployCapability {
         );
     }
 
-    function deployZKVerifiers()
-        internal
-        returns (address risc0Verifier, address sp1Verifier)
-    {
+    function deployZKVerifiers() internal returns (address risc0Verifier, address sp1Verifier) {
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
             impl: address(new TaikoRisc0Verifier(l2ChainId, risc0Groth16Verifier)),

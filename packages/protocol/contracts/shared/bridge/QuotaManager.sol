@@ -35,7 +35,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     constructor(address _bridge, address _erc20Vault) EssentialContract(address(0)) {
         bridge = _bridge;
         erc20Vault = _erc20Vault;
-     }
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.

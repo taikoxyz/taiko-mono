@@ -16,10 +16,8 @@ contract DeployProverSet is BaseScript {
         require(owner != address(0), "OWNER not set");
         require(admin != address(0), "ADMIN not set");
 
-        address impl = vm.envOr(
-            "PROVER_SET_IMPL",
-            address(new ProverSet(inbox, taikoToken, iProposeBatch))
-        );
+        address impl =
+            vm.envOr("PROVER_SET_IMPL", address(new ProverSet(inbox, taikoToken, iProposeBatch)));
 
         deploy({ name: "", impl: impl, data: abi.encodeCall(ProverSetBase.init, (owner, admin)) });
     }
