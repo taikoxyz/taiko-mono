@@ -194,7 +194,8 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/ws", s.handleWebSocket)
 }
 
-// handleWebSocket handles the WebSocket connection.
+// handleWebSocket handles the WebSocket connection, upgrades the connection
+// to a WebSocket connection, and starts pushing new sequencingEndedForEpoch notification.
 func (s *PreconfBlockAPIServer) handleWebSocket(c echo.Context) error {
 	conn, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -225,6 +226,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -326,24 +328,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
 	if from != "" && s.p2pNode.Host().ID() == from {
-		log.Debug(
-			"Ignore the message from the current P2P node",
-			"peer", from,
-			"event", "OnUnsafeL2Response",
-		)
+		log.Debug("Ignore the message from the current P2P node", "peer", from)
 		return nil
 	}
 
 	// Ignore the message if it is in the cache already.
 	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Debug(
-			"Ignore already cahced block",
+			"Ignore already cahced preconfirmation block response",
 			"peer", from,
-			"event", "OnUnsafeL2Response",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 		)
@@ -357,9 +355,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	}
 	if head != nil {
 		log.Debug(
-			"Ignore already inserted block",
+			"Ignore already inserted preconfirmation response block",
 			"peer", from,
-			"event", "OnUnsafeL2Response",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 		)
@@ -415,13 +412,10 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
-		log.Debug(
-			"Ignore the message from the current P2P node",
-			"peer", from,
-			"event", "OnUnsafeL2Request",
-		)
+		log.Debug("Ignore the message from the current P2P node", "peer", from)
 		return nil
 	}
 
@@ -430,7 +424,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		log.Debug(
 			"Ignoring the preconfirmation block request, not the current operator",
 			"peer", from,
-			"event", "OnUnsafeL2Request",
 			"currOperator", s.lookahead.CurrOperator.Hex(),
 			"nextOperator", s.lookahead.NextOperator.Hex(),
 			"preconfOperatorAddress", s.preconfOperatorAddress.Hex(),
@@ -449,9 +442,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
 		log.Warn(
-			"Failed to fetch block by hash",
+			"Failed to fetch preconfirmation request block by hash",
 			"peer", from,
-			"event", "OnUnsafeL2Request",
 			"hash", hash.Hex(),
 			"error", err,
 		)
@@ -463,11 +455,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return fmt.Errorf("failed to convert block to envelope: %w", err)
 	}
 
-	log.Info(
-		"Publish preconfirmation block response",
-		"blockID", block.NumberU64(),
-		"hash", hash.Hex(),
-	)
+	log.Info("Publish preconfirmation block response", "blockID", block.NumberU64(), "hash", hash.Hex())
 
 	if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
 		log.Warn(
@@ -489,6 +477,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
@@ -906,7 +895,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		log.Info(
 			"Parent block not in L2 canonical / fork chain",
 			"peer", from,
-			"event", "OnUnsafeL2Response",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"parentHash", msg.ExecutionPayload.ParentHash,
@@ -916,7 +904,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			log.Info(
 				"Unable to find all the missing ancients from the cache, cache the current payload",
 				"peer", from,
-				"event", "OnUnsafeL2Response",
 				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 				"hash", msg.ExecutionPayload.BlockHash.Hex(),
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
@@ -926,7 +913,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				log.Info(
 					"Payload is cached",
 					"peer", from,
-					"event", "OnUnsafeL2Response",
 					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
 					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
