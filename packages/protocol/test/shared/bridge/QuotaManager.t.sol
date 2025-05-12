@@ -7,9 +7,10 @@ contract TestQuotaManager is CommonTest {
     // Contracts on Ethereum
     QuotaManager private qm;
     address private bridge = randAddress();
+    address private erc20Vault = randAddress();
 
     function setUpOnEthereum() internal override {
-        qm = deployQuotaManager();
+        qm = deployQuotaManager(bridge, erc20Vault);
         register("bridge", bridge);
     }
 

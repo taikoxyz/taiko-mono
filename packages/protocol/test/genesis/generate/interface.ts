@@ -9,6 +9,7 @@ export interface Config {
     contractAddresses: Object;
     param1559: Object;
     pacayaForkHeight: number;
+    shastaForkHeight: number;
 }
 
 export interface Result {

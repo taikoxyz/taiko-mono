@@ -130,12 +130,6 @@ abstract contract CommonTest is Test, Script {
         returns (address proxy)
     {
         proxy = address(new ERC1967Proxy(impl, data));
-        string memory _name = Strings.toString(uint256(name));
-        vm.writeJson(
-            vm.serializeAddress("deployment", _name, proxy),
-            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
-        );
-
         console2.log(">", string.concat("'", bytes32ToString(name), "'"));
         console2.log("  proxy   :", proxy);
         console2.log("  impl    :", impl);
@@ -209,11 +203,17 @@ abstract contract CommonTest is Test, Script {
         );
     }
 
-    function deployQuotaManager() internal returns (QuotaManager) {
+    function deployQuotaManager(
+        address bridge,
+        address erc20Vault
+    )
+        internal
+        returns (QuotaManager)
+    {
         return QuotaManager(
             deploy({
                 name: "quota_manager",
-                impl: address(new QuotaManager(address(resolver))),
+                impl: address(new QuotaManager(address(bridge), address(erc20Vault))),
                 data: abi.encodeCall(QuotaManager.init, (address(0), 24 hours))
             })
         );

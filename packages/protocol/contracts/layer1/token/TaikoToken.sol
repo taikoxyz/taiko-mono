@@ -11,10 +11,13 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 (token.taiko.eth)
 /// @custom:security-contact security@taiko.xyz
 contract TaikoToken is TaikoTokenBase {
-    address private constant _TAIKO_L1 = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
-    address private constant _ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
+    // treasury.taiko.eth
+    address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
+    // daocontroller.taiko.eth
+    address public constant TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
 
     error TT_INVALID_PARAM();
+    error TT_NON_VOTING_ACCOUNT();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -28,28 +31,50 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
-    /// @notice Batch transfers tokens
-    /// @param recipients The list of addresses to transfer tokens to.
-    /// @param amounts The list of amounts for transfer.
-    /// @return true if the transfer is successful.
-    function batchTransfer(
-        address[] calldata recipients,
-        uint256[] calldata amounts
-    )
-        external
-        returns (bool)
-    {
-        uint256 size = recipients.length;
-        if (size != amounts.length) revert TT_INVALID_PARAM();
-        for (uint256 i; i < size; ++i) {
-            _transfer(msg.sender, recipients[i], amounts[i]);
+    function delegate(address account) public override {
+        address[] memory nonVotingAccounts = getNonVotingAccounts();
+        // Special checks to avoid reading from storage slots
+        for (uint256 i; i < nonVotingAccounts.length; ++i) {
+            require(msg.sender != nonVotingAccounts[i], TT_NON_VOTING_ACCOUNT());
         }
-        return true;
+        super.delegate(account);
     }
 
-    function delegates(address account) public view virtual override returns (address) {
-        // Special checks to avoid reading from storage slots
-        if (account == _TAIKO_L1 || account == _ERC20_VAULT) return address(0);
-        else return super.delegates(account);
+    function getPastVotes(
+        address account,
+        uint256 timepoint
+    )
+        public
+        view
+        override
+        returns (uint256)
+    {
+        address[] memory nonVotingAccounts = getNonVotingAccounts();
+        for (uint256 i; i < nonVotingAccounts.length; ++i) {
+            if (account == nonVotingAccounts[i]) {
+                return 0;
+            }
+        }
+        return super.getPastVotes(account, timepoint);
+    }
+
+    /// @notice This override modifies the return value to reflect the past total supply eligible
+    /// for voting.
+    function getPastTotalSupply(uint256 timepoint) public view override returns (uint256) {
+        address[] memory nonVotingAccounts = getNonVotingAccounts();
+        uint256 nonVotingSupply;
+        for (uint256 i; i < nonVotingAccounts.length; ++i) {
+            nonVotingSupply += balanceOf(nonVotingAccounts[i]);
+        }
+        nonVotingSupply += balanceOf(address(0));
+        return super.getPastTotalSupply(timepoint) - nonVotingSupply;
+    }
+
+    /// @notice Returns the list of accounts that are not eligible for voting.
+    /// @return accounts_ The list of accounts that are not eligible for voting.
+    function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
+        accounts_ = new address[](2);
+        accounts_[0] = TAIKO_FOUNDATION_TREASURY;
+        accounts_[1] = TAIKO_DAO_CONTROLLER;
     }
 }

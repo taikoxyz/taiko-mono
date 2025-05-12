@@ -13,7 +13,7 @@ import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/signal/SignalService.sol";
-import "src/layer2/based/TaikoAnchor.sol";
+import "src/layer2/based/anchor/TaikoAnchor.sol";
 import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
@@ -26,6 +26,7 @@ contract TestGenerateGenesis is Test {
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
     uint256 private pacayaForkHeight = configJSON.readUint(".pacayaForkHeight");
+    uint256 private shastaForkHeight = configJSON.readUint(".shastaForkHeight");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -114,6 +115,7 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
         assertEq(uint64(pacayaForkHeight), taikoAnchorProxy.pacayaForkHeight());
+        assertEq(uint64(shastaForkHeight), taikoAnchorProxy.shastaForkHeight());
         assertEq(
             getPredeployedContractAddress("SignalService"),
             address(taikoAnchorProxy.signalService())
@@ -124,9 +126,9 @@ contract TestGenerateGenesis is Test {
         taikoAnchorProxy.upgradeTo(
             address(
                 new TaikoAnchor(
-                    getPredeployedContractAddress("RollupResolver"),
                     getPredeployedContractAddress("SignalService"),
-                    uint64(pacayaForkHeight)
+                    uint64(pacayaForkHeight),
+                    uint64(shastaForkHeight)
                 )
             )
         );

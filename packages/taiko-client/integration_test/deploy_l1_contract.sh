@@ -36,7 +36,7 @@ export ERC721_VAULT=$(echo "$DEPLOYMENT_JSON" | jq '.erc721_vault' | sed 's/\"//
 export ERC1155_VAULT=$(echo "$DEPLOYMENT_JSON" | jq '.erc1155_vault' | sed 's/\"//g')
 export QUOTA_MANAGER=0x0000000000000000000000000000000000000000
 
-cd ../protocol &&
+cd ${PACAYA_FORK_TAIKO_MONO}/packages/protocol &&
   PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/devnet/UpgradeDevnetPacayaL1.s.sol:UpgradeDevnetPacayaL1 \
     --fork-url "$L1_HTTP" \
     --broadcast \

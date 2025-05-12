@@ -116,13 +116,10 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
 
     /// @dev Modifier that ensures the caller is a resolved address to either _name1 or _name2
     /// name.
-    /// @param _name1 The first name to check against.
-    /// @param _name2 The second name to check against.
-    modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
-        require(
-            msg.sender == resolve(_name1, true) || msg.sender == resolve(_name2, true),
-            ACCESS_DENIED()
-        );
+    /// @param _address1 The first name to check against.
+    /// @param _address2 The second name to check against.
+    modifier onlyFromNamedEither(address _address1, address _address2) {
+        require(msg.sender == _address1 || msg.sender == _address2, ACCESS_DENIED());
         _;
     }
 

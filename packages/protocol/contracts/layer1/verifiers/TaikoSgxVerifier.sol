@@ -10,14 +10,14 @@ import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
-/// @title SgxVerifier
+/// @title TaikoSgxVerifier
 /// @notice This contract is the implementation of verifying SGX signature proofs
 /// onchain.
 /// @dev Please see references below:
 /// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
 /// - Reference #2: https://github.com/gramineproject/gramine/discussions/1579
 /// @custom:security-contact security@taiko.xyz
-contract SgxVerifier is EssentialContract, IVerifier {
+contract TaikoSgxVerifier is EssentialContract, IVerifier {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
@@ -35,7 +35,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
     uint64 public immutable taikoChainId;
-    address public immutable taikoInbox;
+    ITaikoInbox public immutable taikoInbox;
     address public immutable taikoProofVerifier;
     address public immutable automataDcapAttestation;
 
@@ -83,15 +83,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_PROOF();
 
     constructor(
-        uint64 _taikoChainId,
         address _taikoInbox,
         address _taikoProofVerifier,
         address _automataDcapAttestation
     )
         EssentialContract(address(0))
     {
-        taikoChainId = _taikoChainId;
-        taikoInbox = _taikoInbox;
+        taikoInbox = ITaikoInbox(_taikoInbox);
+        taikoChainId = taikoInbox.v4GetConfig().chainId;
         taikoProofVerifier = _taikoProofVerifier;
         automataDcapAttestation = _automataDcapAttestation;
     }
@@ -150,7 +149,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyFromEither(taikoInbox, taikoProofVerifier)
+        onlyFromEither(address(taikoInbox), taikoProofVerifier)
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109

@@ -345,7 +345,7 @@ contract TestPreconfWhitelist is Layer1Test {
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
-            LibPreconfConstants.getBeaconBlockRootContract(),
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
             address(new BeaconBlockRootImpl(_root)).code
         );
     }

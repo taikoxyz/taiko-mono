@@ -46,9 +46,9 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 	// Height of the L2 block which including the TaikoL2.anchor transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
-	parentGasUsed uint64,
+	parent *types.Header,
 ) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee)
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -65,10 +65,10 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 		"l1Hash", l1Hash,
 		"stateRoot", l1Header.Root,
 		"baseFee", utils.WeiToGWei(baseFee),
-		"gasUsed", parentGasUsed,
+		"gasUsed", parent.GasUsed,
 	)
 
-	return c.rpc.OntakeClients.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
+	return c.rpc.OntakeClients.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parent.GasUsed))
 }
 
 // AssembleAnchorV2Tx assembles a signed TaikoL2.anchorV2 transaction.
@@ -77,13 +77,13 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 	// Parameters of the TaikoL2.anchorV2 transaction.
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
-	parentGasUsed uint64,
+	parent *types.Header,
 	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
 	// Height of the L2 block which including the TaikoL2.anchorV2 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee)
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,8 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		"l2Height", l2Height,
 		"anchorBlockId", anchorBlockID,
 		"anchorStateRoot", anchorStateRoot,
-		"parentGasUsed", parentGasUsed,
+		"parentGasUsed", parent.GasUsed,
+		"parentHash", parent.Hash(),
 		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
 		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
 		"baseFee", utils.WeiToGWei(baseFee),
@@ -103,7 +104,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
-		uint32(parentGasUsed),
+		uint32(parent.GasUsed),
 		*baseFeeConfig,
 	)
 }
@@ -114,14 +115,14 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	// Parameters of the TaikoAnchor.anchorV3 transaction.
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
-	parentGasUsed uint64,
+	parent *types.Header,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 	signalSlots [][32]byte,
 	// Height of the L2 block which including the TaikoAnchor.anchorV3 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee)
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,8 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		"l2Height", l2Height,
 		"anchorBlockId", anchorBlockID,
 		"anchorStateRoot", anchorStateRoot,
-		"parentGasUsed", parentGasUsed,
+		"parentGasUsed", parent.GasUsed,
+		"parentHash", parent.Hash(),
 		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
 		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
 		"signalSlots", len(signalSlots),
@@ -142,7 +144,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
-		uint32(parentGasUsed),
+		uint32(parent.GasUsed),
 		*baseFeeConfig,
 		signalSlots,
 	)
@@ -154,14 +156,14 @@ func (c *AnchorTxConstructor) transactOpts(
 	ctx context.Context,
 	l2Height *big.Int,
 	baseFee *big.Int,
+	parentHash common.Hash,
 ) (*bind.TransactOpts, error) {
 	var (
-		signer       = types.LatestSignerForChainID(c.rpc.L2.ChainID)
-		parentHeight = new(big.Int).Sub(l2Height, common.Big1)
+		signer = types.LatestSignerForChainID(c.rpc.L2.ChainID)
 	)
 
 	// Get the nonce of golden touch account at the specified parentHeight.
-	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHeight)
+	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHash)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +172,8 @@ func (c *AnchorTxConstructor) transactOpts(
 		"Golden touch account nonce",
 		"address", consensus.GoldenTouchAccount,
 		"nonce", nonce,
-		"parent", parentHeight,
+		"parent", new(big.Int).Sub(l2Height, common.Big1),
+		"parentHash", parentHash,
 	)
 
 	gasLimit := consensus.AnchorGasLimit

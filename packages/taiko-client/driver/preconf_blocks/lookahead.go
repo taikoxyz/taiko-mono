@@ -9,8 +9,8 @@ import (
 
 // SlotRange represents a half‑open [Start,End) range of L1 slots.
 type SlotRange struct {
-	Start uint64
-	End   uint64
+	Start uint64 `json:"start"`
+	End   uint64 `json:"end"`
 }
 
 // mergeRanges coalesces overlapping or adjacent SlotRanges.
@@ -102,9 +102,9 @@ func (w *opWindow) SequencingWindowSplit(operator common.Address, curr bool) []S
 
 // Lookahead holds the up‑to‑date sequencing window and operator addrs.
 type Lookahead struct {
-	CurrOperator common.Address
-	NextOperator common.Address
-	CurrRanges   []SlotRange // slots allowed for CurrOperator (0..threshold-1)
-	NextRanges   []SlotRange // slots allowed for NextOperator (threshold..slotsPerEpoch-1)
-	UpdatedAt    time.Time
+	CurrOperator common.Address `json:"currOperator"`
+	NextOperator common.Address `json:"nextOperator"`
+	CurrRanges   []SlotRange    `json:"currRanges"` // slots allowed for CurrOperator (0..threshold-1)
+	NextRanges   []SlotRange    `json:"nextRanges"` // slots allowed for NextOperator (threshold..slotsPerEpoch-1)
+	UpdatedAt    time.Time      `json:"updatedAt"`
 }

@@ -76,21 +76,6 @@ var (
 		Value:    false,
 		EnvVars:  []string{"MODE_CONTESTER"},
 	}
-	// HTTP server related.
-	ProverHTTPServerPort = &cli.Uint64Flag{
-		Name:     "prover.port",
-		Usage:    "Port to expose for http server",
-		Category: proverCategory,
-		Value:    9876,
-		EnvVars:  []string{"PROVER_PORT"},
-	}
-	MaxExpiry = &cli.DurationFlag{
-		Name:     "http.maxExpiry",
-		Usage:    "Maximum accepted expiry in seconds for accepting proving a block",
-		Value:    1 * time.Hour,
-		Category: proverCategory,
-		EnvVars:  []string{"HTTP_MAX_EXPIRY"},
-	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
 		Name:     "prover.dummy",
@@ -210,8 +195,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	Graffiti,
 	ProveUnassignedBlocks,
 	ContesterMode,
-	ProverHTTPServerPort,
-	MaxExpiry,
 	TaikoTokenAddress,
 	Allowance,
 	L1NodeVersion,

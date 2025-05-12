@@ -21,8 +21,9 @@ type payloadQueueItem struct {
 
 // payloadQueue tracks the latest payloads from the P2P gossip messages.
 type payloadQueue struct {
-	payloads []*payloadQueueItem
-	lock     sync.RWMutex
+	payloads    []*payloadQueueItem
+	totalCached uint64
+	lock        sync.RWMutex
 }
 
 // newPayloadQueue creates a pre-initialized queue with a fixed number of slots
@@ -43,6 +44,7 @@ func (q *payloadQueue) put(id uint64, payload *eth.ExecutionPayload) {
 		id:      id,
 		payload: payload,
 	}
+	q.totalCached++
 }
 
 // get retrieves a previously stored payload item or nil if it does not exist.
@@ -126,4 +128,12 @@ func (q *payloadQueue) getLatestPayload() *eth.ExecutionPayload {
 	}
 
 	return q.payloads[0].payload
+}
+
+// getTotalCached retrieves the total number of cached payloads after the initialization of the queue.
+func (q *payloadQueue) getTotalCached() uint64 {
+	q.lock.RLock()
+	defer q.lock.RUnlock()
+
+	return q.totalCached
 }

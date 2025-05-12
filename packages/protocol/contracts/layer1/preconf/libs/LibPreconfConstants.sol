@@ -6,6 +6,11 @@ import "src/shared/libs/LibNetwork.sol";
 /// @title LibPreconfConstants
 /// @custom:security-contact security@taiko.xyz
 library LibPreconfConstants {
+    /// @dev https://eips.ethereum.org/EIPS/eip-4788 enforce to use this address across different
+    /// EVM chains.
+    address internal constant BEACON_BLOCK_ROOT_CONTRACT =
+        0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
+
     uint256 internal constant ETHEREUM_MAINNET_BEACON_GENESIS = 1_606_824_023;
     uint256 internal constant ETHEREUM_HOLESKY_BEACON_GENESIS = 1_695_902_400;
     uint256 internal constant ETHEREUM_HELDER_BEACON_GENESIS = 1_718_967_660;
@@ -27,13 +32,5 @@ library LibPreconfConstants {
             return ETHEREUM_HOODI_BEACON_GENESIS;
         }
         return uint256(0);
-    }
-
-    /// @notice Returns the address of the beacon block root contract.
-    /// @dev https://eips.ethereum.org/EIPS/eip-4788 enforce to use this address across different
-    /// EVM chains.
-    /// @return The address of the beacon block root contract.
-    function getBeaconBlockRootContract() internal pure returns (address) {
-        return 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
     }
 }

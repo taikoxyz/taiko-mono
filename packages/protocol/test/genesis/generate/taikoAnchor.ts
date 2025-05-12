@@ -45,6 +45,7 @@ export async function deployTaikoAnchor(
         config.contractAddresses,
         config.param1559,
         config.pacayaForkHeight,
+        config.shastaForkHeight,
     );
 
     const storageLayouts: any = {};
@@ -116,7 +117,8 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    pacayaForkHeight: number, // TODO: fix this value
+    pacayaForkHeight: number,
+    shastaForkHeight: number,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -195,10 +197,12 @@ async function generateContractConfigs(
         "UUPSUpgradeable",
         ["__self"],
     );
-    const taikoAnchorReferencesMap: any = getImmutableReference("TaikoAnchor", [
-        "pacayaForkHeight",
-        "signalService",
-    ]);
+    const taikoAnchorReferencesMap: any = Object.assign(
+        {},
+        getImmutableReference("PacayaAnchor", ["signalService"]),
+        getImmutableReference("PacayaAnchor", ["pacayaForkHeight"]),
+        getImmutableReference("ShastaAnchor", ["shastaForkHeight"]),
+    );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
         "quotaManager",
@@ -637,6 +641,13 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
+                    {
+                        id: taikoAnchorReferencesMap.shastaForkHeight.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(shastaForkHeight),
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
@@ -778,22 +789,79 @@ function getImmutableReference(
     immutableValueNames: Array<string>,
 ) {
     const references: any = {};
-    const artifact = require(
-        path.join(ARTIFACTS_PATH, `./${contractName}.sol/${contractName}.json`),
+    const artifactPath = path.join(
+        ARTIFACTS_PATH,
+        `./${contractName}.sol/${contractName}.json`,
     );
 
-    for (const node of artifact.ast.nodes) {
-        if (node.nodeType !== "ContractDefinition") continue;
+    console.log(`Loading artifact from: ${artifactPath}`);
+    const artifact = require(artifactPath);
 
-        for (const immutableValueName of immutableValueNames) {
-            for (const subNode of node.nodes) {
-                if (subNode.name !== immutableValueName) continue;
-                references[immutableValueName] = {
-                    name: immutableValueName,
-                    id: subNode.id,
-                };
-                break;
+    if (!artifact.ast || !artifact.ast.nodes) {
+        console.error(`No AST found in artifact for ${contractName}`);
+        throw new Error(`No AST found in artifact for ${contractName}`);
+    }
+
+    for (const immutableValueName of immutableValueNames) {
+        let found = false;
+        for (const node of artifact.ast.nodes) {
+            if (node.nodeType !== "ContractDefinition") continue;
+
+            // Search in the current contract and its base contracts
+            const searchInContract = (contractNode: any) => {
+                for (const subNode of contractNode.nodes || []) {
+                    if (subNode.name !== immutableValueName) continue;
+                    references[immutableValueName] = {
+                        name: immutableValueName,
+                        id: subNode.id,
+                    };
+                    found = true;
+                    console.log(
+                        `Found immutable reference for ${immutableValueName} with id ${subNode.id} in contract ${contractNode.name}`,
+                    );
+                    return true;
+                }
+                return false;
+            };
+
+            // Check current contract
+            if (searchInContract(node)) break;
+
+            // Check base contracts
+            if (node.baseContracts) {
+                for (const baseContract of node.baseContracts) {
+                    const baseContractName = baseContract.baseName.name;
+                    console.log(`Checking base contract: ${baseContractName}`);
+                    try {
+                        const baseArtifact = require(
+                            path.join(
+                                ARTIFACTS_PATH,
+                                `./${baseContractName}.sol/${baseContractName}.json`,
+                            ),
+                        );
+                        for (const baseNode of baseArtifact.ast.nodes) {
+                            if (
+                                baseNode.nodeType !== "ContractDefinition" ||
+                                baseNode.name !== baseContractName
+                            )
+                                continue;
+                            if (searchInContract(baseNode)) break;
+                        }
+                    } catch (e) {
+                        console.log(
+                            `Could not load base contract ${baseContractName}: ${e}`,
+                        );
+                    }
+                }
             }
+        }
+        if (!found) {
+            console.error(
+                `Could not find immutable reference for ${immutableValueName} in ${contractName} or its base contracts`,
+            );
+            throw new Error(
+                `Could not find immutable reference for ${immutableValueName} in ${contractName} or its base contracts`,
+            );
         }
     }
 

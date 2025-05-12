@@ -5,6 +5,8 @@ import "../Layer1Test.sol";
 import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
 abstract contract InboxTestBase is Layer1Test {
+    uint256 constant PROVER_PRIVATE_KEY = 0x12345678;
+
     mapping(uint256 => bytes) private _batchMetadatas;
     mapping(uint256 => bytes) private _batchInfos;
 
@@ -15,7 +17,32 @@ abstract contract InboxTestBase is Layer1Test {
     uint256 genesisBlockProposedIn;
     uint256 private __blocksPerBatch;
 
-    function pacayaConfig() internal view virtual returns (ITaikoInbox.Config memory);
+    function v4GetConfig() internal pure virtual returns (ITaikoInbox.Config memory) {
+        ITaikoInbox.ForkHeights memory forkHeights;
+
+        return ITaikoInbox.Config({
+            chainId: LibNetwork.TAIKO_MAINNET,
+            maxUnverifiedBatches: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18, // 125 Taiko token per batch
+            stateRootSyncInternal: 5,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            provingWindow: 1 hours,
+            cooldownWindow: 0 hours,
+            maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 768,
+            baseFeeSharings: [uint8(50), uint8(0)],
+            forkHeights: forkHeights
+        });
+    }
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
@@ -47,7 +74,7 @@ abstract contract InboxTestBase is Layer1Test {
             verifierAddr,
             address(bondToken),
             address(signalService),
-            pacayaConfig()
+            v4GetConfig()
         );
 
         signalService.authorize(address(inbox), true);
@@ -136,7 +163,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
             (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-                inbox.proposeBatch(abi.encode(batchParams), txList);
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
             _saveMetadataAndInfo(meta, info);
             batchIds[i] = meta.batchId;
         }
@@ -153,7 +180,7 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
 
     function _proveBatchesWithWrongTransitions(uint64[] memory batchIds) internal {
@@ -167,16 +194,107 @@ abstract contract InboxTestBase is Layer1Test {
             transitions[i].stateRoot = randBytes32();
         }
 
-        inbox.proveBatches(abi.encode(metas, transitions), "proof");
+        inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
+    }
+
+    function _proposeBatchesWithProverAuth(
+        address proposer,
+        uint256 numBatchesToPropose,
+        address prover,
+        uint256 proverKey,
+        bytes memory txList
+    )
+        internal
+        returns (uint64[] memory batchIds)
+    {
+        batchIds = new uint64[](numBatchesToPropose);
+
+        for (uint256 i; i < numBatchesToPropose; ++i) {
+            ITaikoInbox.BatchParams memory batchParams;
+            batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
+
+            // Save original proposer for hash calculation
+            batchParams.proposer = proposer;
+
+            // Create ProverAuth struct
+            LibProverAuth.ProverAuth memory auth;
+            auth.prover = prover;
+            auth.feeToken = address(bondToken);
+            auth.fee = 5 ether;
+            auth.validUntil = uint64(block.timestamp + 1 hours);
+            auth.batchId =
+                i == 0 ? inbox.v4GetStats2().numBatches : inbox.v4GetStats2().numBatches + uint64(i);
+
+            // Calculate txListHash
+            bytes32 txListHash = keccak256(txList);
+
+            // Get chain ID
+            uint64 chainId = uint64(v4GetConfig().chainId);
+            batchParams.coinbase = proposer;
+
+            // Calculate the batch params hash with proposer = msg.sender
+            bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+
+            // Reset proposer to address(0) as expected by the contract
+            batchParams.proposer = address(0);
+
+            // Sign the digest
+            auth.signature = _signDigest(
+                keccak256(
+                    abi.encode(
+                        "PROVER_AUTHENTICATION",
+                        chainId,
+                        batchParamsHash,
+                        txListHash,
+                        _getAuthWithoutSignature(auth)
+                    )
+                ),
+                proverKey
+            );
+
+            // Encode the auth for the batch params
+            batchParams.proverAuth = abi.encode(auth);
+
+            // Propose the batch
+            vm.prank(proposer);
+            (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+            _saveMetadataAndInfo(meta, info);
+            batchIds[i] = meta.batchId;
+        }
+    }
+
+    // Add these helper functions if not already present
+    function _signDigest(
+        bytes32 _digest,
+        uint256 _privateKey
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, _digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _getAuthWithoutSignature(LibProverAuth.ProverAuth memory _auth)
+        internal
+        pure
+        returns (LibProverAuth.ProverAuth memory)
+    {
+        LibProverAuth.ProverAuth memory authCopy = _auth;
+        authCopy.signature = "";
+        return authCopy;
     }
 
     function _logAllBatchesAndTransitions() internal view {
         console2.log(unicode"|───────────────────────────────────────────────────────────────");
-        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.v4GetStats1();
         console2.log("Stats1 - lastSyncedBatchId:", stats1.lastSyncedBatchId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
 
-        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.v4GetStats2();
         console2.log("Stats2 - numBatches:", stats2.numBatches);
         console2.log("Stats2 - lastVerifiedBatchId:", stats2.lastVerifiedBatchId);
         console2.log("Stats2 - paused:", stats2.paused);
@@ -186,12 +304,12 @@ abstract contract InboxTestBase is Layer1Test {
         // console2.log("stats2.numBatches:", stats2.numBatches);
         // console2.log("getConfig().maxUnverifiedBatches:", getConfig().maxUnverifiedBatches);
 
-        uint64 firstBatchId = stats2.numBatches > pacayaConfig().maxUnverifiedBatches
-            ? stats2.numBatches - pacayaConfig().maxUnverifiedBatches
+        uint64 firstBatchId = stats2.numBatches > v4GetConfig().maxUnverifiedBatches
+            ? stats2.numBatches - v4GetConfig().maxUnverifiedBatches
             : 0;
 
         for (uint64 i = firstBatchId; i < stats2.numBatches; ++i) {
-            ITaikoInbox.Batch memory batch = inbox.getBatch(i);
+            ITaikoInbox.Batch memory batch = inbox.v4GetBatch(i);
             if (batch.batchId <= stats2.lastVerifiedBatchId) {
                 console2.log(unicode"|─ ✔ batch#", batch.batchId);
             } else {
@@ -206,7 +324,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
             for (uint24 j = 1; j < batch.nextTransitionId; ++j) {
-                ITaikoInbox.TransitionState memory ts = inbox.getTransitionById(batch.batchId, j);
+                ITaikoInbox.TransitionState memory ts = inbox.v4GetTransitionById(batch.batchId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",
@@ -275,6 +393,6 @@ abstract contract InboxTestBase is Layer1Test {
         bondToken.approve(address(inbox), bondAmount);
 
         vm.prank(user);
-        inbox.depositBond(bondAmount);
+        inbox.v4DepositBond(bondAmount);
     }
 }

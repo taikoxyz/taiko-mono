@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.27.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.4...docs-site-v1.27.5) (2025-05-06)
+
+
+### Chores
+
+* **docs-site:** add diff ([#19399](https://github.com/taikoxyz/taiko-mono/issues/19399)) ([2fab924](https://github.com/taikoxyz/taiko-mono/commit/2fab924417b0c7c3bf80c1b8667d82b006bb6ba6))
+* **main:** fix spelling issues ([#19269](https://github.com/taikoxyz/taiko-mono/issues/19269)) ([7b36376](https://github.com/taikoxyz/taiko-mono/commit/7b3637640eede1b34916c66733bcdf2672049a3b))
+
 ## [1.27.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.3...docs-site-v1.27.4) (2025-04-10)
 
 

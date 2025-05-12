@@ -5,13 +5,13 @@ import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v3.0.0/SP1V
 import "../Layer1Test.sol";
 
 contract TaikoStub_ReturnMainnetChainId {
-    function getConfig() external pure returns (ITaikoInbox.Config memory config) {
+    function v4GetConfig() external pure returns (ITaikoInbox.Config memory config) {
         config.chainId = 167_000;
     }
 }
 
-contract TestSP1Verifier is Layer1Test {
-    SP1Verifier internal sp1Verifier;
+contract TestTaikoSP1Verifier is Layer1Test {
+    TaikoSP1Verifier internal sp1Verifier;
     address internal inbox;
 
     function setUpOnEthereum() internal override {
@@ -22,11 +22,11 @@ contract TestSP1Verifier is Layer1Test {
         register("sp1_remote_verifier", sp1RemoteVerifier);
 
         // Deploy Taiko's SP1 proof verifier
-        sp1Verifier = SP1Verifier(
+        sp1Verifier = TaikoSP1Verifier(
             deploy({
                 name: "tier_zkvm_sp1",
-                impl: address(new SP1Verifier(taikoChainId, sp1RemoteVerifier)),
-                data: abi.encodeCall(SP1Verifier.init, (address(0)))
+                impl: address(new TaikoSP1Verifier(taikoChainId, sp1RemoteVerifier)),
+                data: abi.encodeCall(TaikoSP1Verifier.init, (address(0)))
             })
         );
 
