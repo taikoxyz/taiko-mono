@@ -120,6 +120,7 @@ interface IPreconfSlasher is ISlasher {
     error EOPIsNotMissing();
     error EOPIsPresent();
     error EOPIsValid();
+    error FallBackPreconferCannotBeSlashed();
     error InvalidBatchInfo();
     error InvalidBatchMetadata();
     error InvalidBlockHeader();
