@@ -142,6 +142,7 @@ func (d *BlobFetcher) FetchPacaya(
 				}
 
 				b = append(b, bytes...)
+				break
 			}
 		}
 	}
