@@ -132,53 +132,38 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
-        require(_payload.blockHash != evidence.blockhashProofs.value, PreconfirmationIsValid());
+        bytes32 l2BlockHash = evidence.blockhashProofs.l2BlockHeader.hash();
+        require(_payload.blockHash != l2BlockHash, PreconfirmationIsValid());
 
         // Validate that the batch has been verified
         ITaikoInbox.TransitionState memory transition =
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
-
         require(transition.blockHash != bytes32(0), BatchNotVerified());
 
         uint256 blockId = evidence.preconfedBlockHeader.number;
 
-        // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
-        // at the same height as the preconfirmed block.
-        LibTrieProof.verifyMerkleProof(
-            transition.blockHash,
-            taikoAnchor,
-            _calcBlockHashSlot(blockId),
-            evidence.blockhashProofs.value,
-            evidence.blockhashProofs.accountProof,
-            evidence.blockhashProofs.storageProof
-        );
-
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
-        uint256 firstBlockId = evidence.batchInfo.lastBlockId + 1 - evidence.batchInfo.blocks.length;
+        LibTrieProof.verifyMerkleProof(
+            evidence.preconfedBlockHeader.stateRoot,
+            taikoAnchor,
+            _calcBlockHashSlot(blockId - 1),
+            evidence.preconfedBlockHeader.parentHash,
+            evidence.parentBlockhashProofs.accountProof,
+            evidence.parentBlockhashProofs.storageProof
+        );
 
-        if (blockId == firstBlockId) {
-            // If the preconfirmed block is the first block in the batch, we compare the parent hash
-            // against the verified block hash of the previous batch, since the "batch blockhash" is
-            // basically the hash of the last block.
-            ITaikoInbox.TransitionState memory parentTransition =
-                taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId - 1));
-            require(
-                parentTransition.blockHash == evidence.preconfedBlockHeader.parentHash,
-                ParentHashMismatch()
-            );
-        } else {
-            // Else, we compare the parent hash against the blockhash present within TaikoAnchor.
-            LibTrieProof.verifyMerkleProof(
-                transition.blockHash,
-                taikoAnchor,
-                _calcBlockHashSlot(blockId - 1),
-                evidence.preconfedBlockHeader.parentHash,
-                evidence.parentBlockhashProofs.accountProof,
-                evidence.parentBlockhashProofs.storageProof
-            );
-        }
+        // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
+        // at the same height as the preconfirmed block.
+        LibTrieProof.verifyMerkleProof(
+            evidence.blockhashProofs.l2BlockHeader.stateRoot,
+            taikoAnchor,
+            _calcBlockHashSlot(blockId),
+            l2BlockHash,
+            evidence.blockhashProofs.accountProof,
+            evidence.blockhashProofs.storageProof
+        );
 
         return getSlashAmount().invalidPreconf;
     }
