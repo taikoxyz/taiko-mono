@@ -77,16 +77,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        (address rollupResolver, address proofVerifier) =
+        (address taikoInboxAddr, address proofVerifier) =
             deployRollupContracts(sharedResolver, contractOwner);
 
-        address taikoInboxAddr =
-            IResolver(rollupResolver).resolve(uint64(block.chainid), LibStrings.B_TAIKO, false);
         // Deploy verifiers
-        OpVerifier opImpl = new OpVerifier(rollupResolver);
-        VerifierAddresses memory verifiers = deployVerifiers(
-            contractOwner, rollupResolver, proofVerifier, taikoInboxAddr, address(opImpl)
-        );
+        OpVerifier opImpl = new OpVerifier(taikoInboxAddr, proofVerifier);
+        VerifierAddresses memory verifiers =
+            deployVerifiers(contractOwner, proofVerifier, taikoInboxAddr, address(opImpl));
         if (vm.envBool("DUMMY_VERIFIERS")) {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
@@ -150,11 +147,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         // ---------------------------------------------------------------
-        // Register L2 addresses
-        register(rollupResolver, "taiko", vm.envAddress("TAIKO_ANCHOR_ADDRESS"), l2ChainId);
-        register(rollupResolver, "signal_service", vm.envAddress("L2_SIGNAL_SERVICE"), l2ChainId);
-
-        // ---------------------------------------------------------------
         // Deploy other contracts
         if (block.chainid != 1) {
             deployAuxContracts();
@@ -162,7 +154,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         if (vm.envBool("DEPLOY_PRECONF_CONTRACTS")) {
             deployPreconfContracts(
-                contractOwner, rollupResolver, sharedResolver, address(taikoInbox), proofVerifier
+                contractOwner, sharedResolver, address(taikoInbox), proofVerifier
             );
         }
 
@@ -170,9 +162,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             DefaultResolver(sharedResolver).transferOwnership(contractOwner);
             console2.log("** sharedResolver ownership transferred to:", contractOwner);
         }
-
-        DefaultResolver(rollupResolver).transferOwnership(contractOwner);
-        console2.log("** rollupResolver ownership transferred to:", contractOwner);
 
         Ownable2StepUpgradeable(taikoInboxAddr).transferOwnership(contractOwner);
     }
@@ -285,23 +274,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         address owner
     )
         internal
-        returns (address rollupResolver, address proofVerifier)
+        returns (address taikoInboxAddr, address proofVerifier)
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
-
-        rollupResolver = deployProxy({
-            name: "rollup_address_resolver",
-            impl: address(new DefaultResolver()),
-            data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        });
-
-        // ---------------------------------------------------------------
-        // Register shared contracts in the new rollup resolver
-        copyRegister(rollupResolver, _sharedResolver, "taiko_token");
-        copyRegister(rollupResolver, _sharedResolver, "bond_token");
-        copyRegister(rollupResolver, _sharedResolver, "signal_service");
-        copyRegister(rollupResolver, _sharedResolver, "bridge");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
@@ -313,7 +289,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // Inbox
@@ -377,11 +353,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
 
-        address taikoInboxAddr = deployProxy({
+        taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new PacayaForkRouter(oldFork, newFork)),
             data: "",
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
@@ -392,19 +368,14 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Prover set
         deployProxy({
             name: "prover_set",
-            impl: address(
-                new ProverSet(
-                    address(rollupResolver), taikoInboxAddr, taikoInbox.v4BondToken(), taikoInboxAddr
-                )
-            ),
+            impl: address(new ProverSet(taikoInboxAddr, taikoInbox.v4BondToken(), taikoInboxAddr)),
             data: abi.encodeCall(ProverSetBase.init, (address(0), vm.envAddress("PROVER_SET_ADMIN"))),
-            registerTo: rollupResolver
+            registerTo: _sharedResolver
         });
     }
 
     function deployVerifiers(
         address owner,
-        address rollupResolver,
         address proofVerifier,
         address taikoInboxAddr,
         address opImplAddr
@@ -418,7 +389,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "op_verifier",
             impl: opImplAddr,
             data: abi.encodeCall(OpVerifier.init, (owner)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // Other verifiers
@@ -436,7 +407,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             ),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
         uint64 l2ChainId = TaikoInbox(payable(taikoInboxAddr)).v4GetConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
@@ -445,16 +416,16 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "sgx_reth_verifier",
             impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         (verifiers.risc0RethVerifier, verifiers.sp1RethVerifier) =
-            deployZKVerifiers(owner, rollupResolver, l2ChainId);
+            deployZKVerifiers(owner, l2ChainId);
         verifiers.opGethVerifier = deployProxy({
             name: "op_geth_verifier",
             impl: opImplAddr,
             data: abi.encodeCall(OpVerifier.init, (owner)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
         address sgxGethAutomataProxy = deployProxy({
             name: "sgx_geth_automata",
@@ -462,20 +433,20 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             ),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
             impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
         return verifiers;
     }
 
     function deployZKVerifiers(
         address owner,
-        address rollupResolver,
+        //address rollupResolver,
         uint64 l2ChainId
     )
         private
@@ -484,24 +455,22 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-        register(rollupResolver, "risc0_groth16_verifier", address(verifier));
 
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
             impl: address(new TaikoRisc0Verifier(l2ChainId, address(verifier))),
             data: abi.encodeCall(TaikoRisc0Verifier.init, (owner)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // Deploy sp1 plonk verifier
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
-        register(rollupResolver, "sp1_remote_verifier", address(succinctVerifier));
 
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
             impl: address(new TaikoSP1Verifier(l2ChainId, address(succinctVerifier))),
             data: abi.encodeCall(TaikoSP1Verifier.init, (owner)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
     }
 
@@ -516,7 +485,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function deployPreconfContracts(
         address owner,
-        address rollupResolver,
         address sharedResolver,
         address taikoInbox,
         address verifier
@@ -528,7 +496,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         // Initializable a forced inclusion store with a fake address for TaikoWrapper at first,
@@ -544,14 +512,14 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             ),
             data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         taikoWrapper = deployProxy({
             name: "taiko_wrapper",
             impl: address(new TaikoWrapper(taikoInbox, store, router)),
             data: abi.encodeCall(TaikoWrapper.init, (msg.sender)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
@@ -621,11 +589,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
         // Prover set for preconfirmation
         UUPSUpgradeable(
-            IResolver(rollupResolver).resolve(uint64(block.chainid), "prover_set", false)
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "prover_set", false)
         ).upgradeTo(
             address(
                 new ProverSet(
-                    address(rollupResolver),
                     taikoInbox,
                     IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false),
                     taikoWrapper
@@ -642,7 +609,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
             ),
             data: abi.encodeCall(PreconfRouter.init, (owner)),
-            registerTo: rollupResolver
+            registerTo: address(0)
         });
 
         UUPSUpgradeable(taikoWrapper).upgradeTo({
