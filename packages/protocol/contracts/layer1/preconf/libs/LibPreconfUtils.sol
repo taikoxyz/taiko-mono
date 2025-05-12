@@ -36,7 +36,7 @@ library LibPreconfUtils {
     /// @dev Caller should verify the returned value is not 0.
     /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
     /// @return The beacon block root as a bytes32 value.
-    function getBeaconBlockRoot(uint256 timestamp) internal view returns (bytes32) {
+    function getBeaconBlockRootAtOrAfter(uint256 timestamp) internal view returns (bytes32) {
         if (timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
             return bytes32(0);
         }
@@ -44,18 +44,26 @@ library LibPreconfUtils {
         uint256 currentTimestamp = block.timestamp;
 
         for (uint256 i; i < _MAX_QUERIES && timestamp <= currentTimestamp; ++i) {
-            (bool success, bytes memory result) =
-                LibPreconfConstants.getBeaconBlockRootContract().staticcall(abi.encode(timestamp));
-
-            if (success && result.length > 0) {
-                return abi.decode(result, (bytes32));
-            }
+            bytes32 root = getBeaconBlockRootAt(timestamp);
+            if (root != 0) return root;
 
             unchecked {
                 timestamp += LibPreconfConstants.SECONDS_IN_SLOT;
             }
         }
         return bytes32(0);
+    }
+
+    /// @notice Retrieves the beacon block root at a specific timestamp.
+    /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
+    /// @return root_ The beacon block root as a bytes32 value.
+    function getBeaconBlockRootAt(uint256 timestamp) internal view returns (bytes32 root_) {
+        (bool success, bytes memory result) =
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT.staticcall(abi.encode(timestamp));
+
+        if (success && result.length > 0) {
+            root_ = abi.decode(result, (bytes32));
+        }
     }
 
     /// @notice Calculates the timestamp of the current epoch based on the genesis timestamp.
