@@ -102,11 +102,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (uint256)
     {
-        // Some slashing doesn't relay on the batch to be verified, we can have a different function
-        // for these conditions.
-        // for example:
-        // - the batch that contains the block in question is not proposed by the given preconfer,
-        // - the batch is proposed with different parameters.
         EvidenceInvalidPreconfirmation memory evidence =
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
@@ -124,6 +119,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             _payload.anchorHash == evidence.batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock()
         );
 
+        // TODO(daniel): figure out why?
+
         // Check for reorgs if the committer missed the proposal
         if (evidence.batchInfo.proposer != _committer) {
             bytes32 beaconBlockRoot =
@@ -131,7 +128,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
-            // WHY ???
             if (beaconBlockRoot == 0) {
                 return getSlashAmount().reorgedPreconf;
             }
@@ -144,6 +140,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the batch has been verified
         ITaikoInbox.TransitionState memory transition =
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
+
         require(transition.blockHash != bytes32(0), BatchNotVerified());
 
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
@@ -160,9 +157,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
-        uint256 heightOfFirstBlockInBatch =
+        uint256 firstBlockId =
             evidence.batchInfo.lastBlockId + 1 - evidence.batchInfo.blocks.length;
-        if (evidence.preconfedBlockHeader.number == heightOfFirstBlockInBatch) {
+            
+        if (evidence.preconfedBlockHeader.number == firstBlockId) {
             // If the preconfirmed block is the first block in the batch, we compare the parent hash
             // against the verified block hash of the previous batch, since the "batch blockhash" is
             // basically the hash of the last block.
