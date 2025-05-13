@@ -62,6 +62,8 @@ type BuildPreconfBlockResponseBody struct {
 //		@Success	200		{object} BuildPreconfBlockResponseBody
 //		@Router		/preconfBlocks [post]
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
@@ -167,7 +169,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// If the block number is greater than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
 	if header.Number.Uint64() > s.highestUnsafeL2PayloadBlockID {
-		s.highestUnsafeL2PayloadBlockID = header.Number.Uint64()
+		s.updateHighestUnsafeL2Payload(header.Number.Uint64())
 	}
 
 	// Propagate the preconfirmation block to the P2P network, if the current server

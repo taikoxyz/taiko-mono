@@ -305,10 +305,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		)
 	}
 
-	// If the block number is greater than the highest unsafe L2 payload block ID,
-	// update the highest unsafe L2 payload block ID.
-	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
-		s.highestUnsafeL2PayloadBlockID = uint64(msg.ExecutionPayload.BlockNumber)
+	latestBlockNumber, err := s.rpc.L2.BlockNumber(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get latest block number: %w", err)
 	}
 
 	// Check if the parent block is in the canonical chain, if not, we try to
@@ -393,6 +392,21 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		false,
 	); err != nil {
 		return fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
+	}
+
+	// If the block number is greater than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
+		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
+	}
+
+	// if the block number is a reorg, also update
+	if uint64(msg.ExecutionPayload.BlockNumber) < latestBlockNumber {
+		log.Info("Preconf block is reorging",
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"latestBlockNumber", latestBlockNumber,
+		)
+		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
 	}
 
 	// Try to import the child blocks from the cache, if any.
@@ -1067,7 +1081,7 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			s.latestSeenProposal = proposal
 			// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 			if s.latestSeenProposal.PreconfChainReorged {
-				s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
+				s.updateHighestUnsafeL2Payload(proposal.Pacaya().GetLastBlockID())
 				log.Info(
 					"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
 					"batchID", proposal.Pacaya().GetBatchID(),
@@ -1078,4 +1092,12 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			s.mutex.Unlock()
 		}
 	}
+}
+
+func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
+	log.Info("Updating highest unsafe L2 payload block ID",
+		"blockID", blockID,
+		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+	)
+	s.highestUnsafeL2PayloadBlockID = blockID
 }
