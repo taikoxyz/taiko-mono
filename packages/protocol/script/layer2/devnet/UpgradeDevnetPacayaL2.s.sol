@@ -60,7 +60,7 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
         register(
             sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(erc1155Vault)))
         );
-        // Register B_TAIKO
+        // Register B_TAIKO_INBOX
         register(sharedResolver, "taiko", taikoAnchor);
 
         // Taiko Anchor
