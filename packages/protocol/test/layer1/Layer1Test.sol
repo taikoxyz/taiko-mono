@@ -9,7 +9,6 @@ import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
 import "src/layer1/team/ERC20Airdrop.sol";
-import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 

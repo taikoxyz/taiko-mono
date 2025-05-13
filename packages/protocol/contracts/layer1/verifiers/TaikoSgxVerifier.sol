@@ -87,7 +87,7 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
         address _taikoProofVerifier,
         address _automataDcapAttestation
     )
-        EssentialContract(address(0))
+        EssentialContract()
     {
         taikoInbox = ITaikoInbox(_taikoInbox);
         taikoChainId = taikoInbox.v4GetConfig().chainId;

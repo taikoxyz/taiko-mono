@@ -7,7 +7,7 @@ import "src/layer1/fork-router/ForkRouter.sol";
 contract Fork is EssentialContract {
     bytes32 private immutable __name;
 
-    constructor(bytes32 _name) EssentialContract(address(0)) {
+    constructor(bytes32 _name) EssentialContract() {
         __name = _name;
     }
 

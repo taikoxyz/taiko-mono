@@ -29,7 +29,7 @@ contract BridgedERC721 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_BURN();
 
-    constructor(address _erc721Vault) EssentialContract(address(0)) {
+    constructor(address _erc721Vault) EssentialContract() {
         erc721Vault = _erc721Vault;
     }
 

@@ -27,7 +27,7 @@ contract PreconfRouter is EssentialContract, IProposeBatch {
     )
         nonZeroAddr(_iProposeBatch)
         nonZeroAddr(_preconfWhitelist)
-        EssentialContract(address(0))
+        EssentialContract()
     {
         iProposeBatch = IProposeBatch(_iProposeBatch);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);

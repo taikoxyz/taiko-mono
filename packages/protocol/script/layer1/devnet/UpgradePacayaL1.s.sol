@@ -35,7 +35,6 @@ contract UpgradePacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
     address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
-    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -57,9 +56,7 @@ contract UpgradePacayaL1 is DeployCapability {
         address erc1155Vault =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "erc1155_vault", false);
         // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(
-            address(new Bridge(sharedResolver, signalService, quotaManager))
-        );
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver, signalService)));
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
         // Vault

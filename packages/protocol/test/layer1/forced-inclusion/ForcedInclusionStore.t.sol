@@ -48,7 +48,7 @@ abstract contract ForcedInclusionStoreTestBase is CommonTest {
         mockInbox = new MockInbox();
         store = ForcedInclusionStore(
             deploy({
-                name: LibStrings.B_FORCED_INCLUSION_STORE,
+                name: "forced_inclusion_store",
                 impl: address(
                     new ForcedInclusionStoreForTest(
                         inclusionDelay, feeInGwei, address(mockInbox), whitelistedProposer

@@ -129,7 +129,7 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 		r := &JSONData{}
 
 		if err := json.Unmarshal(msgProcessedEvent.Data, r); err != nil {
-			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+			continue
 		}
 
 		if r.Raw.TransactionIndex == "" || r.Raw.TransactionHash == "" {
@@ -149,12 +149,12 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			common.HexToHash(r.Raw.TransactionHash),
 		)
 		if err != nil {
-			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+			continue
 		}
 
 		txIndex, err := strconv.ParseInt(r.Raw.TransactionIndex[2:], 16, 64)
 		if err != nil {
-			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+			continue
 		}
 
 		sender, err := ethClient.TransactionSender(

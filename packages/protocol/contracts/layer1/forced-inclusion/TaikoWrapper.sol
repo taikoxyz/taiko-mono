@@ -62,7 +62,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     )
         nonZeroAddr(_inbox)
         nonZeroAddr(_forcedInclusionStore)
-        EssentialContract(address(0))
+        EssentialContract()
     {
         inbox = IProposeBatch(_inbox);
         forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);

@@ -20,7 +20,6 @@ import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/bridge/QuotaManager.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
@@ -199,22 +198,6 @@ abstract contract CommonTest is Test, Script {
                 name: "bridge",
                 impl: bridgeImpl,
                 data: abi.encodeCall(Bridge.init, (address(0)))
-            })
-        );
-    }
-
-    function deployQuotaManager(
-        address bridge,
-        address erc20Vault
-    )
-        internal
-        returns (QuotaManager)
-    {
-        return QuotaManager(
-            deploy({
-                name: "quota_manager",
-                impl: address(new QuotaManager(address(bridge), address(erc20Vault))),
-                data: abi.encodeCall(QuotaManager.init, (address(0), 24 hours))
             })
         );
     }

@@ -2,14 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import "../common/EssentialContract.sol";
+import "../common/EssentialResolverContract.sol";
 import "../libs/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
-import "./IQuotaManager.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
@@ -17,7 +16,7 @@ import "./IQuotaManager.sol";
 /// on
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
-contract Bridge is EssentialContract, IBridge {
+contract Bridge is EssentialResolverContract, IBridge {
     using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
@@ -59,7 +58,6 @@ contract Bridge is EssentialContract, IBridge {
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
     ISignalService public immutable signalService;
-    IQuotaManager public immutable quotaManager;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -89,7 +87,6 @@ contract Bridge is EssentialContract, IBridge {
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
-    error B_OUT_OF_ETH_QUOTA();
     error B_PERMISSION_DENIED();
     error B_PROOF_TOO_LARGE();
     error B_RETRY_FAILED();
@@ -105,15 +102,8 @@ contract Bridge is EssentialContract, IBridge {
         _;
     }
 
-    constructor(
-        address _resolver,
-        address _signalService,
-        address _quotaManager
-    )
-        EssentialContract(_resolver)
-    {
+    constructor(address _resolver, address _signalService) EssentialResolverContract(_resolver) {
         signalService = ISignalService(_signalService);
-        quotaManager = IQuotaManager(_quotaManager);
     }
 
     /// @notice Initializes the contract.
@@ -193,7 +183,6 @@ contract Bridge is EssentialContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -254,8 +243,6 @@ contract Bridge is EssentialContract, IBridge {
         stats.proofSize = uint32(_proof.length);
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
-
-        if (!_consumeEtherQuota(_message.value + _message.fee)) revert B_OUT_OF_ETH_QUOTA();
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -328,8 +315,6 @@ contract Bridge is EssentialContract, IBridge {
     {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
-
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         bool succeeded;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -458,19 +443,6 @@ contract Bridge is EssentialContract, IBridge {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
-    /// @notice Checks if the given address can pause and/or unpause the bridge.
-    /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
-    /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
-    function _authorizePause(address addr, bool toPause) internal view override {
-        // Owner and chain watchdog can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
-
-        // bridge_watchdog can pause the bridge, but cannot unpause it.
-        if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
-
-        revert ACCESS_DENIED();
-    }
-
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
@@ -552,20 +524,6 @@ contract Bridge is EssentialContract, IBridge {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
-        }
-    }
-
-    /// @notice Consumes a given amount of Ether from quota manager.
-    /// @param _amount The amount of Ether to consume.
-    /// @return true if quota manager has unlimited quota for Ether or the given amount of Ether is
-    /// consumed already.
-    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
-        if (address(quotaManager) == address(0)) return true;
-
-        try quotaManager.consumeQuota(address(0), _amount) {
-            return true;
-        } catch {
-            return false;
         }
     }
 

@@ -41,15 +41,12 @@ contract TestTokenUnlock is Layer1Test {
     function setUpOnEthereum() internal override {
         taikoToken = new MyERC20(Alice);
 
-        register("bond_token", address(taikoToken));
-        register("taiko_token", address(taikoToken));
-        register("taiko", taikoL1);
-        register("prover_set", address(new ProverSet(taikoL1, address(taikoToken), taikoL1)));
+        address proverSetImpl = address(new ProverSet(taikoL1, address(taikoToken), taikoL1));
 
         target = TokenUnlock(
             deploy({
                 name: "token_unlock",
-                impl: address(new TokenUnlock(address(resolver))),
+                impl: address(new TokenUnlock(address(taikoToken), proverSetImpl)),
                 data: abi.encodeCall(TokenUnlock.init, (Alice, Bob, TGE))
             })
         );

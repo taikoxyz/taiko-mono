@@ -37,12 +37,10 @@ import { HeklaInbox } from "../../../contracts/layer1/hekla/HeklaInbox.sol";
 contract DeployHeklaPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public taikoInbox = vm.envAddress("TAIKO_INBOX");
-    address public rollupAddressManager = vm.envAddress("ROLLUP_ADDRESS_MANAGER");
     address public sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
     uint64 public l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
     address public bridgeL1 = vm.envAddress("BRIDGE_L1");
     address public bridgeL2 = vm.envAddress("BRIDGE_L2");
@@ -62,7 +60,6 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
         require(taikoInbox != address(0), "invalid taiko inbox");
-        require(rollupAddressManager != address(0), "invalid rollup address manager");
         require(sharedAddressManager != address(0), "invalid shared address manager");
         require(taikoToken != address(0), "invalid taiko token");
         require(oldFork != address(0), "invalid old fork");
