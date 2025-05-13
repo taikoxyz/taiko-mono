@@ -37,10 +37,14 @@ contract MainnetVerifier is ComposeVerifier {
     {
         if (_verifiers.length != 2) return false;
 
-        uint256 sgxGethVerifierIdx = _verifiers[0] == sgxGethVerifier ? 0 : 1;
-        require(_verifiers[sgxGethVerifierIdx] == sgxGethVerifier, InvalidVerifier());
-
-        uint256 refVerifierIdx = sgxGethVerifierIdx == 0 ? 1 : 0;
+        uint256 refVerifierIdx;
+        if (_verifiers[0] == sgxGethVerifier) {
+            refVerifierIdx = 1;
+        } else if (_verifiers[1] == sgxGethVerifier) {
+            refVerifierIdx = 0;
+        } else {
+            revert InvalidVerifier();
+        }
         return _verifiers[refVerifierIdx] == sgxRethVerifier
             || _verifiers[refVerifierIdx] == risc0RethVerifier
             || _verifiers[refVerifierIdx] == sp1RethVerifier;
