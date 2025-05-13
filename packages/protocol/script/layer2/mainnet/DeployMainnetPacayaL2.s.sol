@@ -17,8 +17,8 @@ import "src/layer2/DelegateOwner.sol";
 
 contract DeployMainnetPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    uint64 public pacayaForkHeight = uint64(vm.envUint("PACAYA_FORK_HEIGHT"));
-    address public signalService = vm.envAddress("SIGNAL_SERVICE");
+    uint64 public pacayaForkHeight = 1_163_968;
+    address public signalService = 0x1670000000000000000000000000000000000005;
     address public contractOwner = vm.envAddress("CONTRACT_OWNER");
 
     modifier broadcast() {
@@ -88,10 +88,6 @@ contract DeployMainnetPacayaL2 is DeployCapability {
         address taikoAnchorImpl =
             address(new TaikoAnchor(sharedResolver, signalService, pacayaForkHeight));
         console2.log("taikoAnchor", taikoAnchorImpl);
-        // Delegate owner
-        address newDelegateOwner =
-            address(new DelegateOwner(0x1670000000000000000000000000000000000001));
-        console2.log("newDelegateOwner", newDelegateOwner);
 
         // Transfer ownership
         Ownable2StepUpgradeable(sharedResolver).transferOwnership(contractOwner);
