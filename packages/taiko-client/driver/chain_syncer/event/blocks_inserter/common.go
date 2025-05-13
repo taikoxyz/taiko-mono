@@ -454,9 +454,19 @@ func updateL1OriginForBatch(
 				L1BlockHeight: meta.GetRawBlockHeight(),
 				L1BlockHash:   meta.GetRawBlockHash(),
 			}
+			// Fetch the original L1Origin to get the BuildPayloadArgsID.
+			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
+			if err != nil {
+				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
+			}
+			// If L1Origin is not found, it means this block is synced from beacon sync,
+			// and we also won't set the `BuildPayloadArgsID` value.
+			if originalL1Origin != nil {
+				l1Origin.BuildPayloadArgsID = originalL1Origin.BuildPayloadArgsID
+			}
 
 			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
-				return fmt.Errorf("failed to update L1 origin: %w", err)
+				return fmt.Errorf("failed to update L1Origin: %w", err)
 			}
 
 			// If this is the most recent block, update the HeadL1Origin.
