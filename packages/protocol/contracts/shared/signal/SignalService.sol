@@ -64,7 +64,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
     /// @param _signalSlots The signal slots to mark as received.
     function receiveSignals(bytes32[] calldata _signalSlots)
         external
-        onlyFromNamed(LibStrings.B_TAIKO)
+        onlyFromNamed(LibStrings.B_TAIKO_INBOX)
     {
         for (uint256 i; i < _signalSlots.length; ++i) {
             _receivedSignals[_signalSlots[i]] = true;
