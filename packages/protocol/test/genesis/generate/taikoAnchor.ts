@@ -205,7 +205,6 @@ async function generateContractConfigs(
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
-        "quotaManager",
     ]);
     const bridgedERC20ReferencesMap: any = getImmutableReference(
         "BridgedERC20",
