@@ -51,7 +51,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
-        EssentialContract(address(0))
+        EssentialContract()
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../common/EssentialContract.sol";
+import "../common/EssentialResolverContract.sol";
 import "../libs/LibStrings.sol";
 import "../libs/LibTrieProof.sol";
 import "./ISignalService.sol";
@@ -10,7 +10,7 @@ import "./ISignalService.sol";
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is EssentialContract, ISignalService {
+contract SignalService is EssentialResolverContract, ISignalService {
     /// @notice Mapping to store the top blockId.
     /// @dev Slot 1.
     mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
@@ -42,7 +42,7 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_SIGNAL_NOT_RECEIVED();
     error SS_UNAUTHORIZED();
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor(address _resolver) EssentialResolverContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -64,7 +64,7 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param _signalSlots The signal slots to mark as received.
     function receiveSignals(bytes32[] calldata _signalSlots)
         external
-        onlyFromNamed(LibStrings.B_TAIKO)
+        onlyFromNamed(LibStrings.B_TAIKO_INBOX)
     {
         for (uint256 i; i < _signalSlots.length; ++i) {
             _receivedSignals[_signalSlots[i]] = true;

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import "../common/EssentialContract.sol";
+import "../common/EssentialResolverContract.sol";
 import "../libs/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
@@ -17,7 +17,7 @@ import "./IQuotaManager.sol";
 /// on
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
-contract Bridge is EssentialContract, IBridge {
+contract Bridge is EssentialResolverContract, IBridge {
     using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
@@ -110,7 +110,7 @@ contract Bridge is EssentialContract, IBridge {
         address _signalService,
         address _quotaManager
     )
-        EssentialContract(_resolver)
+        EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
         quotaManager = IQuotaManager(_quotaManager);
@@ -456,19 +456,6 @@ contract Bridge is EssentialContract, IBridge {
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
-    }
-
-    /// @notice Checks if the given address can pause and/or unpause the bridge.
-    /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
-    /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
-    function _authorizePause(address addr, bool toPause) internal view override {
-        // Owner and chain watchdog can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
-
-        // bridge_watchdog can pause the bridge, but cannot unpause it.
-        if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
-
-        revert ACCESS_DENIED();
     }
 
     /// @notice Invokes a call message on the Bridge.

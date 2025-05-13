@@ -11,9 +11,6 @@ import "src/shared/common/ResolverBase.sol";
 contract SharedResolver is ResolverBase {
     function getAddress(uint256 _chainId, bytes32 _name) internal pure override returns (address) {
         if (_chainId == LibNetwork.ETHEREUM_MAINNET) {
-            if (_name == LibStrings.B_TAIKO_TOKEN) {
-                return 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
-            }
             if (_name == LibStrings.B_QUOTA_MANAGER) {
                 return 0x91f67118DD47d502B1f0C354D0611997B022f29E;
             }

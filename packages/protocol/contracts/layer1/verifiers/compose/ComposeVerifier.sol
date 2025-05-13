@@ -42,7 +42,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
-        EssentialContract(address(0))
+        EssentialContract()
     {
         taikoInbox = _taikoInbox;
         sgxGethVerifier = _sgxGethVerifier;
