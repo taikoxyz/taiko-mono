@@ -58,9 +58,9 @@ func createPayloadAndSetHead(
 		txListHash = crypto.Keccak256Hash(txListBytes)
 		args       = &miner.BuildPayloadArgs{
 			Parent:       meta.ParentHash,
-			Timestamp:    uint64(meta.Timestamp),
+			Timestamp:    meta.Timestamp,
 			FeeRecipient: meta.SuggestedFeeRecipient,
-			Random:       common.Hash(meta.Difficulty),
+			Random:       meta.Difficulty,
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
