@@ -43,7 +43,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -234,9 +233,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     }
 
     function upgradeBridgeContracts(address sharedResolver) internal {
-        UUPSUpgradeable(bridgeL1).upgradeTo(
-            address(new Bridge(sharedResolver, signalService, quotaManager))
-        );
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver, signalService)));
         register(sharedResolver, "bridge", bridgeL1);
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
