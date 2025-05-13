@@ -25,11 +25,12 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     error InvalidCurrentLookahead();
     error InvalidLookaheadProof();
     error InvalidLookaheadTimestamp();
-    error InvalidPreviousLookahead();
     error InvalidNextLookahead();
+    error InvalidPreviousLookahead();
     error NotPreconfer();
     error NotPreconferOrFallback();
     error OperatorIsNotOptedIn();
+    error OperatorIsNotRegistered();
     error OperatorIsSlashed();
     error OperatorIsUnregistered();
     error ProposerIsNotPreconfer();
@@ -141,8 +142,20 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         // Ensure that the associated operator is active and opted into the preconf slasher
         IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadSlot.registrationRoot);
-        require(operatorData.slashedAt == 0, OperatorIsSlashed());
-        require(operatorData.unregisteredAt == 0, OperatorIsUnregistered());
+
+        require(
+            operatorData.registeredAt != 0 && operatorData.registeredAt <= block.timestamp,
+            OperatorIsNotRegistered()
+        );
+        require(
+            operatorData.unregisteredAt == 0 || operatorData.unregisteredAt > block.timestamp,
+            OperatorIsUnregistered()
+        );
+        require(
+            operatorData.slashedAt == 0 || operatorData.slashedAt > block.timestamp,
+            OperatorIsSlashed()
+        );
+
         require(
             urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher),
             OperatorIsNotOptedIn()
