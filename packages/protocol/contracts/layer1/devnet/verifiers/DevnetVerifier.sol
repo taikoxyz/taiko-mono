@@ -9,6 +9,8 @@ import "../../verifiers/compose/ComposeVerifier.sol";
 contract DevnetVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
+    error InvalidVerifier();
+
     constructor(
         address _taikoInbox,
         address _sgxGethVerifier,
@@ -35,9 +37,15 @@ contract DevnetVerifier is ComposeVerifier {
         returns (bool)
     {
         if (_verifiers.length != 2) return false;
-        uint256 sgxGethVerifierIdx = (_verifiers[0] == sgxGethVerifier) ? 0 : 1;
-        uint256 refVerifierIdx = (sgxGethVerifierIdx == 0) ? 1 : 0;
-        require(_verifiers[sgxGethVerifierIdx] == sgxGethVerifier, "CV_INVALID_TRUSTED_VERIFIER");
+
+        uint256 refVerifierIdx;
+        if (_verifiers[0] == sgxGethVerifier) {
+            refVerifierIdx = 1;
+        } else if (_verifiers[1] == sgxGethVerifier) {
+            refVerifierIdx = 0;
+        } else {
+            return false;
+        }
 
         return (
             _verifiers[refVerifierIdx] == opVerifier
