@@ -211,9 +211,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         internal
         pure
     {
-        require(
-            _lookaheadHash == LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _lookahead),
-            InvalidPreviousLookahead()
-        );
+        bytes26 actualHash = LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _lookahead);
+        require(_lookaheadHash == actualHash, InvalidPreviousLookahead());
     }
 }
