@@ -27,7 +27,6 @@ library LibStrings {
     bytes32 internal constant B_RISC0_RETH_VERIFIER = bytes32("risc0_reth_verifier");
     bytes32 internal constant B_SP1_RETH_VERIFIER = bytes32("sp1_reth_verifier");
     bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
-    bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");
