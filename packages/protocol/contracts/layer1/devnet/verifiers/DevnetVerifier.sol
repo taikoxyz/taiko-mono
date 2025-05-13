@@ -9,7 +9,6 @@ import "../../verifiers/compose/ComposeVerifier.sol";
 contract DevnetVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
-    error InvalidVerifier();
 
     constructor(
         address _taikoInbox,
