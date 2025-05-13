@@ -53,6 +53,21 @@ func createPayloadAndSetHead(
 		meta.GasLimit += consensus.AnchorGasLimit
 	}
 
+	// Update execution payload id for the L1 origin.
+	var (
+		txListHash = crypto.Keccak256Hash(txListBytes)
+		args       = &miner.BuildPayloadArgs{
+			Parent:       meta.ParentHash,
+			Timestamp:    uint64(meta.Timestamp),
+			FeeRecipient: meta.SuggestedFeeRecipient,
+			Random:       common.Hash(meta.Difficulty),
+			Withdrawals:  make([]*types.Withdrawal, 0),
+			Version:      engine.PayloadV2,
+			TxListHash:   &txListHash,
+		}
+	)
+	meta.L1Origin.BuildPayloadArgsID = args.Id()
+
 	// Create a new execution payload and set the chain head.
 	return createExecutionPayloadsAndSetHead(ctx, rpc, meta.createExecutionPayloadsMetaData, txListBytes)
 }
