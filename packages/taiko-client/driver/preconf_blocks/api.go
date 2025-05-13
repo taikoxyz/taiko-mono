@@ -315,6 +315,12 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		lastBlockID = canonicalHeadL1Origin.BlockID.Uint64()
 	}
 
+	log.Debug("Removed preconf blocks",
+		"newHead", newHead.Number.Uint64(),
+		"lastBlockID", lastBlockID,
+		"headsRemoved", currentHead.Number.Uint64()-newHead.Number.Uint64(),
+	)
+
 	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
 		LastBlockID:         newHead.Number.Uint64(),
 		LastProposedBlockID: lastBlockID,
@@ -367,6 +373,16 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 			endOfSequencingBlockHash = hash
 		}
 	}
+
+	log.Debug("Get preconfirmation block server status",
+		"currOperator", s.lookahead.CurrOperator.Hex(),
+		"nextOperator", s.lookahead.NextOperator.Hex(),
+		"currRanges", s.lookahead.CurrRanges,
+		"nextRanges", s.lookahead.NextRanges,
+		"totalCached", s.payloadsCache.getTotalCached(),
+		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+	)
 
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
