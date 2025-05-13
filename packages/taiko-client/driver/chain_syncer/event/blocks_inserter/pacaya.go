@@ -78,6 +78,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	log.Debug("Inserting blocks to L2 execution engine",
+		"batchID", metadata.Pacaya().GetBatchID(),
+		"lastBlockID", metadata.Pacaya().GetLastBlockID(),
+	)
+
 	var (
 		meta        = metadata.Pacaya()
 		txListBytes []byte
@@ -153,6 +158,13 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		// trying to fetch the last block header from L2 EE. If it is known in canonical,
 		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
+			log.Debug("Checking if batch is in canonical chain",
+				"batchID", meta.GetBatchID(),
+				"lastBlockID", meta.GetLastBlockID(),
+				"parentNumber", parent.Number,
+				"parentHash", parent.Hash(),
+			)
+
 			lastBlockHeader, err := isKnownCanonicalBatch(
 				ctx,
 				i.rpc,
