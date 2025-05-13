@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -304,7 +305,7 @@ func isKnownCanonicalBlock(
 		id = args.Id()
 	)
 	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
-	if err != nil {
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 	}
 	// If L1Origin is not found, it means this block is synced from beacon sync.
@@ -456,7 +457,7 @@ func updateL1OriginForBatch(
 			}
 			// Fetch the original L1Origin to get the BuildPayloadArgsID.
 			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
-			if err != nil {
+			if err != nil && !errors.Is(err, ethereum.NotFound) {
 				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 			}
 			// If L1Origin is not found, it means this block is synced from beacon sync,
