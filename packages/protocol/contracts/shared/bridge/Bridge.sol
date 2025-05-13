@@ -458,19 +458,6 @@ contract Bridge is EssentialResolverContract, IBridge {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
-    /// @notice Checks if the given address can pause and/or unpause the bridge.
-    /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
-    /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
-    function _authorizePause(address addr, bool toPause) internal view override {
-        // Owner and chain watchdog can pause/unpause the bridge.
-        if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
-
-        // bridge_watchdog can pause the bridge, but cannot unpause it.
-        if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
-
-        revert ACCESS_DENIED();
-    }
-
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
