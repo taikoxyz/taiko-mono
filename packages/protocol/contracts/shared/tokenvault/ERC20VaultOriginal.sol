@@ -452,8 +452,6 @@ contract ERC20VaultOriginal is BaseVault {
         });
     }
 
-  
-
     function _safeDecimals(address _token) private view returns (uint8) {
         (bool success, bytes memory data) =
             address(_token).staticcall(abi.encodeCall(IERC20Metadata.decimals, ()));
