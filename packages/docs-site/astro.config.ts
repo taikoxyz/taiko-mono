@@ -83,6 +83,7 @@ export default defineConfig({
               label: "Protocol Architecture",
               collapsed: true,
               items: [
+                { label: "Account abstraction", link: "/taiko-alethia-protocol/protocol-architecture/account-abstraction" },
                 { label: "Block states", link: "/taiko-alethia-protocol/protocol-architecture/block-states" },
                 { label: "Bridging", link: "/taiko-alethia-protocol/protocol-architecture/bridging" },
                 { label: "Economics", link: "/taiko-alethia-protocol/protocol-architecture/economics" },
@@ -187,12 +188,8 @@ export default defineConfig({
           collapsed: true,
           items: [
             {
-              label: "Alethia addresses",
-              link: "/network-reference/alethia-addresses",
-            },
-            {
-              label: "Hekla addresses",
-              link: "/network-reference/hekla-addresses",
+              label: "Contract addresses",
+              link: "/network-reference/contract-addresses",
             },
             {
               label: "Differences from Ethereum",
