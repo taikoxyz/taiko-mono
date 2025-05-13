@@ -337,7 +337,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 	var (
-		txListHash = crypto.Keccak256Hash(decompressedTxs)
+		txListHash = crypto.Keccak256Hash(executableData.Transactions[0])
 		args       = &miner.BuildPayloadArgs{
 			Parent:       executableData.ParentHash,
 			Timestamp:    uint64(executableData.Timestamp),
