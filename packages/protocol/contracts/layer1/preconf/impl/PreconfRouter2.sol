@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/based/IProposeBatch.sol";
-import "src/layer1/preconf/iface/IPreconfRouter2.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
@@ -12,7 +11,7 @@ import "@eth-fabric/urc/IRegistry.sol";
 
 /// @title PreconfRouter2
 /// @custom:security-contact security@taiko.xyz
-contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
+contract PreconfRouter2 is IProposeBatch, EssentialContract {
     ILookaheadStore public immutable lookaheadStore;
     IPreconfWhitelist public immutable preconfWhitelist;
     IProposeBatch public immutable iProposeBatch;
@@ -22,8 +21,20 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
 
     uint256[50] private __gap;
 
+
+    error ForcedInclusionNotSupported();
+    error InvalidCurrentLookahead();
+    error InvalidLookaheadProof();
+    error InvalidLookaheadTimestamp();
+    error InvalidPreviousLookahead();
+    error NotPreconfer();
+    error NotPreconferOrFallback();
+    error OperatorIsNotOptedIn();
+    error OperatorIsSlashed();
+    error OperatorIsUnregistered();
+    error ProposerIsNotPreconfer();
+
     constructor(
-        address _resolver,
         address _lookaheadStore,
         address _preconfWhitelist,
         address _iProposeBatch,
@@ -31,7 +42,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         address _urc,
         address _fallbackPreconfer
     )
-        EssentialContract(_resolver)
+        EssentialContract(address(0))
     {
         lookaheadStore = ILookaheadStore(_lookaheadStore);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
