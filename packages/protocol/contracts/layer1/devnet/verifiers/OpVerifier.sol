@@ -16,7 +16,7 @@ contract OpVerifier is EssentialContract, IVerifier {
 
     uint256[50] private __gap;
 
-    constructor(address _taikoInbox, address _proofVerifier) EssentialContract(address(0)) {
+    constructor(address _taikoInbox, address _proofVerifier) EssentialContract() {
         taikoInbox = _taikoInbox;
         proofVerifier = _proofVerifier;
     }
@@ -33,6 +33,6 @@ contract OpVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyFromNamedEither(taikoInbox, proofVerifier)
+        onlyFromEither(taikoInbox, proofVerifier)
     { }
 }

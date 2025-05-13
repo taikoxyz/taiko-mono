@@ -62,7 +62,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _;
     }
 
-    constructor(address _bridge) EssentialContract(address(0)) {
+    constructor(address _bridge) EssentialContract() {
         bridge = _bridge;
     }
 

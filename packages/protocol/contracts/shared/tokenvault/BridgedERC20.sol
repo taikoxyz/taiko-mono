@@ -59,7 +59,7 @@ contract BridgedERC20 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_MINT_DISALLOWED();
 
-    constructor(address _erc20Vault) EssentialContract(address(0)) {
+    constructor(address _erc20Vault) EssentialContract() {
         erc20Vault = _erc20Vault;
     }
 
