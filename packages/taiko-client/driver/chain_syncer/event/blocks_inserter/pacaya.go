@@ -163,7 +163,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Debug("Failed to check if batch is in canonical chain already", "batchID", meta.GetBatchID(), "err", err)
+				log.Warn("Failed to check if batch is in canonical chain already", "batchID", meta.GetBatchID(), "err", err)
 			} else if lastBlockHeader != nil {
 				log.Info(
 					"🧬 Known batch in canonical chain",
