@@ -32,29 +32,29 @@ import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
 contract DeployMainnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    address public taikoInbox = vm.envAddress("TAIKO_INBOX");
-    address public taikoToken = vm.envAddress("TAIKO_TOKEN");
+    address public taikoInbox = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+    address public taikoToken = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    uint64 public l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
-    address public bridgeL1 = vm.envAddress("BRIDGE_L1");
-    address public bridgeL2 = vm.envAddress("BRIDGE_L2");
-    address public signalService = vm.envAddress("SIGNAL_SERVICE");
-    address public signalServiceL2 = vm.envAddress("SIGNAL_SERVICE_L2");
-    address public erc20Vault = vm.envAddress("ERC20_VAULT");
-    address public erc721Vault = vm.envAddress("ERC721_VAULT");
-    address public erc1155Vault = vm.envAddress("ERC1155_VAULT");
-    address public erc20VaultL2 = vm.envAddress("ERC20_VAULT_L2");
-    address public erc721VaultL2 = vm.envAddress("ERC721_VAULT_L2");
-    address public erc1155VaultL2 = vm.envAddress("ERC1155_VAULT_L2");
-    address public risc0Groth16Verifier = vm.envAddress("RISC0_GROTH16_VERIFIER");
-    address public sp1RemoteVerifier = vm.envAddress("SP1_REMOTE_VERIFIER");
-    address public automata = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
-    address public oldFork = vm.envAddress("OLD_FORK");
-    address public proverSet = vm.envAddress("PROVER_SET");
+    uint64 public l2ChainId = 167_000;
+    address public bridgeL1 = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
+    address public bridgeL2 = 0x1670000000000000000000000000000000000001;
+    address public signalService = 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
+    address public signalServiceL2 = 0x1670000000000000000000000000000000000005;
+    address public erc20Vault = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
+    address public erc721Vault = 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa;
+    address public erc1155Vault = 0xaf145913EA4a56BE22E120ED9C24589659881702;
+    address public erc20VaultL2 = 0x1670000000000000000000000000000000000002;
+    address public erc721VaultL2 = 0x1670000000000000000000000000000000000003;
+    address public erc1155VaultL2 = 0x1670000000000000000000000000000000000004;
+    address public risc0Groth16Verifier = 0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9;
+    address public sp1RemoteVerifier = 0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371;
+    address public automata = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
+    address public oldFork = 0x5110634593Ccb8072d161A7d260A409A7E74D7Ca;
+    address public proverSet = 0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9;
     address public contractOwner = vm.envAddress("CONTRACT_OWNER");
-    address public sigVerifyLib = vm.envAddress("SIG_VERIFY_LIB");
-    address public pemCertChainLib = vm.envAddress("PEM_CERT_CHAIN_LIB");
+    address public sigVerifyLib = 0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9;
+    address public pemCertChainLib = 0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169;
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -87,7 +87,7 @@ contract DeployMainnetPacayaL1 is DeployCapability {
         register(sharedResolver, "erc721_vault", erc721Vault);
         register(sharedResolver, "erc1155_vault", erc1155Vault);
         register(sharedResolver, "bridge_watchdog", 0x00000291AB79c55dC4Fcd97dFbA4880DF4b93624);
-        register(sharedResolver, "bridged_erc20", 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7);
+        register(sharedResolver, "bridged_erc20", 0x65666141a541423606365123Ed280AB16a09A2e1);
         register(sharedResolver, "bridged_erc721", 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7);
         register(sharedResolver, "bridged_erc1155", 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40);
         register(sharedResolver, "erc20_vault", erc20VaultL2, l2ChainId);
@@ -139,25 +139,33 @@ contract DeployMainnetPacayaL1 is DeployCapability {
             impl: address(
                 new MainnetVerifier(address(0), address(0), address(0), address(0), address(0))
             ),
-            data: abi.encodeCall(ComposeVerifier.init, (contractOwner)),
+            data: abi.encodeCall(ComposeVerifier.init, (address(0))),
             registerTo: rollupResolver
         });
 
         // Register taiko
         address newFork =
             address(new MainnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+        address forkRouter = address(new PacayaForkRouter(oldFork, newFork));
+        console2.log("forkRouter:", forkRouter);
+        address newProverSetImpl =
+            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper));
+        console2.log("newProverSetImpl:", newProverSetImpl);
+        address newSignalServiceImpl = address(new SignalService(sharedResolver));
+        console2.log("newSignalServiceImpl:", newSignalServiceImpl);
         register(rollupResolver, "taiko", taikoInbox);
         // Other verifiers
         deployVerifierContracts(rollupResolver, proofVerifier);
 
-        // Note: The following operations must be performed by a multi-signature wallet.
-        UUPSUpgradeable(taikoInbox).upgradeTo(address(new PacayaForkRouter(oldFork, newFork)));
-        UUPSUpgradeable(proverSet).upgradeTo(
-            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper))
-        );
-        UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
+        // Transfer ownership
         Ownable2StepUpgradeable(sharedResolver).transferOwnership(contractOwner);
         Ownable2StepUpgradeable(rollupResolver).transferOwnership(contractOwner);
+        Ownable2StepUpgradeable(proofVerifier).transferOwnership(contractOwner);
+
+        // Note: The following operations must be performed by a multi-signature wallet.
+        UUPSUpgradeable(taikoInbox).upgradeTo(forkRouter);
+        UUPSUpgradeable(proverSet).upgradeTo(newProverSetImpl);
+        UUPSUpgradeable(signalService).upgradeTo(newSignalServiceImpl);
     }
 
     function deployVerifierContracts(address rollupResolver, address proofVerifier) internal {
