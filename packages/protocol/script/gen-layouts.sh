@@ -14,7 +14,6 @@ contracts_shared=(
 "contracts/shared/tokenvault/BridgedERC1155.sol:BridgedERC1155"
 "contracts/shared/bridge/Bridge.sol:Bridge"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
-"contracts/shared/common/EssentialContract.sol:EssentialContract"
 "contracts/shared/signal/SignalService.sol:SignalService"
 )
 
