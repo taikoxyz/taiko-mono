@@ -305,11 +305,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		)
 	}
 
-	latestBlockNumber, err := s.rpc.L2.BlockNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get latest block number: %w", err)
-	}
-
 	// Check if the parent block is in the canonical chain, if not, we try to
 	// find all the missing ancients from the cache and import them, if we can't, then we cache the message.
 	parentInCanonical, err := s.rpc.L2.HeaderByNumber(
@@ -401,10 +396,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// if the block number is a reorg, also update
-	if uint64(msg.ExecutionPayload.BlockNumber) <= latestBlockNumber {
+	if uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
 		log.Info("Preconf block is reorging",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"latestBlockNumber", latestBlockNumber,
 		)
 		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
 	}
