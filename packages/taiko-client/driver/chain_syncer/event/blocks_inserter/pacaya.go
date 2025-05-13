@@ -290,6 +290,14 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
+	log.Debug("Inserting preconf block from execution payload",
+		"blockID", uint64(executableData.BlockNumber),
+		"blockHash", executableData.BlockHash,
+		"parentHash", executableData.ParentHash,
+		"timestamp", executableData.Timestamp,
+		"feeRecipient", executableData.FeeRecipient,
+	)
+
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
@@ -351,7 +359,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 
 	payloadID := args.Id()
 
-	log.Info("Payload args",
+	log.Debug("Payload args",
 		"blockID", uint64(executableData.BlockNumber),
 		"parent", args.Parent.Hex(),
 		"timestamp", args.Timestamp,
@@ -442,12 +450,29 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 		}
 	}
 
-	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
+	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
+
+	log.Debug("IsBasedOnCanonicalChain",
+		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
+		"canonicalParentHash", canonicalParent.Hash(),
+		"canonicalParentNumber", canonicalParent.Number,
+		"currentParentHash", currentParent.Hash(),
+		"currentParentNumber", currentParent.Number,
+		"headL1OriginBlockID", headL1Origin.BlockID,
+	)
+
+	return isBasedOnCanonicalChain, nil
 }
 
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
 func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
+		log.Debug("Sending latest seen proposal from blocksInserter",
+			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
+			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
+			"preconfChainReoged", proposal.PreconfChainReorged,
+		)
+
 		i.latestSeenProposalCh <- proposal
 	}
 }
