@@ -63,7 +63,7 @@ contract MainnetInbox is TaikoInbox {
     function _getForkHeights() internal pure virtual returns (ITaikoInbox.ForkHeights memory) {
         return ITaikoInbox.ForkHeights({
             ontake: 538_304,
-            pacaya: type(uint64).max, // TODO(david): update this value
+            pacaya: 1_163_968,
             shasta: 0,
             unzen: 0
         });
