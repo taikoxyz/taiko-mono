@@ -378,5 +378,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 
 // returnError is a helper function to return an error response.
 func (s *PreconfBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
+	log.Error("Error handling preconf block request", "error", err.Error())
+
 	return c.JSON(statusCode, map[string]string{"error": err.Error()})
 }
