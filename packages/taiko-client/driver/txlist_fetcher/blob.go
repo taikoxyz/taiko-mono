@@ -142,6 +142,8 @@ func (d *BlobFetcher) FetchPacaya(
 				}
 
 				b = append(b, bytes...)
+				// Exit the loop as the matching sidecar has been found and processed.
+				break
 			}
 		}
 	}

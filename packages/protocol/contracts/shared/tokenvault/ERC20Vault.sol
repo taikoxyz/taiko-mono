@@ -443,7 +443,7 @@ contract ERC20Vault is BaseVault {
     function solve(SolverOp memory _op) external payable nonReentrant whenNotPaused {
         if (_op.l2BatchMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
-            address taiko = resolve(LibStrings.B_TAIKO, false);
+            address taiko = resolve(LibStrings.B_TAIKO_INBOX, false);
             if (!ITaiko(taiko).v4IsOnL1()) revert VAULT_NOT_ON_L1();
 
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).v4GetBatch(_op.l2BatchId).metaHash;
