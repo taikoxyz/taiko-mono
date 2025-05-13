@@ -1,7 +1,6 @@
 package blocksinserter
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -193,9 +192,9 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
-// isBatchPreconfirmed checks if all blocks in the given batch are preconfirmed,
-// and returns the header of the last block in the batch if it is preconfirmed.
-func isBatchPreconfirmed(
+// isKnownCanonicalBatch checks if all blocks in the given batch are in the canonical chain already.,
+// and returns the header of the last block in the batch if it is.
+func isKnownCanonicalBatch(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
@@ -235,7 +234,7 @@ func isBatchPreconfirmed(
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
 
-			if headers[i], err = isBlockPreconfirmed(
+			if headers[i], err = isKnownCanonicalBlock(
 				ctx,
 				rpc,
 				&createPayloadAndSetHeadMetaData{
@@ -258,8 +257,8 @@ func isBatchPreconfirmed(
 	return headers[len(headers)-1], g.Wait()
 }
 
-// isBlockPreconfirmed checks if the block is preconfirmed.
-func isBlockPreconfirmed(
+// isKnownCanonicalBlock checks if the block is in canonical chain already.
+func isKnownCanonicalBlock(
 	ctx context.Context,
 	rpc *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
@@ -289,72 +288,22 @@ func isBlockPreconfirmed(
 		}
 		id = args.Id()
 	)
-	executableData, err := rpc.L2Engine.GetPayload(ctx, &id)
+	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get payload: %w", err)
+		return nil, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 	}
-
-	defer func() {
-		if err != nil {
-			log.Warn("Invalid preconfirmed block", "blockID", blockID, "coinbase", executableData.FeeRecipient, "reason", err)
-		}
-	}()
-
-	if executableData.BlockHash != block.Hash() {
-		err = fmt.Errorf("block hash mismatch: %s != %s", executableData.BlockHash, block.Hash())
-		return nil, err
+	// If L1Origin is not found, it means this block is synced from beacon sync.
+	if l1Origin == nil {
+		return nil, fmt.Errorf("L1Origin not found by ID %d", blockID)
 	}
-	if block.ParentHash() != meta.ParentHash {
-		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.ParentHash)
-		return nil, err
-	}
-	if block.Transactions().Len() == 0 {
-		err = errors.New("transactions list is empty")
-		return nil, err
-	}
-	if block.Transactions()[0].Hash() != anchorTx.Hash() {
-		err = fmt.Errorf("anchor transaction mismatch: %s != %s", block.Transactions()[0].Hash(), anchorTx.Hash())
-		return nil, err
-	}
-	if block.UncleHash() != types.EmptyUncleHash {
-		err = fmt.Errorf("uncle hash mismatch: %s != %s", block.UncleHash(), types.EmptyUncleHash)
-		return nil, err
-	}
-	if block.Coinbase() != meta.SuggestedFeeRecipient {
-		err = fmt.Errorf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient)
-		return nil, err
-	}
-	if block.Difficulty().Cmp(common.Big0) != 0 {
-		err = fmt.Errorf("difficulty mismatch: %s != 0", block.Difficulty())
-		return nil, err
-	}
-	if block.MixDigest() != meta.Difficulty {
-		err = fmt.Errorf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty)
-		return nil, err
-	}
-	if block.Number().Uint64() != meta.BlockID.Uint64() {
-		err = fmt.Errorf("block number mismatch: %d != %d", block.Number(), meta.BlockID)
-		return nil, err
-	}
-	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3GasLimit {
-		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3GasLimit)
-		return nil, err
-	}
-	if block.Time() != meta.Timestamp {
-		err = fmt.Errorf("timestamp mismatch: %d != %d", block.Time(), meta.Timestamp)
-		return nil, err
-	}
-	if !bytes.Equal(block.Extra(), meta.ExtraData) {
-		err = fmt.Errorf("extra data mismatch: %s != %s", block.Extra(), meta.ExtraData)
-		return nil, err
-	}
-	if block.BaseFee().Cmp(meta.BaseFee) != 0 {
-		err = fmt.Errorf("base fee mismatch: %s != %s", block.BaseFee(), meta.BaseFee)
-		return nil, err
-	}
-	if block.Withdrawals().Len() != 0 {
-		err = fmt.Errorf("withdrawals mismatch: %d != 0", block.Withdrawals().Len())
-		return nil, err
+	// If the payload ID matches, it means this block is already in the canonical chain.
+	if l1Origin.BuildPayloadArgsID != [8]byte{} && l1Origin.BuildPayloadArgsID == id {
+		return nil, fmt.Errorf(
+			"payload ID for block %d mismatch, l1Origin payload id: %s, current payload id %s",
+			blockID,
+			l1Origin.BuildPayloadArgsID,
+			id,
+		)
 	}
 
 	return block.Header(), nil
@@ -460,6 +409,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	}, anchorTx, nil
 }
 
+// updateL1OriginForBatch updates the L1 origin for the given batch of blocks.
 func updateL1OriginForBatch(
 	ctx context.Context,
 	rpc *rpc.Client,
