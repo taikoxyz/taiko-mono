@@ -878,8 +878,8 @@ github.com/taikoxyz/hive v0.0.0-20240827015317-405b241dd082 h1:ymZR+Y88LOnA8i3Ke
 github.com/taikoxyz/hive v0.0.0-20240827015317-405b241dd082/go.mod h1:RHnIu3EFehrWX3JhFAMQSXD5uz7l0xaNroTzXrap7EQ=
 github.com/taikoxyz/optimism v0.0.0-20250407113505-a4338a4857e6 h1:TZqB0xhP6eqTbuPSnMYB6md6EtGoYoYCMAK/v9HV1YM=
 github.com/taikoxyz/optimism v0.0.0-20250407113505-a4338a4857e6/go.mod h1:V0VCkKtCzuaJH6qcL75SRcbdlakM9LhurMEJUhO6VXA=
-github.com/taikoxyz/taiko-geth v0.0.0-20250422211912-3a4f3775cc30 h1:zduJWfvVFUMoSiBQ2SjlmhckQY3X+XkdtHitooaHpKg=
-github.com/taikoxyz/taiko-geth v0.0.0-20250422211912-3a4f3775cc30/go.mod h1:1LG2LnMOx2yPRHR/S+xuipXH29vPr6BIH6GElD8N/fo=
+github.com/taikoxyz/taiko-geth v1.15.1-0.20250513013307-44b046d40339 h1:ig0r1qewm5u/PijQ0KgJqR0tsjk/hQ1RT4RIio661uk=
+github.com/taikoxyz/taiko-geth v1.15.1-0.20250513013307-44b046d40339/go.mod h1:1LG2LnMOx2yPRHR/S+xuipXH29vPr6BIH6GElD8N/fo=
 github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cbyO7IOYJZWg1U88JhDg3PB6klq9Hg2pA=
 github.com/testcontainers/testcontainers-go v0.35.0 h1:uADsZpTKFAtp8SLK+hMwSaa+X+JiERHtd4sQAFmXeMo=
 github.com/testcontainers/testcontainers-go v0.35.0/go.mod h1:oEVBj5zrfJTrgjwONs1SsRbnBtH9OKl+IGl3UMcr2B4=
