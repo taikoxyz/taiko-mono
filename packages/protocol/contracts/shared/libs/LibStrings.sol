@@ -11,7 +11,6 @@ library LibStrings {
     bytes32 internal constant B_ERC1155_VAULT = bytes32("erc1155_vault");
     bytes32 internal constant B_ERC20_VAULT = bytes32("erc20_vault");
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
-    bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO_INBOX = bytes32("taiko");
 
