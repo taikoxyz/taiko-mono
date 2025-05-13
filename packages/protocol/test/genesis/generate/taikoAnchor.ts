@@ -1,6 +1,6 @@
 import { Config, Result } from "./interface";
 const path = require("path");
-const { ethers, constants } = require("ethers");
+const { ethers } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
 const linker = require("solc/linker");
 const { computeStorageSlots, getStorageLayout } = require("./utils");
@@ -205,7 +205,6 @@ async function generateContractConfigs(
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
-        "quotaManager",
     ]);
     const bridgedERC20ReferencesMap: any = getImmutableReference(
         "BridgedERC20",
@@ -328,13 +327,6 @@ async function generateContractConfigs(
                         id: bridgeReferencesMap.signalService.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.SignalService,
-                            32,
-                        ),
-                    },
-                    {
-                        id: bridgeReferencesMap.quotaManager.id,
-                        value: ethers.utils.hexZeroPad(
-                            constants.AddressZero,
                             32,
                         ),
                     },
