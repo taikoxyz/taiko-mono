@@ -348,6 +348,19 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			TxListHash:   &txListHash,
 		}
 	)
+
+	payloadID := args.Id()
+
+	log.Info("Payload args",
+		"blockID", uint64(executableData.BlockNumber),
+		"parent", args.Parent.Hex(),
+		"timestamp", args.Timestamp,
+		"feeRecipient", args.FeeRecipient.Hex(),
+		"random", args.Random.Hex(),
+		"txListHash", args.TxListHash.Hex(),
+		"id", payloadID,
+	)
+
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
@@ -365,7 +378,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 				L2BlockHash:        common.Hash{}, // Will be set by taiko-geth.
 				L1BlockHeight:      nil,
 				L1BlockHash:        common.Hash{},
-				BuildPayloadArgsID: args.Id(),
+				BuildPayloadArgsID: payloadID,
 			},
 			BaseFee:     u256BaseFee.ToBig(),
 			Withdrawals: make([]*types.Withdrawal, 0),
