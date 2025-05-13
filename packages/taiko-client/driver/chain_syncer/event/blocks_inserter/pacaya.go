@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -147,11 +149,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// If this is the first block in the batch, we check if the whole batch has been preconfirmed by
-		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
-		// and only update the L1Origin in L2 EE for each block.
+		// If this is the first block in the batch, we check if the whole batch has been inserted by
+		// trying to fetch the last block header from L2 EE. If it is known in canonical,
+		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
-			lastBlockHeader, err := isBatchPreconfirmed(
+			lastBlockHeader, err := isKnownCanonicalBatch(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -161,10 +163,10 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Warn("Failed to check if batch is preconfirmed", "batchID", meta.GetBatchID(), "err", err)
+				log.Debug("Failed to check if batch is in canonical chain already", "batchID", meta.GetBatchID(), "err", err)
 			} else if lastBlockHeader != nil {
 				log.Info(
-					"🧬 The batch is preconfirmed",
+					"🧬 Known batch in canonical chain",
 					"batchID", meta.GetBatchID(),
 					"lastBlockID", meta.GetLastBlockID(),
 					"lastBlockHash", lastBlockHeader.Hash(),
@@ -334,7 +336,18 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
-
+	var (
+		txListHash = crypto.Keccak256Hash(executableData.Transactions[0])
+		args       = &miner.BuildPayloadArgs{
+			Parent:       executableData.ParentHash,
+			Timestamp:    uint64(executableData.Timestamp),
+			FeeRecipient: executableData.FeeRecipient,
+			Random:       common.Hash(executableData.PrevRandao),
+			Withdrawals:  make([]*types.Withdrawal, 0),
+			Version:      engine.PayloadV2,
+			TxListHash:   &txListHash,
+		}
+	)
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
@@ -348,10 +361,11 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			Timestamp:             uint64(executableData.Timestamp),
 			ParentHash:            executableData.ParentHash,
 			L1Origin: &rawdb.L1Origin{
-				BlockID:       new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
-				L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-				L1BlockHeight: nil,
-				L1BlockHash:   common.Hash{},
+				BlockID:            new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+				L2BlockHash:        common.Hash{}, // Will be set by taiko-geth.
+				L1BlockHeight:      nil,
+				L1BlockHash:        common.Hash{},
+				BuildPayloadArgsID: args.Id(),
 			},
 			BaseFee:     u256BaseFee.ToBig(),
 			Withdrawals: make([]*types.Withdrawal, 0),
