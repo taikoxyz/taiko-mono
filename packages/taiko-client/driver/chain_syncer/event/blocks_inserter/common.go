@@ -1,6 +1,7 @@
 package blocksinserter
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -295,9 +296,9 @@ func isKnownCanonicalBlock(
 		txListHash = crypto.Keccak256Hash(txListBytes[:])
 		args       = &miner.BuildPayloadArgs{
 			Parent:       meta.Parent.Hash(),
-			Timestamp:    block.Time(),
-			FeeRecipient: block.Coinbase(),
-			Random:       block.MixDigest(),
+			Timestamp:    meta.Timestamp,
+			FeeRecipient: meta.SuggestedFeeRecipient,
+			Random:       meta.Difficulty,
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
@@ -313,11 +314,11 @@ func isKnownCanonicalBlock(
 		return nil, fmt.Errorf("L1Origin not found by ID %d", blockID)
 	}
 	// If the payload ID matches, it means this block is already in the canonical chain.
-	if l1Origin.BuildPayloadArgsID != [8]byte{} && l1Origin.BuildPayloadArgsID == id {
+	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
 		return nil, fmt.Errorf(
 			"payload ID for block %d mismatch, l1Origin payload id: %s, current payload id %s",
 			blockID,
-			l1Origin.BuildPayloadArgsID,
+			engine.PayloadID(l1Origin.BuildPayloadArgsID),
 			id,
 		)
 	}
