@@ -260,6 +260,10 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	log.Debug("Insert preconf blocks from execution payloads",
+		"numBlocks", len(executionPayloads),
+	)
+
 	headers := make([]*types.Header, len(executionPayloads))
 	for j, executableData := range executionPayloads {
 		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
