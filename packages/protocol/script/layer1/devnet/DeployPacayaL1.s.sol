@@ -40,7 +40,6 @@ contract DeployPacayaL1 is DeployCapability {
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
     uint64 public l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
     address public bridgeL1 = vm.envAddress("BRIDGE_L1");
     address public signalService = vm.envAddress("SIGNAL_SERVICE");

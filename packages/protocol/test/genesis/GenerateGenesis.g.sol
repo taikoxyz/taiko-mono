@@ -168,7 +168,6 @@ contract TestGenerateGenesis is Test {
         );
 
         assertEq(bridgeProxy.paused(), false);
-        assertEq(address(0), address(bridgeProxy.quotaManager()));
         assertEq(
             getPredeployedContractAddress("SignalService"), address(bridgeProxy.signalService())
         );
