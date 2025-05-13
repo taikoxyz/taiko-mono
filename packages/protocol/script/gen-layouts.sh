@@ -13,7 +13,6 @@ contracts_shared=(
 "contracts/shared/tokenvault/BridgedERC721.sol:BridgedERC721"
 "contracts/shared/tokenvault/BridgedERC1155.sol:BridgedERC1155"
 "contracts/shared/bridge/Bridge.sol:Bridge"
-"contracts/shared/bridge/QuotaManager.sol:QuotaManager"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/common/EssentialContract.sol:EssentialContract"
 "contracts/shared/signal/SignalService.sol:SignalService"
