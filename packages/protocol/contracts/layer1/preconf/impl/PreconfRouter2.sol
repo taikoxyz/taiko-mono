@@ -11,7 +11,7 @@ import "@eth-fabric/urc/IRegistry.sol";
 
 /// @title PreconfRouter2
 /// @custom:security-contact security@taiko.xyz
-contract PreconfRouter2 is IProposeBatch, EssentialContract {
+contract PreconfRouter2 is EssentialContract, IProposeBatch {
     ILookaheadStore public immutable lookaheadStore;
     IPreconfWhitelist public immutable preconfWhitelist;
     IProposeBatch public immutable iProposeBatch;
