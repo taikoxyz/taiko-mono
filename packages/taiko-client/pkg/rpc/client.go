@@ -20,7 +20,7 @@ const (
 	defaultTimeout                = 1 * time.Minute
 	pacayaForkHeightDevnet        = 10
 	pacayaForkHeightHekla         = 1_299_888
-	pacayaForkHeightMainnet       = 1_163_968
+	pacayaForkHeightMainnet       = 1_166_000
 	pacayaForkHeightPreconfDevnet = 0
 	pacayaForkHeightMasaya        = 0
 )
