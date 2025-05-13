@@ -451,12 +451,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	}
 
 	if head != nil {
-		log.Debug("OnUnsafeL2Response Ignore the for already known block", "peer", from)
+		log.Debug("OnUnsafeL2Response Ignore the for already known block",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		)
 		return nil
 	}
 
 	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-		log.Debug("OnUnsafeL2Response Ignore the for already known block", "peer", from)
+		log.Debug("OnUnsafeL2Response Ignore the for already known block in cache",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		)
 		return nil
 	}
 
@@ -766,6 +774,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 			"OnUnsafeL2EndOfSequencingRequest publishing response",
 			"epoch", epoch,
 			"blockID", block.NumberU64(),
+			"hash", hash.Hex(),
 		)
 
 		if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
@@ -774,6 +783,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 				"error", err,
 				"epoch", epoch,
 				"blockID", uint64(envelope.ExecutionPayload.BlockNumber),
+				"hash", hash.Hex(),
 			)
 		}
 	}
@@ -788,6 +798,12 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	currentPayload *eth.ExecutionPayload,
 	headL1Origin *rawdb.L1Origin,
 ) error {
+	log.Debug("Importing missing ancients from the cache",
+		"blockID", uint64(currentPayload.BlockNumber),
+		"hash", currentPayload.BlockHash.Hex(),
+		"headL1OriginBlockID", headL1Origin.BlockID.Uint64(),
+	)
+
 	// Try searching the missing ancients in the cache.
 	payloadsToImport := make([]*eth.ExecutionPayload, 0)
 	for {
@@ -1075,13 +1091,14 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			s.latestSeenProposal = proposal
 			// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 			if s.latestSeenProposal.PreconfChainReorged {
-				s.updateHighestUnsafeL2Payload(proposal.Pacaya().GetLastBlockID())
 				log.Info(
 					"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
 					"batchID", proposal.Pacaya().GetBatchID(),
 					"lastBlockID", s.highestUnsafeL2PayloadBlockID,
 					"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 				)
+
+				s.updateHighestUnsafeL2Payload(proposal.Pacaya().GetLastBlockID())
 			}
 			s.mutex.Unlock()
 		}
