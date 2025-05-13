@@ -39,7 +39,7 @@ abstract contract MerkleClaimable is EssentialContract {
         _;
     }
 
-    constructor() EssentialContract(address(0)) { }
+    constructor() EssentialContract() { }
 
     /// @notice Set config parameters
     /// @param _claimStart Unix timestamp for claim start

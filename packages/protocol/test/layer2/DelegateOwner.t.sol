@@ -30,9 +30,8 @@ contract TestDelegateOwner is Layer2Test {
 
     function test_delegate_owner_single_non_delegatecall() public onTaiko {
         vm.startPrank(deployer);
-        EssentialContract_EmptyStub stub1 = _deployEssentialContract_EmptyStub(
-            "stub1", address(new EssentialContract_EmptyStub(address(resolver)))
-        );
+        EssentialContract_EmptyStub stub1 =
+            _deployEssentialContract_EmptyStub("stub1", address(new EssentialContract_EmptyStub()));
         vm.stopPrank();
 
         bytes memory data = abi.encode(
@@ -100,8 +99,8 @@ contract TestDelegateOwner is Layer2Test {
 
     function test_delegate_owner_delegate_tMulticall() public onTaiko {
         address tDelegateOwnerImpl2 = address(new DelegateOwner(address(tBridge)));
-        address impl1 = address(new EssentialContract_EmptyStub(address(resolver)));
-        address impl2 = address(new EssentialContract_EmptyStub(address(resolver)));
+        address impl1 = address(new EssentialContract_EmptyStub());
+        address impl2 = address(new EssentialContract_EmptyStub());
 
         vm.startPrank(deployer);
         EssentialContract_EmptyStub stub1 = _deployEssentialContract_EmptyStub("stub1", impl1);
