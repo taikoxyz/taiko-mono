@@ -51,7 +51,6 @@ interface ILookaheadStore {
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
-    error LookaheadHashNotFound();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
     error OperatorHasNotOptedIn();
@@ -95,7 +94,7 @@ interface ILookaheadStore {
 
     /// @notice Returns the lookahead hash for an epoch.
     /// @param _epochTimestamp The timestamp of the epoch.
-    /// @return The lookahead hash.
+    /// @return The lookahead hash. If the epoch is not found, returns 0.
     function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26);
 
     /// @notice Returns the configuration of the lookahead store.

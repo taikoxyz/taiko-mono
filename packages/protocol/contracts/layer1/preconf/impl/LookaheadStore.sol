@@ -88,10 +88,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     /// @inheritdoc ILookaheadStore
-    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26) {
+    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26 hash_) {
         LookaheadHash memory lookaheadHash = _getLookaheadHash(_epochTimestamp);
-        require(lookaheadHash.epochTimestamp == _epochTimestamp, LookaheadHashNotFound());
-        return lookaheadHash.lookaheadHash;
+        if (lookaheadHash.epochTimestamp == _epochTimestamp) {
+            hash_ = lookaheadHash.lookaheadHash;
+        }
     }
 
     /// @inheritdoc ILookaheadStore

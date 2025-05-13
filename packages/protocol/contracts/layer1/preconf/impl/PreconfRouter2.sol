@@ -21,7 +21,6 @@ contract PreconfRouter2 is IProposeBatch, EssentialContract {
 
     uint256[50] private __gap;
 
-
     error ForcedInclusionNotSupported();
     error InvalidCurrentLookahead();
     error InvalidLookaheadProof();
