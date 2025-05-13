@@ -7,7 +7,7 @@ import "src/shared/libs/LibNetwork.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibPreconfConstants {
     uint256 internal constant ETHEREUM_MAINNET_BEACON_GENESIS = 1_606_824_023;
-    uint256 internal constant ETHEREUM_HOLESKY_BEACON_GENESIS = 1_695_902_100;
+    uint256 internal constant ETHEREUM_HOLESKY_BEACON_GENESIS = 1_695_902_400;
     uint256 internal constant ETHEREUM_HELDER_BEACON_GENESIS = 1_718_967_660;
     uint256 internal constant ETHEREUM_HOODI_BEACON_GENESIS = 1_742_213_400;
 

@@ -99,10 +99,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                     require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                    params.blobParams.createdIn = uint64(block.number);
                 } else {
-                    require(msg.sender == inboxWrapper, NotInboxWrapper());
                     require(params.proposer != address(0), CustomProposerMissing());
+                    require(msg.sender == inboxWrapper, NotInboxWrapper());
                 }
 
                 // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
@@ -121,14 +120,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             if (calldataUsed) {
                 // calldata is used for data availability
-                params.blobParams.createdIn = 0;
+                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
             } else if (params.blobParams.blobHashes.length == 0) {
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
                 require(params.blobParams.numBlobs != 0, BlobNotSpecified());
+                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                params.blobParams.createdIn = uint64(block.number);
             } else {
                 // this is a forced-inclusion batch, blobs were created in early blocks and are used
                 // in the current batches
+                require(params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
                 require(params.blobParams.numBlobs == 0, InvalidBlobParams());
                 require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
@@ -201,6 +206,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // proposer is the prover
                     _debitBond(meta_.prover, config.livenessBond);
                 } else {
+                    bytes memory proverAuth = params.proverAuth;
+                    // Circular dependency so zero it out. (BatchParams has proverAuth but
+                    // proverAuth has also batchParamsHash)
+                    params.proverAuth = "";
+
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
                     LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(
@@ -208,7 +218,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                         stats2.numBatches,
                         keccak256(abi.encode(params)),
                         txListHash,
-                        params.proverAuth
+                        proverAuth
                     );
 
                     meta_.prover = auth.prover;

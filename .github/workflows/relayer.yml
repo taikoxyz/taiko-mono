@@ -63,6 +63,8 @@ jobs:
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   push-relayer-docker-image:
     # Skip dependabot PRs

@@ -5,6 +5,8 @@ import "../Layer1Test.sol";
 import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
 abstract contract InboxTestBase is Layer1Test {
+    uint256 constant PROVER_PRIVATE_KEY = 0x12345678;
+
     mapping(uint256 => bytes) private _batchMetadatas;
     mapping(uint256 => bytes) private _batchInfos;
 
@@ -193,6 +195,97 @@ abstract contract InboxTestBase is Layer1Test {
         }
 
         inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
+    }
+
+    function _proposeBatchesWithProverAuth(
+        address proposer,
+        uint256 numBatchesToPropose,
+        address prover,
+        uint256 proverKey,
+        bytes memory txList
+    )
+        internal
+        returns (uint64[] memory batchIds)
+    {
+        batchIds = new uint64[](numBatchesToPropose);
+
+        for (uint256 i; i < numBatchesToPropose; ++i) {
+            ITaikoInbox.BatchParams memory batchParams;
+            batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
+
+            // Save original proposer for hash calculation
+            batchParams.proposer = proposer;
+
+            // Create ProverAuth struct
+            LibProverAuth.ProverAuth memory auth;
+            auth.prover = prover;
+            auth.feeToken = address(bondToken);
+            auth.fee = 5 ether;
+            auth.validUntil = uint64(block.timestamp + 1 hours);
+            auth.batchId =
+                i == 0 ? inbox.v4GetStats2().numBatches : inbox.v4GetStats2().numBatches + uint64(i);
+
+            // Calculate txListHash
+            bytes32 txListHash = keccak256(txList);
+
+            // Get chain ID
+            uint64 chainId = uint64(v4GetConfig().chainId);
+            batchParams.coinbase = proposer;
+
+            // Calculate the batch params hash with proposer = msg.sender
+            bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+
+            // Reset proposer to address(0) as expected by the contract
+            batchParams.proposer = address(0);
+
+            // Sign the digest
+            auth.signature = _signDigest(
+                keccak256(
+                    abi.encode(
+                        "PROVER_AUTHENTICATION",
+                        chainId,
+                        batchParamsHash,
+                        txListHash,
+                        _getAuthWithoutSignature(auth)
+                    )
+                ),
+                proverKey
+            );
+
+            // Encode the auth for the batch params
+            batchParams.proverAuth = abi.encode(auth);
+
+            // Propose the batch
+            vm.prank(proposer);
+            (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+            _saveMetadataAndInfo(meta, info);
+            batchIds[i] = meta.batchId;
+        }
+    }
+
+    // Add these helper functions if not already present
+    function _signDigest(
+        bytes32 _digest,
+        uint256 _privateKey
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, _digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _getAuthWithoutSignature(LibProverAuth.ProverAuth memory _auth)
+        internal
+        pure
+        returns (LibProverAuth.ProverAuth memory)
+    {
+        LibProverAuth.ProverAuth memory authCopy = _auth;
+        authCopy.signature = "";
+        return authCopy;
     }
 
     function _logAllBatchesAndTransitions() internal view {
