@@ -9,6 +9,12 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// use this contract.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
+    address public immutable erc20Vault;
+
+    constructor(address _erc20Vault) TaikoTokenBase() {
+        erc20Vault = _erc20Vault;
+    }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
@@ -25,7 +31,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         external
         override
         whenNotPaused
-        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
+        onlyFromOwnerOr(erc20Vault)
         nonReentrant
     {
         _mint(_account, _amount);
@@ -35,7 +41,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         external
         override
         whenNotPaused
-        onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
+        onlyFromOwnerOr(erc20Vault)
         nonReentrant
     {
         _burn(msg.sender, _amount);
