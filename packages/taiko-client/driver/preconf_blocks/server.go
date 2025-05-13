@@ -396,7 +396,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// if the block number is a reorg, also update
-	if uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
+	if header != nil && uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
 		log.Info("Preconf block is reorging",
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 		)
