@@ -6,6 +6,7 @@ import "forge-std/src/console2.sol";
 /// @title BaseFeeContract
 /// @notice A simple contract with Taiko L2 base fee calculation logic.
 /// @dev The implementation in this contract shall be the same as the one in ShastaAnchor.sol
+
 contract BaseFeeContract {
     uint8 public immutable adjustmentQuotient;
 
@@ -35,10 +36,8 @@ contract BaseFeeContract {
         if (gasIssuancePerSecond == 0) {
             gasIssuancePerSecond = uint32(gasUsed / _blockTime);
         } else {
-            gasIssuancePerSecond = uint32(
-                (uint256(gasIssuancePerSecond) * (24 - 1) + gasUsed / _blockTime)
-                    / 24
-            );
+            gasIssuancePerSecond =
+                uint32((uint256(gasIssuancePerSecond) * (24 - 1) + gasUsed / _blockTime) / 24);
         }
 
         require(gasIssuancePerSecond != 0, "gasIssuancePerSecond is 0");

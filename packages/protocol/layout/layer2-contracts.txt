@@ -149,6 +149,8 @@
 |
 | lastAnchorGasUsed           | uint32                      | 254  | 8      | 4     |
 |
+| accumulatedAncestorGasUsed  | uint64                      | 254  | 12     | 8     |
+|
 | __gap                       | uint256[46]                 | 255  | 0      | 1472  |
 |
 | __gap                       | uint256[50]                 | 301  | 0      | 1600  |
