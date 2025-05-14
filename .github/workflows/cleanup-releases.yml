@@ -4,6 +4,7 @@ name: Cleanup Old Releases
 on:
   schedule:
     - cron: "0 0 * * *"
+  workflow_dispatch:
 
 jobs:
   cleanup-old-releases:
