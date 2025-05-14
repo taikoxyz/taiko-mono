@@ -185,7 +185,7 @@
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
   - tier_router: `0x44d307a9ec47aA55a7a30849d065686753C86Db6`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
-  - risc0_groth16_verifier: `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9`
+  - risc0_groth16_verifier: `0x48E32eFbe22e180A3FFe617f4955cD83B983dd98`
   - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
   - sp1_remote_verifier: `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371`
   - tier_zkvm_sp1: `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452`
