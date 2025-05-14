@@ -25,6 +25,7 @@ contract TokenUnlock is EssentialContract {
     uint256 public constant ONE_YEAR = 365 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
     uint256 public constant TAIKO_TOKEN_TGE_TIMESTAMP = 1_717_588_800;
+
     address public immutable taikoToken;
     address public immutable proverSetImpl;
 
