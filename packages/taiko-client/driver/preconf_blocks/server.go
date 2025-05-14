@@ -627,13 +627,23 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return nil
 	}
 
-	log.Info("OnUnsafeL2Request New block request from p2p network", "peer", from, "hash", hash.Hex())
-
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
 		log.Warn("OnUnsafeL2Request Failed to fetch block by hash", "hash", hash.Hex(), "error", err)
 		return err
 	}
+
+	if s.latestSeenProposal != nil && block.NumberU64() <= s.latestSeenProposal.Pacaya().GetLastBlockID() {
+		log.Debug("OnUnsafeL2Request ignore message for block below last proposal ID",
+			"peer", from,
+			"blockID", block.NumberU64(),
+			"hash", hash.Hex(),
+			"lastProposalID", s.latestSeenProposal.Pacaya().GetLastBlockID(),
+		)
+		return nil
+	}
+
+	log.Info("OnUnsafeL2Request New block request from p2p network", "peer", from, "hash", hash.Hex())
 
 	var u256 uint256.Int
 	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
@@ -829,16 +839,19 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					return nil
 				}
 
-				log.Info("Publishing L2Request",
-					"hash", currentPayload.ParentHash.Hex(),
-					"blockID", uint64(currentPayload.BlockNumber-1),
-				)
+				if s.latestSeenProposal != nil &&
+					uint64(currentPayload.BlockNumber) > s.latestSeenProposal.TaikoProposalMetaData.Pacaya().GetLastBlockID() {
+					log.Info("Publishing L2Request",
+						"hash", currentPayload.ParentHash.Hex(),
+						"blockID", uint64(currentPayload.BlockNumber-1),
+					)
 
-				if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.ParentHash); err != nil {
-					log.Warn("Failed to publish L2 hash request", "error", err, "hash", currentPayload.BlockHash.Hex())
+					if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.ParentHash); err != nil {
+						log.Warn("Failed to publish L2 hash request", "error", err, "hash", currentPayload.BlockHash.Hex())
+					}
+
+					s.blockRequests.Add(currentPayload.ParentHash, struct{}{})
 				}
-
-				s.blockRequests.Add(currentPayload.ParentHash, struct{}{})
 			}
 
 			return fmt.Errorf(
