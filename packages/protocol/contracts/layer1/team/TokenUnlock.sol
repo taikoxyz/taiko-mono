@@ -24,7 +24,7 @@ contract TokenUnlock is EssentialContract {
 
     uint256 public constant ONE_YEAR = 365 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
-    uint256 public constant TAIKO_TOKEN_TGE_TIMESTAMP = 1_717_588_800;
+    uint256 public constant TGE_TIMESTAMP = 1_717_588_800;
 
     address public immutable taikoToken;
     address public immutable proverSetImpl;
@@ -99,7 +99,7 @@ contract TokenUnlock is EssentialContract {
         nonZeroValue(_startTime)
         initializer
     {
-        require(block.chainid != 1 || _startTime >= TAIKO_TOKEN_TGE_TIMESTAMP, INVALID_PARAM());
+        require(block.chainid != 1 || _startTime >= TGE_TIMESTAMP, INVALID_PARAM());
         if (_owner == _recipient) revert INVALID_PARAM();
 
         __Essential_init(_owner);
@@ -112,7 +112,7 @@ contract TokenUnlock is EssentialContract {
     }
 
     function setStartTime(uint64 _startTime) external onlyOwner {
-        require(block.chainid != 1 || _startTime >= TAIKO_TOKEN_TGE_TIMESTAMP, INVALID_PARAM());
+        require(block.chainid != 1 || _startTime >= TGE_TIMESTAMP, INVALID_PARAM());
         startTime = _startTime;
         emit StartTimeChanged(_startTime);
     }
