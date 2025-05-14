@@ -8,7 +8,7 @@ import "src/shared/data/LibSharedData.sol";
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
     uint256 public constant PACAYA_FORK_HEIGHT = 1_166_000;
-        // / Mainnet Pacaya fork height is known
+    // / Mainnet Pacaya fork height is known
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct Config {

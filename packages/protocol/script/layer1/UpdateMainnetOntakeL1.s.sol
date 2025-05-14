@@ -22,21 +22,21 @@ contract UpgradeMainnetOntakeL1 is DeployCapability {
     }
 
     function run() external broadcast {
-//        // MainnetSharedAddressManager
-//        console2.log(address(new MainnetSharedAddressManager()));
-//        // MainnetSignalService
-//        console2.log(address(new MainnetSignalService()));
-//        // MainnetBridge
-//        console2.log(address(new MainnetBridge()));
-//        // MainnetRollupAddressManager
-//        console2.log(address(new MainnetRollupAddressManager()));
+        //        // MainnetSharedAddressManager
+        //        console2.log(address(new MainnetSharedAddressManager()));
+        //        // MainnetSignalService
+        //        console2.log(address(new MainnetSignalService()));
+        //        // MainnetBridge
+        //        console2.log(address(new MainnetBridge()));
+        //        // MainnetRollupAddressManager
+        //        console2.log(address(new MainnetRollupAddressManager()));
         // MainnetTaikoL1
         console2.log(address(new MainnetTaikoL1()));
-//        // MainnetSgxVerifier
-//        console2.log(address(new MainnetSgxVerifier()));
-//        // GuardianProver
-//        console2.log(address(new GuardianProver()));
-//        // MainnetProverSet
-//        console2.log(address(new MainnetProverSet()));
+        //        // MainnetSgxVerifier
+        //        console2.log(address(new MainnetSgxVerifier()));
+        //        // GuardianProver
+        //        console2.log(address(new GuardianProver()));
+        //        // MainnetProverSet
+        //        console2.log(address(new MainnetProverSet()));
     }
 }
