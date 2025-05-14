@@ -3,8 +3,8 @@ name: Cleanup Old Releases
 # Run daily at 00:00 UTC (can adjust time as needed)
 on:
   schedule:
-    - cron: "0 0 * * 0"
-  workflow_dispatch:
+    - cron: "0 0 * * 0" # Run weekly at 00:00 UTC
+  workflow_dispatch: # Allow running manually
 
 jobs:
   cleanup-old-releases:
