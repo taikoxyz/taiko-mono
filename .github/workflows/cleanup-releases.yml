@@ -16,5 +16,5 @@ jobs:
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
           keep_latest: 5
-          delete_tag_pattern: "bridge-ui:v*|docs-site:v*|eventindexer:v*|fork-diff:v*|guardian-prover-health-check:v*|guardian-prover-health-check-ui:v*|taiko-alethia-protocol:v*|relayer:v*|taiko-client:v*|ui-lib:v*"
+          delete_tag_pattern: "[^:]+:v*"
           repo_token: ${{ secrets.GITHUB_TOKEN }}
