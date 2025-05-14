@@ -21,7 +21,7 @@ contract DeployTokenUnlock is BaseScript {
     using stdJson for string;
 
     address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
-    address public TOKEN_UNLOCK_IMPL = 0x80654149145E1521c857e7df6305b934ce95185c;
+    address public TOKEN_UNLOCK_IMPL = 0x5c475bB14727833394b0704266f14157678A72b6;
 
     function run() external broadcast {
         require(TOKEN_UNLOCK_IMPL != address(0), "TOKEN_UNLOCK_IMPL not set");

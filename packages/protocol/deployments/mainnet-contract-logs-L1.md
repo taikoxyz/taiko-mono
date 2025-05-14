@@ -393,7 +393,7 @@
 
 ### token_unlock
 
-- impl: `0x80654149145E1521c857e7df6305b934ce95185c`
+- impl: `0x5c475bB14727833394b0704266f14157678A72b6`
 - logs:
   - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
   - deployed @commit`3d89d24` @tx`0x28fdfb26c1409e420fe9ecce22063fa70efdbe56359aeacf9f65e68db8b8d34a`
