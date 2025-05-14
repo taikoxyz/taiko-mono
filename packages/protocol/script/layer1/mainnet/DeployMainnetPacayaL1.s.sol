@@ -34,9 +34,6 @@ contract DeployMainnetPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public taikoInbox = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     address public taikoToken = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
-    uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
-    uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    uint64 public l2ChainId = 167_000;
     address public bridgeL1 = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public bridgeL2 = 0x1670000000000000000000000000000000000001;
     address public signalService = 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
@@ -47,14 +44,21 @@ contract DeployMainnetPacayaL1 is DeployCapability {
     address public erc20VaultL2 = 0x1670000000000000000000000000000000000002;
     address public erc721VaultL2 = 0x1670000000000000000000000000000000000003;
     address public erc1155VaultL2 = 0x1670000000000000000000000000000000000004;
-    address public risc0Groth16Verifier = 0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9;
+    address public risc0Groth16Verifier = 0x48E32eFbe22e180A3FFe617f4955cD83B983dd98;
     address public sp1RemoteVerifier = 0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371;
     address public automata = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
     address public oldFork = 0x5110634593Ccb8072d161A7d260A409A7E74D7Ca;
     address public proverSet = 0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9;
-    address public contractOwner = vm.envAddress("CONTRACT_OWNER");
+    address public contractOwner = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
     address public sigVerifyLib = 0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9;
     address public pemCertChainLib = 0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169;
+
+    uint64 public l2ChainId = 167_000;
+
+    // We set a really high inclusion window and high inclusion fee to prevent
+    // forced inclusion from being used in the first place.
+    uint256 public inclusionWindow = 255;
+    uint256 public inclusionFeeInGwei = 10_240_000 ether;
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
