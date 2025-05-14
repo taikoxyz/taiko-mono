@@ -470,11 +470,6 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 
 	log.Debug("IsBasedOnCanonicalChain",
 		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
-		"canonicalParentHash", canonicalParent.Hash(),
-		"canonicalParentNumber", canonicalParent.Number,
-		"currentParentHash", currentParent.Hash(),
-		"currentParentNumber", currentParent.Number,
-		"headL1OriginBlockID", headL1Origin.BlockID,
 	)
 
 	return isBasedOnCanonicalChain, nil
