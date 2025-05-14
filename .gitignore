@@ -125,3 +125,4 @@ packages/protocol/snapshots/InboxTest_ProposeAndProve.json
 packages/taiko-client/opnode_discovery_db
 packages/taiko-client/opnode_peerstore_db
 packages/taiko-client/opnode_p2p_priv.txt
+packages/protocol/script/layer2/eip1559/taiko_block_data.csv
