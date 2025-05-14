@@ -5,6 +5,9 @@ on:
     - cron: "0 0 * * *" # Runs daily at midnight
   workflow_dispatch: # Allows manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   cleanup:
     runs-on: [arc-runner-set]
