@@ -99,7 +99,7 @@ contract TokenUnlock is EssentialContract {
         nonZeroValue(_startTime)
         initializer
     {
-        require(block.chainid != 1 || _startTime >= TGE_TIMESTAMP, INVALID_PARAM());
+        _checkStartTime(_startTime);
         if (_owner == _recipient) revert INVALID_PARAM();
 
         __Essential_init(_owner);
@@ -112,7 +112,7 @@ contract TokenUnlock is EssentialContract {
     }
 
     function setStartTime(uint64 _startTime) external onlyOwner {
-        require(block.chainid != 1 || _startTime >= TGE_TIMESTAMP, INVALID_PARAM());
+        _checkStartTime(_startTime);
         startTime = _startTime;
         emit StartTimeChanged(_startTime);
     }
@@ -210,5 +210,11 @@ contract TokenUnlock is EssentialContract {
         if (block.timestamp < _startTime + ONE_YEAR) return _amountVested;
         if (block.timestamp >= _startTime + FOUR_YEARS) return 0;
         return _amountVested * (_startTime + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
+    }
+
+    function _checkStartTime(uint64 _startTime) private view {
+        if (block.chainid == 1 || block.chainid == 167_000) {
+            require(_startTime >= TGE_TIMESTAMP, INVALID_PARAM());
+        }
     }
 }
