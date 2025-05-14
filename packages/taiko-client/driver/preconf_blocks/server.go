@@ -627,19 +627,26 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return nil
 	}
 
+	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return fmt.Errorf("OnUnsafeL2Request failed to fetch head L1 origin: %w", err)
+	}
+
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
 		log.Warn("OnUnsafeL2Request Failed to fetch block by hash", "hash", hash.Hex(), "error", err)
 		return err
 	}
 
-	if s.latestSeenProposal != nil && block.NumberU64() <= s.latestSeenProposal.Pacaya().GetLastBlockID() {
-		log.Debug("OnUnsafeL2Request ignore message for block below last proposal ID",
+	if block.NumberU64() <= headL1Origin.BlockID.Uint64() {
+		log.Debug(
+			"OnUnsafeL2Request Ignore the message for outdated block",
 			"peer", from,
 			"blockID", block.NumberU64(),
-			"hash", hash.Hex(),
-			"lastProposalID", s.latestSeenProposal.Pacaya().GetLastBlockID(),
+			"hash", block.Hash().Hex(),
+			"parentHash", block.ParentHash().Hex(),
 		)
+
 		return nil
 	}
 
@@ -839,8 +846,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					return nil
 				}
 
-				if s.latestSeenProposal != nil &&
-					uint64(currentPayload.BlockNumber) > s.latestSeenProposal.TaikoProposalMetaData.Pacaya().GetLastBlockID() {
+				if uint64(currentPayload.BlockNumber) > headL1Origin.BlockID.Uint64() {
 					log.Info("Publishing L2Request",
 						"hash", currentPayload.ParentHash.Hex(),
 						"blockID", uint64(currentPayload.BlockNumber-1),
