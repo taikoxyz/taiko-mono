@@ -17,7 +17,7 @@ import "src/layer2/DelegateOwner.sol";
 
 contract DeployMainnetPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-    uint64 public pacayaForkHeight = 1_163_968;
+    uint64 public pacayaForkHeight = 1_166_000;
     address public signalService = 0x1670000000000000000000000000000000000005;
     address public contractOwner = vm.envAddress("CONTRACT_OWNER");
 
