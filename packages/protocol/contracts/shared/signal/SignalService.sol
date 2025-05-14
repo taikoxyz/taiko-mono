@@ -2,9 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialResolverContract.sol";
-import "../libs/LibNames.sol";
 import "../libs/LibTrieProof.sol";
+import "../libs/LibNames.sol";
 import "./ISignalService.sol";
+import "./LibSignals.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
@@ -274,7 +275,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
             numCacheOps_ = 1;
             _syncChainData(
-                _action.chainId, LibNames.H_STATE_ROOT, _action.blockId, _action.rootHash
+                _action.chainId, LibSignals.STATE_ROOT, _action.blockId, _action.rootHash
             );
         }
 
@@ -285,7 +286,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
             numCacheOps_ += 1;
             _syncChainData(
-                _action.chainId, LibNames.H_SIGNAL_ROOT, _action.blockId, _action.signalRoot
+                _action.chainId, LibSignals.SIGNAL_ROOT, _action.blockId, _action.signalRoot
             );
         }
     }
@@ -386,7 +387,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
             }
 
             signal = signalForChainData(
-                chainId, isFullProof ? LibNames.H_STATE_ROOT : LibNames.H_SIGNAL_ROOT, hop.blockId
+                chainId, isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT, hop.blockId
             );
             value = hop.rootHash;
             chainId = hop.chainId;

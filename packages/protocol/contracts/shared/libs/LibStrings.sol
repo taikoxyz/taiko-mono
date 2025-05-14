@@ -13,4 +13,7 @@ library LibNames {
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO_INBOX = bytes32("taiko");
+
+    bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
+    bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");
 }
