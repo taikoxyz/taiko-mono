@@ -393,10 +393,11 @@
 
 ### token_unlock
 
-- impl: `0xD6A337D948F44bAF9Bef85e4f00A5006Fe6ff5E7`
+- impl: `0x5c475bB14727833394b0704266f14157678A72b6`
 - logs:
   - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
   - deployed @commit`3d89d24` @tx`0x28fdfb26c1409e420fe9ecce22063fa70efdbe56359aeacf9f65e68db8b8d34a`
+  - deployed @PR[19457](https://github.com/taikoxyz/taiko-mono/pull/19457/files) @tx`0xfa94bc59c0bc52131a418598780c4e289a13407143a7bdf54c871b5cec35d0b0`
 
 ### prover_set
 

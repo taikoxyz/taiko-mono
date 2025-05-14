@@ -24,13 +24,14 @@ contract TokenUnlock is EssentialContract {
 
     uint256 public constant ONE_YEAR = 365 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
+    uint256 public constant TGE_TIMESTAMP = 1_717_588_800;
 
     address public immutable taikoToken;
     address public immutable proverSetImpl;
 
     uint256 public amountVested; // slot 1
     address public recipient; // slot 2
-    uint64 public tgeTimestamp; // 1717588800
+    uint64 public startTime;
 
     mapping(address proverSet => bool valid) public isProverSet; // slot 3
 
@@ -59,6 +60,10 @@ contract TokenUnlock is EssentialContract {
     /// @param amount The amount of TKO deposited.
     event DepositToProverSet(address indexed proverSet, uint256 amount);
 
+    /// @notice Emitted when the start time is changed.
+    /// @param startTime The new start time.
+    event StartTimeChanged(uint64 startTime);
+
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
     error NOT_PROVER_SET();
@@ -83,26 +88,33 @@ contract TokenUnlock is EssentialContract {
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
     /// @param _recipient Who will be the grantee for this contract.
-    /// @param _tgeTimestamp The token generation event timestamp.
+    /// @param _startTime The token generation event timestamp.
     function init(
         address _owner,
         address _recipient,
-        uint64 _tgeTimestamp
+        uint64 _startTime
     )
         external
         nonZeroAddr(_recipient)
-        nonZeroValue(_tgeTimestamp)
+        nonZeroValue(_startTime)
         initializer
     {
+        _checkStartTime(_startTime);
         if (_owner == _recipient) revert INVALID_PARAM();
 
         __Essential_init(_owner);
 
         recipient = _recipient;
-        tgeTimestamp = _tgeTimestamp;
+        startTime = _startTime;
 
         // Bydefault, always delegate to the recipient
         ERC20VotesUpgradeable(taikoToken).delegate(_recipient);
+    }
+
+    function setStartTime(uint64 _startTime) external onlyOwner {
+        _checkStartTime(_startTime);
+        startTime = _startTime;
+        emit StartTimeChanged(_startTime);
     }
 
     /// @notice Vests certain tokens to this contract.
@@ -193,10 +205,16 @@ contract TokenUnlock is EssentialContract {
         uint256 _amountVested = amountVested;
         if (_amountVested == 0) return 0;
 
-        uint256 _tgeTimestamp = tgeTimestamp;
+        uint256 _startTime = startTime;
 
-        if (block.timestamp < _tgeTimestamp + ONE_YEAR) return _amountVested;
-        if (block.timestamp >= _tgeTimestamp + FOUR_YEARS) return 0;
-        return _amountVested * (_tgeTimestamp + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
+        if (block.timestamp < _startTime + ONE_YEAR) return _amountVested;
+        if (block.timestamp >= _startTime + FOUR_YEARS) return 0;
+        return _amountVested * (_startTime + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
+    }
+
+    function _checkStartTime(uint64 _startTime) private view {
+        if (block.chainid == 1 || block.chainid == 167_000) {
+            require(_startTime >= TGE_TIMESTAMP, INVALID_PARAM());
+        }
     }
 }
