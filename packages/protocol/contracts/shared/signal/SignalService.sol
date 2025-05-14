@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialResolverContract.sol";
-import "../libs/LibStrings.sol";
+import "../libs/LibNames.sol";
 import "../libs/LibTrieProof.sol";
 import "./ISignalService.sol";
 
@@ -64,7 +64,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
     /// @param _signalSlots The signal slots to mark as received.
     function receiveSignals(bytes32[] calldata _signalSlots)
         external
-        onlyFromNamed(LibStrings.B_TAIKO_INBOX)
+        onlyFromNamed(LibNames.B_TAIKO_INBOX)
     {
         for (uint256 i; i < _signalSlots.length; ++i) {
             _receivedSignals[_signalSlots[i]] = true;
@@ -274,7 +274,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
             numCacheOps_ = 1;
             _syncChainData(
-                _action.chainId, LibStrings.H_STATE_ROOT, _action.blockId, _action.rootHash
+                _action.chainId, LibNames.H_STATE_ROOT, _action.blockId, _action.rootHash
             );
         }
 
@@ -285,7 +285,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
             numCacheOps_ += 1;
             _syncChainData(
-                _action.chainId, LibStrings.H_SIGNAL_ROOT, _action.blockId, _action.signalRoot
+                _action.chainId, LibNames.H_SIGNAL_ROOT, _action.blockId, _action.signalRoot
             );
         }
     }
@@ -341,7 +341,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         address app = _app;
         bytes32 signal = _signal;
         bytes32 value = _signal;
-        address signalService = resolve(chainId, LibStrings.B_SIGNAL_SERVICE, false);
+        address signalService = resolve(chainId, LibNames.B_SIGNAL_SERVICE, false);
         if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
 
         HopProof memory hop;
@@ -367,7 +367,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
                 if (hop.chainId == 0 || hop.chainId == block.chainid) {
                     revert SS_INVALID_MID_HOP_CHAINID();
                 }
-                signalService = resolve(hop.chainId, LibStrings.B_SIGNAL_SERVICE, false);
+                signalService = resolve(hop.chainId, LibNames.B_SIGNAL_SERVICE, false);
                 if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
             }
 
@@ -386,9 +386,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
             }
 
             signal = signalForChainData(
-                chainId,
-                isFullProof ? LibStrings.H_STATE_ROOT : LibStrings.H_SIGNAL_ROOT,
-                hop.blockId
+                chainId, isFullProof ? LibNames.H_STATE_ROOT : LibNames.H_SIGNAL_ROOT, hop.blockId
             );
             value = hop.rootHash;
             chainId = hop.chainId;

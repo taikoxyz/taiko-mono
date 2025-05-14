@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/signal/ISignalService.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/libs/LibMath.sol";
 import "../ITaikoInbox.sol";
 
@@ -115,10 +115,7 @@ library LibVerification {
 
                         // Ask signal service to write cross chain signal
                         _signalService.syncChainData(
-                            _config.chainId,
-                            LibStrings.H_STATE_ROOT,
-                            synced.blockId,
-                            synced.stateRoot
+                            _config.chainId, LibNames.H_STATE_ROOT, synced.blockId, synced.stateRoot
                         );
                     }
                 }
