@@ -20,7 +20,7 @@ const (
 	defaultTimeout                = 1 * time.Minute
 	pacayaForkHeightDevnet        = 10
 	pacayaForkHeightHekla         = 1_299_888
-	pacayaForkHeklaMainnet        = 0
+	pacayaForkHeightMainnet       = 1_166_000
 	pacayaForkHeightPreconfDevnet = 0
 )
 
@@ -342,7 +342,7 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		case params.HeklaNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeightHekla
 		case params.TaikoMainnetNetworkID.Uint64():
-			c.PacayaClients.ForkHeight = pacayaForkHeklaMainnet
+			c.PacayaClients.ForkHeight = pacayaForkHeightMainnet
 		case params.PreconfDevnetNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeightPreconfDevnet
 		default:
