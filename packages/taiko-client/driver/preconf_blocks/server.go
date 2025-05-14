@@ -516,6 +516,12 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	currentPayload *eth.ExecutionPayload,
 	headL1Origin *rawdb.L1Origin,
 ) error {
+	log.Debug("Importing missing ancients from the cache",
+		"blockID", uint64(currentPayload.BlockNumber),
+		"hash", currentPayload.BlockHash.Hex(),
+		"headL1OriginBlockID", headL1Origin.BlockID.Uint64(),
+	)
+
 	// Try searching the missing ancients in the cache.
 	payloadsToImport := make([]*eth.ExecutionPayload, 0)
 	for {
@@ -687,9 +693,16 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if len(txs) == 0 {
 		return errors.New("empty transactions list, missing anchor transaction")
 	}
+
 	if err := s.anchorValidator.ValidateAnchorTx(txs[0]); err != nil {
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
+
+	log.Info("Transactions list for preconfirmation block",
+		"transactions", len(txs),
+		"blockID", uint64(payload.BlockNumber),
+		"blockHash", payload.BlockHash.Hex(),
+	)
 
 	return nil
 }
@@ -879,6 +892,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 				"reason", err,
 			)
+
 			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 				log.Info(
 					"Payload is cached",
@@ -1002,4 +1016,12 @@ func (s *webSocketSever) pushEndOfSequencingNotification(epoch uint64) {
 			delete(s.clients, conn)
 		}
 	}
+}
+
+func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
+	log.Info("Updating highest unsafe L2 payload block ID",
+		"blockID", blockID,
+		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+	)
+	s.highestUnsafeL2PayloadBlockID = blockID
 }

@@ -62,6 +62,8 @@ type BuildPreconfBlockResponseBody struct {
 //		@Success	200		{object} BuildPreconfBlockResponseBody
 //		@Router		/preconfBlocks [post]
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
@@ -117,7 +119,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
 	if overflow {
@@ -143,7 +145,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(c.Request().Context())
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 	if progress.IsSyncing() {
 		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
@@ -167,7 +169,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// If the block number is greater than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
 	if header.Number.Uint64() > s.highestUnsafeL2PayloadBlockID {
-		s.highestUnsafeL2PayloadBlockID = header.Number.Uint64()
+		s.updateHighestUnsafeL2Payload(header.Number.Uint64())
 	}
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
@@ -317,6 +319,13 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		s.highestUnsafeL2PayloadBlockID = newHead.Number.Uint64()
 	}
 
+	log.Debug(
+    "Removed preconfirmation blocks",
+		"newHead", newHead.Number.Uint64(),
+		"lastBlockID", lastBlockID,
+		"headsRemoved", currentHead.Number.Uint64()-newHead.Number.Uint64(),
+	)
+
 	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
 		LastBlockID:         newHead.Number.Uint64(),
 		LastProposedBlockID: lastBlockID,
@@ -370,6 +379,16 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		}
 	}
 
+	log.Debug("Get preconfirmation block server status",
+		"currOperator", s.lookahead.CurrOperator.Hex(),
+		"nextOperator", s.lookahead.NextOperator.Hex(),
+		"currRanges", s.lookahead.CurrRanges,
+		"nextRanges", s.lookahead.NextRanges,
+		"totalCached", s.payloadsCache.getTotalCached(),
+		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+	)
+
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.payloadsCache.getTotalCached(),
@@ -380,5 +399,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 
 // returnError is a helper function to return an error response.
 func (s *PreconfBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
+	log.Error("Error handling preconf block request", "error", err.Error())
+
 	return c.JSON(statusCode, map[string]string{"error": err.Error()})
 }

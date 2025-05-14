@@ -201,10 +201,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: sharedResolver
         });
 
-        address quotaManager = address(0);
         address brdige = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService, quotaManager)),
+            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });

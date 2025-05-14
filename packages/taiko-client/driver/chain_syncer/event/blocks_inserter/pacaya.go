@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -75,6 +77,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
+
+	log.Debug("Inserting blocks to L2 execution engine",
+		"batchID", metadata.Pacaya().GetBatchID(),
+		"lastBlockID", metadata.Pacaya().GetLastBlockID(),
+	)
 
 	var (
 		meta        = metadata.Pacaya()
@@ -147,11 +154,18 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// If this is the first block in the batch, we check if the whole batch has been preconfirmed by
-		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
-		// and only update the L1Origin in L2 EE for each block.
+		// If this is the first block in the batch, we check if the whole batch has been inserted by
+		// trying to fetch the last block header from L2 EE. If it is known in canonical,
+		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
-			lastBlockHeader, err := isBatchPreconfirmed(
+			log.Debug("Checking if batch is in canonical chain",
+				"batchID", meta.GetBatchID(),
+				"lastBlockID", meta.GetLastBlockID(),
+				"parentNumber", parent.Number,
+				"parentHash", parent.Hash(),
+			)
+
+			lastBlockHeader, err := isKnownCanonicalBatch(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -161,10 +175,10 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Warn("Failed to check if batch is preconfirmed", "batchID", meta.GetBatchID(), "err", err)
+				log.Warn("Failed to check if batch is in canonical chain already", "batchID", meta.GetBatchID(), "err", err)
 			} else if lastBlockHeader != nil {
 				log.Info(
-					"🧬 The batch is preconfirmed",
+					"🧬 Known batch in canonical chain",
 					"batchID", meta.GetBatchID(),
 					"lastBlockID", meta.GetLastBlockID(),
 					"lastBlockHash", lastBlockHeader.Hash(),
@@ -258,6 +272,10 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	log.Debug("Insert preconf blocks from execution payloads",
+		"numBlocks", len(executionPayloads),
+	)
+
 	headers := make([]*types.Header, len(executionPayloads))
 	for j, executableData := range executionPayloads {
 		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
@@ -288,6 +306,14 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
+	log.Debug("Inserting preconf block from execution payload",
+		"blockID", uint64(executableData.BlockNumber),
+		"blockHash", executableData.BlockHash,
+		"parentHash", executableData.ParentHash,
+		"timestamp", executableData.Timestamp,
+		"feeRecipient", executableData.FeeRecipient,
+	)
+
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := i.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
@@ -334,6 +360,30 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
+	var (
+		txListHash = crypto.Keccak256Hash(decompressedTxs)
+		args       = &miner.BuildPayloadArgs{
+			Parent:       executableData.ParentHash,
+			Timestamp:    uint64(executableData.Timestamp),
+			FeeRecipient: executableData.FeeRecipient,
+			Random:       common.Hash(executableData.PrevRandao),
+			Withdrawals:  make([]*types.Withdrawal, 0),
+			Version:      engine.PayloadV2,
+			TxListHash:   &txListHash,
+		}
+	)
+
+	payloadID := args.Id()
+
+	log.Debug("Payload args",
+		"blockID", uint64(executableData.BlockNumber),
+		"parent", args.Parent.Hex(),
+		"timestamp", args.Timestamp,
+		"feeRecipient", args.FeeRecipient.Hex(),
+		"random", args.Random.Hex(),
+		"txListHash", args.TxListHash.Hex(),
+		"id", payloadID,
+	)
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
 	payload, err := createExecutionPayloadsAndSetHead(
@@ -348,10 +398,11 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 			Timestamp:             uint64(executableData.Timestamp),
 			ParentHash:            executableData.ParentHash,
 			L1Origin: &rawdb.L1Origin{
-				BlockID:       new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
-				L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-				L1BlockHeight: nil,
-				L1BlockHash:   common.Hash{},
+				BlockID:            new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+				L2BlockHash:        common.Hash{}, // Will be set by taiko-geth.
+				L1BlockHeight:      nil,
+				L1BlockHash:        common.Hash{},
+				BuildPayloadArgsID: payloadID,
 			},
 			BaseFee:     u256BaseFee.ToBig(),
 			Withdrawals: make([]*types.Withdrawal, 0),
@@ -415,12 +466,24 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 		}
 	}
 
-	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
+	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
+
+	log.Debug("IsBasedOnCanonicalChain",
+		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
+	)
+
+	return isBasedOnCanonicalChain, nil
 }
 
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
 func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
+		log.Debug("Sending latest seen proposal from blocksInserter",
+			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
+			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
+			"preconfChainReoged", proposal.PreconfChainReorged,
+		)
+
 		i.latestSeenProposalCh <- proposal
 	}
 }

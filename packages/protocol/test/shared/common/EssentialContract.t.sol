@@ -6,7 +6,7 @@ import "../CommonTest.sol";
 contract Target1 is EssentialContract {
     uint256 public count;
 
-    constructor() EssentialContract(address(0)) { }
+    constructor() EssentialContract() { }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
@@ -19,6 +19,8 @@ contract Target1 is EssentialContract {
 }
 
 contract Target2 is Target1 {
+    constructor() Target1() { }
+
     function update() external onlyOwner {
         count += 10;
     }
