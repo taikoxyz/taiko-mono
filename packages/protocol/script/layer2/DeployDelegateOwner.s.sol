@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/layer2/DelegateOwner.sol";
 import "script/BaseScript.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/common/IResolver.sol";
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/DeployDelegateOwner.s.sol
 
@@ -17,7 +17,7 @@ contract DeployDelegateOwner is BaseScript {
 
     function run() external broadcast {
         address bridge =
-            IResolver(l2Sam).resolve(LibNetwork.TAIKO_MAINNET, LibStrings.B_BRIDGE, false);
+            IResolver(l2Sam).resolve(LibNetwork.TAIKO_MAINNET, LibNames.B_BRIDGE, false);
         deploy({
             name: "delegate_owner",
             impl: address(new DelegateOwner(bridge)),

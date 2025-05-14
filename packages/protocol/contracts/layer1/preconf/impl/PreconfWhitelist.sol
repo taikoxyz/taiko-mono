@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../iface/IPreconfWhitelist.sol";
 import "../libs/LibPreconfUtils.sol";
 import "../libs/LibPreconfConstants.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/common/EssentialContract.sol";
 
 /// @title PreconfWhitelist
