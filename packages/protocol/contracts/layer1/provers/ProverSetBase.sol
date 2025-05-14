@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/libs/LibAddress.sol";
 import "../based/ITaikoInbox.sol";
 
@@ -49,13 +49,12 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
     }
 
     constructor(
-        address _resolver,
         address _inbox,
         address _bondToken
     )
         nonZeroAddr(_inbox)
         nonZeroAddr(_bondToken)
-        EssentialContract(_resolver)
+        EssentialContract()
     {
         inbox = _inbox;
         bondToken = _bondToken;

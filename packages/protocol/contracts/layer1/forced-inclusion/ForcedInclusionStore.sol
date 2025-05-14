@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibAddress.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 import "./IForcedInclusionStore.sol";
 
@@ -58,7 +58,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         nonZeroValue(_feeInGwei)
         nonZeroAddr(_inbox)
         nonZeroAddr(_inboxWrapper)
-        EssentialContract(address(0))
+        EssentialContract()
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
