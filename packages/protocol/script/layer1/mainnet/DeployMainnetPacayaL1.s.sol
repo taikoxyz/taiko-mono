@@ -47,7 +47,7 @@ contract DeployMainnetPacayaL1 is DeployCapability {
     address public risc0Groth16Verifier = 0x48E32eFbe22e180A3FFe617f4955cD83B983dd98;
     address public sp1RemoteVerifier = 0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371;
     address public automata = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
-    address public oldFork = 0x5110634593Ccb8072d161A7d260A409A7E74D7Ca;
+    address public oldFork = 0xaA64D5A3A26D1e76AcAf6e22c199D02d58076A01;
     address public proverSet = 0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9;
     address public contractOwner = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
     address public sigVerifyLib = 0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9;
