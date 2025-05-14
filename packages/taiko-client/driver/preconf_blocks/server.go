@@ -960,9 +960,16 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if len(txs) == 0 {
 		return errors.New("empty transactions list, missing anchor transaction")
 	}
+
 	if err := s.anchorValidator.ValidateAnchorTx(txs[0]); err != nil {
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
+
+	log.Info("Transactions list for preconfirmation block",
+		"transactions", len(txs),
+		"blockID", uint64(payload.BlockNumber),
+		"blockHash", payload.BlockHash.Hex(),
+	)
 
 	return nil
 }
