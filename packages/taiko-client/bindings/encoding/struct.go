@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
@@ -63,71 +64,12 @@ func ToExecutableData(header *types.Header) *engine.ExecutableData {
 
 	return executableData
 }
-<<<<<<< HEAD
-=======
-
-// TransitionProvedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientTransitionProved
-// to *ontakeBindings.OntakeClients.TaikoL1ClientTransitionProvedV2.
-func TransitionProvedEventToV2(
-	e *ontakeBindings.TaikoL1ClientTransitionProved,
-	proposedIn uint64,
-) *ontakeBindings.TaikoL1ClientTransitionProvedV2 {
-	return &ontakeBindings.TaikoL1ClientTransitionProvedV2{
-		BlockId:      e.BlockId,
-		Tran:         e.Tran,
-		Prover:       e.Prover,
-		ValidityBond: e.ValidityBond,
-		Tier:         e.Tier,
-		ProposedIn:   proposedIn,
-		Raw:          e.Raw,
-	}
-}
-
-// TransitionContestedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientTransitionContested
-// to *ontakeBindings.OntakeClients.TaikoL1ClientTransitionContestedV2.
-func TransitionContestedEventToV2(
-	e *ontakeBindings.TaikoL1ClientTransitionContested,
-	proposedIn uint64,
-) *ontakeBindings.TaikoL1ClientTransitionContestedV2 {
-	return &ontakeBindings.TaikoL1ClientTransitionContestedV2{
-		BlockId:     e.BlockId,
-		Tran:        e.Tran,
-		Contester:   e.Contester,
-		ContestBond: e.ContestBond,
-		Tier:        e.Tier,
-		ProposedIn:  proposedIn,
-		Raw:         e.Raw,
-	}
-}
-
-// BlockVerifiedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerified
-// to *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerifiedV2.
-func BlockVerifiedEventToV2(e *ontakeBindings.TaikoL1ClientBlockVerified) *ontakeBindings.TaikoL1ClientBlockVerifiedV2 {
-	return &ontakeBindings.TaikoL1ClientBlockVerifiedV2{
-		BlockId:   e.BlockId,
-		Prover:    e.Prover,
-		BlockHash: e.BlockHash,
-		Tier:      e.Tier,
-		Raw:       e.Raw,
-	}
-}
 
 // LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
 // which contains additional information about the proposal.
 type LastSeenProposal struct {
 	metadata.TaikoProposalMetaData
 	PreconfChainReorged bool
-}
-
-// BloomToBytes converts a types.Bloom to [8][32]byte slice.
-func BloomToBytes(bloom types.Bloom) [8][32]byte {
-	b := [8][32]byte{}
-
-	for i := 0; i < 8; i++ {
-		copy(b[i][:], bloom[i*32:(i+1)*32])
-	}
-
-	return b
 }
 
 // BytesToBloom converts a [8][32]byte slice to types.Bloom.
@@ -140,4 +82,3 @@ func BytesToBloom(b [8][32]byte) types.Bloom {
 
 	return types.BytesToBloom(bytes)
 }
->>>>>>> origin/main

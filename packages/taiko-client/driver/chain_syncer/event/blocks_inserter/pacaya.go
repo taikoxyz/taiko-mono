@@ -32,14 +32,15 @@ import (
 
 // BlocksInserterPacaya is responsible for inserting Pacaya blocks to the L2 execution engine.
 type BlocksInserterPacaya struct {
-	rpc                *rpc.Client
-	progressTracker    *beaconsync.SyncProgressTracker
-	blobDatasource     *rpc.BlobDataSource
-	txListDecompressor *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor  *anchorTxConstructor.AnchorTxConstructor // TaikoAnchor.anchorV3 transactions constructor
-	calldataFetcher    txlistFetcher.TxListFetcher
-	blobFetcher        txlistFetcher.TxListFetcher
-	mutex              sync.Mutex
+	rpc                  *rpc.Client
+	progressTracker      *beaconsync.SyncProgressTracker
+	blobDatasource       *rpc.BlobDataSource
+	txListDecompressor   *txListDecompressor.TxListDecompressor   // Transactions list decompressor
+	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor // TaikoAnchor.anchorV3 transactions constructor
+	calldataFetcher      txlistFetcher.TxListFetcher
+	blobFetcher          txlistFetcher.TxListFetcher
+	latestSeenProposalCh chan *encoding.LastSeenProposal
+	mutex                sync.Mutex
 }
 
 // NewBlocksInserterPacaya creates a new BlocksInserterPacaya instance.
@@ -83,8 +84,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	)
 
 	var (
-		meta        = metadata.Pacaya()
-		txListBytes []byte
+		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
+		// to the channel.
+		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
+		meta               = metadata.Pacaya()
+		txListBytes        []byte
 	)
 
 	// Fetch transactions list.

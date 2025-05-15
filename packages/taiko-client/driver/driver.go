@@ -119,6 +119,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		if d.preconfBlockServer, err = preconfBlocks.New(
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
+			d.PreconfHandoverSkipSlots,
+			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
