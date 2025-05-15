@@ -382,7 +382,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 		"feeRecipient", args.FeeRecipient.Hex(),
 		"random", args.Random.Hex(),
 		"txListHash", args.TxListHash.Hex(),
-		"id", payloadID,
+		"id", payloadID.String(),
 	)
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
