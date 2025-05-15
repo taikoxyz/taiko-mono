@@ -35,7 +35,17 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
+    function init2() external reinitializer(2) {
+        // Ensure non-voting accounts are forced to delegate to themselves so their getPastVotes
+        // will return their balance as their voting power.
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            _delegate(accounts[i], accounts[i]);
+        }
+    }
+
     function delegate(address _account) public override {
+        // Ensure non-voting accounts cannot delegate or being delegated to.
         address[] memory accounts = getNonVotingAccounts();
         for (uint256 i; i < accounts.length; ++i) {
             require(_account != accounts[i] && msg.sender != accounts[i], TT_NON_VOTING_ACCOUNT());
