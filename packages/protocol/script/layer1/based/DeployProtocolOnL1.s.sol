@@ -126,8 +126,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.v4GetConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
+        uint64 taikoChainId = taikoInbox.v4GetConfig().chainId;
+        require(taikoChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
         console2.log("msg.sender: ", msg.sender);
@@ -361,8 +361,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
         taikoInbox.v4Init(msg.sender, vm.envBytes32("L2_GENESIS_HASH"));
-        uint64 l2ChainId = taikoInbox.v4GetConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
+        uint64 taikoChainId = taikoInbox.v4GetConfig().chainId;
+        require(taikoChainId != block.chainid, "same chainid");
 
         // Prover set
         deployProxy({
@@ -408,8 +408,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             registerTo: address(0)
         });
-        uint64 l2ChainId = TaikoInbox(payable(taikoInboxAddr)).v4GetConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
+        uint64 taikoChainId = TaikoInbox(payable(taikoInboxAddr)).v4GetConfig().chainId;
+        require(taikoChainId != block.chainid, "same chainid");
 
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
@@ -419,7 +419,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         (verifiers.risc0RethVerifier, verifiers.sp1RethVerifier) =
-            deployZKVerifiers(owner, l2ChainId);
+            deployZKVerifiers(owner, taikoChainId);
         verifiers.opGethVerifier = deployProxy({
             name: "op_geth_verifier",
             impl: opImplAddr,
@@ -446,7 +446,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     function deployZKVerifiers(
         address owner,
         //address rollupResolver,
-        uint64 l2ChainId
+        uint64 taikoChainId
     )
         private
         returns (address risc0Verifier, address sp1Verifier)
@@ -457,7 +457,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
-            impl: address(new TaikoRisc0Verifier(l2ChainId, address(verifier))),
+            impl: address(new TaikoRisc0Verifier(taikoChainId, address(verifier))),
             data: abi.encodeCall(TaikoRisc0Verifier.init, (owner)),
             registerTo: address(0)
         });
@@ -467,7 +467,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
-            impl: address(new TaikoSP1Verifier(l2ChainId, address(succinctVerifier))),
+            impl: address(new TaikoSP1Verifier(taikoChainId, address(succinctVerifier))),
             data: abi.encodeCall(TaikoSP1Verifier.init, (owner)),
             registerTo: address(0)
         });
