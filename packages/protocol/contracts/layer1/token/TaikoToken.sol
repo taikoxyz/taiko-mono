@@ -75,7 +75,7 @@ contract TaikoToken is TaikoTokenBase {
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
         accounts_ = new address[](3);
         accounts_[0] = address(0);
-        accounts_[0] = TAIKO_FOUNDATION_TREASURY;
+        accounts_[1] = TAIKO_FOUNDATION_TREASURY;
         accounts_[2] = TAIKO_DAO_CONTROLLER;
     }
 }
