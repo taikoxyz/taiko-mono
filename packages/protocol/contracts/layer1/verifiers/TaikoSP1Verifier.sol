@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@sp1-contracts/src/ISP1Verifier.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -31,7 +31,7 @@ contract TaikoSP1Verifier is EssentialContract, IVerifier {
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 
-    constructor(uint64 _taikoChainId, address _sp1RemoteVerifier) EssentialContract(address(0)) {
+    constructor(uint64 _taikoChainId, address _sp1RemoteVerifier) EssentialContract() {
         taikoChainId = _taikoChainId;
         sp1RemoteVerifier = _sp1RemoteVerifier;
     }

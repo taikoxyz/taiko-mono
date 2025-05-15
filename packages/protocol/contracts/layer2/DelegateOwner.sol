@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../shared/common/EssentialContract.sol";
-import "../shared/libs/LibStrings.sol";
+import "../shared/libs/LibNames.sol";
 import "../shared/libs/LibAddress.sol";
 import "../shared/libs/LibBytes.sol";
 import "../shared/bridge/IBridge.sol";
@@ -62,7 +62,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         _;
     }
 
-    constructor(address _bridge) EssentialContract(address(0)) {
+    constructor(address _bridge) EssentialContract() {
         bridge = _bridge;
     }
 

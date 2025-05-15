@@ -7,7 +7,7 @@ import "src/shared/common/EssentialContract.sol";
 contract MockTaikoInbox is EssentialContract {
     bytes32 internal metaHash;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor() EssentialContract() { }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);

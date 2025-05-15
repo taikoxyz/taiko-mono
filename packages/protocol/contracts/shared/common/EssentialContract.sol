@@ -11,7 +11,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
-    address private immutable __resolver;
+    address internal immutable __resolver;
     uint256[50] private __gapFromOldAddressResolver;
 
     /// @dev Slot 1.
@@ -32,15 +32,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     error FUNC_NOT_IMPLEMENTED();
     error REENTRANT_CALL();
     error ACCESS_DENIED();
-    error RESOLVER_NOT_FOUND();
     error ZERO_ADDRESS();
     error ZERO_VALUE();
 
-    /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
-    /// @param _name The name to check against.
-    modifier onlyFromOwnerOrNamed(bytes32 _name) {
-        require(msg.sender == owner() || msg.sender == resolve(_name, true), ACCESS_DENIED());
-        _;
+    constructor() {
+        _disableInitializers();
     }
 
     /// @dev Modifier that ensures the caller is either the owner or a specified address.
@@ -97,35 +93,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
-    /// @dev Modifier that ensures the caller is the resolved address of a given
-    /// name.
-    /// @param _name The name to check against.
-    modifier onlyFromNamed(bytes32 _name) {
-        require(msg.sender == resolve(_name, true), ACCESS_DENIED());
-        _;
-    }
-
-    /// @dev Modifier that ensures the caller is the resolved address of a given
-    /// name, if the name is set.
-    /// @param _name The name to check against.
-    modifier onlyFromOptionalNamed(bytes32 _name) {
-        address addr = resolve(_name, true);
-        require(addr == address(0) || msg.sender == addr, ACCESS_DENIED());
-        _;
-    }
-
-    /// @dev Modifier that ensures the caller is a resolved address to either _name1 or _name2
-    /// name.
-    /// @param _name1 The first name to check against.
-    /// @param _name2 The second name to check against.
-    modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
-        require(
-            msg.sender == resolve(_name1, true) || msg.sender == resolve(_name2, true),
-            ACCESS_DENIED()
-        );
-        _;
-    }
-
     /// @dev Modifier that ensures the caller is either of the two specified addresses.
     /// @param _addr1 The first address to check against.
     /// @param _addr2 The second address to check against.
@@ -146,11 +113,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     modifier onlyFromOptional(address _addr) {
         require(_addr == address(0) || msg.sender == _addr, ACCESS_DENIED());
         _;
-    }
-
-    constructor(address _resolver) {
-        __resolver = _resolver;
-        _disableInitializers();
     }
 
     /// @notice Pauses the contract.
@@ -189,31 +151,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @return The address of this contract.
     function resolver() public view virtual returns (address) {
         return __resolver;
-    }
-
-    /// @notice Resolves a name to an address on a specific chain
-    /// @param _chainId The chain ID to resolve the name on
-    /// @param _name The name to resolve
-    /// @param _allowZeroAddress Whether to allow resolving to the zero address
-    /// @return The resolved address
-    function resolve(
-        uint64 _chainId,
-        bytes32 _name,
-        bool _allowZeroAddress
-    )
-        internal
-        view
-        returns (address)
-    {
-        return IResolver(resolver()).resolve(_chainId, _name, _allowZeroAddress);
-    }
-
-    /// @notice Resolves a name to an address on the current chain
-    /// @param _name The name to resolve
-    /// @param _allowZeroAddress Whether to allow resolving to the zero address
-    /// @return The resolved address
-    function resolve(bytes32 _name, bool _allowZeroAddress) internal view returns (address) {
-        return IResolver(resolver()).resolve(block.chainid, _name, _allowZeroAddress);
     }
 
     /// @notice Initializes the contract.

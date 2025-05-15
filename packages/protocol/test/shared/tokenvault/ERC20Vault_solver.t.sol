@@ -6,8 +6,6 @@ import "../helpers/FreeMintERC20Token.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
 contract TestERC20Vault_solver is CommonTest {
-    address private quotaManager = address(0);
-
     // Contracts on Ethereum
     SignalService private eSignalService;
     PrankTaikoInbox private taikoInbox;
@@ -49,9 +47,7 @@ contract TestERC20Vault_solver is CommonTest {
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
         tVault = deployERC20Vault();
-        tBridge = deployBridge(
-            address(new Bridge(address(resolver), address(tSignalService), quotaManager))
-        );
+        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
 
         register("bridge", address(tBridge));
         register("bridged_erc20", address(new BridgedERC20(address(tVault))));
