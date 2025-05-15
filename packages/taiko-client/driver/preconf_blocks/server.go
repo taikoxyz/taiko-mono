@@ -815,10 +815,15 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	currentPayload *eth.ExecutionPayload,
 	headL1Origin *rawdb.L1Origin,
 ) error {
+	headL1OriginBlockId := 0
+	if headL1Origin != nil {
+		headL1OriginBlockId = int(headL1Origin.BlockID.Uint64())
+	}
+
 	log.Debug("Importing missing ancients from the cache",
 		"blockID", uint64(currentPayload.BlockNumber),
 		"hash", currentPayload.BlockHash.Hex(),
-		"headL1OriginBlockID", headL1Origin.BlockID.Uint64(),
+		"headL1OriginBlockID", headL1OriginBlockId,
 	)
 
 	// Try searching the missing ancients in the cache.
