@@ -43,7 +43,7 @@
 
 - ens: `token.taiko.eth`
 - proxy: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
-- impl: `0xcfe803378D79d1180EbF030455040EA6513869dF`
+- impl: `0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on April 25, 2024 @commit`2f6d3c62e`
@@ -53,6 +53,7 @@
   - upgraded impl from `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c` to `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - upgraded impl from `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` to `0xcfe803378D79d1180EbF030455040EA6513869dF` @commit`d2b00ce` @tx`0xc9f468d33d8d55911e4e5b5c301ed244a5f81ab0f389d2b4f398eb5b89d417ef`
   - upgrade impl to `0x87C752b0F70cAa237Edd7571B0845470A37DE040` @commit`619af45e72b76bdbd9a71f99d32b08dec373d72a` @tx`0xdb7d5de46738ad3f676db47b61772db531f9858b7a01e8c3b5aee49fa74cac95`
+  - upgrade impl to `0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106` @PR[19457](https://github.com/taikoxyz/taiko-mono/pull/19461) @tx`0x986fc2c7ae945cdd358b2f2ae54364b350026f965f5861ed470f78e145f12626`
 
 #### signal_service
 
