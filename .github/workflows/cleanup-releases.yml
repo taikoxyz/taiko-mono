@@ -1,0 +1,23 @@
+name: Cleanup Old Releases
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight
+  workflow_dispatch: # Allows manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: [arc-runner-set]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cleanup old releases
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 5
+          delete_tag_pattern: "[^:]+:v*"
+          repo_token: ${{ secrets.GITHUB_TOKEN }}

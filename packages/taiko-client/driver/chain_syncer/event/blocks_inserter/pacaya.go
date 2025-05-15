@@ -375,14 +375,15 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 
 	payloadID := args.Id()
 
-	log.Debug("Payload args",
+	log.Debug(
+		"Payload args",
 		"blockID", uint64(executableData.BlockNumber),
 		"parent", args.Parent.Hex(),
 		"timestamp", args.Timestamp,
 		"feeRecipient", args.FeeRecipient.Hex(),
 		"random", args.Random.Hex(),
 		"txListHash", args.TxListHash.Hex(),
-		"id", payloadID,
+		"id", payloadID.String(),
 	)
 
 	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)

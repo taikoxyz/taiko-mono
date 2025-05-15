@@ -320,7 +320,7 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 	}
 
 	log.Debug(
-    "Removed preconfirmation blocks",
+		"Removed preconfirmation blocks",
 		"newHead", newHead.Number.Uint64(),
 		"lastBlockID", lastBlockID,
 		"headsRemoved", currentHead.Number.Uint64()-newHead.Number.Uint64(),

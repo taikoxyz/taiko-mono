@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "../IVerifier.sol";
 
 /// @title ComposeVerifier

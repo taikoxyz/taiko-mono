@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialResolverContract.sol";
-import "../libs/LibStrings.sol";
+import "../libs/LibNames.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
 import "../libs/LibNetwork.sol";
@@ -411,7 +411,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         view
         returns (bool enabled_, address destBridge_)
     {
-        destBridge_ = resolve(_chainId, LibStrings.B_BRIDGE, true);
+        destBridge_ = resolve(_chainId, LibNames.B_BRIDGE, true);
         enabled_ = destBridge_ != address(0);
     }
 
@@ -519,7 +519,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         returns (uint32 numCacheOps_)
     {
         try _signalService.proveSignalReceived(
-            _chainId, resolve(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
+            _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
         ) returns (uint256 numCacheOps) {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
@@ -551,7 +551,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         returns (bool)
     {
         try _signalService.verifySignalReceived(
-            _chainId, resolve(_chainId, LibStrings.B_BRIDGE, false), _signal, _proof
+            _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
         ) {
             return true;
         } catch {

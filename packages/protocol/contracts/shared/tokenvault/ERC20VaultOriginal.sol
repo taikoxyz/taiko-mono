@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "../libs/LibStrings.sol";
+import "../libs/LibNames.sol";
 import "../libs/LibAddress.sol";
 import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
@@ -272,7 +272,7 @@ contract ERC20VaultOriginal is BaseVault {
 
         bytes32 msgHash;
         (msgHash, message_) =
-            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
+            IBridge(resolve(LibNames.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -346,7 +346,7 @@ contract ERC20VaultOriginal is BaseVault {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return LibStrings.B_ERC20_VAULT;
+        return LibNames.B_ERC20_VAULT;
     }
 
     function _transferTokens(
@@ -438,7 +438,7 @@ contract ERC20VaultOriginal is BaseVault {
             (owner(), ctoken.addr, ctoken.chainId, ctoken.decimals, ctoken.symbol, ctoken.name)
         );
 
-        btoken = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC20, false), data));
+        btoken = address(new ERC1967Proxy(resolve(LibNames.B_BRIDGED_ERC20, false), data));
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 
