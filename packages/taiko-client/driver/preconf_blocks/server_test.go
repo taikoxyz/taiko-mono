@@ -23,7 +23,6 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 	server, err := New("*",
 		nil,
-		0,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		nil,
