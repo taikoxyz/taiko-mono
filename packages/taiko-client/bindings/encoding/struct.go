@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
@@ -160,6 +161,13 @@ func BlockVerifiedEventToV2(e *ontakeBindings.TaikoL1ClientBlockVerified) *ontak
 		Tier:      e.Tier,
 		Raw:       e.Raw,
 	}
+}
+
+// LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
+// which contains additional information about the proposal.
+type LastSeenProposal struct {
+	metadata.TaikoProposalMetaData
+	PreconfChainReorged bool
 }
 
 // BloomToBytes converts a types.Bloom to [8][32]byte slice.
