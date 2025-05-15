@@ -78,14 +78,20 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	log.Debug("Inserting blocks to L2 execution engine",
-		"batchID", metadata.Pacaya().GetBatchID(),
-		"lastBlockID", metadata.Pacaya().GetLastBlockID(),
-	)
-
 	var (
 		meta        = metadata.Pacaya()
 		txListBytes []byte
+	)
+
+	log.Debug(
+		"Inserting blocks to L2 execution engine",
+		"batchID", meta.GetBatchID(),
+		"lastBlockID", meta.GetLastBlockID(),
+		"assignedProver", meta.GetProposer(),
+		"lastTimestamp", meta.GetLastBlockTimestamp(),
+		"coinbase", meta.GetCoinbase(),
+		"numBlobs", len(meta.GetBlobHashes()),
+		"blocks", len(meta.GetBlocks()),
 	)
 
 	// Fetch transactions list.
@@ -158,9 +164,15 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		// trying to fetch the last block header from L2 EE. If it is known in canonical,
 		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
-			log.Debug("Checking if batch is in canonical chain",
+			log.Debug(
+				"Checking if batch is in canonical chain",
 				"batchID", meta.GetBatchID(),
 				"lastBlockID", meta.GetLastBlockID(),
+				"assignedProver", meta.GetProposer(),
+				"lastTimestamp", meta.GetLastBlockTimestamp(),
+				"coinbase", meta.GetCoinbase(),
+				"numBlobs", len(meta.GetBlobHashes()),
+				"blocks", len(meta.GetBlocks()),
 				"parentNumber", parent.Number,
 				"parentHash", parent.Hash(),
 			)
@@ -272,8 +284,10 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	log.Debug("Insert preconf blocks from execution payloads",
+	log.Debug(
+		"Insert preconfirmation blocks from execution payloads",
 		"numBlocks", len(executionPayloads),
+		"fromCache", fromCache,
 	)
 
 	headers := make([]*types.Header, len(executionPayloads))
@@ -306,7 +320,8 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
-	log.Debug("Inserting preconf block from execution payload",
+	log.Debug(
+		"Inserting preconfirmation block from execution payload",
 		"blockID", uint64(executableData.BlockNumber),
 		"blockHash", executableData.BlockHash,
 		"parentHash", executableData.ParentHash,
@@ -376,7 +391,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	payloadID := args.Id()
 
 	log.Debug(
-		"Payload args",
+		"Payload arguments",
 		"blockID", uint64(executableData.BlockNumber),
 		"parent", args.Parent.Hex(),
 		"timestamp", args.Timestamp,
@@ -467,10 +482,16 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 		}
 	}
 
+	// If the current parent block hash matches the L2 block hash in the head L1 origin, it is in the canonical chain.
 	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
 
-	log.Debug("IsBasedOnCanonicalChain",
-		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
+	log.Debug(
+		"IsBasedOnCanonicalChain",
+		"blockID", uint64(executableData.BlockNumber),
+		"blockHash", executableData.BlockHash,
+		"parentHash", executableData.ParentHash,
+		"headL1OriginBlockID", headL1Origin.BlockID,
+		"isBasedOnCanonicalChain", currentParent.Hash() == headL1Origin.L2BlockHash,
 	)
 
 	return isBasedOnCanonicalChain, nil
@@ -479,7 +500,8 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
 func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
-		log.Debug("Sending latest seen proposal from blocksInserter",
+		log.Debug(
+			"Sending latest seen proposal from blocksInserter",
 			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
 			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
 			"preconfChainReoged", proposal.PreconfChainReorged,

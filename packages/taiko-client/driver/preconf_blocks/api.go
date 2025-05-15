@@ -379,7 +379,8 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		}
 	}
 
-	log.Debug("Get preconfirmation block server status",
+	log.Debug(
+		"Get preconfirmation block server status",
 		"currOperator", s.lookahead.CurrOperator.Hex(),
 		"nextOperator", s.lookahead.NextOperator.Hex(),
 		"currRanges", s.lookahead.CurrRanges,
@@ -399,7 +400,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 
 // returnError is a helper function to return an error response.
 func (s *PreconfBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
-	log.Error("Error handling preconf block request", "error", err.Error())
+	log.Error("Preconfirmation block request error", "status", statusCode, "error", err.Error())
 
 	return c.JSON(statusCode, map[string]string{"error": err.Error()})
 }

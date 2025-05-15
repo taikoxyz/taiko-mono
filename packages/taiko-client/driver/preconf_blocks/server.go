@@ -406,6 +406,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 
 	log.Info("🔊 New preconfirmation block request from P2P network", "peer", from, "hash", hash.Hex())
 
+	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return fmt.Errorf("failed to fetch head L1 origin: %w", err)
+	}
+
 	// Fetch the block from L2 EE and gossip it out.
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
@@ -416,6 +421,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"error", err,
 		)
 		return err
+	}
+
+	if block.NumberU64() <= headL1Origin.BlockID.Uint64() {
+		log.Debug(
+			"Ignore the message for outdated block",
+			"peer", from,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+			"parentHash", block.ParentHash().Hex(),
+		)
+
+		return nil
 	}
 
 	envelope, err := blockToEnvelope(block, nil)
@@ -944,12 +961,42 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
+	// If the block number is greater than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
+		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
+	}
+
+	// If the block number is less than or equal to the highest unsafe L2 payload block ID,
+	// we also need to update the highest unsafe L2 payload block ID.
+	if header != nil && uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
+		log.Info(
+			"Preconfirmation block is reorging",
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"headerHash", header.Hash().Hex(),
+			"headerParentHash", header.ParentHash.Hex(),
+		)
+		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
+	}
+
 	// Try to import the child blocks from the cache, if any.
 	if err := s.ImportChildBlocksFromCache(ctx, msg.ExecutionPayload); err != nil {
 		return false, fmt.Errorf("failed to try importing child blocks from cache: %w", err)
 	}
 
 	return false, nil
+}
+
+// updateHighestUnsafeL2Payload updates the highest unsafe L2 payload block ID.
+func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
+	log.Info(
+		"Updating highest unsafe L2 payload block ID",
+		"blockID", blockID,
+		"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+	)
+	s.highestUnsafeL2PayloadBlockID = blockID
 }
 
 // webSocketSever is a WebSocket server that handles incoming connections,
@@ -1015,12 +1062,4 @@ func (s *webSocketSever) pushEndOfSequencingNotification(epoch uint64) {
 			delete(s.clients, conn)
 		}
 	}
-}
-
-func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
-	log.Info("Updating highest unsafe L2 payload block ID",
-		"blockID", blockID,
-		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-	)
-	s.highestUnsafeL2PayloadBlockID = blockID
 }
