@@ -486,12 +486,12 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
 
 	log.Debug(
-		"IsBasedOnCanonicalChain",
+		"Check if block is based on canonical chain",
 		"blockID", uint64(executableData.BlockNumber),
 		"blockHash", executableData.BlockHash,
 		"parentHash", executableData.ParentHash,
 		"headL1OriginBlockID", headL1Origin.BlockID,
-		"isBasedOnCanonicalChain", currentParent.Hash() == headL1Origin.L2BlockHash,
+		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
 	)
 
 	return isBasedOnCanonicalChain, nil
