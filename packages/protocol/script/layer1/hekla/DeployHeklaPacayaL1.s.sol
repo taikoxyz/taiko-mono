@@ -41,7 +41,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    uint64 public taikoChainId = uint64(vm.envUint("L2_CHAIN_ID"));
+    uint64 public taikoChainId = uint64(vm.envUint("TAIKO_CHAIN_ID"));
     address public bridgeL1 = vm.envAddress("BRIDGE_L1");
     address public bridgeL2 = vm.envAddress("BRIDGE_L2");
     address public signalService = vm.envAddress("SIGNAL_SERVICE");
