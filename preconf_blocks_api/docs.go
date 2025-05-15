@@ -130,6 +130,9 @@ const docTemplate = `{
         "preconfblocks.BuildPreconfBlockRequestBody": {
             "type": "object",
             "properties": {
+                "endOfSequencing": {
+                    "type": "boolean"
+                },
                 "executableData": {
                     "description": "@param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.",
                     "allOf": [
@@ -257,6 +260,10 @@ const docTemplate = `{
         "preconfblocks.Status": {
             "type": "object",
             "properties": {
+                "endOfSequencingBlockHash": {
+                    "description": "@param whether the current epoch has received an end of sequencing block marker",
+                    "type": "string"
+                },
                 "highestUnsafeL2PayloadBlockID": {
                     "description": "@param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server\n@param has received from the P2P network, if its zero, it means the current server has not received\n@param any preconfirmation block from the P2P network yet.",
                     "type": "integer"

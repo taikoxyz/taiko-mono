@@ -3,6 +3,8 @@ definitions:
     type: object
   preconfblocks.BuildPreconfBlockRequestBody:
     properties:
+      endOfSequencing:
+        type: boolean
       executableData:
         allOf:
         - $ref: '#/definitions/preconfblocks.ExecutableData'
@@ -90,6 +92,10 @@ definitions:
     type: object
   preconfblocks.Status:
     properties:
+      endOfSequencingBlockHash:
+        description: '@param whether the current epoch has received an end of sequencing
+          block marker'
+        type: string
       highestUnsafeL2PayloadBlockID:
         description: |-
           @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
