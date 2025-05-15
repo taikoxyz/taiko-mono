@@ -41,7 +41,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    uint64 public l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
+    uint64 public taikoChainId = uint64(vm.envUint("L2_CHAIN_ID"));
     address public bridgeL1 = vm.envAddress("BRIDGE_L1");
     address public bridgeL2 = vm.envAddress("BRIDGE_L2");
     address public signalService = vm.envAddress("SIGNAL_SERVICE");
@@ -80,14 +80,14 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         register(sharedResolver, "taiko_token", taikoToken);
         register(sharedResolver, "bond_token", taikoToken);
         register(sharedResolver, "bridge", bridgeL1);
-        register(sharedResolver, "bridge", bridgeL2, l2ChainId);
+        register(sharedResolver, "bridge", bridgeL2, taikoChainId);
         register(sharedResolver, "signal_service", signalService);
         register(sharedResolver, "erc20_vault", erc20Vault);
         register(sharedResolver, "erc721_vault", erc721Vault);
         register(sharedResolver, "erc1155_vault", erc1155Vault);
-        register(sharedResolver, "erc20_vault", erc20VaultL2, l2ChainId);
-        register(sharedResolver, "erc721_vault", erc721VaultL2, l2ChainId);
-        register(sharedResolver, "erc1155_vault", erc1155VaultL2, l2ChainId);
+        register(sharedResolver, "erc20_vault", erc20VaultL2, taikoChainId);
+        register(sharedResolver, "erc721_vault", erc721VaultL2, taikoChainId);
+        register(sharedResolver, "erc1155_vault", erc1155VaultL2, taikoChainId);
 
         // Initializable ForcedInclusionStore with empty TaikoWrapper at first.
         address store = deployProxy({
@@ -176,7 +176,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
     function deployZKVerifiers() internal returns (address risc0Verifier, address sp1Verifier) {
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
-            impl: address(new TaikoRisc0Verifier(l2ChainId, risc0Groth16Verifier)),
+            impl: address(new TaikoRisc0Verifier(taikoChainId, risc0Groth16Verifier)),
             data: abi.encodeCall(TaikoRisc0Verifier.init, (address(0))),
             registerTo: address(0)
         });
@@ -184,7 +184,7 @@ contract DeployHeklaPacayaL1 is DeployCapability {
         // Deploy sp1 verifier
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
-            impl: address(new TaikoSP1Verifier(l2ChainId, sp1RemoteVerifier)),
+            impl: address(new TaikoSP1Verifier(taikoChainId, sp1RemoteVerifier)),
             data: abi.encodeCall(TaikoSP1Verifier.init, (address(0))),
             registerTo: address(0)
         });
