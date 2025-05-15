@@ -23,10 +23,7 @@ contract TestDelegateOwner is Layer2Test {
         tSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        address quotaManager = address(0);
-        tBridge = deployBridge(
-            address(new Bridge(address(resolver), address(tSignalService), quotaManager))
-        );
+        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
         tMulticall = new Multicall3();
         tDelegateOwner = deployDelegateOwner(eBridge, ethereumChainId, address(tBridge));
     }

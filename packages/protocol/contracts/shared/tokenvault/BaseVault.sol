@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeab
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialResolverContract.sol";
-import "../libs/LibStrings.sol";
+import "../libs/LibNames.sol";
 import "../libs/LibBytes.sol";
 
 /// @title INameSymbol
@@ -53,7 +53,7 @@ abstract contract BaseVault is
     function checkProcessMessageContext()
         internal
         view
-        onlyFromNamed(LibStrings.B_BRIDGE)
+        onlyFromNamed(LibNames.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
@@ -64,7 +64,7 @@ abstract contract BaseVault is
     function checkRecallMessageContext()
         internal
         view
-        onlyFromNamed(LibStrings.B_BRIDGE)
+        onlyFromNamed(LibNames.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();

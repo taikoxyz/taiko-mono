@@ -7,7 +7,7 @@ import { SP1Verifier as SuccinctVerifier } from
     "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "src/shared/common/DefaultResolver.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
@@ -116,7 +116,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
         address signalServiceAddr = IResolver(sharedResolver).resolve(
-            uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
+            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
         );
         SignalService signalService = SignalService(signalServiceAddr);
 
@@ -201,10 +201,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             registerTo: sharedResolver
         });
 
-        address quotaManager = address(0);
         address brdige = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService, quotaManager)),
+            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });

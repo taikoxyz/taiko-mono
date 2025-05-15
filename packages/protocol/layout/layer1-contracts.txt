@@ -583,7 +583,7 @@
 |
 | recipient                   | address                  | 252  | 0      | 20    |
 |
-| tgeTimestamp                | uint64                   | 252  | 20     | 8     |
+| startTime                   | uint64                   | 252  | 20     | 8     |
 |
 | isProverSet                 | mapping(address => bool) | 253  | 0      | 32    |
 |
