@@ -33,13 +33,12 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
-    function delegate(address account) public override {
-        address[] memory nonVotingAccounts = getNonVotingAccounts();
-        // Special checks to avoid reading from storage slots
-        for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            require(msg.sender != nonVotingAccounts[i], TT_NON_VOTING_ACCOUNT());
+    function delegate(address _account) public override {
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            require(_account != accounts[i] && msg.sender != accounts[i], TT_NON_VOTING_ACCOUNT());
         }
-        super.delegate(account);
+        super.delegate(_account);
     }
 
     function getPastVotes(
