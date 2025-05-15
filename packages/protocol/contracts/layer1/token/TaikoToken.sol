@@ -15,6 +15,8 @@ contract TaikoToken is TaikoTokenBase {
     address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
     // daocontroller.taiko.eth
     address public constant TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
+    // v20.based.taiko.eth
+    address public constant TAIKO_ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
 
     error TT_INVALID_PARAM();
     error TT_NON_VOTING_ACCOUNT();
@@ -72,9 +74,10 @@ contract TaikoToken is TaikoTokenBase {
     /// @notice Returns the list of accounts that are not eligible for voting.
     /// @return accounts_ The list of accounts that are not eligible for voting.
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
-        accounts_ = new address[](3);
+        accounts_ = new address[](4);
         accounts_[0] = address(0);
         accounts_[1] = TAIKO_FOUNDATION_TREASURY;
         accounts_[2] = TAIKO_DAO_CONTROLLER;
+        accounts_[3] = TAIKO_ERC20_VAULT;
     }
 }
