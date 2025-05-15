@@ -305,10 +305,22 @@ func isKnownCanonicalBlock(
 	// If the payload ID matches, it means this block is already in the canonical chain.
 	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
 		return nil, fmt.Errorf(
-			"payload ID for block %d mismatch, l1Origin payload id: %s, current payload id %s",
+			`payload ID for block %d mismatch,
+			l1Origin payload id: %s,
+			current payload id %s,
+			parentHash: %s,
+			timestamp: %d,
+			suggestedFeeRecipient: %s,
+			difficulty: %s,
+			txListHash: %s`,
 			blockID,
 			engine.PayloadID(l1Origin.BuildPayloadArgsID),
 			id,
+			meta.Parent.Hash().Hex(),
+			meta.Timestamp,
+			meta.SuggestedFeeRecipient.Hex(),
+			meta.Difficulty.Hex(),
+			txListHash.Hex(),
 		)
 	}
 
