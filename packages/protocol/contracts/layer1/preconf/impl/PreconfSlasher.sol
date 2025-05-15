@@ -3,9 +3,8 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/preconf/iface/IPreconfSlasher.sol";
-import "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibTrieProof.sol";
 import "../libs/LibBlockHeader.sol";
 
@@ -17,7 +16,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     address public immutable urc;
     address public immutable fallbackPreconfer;
     ITaikoInbox public immutable taikoInbox;
-    uint64 public immutable l2ChainId;
+    uint64 public immutable taikoChainId;
     address public immutable taikoAnchor;
 
     uint256[50] private __gap;
@@ -28,12 +27,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         address _taikoInbox,
         address _taikoAnchor
     )
-        EssentialContract(address(0))
+        EssentialContract()
     {
         urc = _urc;
         fallbackPreconfer = _fallbackPreconfer;
         taikoInbox = ITaikoInbox(_taikoInbox);
-        l2ChainId = taikoInbox.v4GetConfig().chainId;
+        taikoChainId = taikoInbox.v4GetConfig().chainId;
         taikoAnchor = _taikoAnchor;
     }
 
@@ -57,7 +56,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(_committer != fallbackPreconfer, FallBackPreconferCannotBeSlashed());
         // Parse and validate the commitment payload
         CommitmentPayload memory payload = abi.decode(_commitment.payload, (CommitmentPayload));
-        require(payload.chainId == l2ChainId, InvalidChainId());
+        require(payload.chainId == taikoChainId, InvalidChainId());
         require(
             payload.domainSeparator == LibPreconfConstants.PRECONF_DOMAIN_SEPARATOR,
             InvalidDomainSeparator()
@@ -120,20 +119,17 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Check for reorgs if the committer missed the proposal
         if (evidence.batchInfo.proposer != _committer) {
-            (bool success,) = LibPreconfConstants.getBeaconBlockRootContract().staticcall(
-                abi.encode(_payload.preconferSlotTimestamp)
-            );
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
-            if (!success) {
+            if (LibPreconfUtils.getBeaconBlockRootAt(_payload.preconferSlotTimestamp) == 0) {
                 return getSlashAmount().reorgedPreconf;
             }
         }
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
-        bytes32 l2BlockHash = evidence.blockhashProofs.l2BlockHeader.hash();
-        require(_payload.blockHash != l2BlockHash, PreconfirmationIsValid());
+        bytes32 actualBlockHash = evidence.blockhashProofs.actualBlockHeader.hash();
+        require(_payload.blockHash != actualBlockHash, PreconfirmationIsValid());
 
         // Validate that the batch has been verified
         ITaikoInbox.TransitionState memory transition =
@@ -157,10 +153,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         LibTrieProof.verifyMerkleProof(
-            evidence.blockhashProofs.l2BlockHeader.stateRoot,
+            evidence.blockhashProofs.actualBlockHeader.stateRoot,
             taikoAnchor,
             _calcBlockHashSlot(blockId),
-            l2BlockHash,
+            actualBlockHash,
             evidence.blockhashProofs.accountProof,
             evidence.blockhashProofs.storageProof
         );
