@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../../BaseScript.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 
 /// @title DeployPreconfContracts
 /// @notice This script deploys the Preconf contracts (Whitelist and Router)
