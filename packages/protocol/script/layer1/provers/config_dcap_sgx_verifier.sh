@@ -75,18 +75,6 @@ load_env() {
         export ATTESTATION_ADDRESS=0x84af08F56AeA1f847c75bE08c96cDC4811694595
         export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
         ;;
-    masaya-sgxreth |\
-    masaya-pacaya-sgxreth)
-        export SGX_VERIFIER_ADDRESS=0x503D5487Aee2ce0b42152454298f1A4f26E54649
-        export ATTESTATION_ADDRESS=0x896069f10cf86bB30f8Cd1D03C0C48Fd9755554C
-        export PEM_CERTCHAIN_ADDRESS=0xADF355f92D534581e3B04d4185aFBAFB5D679F57
-        ;;
-    masaya-sgxgeth |\
-    masaya-pacaya-sgxgeth)
-        export SGX_VERIFIER_ADDRESS=0x60b5A61F849227B84e25995F36B0A51154e9bEd0
-        export ATTESTATION_ADDRESS=0xaadc8a7E7863485ead2f7626315F79C927aD135a
-        export PEM_CERTCHAIN_ADDRESS=0xADF355f92D534581e3B04d4185aFBAFB5D679F57
-        ;;
     mainnet |\
     mainnet-ontake |\
     mainnet-ontake-sgxreth)
