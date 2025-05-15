@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "src/shared/based/ITaiko.sol";
-import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
+import "src/shared/signal/LibSignals.sol";
 import "../eip1559/LibEIP1559.sol";
 import "./OntakeAnchor.sol";
 
@@ -87,7 +87,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _;
     }
 
-    constructor(address _signalService, uint64 _pacayaForkHeight) EssentialContract(address(0)) {
+    constructor(address _signalService, uint64 _pacayaForkHeight) OntakeAnchor() {
         signalService = ISignalService(_signalService);
         pacayaForkHeight = _pacayaForkHeight;
     }
@@ -221,7 +221,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         /// @dev Store the L1's state root as a signal to the local signal service to
         /// allow for multi-hop bridging.
         signalService.syncChainData(
-            l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
+            l1ChainId, LibSignals.STATE_ROOT, _anchorBlockId, _anchorStateRoot
         );
 
         /// @dev Update the last synced block to the current anchor block ID.

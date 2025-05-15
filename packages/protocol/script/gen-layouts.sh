@@ -13,9 +13,7 @@ contracts_shared=(
 "contracts/shared/tokenvault/BridgedERC721.sol:BridgedERC721"
 "contracts/shared/tokenvault/BridgedERC1155.sol:BridgedERC1155"
 "contracts/shared/bridge/Bridge.sol:Bridge"
-"contracts/shared/bridge/QuotaManager.sol:QuotaManager"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
-"contracts/shared/common/EssentialContract.sol:EssentialContract"
 "contracts/shared/signal/SignalService.sol:SignalService"
 )
 
@@ -44,7 +42,7 @@ contracts_layer1=(
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/preconf/impl/PreconfSlasher.sol:PreconfSlasher"
-"contracts/layer1/governance/TaikoTreasuryVault.sol:TaikoTreasuryVault"
+"contracts/layer1/governance/TaikoDAOController.sol:TaikoDAOController"
 )
 
 # Layer 2 contracts

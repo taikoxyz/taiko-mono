@@ -52,6 +52,7 @@
   - Accept owner @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - upgraded impl from `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c` to `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - upgraded impl from `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` to `0xcfe803378D79d1180EbF030455040EA6513869dF` @commit`d2b00ce` @tx`0xc9f468d33d8d55911e4e5b5c301ed244a5f81ab0f389d2b4f398eb5b89d417ef`
+  - upgrade impl to `0x87C752b0F70cAa237Edd7571B0845470A37DE040` @commit`619af45e72b76bdbd9a71f99d32b08dec373d72a` @tx`0xdb7d5de46738ad3f676db47b61772db531f9858b7a01e8c3b5aee49fa74cac95`
 
 #### signal_service
 
@@ -184,7 +185,7 @@
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
   - tier_router: `0x44d307a9ec47aA55a7a30849d065686753C86Db6`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
-  - risc0_groth16_verifier: `0xf31DE43cc0cF75245adE63d3Dabf58d4332855e9`
+  - risc0_groth16_verifier: `0x48E32eFbe22e180A3FFe617f4955cD83B983dd98`
   - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
   - sp1_remote_verifier: `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371`
   - tier_zkvm_sp1: `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452`
@@ -392,10 +393,11 @@
 
 ### token_unlock
 
-- impl: `0xD6A337D948F44bAF9Bef85e4f00A5006Fe6ff5E7`
+- impl: `0x5c475bB14727833394b0704266f14157678A72b6`
 - logs:
   - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
   - deployed @commit`3d89d24` @tx`0x28fdfb26c1409e420fe9ecce22063fa70efdbe56359aeacf9f65e68db8b8d34a`
+  - deployed @PR[19457](https://github.com/taikoxyz/taiko-mono/pull/19457/files) @tx`0xfa94bc59c0bc52131a418598780c4e289a13407143a7bdf54c871b5cec35d0b0`
 
 ### prover_set
 
@@ -446,3 +448,11 @@
   - upgraded from `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` to `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - upgraded from `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` to `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
   - upgraded from `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` to `0x280eAbfd252f017B78e15b69580F249F45FB55Fa` @commit`9d2aac8` @tx`0xc0e8ec30d1479ca2414d4d28a09a543c2845247d80387f78c179d663ffe55c3c`
+
+## Taiko DAO Specific
+
+### TaikoDAOController
+
+- proxy: `0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3`
+- Owner (Taiko DAO): `0x9CDf589C941ee81D75F34d3755671d614f7cf261`
+- impl: `0xd1934807041B168f383870A0d8F565aDe2DF9D7D`

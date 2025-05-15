@@ -7,7 +7,7 @@ import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibProverAuth.sol";
@@ -51,7 +51,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
-        EssentialContract(address(0))
+        EssentialContract()
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
