@@ -43,8 +43,8 @@ contract TaikoToken is TaikoTokenBase {
     }
 
     function getPastVotes(
-        address account,
-        uint256 timepoint
+        address _account,
+        uint256 _timepoint
     )
         public
         view
@@ -53,23 +53,24 @@ contract TaikoToken is TaikoTokenBase {
     {
         address[] memory nonVotingAccounts = getNonVotingAccounts();
         for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (account == nonVotingAccounts[i]) {
+            if (_account == nonVotingAccounts[i]) {
                 return 0;
             }
         }
-        return super.getPastVotes(account, timepoint);
+        return super.getPastVotes(_account, _timepoint);
     }
 
     /// @notice This override modifies the return value to reflect the past total supply eligible
     /// for voting.
-    function getPastTotalSupply(uint256 timepoint) public view override returns (uint256) {
+    function getPastTotalSupply(uint256 _timepoint) public view override returns (uint256) {
+        // Must use `super.getPastVotes` instead of `this.getPastVotes`
+        uint256 nonVotingSupply = super.getPastVotes(address(0), _timepoint);
+
         address[] memory nonVotingAccounts = getNonVotingAccounts();
-        uint256 nonVotingSupply;
         for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            nonVotingSupply += balanceOf(nonVotingAccounts[i]);
+            nonVotingSupply += super.getPastVotes(nonVotingAccounts[i], _timepoint);
         }
-        nonVotingSupply += balanceOf(address(0));
-        return super.getPastTotalSupply(timepoint) - nonVotingSupply;
+        return super.getPastTotalSupply(_timepoint) - nonVotingSupply;
     }
 
     /// @notice Returns the list of accounts that are not eligible for voting.
