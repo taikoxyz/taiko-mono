@@ -51,11 +51,9 @@ contract TaikoToken is TaikoTokenBase {
         override
         returns (uint256)
     {
-        address[] memory nonVotingAccounts = getNonVotingAccounts();
-        for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (_account == nonVotingAccounts[i]) {
-                return 0;
-            }
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            if (_account == accounts[i]) return 0;
         }
         return super.getPastVotes(_account, _timepoint);
     }
@@ -63,12 +61,11 @@ contract TaikoToken is TaikoTokenBase {
     /// @notice This override modifies the return value to reflect the past total supply eligible
     /// for voting.
     function getPastTotalSupply(uint256 _timepoint) public view override returns (uint256) {
-        // Must use `super.getPastVotes` instead of `this.getPastVotes`
-        uint256 nonVotingSupply = super.getPastVotes(address(0), _timepoint);
-
-        address[] memory nonVotingAccounts = getNonVotingAccounts();
-        for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            nonVotingSupply += super.getPastVotes(nonVotingAccounts[i], _timepoint);
+        uint256 nonVotingSupply;
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            // Must use `super.getPastVotes` instead of `this.getPastVotes`
+            nonVotingSupply += super.getPastVotes(accounts[i], _timepoint);
         }
         return super.getPastTotalSupply(_timepoint) - nonVotingSupply;
     }
@@ -76,8 +73,9 @@ contract TaikoToken is TaikoTokenBase {
     /// @notice Returns the list of accounts that are not eligible for voting.
     /// @return accounts_ The list of accounts that are not eligible for voting.
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
-        accounts_ = new address[](2);
+        accounts_ = new address[](3);
+        accounts_[0] = address(0);
         accounts_[0] = TAIKO_FOUNDATION_TREASURY;
-        accounts_[1] = TAIKO_DAO_CONTROLLER;
+        accounts_[2] = TAIKO_DAO_CONTROLLER;
     }
 }
