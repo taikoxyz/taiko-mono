@@ -116,7 +116,7 @@ contract DeployMainnetPacayaL1 is DeployCapability {
                     uint8(inclusionWindow), uint64(inclusionFeeInGwei), taikoInbox, address(1)
                 )
             ),
-            data: abi.encodeCall(ForcedInclusionStore.init, (contractOwner)),
+            data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
             registerTo: rollupResolver
         });
 
@@ -128,7 +128,6 @@ contract DeployMainnetPacayaL1 is DeployCapability {
             registerTo: rollupResolver
         });
 
-        // Upgrade ForcedInclusionStore to use the real TaikoWrapper address.
         UUPSUpgradeable(store).upgradeTo(
             address(
                 new ForcedInclusionStore(
@@ -165,6 +164,7 @@ contract DeployMainnetPacayaL1 is DeployCapability {
         Ownable2StepUpgradeable(sharedResolver).transferOwnership(contractOwner);
         Ownable2StepUpgradeable(rollupResolver).transferOwnership(contractOwner);
         Ownable2StepUpgradeable(proofVerifier).transferOwnership(contractOwner);
+        Ownable2StepUpgradeable(store).transferOwnership(contractOwner);
 
         // Note: The following operations must be performed by a multi-signature wallet.
         UUPSUpgradeable(taikoInbox).upgradeTo(forkRouter);
