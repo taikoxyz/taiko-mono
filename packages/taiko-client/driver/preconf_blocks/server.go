@@ -816,7 +816,6 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	headL1Origin *rawdb.L1Origin,
 ) error {
 	var headL1OriginBlockId uint64
-
 	if headL1Origin != nil {
 		headL1OriginBlockId = headL1Origin.BlockID.Uint64()
 	}
