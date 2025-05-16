@@ -7,10 +7,12 @@ import (
 	"net/url"
 	"time"
 
+	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	p2pCli "github.com/ethereum-optimism/optimism/op-node/p2p/cli"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
@@ -32,6 +34,7 @@ type Config struct {
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
 	PreconfHandoverSkipSlots      uint64
+	PreconfOperatorAddress        common.Address
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -124,6 +127,16 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		)
 	}
 
+	var preconfOperatorAddress common.Address
+	if c.IsSet(p2pFlags.SequencerP2PKeyName) {
+		sequencerP2PKey, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
+		if err != nil {
+			return nil, err
+		}
+
+		preconfOperatorAddress = crypto.PubkeyToAddress(sequencerP2PKey.PublicKey)
+	}
+
 	return &Config{
 		ClientConfig:                  clientConfig,
 		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
@@ -136,5 +149,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
 		PreconfHandoverSkipSlots:      preconfHandoverSkipSlots,
+		PreconfOperatorAddress:        preconfOperatorAddress,
 	}, nil
 }

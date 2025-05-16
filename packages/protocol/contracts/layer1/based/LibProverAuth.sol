@@ -26,6 +26,7 @@ library LibProverAuth {
     error InvalidValidUntil();
     error InvalidProver();
     error EtherAsFeeTokenNotSupportedYet();
+    error SignatureNotEmpty();
 
     function validateProverAuth(
         uint64 _chainId,
@@ -49,8 +50,12 @@ library LibProverAuth {
         require(auth_.validUntil == 0 || auth_.validUntil >= block.timestamp, InvalidValidUntil());
         require(auth_.batchId == 0 || auth_.batchId == _batchId, InvalidBatchId());
 
+        // Save and use later, before nullifying in computeProverAuthDigest()
+        bytes memory signature = auth_.signature;
+        auth_.signature = "";
         bytes32 digest = computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth_);
-        require(auth_.prover.isValidSignatureNow(digest, auth_.signature), InvalidSignature());
+
+        require(auth_.prover.isValidSignatureNow(digest, signature), InvalidSignature());
     }
 
     function computeProverAuthDigest(
@@ -63,7 +68,7 @@ library LibProverAuth {
         pure
         returns (bytes32)
     {
-        _auth.signature = "";
+        require(_auth.signature.length == 0, SignatureNotEmpty());
         return keccak256(
             abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _txListHash, _auth)
         );

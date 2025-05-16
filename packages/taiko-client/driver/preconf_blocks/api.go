@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -81,7 +82,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
 	if s.rpc.L1Beacon != nil {
-		if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.SlotInEpoch()); err != nil {
+		if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 			return s.returnError(c, http.StatusBadRequest, err)
 		}
 	}
@@ -124,6 +125,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		c.Request().Context(),
 		[]*eth.ExecutionPayload{executablePayload},
+		false,
 	)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
@@ -133,20 +135,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	header := headers[0]
-
-	log.Info(
-		"⏰ New preconfirmation L2 block inserted",
-		"blockID", header.Number,
-		"hash", header.Hash(),
-		"coinbase", header.Coinbase.Hex(),
-		"timestamp", header.Time,
-		"gasLimit", header.GasLimit,
-		"gasUsed", header.GasUsed,
-		"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
-		"extraData", common.Bytes2Hex(header.Extra),
-		"baseFee", utils.WeiToGWei(header.BaseFee),
-		"parentHash", header.ParentHash.Hex(),
-	)
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
@@ -240,7 +228,7 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 
 	// Request body validation.
 	canonicalHeadL1Origin, err := s.rpc.L2.HeadL1Origin(c.Request().Context())
-	if err != nil {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
@@ -249,20 +237,19 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	log.Info(
-		"New preconfirmation block removing request",
-		"newLastBlockId", reqBody.NewLastBlockID,
-		"canonicalHead", canonicalHeadL1Origin.BlockID.Uint64(),
-		"currentHead", currentHead.Number.Uint64(),
-	)
-
-	if reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
+	if canonicalHeadL1Origin != nil && reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
 		return s.returnError(
 			c,
 			http.StatusBadRequest,
 			errors.New("newLastBlockId must not be smaller than the canonical chain's highest block ID"),
 		)
 	}
+
+	log.Info(
+		"New preconfirmation block removing request",
+		"newLastBlockId", reqBody.NewLastBlockID,
+		"currentHead", currentHead.Number.Uint64(),
+	)
 
 	if err := s.chainSyncer.RemovePreconfBlocks(c.Request().Context(), reqBody.NewLastBlockID); err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
@@ -273,9 +260,14 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
+	var lastBlockID uint64
+	if canonicalHeadL1Origin != nil {
+		lastBlockID = canonicalHeadL1Origin.BlockID.Uint64()
+	}
+
 	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
 		LastBlockID:         newHead.Number.Uint64(),
-		LastProposedBlockID: canonicalHeadL1Origin.BlockID.Uint64(),
+		LastProposedBlockID: lastBlockID,
 		HeadsRemoved:        currentHead.Number.Uint64() - newHead.Number.Uint64(),
 	})
 }
@@ -290,6 +282,36 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 //	@Router			/healthz [get]
 func (s *PreconfBlockAPIServer) HealthCheck(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
+}
+
+// Status represents the current status of the preconfirmation block server.
+type Status struct {
+	// @param lookahead Lookahead the current lookahead information.
+	Lookahead *Lookahead `json:"lookahead"`
+	// @param totalCached uint64 the total number of cached payloads after the start of the server.
+	TotalCached uint64 `json:"totalCached"`
+	// @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
+	// @param has received from the P2P network, if its zero, it means the current server has not received
+	// @param any preconfirmation block from the P2P network yet.
+	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
+}
+
+// GetStatus returns the current status of the preconfirmation block server.
+//
+//	@Summary		Get current preconfirmation block server status
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object} Status
+//	@Router			/status [get]
+func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	return c.JSON(http.StatusOK, Status{
+		Lookahead:                     s.lookahead,
+		TotalCached:                   s.payloadsCache.getTotalCached(),
+		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
+	})
 }
 
 // returnError is a helper function to return an error response.

@@ -119,7 +119,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfHandoverSkipSlots,
 			d.TaikoL2Address,
-			d.l2ChainSyncer.BlobSyncer().BlocksInserterPacaya(),
+			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
 		); err != nil {
 			return err
@@ -155,6 +155,9 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.preconfBlockServer.SetP2PNode(d.p2pNode)
 			d.preconfBlockServer.SetP2PSigner(d.p2pSigner)
 		}
+
+		// Set the preconf block server to the chain syncer.
+		d.l2ChainSyncer.SetPreconfBlockServer(d.preconfBlockServer)
 	}
 
 	return nil
@@ -379,6 +382,10 @@ func (d *Driver) cacheLookaheadLoop() {
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
+		opWin                  = preconfBlocks.NewOpWindow(
+			d.PreconfHandoverSkipSlots,
+			d.rpc.L1Beacon.SlotsPerEpoch,
+		)
 	)
 
 	for {
@@ -386,7 +393,12 @@ func (d *Driver) cacheLookaheadLoop() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			currentSlot := d.rpc.L1Beacon.CurrentSlot()
+			var (
+				currentEpoch     = d.rpc.L1Beacon.CurrentEpoch()
+				currentSlot      = d.rpc.L1Beacon.CurrentSlot()
+				slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
+				slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
+			)
 
 			latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 			if err != nil {
@@ -394,8 +406,6 @@ func (d *Driver) cacheLookaheadLoop() {
 				continue
 			}
 
-			// Avoid fetching on missed slots, otherwise the previous "current" can get tagged as
-			// the new "current" for this epoch.
 			if latestSeenBlockNumber == seenBlockNumber {
 				// Leave some grace period for the block to arrive.
 				if lastSlot != currentSlot &&
@@ -412,39 +422,50 @@ func (d *Driver) cacheLookaheadLoop() {
 				continue
 			}
 
-			seenBlockNumber = latestSeenBlockNumber
 			lastSlot = currentSlot
+			seenBlockNumber = latestSeenBlockNumber
 
-			var (
-				currentEpoch   = d.rpc.L1Beacon.CurrentEpoch()
-				remainingSlots = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
-			)
-
-			currentOperatorAddress, err := d.rpc.GetPreconfWhiteListOperator(nil)
+			currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 			if err != nil {
-				log.Warn("Failed to get current preconf whitelist operator address", "error", err)
+				log.Warn("Could not fetch current operator", "err", err)
 				continue
 			}
 
-			nextOperatorAddress, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
+			nextOp, err := d.rpc.GetNextPreconfWhiteListOperator(nil)
 			if err != nil {
-				log.Warn("Failed to get next preconf whitelist operator address", "error", err)
-				nextOperatorAddress = rpc.ZeroAddress
+				log.Warn("Could not fetch next operator", "err", err)
+				continue
 			}
 
-			// Update the lookahead information for the preconfirmation
-			// block server.
+			// push into our 3‑epoch ring
+			opWin.Push(currentEpoch, currOp, nextOp)
+
+			// Push next epoch (nextOp becomes currOp at next epoch)
+			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
+
+			var (
+				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
+				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+			)
+
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
-				CurrOperator: currentOperatorAddress,
-				NextOperator: nextOperatorAddress,
+				CurrOperator: currOp,
+				NextOperator: nextOp,
+				CurrRanges:   currRanges,
+				NextRanges:   nextRanges,
 				UpdatedAt:    time.Now().UTC(),
 			})
 
-			log.Debug("Lookahead information",
-				"remainingSlots", remainingSlots,
+			log.Info(
+				"Lookahead information refreshed",
+				"currentSlot", currentSlot,
 				"currentEpoch", currentEpoch,
-				"currentOperator", currentOperatorAddress.Hex(),
-				"nextOperator", nextOperatorAddress.Hex(),
+				"slotsLeftInEpoch", slotsLeftInEpoch,
+				"slotInEpoch", slotInEpoch,
+				"currOp", currOp.Hex(),
+				"nextOp", nextOp.Hex(),
+				"currRanges", currRanges,
+				"nextRanges", nextRanges,
 			)
 		}
 	}

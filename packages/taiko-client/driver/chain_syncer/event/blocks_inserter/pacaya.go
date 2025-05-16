@@ -2,6 +2,7 @@ package blocksinserter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -141,7 +142,15 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		// trying to fetch the last block header from L2 EE. If it is preconfirmed, we can skip the rest of the blocks,
 		// and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
-			lastBlockHeader, err := isBatchPreconfirmed(ctx, i.rpc, i.anchorConstructor, metadata, allTxs, txListBytes)
+			lastBlockHeader, err := isBatchPreconfirmed(
+				ctx,
+				i.rpc,
+				i.anchorConstructor,
+				metadata,
+				allTxs,
+				txListBytes,
+				parent,
+			)
 			if err != nil {
 				log.Debug("Failed to check if batch is preconfirmed", "batchID", meta.GetBatchID(), "err", err)
 			} else if lastBlockHeader != nil {
@@ -226,6 +235,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	ctx context.Context,
 	executionPayloads []*eth.ExecutionPayload,
+	fromCache bool,
 ) ([]*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
@@ -236,6 +246,19 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert preconf block: %w", err)
 		}
+		log.Info(
+			"⏰ New preconfirmation L2 block inserted",
+			"blockID", header.Number,
+			"hash", header.Hash(),
+			"coinbase", header.Coinbase.Hex(),
+			"timestamp", header.Time,
+			"baseFee", utils.WeiToGWei(header.BaseFee),
+			"withdrawalsHash", header.WithdrawalsHash,
+			"gasLimit", header.GasLimit,
+			"gasUsed", header.GasUsed,
+			"parentHash", header.ParentHash,
+			"fromCache", fromCache,
+		)
 		headers[j] = header
 	}
 
@@ -257,9 +280,29 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	if headL1Origin != nil {
 		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 			return nil, fmt.Errorf(
-				"preconfirmation block ID (%d) is less than or equal to the current head L1 origin block ID (%d)",
+				"preconfirmation block ID (%d, %s) is less than or equal to the current head L1 origin block ID (%d)",
 				executableData.BlockNumber,
+				executableData.BlockHash,
 				headL1Origin.BlockID,
+			)
+		}
+
+		ok, err := i.IsBasedOnCanonicalChain(ctx, executableData, headL1Origin)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to check if preconfirmation block (%d, %s) is in canonical chain: %w",
+				executableData.BlockNumber,
+				executableData.BlockHash,
+				err,
+			)
+		}
+		if !ok {
+			return nil, fmt.Errorf(
+				"preconfirmation block (%d, %s) is not in the canonical chain, head L1 origin: (%d, %s)",
+				executableData.BlockNumber,
+				executableData.BlockHash,
+				headL1Origin.BlockID,
+				headL1Origin.L2BlockHash,
 			)
 		}
 	}
@@ -325,4 +368,33 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 	}
 
 	return nil
+}
+
+// IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
+func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
+	ctx context.Context,
+	executableData *eth.ExecutionPayload,
+	headL1Origin *rawdb.L1Origin,
+) (bool, error) {
+	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber-1)))
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return false, fmt.Errorf("failed to fetch canonical parent block: %w", err)
+	}
+	// If the parent hash of the executable data matches the canonical parent block hash, it is in the canonical chain.
+	if canonicalParent != nil && canonicalParent.Hash() == executableData.ParentHash {
+		return true, nil
+	}
+
+	// Otherwise, we try to connect the L2 ancient blocks to the L2 block in current L1 head Origin.
+	currentParent, err := i.rpc.L2.HeaderByHash(ctx, executableData.ParentHash)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch current parent block (%s): %w", executableData.ParentHash, err)
+	}
+	for currentParent.Number.Cmp(headL1Origin.BlockID) > 0 {
+		if currentParent, err = i.rpc.L2.HeaderByHash(ctx, currentParent.ParentHash); err != nil {
+			return false, fmt.Errorf("failed to fetch current parent block (%s): %w", currentParent.ParentHash, err)
+		}
+	}
+
+	return currentParent.Hash() == headL1Origin.L2BlockHash, nil
 }

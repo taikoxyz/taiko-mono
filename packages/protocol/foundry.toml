@@ -18,7 +18,6 @@ remappings = [
   "@optimism/=node_modules/optimism/",
   "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
   "forge-std/=node_modules/forge-std/",
-  "ds-test/=node_modules/ds-test/src/",
   "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
   "@eth-fabric/urc/=node_modules/urc/src/",
   "src/=contracts/",

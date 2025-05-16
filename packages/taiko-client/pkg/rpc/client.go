@@ -20,8 +20,9 @@ const (
 	defaultTimeout                = 1 * time.Minute
 	pacayaForkHeightDevnet        = 10
 	pacayaForkHeightHekla         = 1_299_888
-	pacayaForkHeklaMainnet        = 0
+	pacayaForkHeightMainnet       = 999_999_999_999
 	pacayaForkHeightPreconfDevnet = 0
+	pacayaForkHeightMasaya        = 0
 )
 
 // OntakeClients contains all smart contract clients for Ontake fork.
@@ -248,17 +249,17 @@ func (c *Client) initOntakeClients(cfg *ClientConfig) error {
 func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoL1Address, c.L1)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create new instance of TaikoInboxClient: %w", err)
 	}
 
 	forkRouter, err := pacayaBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create new instance of ForkRouter: %w", err)
 	}
 
 	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoL2Address, c.L2)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create new instance of TaikoAnchorClient: %w", err)
 	}
 
 	var (
@@ -270,12 +271,12 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
-			return err
+			return fmt.Errorf("failed to create new instance of TaikoToken: %w", err)
 		}
 	}
 	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
 		if proverSet, err = pacayaBindings.NewProverSet(cfg.ProverSetAddress, c.L1); err != nil {
-			return err
+			return fmt.Errorf("failed to create new instance of ProverSet: %w", err)
 		}
 	}
 	var cancel context.CancelFunc
@@ -284,16 +285,16 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	defer cancel()
 	composeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to retrieve compose verifier address: %w", err)
 	}
 	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
 	}
 
 	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
 		if taikoWrapper, err = pacayaBindings.NewTaikoWrapperClient(cfg.TaikoWrapperAddress, c.L1); err != nil {
-			return err
+			return fmt.Errorf("failed to create new instance of TaikoWrapperClient: %w", err)
 		}
 	}
 
@@ -302,14 +303,14 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			cfg.ForcedInclusionStoreAddress,
 			c.L1,
 		); err != nil {
-			return err
+			return fmt.Errorf("failed to create new instance of ForcedInclusionStore: %w", err)
 		}
 	}
 
 	if cfg.PreconfWhitelistAddress.Hex() != ZeroAddress.Hex() {
 		preconfWhitelist, err = pacayaBindings.NewPreconfWhitelist(cfg.PreconfWhitelistAddress, c.L1)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
 		}
 	}
 
@@ -342,9 +343,11 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		case params.HeklaNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeightHekla
 		case params.TaikoMainnetNetworkID.Uint64():
-			c.PacayaClients.ForkHeight = pacayaForkHeklaMainnet
+			c.PacayaClients.ForkHeight = pacayaForkHeightMainnet
 		case params.PreconfDevnetNetworkID.Uint64():
 			c.PacayaClients.ForkHeight = pacayaForkHeightPreconfDevnet
+		case params.MasayaDevnetNetworkID.Uint64():
+			c.PacayaClients.ForkHeight = pacayaForkHeightMasaya
 		default:
 			log.Debug("Using devnet Pacaya fork height", "height", pacayaForkHeightDevnet)
 			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
@@ -367,6 +370,11 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	// Otherwise, chain is after the Pacaya fork, just use the fork height numbers from the protocol configs.
 	c.OntakeClients.ForkHeight = protocolConfigs.ForkHeights.Ontake
 	c.PacayaClients.ForkHeight = protocolConfigs.ForkHeights.Pacaya
+
+	log.Info("Forkheight configs",
+		"ontakeForkHeight", c.OntakeClients.ForkHeight,
+		"pacayaForkHeight", c.PacayaClients.ForkHeight,
+	)
 
 	return nil
 }

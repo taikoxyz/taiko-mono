@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
@@ -47,7 +47,6 @@
   "dependencies": {
     "@openzeppelin/contracts": "4.9.6",
     "@openzeppelin/contracts-upgradeable": "4.9.6",
-    "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.5",
     "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
