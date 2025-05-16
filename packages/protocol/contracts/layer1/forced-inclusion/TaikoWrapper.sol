@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/layer1/based/IProposeBatch.sol";
 import "./ForcedInclusionStore.sol";
+import "./IProposedBatchChecker.sol";
 
 /// @title TaikoWrapper
 /// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
@@ -74,15 +75,20 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     }
 
     /// @inheritdoc IProposeBatch
+    /// @dev _additionalData If not empty, it will be decoded into an address to call its
+    /// validateProposedBatch function.
     function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList,
-        bytes calldata
+        bytes calldata _additionalData
     )
         external
         onlyFromOptional(preconfRouter)
         nonReentrant
-        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+        returns (
+            ITaikoInbox.BatchInfo memory batchInfo_,
+            ITaikoInbox.BatchMetadata memory batchMetadata_
+        )
     {
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
@@ -97,7 +103,12 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
-        return inbox.v4ProposeBatch(bytesY, _txList, "");
+        (batchInfo_, batchMetadata_) = inbox.v4ProposeBatch(bytesY, _txList, "");
+
+        if (_additionalData.length > 0) {
+            (address validator) = abi.decode(_additionalData, (address));
+            IProposedBatchChecker(validator).checkProposedBatch(batchInfo_, batchMetadata_);
+        }
     }
 
     function _validateForcedInclusionParams(
