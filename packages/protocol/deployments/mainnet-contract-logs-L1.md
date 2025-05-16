@@ -28,7 +28,6 @@
   - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
   - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
   - quota_manager: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
-  - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -38,6 +37,7 @@
   - Upgraded from `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` to `0x2f7126f78365AD54EAB26fD7faEc60435008E2fD` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - register `bridged_erc20` to `0x65666141a541423606365123Ed280AB16a09A2e1` @tx`0x0ad38201728e782a04d74c5984efedba4c2c0669c9ce791db2b010efe4f15b1d`
   - Upgraded from `0x2f7126f78365AD54EAB26fD7faEc60435008E2fD` to `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
+  - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
 
 #### taiko_token
 
@@ -195,7 +195,6 @@
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - prover_set: `0x280eAbfd252f017B78e15b69580F249F45FB55Fa`
-  - chain_watchdog: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -222,6 +221,7 @@
   - upgraded from `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` to `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` @commit`9ae9a5e` @tx`0x43353a74df973d8f6a379b5c8815ac80935a5099f8ab93a4aa204eb5ef2c663e`
   - upgraded from `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` to `0x0079a79E5d8DDA67029051d505E5A11DE279B36D` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
   - register `prover_set` to `0x280eAbfd252f017B78e15b69580F249F45FB55Fa` @tx`0xc0e8ec30d1479ca2414d4d28a09a543c2845247d80387f78c179d663ffe55c3c`
+  - remove `chain_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
 
 #### taikoL1
 
@@ -479,9 +479,9 @@
   - bridged_erc20: `0x65666141a541423606365123Ed280AB16a09A2e1`
   - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
   - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
-  - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
 - logs:
   - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x0a48a276897935e7406b4cc8f17a9b1480c56cb866d6504fd28184ac8e79e8a0`
+  - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
 
 #### rollup_address_resolver
 
