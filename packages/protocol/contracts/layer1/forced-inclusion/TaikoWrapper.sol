@@ -38,6 +38,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
 
+    error CheckProposedBatchFailed();
     error InvalidBlockTxs();
     error InvalidBlobHashesSize();
     error InvalidBlobHash();
@@ -106,8 +107,14 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         (batchInfo_, batchMetadata_) = inbox.v4ProposeBatch(bytesY, _txList, "");
 
         if (_additionalData.length > 0) {
-            (address validator) = abi.decode(_additionalData, (address));
-            IProposedBatchChecker(validator).checkProposedBatch(batchInfo_, batchMetadata_);
+            address checker = abi.decode(_additionalData, (address));
+            (bool success, bytes memory data) = checker.staticcall(
+                abi.encodeCall(
+                    IProposedBatchChecker.checkProposedBatch,
+                    (address(inbox), batchInfo_, batchMetadata_)
+                )
+            );
+            require(success && abi.decode(data, (bool)), CheckProposedBatchFailed());
         }
     }
 
