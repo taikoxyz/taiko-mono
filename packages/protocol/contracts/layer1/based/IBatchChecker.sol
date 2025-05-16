@@ -10,6 +10,7 @@ interface IBatchChecker {
     /// if the check fails.
     /// @param _batchInfo The batch info.
     /// @param _batchMetadata The batch metadata.
+    /// @param _inputs The inputs to the checker.
     function checkBatch(
         ITaikoInbox.BatchInfo calldata _batchInfo,
         ITaikoInbox.BatchMetadata calldata _batchMetadata,
