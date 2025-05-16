@@ -45,7 +45,7 @@ func blockToEnvelope(block *types.Block, endOfSequencing *bool) (*eth.ExecutionP
 }
 
 // checkMessageBlockNumber checks if the block number of the message is greater than the
-// current head L1 origin block ID.
+// current head L1 origin block ID, if there is no head L1 origin stored in L2 EE, it returns nil.
 func checkMessageBlockNumber(
 	ctx context.Context,
 	rpc *rpc.Client,
