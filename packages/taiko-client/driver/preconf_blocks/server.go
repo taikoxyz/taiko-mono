@@ -268,12 +268,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return err
 	}
 
-	// If the block number is greater than the highest unsafe L2 payload block ID,
-	// update the highest unsafe L2 payload block ID.
-	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
-		s.highestUnsafeL2PayloadBlockID = uint64(msg.ExecutionPayload.BlockNumber)
-	}
-
 	// Try to import the payload into the L2 EE chain, if can't, cache it.
 	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
 	if err != nil {
