@@ -171,6 +171,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		testState,
 		tracker,
 		s.BlobServer.URL(),
+		nil,
 	)
 	s.Nil(err)
 
