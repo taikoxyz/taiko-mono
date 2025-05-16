@@ -38,7 +38,7 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SERVER"},
 	}
-	// preconf block server
+	// preconfirmation block server
 	PreconfBlockServerPort = &cli.Uint64Flag{
 		Name:     "preconfirmation.serverPort",
 		Usage:    "HTTP port of the preconfirmation block server, 0 means disabled",

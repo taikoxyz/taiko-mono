@@ -33,7 +33,7 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.s = server
 	go func() {
 		s.NotPanics(func() {
-			log.Error("Start test preconf block server", "error", s.s.Start(uint64(testutils.RandomPort())))
+			log.Error("Start test preconfirmation block server", "error", s.s.Start(uint64(testutils.RandomPort())))
 		})
 	}()
 }

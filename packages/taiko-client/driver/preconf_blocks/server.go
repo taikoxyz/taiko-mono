@@ -38,7 +38,7 @@ var (
 	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
 
-// preconfBlockChainSyncer is an interface for preconf block chain syncer.
+// preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload, bool) ([]*types.Header, error)
 	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
@@ -61,10 +61,10 @@ type PreconfBlockAPIServer struct {
 	chainSyncer                   preconfBlockChainSyncer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
-	// P2P network for preconf block propagation
+	// P2P network for preconfirmation block propagation
 	p2pNode   *p2p.NodeP2P
 	p2pSigner p2p.Signer
-	// WebSocket server for preconf block notifications
+	// WebSocket server for preconfirmation block notifications
 	ws *webSocketSever
 	// Lookahead information for the current and next operator
 	lookahead      *Lookahead
@@ -82,7 +82,7 @@ type PreconfBlockAPIServer struct {
 	mutex sync.Mutex
 }
 
-// New creates a new preconf block server instance, and starts the server.
+// New creates a new preconfirmation block server instance, and starts the server.
 func New(
 	cors string,
 	jwtSecret []byte,
@@ -745,7 +745,7 @@ func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context
 func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	operatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
 	if err != nil || operatorAddress == (common.Address{}) {
-		log.Warn("Failed to get current preconf whitelist operator address", "error", err)
+		log.Warn("Failed to get current preconfirmation whitelist operator address", "error", err)
 		return common.Address{}
 	}
 

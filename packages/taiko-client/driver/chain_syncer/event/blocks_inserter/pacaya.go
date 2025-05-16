@@ -275,7 +275,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	return nil
 }
 
-// InsertPreconfBlocksFromExecutionPayloads inserts preconf blocks from the given execution payloads.
+// InsertPreconfBlocksFromExecutionPayloads inserts preconfirmation blocks from the given execution payloads.
 func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	ctx context.Context,
 	executionPayloads []*eth.ExecutionPayload,
@@ -294,7 +294,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	for j, executableData := range executionPayloads {
 		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert preconf block %d: %w", executableData.BlockNumber, err)
+			return nil, fmt.Errorf("failed to insert preconfirmation block %d: %w", executableData.BlockNumber, err)
 		}
 		log.Info(
 			"⏰ New preconfirmation L2 block inserted",
@@ -315,7 +315,8 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	return headers, nil
 }
 
-// insertPreconfBlockFromExecutionPayload the inner method to insert a preconf block from the given execution payload.
+// insertPreconfBlockFromExecutionPayload the inner method to insert a preconfirmation block from
+// the given execution payload.
 func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
@@ -434,7 +435,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
 
-// RemovePreconfBlocks removes preconf blocks from the L2 execution engine.
+// RemovePreconfBlocks removes preconfirmation blocks from the L2 execution engine.
 func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
