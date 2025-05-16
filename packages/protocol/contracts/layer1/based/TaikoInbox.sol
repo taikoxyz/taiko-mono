@@ -14,6 +14,7 @@ import "./libs/LibProverAuth.sol";
 import "./libs/LibVerification.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
+import "./IBatchChecker.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -278,6 +279,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
+
+            if (params.batchChecker != address(0)) {
+                (bool success, bytes memory checkPassed) = params.batchChecker.staticcall(
+                    abi.encodeCall(IBatchChecker.checkBatch, (info_, meta_))
+                );
+                require(success && abi.decode(checkPassed, (bool)), CheckBatchFailed());
+            }
         } // end-of-unchecked
 
         state.verifyBatches(config, stats2, signalService, 1);

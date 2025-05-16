@@ -41,7 +41,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             revertIfNotFirstProposal: false,
             blobParams: blobParams,
             blocks: blockParams,
-            proverAuth: ""
+            proverAuth: "",
+            batchChecker: address(0)
         });
 
         // Warp to arbitrary slot in epoch 2
@@ -113,7 +114,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             revertIfNotFirstProposal: false,
             blobParams: blobParams,
             blocks: blockParams,
-            proverAuth: ""
+            proverAuth: "",
+            batchChecker: address(0)
         });
 
         // Warp to arbitrary slot in epoch 2

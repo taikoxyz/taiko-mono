@@ -61,6 +61,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         BlobParams blobParams;
         BlockParams[] blocks;
         bytes proverAuth;
+        address batchChecker;
     }
 
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
@@ -245,6 +246,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error AnchorBlockIdTooLarge();
     error AnchorBlockIdTooSmall();
     error ArraySizesMismatch();
+    error CheckBatchFailed();
     error BatchNotFound();
     error BatchVerified();
     error BeyondCurrentFork();

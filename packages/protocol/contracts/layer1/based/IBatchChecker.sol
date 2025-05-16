@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/ITaikoInbox.sol";
+import "./ITaikoInbox.sol";
 
-/// @title IProposedBatchChecker
+/// @title IBatchChecker
 /// @custom:security-contact security@taiko.xyz
-interface IProposedBatchChecker {
+interface IBatchChecker {
     /// @notice Check if a proposed batch is valid. This function must return false if the check
     /// fails.
-    /// @param _taikoInbox The address of the TaikoInbox contract.
     /// @param batchInfo_ The batch info.
     /// @param batchMetadata_ The batch metadata.
-    function checkProposedBatch(
-        address _taikoInbox,
+    function checkBatch(
         ITaikoInbox.BatchInfo memory batchInfo_,
         ITaikoInbox.BatchMetadata memory batchMetadata_
     )
