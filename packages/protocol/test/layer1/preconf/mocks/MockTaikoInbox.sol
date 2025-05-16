@@ -7,7 +7,7 @@ import "src/shared/common/EssentialContract.sol";
 contract MockTaikoInbox is EssentialContract {
     bytes32 internal metaHash;
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor() EssentialContract() { }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
@@ -15,7 +15,8 @@ contract MockTaikoInbox is EssentialContract {
 
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata /* _additionalData */
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
@@ -41,7 +42,6 @@ contract MockTaikoInbox is EssentialContract {
             blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
-                sharingPctg: 0,
                 gasIssuancePerSecond: 0,
                 minGasExcess: 0,
                 maxGasIssuancePerBlock: 0

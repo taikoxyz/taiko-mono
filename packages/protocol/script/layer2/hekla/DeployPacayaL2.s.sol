@@ -100,9 +100,8 @@ contract DeployPacayaL2 is DeployCapability {
         address signalServiceImpl = address(new SignalService(sharedResolver));
         console2.log("signalService", signalServiceImpl);
         // Taiko Anchor
-        address taikoAnchorImpl = address(
-            new TaikoAnchor(sharedResolver, signalService, pacayaForkHeight, shastaForkHeight)
-        );
+        address taikoAnchorImpl =
+            address(new TaikoAnchor(signalService, pacayaForkHeight, shastaForkHeight));
         console2.log("taikoAnchor", taikoAnchorImpl);
     }
 }

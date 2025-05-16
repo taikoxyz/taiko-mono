@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoInbox.sol";
 import "@eth-fabric/urc/ISlasher.sol";
+import "../libs/LibBlockHeader.sol";
 
 /// @title IPreconfSlasher
 /// @custom:security-contact security@taiko.xyz
@@ -21,7 +22,7 @@ interface IPreconfSlasher is ISlasher {
         // Chainid of Taiko
         uint256 chainId;
         // Timestamp of the L1 slot in which the preconfer is the proposer.
-        // In the case of falback preconfer, this will be the timestamp of the last slot of the
+        // In the case of fallback preconfer, this will be the timestamp of the last slot of the
         // epoch.
         uint256 preconferSlotTimestamp;
         // Height of the L1 anchor block
@@ -41,12 +42,12 @@ interface IPreconfSlasher is ISlasher {
     // - Remaining bytes: ABI-encoded struct based on the violation type
 
     struct EvidenceInvalidPreconfirmation {
+        // Header of the preconfirmed block at height X
+        LibBlockHeader.BlockHeader preconfedBlockHeader;
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
-        // Header of the preconfirmed block at height X
-        BlockHeader preconfedBlockHeader;
         // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
         // This is the blockhash of the block that was proposed at height X,
         // but does not match with the blockhash of the preconfirmed block at the same height.
@@ -60,25 +61,25 @@ interface IPreconfSlasher is ISlasher {
     }
 
     struct EvidenceInvalidEOP {
+        // Header of the preconfirmed block at height X
+        LibBlockHeader.BlockHeader preconfedBlockHeader;
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
         // This is the BatchMetadata of the next batch that contains the block at height X + 1
         ITaikoInbox.BatchMetadata nextBatchMetadata;
-        // Header of the preconfirmed block at height X
-        BlockHeader preconfedBlockHeader;
     }
 
     struct EvidenceMissingEOP {
+        // Header of the preconfirmed block at height X
+        LibBlockHeader.BlockHeader preconfedBlockHeader;
+        // This is the BatchMetadata of the next batch that contains the block at height X + 1
+        ITaikoInbox.BatchMetadata nextBatchMetadata;
         // This is the BatchInfo of the batch that contains the block at height X
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
-        // This is the BatchMetadata of the next batch that contains the block at height X + 1
-        ITaikoInbox.BatchMetadata nextBatchMetadata;
-        // Header of the preconfirmed block at height X
-        BlockHeader preconfedBlockHeader;
     }
 
     // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
@@ -90,30 +91,6 @@ interface IPreconfSlasher is ISlasher {
         bytes[] accountProof;
         // Patricia trie storage proof
         bytes[] storageProof;
-    }
-
-    // Taiko block header
-    struct BlockHeader {
-        bytes32 parentHash;
-        bytes32 ommersHash;
-        address coinbase;
-        bytes32 stateRoot;
-        bytes32 transactionsRoot;
-        bytes32 receiptRoot;
-        bytes bloom; // 256 bytes
-        uint256 difficulty;
-        uint256 number;
-        uint256 gasLimit;
-        uint256 gasUsed;
-        uint256 timestamp;
-        bytes extraData;
-        bytes32 prevRandao;
-        bytes8 nonce;
-        uint256 baseFeePerGas;
-        bytes32 withdrawalsRoot;
-        uint64 blobGasUsed;
-        uint64 excessBlobGas;
-        bytes32 parentBeaconBlockRoot;
     }
 
     struct SlashAmount {
@@ -136,14 +113,11 @@ interface IPreconfSlasher is ISlasher {
     }
 
     event SlashAmountUpdated(uint256 newAmount);
-    event InvalidPreconfirmationSlashed(
-        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
-    );
-    event InvalidEOPSlashed(
-        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
-    );
-    event MissingEOPSlashed(
-        address indexed committer, CommitmentPayload commitmentPayload, uint256 slashAmount
+    event Slashed(
+        address indexed committer,
+        ViolationType indexed violationType,
+        CommitmentPayload commitmentPayload,
+        uint256 slashAmount
     );
 
     error BatchNotVerified();
@@ -161,7 +135,6 @@ interface IPreconfSlasher is ISlasher {
     error ParentHashMismatch();
     error PossibleReorgOfAnchorBlock();
     error PreconfirmationIsValid();
-    error SenderIsNotUrc();
 
     /// @notice Returns the slash amount for each violation type
     /// @return slashAmount The slash amount for each violation type

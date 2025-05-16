@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -436,14 +437,19 @@ func (c *Client) GetPoolContent(
 func (c *Client) L2AccountNonce(
 	ctx context.Context,
 	account common.Address,
-	height *big.Int,
+	blockHash common.Hash,
 ) (uint64, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var result hexutil.Uint64
-	err := c.L2.CallContext(ctxWithTimeout, &result, "eth_getTransactionCount", account, hexutil.EncodeBig(height))
-	return uint64(result), err
+	return uint64(result), c.L2.CallContext(
+		ctxWithTimeout,
+		&result,
+		"eth_getTransactionCount",
+		account,
+		rpc.BlockNumberOrHashWithHash(blockHash, false),
+	)
 }
 
 // L2SyncProgress represents the sync progress of a L2 execution engine, `ethereum.SyncProgress` is used to check
@@ -1212,31 +1218,55 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 // GetOPVerifierPacaya resolves the Pacaya op verifier address.
 func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
 }
 
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
 func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0RethVerifier)
 }
 
 // GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
 func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1RethVerifier)
 }
 
 // GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
 func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.ComposeVerifier == nil {
+		return common.Address{}, errors.New("composeVerifier contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
 }
 
 // GetPreconfRouterPacaya resolves the preconf router address.
 func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
+	if c.PacayaClients.TaikoWrapper == nil {
+		return common.Address{}, errors.New("taikoWrapper contract is not set")
+	}
+
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
 }
 
@@ -1246,8 +1276,8 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	opts *bind.CallOpts,
 	resolveFunc T,
 ) (common.Address, error) {
-	if c.PacayaClients.TaikoInbox == nil {
-		return common.Address{}, errors.New("taikoInbox contract is not set")
+	if resolveFunc == nil {
+		return common.Address{}, errors.New("resolver contract is not set")
 	}
 
 	var cancel context.CancelFunc

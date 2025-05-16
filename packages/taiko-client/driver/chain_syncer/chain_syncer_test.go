@@ -39,6 +39,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		false,
 		1*time.Hour,
 		s.BlobServer.URL(),
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -105,7 +106,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 
 func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 	s.NotNil(s.s.BeaconSyncer())
-	s.NotNil(s.s.BlobSyncer())
+	s.NotNil(s.s.EventSyncer())
 }
 
 func (s *ChainSyncerTestSuite) TestSync() {

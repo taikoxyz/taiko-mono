@@ -21,8 +21,7 @@ contract TestTaikoAnchor is Layer2Test {
         );
 
         anchor = deployAnchor(
-            address(new TaikoAnchor_NoBaseFeeCheck(address(resolver), address(signalService))),
-            ethereumChainId
+            address(new TaikoAnchor_NoBaseFeeCheck(address(signalService))), ethereumChainId
         );
 
         signalService.authorize(address(anchor), true);
@@ -72,7 +71,7 @@ contract TestTaikoAnchor is Layer2Test {
         assertEq(Alice.balance, 100 ether);
 
         // Random EOA cannot call withdraw
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(Alice, Alice);
         anchor.withdraw(address(0), Alice);
     }
@@ -88,15 +87,13 @@ contract TestTaikoAnchor is Layer2Test {
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
         uint32 _maxGasIssuancePerBlock,
-        uint8 _adjustmentQuotient,
-        uint8 _sharingPctg
+        uint8 _adjustmentQuotient
     )
         external
         onTaiko
     {
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
-            sharingPctg: uint8(_sharingPctg % 100),
             gasIssuancePerSecond: _gasIssuancePerSecond,
             minGasExcess: _minGasExcess,
             maxGasIssuancePerBlock: _maxGasIssuancePerBlock
@@ -114,8 +111,7 @@ contract TestTaikoAnchor is Layer2Test {
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
         uint32 _maxGasIssuancePerBlock,
-        uint8 _adjustmentQuotient,
-        uint8 _sharingPctg
+        uint8 _adjustmentQuotient
     )
         external
         onTaiko
@@ -127,7 +123,6 @@ contract TestTaikoAnchor is Layer2Test {
 
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
-            sharingPctg: uint8(_sharingPctg % 100),
             gasIssuancePerSecond: _gasIssuancePerSecond,
             minGasExcess: _minGasExcess,
             maxGasIssuancePerBlock: _maxGasIssuancePerBlock
@@ -159,7 +154,6 @@ contract TestTaikoAnchor is Layer2Test {
         bytes32 anchorStateRoot = randBytes32();
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: 8,
-            sharingPctg: 75,
             gasIssuancePerSecond: 5_000_000,
             minGasExcess: 1_340_000_000,
             maxGasIssuancePerBlock: 600_000_000 // two minutes

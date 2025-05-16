@@ -16,30 +16,26 @@ contract DevnetInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService,
-        address _proverMarket
+        address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _proverMarket)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     {
         chainId = _chainId;
         cooldownWindow = _cooldownWindow;
     }
 
-    /// @inheritdoc ITaikoInbox
-    function v4GetConfig() public view override returns (ITaikoInbox.Config memory) {
+    function _getConfig() internal view override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: chainId,
             maxUnverifiedBatches: 324_000,
             batchRingBufferSize: 360_000,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 125e18, // 125 Taiko token per batch
-            livenessBondPerBlock: 0, // deprecated
+            livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 50,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000
@@ -48,7 +44,8 @@ contract DevnetInbox is TaikoInbox {
             cooldownWindow: cooldownWindow,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0, shasta: 0, unzen: 0 })
+            baseFeeSharings: [uint8(50), uint8(0)],
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10, shasta: 0, unzen: 0 })
         });
     }
 }

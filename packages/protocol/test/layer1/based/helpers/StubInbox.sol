@@ -8,7 +8,8 @@ import "src/layer1/based/ITaikoInbox.sol";
 contract StubInbox is ITaikoInbox {
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata _additionalData
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
@@ -16,7 +17,7 @@ contract StubInbox is ITaikoInbox {
 
     function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external { }
 
-    function v4VerifyBatches(uint64 _length) external { }
+    function v4VerifyBatches(uint8 _count) external { }
 
     function v4DepositBond(uint256 _amount) external payable virtual { }
 

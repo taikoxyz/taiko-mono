@@ -21,12 +21,12 @@ import "./IProveBatches.sol";
 interface ITaikoInbox is IBondManager, IProveBatches {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
-        // transactions in calldata or blobs, the block will contains as many transactions as
+        // transactions in calldata or blobs, the block will contain as many transactions as
         // possible.
         uint16 numTransactions;
         // The time difference (in seconds) between the timestamp of this block and
         // the timestamp of the parent block in the same batch. For the first block in a batch,
-        // there is not parent block in the same batch, so the time shift should be 0.
+        // there is no parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
@@ -45,7 +45,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint32 byteOffset;
         // The byte size of the blob.
         uint32 byteSize;
-        // The block number when the blob was created.
+        // The block number when the blob was created. This value is only non-zero when
+        // `blobHashes` are non-empty.
         uint64 createdIn;
     }
 
@@ -56,10 +57,10 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
-        bool optInProverMarket;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
+        bytes proverAuth;
     }
 
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
@@ -166,10 +167,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
-        uint96 livenessBondBase;
-        /// @notice The amount of Taiko token as a prover liveness bond per block. This field is
-        /// deprecated and its value will be ignored.
-        uint96 livenessBondPerBlock;
+        uint96 livenessBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -184,6 +182,12 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
         uint16 maxBlocksPerBatch;
+        /// @notice Specifies the base fee sharing percentages. The addresses are predefined in the
+        /// node software.
+        /// If address(0) is specified, the base fee will be burned. This allows for distributing
+        /// the base fee in three ways: for instance, 40% to address-1, 10% to address-2, and the
+        /// remaining 50% to the coinbase.
+        uint8[2] baseFeeSharings;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
@@ -245,10 +249,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error BatchVerified();
     error BeyondCurrentFork();
     error BlobNotFound();
-    error BlockNotFound();
     error BlobNotSpecified();
+    error BlockNotFound();
     error ContractPaused();
-    error CurrentProverCannotWithdraw();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
@@ -265,7 +268,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoBlocksToProve();
-    error NoProverAvailable();
     error NotFirstProposal();
     error NotInboxWrapper();
     error ParentMetaHashMismatch();
@@ -276,6 +278,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error TimestampTooSmall();
     error TooManyBatches();
     error TooManyBlocks();
+    error TooManyBatchesToProve();
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
@@ -284,20 +287,22 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
+    /// @param _additionalData Additional data to be included in the batch.
     /// @return info_ The info of the proposed batch.
     /// @return meta_ The metadata of the proposed batch.
     function v4ProposeBatch(
         bytes calldata _params,
-        bytes calldata _txList
+        bytes calldata _txList,
+        bytes calldata _additionalData
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
 
     /// @notice Verify batches by providing the length of the batches to verify.
     /// @dev This function is necessary to upgrade from this fork to the next one.
-    /// @param _length Specifis how many batches to verify. The max number of batches to verify is
-    /// `v4GetConfig().maxBatchesToVerify * _length`.
-    function v4VerifyBatches(uint64 _length) external;
+    /// @param _count Specifis how many batches to verify. The max number of batches to verify is
+    /// `v4GetConfig().maxBatchesToVerify * _count`.
+    function v4VerifyBatches(uint8 _count) external;
 
     /// @notice Retrieves the first set of protocol statistics.
     /// @return Stats1 structure containing the statistics.

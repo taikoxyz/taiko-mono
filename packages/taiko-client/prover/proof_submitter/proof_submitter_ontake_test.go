@@ -19,7 +19,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -34,7 +34,7 @@ type ProofSubmitterTestSuite struct {
 	submitterOntake          *ProofSubmitterOntake
 	submitterPacaya          *ProofSubmitterPacaya
 	contesterOntake          *ProofContesterOntake
-	blobSyncer               *blob.Syncer
+	eventSyncer              *event.Syncer
 	proposer                 *proposer.Proposer
 	proofCh                  chan *producer.ProofResponse
 	batchProofGenerationCh   chan *producer.BatchProofs
@@ -165,12 +165,13 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 
 	tracker := beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 30*time.Second)
 
-	s.blobSyncer, err = blob.NewSyncer(
+	s.eventSyncer, err = event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
 		testState,
 		tracker,
 		s.BlobServer.URL(),
+		nil,
 	)
 	s.Nil(err)
 
@@ -316,7 +317,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 }
 
 func (s *ProofSubmitterTestSuite) TestSubmitProofs() {
-	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
+	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.eventSyncer) {
 		if m.IsPacaya() {
 			s.Nil(s.submitterPacaya.RequestProof(context.Background(), m))
 			s.Nil(s.submitterPacaya.AggregateProofsByType(context.Background(), <-s.batchesAggregationNotify))
@@ -330,7 +331,7 @@ func (s *ProofSubmitterTestSuite) TestSubmitProofs() {
 }
 
 func (s *ProofSubmitterTestSuite) TestGuardianSubmitProofs() {
-	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
+	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.eventSyncer) {
 		if m.IsPacaya() {
 			continue
 		}

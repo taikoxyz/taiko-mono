@@ -5,18 +5,44 @@ import "../Layer1Test.sol";
 import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
 abstract contract InboxTestBase is Layer1Test {
+    uint256 constant PROVER_PRIVATE_KEY = 0x12345678;
+
     mapping(uint256 => bytes) private _batchMetadatas;
     mapping(uint256 => bytes) private _batchInfos;
 
     ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
-    ProverMarket internal proverMarket;
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
     uint256 genesisBlockProposedIn;
     uint256 private __blocksPerBatch;
 
-    function v4GetConfig() internal view virtual returns (ITaikoInbox.Config memory);
+    function v4GetConfig() internal pure virtual returns (ITaikoInbox.Config memory) {
+        ITaikoInbox.ForkHeights memory forkHeights;
+
+        return ITaikoInbox.Config({
+            chainId: LibNetwork.TAIKO_MAINNET,
+            maxUnverifiedBatches: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18, // 125 Taiko token per batch
+            stateRootSyncInternal: 5,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            provingWindow: 1 hours,
+            cooldownWindow: 0 hours,
+            maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 768,
+            baseFeeSharings: [uint8(50), uint8(0)],
+            forkHeights: forkHeights
+        });
+    }
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
@@ -43,44 +69,13 @@ abstract contract InboxTestBase is Layer1Test {
         address verifierAddr = address(new Verifier_ToggleStub());
         resolver.registerAddress(block.chainid, "proof_verifier", verifierAddr);
 
-        // Firs prover market impl. deployment without the known inbox address - cause there is a
-        // circular dependency at deployment. ProverMarket needs Inbox, Inbox needs ProverMarket.
-        address dummyInboxAddress = address(0x1); // Just a placeholder
-        address proverMarketImpl = address(
-            new ProverMarket(
-                dummyInboxAddress,
-                200 ether, //BIDDING_THRESHOLD
-                100 ether, //OUTBID_THRESHOLD
-                50 ether, // PROVING_THRESHOLD
-                1 days //MIN_EXIT_DELAY
-            )
-        );
-
-        address proverMarketProxy = address(
-            new ERC1967Proxy(proverMarketImpl, abi.encodeCall(ProverMarket.init, (address(0))))
-        );
-
         inbox = deployInbox(
             correctBlockhash(0),
             verifierAddr,
             address(bondToken),
             address(signalService),
-            proverMarketProxy,
             v4GetConfig()
         );
-
-        address realProverMarketImpl = address(
-            new ProverMarket(
-                address(inbox),
-                200 ether, //BIDDING_THRESHOLD
-                100 ether, //OUTBID_THRESHOLD
-                50 ether, // PROVING_THRESHOLD
-                1 days //MIN_EXIT_DELAY
-            )
-        );
-
-        UUPSUpgradeable(proverMarketProxy).upgradeTo(realProverMarketImpl);
-        proverMarket = ProverMarket(proverMarketProxy);
 
         signalService.authorize(address(inbox), true);
 
@@ -168,7 +163,7 @@ abstract contract InboxTestBase is Layer1Test {
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
             (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-                inbox.v4ProposeBatch(abi.encode(batchParams), txList);
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
             _saveMetadataAndInfo(meta, info);
             batchIds[i] = meta.batchId;
         }
@@ -200,6 +195,97 @@ abstract contract InboxTestBase is Layer1Test {
         }
 
         inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
+    }
+
+    function _proposeBatchesWithProverAuth(
+        address proposer,
+        uint256 numBatchesToPropose,
+        address prover,
+        uint256 proverKey,
+        bytes memory txList
+    )
+        internal
+        returns (uint64[] memory batchIds)
+    {
+        batchIds = new uint64[](numBatchesToPropose);
+
+        for (uint256 i; i < numBatchesToPropose; ++i) {
+            ITaikoInbox.BatchParams memory batchParams;
+            batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
+
+            // Save original proposer for hash calculation
+            batchParams.proposer = proposer;
+
+            // Create ProverAuth struct
+            LibProverAuth.ProverAuth memory auth;
+            auth.prover = prover;
+            auth.feeToken = address(bondToken);
+            auth.fee = 5 ether;
+            auth.validUntil = uint64(block.timestamp + 1 hours);
+            auth.batchId =
+                i == 0 ? inbox.v4GetStats2().numBatches : inbox.v4GetStats2().numBatches + uint64(i);
+
+            // Calculate txListHash
+            bytes32 txListHash = keccak256(txList);
+
+            // Get chain ID
+            uint64 chainId = uint64(v4GetConfig().chainId);
+            batchParams.coinbase = proposer;
+
+            // Calculate the batch params hash with proposer = msg.sender
+            bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
+
+            // Reset proposer to address(0) as expected by the contract
+            batchParams.proposer = address(0);
+
+            // Sign the digest
+            auth.signature = _signDigest(
+                keccak256(
+                    abi.encode(
+                        "PROVER_AUTHENTICATION",
+                        chainId,
+                        batchParamsHash,
+                        txListHash,
+                        _getAuthWithoutSignature(auth)
+                    )
+                ),
+                proverKey
+            );
+
+            // Encode the auth for the batch params
+            batchParams.proverAuth = abi.encode(auth);
+
+            // Propose the batch
+            vm.prank(proposer);
+            (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+            _saveMetadataAndInfo(meta, info);
+            batchIds[i] = meta.batchId;
+        }
+    }
+
+    // Add these helper functions if not already present
+    function _signDigest(
+        bytes32 _digest,
+        uint256 _privateKey
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, _digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _getAuthWithoutSignature(LibProverAuth.ProverAuth memory _auth)
+        internal
+        pure
+        returns (LibProverAuth.ProverAuth memory)
+    {
+        LibProverAuth.ProverAuth memory authCopy = _auth;
+        authCopy.signature = "";
+        return authCopy;
     }
 
     function _logAllBatchesAndTransitions() internal view {

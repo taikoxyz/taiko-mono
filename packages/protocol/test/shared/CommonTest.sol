@@ -20,7 +20,6 @@ import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/bridge/QuotaManager.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
@@ -130,12 +129,6 @@ abstract contract CommonTest is Test, Script {
         returns (address proxy)
     {
         proxy = address(new ERC1967Proxy(impl, data));
-        string memory _name = Strings.toString(uint256(name));
-        vm.writeJson(
-            vm.serializeAddress("deployment", _name, proxy),
-            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
-        );
-
         console2.log(">", string.concat("'", bytes32ToString(name), "'"));
         console2.log("  proxy   :", proxy);
         console2.log("  impl    :", impl);
@@ -205,16 +198,6 @@ abstract contract CommonTest is Test, Script {
                 name: "bridge",
                 impl: bridgeImpl,
                 data: abi.encodeCall(Bridge.init, (address(0)))
-            })
-        );
-    }
-
-    function deployQuotaManager() internal returns (QuotaManager) {
-        return QuotaManager(
-            deploy({
-                name: "quota_manager",
-                impl: address(new QuotaManager(address(resolver))),
-                data: abi.encodeCall(QuotaManager.init, (address(0), 24 hours))
             })
         );
     }

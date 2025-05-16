@@ -16,7 +16,7 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -27,9 +27,9 @@ import (
 
 type EventHandlerTestSuite struct {
 	testutils.ClientTestSuite
-	d          *driver.Driver
-	proposer   *proposer.Proposer
-	blobSyncer *blob.Syncer
+	d           *driver.Driver
+	proposer    *proposer.Proposer
+	eventSyncer *event.Syncer
 }
 
 func (s *EventHandlerTestSuite) SetupTest() {
@@ -59,11 +59,12 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.Nil(testState.ResetL1Current(context.Background(), common.Big0))
 
 	tracker := beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 30*time.Second)
-	s.blobSyncer, err = blob.NewSyncer(
+	s.eventSyncer, err = event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
 		testState,
 		tracker,
+		nil,
 		nil,
 	)
 	s.Nil(err)
@@ -134,7 +135,7 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 		true,
 		false,
 	)
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	if !m.IsPacaya() {
 		s.Nil(handler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
 			BlockId:    m.Ontake().GetBlockID(),
@@ -155,9 +156,9 @@ func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 		false,
 	)
 
-	s.ForkIntoPacaya(s.proposer, s.blobSyncer)
+	s.ForkIntoPacaya(s.proposer, s.eventSyncer)
 
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(m.IsPacaya())
 
 	batch, err := s.RPCClient.GetBatchByID(context.Background(), m.Pacaya().GetBatchID())

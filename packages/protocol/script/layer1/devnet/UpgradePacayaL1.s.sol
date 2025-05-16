@@ -3,8 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from
-    "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
+import "@sp1-contracts/src/v4.0.0-rc.3/SP1VerifierPlonk.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
@@ -19,9 +18,9 @@ import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/provers/ProverSet.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
-import "src/layer1/verifiers/Risc0Verifier.sol";
-import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/TaikoSgxVerifier.sol";
+import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
+import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/devnet/verifiers/OpVerifier.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
@@ -36,7 +35,6 @@ contract UpgradePacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
     address public sharedResolver = vm.envAddress("SHARED_RESOLVER");
-    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -58,9 +56,7 @@ contract UpgradePacayaL1 is DeployCapability {
         address erc1155Vault =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "erc1155_vault", false);
         // Bridge
-        UUPSUpgradeable(bridgeL1).upgradeTo(
-            address(new Bridge(sharedResolver, signalService, quotaManager))
-        );
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver, signalService)));
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));
         // Vault

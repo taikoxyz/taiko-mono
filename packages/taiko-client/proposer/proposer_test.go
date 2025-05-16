@@ -25,7 +25,7 @@ import (
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -35,7 +35,7 @@ import (
 
 type ProposerTestSuite struct {
 	testutils.ClientTestSuite
-	s      *blob.Syncer
+	s      *event.Syncer
 	p      *Proposer
 	cancel context.CancelFunc
 }
@@ -46,12 +46,13 @@ func (s *ProposerTestSuite) SetupTest() {
 	state2, err := state.New(context.Background(), s.RPCClient)
 	s.Nil(err)
 
-	syncer, err := blob.NewSyncer(
+	syncer, err := event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer

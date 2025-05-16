@@ -10,9 +10,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -99,30 +97,27 @@ func NewProofSubmitterPacaya(
 // RequestProof requests proof for the given Taiko batch after Pacaya fork.
 func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
-		headers = make([]*types.Header, len(meta.Pacaya().GetBlocks()))
-		g       = new(errgroup.Group)
+		blockNums = make([]*big.Int, len(meta.Pacaya().GetBlocks()))
 	)
+	// Wait for the last block to be inserted at first.
+	_, err := s.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
+	if err != nil {
+		return fmt.Errorf("failed to wait for L2 Header, blockID: %d, error: %w", meta.Pacaya().GetLastBlockID(), err)
+	}
+
 	// Fetch all blocks headers for the given batch.
 	for i := 0; i < len(meta.Pacaya().GetBlocks()); i++ {
-		g.Go(func() error {
-			header, err := s.rpc.WaitL2Header(
-				ctx,
-				new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()-uint64(len(meta.Pacaya().GetBlocks()))+uint64(i)+1),
-			)
-			if err != nil {
-				return fmt.Errorf("failed to fetch l2 Header, blockID: %d, error: %w", meta.Pacaya().GetLastBlockID(), err)
-			}
-
-			if header.TxHash == types.EmptyTxsHash {
-				return errors.New("no transaction in block")
-			}
-
-			headers[i] = header
-			return nil
-		})
+		// Calculate the block number for the current index in the batch.
+		// The formula starts from the last block ID and iterates backward to the first block ID in the batch.
+		blockNums[i] = new(big.Int).SetUint64(
+			meta.Pacaya().GetLastBlockID() - uint64(len(meta.Pacaya().GetBlocks())) + uint64(i) + 1,
+		)
 	}
-	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to fetch headers: %w", err)
+
+	// Batch fetch all block headers.
+	headers, err := s.rpc.L2.BatchHeadersByNumbers(ctx, blockNums)
+	if err != nil {
+		return fmt.Errorf("failed to get batch headers, error: %w", err)
 	}
 
 	// Request proof.
@@ -350,18 +345,17 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 		return fmt.Errorf("unknown proof type: %s", proofType)
 	}
 	startAt := time.Now()
+	buffer, err := proofBuffer.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read proof from buffer: %w", err)
+	}
+	// If the buffer is empty, skip the aggregation.
+	if len(buffer) == 0 {
+		log.Debug("Buffer is empty now, skip aggregating")
+		return nil
+	}
 	if err := backoff.Retry(
 		func() error {
-			buffer, err := proofBuffer.ReadAll()
-			if err != nil {
-				return fmt.Errorf("failed to read proof from buffer: %w", err)
-			}
-			// If the buffer is empty, skip the aggregation.
-			if len(buffer) == 0 {
-				log.Debug("Buffer is empty now, skip aggregating")
-				return nil
-			}
-
 			result, err := producer.Aggregate(ctx, buffer, startAt)
 			if err != nil {
 				if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
