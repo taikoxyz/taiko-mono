@@ -481,7 +481,7 @@
   - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
   - bridge_watchdog: `0x00000291ab79c55dc4fcd97dfba4880df4b93624`
 - logs:
-  - deployed on May 15, 2025 @commit`cf55838b2`
+  - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x0a48a276897935e7406b4cc8f17a9b1480c56cb866d6504fd28184ac8e79e8a0`
 
 #### rollup_address_resolver
 
@@ -504,7 +504,7 @@
   - risc0_reth_verifier: `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE`
   - sp1_reth_verifier: `0xbee1040D0Aab17AE19454384904525aE4A3602B9`
 - logs:
-  - deployed on May 15, 2025 @commit`cf55838b2`
+  - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x479a582b4bb2a262e395c94e009c996781cb5ef5c55478be6dd2f322b12ba156`
 
 ### forced_inclusion_store
 
@@ -512,7 +512,7 @@
 - impl : 0xcdb25e201Ad3fdcFe16730A6CA2cC0B1Ce2137a2
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0x042beff750bfb1b1167a5acc32f68c4565a6e698c162ecff445eaac9fca66fdf`
 
 ### taiko_wrapper
 
@@ -520,7 +520,7 @@
 - impl : 0xAdBa78120E85Add0dBD2050dBA0548CEDA81A31b
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0xe0c52c898ce19785fb139e822a9b5a088b374692820bc402eb31e7a6086664e7`
 
 ### proof_verifier
 
@@ -528,7 +528,7 @@
 - impl : 0x8C520BB75590deaBC30c4fcaFD8778A43E5481b9
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0x67b886b503de0cf84155cfcfe08f841808178bc40101d2dea2155db069121e08`
 
 ### sgx_reth_verifier(Pacaya)
 
@@ -536,7 +536,7 @@
 - impl : 0x8ADDcf5d4CD7BD9dA1CE62eF84AeE22c9E2BfbA5
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0x89e2ab8f03ee8042c48afb3577a840f9b63be9d88907b7171a590374e6f8e5d3`
 
 ### risc0_reth_verifier(Pacaya)
 
@@ -544,7 +544,7 @@
 - impl : 0x801878e56A8DA58d6a837006345CDD11a9E6a852
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0x8480ac4bcdf12dedf9c79bed7407bd290670d9fe9c867c5354e574c56c5ff48b`
 
 ### sp1_reth_verifier(Pacaya)
 
@@ -552,7 +552,7 @@
 - impl : 0x35f26e14D0dAeDd1904843370f761C60B891D466
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0x88351319725a8f90fcbd22eaaee3b627b21d83fddb86db0014f7d3e194016d4a`
 
 ### sgx_geth_verifier
 
@@ -560,7 +560,7 @@
 - impl : 0xDb7AEe4fA967C2aB0eC28f63C8675224E59340A5
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0x4bfe3199637c49162ce8bdd928a06e2318cd7bfadb9c0ca02ed7304d1599e3e8`
 
 ### sgx_geth_automata
 
@@ -568,7 +568,7 @@
 - impl : 0x5e46443bd131eB6d4c6Fb4849bAD29af9596dd72
 - owner : `admin.taiko.eth`
 - logs:
-  - deployed on May 15, 2025 @commit `cf55838`
+  - deployed on May 15, 2025 @commit `cf55838` @tx `0x7486b942c054eb6641ea701f0835d23fa606accad0e96051791da26c56a10771`
 
 ## Taiko DAO Specific
 
