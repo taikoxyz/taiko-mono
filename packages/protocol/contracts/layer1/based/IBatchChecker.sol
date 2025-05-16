@@ -10,11 +10,9 @@ interface IBatchChecker {
     /// if the check fails.
     /// @param batchInfo_ The batch info.
     /// @param batchMetadata_ The batch metadata.
-    /// @param txList_ The transaction list.
     function checkBatch(
-        ITaikoInbox.BatchInfo calldata batchInfo_,
-        ITaikoInbox.BatchMetadata calldata batchMetadata_,
-        bytes calldata txList_
+        ITaikoInbox.BatchInfo memory batchInfo_,
+        ITaikoInbox.BatchMetadata memory batchMetadata_
     )
         external
         view
