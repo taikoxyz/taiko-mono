@@ -136,13 +136,19 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
         require(transition.blockHash != bytes32(0), BatchNotVerified());
 
+        // Validate the verified blockheader
+        require(
+            transition.blockHash == evidence.verifiedBlockHeader.hash(),
+            InvalidVerifiedBlockHeader()
+        );
+
         uint256 blockId = evidence.preconfedBlockHeader.number;
 
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
         LibTrieProof.verifyMerkleProof(
-            evidence.preconfedBlockHeader.stateRoot,
+            evidence.verifiedBlockHeader.stateRoot,
             taikoAnchor,
             _calcBlockHashSlot(blockId - 1),
             evidence.preconfedBlockHeader.parentHash,
@@ -153,7 +159,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         LibTrieProof.verifyMerkleProof(
-            evidence.blockhashProofs.actualBlockHeader.stateRoot,
+            evidence.verifiedBlockHeader.stateRoot,
             taikoAnchor,
             _calcBlockHashSlot(blockId),
             actualBlockHash,
@@ -252,6 +258,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     function _calcBlockHashSlot(uint256 _blockId) internal pure returns (bytes32) {
         // The mapping is in the first slot
-        return keccak256(abi.encode(_blockId, bytes32(0)));
+        return keccak256(abi.encode(_blockId, bytes32(uint256(251))));
     }
 }
