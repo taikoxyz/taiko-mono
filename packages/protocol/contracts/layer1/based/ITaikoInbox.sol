@@ -61,7 +61,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         BlobParams blobParams;
         BlockParams[] blocks;
         bytes proverAuth;
-        address batchChecker;
+        bytes batchChecking;
     }
 
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it

@@ -8,11 +8,12 @@ import "./ITaikoInbox.sol";
 interface IBatchChecker {
     /// @notice Check if a proposed batch is as expected. This function must return false or revert
     /// if the check fails.
-    /// @param batchInfo_ The batch info.
-    /// @param batchMetadata_ The batch metadata.
+    /// @param _batchInfo The batch info.
+    /// @param _batchMetadata The batch metadata.
     function checkBatch(
-        ITaikoInbox.BatchInfo memory batchInfo_,
-        ITaikoInbox.BatchMetadata memory batchMetadata_
+        ITaikoInbox.BatchInfo memory _batchInfo,
+        ITaikoInbox.BatchMetadata memory _batchMetadata,
+        bytes calldata _inputs
     )
         external
         view
