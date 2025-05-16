@@ -227,8 +227,8 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0x9D7b99fa6F0eaED4Ac522E23bf7FB59DD3FF2332`
-- oldFork: `0xaA64D5A3A26D1e76AcAf6e22c199D02d58076A01` at commit `94db4f6`
+- impl: `0x4e030b19135869F6fd926614754B7F9c184E2B83`
+- oldFork: `0x904Da4C5bD76f932fE09fF32Ae5D7E3d2A5D2264` at commit `c80373d`
 - newFork: `0x497B13f9192B09244de9b5F0964830969FB26F07` at commit `c5b4a3d`
 - owner: `admin.taiko.eth`
 - logs:
@@ -255,7 +255,7 @@
   - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
   - Upgrade to `0x2784423f7c61Bc7B75dB6CdA26959946f437588D` @commit`9d2aac8` @tx`0xc0e8ec30d1479ca2414d4d28a09a543c2845247d80387f78c179d663ffe55c3c`
   - Upgrade to `0x5110634593Ccb8072d161A7d260A409A7E74D7Ca` @commit`9a89166` @tx`0x6368890b9aa2f87c6a6b727efdd8af0ea357a11460b546d8a7f3e19e38a34e41`
-  - Upgrade to `0x5eEcd1305aC72d4a77Bf3BD734e81c15e2A2adEf` @commit`cf55838` @tx`0x97789b6668d0a287b1f57bb6c8e23cce62308fb887139faeb0f06b77855995fd`
+  - Upgrade to `0x4e030b19135869F6fd926614754B7F9c184E2B83` @commit`cf55838` @tx``
 
 #### tier_router
 
