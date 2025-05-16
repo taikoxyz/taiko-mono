@@ -6,8 +6,8 @@ import "./ITaikoInbox.sol";
 /// @title IBatchChecker
 /// @custom:security-contact security@taiko.xyz
 interface IBatchChecker {
-    /// @notice Check if a proposed batch is valid. This function must return false if the check
-    /// fails.
+    /// @notice Check if a proposed batch is as expected. This function must return false or revert
+    /// if the check fails.
     /// @param batchInfo_ The batch info.
     /// @param batchMetadata_ The batch metadata.
     function checkBatch(
