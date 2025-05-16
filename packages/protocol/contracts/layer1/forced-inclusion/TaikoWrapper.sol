@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/layer1/based/IProposeBatch.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 import "./ForcedInclusionStore.sol";
 
 /// @title TaikoWrapper
@@ -47,6 +48,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidTimeShift();
     error InvalidSignalSlots();
     error OldestForcedInclusionDue();
+    error UnexpectedLastBlockId(uint96, uint96);
 
     uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
     IProposeBatch public immutable inbox;
@@ -98,6 +100,29 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
         return inbox.v4ProposeBatch(bytesY, _txList, "");
+    }
+
+    function v4ProposeBatchWithExpectedLastBlockId(
+        bytes calldata _params,
+        bytes calldata _txList,
+        uint96 _expectedLastBlockId
+    )
+        external
+        onlyFromOptional(preconfRouter)
+        nonReentrant
+        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+    {
+        (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_) =
+            this.v4ProposeBatch(_params, _txList, bytes(""));
+
+        uint96 lastBlockId = ITaikoInbox(address(inbox)).v4GetBatch(meta_.batchId).lastBlockId;
+
+        require(
+            lastBlockId == _expectedLastBlockId,
+            UnexpectedLastBlockId(lastBlockId, _expectedLastBlockId)
+        );
+
+        return (info_, meta_);
     }
 
     function _validateForcedInclusionParams(
