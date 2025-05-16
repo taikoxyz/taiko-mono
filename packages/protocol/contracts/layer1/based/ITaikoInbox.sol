@@ -246,13 +246,13 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error AnchorBlockIdTooLarge();
     error AnchorBlockIdTooSmall();
     error ArraySizesMismatch();
-    error CheckBatchFailed();
     error BatchNotFound();
     error BatchVerified();
     error BeyondCurrentFork();
     error BlobNotFound();
     error BlobNotSpecified();
     error BlockNotFound();
+    error CheckBatchFailed();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();

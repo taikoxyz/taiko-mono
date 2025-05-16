@@ -282,7 +282,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             if (params.batchChecker != address(0)) {
                 (bool success, bytes memory checkPassed) = params.batchChecker.staticcall(
-                    abi.encodeCall(IBatchChecker.checkBatch, (info_, meta_))
+                    abi.encodeCall(IBatchChecker.checkBatch, (info_, meta_, _txList))
                 );
                 require(success && abi.decode(checkPassed, (bool)), CheckBatchFailed());
             }
