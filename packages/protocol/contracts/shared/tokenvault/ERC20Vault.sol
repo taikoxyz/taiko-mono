@@ -19,7 +19,6 @@ import "./BaseVault.sol";
 /// @dev Labeled in address resolver as "erc20_vault".
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
-    using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
 

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
@@ -74,6 +75,25 @@ library LibAddress {
             _addr.staticcall(abi.encodeCall(IERC165.supportsInterface, (_interfaceId)));
         if (success && data.length == 32) {
             result_ = abi.decode(data, (bool));
+        }
+    }
+
+    function isContract(address _addr) internal view returns (bool) {
+        return Address.isContract(_addr) // code size > 0
+            && delegationOf(_addr) == address(0); // not an EOA with 7702 delegation
+    }
+
+    /// @dev Copied from https://github.com/Vectorized/solady/blob/main/src/accounts/LibEIP7702.sol
+    /// @notice Returns the delegation address of an account.
+    /// @param account The account to get the delegation address of.
+    /// @return result The delegation address of the account.
+    function delegationOf(address account) internal view returns (address result) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            extcodecopy(account, 0x00, 0x00, 0x20)
+            // Note: Checking that it starts with hex"ef01" is the most general and futureproof.
+            // 7702 bytecode is `abi.encodePacked(hex"ef01", uint8(version), address(delegation))`.
+            result := mul(shr(96, mload(0x03)), eq(0xef01, shr(240, mload(0x00))))
         }
     }
 }

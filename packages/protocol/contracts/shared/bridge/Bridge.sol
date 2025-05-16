@@ -17,7 +17,6 @@ import "./IBridge.sol";
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialResolverContract, IBridge {
-    using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
     using LibAddress for address payable;

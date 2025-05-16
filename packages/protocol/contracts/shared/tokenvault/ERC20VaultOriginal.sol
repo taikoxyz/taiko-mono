@@ -18,7 +18,6 @@ import "./BaseVault.sol";
 /// @dev This is the original ERC20Vault contract without solver features as in ERC20Vault.sol
 /// @custom:security-contact security@taiko.xyz
 contract ERC20VaultOriginal is BaseVault {
-    using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
