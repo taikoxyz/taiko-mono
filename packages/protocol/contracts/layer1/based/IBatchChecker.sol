@@ -11,8 +11,8 @@ interface IBatchChecker {
     /// @param _batchInfo The batch info.
     /// @param _batchMetadata The batch metadata.
     function checkBatch(
-        ITaikoInbox.BatchInfo memory _batchInfo,
-        ITaikoInbox.BatchMetadata memory _batchMetadata,
+        ITaikoInbox.BatchInfo calldata _batchInfo,
+        ITaikoInbox.BatchMetadata calldata _batchMetadata,
         bytes calldata _inputs
     )
         external
