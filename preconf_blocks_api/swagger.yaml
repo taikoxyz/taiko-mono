@@ -16,7 +16,7 @@ definitions:
       blockHeader:
         allOf:
         - $ref: '#/definitions/types.Header'
-        description: '@param blockHeader types.Header of the preconf block'
+        description: '@param blockHeader types.Header of the preconfirmation block'
     type: object
   preconfblocks.ExecutableData:
     properties:
@@ -72,11 +72,11 @@ definitions:
   preconfblocks.RemovePreconfBlocksResponseBody:
     properties:
       headsRemoved:
-        description: '@param headsRemoved uint64 Number of preconf heads removed'
+        description: '@param headsRemoved uint64 Number of preconfirmation heads removed'
         type: integer
       lastBlockId:
         description: '@param lastBlockID uint64 Current highest block ID of the blockchain
-          (including preconf blocks)'
+          (including preconfirmation blocks)'
         type: integer
       lastProposedBlockID:
         description: '@param lastProposedBlockID uint64 Highest block ID of the cnonical
@@ -202,13 +202,13 @@ paths:
       consumes:
       - application/json
       description: |-
-        Remove all preconf blocks from the blockchain beyond the specified block height,
+        Remove all preconfirmation blocks from the blockchain beyond the specified block height,
         ensuring the latest block ID does not exceed the given height. This method will fail if
-        the block with an ID one greater than the specified height is not a preconf block. If the
-        specified block height is greater than the latest preconf block ID, the method will succeed
+        the block with an ID one greater than the specified height is not a preconfirmation block. If the
+        specified block height is greater than the latest preconfirmation block ID, the method will succeed
         without modifying the blockchain.
       parameters:
-      - description: preconf blocks removing request body
+      - description: preconfirmation blocks removing request body
         in: body
         name: body
         required: true
@@ -229,7 +229,7 @@ paths:
         body in request are valid, it will insert the corresponding
         preconfirmation block to the backend L2 execution engine and return a success response.
       parameters:
-      - description: preconf block creation request body
+      - description: preconfirmation block creation request body
         in: body
         name: body
         required: true
