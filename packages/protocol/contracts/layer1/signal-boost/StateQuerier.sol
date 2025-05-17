@@ -8,6 +8,9 @@ import "contracts/shared/common/EssentialContract.sol";
 import "contracts/layer1/mainnet/libs/LibFasterReentryLock.sol";
 import "./IStateQuerier.sol";
 
+/// @title StateQuerier
+/// @notice Contract for querying the state of multiple contracts.
+/// @custom:security-contact security@taiko.xyz
 contract StateQuerier is EssentialContract, IStateQuerier {
     ISignalService public immutable signalService;
     uint256[50] private __gap;
@@ -20,6 +23,7 @@ contract StateQuerier is EssentialContract, IStateQuerier {
         __Essential_init(_owner);
     }
 
+    /// @inheritdoc IStateQuerier
     function queryState(IStateQuery.Query[] calldata _queries)
         external
         nonReentrant

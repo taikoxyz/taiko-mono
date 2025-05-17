@@ -8,6 +8,9 @@ import "contracts/shared/common/EssentialContract.sol";
 import "./IStateVerifier.sol";
 import "./IStateConsumer.sol";
 
+/// @title StateVerifier
+/// @notice Contract for verifying the state of multiple contracts.
+/// @custom:security-contact security@taiko.xyz
 contract StateVerifier is EssentialContract, IStateVerifier {
     error InvalidParamSizes();
 
@@ -32,6 +35,7 @@ contract StateVerifier is EssentialContract, IStateVerifier {
         __Essential_init(_owner);
     }
 
+    /// @inheritdoc IStateVerifier
     function verifyState(
         IStateQuery.Query[] calldata _queries,
         IStateQuery.QueryResult[] calldata _results,
