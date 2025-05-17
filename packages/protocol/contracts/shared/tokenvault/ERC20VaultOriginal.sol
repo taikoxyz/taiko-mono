@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "../libs/LibNames.sol";
 import "../libs/LibAddress.sol";
 import "./IBridgedERC20.sol";
@@ -18,7 +17,6 @@ import "./BaseVault.sol";
 /// @dev This is the original ERC20Vault contract without solver features as in ERC20Vault.sol
 /// @custom:security-contact security@taiko.xyz
 contract ERC20VaultOriginal is BaseVault {
-    using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
 

@@ -13,6 +13,8 @@ import "../shared/bridge/IBridge.sol";
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
+    using LibAddress for address;
+
     address public immutable bridge;
 
     /// @notice The owner chain ID.
@@ -137,7 +139,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         nextTxId += 1;
 
         // By design, the target must be a contract address if the txdata is not empty
-        require(call.txdata.length == 0 || Address.isContract(call.target), DO_INVALID_TARGET());
+        require(call.txdata.length == 0 || call.target.isContract(), DO_INVALID_TARGET());
 
         (bool success, bytes memory result) = call.isDelegateCall //
             ? call.target.delegatecall(call.txdata)

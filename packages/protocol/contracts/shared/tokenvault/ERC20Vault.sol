@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "../../shared/based/ITaiko.sol";
 import "../../layer1/based/ITaikoInbox.sol";
 import "../libs/LibNames.sol";
@@ -19,7 +18,6 @@ import "./BaseVault.sol";
 /// @dev Labeled in address resolver as "erc20_vault".
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
-    using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
 

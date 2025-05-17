@@ -78,7 +78,7 @@
     "murky": "github:dmfxyz/murky",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "sharp": "^0.33.3",
-    "solady": "github:Vectorized/solady#v0.0.167",
+    "solady": "github:Vectorized/solady#v0.1.18",
     "solidity-stringutils": "github:Arachnid/solidity-stringutils"
   }
 }

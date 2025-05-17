@@ -359,8 +359,8 @@ importers:
         specifier: ^0.33.3
         version: 0.33.3
       solady:
-        specifier: github:Vectorized/solady#v0.0.167
-        version: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        specifier: github:Vectorized/solady#v0.1.18
+        version: https://codeload.github.com/Vectorized/solady/tar.gz/aec6b219fbe078a5d1bef095c5c7035299d2c5a1
       solidity-stringutils:
         specifier: github:Arachnid/solidity-stringutils
         version: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
@@ -10570,6 +10570,10 @@ packages:
   solady@https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b:
     resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b}
     version: 0.0.231
+
+  solady@https://codeload.github.com/Vectorized/solady/tar.gz/aec6b219fbe078a5d1bef095c5c7035299d2c5a1:
+    resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/aec6b219fbe078a5d1bef095c5c7035299d2c5a1}
+    version: 0.1.18
 
   solady@https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d:
     resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d}
@@ -26850,6 +26854,8 @@ snapshots:
       - supports-color
 
   solady@https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b: {}
+
+  solady@https://codeload.github.com/Vectorized/solady/tar.gz/aec6b219fbe078a5d1bef095c5c7035299d2c5a1: {}
 
   solady@https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d: {}
 
