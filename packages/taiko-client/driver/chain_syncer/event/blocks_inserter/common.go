@@ -294,6 +294,14 @@ func isKnownCanonicalBlock(
 		}
 		id = args.Id()
 	)
+
+	log.Info(
+		"Check if block is known in canonical chain",
+		"blockID", blockID,
+		"blockHash", block.Hash(),
+		"args", args,
+	)
+
 	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
