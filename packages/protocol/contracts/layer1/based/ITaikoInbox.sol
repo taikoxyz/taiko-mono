@@ -61,7 +61,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         BlobParams blobParams;
         BlockParams[] blocks;
         bytes proverAuth;
-        bytes batchChecking;
+        bytes callback;
     }
 
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
@@ -252,7 +252,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error BlobNotFound();
     error BlobNotSpecified();
     error BlockNotFound();
-    error CheckBatchFailed();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();

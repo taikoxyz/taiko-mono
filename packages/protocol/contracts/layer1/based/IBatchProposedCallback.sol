@@ -3,20 +3,17 @@ pragma solidity ^0.8.24;
 
 import "./ITaikoInbox.sol";
 
-/// @title IBatchChecker
+/// @title IBatchProposedCallback
 /// @custom:security-contact security@taiko.xyz
-interface IBatchChecker {
-    /// @notice Check if a proposed batch is as expected. This function must return false or revert
-    /// if the check fails.
+interface IBatchProposedCallback {
+    /// @notice Called after a batch is proposed.
     /// @param _batchInfo The batch info.
     /// @param _batchMetadata The batch metadata.
-    /// @param _inputs The inputs to the checker.
-    function checkBatch(
+    /// @param _data The extra data to the callback.
+    function onBatchProposed(
         ITaikoInbox.BatchInfo calldata _batchInfo,
         ITaikoInbox.BatchMetadata calldata _batchMetadata,
-        bytes calldata _inputs
+        bytes calldata _data
     )
-        external
-        view
-        returns (bool);
+        external;
 }
