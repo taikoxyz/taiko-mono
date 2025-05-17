@@ -89,7 +89,7 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	clearedCount := 0
 
 	for _, b := range pb.buffer {
-		if !clearMap[b.BlockID.Uint64()] {
+		if !clearMap[b.BatchID.Uint64()] {
 			newBuffer = append(newBuffer, b)
 		} else {
 			clearedCount++
@@ -109,10 +109,4 @@ func (pb *ProofBuffer) MarkAggregating() {
 // IsAggregating returns if the proofs in this buffer are aggregating.
 func (pb *ProofBuffer) IsAggregating() bool {
 	return pb.isAggregating
-}
-
-// Enabled returns if the buffer is enabled.
-// @dev this function would be deprecated after Pacaya fork
-func (pb *ProofBuffer) Enabled() bool {
-	return pb.MaxLength > 1
 }

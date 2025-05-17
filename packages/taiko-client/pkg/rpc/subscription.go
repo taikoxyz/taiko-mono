@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
@@ -29,24 +28,6 @@ func SubscribeEvent(
 	)
 }
 
-// SubscribeBlockVerifiedV2 subscribes the protocol's BlockVerifiedV2 events.
-func SubscribeBlockVerifiedV2(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2,
-) event.Subscription {
-	return SubscribeEvent("BlockVerifiedV2", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchBlockVerifiedV2(nil, ch, nil, nil)
-		if err != nil {
-			log.Error("Create TaikoL1.BlockVerifiedV2 subscription error", "error", err)
-			return nil, err
-		}
-
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
-	})
-}
-
 // SubscribeBatchesVerifiedPacaya subscribes the Pacaya protocol's BatchesVerified events.
 func SubscribeBatchesVerifiedPacaya(
 	taikoInbox *pacayaBindings.TaikoInboxClient,
@@ -56,24 +37,6 @@ func SubscribeBatchesVerifiedPacaya(
 		sub, err := taikoInbox.WatchBatchesVerified(nil, ch)
 		if err != nil {
 			log.Error("Create TaikoInbox.BatchesVerified subscription error", "error", err)
-			return nil, err
-		}
-
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
-	})
-}
-
-// SubscribeBlockProposedV2 subscribes the protocol's BlockProposedV2 events.
-func SubscribeBlockProposedV2(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientBlockProposedV2,
-) event.Subscription {
-	return SubscribeEvent("BlockProposedV2", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchBlockProposedV2(nil, ch, nil)
-		if err != nil {
-			log.Error("Create TaikoL1.BlockProposedV2 subscription error", "error", err)
 			return nil, err
 		}
 
@@ -101,24 +64,6 @@ func SubscribeBatchProposedPacaya(
 	})
 }
 
-// SubscribeTransitionProvedV2 subscribes the protocol's TransitionProvedV2 events.
-func SubscribeTransitionProvedV2(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientTransitionProvedV2,
-) event.Subscription {
-	return SubscribeEvent("TransitionProvedV2", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchTransitionProvedV2(nil, ch, nil)
-		if err != nil {
-			log.Error("Create TaikoL1.TransitionProvedV2 subscription error", "error", err)
-			return nil, err
-		}
-
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
-	})
-}
-
 // SubscribeBatchesProvedPacaya subscribes the Pacaya protocol's BatchesProved events.
 func SubscribeBatchesProvedPacaya(
 	taikoInbox *pacayaBindings.TaikoInboxClient,
@@ -128,24 +73,6 @@ func SubscribeBatchesProvedPacaya(
 		sub, err := taikoInbox.WatchBatchesProved(nil, ch)
 		if err != nil {
 			log.Error("Create TaikoInbox.BatchesProved subscription error", "error", err)
-			return nil, err
-		}
-
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
-	})
-}
-
-// SubscribeTransitionContestedV2 subscribes the protocol's TransitionContestedV2 events.
-func SubscribeTransitionContestedV2(
-	taikoL1 *ontakeBindings.TaikoL1Client,
-	ch chan *ontakeBindings.TaikoL1ClientTransitionContestedV2,
-) event.Subscription {
-	return SubscribeEvent("TransitionContestedV2", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchTransitionContestedV2(nil, ch, nil)
-		if err != nil {
-			log.Error("Create TaikoL1.TransitionContestedV2 subscription error", "error", err)
 			return nil, err
 		}
 

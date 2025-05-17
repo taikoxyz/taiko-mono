@@ -3,12 +3,10 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,12 +18,12 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// BlobTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
+// BlobTransactionBuilder is responsible for building a TaikoInbox.proposeBatch transaction with txList
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
-	taikoL1Address          common.Address
+	taikoInboxAddress       common.Address
 	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
@@ -38,7 +36,7 @@ type BlobTransactionBuilder struct {
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
-	taikoL1Address common.Address,
+	taikoInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
@@ -49,7 +47,7 @@ func NewBlobTransactionBuilder(
 	return &BlobTransactionBuilder{
 		rpc,
 		proposerPrivateKey,
-		taikoL1Address,
+		taikoInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		l2SuggestedFeeRecipient,
@@ -59,87 +57,7 @@ func NewBlobTransactionBuilder(
 	}
 }
 
-// BuildOntake implements the ProposeBlockTransactionBuilder interface.
-func (b *BlobTransactionBuilder) BuildOntake(
-	ctx context.Context,
-	txListBytesArray [][]byte,
-	parentMetahash common.Hash,
-) (*txmgr.TxCandidate, error) {
-	// Check if the current L2 chain is after ontake fork.
-	_, slotB, err := b.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
-
-	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(slotB.NumBlocks)) {
-		return nil, fmt.Errorf("ontake transaction builder is not supported before ontake fork")
-	}
-
-	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
-	var (
-		to                 = &b.taikoL1Address
-		data               []byte
-		blobs              []*eth.Blob
-		encodedParamsArray [][]byte
-	)
-	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-	}
-
-	for i := range txListBytesArray {
-		var blob = &eth.Blob{}
-		if err := blob.FromData(txListBytesArray[i]); err != nil {
-			return nil, err
-		}
-		blobs = append(blobs, blob)
-
-		params := &encoding.BlockParamsV2{
-			Coinbase:         b.l2SuggestedFeeRecipient,
-			ParentMetaHash:   [32]byte{},
-			AnchorBlockId:    0,
-			Timestamp:        0,
-			BlobTxListOffset: 0,
-			BlobTxListLength: uint32(len(txListBytesArray[i])),
-			BlobIndex:        uint8(i),
-		}
-
-		if i == 0 && b.revertProtectionEnabled {
-			params.ParentMetaHash = parentMetahash
-		}
-
-		encodedParams, err := encoding.EncodeBlockParamsOntake(params)
-		if err != nil {
-			return nil, err
-		}
-
-		encodedParamsArray = append(encodedParamsArray, encodedParams)
-	}
-	txListArray := make([][]byte, len(encodedParamsArray))
-	if b.proverSetAddress != rpc.ZeroAddress {
-		if b.revertProtectionEnabled {
-			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListArray)
-		} else {
-			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListArray)
-		}
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlocksV2", encodedParamsArray, txListArray)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &txmgr.TxCandidate{
-		TxData:   data,
-		Blobs:    blobs,
-		To:       to,
-		GasLimit: b.gasLimit,
-	}, nil
-}
-
-// BuildPacaya implements the ProposeBlocksTransactionBuilder interface.
+// BuildPacaya implements the ProposeBatchTransactionBuilder interface.
 func (b *BlobTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,

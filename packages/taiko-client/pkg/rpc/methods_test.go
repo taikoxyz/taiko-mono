@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 var (
@@ -67,7 +68,7 @@ func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 
 func TestGetProtocolStateVariables(t *testing.T) {
 	client := newTestClient(t)
-	_, err := client.GetLastVerifiedBlockOntake(context.Background())
+	_, err := client.GetLastVerifiedTransitionPacaya(context.Background())
 	require.Nil(t, err)
 }
 
@@ -80,7 +81,6 @@ func TestWaitTillL2ExecutionEngineSyncedNewClient(t *testing.T) {
 func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	client := newTestClient(t)
 
-	l1BlockHash := randomHash()
 	l1StateRoot := randomHash()
 	l1Height := randomHash().Big().Uint64()
 	parentGasUsed := uint32(randomHash().Big().Uint64())
@@ -94,7 +94,14 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	opts.NoSend = true
 	opts.GasLimit = 1_000_000
 
-	tx, err := client.OntakeClients.TaikoL2.Anchor(opts, l1BlockHash, l1StateRoot, l1Height, parentGasUsed)
+	tx, err := client.PacayaClients.TaikoAnchor.AnchorV3(
+		opts,
+		l1Height,
+		l1StateRoot,
+		parentGasUsed,
+		pacayaBindings.LibSharedDataBaseFeeConfig{},
+		[][32]byte{},
+	)
 	require.Nil(t, err)
 
 	syncedL1StateRoot,

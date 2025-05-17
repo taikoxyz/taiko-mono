@@ -84,6 +84,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"parentBlockID", parent.Number.Uint64(),
 			"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
 		)
+
 		return s.returnError(c, http.StatusBadRequest,
 			fmt.Errorf(
 				"latestBatchProposalBlockID: %v, parentBlockID: %v",

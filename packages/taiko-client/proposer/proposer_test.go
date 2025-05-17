@@ -22,7 +22,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
@@ -75,11 +74,11 @@ func (s *ProposerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_HTTP"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
@@ -87,7 +86,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		MinProposingInternal:       0,
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProposeBlockTxGasLimit:     10_000_000,
+		ProposeBatchTxGasLimit:     10_000_000,
 		BlobAllowed:                true,
 		FallbackToCalldata:         true,
 		TxmgrConfigs: &txmgr.CLIConfig{
@@ -149,29 +148,17 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Less(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
-
 	s.SetIntervalMining(1)
-	for i := 0; i < int(s.p.rpc.PacayaClients.ForkHeight); i++ {
-		head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-		s.Nil(err)
-		metaHash, err := s.p.GetParentMetaHash(context.Background(), head.Number.Uint64())
-		s.Nil(err)
 
-		s.Nil(
-			s.p.ProposeTxLists(
-				context.Background(),
-				[]types.Transactions{{}},
-				head.Number.Uint64(),
-				metaHash,
-			),
-		)
-		s.Nil(s.s.ProcessL1Blocks(context.Background()))
-	}
-
-	head, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	metaHash, err := s.p.GetParentMetaHash(context.Background(), head.Number.Uint64())
 	s.Nil(err)
-	s.GreaterOrEqual(head.Number.Uint64(), s.p.rpc.PacayaClients.ForkHeight)
+
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, head.Number.Uint64(), metaHash))
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(head2.Number.Uint64(), head.Number.Uint64()+1)
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
@@ -389,17 +376,12 @@ func (s *ProposerTestSuite) TestName() {
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
-	sink2 := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
-	s.Nil(err)
-	sub2, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 
 	defer func() {
 		sub1.Unsubscribe()
-		sub2.Unsubscribe()
 		close(sink1)
-		close(sink2)
 	}()
 
 	to := common.BytesToAddress(testutils.RandomBytes(32))
@@ -408,13 +390,8 @@ func (s *ProposerTestSuite) TestProposeOp() {
 
 	s.Nil(s.p.ProposeOp(context.Background()))
 
-	var meta metadata.TaikoProposalMetaData
-	select {
-	case event := <-sink1:
-		meta = metadata.NewTaikoDataBlockMetadataPacaya(event)
-	case event := <-sink2:
-		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
-	}
+	event := <-sink1
+	meta := metadata.NewTaikoDataBlockMetadataPacaya(event)
 	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
@@ -441,12 +418,8 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 }
 
 func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
-	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	s.ForkIntoPacaya(s.p, s.s)
-
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.NotZero(l2Head1.Number.Uint64())
 
 	// Propose a batch which contains two blobs.
 	var (

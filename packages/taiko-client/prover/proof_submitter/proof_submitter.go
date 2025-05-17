@@ -26,67 +26,77 @@ var (
 )
 
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
-// blocks, and submitting the generated proofs to the TaikoL1 smart contract.
+// blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterPacaya struct {
-	rpc                    *rpc.Client
+	rpc *rpc.Client
+	// Proof producers
 	baseLevelProofProducer proofProducer.ProofProducer
 	zkvmProofProducer      proofProducer.ProofProducer
-	resultCh               chan *proofProducer.ProofResponse
+	// Channels
 	batchResultCh          chan *proofProducer.BatchProofs
-	aggregationNotify      chan uint16
 	batchAggregationNotify chan proofProducer.ProofType
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
-	anchorValidator        *validator.AnchorTxValidator
-	txBuilder              *transaction.ProveBlockTxBuilder
-	sender                 *transaction.Sender
-	proverAddress          common.Address
-	proverSetAddress       common.Address
-	taikoAnchorAddress     common.Address
-	proofPollingInterval   time.Duration
+	// Utilities
+	anchorValidator *validator.AnchorTxValidator
+	txBuilder       *transaction.ProveBatchesTxBuilder
+	sender          *transaction.Sender
+	// Addresses
+	proverAddress      common.Address
+	proverSetAddress   common.Address
+	taikoAnchorAddress common.Address
 	// Batch proof related
-	proofBuffers              map[proofProducer.ProofType]*proofProducer.ProofBuffer
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer
+	// Intervals
 	forceBatchProvingInterval time.Duration
+	proofPollingInterval      time.Duration
+}
+
+// SenderOptions is the options for the transaction sender.
+type SenderOptions struct {
+	RPCClient        *rpc.Client
+	Txmgr            txmgr.TxManager
+	PrivateTxmgr     txmgr.TxManager
+	ProverSetAddress common.Address
+	GasLimit         uint64
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
 func NewProofSubmitterPacaya(
-	rpcClient *rpc.Client,
 	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
-	resultCh chan *proofProducer.ProofResponse,
 	batchResultCh chan *proofProducer.BatchProofs,
-	aggregationNotify chan uint16,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-	proverSetAddress common.Address,
 	taikoAnchorAddress common.Address,
-	gasLimit uint64,
-	txmgr txmgr.TxManager,
-	privateTxmgr txmgr.TxManager,
-	builder *transaction.ProveBlockTxBuilder,
+	senderOpts *SenderOptions,
+	builder *transaction.ProveBatchesTxBuilder,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 	proofPollingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
-	anchorValidator, err := validator.New(taikoAnchorAddress, rpcClient.L2.ChainID, rpcClient)
+	anchorValidator, err := validator.New(taikoAnchorAddress, senderOpts.RPCClient.L2.ChainID, senderOpts.RPCClient)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ProofSubmitterPacaya{
-		rpc:                       rpcClient,
-		baseLevelProofProducer:    baseLevelProver,
-		zkvmProofProducer:         zkvmProofProducer,
-		resultCh:                  resultCh,
-		batchResultCh:             batchResultCh,
-		aggregationNotify:         aggregationNotify,
-		batchAggregationNotify:    batchAggregationNotify,
-		proofSubmissionCh:         proofSubmissionCh,
-		anchorValidator:           anchorValidator,
-		txBuilder:                 builder,
-		sender:                    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
-		proverAddress:             txmgr.From(),
-		proverSetAddress:          proverSetAddress,
+		rpc:                    senderOpts.RPCClient,
+		baseLevelProofProducer: baseLevelProver,
+		zkvmProofProducer:      zkvmProofProducer,
+		batchResultCh:          batchResultCh,
+		batchAggregationNotify: batchAggregationNotify,
+		proofSubmissionCh:      proofSubmissionCh,
+		anchorValidator:        anchorValidator,
+		txBuilder:              builder,
+		sender: transaction.NewSender(
+			senderOpts.RPCClient,
+			senderOpts.Txmgr,
+			senderOpts.PrivateTxmgr,
+			senderOpts.ProverSetAddress,
+			senderOpts.GasLimit,
+		),
+		proverAddress:             senderOpts.Txmgr.From(),
+		proverSetAddress:          senderOpts.ProverSetAddress,
 		taikoAnchorAddress:        taikoAnchorAddress,
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
@@ -94,7 +104,7 @@ func NewProofSubmitterPacaya(
 	}, nil
 }
 
-// RequestProof requests proof for the given Taiko batch after Pacaya fork.
+// RequestProof requests proof for the given Taiko batch.
 func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	var (
 		blockNums = make([]*big.Int, len(meta.Pacaya().GetBlocks()))
@@ -123,11 +133,10 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 	// Request proof.
 	var (
 		opts = &proofProducer.ProofRequestOptionsPacaya{
-			BatchID:            meta.Pacaya().GetBatchID(),
-			ProverAddress:      s.proverAddress,
-			ProposeBlockTxHash: meta.GetTxHash(),
-			EventL1Hash:        meta.GetRawBlockHash(),
-			Headers:            headers,
+			BatchID:       meta.Pacaya().GetBatchID(),
+			ProverAddress: s.proverAddress,
+			EventL1Hash:   meta.GetRawBlockHash(),
+			Headers:       headers,
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse
@@ -247,22 +256,14 @@ func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, p
 	return false
 }
 
-// SubmitProof implements the Submitter interface.
-func (s *ProofSubmitterPacaya) SubmitProof(
-	ctx context.Context,
-	proofResponse *proofProducer.ProofResponse,
-) (err error) {
-	return fmt.Errorf("single proof submission is not supported for Pacaya")
-}
-
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
 func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
 		"Batch submit batches proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
 		"size", len(batchProof.ProofResponses),
-		"firstID", batchProof.BlockIDs[0],
-		"lastID", batchProof.BlockIDs[len(batchProof.BlockIDs)-1],
+		"firstID", batchProof.BatchIDs[0],
+		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
 		"proofType", batchProof.ProofType,
 	)
 	var (
@@ -291,7 +292,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
-		uint64BatchIDs = append(uint64BatchIDs, proof.BlockID.Uint64())
+		uint64BatchIDs = append(uint64BatchIDs, proof.BatchID.Uint64())
 		if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID())
 		}
@@ -306,10 +307,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		proofBuffer.ClearItems(uint64BatchIDs...)
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
-			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-				Tier: proofResp.Tier,
-				Meta: proofResp.Meta,
-			}
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
 		}
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil
@@ -318,7 +316,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		return err
 	}
 
-	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
+	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 
 	// Clear the items in the buffer.
@@ -363,8 +361,8 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 						"Aggregating proofs",
 						"status", err,
 						"batchSize", len(buffer),
-						"firstID", buffer[0].BlockID,
-						"lastID", buffer[len(buffer)-1].BlockID,
+						"firstID", buffer[0].BatchID,
+						"lastID", buffer[len(buffer)-1].BatchID,
 						"proofType", proofType,
 					)
 				} else {
@@ -383,45 +381,13 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 	return nil
 }
 
-// AggregateProofs implements the Submitter interface.
-func (s *ProofSubmitterPacaya) AggregateProofs(ctx context.Context) error {
-	return fmt.Errorf("AggregateProofs is not implemented for Pacaya submitter")
-}
-
-// Producer implements the Submitter interface.
-func (s *ProofSubmitterPacaya) Producer() proofProducer.ProofProducer {
-	log.Warn("Producer is not implemented for Pacaya submitter")
-	return nil
-}
-
-// Tier implements the Submitter interface.
-func (s *ProofSubmitterPacaya) Tier() uint16 {
-	log.Warn("Tier is not implemented for Pacaya submitter")
-	return 0
-}
-
-// BufferSize implements the Submitter interface.
-func (s *ProofSubmitterPacaya) BufferSize() uint64 {
-	log.Warn("BufferSize is not implemented for Pacaya submitter")
-	return 0
-}
-
-// AggregationEnabled implements the Submitter interface.
-func (s *ProofSubmitterPacaya) AggregationEnabled() bool {
-	// Aggregation is always enabled for Pacaya.
-	return true
-}
-
 // validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
 // returns the invalid batch IDs.
 func (s *ProofSubmitterPacaya) validateBatchProofs(
 	ctx context.Context,
 	batchProof *proofProducer.BatchProofs,
 ) ([]uint64, error) {
-	var (
-		latestVerifiedID uint64
-		invalidBatchIDs  []uint64
-	)
+	var invalidBatchIDs []uint64
 
 	if len(batchProof.ProofResponses) == 0 {
 		return nil, proofProducer.ErrInvalidLength
@@ -430,18 +396,10 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	// Fetch the latest verified block ID.
 	batchInfo, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		blockInfo, err := s.rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			log.Warn(
-				"Failed to fetch state variables",
-				"error", err,
-			)
-			return nil, err
-		}
-		latestVerifiedID = blockInfo.BlockId
-	} else {
-		latestVerifiedID = batchInfo.BatchId
+		return nil, err
 	}
+	latestVerifiedID := batchInfo.BatchId
+
 	// Check if any batch in this aggregation is already submitted and valid,
 	// if so, we skip this batch.
 	for _, proof := range batchProof.ProofResponses {
@@ -451,8 +409,8 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 			return nil, err
 		}
 		if !ok {
-			log.Error("A valid proof for this batch has already been submitted", "batchID", proof.BlockID)
-			invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+			log.Error("A valid proof for this batch has already been submitted", "batchID", proof.BatchID)
+			invalidBatchIDs = append(invalidBatchIDs, proof.BatchID.Uint64())
 			continue
 		}
 
@@ -463,22 +421,22 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 			if err != nil {
 				log.Error(
 					"Failed to get L2 block with given hash",
-					"batchID", proof.BlockID,
+					"batchID", proof.BatchID,
 					"blockID", blockHeader.Number,
 					"hash", blockHeader.Hash(),
 					"error", err,
 				)
-				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				invalidBatchIDs = append(invalidBatchIDs, proof.BatchID.Uint64())
 				continue
 			}
 
 			if block.Transactions().Len() == 0 {
 				log.Error(
 					"Invalid block without anchor transaction",
-					"batchID", proof.BlockID,
+					"batchID", proof.BatchID,
 					"blockID", block.Number(),
 				)
-				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				invalidBatchIDs = append(invalidBatchIDs, proof.BatchID.Uint64())
 				continue
 			}
 
@@ -486,9 +444,20 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 			anchorTx := block.Transactions()[0]
 			if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
 				log.Error("Invalid anchor transaction", "error", err)
-				invalidBatchIDs = append(invalidBatchIDs, proof.BlockID.Uint64())
+				invalidBatchIDs = append(invalidBatchIDs, proof.BatchID.Uint64())
 				continue
 			}
+		}
+
+		// Check if the proof has already been submitted.
+		proofStatus, err := rpc.GetBatchProofStatus(ctx, s.rpc, proof.Meta.Pacaya().GetBatchID())
+		if err != nil {
+			return nil, err
+		}
+
+		if proofStatus.IsSubmitted && !proofStatus.Invalid {
+			log.Warn("A valid proof is already submitted", "batch", proof.BatchID)
+			invalidBatchIDs = append(invalidBatchIDs, proof.BatchID.Uint64())
 		}
 	}
 

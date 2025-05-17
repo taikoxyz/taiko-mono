@@ -34,17 +34,16 @@ func (s *TxListDecompressorTestSuite) SetupTest() {
 	s.d = NewTxListDecompressor(
 		params.MaxGasLimit,
 		rpc.BlockMaxTxListBytes,
-		chainID,
 	)
 }
 
 func (s *TxListDecompressorTestSuite) TestZeroBytes() {
-	s.Empty(s.d.TryDecompress(chainID, []byte{}, false, false))
+	s.Empty(s.d.TryDecompress([]byte{}, false))
 }
 
 func (s *TxListDecompressorTestSuite) TestCalldataSize() {
-	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes+1), false, false))
-	s.Empty(s.d.TryDecompress(chainID, randBytes(rpc.BlockMaxTxListBytes-1), false, false))
+	s.Empty(s.d.TryDecompress(randBytes(rpc.BlockMaxTxListBytes+1), false))
+	s.Empty(s.d.TryDecompress(randBytes(rpc.BlockMaxTxListBytes-1), false))
 }
 
 func (s *TxListDecompressorTestSuite) TestValidTxList() {
@@ -52,21 +51,21 @@ func (s *TxListDecompressorTestSuite) TestValidTxList() {
 	compressed, err := utils.Compress(rlpEncodedBytes)
 	s.Nil(err)
 
-	s.Equal(len(s.d.TryDecompress(chainID, compressed, true, false)), len(txs))
-	s.Equal(len(s.d.TryDecompress(chainID, compressed, false, false)), len(txs))
+	s.Equal(len(s.d.TryDecompress(compressed, true)), len(txs))
+	s.Equal(len(s.d.TryDecompress(compressed, false)), len(txs))
 }
 
 func (s *TxListDecompressorTestSuite) TestInvalidTxList() {
 	compressed, err := utils.Compress(randBytes(1024))
 	s.Nil(err)
 
-	s.Zero(len(s.d.TryDecompress(chainID, compressed, true, false)))
-	s.Zero(len(s.d.TryDecompress(chainID, compressed, false, false)))
+	s.Zero(len(s.d.TryDecompress(compressed, true)))
+	s.Zero(len(s.d.TryDecompress(compressed, false)))
 }
 
 func (s *TxListDecompressorTestSuite) TestInvalidZlibBytes() {
-	s.Zero(len(s.d.TryDecompress(chainID, randBytes(1024), true, false)))
-	s.Zero(len(s.d.TryDecompress(chainID, randBytes(1024), false, false)))
+	s.Zero(len(s.d.TryDecompress(randBytes(1024), true)))
+	s.Zero(len(s.d.TryDecompress(randBytes(1024), false)))
 }
 
 func TestDriverTestSuite(t *testing.T) {

@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"math/big"
 	"sync"
 	"time"
 
@@ -33,7 +32,7 @@ const (
 	exchangeTransitionConfigInterval = 1 * time.Minute
 )
 
-// Driver keeps the L2 execution engine's local block chain in sync with the TaikoL1
+// Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
 // contract.
 type Driver struct {
 	*Config
@@ -105,8 +104,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 	d.chainConfig = config.NewChainConfig(
 		d.rpc.L2.ChainID,
-		d.rpc.OntakeClients.ForkHeight,
-		d.rpc.PacayaClients.ForkHeight,
+		d.rpc.PacayaClients.ForkHeights.Ontake,
+		d.rpc.PacayaClients.ForkHeights.Pacaya,
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
@@ -121,7 +120,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfOperatorAddress,
-			d.TaikoL2Address,
+			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
 			latestSeenProposalCh,
@@ -255,7 +254,7 @@ func (d *Driver) eventLoop() {
 	}
 }
 
-// doSync fetches all `BlockProposed` events emitted from local
+// doSync fetches all `BatchProposed` events emitted from local
 // L1 sync cursor to the L1 head, and then applies all corresponding
 // L2 blocks into node's local blockchain.
 func (d *Driver) doSync() error {
@@ -297,17 +296,7 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			l2Head, err := d.rpc.L2.BlockNumber(d.ctx)
-			if err != nil {
-				log.Error("Failed to fetch L2 head", "error", err)
-				continue
-			}
-
-			if d.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head)) {
-				d.reportProtocolStatusPacaya(maxNumProposals)
-			} else {
-				d.reportProtocolStatusOntake(maxNumProposals)
-			}
+			d.reportProtocolStatusPacaya(maxNumProposals)
 		}
 	}
 }
@@ -325,22 +314,6 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
 		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
-	)
-}
-
-// reportProtocolStatusOntake reports some status for Ontake protocol.
-func (d *Driver) reportProtocolStatusOntake(maxNumProposals uint64) {
-	_, slotB, err := d.rpc.OntakeClients.TaikoL1.GetStateVariables(&bind.CallOpts{Context: d.ctx})
-	if err != nil {
-		log.Error("Failed to get protocol state variables", "error", err)
-		return
-	}
-
-	log.Info(
-		"📖 Protocol status",
-		"lastVerifiedBlockId", slotB.LastVerifiedBlockId,
-		"pendingBlocks", slotB.NumBlocks-slotB.LastVerifiedBlockId-1,
-		"availableSlots", slotB.LastVerifiedBlockId+maxNumProposals-slotB.NumBlocks,
 	)
 }
 

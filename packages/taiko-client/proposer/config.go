@@ -31,7 +31,7 @@ type Config struct {
 	MinProposingInternal       time.Duration
 	AllowZeroTipInterval       uint64
 	MaxProposedTxListsPerEpoch uint64
-	ProposeBlockTxGasLimit     uint64
+	ProposeBatchTxGasLimit     uint64
 	BlobAllowed                bool
 	FallbackToCalldata         bool
 	RevertProtectionEnabled    bool
@@ -84,10 +84,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),
 			L2Endpoint:                  c.String(flags.L2HTTPEndpoint.Name),
-			TaikoL1Address:              common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
+			TaikoInboxAddress:           common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
 			TaikoWrapperAddress:         common.HexToAddress(c.String(flags.TaikoWrapperAddress.Name)),
 			ForcedInclusionStoreAddress: common.HexToAddress(c.String(flags.ForcedInclusionStoreAddress.Name)),
-			TaikoL2Address:              common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
+			TaikoAnchorAddress:          common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			L2EngineEndpoint:            c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:                   string(jwtSecret),
 			TaikoTokenAddress:           common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
@@ -103,7 +103,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
 		MaxProposedTxListsPerEpoch: maxProposedTxListsPerEpoch,
 		AllowZeroTipInterval:       c.Uint64(flags.AllowZeroTipInterval.Name),
-		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
+		ProposeBatchTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
 		FallbackToCalldata:         c.Bool(flags.FallbackToCalldata.Name),
 		RevertProtectionEnabled:    c.Bool(flags.RevertProtectionEnabled.Name),

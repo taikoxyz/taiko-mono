@@ -30,20 +30,20 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
+// BlocksInserterPacaya is responsible for inserting Pacaya blocks to the L2 execution engine.
 type BlocksInserterPacaya struct {
 	rpc                  *rpc.Client
 	progressTracker      *beaconsync.SyncProgressTracker
 	blobDatasource       *rpc.BlobDataSource
 	txListDecompressor   *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor // TaikoAnchor.anchorV3 transactions constructor
 	calldataFetcher      txlistFetcher.TxListFetcher
 	blobFetcher          txlistFetcher.TxListFetcher
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	mutex                sync.Mutex
 }
 
-// NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
+// NewBlocksInserterPacaya creates a new BlocksInserterPacaya instance.
 func NewBlocksInserterPacaya(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,
@@ -70,7 +70,7 @@ func NewBlocksInserterPacaya(
 func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBlockProposedEventIterFunc,
+	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
 		return fmt.Errorf("metadata is not for Pacaya fork")
@@ -79,8 +79,11 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	defer i.mutex.Unlock()
 
 	var (
-		meta        = metadata.Pacaya()
-		txListBytes []byte
+		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
+		// to the channel.
+		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
+		meta               = metadata.Pacaya()
+		txListBytes        []byte
 	)
 
 	log.Debug(
@@ -106,17 +109,9 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 
 	var (
-		allTxs = i.txListDecompressor.TryDecompress(
-			i.rpc.L2.ChainID,
-			txListBytes,
-			len(meta.GetBlobHashes()) != 0,
-			true,
-		)
-		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
-		// to the channel.
-		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
-		parent             *types.Header
-		lastPayloadData    *engine.ExecutableData
+		allTxs          = i.txListDecompressor.TryDecompress(txListBytes, len(meta.GetBlobHashes()) != 0)
+		parent          *types.Header
+		lastPayloadData *engine.ExecutableData
 	)
 
 	go i.sendLatestSeenProposal(latestSeenProposal)
@@ -134,7 +129,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		} else {
 			var parentNumber *big.Int
 			if lastPayloadData == nil {
-				if meta.GetBatchID().Uint64() == i.rpc.PacayaClients.ForkHeight {
+				if meta.GetBatchID().Uint64() == i.rpc.PacayaClients.ForkHeights.Pacaya {
 					parentNumber = new(big.Int).SetUint64(meta.GetBatchID().Uint64() - 1)
 				} else {
 					lastBatch, err := i.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(meta.GetBatchID().Uint64()-1))
