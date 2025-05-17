@@ -137,7 +137,7 @@ func createExecutionPayloads(
 	}
 
 	log.Debug(
-		"PayloadAttributes",
+		"Payload attributes",
 		"blockID", meta.BlockID,
 		"timestamp", attributes.Timestamp,
 		"random", attributes.Random,

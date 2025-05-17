@@ -246,5 +246,11 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		Pacaya: protocolConfigs.ForkHeights.Pacaya,
 	}
 
+	log.Info(
+		"Fork height configs",
+		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
+		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
+	)
+
 	return nil
 }

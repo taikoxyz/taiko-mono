@@ -46,7 +46,7 @@ type Driver struct {
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
 
-	// P2P network for preconf block propagation
+	// P2P network for preconfirmation block propagation
 	p2pNode   *p2p.NodeP2P
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
@@ -115,11 +115,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	config.ReportProtocolConfigs(d.protocolConfig)
 
 	if d.PreconfBlockServerPort > 0 {
-		// Initialize the preconf block server.
+		// Initialize the preconfirmation block server.
 		if d.preconfBlockServer, err = preconfBlocks.New(
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
-			d.PreconfHandoverSkipSlots,
 			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
@@ -129,7 +128,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			return err
 		}
 
-		// Enable P2P network for preconf block propagation.
+		// Enable P2P network for preconfirmation block propagation.
 		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
 			log.Info("Enabling P2P network", "configs", cfg.P2PConfigs)
 			d.p2pSetup = cfg.P2PConfigs
@@ -148,7 +147,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 				return err
 			}
 
-			log.Info("P2PNode", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
+			log.Info("P2P node information", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
@@ -160,7 +159,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.preconfBlockServer.SetP2PSigner(d.p2pSigner)
 		}
 
-		// Set the preconf block server to the chain syncer.
+		// Set the preconfirmation block server to the chain syncer.
 		d.l2ChainSyncer.SetPreconfBlockServer(d.preconfBlockServer)
 	}
 
@@ -173,7 +172,7 @@ func (d *Driver) Start() error {
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
 
-	// Start the preconf block server if it is enabled.
+	// Start the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
 		go func() {
 			if err := d.preconfBlockServer.Start(d.PreconfBlockServerPort); err != nil {
@@ -206,7 +205,7 @@ func (d *Driver) Start() error {
 func (d *Driver) Close(_ context.Context) {
 	d.l1HeadSub.Unsubscribe()
 	d.state.Close()
-	// Close the preconf block server if it is enabled.
+	// Close the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
 		if err := d.preconfBlockServer.Shutdown(d.ctx); err != nil {
 			log.Error("Failed to shutdown preconfirmation block server", "error", err)
@@ -348,7 +347,7 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 	}
 }
 
-// cacheLookaheadLoop keeps updating the lookahead info for the preconf block server, and
+// cacheLookaheadLoop keeps updating the lookahead information for the preconfirmation block server, and
 // checks if the operator is transitioning to being the sequencer. If it is, it makes sure
 // it has seen an EndOfSequencing block. If it hasn't, it requests it via the p2p network
 // which the currentOperator will return.
@@ -369,11 +368,8 @@ func (d *Driver) cacheLookaheadLoop() {
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
-		opWin                  = preconfBlocks.NewOpWindow(
-			d.PreconfHandoverSkipSlots,
-			d.rpc.L1Beacon.SlotsPerEpoch,
-		)
-		wasSequencer bool = false
+		opWin                  = preconfBlocks.NewOpWindow(d.PreconfHandoverSkipSlots, d.rpc.L1Beacon.SlotsPerEpoch)
+		wasSequencer    bool   = false
 	)
 
 	checkHandover := func(epoch, slot uint64) {
@@ -385,25 +381,27 @@ func (d *Driver) cacheLookaheadLoop() {
 		isSequencer := err == nil
 
 		if isSequencer && !wasSequencer {
-			log.Info("lookahead transitioning to sequencing for operator")
+			log.Info("Lookahead transitioning to sequencing for operator", "epoch", epoch, "slot", slot)
 
 			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
 			if !seen {
-				log.Info("lookahead requesting end of sequencing for epoch", "epoch", epoch)
+				log.Info("Lookahead requesting end of sequencing for epoch", "epoch", epoch, "slot", slot)
 				if err := d.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(
 					context.Background(),
 					epoch,
 				); err != nil {
 					log.Warn(
-						"failed to publish end of sequencing request",
+						"Failed to publish end of sequencing request",
 						"currentEpoch", epoch,
+						"slot", slot,
 						"error", err,
 					)
 				}
 			} else {
 				log.Info(
-					"end of sequencing already seen",
+					"End of sequencing already seen",
 					"epoch", epoch,
+					"slot", slot,
 					"hash", hash.Hex(),
 				)
 			}

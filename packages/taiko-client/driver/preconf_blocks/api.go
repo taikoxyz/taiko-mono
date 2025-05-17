@@ -34,17 +34,17 @@ type ExecutableData struct {
 }
 
 // BuildPreconfBlockRequestBody represents a request body when handling
-// preconf blocks creation requests.
+// preconfirmation blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
 	ExecutableData  *ExecutableData `json:"executableData"`
 	EndOfSequencing *bool           `json:"endOfSequencing"`
 }
 
-// BuildPreconfBlockResponseBody represents a response body when handling preconf
+// BuildPreconfBlockResponseBody represents a response body when handling preconfirmation
 // blocks creation requests.
 type BuildPreconfBlockResponseBody struct {
-	// @param blockHeader types.Header of the preconf block
+	// @param blockHeader types.Header of the preconfirmation block
 	BlockHeader *types.Header `json:"blockHeader"`
 }
 
@@ -56,7 +56,7 @@ type BuildPreconfBlockResponseBody struct {
 //		@Description	Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
 //		@Description	body in request are valid, it will insert the corresponding
 //	 	@Description	preconfirmation block to the backend L2 execution engine and return a success response.
-//		@Param  	body body BuildPreconfBlockRequestBody true "preconf block creation request body"
+//		@Param  	body body BuildPreconfBlockRequestBody true "preconfirmation block creation request body"
 //		@Accept	  json
 //		@Produce	json
 //		@Success	200		{object} BuildPreconfBlockResponseBody
@@ -152,7 +152,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
 	}
 
-	// Insert the preconf block.
+	// Insert the preconfirmation block.
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		c.Request().Context(),
 		[]*eth.ExecutionPayload{executablePayload},
@@ -225,11 +225,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing && s.rpc.L1Beacon != nil {
 		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
-		s.sequencingEndedForEpoch.Add(
-			currentEpoch,
-			header.Hash(),
-		)
-		log.Info("End of sequencing block marker created",
+		s.sequencingEndedForEpochCache.Add(currentEpoch, header.Hash())
+		log.Info(
+			"End of sequencing block marker created",
 			"blockID", header.Number.Uint64(),
 			"hash", header.Hash().Hex(),
 			"currentEpoch", currentEpoch,
@@ -240,7 +238,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 }
 
 // RemovePreconfBlocksRequestBody represents a request body when resetting the backend
-// L2 execution engine preconf head.
+// L2 execution engine preconfirmation head.
 type RemovePreconfBlocksRequestBody struct {
 	// @param newLastBlockID uint64 New last block ID of the blockchain, it should
 	// @param not smaller than the canonical chain's highest block ID.
@@ -248,24 +246,24 @@ type RemovePreconfBlocksRequestBody struct {
 }
 
 // RemovePreconfBlocksResponseBody represents a response body when resetting the backend
-// L2 execution engine preconf head.
+// L2 execution engine preconfirmation head.
 type RemovePreconfBlocksResponseBody struct {
-	// @param lastBlockID uint64 Current highest block ID of the blockchain (including preconf blocks)
+	// @param lastBlockID uint64 Current highest block ID of the blockchain (including preconfirmation blocks)
 	LastBlockID uint64 `json:"lastBlockId"`
 	// @param lastProposedBlockID uint64 Highest block ID of the cnonical chain
 	LastProposedBlockID uint64 `json:"lastProposedBlockID"`
-	// @param headsRemoved uint64 Number of preconf heads removed
+	// @param headsRemoved uint64 Number of preconfirmation heads removed
 	HeadsRemoved uint64 `json:"headsRemoved"`
 }
 
-// RemovePreconfBlocks removes the backend L2 execution engine preconf head.
+// RemovePreconfBlocks removes the backend L2 execution engine preconfirmation head.
 //
-//		@Description	Remove all preconf blocks from the blockchain beyond the specified block height,
+//		@Description	Remove all preconfirmation blocks from the blockchain beyond the specified block height,
 //	  @Description	ensuring the latest block ID does not exceed the given height. This method will fail if
-//	  @Description	the block with an ID one greater than the specified height is not a preconf block. If the
-//	  @Description	specified block height is greater than the latest preconf block ID, the method will succeed
+//	  @Description	the block with an ID one greater than the specified height is not a preconfirmation block. If the
+//	  @Description	specified block height is greater than the latest preconfirmation block ID, the method will succeed
 //	  @Description	without modifying the blockchain.
-//		@Param      body body RemovePreconfBlocksRequestBody true "preconf blocks removing request body"
+//		@Param      body body RemovePreconfBlocksRequestBody true "preconfirmation blocks removing request body"
 //		@Accept			json
 //		@Produce		json
 //		@Success		200	{object} RemovePreconfBlocksResponseBody
@@ -316,7 +314,14 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		lastBlockID = canonicalHeadL1Origin.BlockID.Uint64()
 	}
 
-	log.Debug("Removed preconf blocks",
+	// If current block number is less than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if newHead.Number.Uint64() < s.highestUnsafeL2PayloadBlockID {
+		s.highestUnsafeL2PayloadBlockID = newHead.Number.Uint64()
+	}
+
+	log.Debug(
+		"Removed preconfirmation blocks",
 		"newHead", newHead.Number.Uint64(),
 		"lastBlockID", lastBlockID,
 		"headsRemoved", currentHead.Number.Uint64()-newHead.Number.Uint64(),
@@ -369,13 +374,14 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	endOfSequencingBlockHash := common.Hash{}
 
 	if s.rpc.L1Beacon != nil {
-		hash, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
+		hash, ok := s.sequencingEndedForEpochCache.Get(s.rpc.L1Beacon.CurrentEpoch())
 		if ok {
 			endOfSequencingBlockHash = hash
 		}
 	}
 
-	log.Debug("Get preconfirmation block server status",
+	log.Debug(
+		"Get preconfirmation block server status",
 		"currOperator", s.lookahead.CurrOperator.Hex(),
 		"nextOperator", s.lookahead.NextOperator.Hex(),
 		"currRanges", s.lookahead.CurrRanges,
@@ -395,7 +401,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 
 // returnError is a helper function to return an error response.
 func (s *PreconfBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
-	log.Error("Error handling preconf block request", "error", err.Error())
+	log.Error("Preconfirmation block request error", "status", statusCode, "error", err.Error())
 
 	return c.JSON(statusCode, map[string]string{"error": err.Error()})
 }
