@@ -371,7 +371,8 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	c.OntakeClients.ForkHeight = protocolConfigs.ForkHeights.Ontake
 	c.PacayaClients.ForkHeight = protocolConfigs.ForkHeights.Pacaya
 
-	log.Info("Forkheight configs",
+	log.Info(
+		"Forkheight configs",
 		"ontakeForkHeight", c.OntakeClients.ForkHeight,
 		"pacayaForkHeight", c.PacayaClients.ForkHeight,
 	)
