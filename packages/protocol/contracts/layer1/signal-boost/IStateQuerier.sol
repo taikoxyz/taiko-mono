@@ -10,7 +10,7 @@ interface IStateQuerier {
     event QueryResult(IStateQuery.Query query, IStateQuery.QueryResult result);
 
     /// @notice Queries the state of multiple contracts.
-    /// @param _queries An arry of queries, each containing a target contract and a payload.
+    /// @param _queries An array of queries, each containing a target contract and a payload.
     /// @return results_ An array of query results, each containing a success flag and output data.
     /// @return signal_ A bytes32 signal representing the hashed result of the queries.
     function queryState(IStateQuery.Query[] calldata _queries)
