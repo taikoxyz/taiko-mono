@@ -5,7 +5,7 @@ import "./IStateQuery.sol";
 
 /// @title LibQueries
 /// @custom:security-contact security@taiko.xyz
-library LibStates {
+library LibQueries {
     // AggregatorV3Interface.latestRoundData.selector
     bytes4 private constant LATEST_ROUND_DATA_SELECTOR = 0x50d25bcd;
 
