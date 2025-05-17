@@ -1128,10 +1128,10 @@ func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, er
 	return c.PacayaClients.TaikoInbox.Verifier(opts)
 }
 
-// GetPreconfWhiteListOperator resolves the current preconf whitelist operator address.
+// GetPreconfWhiteListOperator resolves the current preconfirmation whitelist operator address.
 func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.PreconfWhitelist == nil {
-		return common.Address{}, errors.New("preconf whitelist contract is not set")
+		return common.Address{}, errors.New("preconfirmations whitelist contract is not set")
 	}
 
 	var cancel context.CancelFunc
@@ -1144,10 +1144,10 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
 }
 
-// GetNextPreconfWhiteListOperator resolves the next preconf whitelist operator address.
+// GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.PreconfWhitelist == nil {
-		return common.Address{}, errors.New("preconf whitelist contract is not set")
+		return common.Address{}, errors.New("prpreconfirmationeconf whitelist contract is not set")
 	}
 
 	var cancel context.CancelFunc
@@ -1261,7 +1261,7 @@ func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, 
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
 }
 
-// GetPreconfRouterPacaya resolves the preconf router address.
+// GetPreconfRouterPacaya resolves the preconfirmation router address.
 func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.TaikoWrapper == nil {
 		return common.Address{}, errors.New("taikoWrapper contract is not set")

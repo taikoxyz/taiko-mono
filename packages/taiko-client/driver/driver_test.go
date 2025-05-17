@@ -445,7 +445,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Equal(common.Hash{}, l1Origin2.L1BlockHash)
 	s.True(l1Origin2.IsPreconfBlock())
 
-	// Remove one preconf block
+	// Remove one preconfirmation block
 	res, err = resty.New().
 		R().
 		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{
