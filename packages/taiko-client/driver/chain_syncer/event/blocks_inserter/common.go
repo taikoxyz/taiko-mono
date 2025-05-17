@@ -341,7 +341,7 @@ func isKnownCanonicalBlock(
 	}()
 
 	if block.ParentHash() != meta.Parent.Hash() {
-		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.ParentHash)
+		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash())
 		return nil, err
 	}
 	if block.Transactions().Len() == 0 {
