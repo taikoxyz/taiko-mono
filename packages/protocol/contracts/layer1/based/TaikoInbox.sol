@@ -281,10 +281,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchProposed(info_, meta_, _txList);
 
             if (params.callback.length > 0) {
-                (address onBatchProposed, bytes memory inputs) =
+                (address addr, bytes memory data) =
                     abi.decode(params.callback, (address, bytes));
 
-                IBatchProposedCallback(onBatchProposed).onBatchProposed(info_, meta_, inputs);
+                IBatchProposedCallback(addr).onBatchProposed(info_, meta_, data);
             }
         } // end-of-unchecked
 
