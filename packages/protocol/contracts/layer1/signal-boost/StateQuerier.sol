@@ -36,8 +36,6 @@ contract StateQuerier is EssentialContract, IStateQuerier {
             // Call the view function
             (results_[i].success, results_[i].output) =
                 _queries[i].target.staticcall(_queries[i].payload);
-
-            emit QueryResult(_queries[i], results_[i]);
         }
 
         signal_ = LibStateQuery.hashQueriesToSignal(
