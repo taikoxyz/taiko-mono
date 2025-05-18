@@ -25,6 +25,7 @@ interface IPacayaFork {
     function getLastSyncedTransition() external;
     function getBatchVerifyingTransition(uint64) external;
     function pacayaConfig() external;
+    function isOnL1() external;
 }
 
 /// @title ShastaForkRouter
