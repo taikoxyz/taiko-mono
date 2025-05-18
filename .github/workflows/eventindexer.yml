@@ -2,7 +2,7 @@ name: Eventindexer
 
 on:
   push:
-    branches: [main]
+    branches: [main, ie_pacaya]
     paths:
       - "packages/eventindexer/**"
   pull_request:
