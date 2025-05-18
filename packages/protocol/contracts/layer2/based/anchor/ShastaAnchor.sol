@@ -79,10 +79,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
             // For the final block in the batch, _anchorStateRoot must be non-zero.
             require(_anchorStateRoot != 0, ZeroAnchorStateRoot());
             _syncChainData(_anchorBlockId, _anchorStateRoot);
-        }
 
-        if (_signalSlots.length != 0) {
-            signalService.receiveSignals(_signalSlots);
+            if (_signalSlots.length != 0) {
+                signalService.receiveSignals(_signalSlots);
+            }
         }
 
         // We need to add one SSTORE from non-zero to non-zero (5000), one addition (3), and one
