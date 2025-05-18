@@ -127,6 +127,7 @@ interface IPreconfSlasher is ISlasher {
     error InvalidBlockHeader();
     error InvalidChainId();
     error InvalidDomainSeparator();
+    error InvalidActualBlockHeader();
     error InvalidNextBatchMetadata();
     error InvalidVerifiedBlockHeader();
     error InvalidViolationType();
@@ -137,6 +138,7 @@ interface IPreconfSlasher is ISlasher {
     error ParentHashMismatch();
     error PossibleReorgOfAnchorBlock();
     error PreconfirmationIsValid();
+    error ReorgedPreconf();
 
     /// @notice Returns the slash amount for each violation type
     /// @return slashAmount The slash amount for each violation type

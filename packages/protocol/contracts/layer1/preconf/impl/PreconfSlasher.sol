@@ -102,33 +102,47 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     {
         EvidenceInvalidPreconfirmation memory evidence =
             abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
-        require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
+
+        LibBlockHeader.BlockHeader memory preconfed = evidence.preconfedBlockHeader;
+        require(preconfed.hash() == _payload.blockHash, InvalidBlockHeader());
 
         _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
+        ITaikoInbox.BatchInfo memory batchInfo = evidence.batchInfo;
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
-        if (_payload.anchorId != evidence.batchInfo.anchorBlockId) {
+        if (_payload.anchorId != batchInfo.anchorBlockId) {
             return getSlashAmount().invalidPreconf;
         }
 
-        // Ensure that the anchor block has not been reorged out
-        require(
-            _payload.anchorHash == evidence.batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock()
-        );
+        // Unlike anchorId, we don't penalize the preconfer if the anchorHash doesn't match. This is
+        // because the anchor block could be reorganized. In such cases, the node should have
+        // already discarded the preconfirmation commitment if the anchorHash doesn't align with the
+        // hash of the anchor block.
+        require(_payload.anchorHash == batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock());
 
         // Check for reorgs if the committer missed the proposal
-        if (evidence.batchInfo.proposer != _committer) {
+        if (batchInfo.proposer != _committer) {
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
-            if (LibPreconfUtils.getBeaconBlockRootAt(_payload.preconferSlotTimestamp) == 0) {
-                return getSlashAmount().reorgedPreconf;
-            }
+            require(
+                LibPreconfUtils.getBeaconBlockRootAt(_payload.preconferSlotTimestamp) == 0,
+                ReorgedPreconf()
+            );
+
+            return getSlashAmount().reorgedPreconf;
         }
+
+        LibBlockHeader.BlockHeader memory actual = evidence.parentBlockhashProofs.actualBlockHeader;
+        LibBlockHeader.BlockHeader memory verified = evidence.verifiedBlockHeader;
+
+        require(actual.number == preconfed.number, InvalidActualBlockHeader());
+        require(verified.number >= preconfed.number, InvalidVerifiedBlockHeader());
+        require(verified.number == batchInfo.lastBlockId, InvalidVerifiedBlockHeader());
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
-        bytes32 actualBlockHash = evidence.blockhashProofs.actualBlockHeader.hash();
+        bytes32 actualBlockHash = actual.hash();
         require(_payload.blockHash != actualBlockHash, PreconfirmationIsValid());
 
         // Validate that the batch has been verified
@@ -136,21 +150,16 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
 
         // Validate the verified blockheader
-        require(
-            transition.blockHash == evidence.verifiedBlockHeader.hash(),
-            InvalidVerifiedBlockHeader()
-        );
-
-        uint256 blockId = evidence.preconfedBlockHeader.number;
+        require(transition.blockHash == verified.hash(), InvalidVerifiedBlockHeader());
 
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
         // the parentHash within the preconfirmed block header must match the hash of the proposed
         // parent.
         LibTrieProof.verifyMerkleProof(
-            evidence.verifiedBlockHeader.stateRoot,
+            verified.stateRoot,
             taikoAnchor,
-            _calcBlockHashSlot(blockId - 1),
-            evidence.preconfedBlockHeader.parentHash,
+            _calcBlockHashSlot(preconfed.number - 1),
+            preconfed.parentHash,
             evidence.parentBlockhashProofs.accountProof,
             evidence.parentBlockhashProofs.storageProof
         );
@@ -158,12 +167,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
         // at the same height as the preconfirmed block.
         LibTrieProof.verifyMerkleProof(
-            evidence.verifiedBlockHeader.stateRoot,
+            verified.stateRoot,
             taikoAnchor,
-            _calcBlockHashSlot(blockId),
+            _calcBlockHashSlot(preconfed.number),
             actualBlockHash,
-            evidence.blockhashProofs.accountProof,
-            evidence.blockhashProofs.storageProof
+            evidence.parentBlockhashProofs.accountProof,
+            evidence.parentBlockhashProofs.storageProof
         );
 
         return getSlashAmount().invalidPreconf;
@@ -256,7 +265,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     }
 
     function _calcBlockHashSlot(uint256 _blockId) internal pure returns (bytes32) {
-        // The mapping is in the first slot
+        // The mapping is in the 251st slot
         return keccak256(abi.encode(_blockId, bytes32(uint256(251))));
     }
 }
