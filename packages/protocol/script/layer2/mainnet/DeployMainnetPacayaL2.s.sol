@@ -5,13 +5,9 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
+import "src/layer1/mainnet/resolvers/RollupResolver.sol";
+import "src/layer1/mainnet/resolvers/SharedResolver.sol";
 import "src/shared/signal/SignalService.sol";
-import "src/shared/tokenvault/BridgedERC1155.sol";
-import "src/shared/tokenvault/BridgedERC20.sol";
-import "src/shared/tokenvault/BridgedERC721.sol";
-import "src/shared/tokenvault/ERC1155Vault.sol";
-import "src/shared/tokenvault/ERC20Vault.sol";
-import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/layer2/based/TaikoAnchor.sol";
 import "src/layer2/DelegateOwner.sol";
 
@@ -19,7 +15,7 @@ contract DeployMainnetPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     uint64 public pacayaForkHeight = 1_166_000;
     address public signalService = 0x1670000000000000000000000000000000000005;
-    address public contractOwner = vm.envAddress("CONTRACT_OWNER");
+    address public contractOwner = 0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8;
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
