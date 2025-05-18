@@ -138,10 +138,12 @@ func (i *Indexer) filter(
 	)
 
 	if i.latestIndexedBlockNumber >= i.ontakeForkHeight {
+		slog.Info("ontake fork height reached", "height", i.ontakeForkHeight)
 		i.isPostOntakeForkHeightReached = true
 	}
 
 	if i.latestIndexedBlockNumber >= i.pacayaForkHeight {
+		slog.Info("pacaya fork height reached", "height", i.pacayaForkHeight)
 		i.isPostPacayaForkHeightReached = true
 	}
 
