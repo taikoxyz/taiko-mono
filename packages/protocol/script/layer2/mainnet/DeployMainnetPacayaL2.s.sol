@@ -7,7 +7,7 @@ import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/layer1/mainnet/resolvers/RollupResolver.sol";
 import "src/layer1/mainnet/resolvers/SharedResolver.sol";
-import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
+import "src/shared/signal/SignalService.sol";
 import "src/layer2/based/TaikoAnchor.sol";
 import "src/layer2/DelegateOwner.sol";
 
@@ -78,7 +78,7 @@ contract DeployMainnetPacayaL2 is DeployCapability {
         register(rollupResolver, "bridged_erc721", 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7, 1);
         register(rollupResolver, "bridged_erc1155", 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40, 1);
         // SignalService
-        address signalServiceImpl = address(new MainnetSignalService(sharedResolver));
+        address signalServiceImpl = address(new SignalService(sharedResolver));
         console2.log("signalServiceImpl", signalServiceImpl);
         // Taiko Anchor
         address taikoAnchorImpl =
