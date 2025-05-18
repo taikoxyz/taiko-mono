@@ -125,12 +125,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         if (batchInfo.proposer != _committer) {
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
-            require(
-                LibPreconfUtils.getBeaconBlockRootAt(_payload.preconferSlotTimestamp) == 0,
-                ReorgedPreconf()
-            );
-
-            return getSlashAmount().reorgedPreconf;
+            if (LibPreconfUtils.getBeaconBlockRootAt(_payload.preconferSlotTimestamp) == 0) {
+                return getSlashAmount().reorgedPreconf;
+            }
         }
 
         LibBlockHeader.BlockHeader memory actual = evidence.parentBlockhashProofs.actualBlockHeader;
