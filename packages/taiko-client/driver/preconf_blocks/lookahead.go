@@ -102,9 +102,10 @@ func (w *opWindow) SequencingWindowSplit(operator common.Address, curr bool) []S
 
 // Lookahead holds the up‑to‑date sequencing window and operator addrs.
 type Lookahead struct {
-	CurrOperator common.Address `json:"currOperator"`
-	NextOperator common.Address `json:"nextOperator"`
-	CurrRanges   []SlotRange    `json:"currRanges"` // slots allowed for CurrOperator (0..threshold-1)
-	NextRanges   []SlotRange    `json:"nextRanges"` // slots allowed for NextOperator (threshold..slotsPerEpoch-1)
-	UpdatedAt    time.Time      `json:"updatedAt"`
+	CurrOperator     common.Address `json:"currOperator"`
+	NextOperator     common.Address `json:"nextOperator"`
+	CurrRanges       []SlotRange    `json:"currRanges"` // slots allowed for CurrOperator (0..threshold-1)
+	NextRanges       []SlotRange    `json:"nextRanges"` // slots allowed for NextOperator (threshold..slotsPerEpoch-1)
+	UpdatedAt        time.Time      `json:"updatedAt"`
+	LastEpochUpdated uint64         `json:"lastUpdatedEpoch"`
 }
