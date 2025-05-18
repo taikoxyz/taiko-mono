@@ -134,7 +134,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         LibBlockHeader.BlockHeader memory verified = evidence.verifiedBlockHeader;
 
         require(actual.number == preconfed.number, InvalidActualBlockHeader());
-        require(verified.number >= preconfed.number, InvalidVerifiedBlockHeader());
+
+        // The verified block must be at a higher height than the preconfirmed block, otherwise, the
+        // preconfed block hash won't be written by the anchor transaction.
+        require(verified.number > preconfed.number, InvalidVerifiedBlockHeader());
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
