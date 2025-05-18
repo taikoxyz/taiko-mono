@@ -39,15 +39,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// golden touch private key,
     /// the Taiko node ensures that the first transaction of each block is always this anchor
     /// transaction. Any subsequent calls will be reverted with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _anchorBlockId This is the `anchorBlockId` value in the metadata of this block. This
-    /// value is required to be 0 for all blocks except the last one in the batch.
+    /// @param _anchorBlockId This is the `anchorBlockId` value in the metadata of this block.
     /// @param _anchorStateRoot This is the state root for the L1 block with an id equal to
-    /// `_anchorBlockId`. This value is required to be 0 for all blocks except the last one in the
-    /// batch.
+    /// `_anchorBlockId`.
     /// @param _parentGasUsed This is the amount of gas used in the parent block.
     /// @param _baseFeeConfig This is the configuration for the base fee.
-    /// @param _signalSlots These are the signal slots to be marked as received. This array is
-    /// required to be empty for all blocks except the last one in the batch.
+    /// @param _signalSlots These are the signal slots to be marked as received. 
     function v4Anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
