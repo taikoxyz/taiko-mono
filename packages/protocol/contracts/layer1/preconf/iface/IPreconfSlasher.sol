@@ -41,6 +41,9 @@ interface IPreconfSlasher is ISlasher {
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
+        // Blockhash value of the block that was proposed at height X,
+        // but does not match with the blockhash of the preconfirmed block at the same height.
+        LibBlockHeader.BlockHeader actualBlockHeader;
         // This is the Blockheader of the last block in the batch that contains the block at height
         // X. This is used as the reference blockheader for verifying anchor state.
         LibBlockHeader.BlockHeader verifiedBlockHeader;
@@ -81,8 +84,6 @@ interface IPreconfSlasher is ISlasher {
     // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
     // The EVM `slot` containing the blockhash is calculated dynamically based on the block number.
     struct BlockhashProofs {
-        // Blockhash value
-        LibBlockHeader.BlockHeader actualBlockHeader;
         // Patricia trie account proof
         bytes[] accountProof;
         // Patricia trie storage proof

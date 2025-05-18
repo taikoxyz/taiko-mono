@@ -115,6 +115,10 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             return getSlashAmount().invalidPreconf;
         }
 
+        uint256 blockId = preconfed.number;
+        require(blockId > batchInfo.lastBlockId - batchInfo.blocks.length, BlockNotInBatch());
+        require(blockId <= batchInfo.lastBlockId, BlockNotInBatch());
+
         // Unlike anchorId, we don't penalize the preconfer if the anchorHash doesn't match. This is
         // because the anchor block could be reorganized. In such cases, the node should have
         // already discarded the preconfirmation commitment if the anchorHash doesn't align with the
@@ -130,19 +134,15 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             }
         }
 
-        LibBlockHeader.BlockHeader memory actual = evidence.parentBlockhashProofs.actualBlockHeader;
-        LibBlockHeader.BlockHeader memory verified = evidence.verifiedBlockHeader;
-
-        require(actual.number == preconfed.number, InvalidActualBlockHeader());
-
-        // The verified block must be at a higher height than the preconfirmed block, otherwise, the
-        // preconfed block hash won't be written by the anchor transaction. 
-        require(verified.number > preconfed.number, InvalidVerifiedBlockHeader());
-
+        LibBlockHeader.BlockHeader memory actual = evidence.actualBlockHeader;
+        require(actual.number == blockId, InvalidActualBlockHeader());
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
         bytes32 actualBlockHash = actual.hash();
         require(_payload.blockHash != actualBlockHash, PreconfirmationIsValid());
+
+        LibBlockHeader.BlockHeader memory verified = evidence.verifiedBlockHeader;
+        require(verified.number == batchInfo.lastBlockId, InvalidVerifiedBlockHeader());
 
         // Validate that the batch has been verified
         ITaikoInbox.TransitionState memory transition =
@@ -157,22 +157,26 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         LibTrieProof.verifyMerkleProof(
             verified.stateRoot,
             taikoAnchor,
-            _calcBlockHashSlot(preconfed.number - 1),
+            _calcBlockHashSlot(blockId - 1),
             preconfed.parentHash,
             evidence.parentBlockhashProofs.accountProof,
             evidence.parentBlockhashProofs.storageProof
         );
 
-        // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
-        // at the same height as the preconfirmed block.
-        LibTrieProof.verifyMerkleProof(
-            verified.stateRoot,
-            taikoAnchor,
-            _calcBlockHashSlot(preconfed.number),
-            actualBlockHash,
-            evidence.parentBlockhashProofs.accountProof,
-            evidence.parentBlockhashProofs.storageProof
-        );
+        if (verified.number == blockId) {
+            require(transition.blockHash == actualBlockHash, InvalidVerifiedBlockHeader());
+        } else {
+            // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
+            // at the same height as the preconfirmed block.
+            LibTrieProof.verifyMerkleProof(
+                verified.stateRoot,
+                taikoAnchor,
+                _calcBlockHashSlot(blockId),
+                actualBlockHash,
+                evidence.parentBlockhashProofs.accountProof,
+                evidence.parentBlockhashProofs.storageProof
+            );
+        }
 
         return getSlashAmount().invalidPreconf;
     }
