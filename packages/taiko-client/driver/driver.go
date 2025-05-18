@@ -491,6 +491,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		if l == nil || l.LastEpochUpdated < currentEpoch && slotInEpoch >= 15 {
 			log.Info("Pushing into window for current epoch",
 				"epoch", currentEpoch,
+				"currentSlot", currentSlot,
 				"slotInEpoch", slotInEpoch,
 				"currOp", currOp.Hex(),
 				"nextOp", nextOp.Hex(),
@@ -500,6 +501,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			// Push next epoch
 			log.Info("Pushing into window for next epoch",
 				"epoch", currentEpoch+1,
+				"currentSlot", currentSlot,
 				"slotInEpoch", slotInEpoch,
 				"currOp", nextOp.Hex(), // currOp becomes nextOp at next epoch
 			)
