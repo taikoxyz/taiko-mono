@@ -138,7 +138,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         require(actual.number == preconfed.number, InvalidActualBlockHeader());
         require(verified.number >= preconfed.number, InvalidVerifiedBlockHeader());
-        require(verified.number == batchInfo.lastBlockId, InvalidVerifiedBlockHeader());
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
