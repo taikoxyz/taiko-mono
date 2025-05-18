@@ -29,13 +29,13 @@ contract DeployMainnetPacayaL2 is DeployCapability {
         // Shared resolver
         address sharedResolver = deployProxy({
             name: "shared_resolver",
-            impl: address(new SharedResolver()),
+            impl: address(new DefaultResolver()),
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Rollup resolver
         address rollupResolver = deployProxy({
             name: "rollup_resolver",
-            impl: address(new RollupResolver()),
+            impl: address(new DefaultResolver()),
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Copy register
