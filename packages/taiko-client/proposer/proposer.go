@@ -190,7 +190,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		p.proposerAddress,
 		p.protocolConfigs.BlockMaxGasLimit(),
 		rpc.BlockMaxTxListBytes,
-		p.LocalAddresses,
+		[]common.Address{},
 		p.MaxProposedTxListsPerEpoch,
 		minTip,
 		p.chainConfig,
@@ -217,34 +217,6 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 			"minProposingInternal", p.MinProposingInternal,
 		)
 		txLists = append(txLists, types.Transactions{})
-	}
-
-	// If LocalAddressesOnly is set, filter the transactions by the local addresses.
-	if p.LocalAddressesOnly {
-		var (
-			localTxsLists []types.Transactions
-			signer        = types.LatestSignerForChainID(p.rpc.L2.ChainID)
-		)
-		for _, txs := range txLists {
-			var filtered types.Transactions
-			for _, tx := range txs {
-				sender, err := types.Sender(signer, tx)
-				if err != nil {
-					return nil, err
-				}
-
-				for _, localAddress := range p.LocalAddresses {
-					if sender == localAddress {
-						filtered = append(filtered, tx)
-					}
-				}
-			}
-
-			if filtered.Len() != 0 {
-				localTxsLists = append(localTxsLists, filtered)
-			}
-		}
-		txLists = localTxsLists
 	}
 
 	log.Info(

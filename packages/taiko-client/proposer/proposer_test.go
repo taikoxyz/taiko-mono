@@ -205,7 +205,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			s.p.proposerAddress,
 			s.p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
-			s.p.LocalAddresses,
+			[]common.Address{},
 			10,
 			0,
 			s.p.chainConfig,
@@ -275,7 +275,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			s.p.proposerAddress,
 			testCase.blockMaxGasLimit,
 			testCase.blockMaxTxListBytes,
-			s.p.LocalAddresses,
+			[]common.Address{},
 			testCase.maxTransactionsLists,
 			0,
 			s.p.chainConfig,
@@ -334,7 +334,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			p.proposerAddress,
 			p.protocolConfigs.BlockMaxGasLimit(),
 			rpc.BlockMaxTxListBytes,
-			p.LocalAddresses,
+			[]common.Address{},
 			p.MaxProposedTxListsPerEpoch,
 			0,
 			p.chainConfig,
@@ -363,7 +363,6 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	}
 
 	// Start proposer
-	p.LocalAddressesOnly = false
 	p.ProposeInterval = time.Second
 	p.MinProposingInternal = time.Minute
 	s.Nil(p.ProposeOp(context.Background()))

@@ -3,7 +3,6 @@ package proposer
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -25,8 +24,6 @@ type Config struct {
 	L1ProposerPrivKey          *ecdsa.PrivateKey
 	L2SuggestedFeeRecipient    common.Address
 	ProposeInterval            time.Duration
-	LocalAddresses             []common.Address
-	LocalAddressesOnly         bool
 	MinTip                     uint64
 	MinProposingInternal       time.Duration
 	AllowZeroTipInterval       uint64
@@ -55,16 +52,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	l2SuggestedFeeRecipient := c.String(flags.L2SuggestedFeeRecipient.Name)
 	if !common.IsHexAddress(l2SuggestedFeeRecipient) {
 		return nil, fmt.Errorf("invalid L2 suggested fee recipient address: %s", l2SuggestedFeeRecipient)
-	}
-
-	var localAddresses []common.Address
-	if c.IsSet(flags.TxPoolLocals.Name) {
-		for _, account := range strings.Split(c.String(flags.TxPoolLocals.Name), ",") {
-			if trimmed := strings.TrimSpace(account); !common.IsHexAddress(trimmed) {
-				return nil, fmt.Errorf("invalid account in --txpool.locals: %s", trimmed)
-			}
-			localAddresses = append(localAddresses, common.HexToAddress(account))
-		}
 	}
 
 	minTip, err := utils.GWeiToWei(c.Float64(flags.MinTip.Name))
@@ -97,8 +84,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(l2SuggestedFeeRecipient),
 		ProposeInterval:            c.Duration(flags.ProposeInterval.Name),
-		LocalAddresses:             localAddresses,
-		LocalAddressesOnly:         c.Bool(flags.TxPoolLocalsOnly.Name),
 		MinTip:                     minTip.Uint64(),
 		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
 		MaxProposedTxListsPerEpoch: maxProposedTxListsPerEpoch,
