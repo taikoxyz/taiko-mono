@@ -36,7 +36,7 @@ contract RollupResolver is ResolverBase {
             return 0xE3D777143Ea25A6E031d1e921F396750885f43aC;
         }
         if (_name == LibStrings.B_PROOF_VERIFIER) {
-            return address(0); // TODO(david)
+            return 0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1;
         }
         return address(0);
     }
