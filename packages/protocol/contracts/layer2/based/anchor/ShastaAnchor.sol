@@ -44,7 +44,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// `_anchorBlockId`.
     /// @param _parentGasUsed This is the amount of gas used in the parent block.
     /// @param _baseFeeConfig This is the configuration for the base fee.
-    /// @param _signalSlots These are the signal slots to be marked as received. 
+    /// @param _signalSlots These are the signal slots to be marked as received.
     function v4Anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
