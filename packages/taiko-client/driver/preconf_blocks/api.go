@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 
@@ -36,7 +37,8 @@ type ExecutableData struct {
 // preconf blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
-	ExecutableData *ExecutableData `json:"executableData"`
+	ExecutableData  *ExecutableData `json:"executableData"`
+	EndOfSequencing *bool           `json:"endOfSequencing"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconf
@@ -60,6 +62,8 @@ type BuildPreconfBlockResponseBody struct {
 //		@Success	200		{object} BuildPreconfBlockResponseBody
 //		@Router		/preconfBlocks [post]
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
@@ -67,6 +71,31 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 	if reqBody.ExecutableData == nil {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
+	}
+
+	parent, err := s.rpc.L2.HeaderByHash(c.Request().Context(), reqBody.ExecutableData.ParentHash)
+	if err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	if s.latestSeenProposal != nil && parent.Number.Uint64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
+		log.Warn(
+			"The parent block ID is smaller than the latest block ID seen in event",
+			"parentBlockID", parent.Number.Uint64(),
+			"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
+		)
+		return s.returnError(c, http.StatusBadRequest,
+			fmt.Errorf(
+				"latestBatchProposalBlockID: %v, parentBlockID: %v",
+				s.latestSeenProposal.Pacaya().GetLastBlockID(),
+				parent.Number.Uint64(),
+			),
+		)
+	}
+
+	endOfSequencing := false
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing {
+		endOfSequencing = true
 	}
 
 	log.Info(
@@ -78,18 +107,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas)),
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
+		"endOfSequencing", endOfSequencing,
 	)
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
 	if s.rpc.L1Beacon != nil {
-		if err := s.checkLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.CurrentSlot()); err != nil {
+		if err := s.CheckLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 			return s.returnError(c, http.StatusBadRequest, err)
 		}
 	}
 
 	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
 	if overflow {
@@ -115,7 +145,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(c.Request().Context())
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 	if progress.IsSyncing() {
 		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
@@ -135,6 +165,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	header := headers[0]
+
+	// If the block number is greater than the highest unsafe L2 payload block ID,
+	// update the highest unsafe L2 payload block ID.
+	if header.Number.Uint64() > s.highestUnsafeL2PayloadBlockID {
+		s.updateHighestUnsafeL2Payload(header.Number.Uint64())
+	}
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
@@ -164,6 +200,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 						BlockHash:     header.Hash(),
 						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 					},
+					EndOfSequencing: reqBody.EndOfSequencing,
 				},
 				s.p2pSigner,
 			); err != nil {
@@ -182,6 +219,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"mixDigest", common.Bytes2Hex(header.MixDigest[:]),
 			"extraData", common.Bytes2Hex(header.Extra),
 			"baseFee", utils.WeiToEther(header.BaseFee),
+		)
+	}
+
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing && s.rpc.L1Beacon != nil {
+		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
+		s.sequencingEndedForEpoch.Add(
+			currentEpoch,
+			header.Hash(),
+		)
+		log.Info("End of sequencing block marker created",
+			"blockID", header.Number.Uint64(),
+			"hash", header.Hash().Hex(),
+			"currentEpoch", currentEpoch,
 		)
 	}
 
@@ -265,6 +315,12 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 		lastBlockID = canonicalHeadL1Origin.BlockID.Uint64()
 	}
 
+	log.Debug("Removed preconf blocks",
+		"newHead", newHead.Number.Uint64(),
+		"lastBlockID", lastBlockID,
+		"headsRemoved", currentHead.Number.Uint64()-newHead.Number.Uint64(),
+	)
+
 	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
 		LastBlockID:         newHead.Number.Uint64(),
 		LastProposedBlockID: lastBlockID,
@@ -294,6 +350,8 @@ type Status struct {
 	// @param has received from the P2P network, if its zero, it means the current server has not received
 	// @param any preconfirmation block from the P2P network yet.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
+	// @param whether the current epoch has received an end of sequencing block marker
+	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -307,14 +365,36 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
+	endOfSequencingBlockHash := common.Hash{}
+
+	if s.rpc.L1Beacon != nil {
+		hash, ok := s.sequencingEndedForEpoch.Get(s.rpc.L1Beacon.CurrentEpoch())
+		if ok {
+			endOfSequencingBlockHash = hash
+		}
+	}
+
+	log.Debug("Get preconfirmation block server status",
+		"currOperator", s.lookahead.CurrOperator.Hex(),
+		"nextOperator", s.lookahead.NextOperator.Hex(),
+		"currRanges", s.lookahead.CurrRanges,
+		"nextRanges", s.lookahead.NextRanges,
+		"totalCached", s.payloadsCache.getTotalCached(),
+		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+	)
+
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.payloadsCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
+		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
 	})
 }
 
 // returnError is a helper function to return an error response.
 func (s *PreconfBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
+	log.Error("Error handling preconf block request", "error", err.Error())
+
 	return c.JSON(statusCode, map[string]string{"error": err.Error()})
 }

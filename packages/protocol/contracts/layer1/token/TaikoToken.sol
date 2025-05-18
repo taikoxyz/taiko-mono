@@ -15,6 +15,8 @@ contract TaikoToken is TaikoTokenBase {
     address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da;
     // daocontroller.taiko.eth
     address public constant TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
+    // v20.based.taiko.eth
+    address public constant TAIKO_ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
 
     error TT_INVALID_PARAM();
     error TT_NON_VOTING_ACCOUNT();
@@ -33,50 +35,59 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
-    function delegate(address account) public override {
-        address[] memory nonVotingAccounts = getNonVotingAccounts();
-        // Special checks to avoid reading from storage slots
-        for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            require(msg.sender != nonVotingAccounts[i], TT_NON_VOTING_ACCOUNT());
+    function init2() external reinitializer(2) {
+        // Ensure non-voting accounts are forced to delegate to themselves so their getPastVotes
+        // will return their balance as their voting power.
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            _delegate(accounts[i], accounts[i]);
         }
-        super.delegate(account);
+    }
+
+    function delegate(address _account) public override {
+        // Ensure non-voting accounts cannot delegate or being delegated to.
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            require(_account != accounts[i] && msg.sender != accounts[i], TT_NON_VOTING_ACCOUNT());
+        }
+        super.delegate(_account);
     }
 
     function getPastVotes(
-        address account,
-        uint256 timepoint
+        address _account,
+        uint256 _timepoint
     )
         public
         view
         override
         returns (uint256)
     {
-        address[] memory nonVotingAccounts = getNonVotingAccounts();
-        for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            if (account == nonVotingAccounts[i]) {
-                return 0;
-            }
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            if (_account == accounts[i]) return 0;
         }
-        return super.getPastVotes(account, timepoint);
+        return super.getPastVotes(_account, _timepoint);
     }
 
     /// @notice This override modifies the return value to reflect the past total supply eligible
     /// for voting.
-    function getPastTotalSupply(uint256 timepoint) public view override returns (uint256) {
-        address[] memory nonVotingAccounts = getNonVotingAccounts();
+    function getPastTotalSupply(uint256 _timepoint) public view override returns (uint256) {
         uint256 nonVotingSupply;
-        for (uint256 i; i < nonVotingAccounts.length; ++i) {
-            nonVotingSupply += balanceOf(nonVotingAccounts[i]);
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            // Must use `super.getPastVotes` instead of `this.getPastVotes`
+            nonVotingSupply += super.getPastVotes(accounts[i], _timepoint);
         }
-        nonVotingSupply += balanceOf(address(0));
-        return super.getPastTotalSupply(timepoint) - nonVotingSupply;
+        return super.getPastTotalSupply(_timepoint) - nonVotingSupply;
     }
 
     /// @notice Returns the list of accounts that are not eligible for voting.
     /// @return accounts_ The list of accounts that are not eligible for voting.
     function getNonVotingAccounts() public pure virtual returns (address[] memory accounts_) {
-        accounts_ = new address[](2);
-        accounts_[0] = TAIKO_FOUNDATION_TREASURY;
-        accounts_[1] = TAIKO_DAO_CONTROLLER;
+        accounts_ = new address[](4);
+        accounts_[0] = address(0);
+        accounts_[1] = TAIKO_FOUNDATION_TREASURY;
+        accounts_[2] = TAIKO_DAO_CONTROLLER;
+        accounts_[3] = TAIKO_ERC20_VAULT;
     }
 }
