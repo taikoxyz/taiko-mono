@@ -11,7 +11,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     error InvalidForkHeight();
     error NonZeroAnchorStateRoot();
     error ZeroAnchorStateRoot();
-    error NonEmptySignalSlots();
 
     // The v4Anchor's transaction gas limit, this value must be enforced by the node and prover.
     // When there are 16 signals in v4Anchor's parameter, the estimated gas cost is actually
