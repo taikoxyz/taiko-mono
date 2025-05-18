@@ -9,6 +9,9 @@ import "./PacayaAnchor.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaAnchor is PacayaAnchor {
     error InvalidForkHeight();
+    error NonZeroAnchorStateRoot();
+    error ZeroAnchorStateRoot();
+    error NonEmptySignalSlots();
 
     // The v4Anchor's transaction gas limit, this value must be enforced by the node and prover.
     // When there are 16 signals in v4Anchor's parameter, the estimated gas cost is actually
@@ -36,11 +39,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
-    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata. This value must be
+    /// 0 for all except the last block in the batch.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`. This
+    /// value must be 0 for all except the last block in the batch.
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
-    /// @param _signalSlots The signal slots to mark as received.
+    /// @param _signalSlots The signal slots to mark as received. This array must be empty for all
+    /// except the last block in the batch.
     function v4Anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -50,8 +56,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bytes32[] calldata _signalSlots
     )
         external
-        nonZeroBytes32(_anchorStateRoot)
-        nonZeroValue(_anchorBlockId)
         nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
         nonZeroValue(_baseFeeConfig.adjustmentQuotient)
         onlyGoldenTouch
@@ -62,10 +66,22 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
-        _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
-        signalService.receiveSignals(_signalSlots);
+        // The node shall enforce _anchorBlockId to be zero for all except the last block in the
+        // batch. The validation for _anchorStateRoot and _signalSlots remains the same.
+        if (_anchorBlockId == 0) {
+            // non-final block, _anchorStateRoot must be zero, _signalSlots must be empty.
+            // This ensures only the last block in the batch has to care about _anchorBlockId,
+            // _anchorStateRoot, and _signalSlots.
+            require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
+            require(_signalSlots.length == 0, NonEmptySignalSlots());
+        } else {
+            // final block, _anchorStateRoot must be non-zero
+            require(_anchorStateRoot != 0, ZeroAnchorStateRoot());
+            _syncChainData(_anchorBlockId, _anchorStateRoot);
+            signalService.receiveSignals(_signalSlots);
+        }
 
         // We need to add one SSTORE from non-zero to non-zero (5000), one addition (3), and one
         // subtraction (3).
