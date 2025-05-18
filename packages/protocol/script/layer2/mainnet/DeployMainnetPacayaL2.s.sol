@@ -19,7 +19,7 @@ contract DeployMainnetPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     uint64 public pacayaForkHeight = 1_166_000;
     address public signalService = 0x1670000000000000000000000000000000000005;
-    address public contractOwner = vm.envAddress("CONTRACT_OWNER");
+    address public contractOwner = 0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8;
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");

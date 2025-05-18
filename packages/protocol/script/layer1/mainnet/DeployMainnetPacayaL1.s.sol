@@ -26,6 +26,8 @@ import "src/layer1/fork-router/PacayaForkRouter.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/mainnet/verifiers/MainnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
+import "src/layer1/mainnet/resolvers/RollupResolver.sol";
+import "src/layer1/mainnet/resolvers/SharedResolver.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
@@ -71,14 +73,14 @@ contract DeployMainnetPacayaL1 is DeployCapability {
         // Shared resolver
         address sharedResolver = deployProxy({
             name: "shared_resolver",
-            impl: address(new DefaultResolver()),
-            data: abi.encodeCall(DefaultResolver.init, (address(0)))
+            impl: address(new SharedResolver()),
+            data: abi.encodeCall(SharedResolver.init, (address(0)))
         });
         // Rollup resolver
         address rollupResolver = deployProxy({
             name: "rollup_address_resolver",
-            impl: address(new DefaultResolver()),
-            data: abi.encodeCall(DefaultResolver.init, (address(0)))
+            impl: address(new RollupResolver()),
+            data: abi.encodeCall(RollupResolver.init, (address(0)))
         });
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);
@@ -154,7 +156,7 @@ contract DeployMainnetPacayaL1 is DeployCapability {
         address newProverSetImpl =
             address(new ProverSet(rollupResolver, taikoInbox, taikoToken, taikoWrapper));
         console2.log("newProverSetImpl:", newProverSetImpl);
-        address newSignalServiceImpl = address(new SignalService(sharedResolver));
+        address newSignalServiceImpl = address(new MainnetSignalService(sharedResolver));
         console2.log("newSignalServiceImpl:", newSignalServiceImpl);
         register(rollupResolver, "taiko", taikoInbox);
         // Other verifiers
