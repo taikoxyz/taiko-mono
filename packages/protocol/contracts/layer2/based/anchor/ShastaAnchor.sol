@@ -68,16 +68,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _updateParentHashAndTimestamp(parentId);
 
-        // The node shall enforce _anchorBlockId to be zero for all except the last block in the
-        // batch. The validation for _anchorStateRoot and _signalSlots remains the same.
         if (_anchorBlockId == 0) {
-            // non-final block, _anchorStateRoot must be zero, _signalSlots must be empty.
-            // This ensures only the last block in the batch has to care about _anchorBlockId,
-            // _anchorStateRoot, and _signalSlots.
+            // For blocks that are not the last in the batch, _anchorBlockId, _anchorStateRoot, and
+            // _signalSlots must be zero or empty.
             require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
             require(_signalSlots.length == 0, NonEmptySignalSlots());
         } else {
-            // final block, _anchorStateRoot must be non-zero
+            // For the final block in the batch, _anchorStateRoot must be non-zero.
             require(_anchorStateRoot != 0, ZeroAnchorStateRoot());
             _syncChainData(_anchorBlockId, _anchorStateRoot);
             signalService.receiveSignals(_signalSlots);
