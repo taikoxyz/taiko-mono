@@ -490,11 +490,18 @@ func (d *Driver) cacheLookaheadLoop() {
 		// way to change. mid-epooch works, so we use slot 16.
 		if l == nil || l.LastEpochUpdated < currentEpoch && slotInEpoch >= 15 {
 			// push into our 3‑epoch ring
-			log.Debug("Pushing into window", "epoch", currentEpoch, "currOp", currOp.Hex(), "nextOp", nextOp.Hex())
+			log.Info("Pushing into window for current epoch",
+				"epoch", currentEpoch,
+				"currOp", currOp.Hex(),
+				"nextOp", nextOp.Hex(),
+			)
 			opWin.Push(currentEpoch, currOp, nextOp)
 
 			// Push next epoch (nextOp becomes currOp at next epoch)
-			log.Debug("Pushing into window", "epoch", currentEpoch+1, "currOp", nextOp.Hex(), "nextOp", common.Address{})
+			log.Info("Pushing into window for next epoch",
+				"epoch", currentEpoch+1,
+				"currOp", nextOp.Hex(),
+			)
 			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
 
 			var (
