@@ -75,13 +75,13 @@ contract DeployMainnetPacayaL1 is DeployCapability {
         address sharedResolver = deployProxy({
             name: "shared_resolver",
             impl: address(new SharedResolver()),
-            data: abi.encodeCall(SharedResolver.init, (address(0)))
+            data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Rollup resolver
         address rollupResolver = deployProxy({
             name: "rollup_address_resolver",
             impl: address(new RollupResolver()),
-            data: abi.encodeCall(RollupResolver.init, (address(0)))
+            data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // register unchanged contract
         register(sharedResolver, "taiko_token", taikoToken);

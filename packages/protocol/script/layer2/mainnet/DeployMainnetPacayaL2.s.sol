@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
+import "src/shared/common/DefaultResolver.sol";
 import "src/layer1/mainnet/resolvers/RollupResolver.sol";
 import "src/layer1/mainnet/resolvers/SharedResolver.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
