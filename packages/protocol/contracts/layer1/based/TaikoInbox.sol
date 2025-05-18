@@ -542,10 +542,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         return state.bondBalance[_user];
     }
 
-    /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
-    /// Layer 2 (L2).
-    /// @return True if the contract is operating on L1, false if on L2.
-    function v4IsOnL1() external pure override returns (bool) {
+    /// @inheritdoc ITaiko
+    function v4IsInbox() external pure override returns (bool) {
         return true;
     }
 
