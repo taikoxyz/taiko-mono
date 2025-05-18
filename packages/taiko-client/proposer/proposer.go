@@ -333,10 +333,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		p.TaikoInboxAddress,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
-			new(big.Int).Mul(
-				p.protocolConfigs.LivenessBondPerBlock(),
-				new(big.Int).SetUint64(uint64(len(txBatch))),
-			),
+			new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
 		),
 	)
 
@@ -349,11 +346,11 @@ func (p *Proposer) ProposeTxListPacaya(
 		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
 
+	// Check forced inclusion.
 	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
 	}
-
 	if forcedInclusion == nil {
 		log.Info("No forced inclusion", "proposer", proposerAddress.Hex())
 	} else {
@@ -369,6 +366,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		)
 	}
 
+	// Build the transaction to propose batch.
 	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
