@@ -118,7 +118,6 @@ interface IPreconfSlasher is ISlasher {
         uint256 slashAmount
     );
 
-    error BatchNotVerified();
     error BlockNotInBatch();
     error BlockNotLastInBatch();
     error EOPIsNotMissing();

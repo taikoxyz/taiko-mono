@@ -134,7 +134,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Validate that the batch has been verified
         ITaikoInbox.TransitionState memory transition =
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
-        require(transition.blockHash != bytes32(0), BatchNotVerified());
 
         // Validate the verified blockheader
         require(
