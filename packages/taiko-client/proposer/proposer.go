@@ -525,7 +525,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)
-		if isPrivate {
+		if isPrivate && err.Error() != context.DeadlineExceeded.Error() {
 			p.txmgrSelector.RecordPrivateTxMgrFailed()
 		}
 		return err
