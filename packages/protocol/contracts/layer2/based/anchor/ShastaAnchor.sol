@@ -71,18 +71,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _updateParentHashAndTimestamp(parentId);
 
         if (_anchorBlockId == 0) {
-            // For blocks that are not the last in the batch, _anchorBlockId, _anchorStateRoot, and
-            // _signalSlots must be zero or empty.
             require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
-            require(_signalSlots.length == 0, NonEmptySignalSlots());
         } else {
-            // For the final block in the batch, _anchorStateRoot must be non-zero.
             require(_anchorStateRoot != 0, ZeroAnchorStateRoot());
             _syncChainData(_anchorBlockId, _anchorStateRoot);
+        }
 
-            if (_signalSlots.length != 0) {
-                signalService.receiveSignals(_signalSlots);
-            }
+        if (_signalSlots.length != 0) {
+            signalService.receiveSignals(_signalSlots);
         }
 
         // We need to add one SSTORE from non-zero to non-zero (5000), one addition (3), and one
