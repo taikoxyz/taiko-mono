@@ -188,6 +188,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 for (uint256 i; i < params.anchorBlockIds.length; ++i) {
                     if (params.anchorBlockIds[i] != 0) {
                         info_.anchorBlockHashes[i] = blockhash(params.anchorBlockIds[i]);
+                        require(info_.anchorBlockHashes[i] != 0, InvalidAnchorBlockId());
                     }
                 }
 
@@ -264,7 +265,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE #2 {{
                 batch.batchId = stats2.numBatches;
                 batch.lastBlockTimestamp = lastBlockTimestamp;
-                batch.anchorBlockId = anchorBlockId;
+                batch.anchorBlockId = info_.anchorBlockIds[info_.anchorBlockIds.length - 1];
                 batch.nextTransitionId = 1;
                 batch.verifiedTransitionId = 0;
                 batch.reserved4 = 0;
