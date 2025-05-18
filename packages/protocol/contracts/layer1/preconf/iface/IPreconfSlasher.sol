@@ -34,7 +34,6 @@ interface IPreconfSlasher is ISlasher {
     // The evidence bytes will be encoded as:
     // - First byte: ViolationType (0 = InvalidPreconfirmation, 1 = InvalidEOP, 2 = MissingEOP)
     // - Remaining bytes: ABI-encoded struct based on the violation type
-
     struct EvidenceInvalidPreconfirmation {
         // Header of the preconfirmed block at height X
         LibBlockHeader.BlockHeader preconfedBlockHeader;
