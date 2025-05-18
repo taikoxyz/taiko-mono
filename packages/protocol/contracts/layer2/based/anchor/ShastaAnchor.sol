@@ -33,20 +33,22 @@ abstract contract ShastaAnchor is PacayaAnchor {
         shastaForkHeight = _shastaForkHeight;
     }
 
-    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// @notice This function anchors the latest L1 block details to L2, enabling cross-layer
     /// message verification.
-    /// @dev The gas limit for this transaction must be set to 1,000,000 gas.
-    /// @dev This function can be called freely as the golden touch private key is publicly known,
-    /// but the Taiko node guarantees the first transaction of each block is always this anchor
-    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata. This value must be
-    /// 0 for all except the last block in the batch.
-    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`. This
-    /// value must be 0 for all except the last block in the batch.
-    /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _baseFeeConfig The base fee configuration.
-    /// @param _signalSlots The signal slots to mark as received. This array must be empty for all
-    /// except the last block in the batch.
+    /// @dev The gas limit for this transaction is required to be set to 1,000,000 gas.
+    /// @dev Although this function can be invoked freely due to the public availability of the
+    /// golden touch private key,
+    /// the Taiko node ensures that the first transaction of each block is always this anchor
+    /// transaction. Any subsequent calls will be reverted with L2_PUBLIC_INPUT_HASH_MISMATCH.
+    /// @param _anchorBlockId This is the `anchorBlockId` value in the metadata of this block. This
+    /// value is required to be 0 for all blocks except the last one in the batch.
+    /// @param _anchorStateRoot This is the state root for the L1 block with an id equal to
+    /// `_anchorBlockId`. This value is required to be 0 for all blocks except the last one in the
+    /// batch.
+    /// @param _parentGasUsed This is the amount of gas used in the parent block.
+    /// @param _baseFeeConfig This is the configuration for the base fee.
+    /// @param _signalSlots These are the signal slots to be marked as received. This array is
+    /// required to be empty for all blocks except the last one in the batch.
     function v4Anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
