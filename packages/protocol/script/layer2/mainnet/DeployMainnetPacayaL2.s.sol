@@ -4,14 +4,9 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
-import "src/shared/common/DefaultResolver.sol";
-import "src/shared/signal/SignalService.sol";
-import "src/shared/tokenvault/BridgedERC1155.sol";
-import "src/shared/tokenvault/BridgedERC20.sol";
-import "src/shared/tokenvault/BridgedERC721.sol";
-import "src/shared/tokenvault/ERC1155Vault.sol";
-import "src/shared/tokenvault/ERC20Vault.sol";
-import "src/shared/tokenvault/ERC721Vault.sol";
+import "src/layer1/mainnet/resolvers/RollupResolver.sol";
+import "src/layer1/mainnet/resolvers/SharedResolver.sol";
+import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer2/based/TaikoAnchor.sol";
 import "src/layer2/DelegateOwner.sol";
 
@@ -33,13 +28,13 @@ contract DeployMainnetPacayaL2 is DeployCapability {
         // Shared resolver
         address sharedResolver = deployProxy({
             name: "shared_resolver",
-            impl: address(new DefaultResolver()),
+            impl: address(new SharedResolver()),
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Rollup resolver
         address rollupResolver = deployProxy({
             name: "rollup_resolver",
-            impl: address(new DefaultResolver()),
+            impl: address(new RollupResolver()),
             data: abi.encodeCall(DefaultResolver.init, (address(0)))
         });
         // Copy register
@@ -82,7 +77,7 @@ contract DeployMainnetPacayaL2 is DeployCapability {
         register(rollupResolver, "bridged_erc721", 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7, 1);
         register(rollupResolver, "bridged_erc1155", 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40, 1);
         // SignalService
-        address signalServiceImpl = address(new SignalService(sharedResolver));
+        address signalServiceImpl = address(new MainnetSignalService(sharedResolver));
         console2.log("signalServiceImpl", signalServiceImpl);
         // Taiko Anchor
         address taikoAnchorImpl =

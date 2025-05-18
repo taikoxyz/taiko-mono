@@ -28,6 +28,7 @@ import "src/layer1/mainnet/verifiers/MainnetVerifier.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/mainnet/resolvers/RollupResolver.sol";
 import "src/layer1/mainnet/resolvers/SharedResolver.sol";
+import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";

@@ -32,9 +32,6 @@ contract RollupResolver is ResolverBase {
         if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
             return 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
         }
-        if (_name == LibStrings.B_CHAIN_WATCHDOG) {
-            return 0xE3D777143Ea25A6E031d1e921F396750885f43aC;
-        }
         if (_name == LibStrings.B_PROOF_VERIFIER) {
             return 0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1;
         }
