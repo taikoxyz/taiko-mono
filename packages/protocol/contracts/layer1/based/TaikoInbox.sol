@@ -143,7 +143,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             Batch memory lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
-            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
+            uint64 lastBlockTimestamp = _validateBatchParams(
                 params,
                 config.maxAnchorHeightOffset,
                 config.maxSignalsToReceive,
@@ -180,10 +180,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     lastBlockTimestamp: lastBlockTimestamp,
                     //
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
-                    anchorBlockId: anchorBlockId,
-                    anchorBlockHash: blockhash(anchorBlockId),
+                    anchorBlockIds: params.anchorBlockIds,
+                    anchorBlockHashs: new bytes32[](params.anchorBlockIds.length),
                     baseFeeConfig: config.baseFeeConfig
                 });
+
+                for (uint256 i; i < params.anchorBlockIds.length; ++i) {
+                    if (params.anchorBlockIds[i] != 0) {
+                        info_.anchorBlockHashes[i] = blockhash(params.anchorBlockIds[i]);
+                    }
+                }
 
                 uint64 nBlocks = uint64(params.blocks.length);
 
@@ -684,7 +690,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         private
         view
-        returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
+        returns (uint64 lastBlockTimestamp_)
     {
         uint256 nBlocks = _params.blocks.length;
         require(nBlocks != 0, BlockNotFound());
