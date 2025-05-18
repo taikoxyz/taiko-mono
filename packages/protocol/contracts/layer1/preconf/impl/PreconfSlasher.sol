@@ -136,7 +136,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(actual.number == preconfed.number, InvalidActualBlockHeader());
 
         // The verified block must be at a higher height than the preconfirmed block, otherwise, the
-        // preconfed block hash won't be written by the anchor transaction.
+        // preconfed block hash won't be written by the anchor transaction. Note that the verified
+        // block deosn't have to be the last blcok in th same batch.
         require(verified.number > preconfed.number, InvalidVerifiedBlockHeader());
 
         // The preconfirmed blockhash must not match the hash of the proposed block for a
