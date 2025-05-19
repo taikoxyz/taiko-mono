@@ -51,6 +51,8 @@ definitions:
         items:
           $ref: '#/definitions/preconfblocks.SlotRange'
         type: array
+      lastUpdatedEpoch:
+        type: integer
       nextOperator:
         type: string
       nextRanges:

@@ -205,6 +205,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/preconfblocks.SlotRange"
                     }
                 },
+                "lastUpdatedEpoch": {
+                    "type": "integer"
+                },
                 "nextOperator": {
                     "type": "string"
                 },
