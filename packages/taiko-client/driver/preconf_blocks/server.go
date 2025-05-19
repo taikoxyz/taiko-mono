@@ -324,6 +324,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"error", err,
 		)
+		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
 		return nil
 	}
 
