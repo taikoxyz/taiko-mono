@@ -483,13 +483,14 @@ func (d *Driver) cacheLookaheadLoop() {
 			return err
 		}
 
-		l := d.preconfBlockServer.GetLookahead()
+		lookahead := d.preconfBlockServer.GetLookahead()
 		// we dont need to update the lookahead on every slot, we just need to make sure we do it
 		// once per epoch, since we push the next operator as the current range when we check.
 		// so, this means we should use a reliable slot past 0 where the operator has no possible
 		// way to change. mid-epooch works, so we use slot 16.
-		if l == nil || l.LastEpochUpdated < currentEpoch && slotInEpoch >= 15 {
-			log.Info("Pushing into window for current epoch",
+		if lookahead == nil || lookahead.LastEpochUpdated < currentEpoch && slotInEpoch >= 15 {
+			log.Info(
+				"Pushing into window for current epoch",
 				"epoch", currentEpoch,
 				"currentSlot", currentSlot,
 				"slotInEpoch", slotInEpoch,
@@ -498,8 +499,9 @@ func (d *Driver) cacheLookaheadLoop() {
 			)
 			opWin.Push(currentEpoch, currOp, nextOp)
 
-			// Push next epoch
-			log.Info("Pushing into window for next epoch",
+			// Push next epoch into window.
+			log.Info(
+				"Pushing into window for next epoch",
 				"epoch", currentEpoch+1,
 				"currentSlot", currentSlot,
 				"slotInEpoch", slotInEpoch,
@@ -511,7 +513,6 @@ func (d *Driver) cacheLookaheadLoop() {
 				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
 				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
 			)
-
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
 				CurrOperator:     currOp,
 				NextOperator:     nextOp,
@@ -536,13 +537,14 @@ func (d *Driver) cacheLookaheadLoop() {
 			return nil
 		}
 
-		// otherwise, just log out information
+		// Otherwise, just log out lookahead information.
 		var (
 			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
 			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
 		)
 
-		log.Info("Lookahead tick",
+		log.Info(
+			"Lookahead tick",
 			"currentSlot", currentSlot,
 			"currentEpoch", currentEpoch,
 			"slotsLeftInEpoch", slotsLeftInEpoch,
