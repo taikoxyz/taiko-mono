@@ -39,6 +39,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     );
 
     error DO_DRYRUN_SUCCEEDED();
+    error DO_INVALID_SENDER();
     error DO_INVALID_TARGET();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
@@ -57,9 +58,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata _data) external payable {
-        if (msg.sender != bridge) return false;
+        require(msg.sender == l1Bridge, DO_INVALID_SENDER());
 
-        IBridge.Context memory ctx = IBridge(_sender).context();
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(ctx.srcChainId == l1ChainId && ctx.from == daoController, DO_PERMISSION_DENIED());
 
         _invokeCall(_data, true);
