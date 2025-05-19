@@ -1005,11 +1005,18 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 
 // updateHighestUnsafeL2Payload updates the highest unsafe L2 payload block ID.
 func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
-	log.Info(
-		"Updating highest unsafe L2 payload block ID",
-		"blockID", blockID,
-		"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-	)
+	if blockID > s.highestUnsafeL2PayloadBlockID {
+		log.Info(
+			"Updating highest unsafe L2 payload block ID",
+			"blockID", blockID,
+			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+	} else {
+		log.Info("Reorging highest unsafe L2 payload blockID",
+			"blockID", blockID,
+			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+	}
 	s.highestUnsafeL2PayloadBlockID = blockID
 }
 
