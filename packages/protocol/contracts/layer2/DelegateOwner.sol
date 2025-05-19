@@ -66,6 +66,8 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         bridge = _bridge;
     }
 
+    receive() external payable { }
+
     /// @notice Initializes the contract.
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
@@ -116,9 +118,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     }
 
     /// @dev Accepts contract ownership
-    /// @param _target Target addresses.
-    function acceptOwnership(address _target) external nonReentrant onlyOwner {
-        Ownable2StepUpgradeable(_target).acceptOwnership();
+    /// @param _contractToOwn Target addresses.
+    function acceptOwnership(address _contractToOwn) external nonReentrant {
+        Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
     }
 
     function transferOwnership(address) public pure override notImplemented { }
