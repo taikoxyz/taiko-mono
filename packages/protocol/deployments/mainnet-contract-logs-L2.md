@@ -115,8 +115,7 @@
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
-  - upgrade impl to `0xaea51c413Bd15bBee72737C8094BE942B5208762` @commit`879fda0` @tx`` //TODO:fill the tx
-- todo:
+  - upgrade impl to `0xaea51c413Bd15bBee72737C8094BE942B5208762` @commit`879fda0` @tx`0x0ae99d24b294622e3d3868c8dca911a5936231ce1f97254ec0c6a6f65f7aa81c`
   - change owner to DelegateOwner
 
 ## Rollup Specific
@@ -149,7 +148,7 @@
   - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0x75E76c367D6be621bD90e4b1e32fBB3fF59150b6` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
-  - upgrade impl to `0x3cfe9b8E0e12289D78c91295c8353aB1731F06E1` @commit`879fda0` @tx`` //TODO:fill the tx
+  - upgrade impl to `0x3cfe9b8E0e12289D78c91295c8353aB1731F06E1` @commit`879fda0` @tx`0x0ae99d24b294622e3d3868c8dca911a5936231ce1f97254ec0c6a6f65f7aa81c`
 
 #### bridged_taiko_token
 
