@@ -13,9 +13,9 @@ import "../shared/bridge/IBridge.sol";
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
-    address public immutable bridge;
+    address public immutable l1Bridge;
     address public immutable daoController;
-    uint64 public immutable remoteChainId;
+    uint64 public immutable l1ChainId;
 
     /// @notice The next transaction ID.
     uint64 public nextTxId; // slot 1
@@ -39,27 +39,14 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     );
 
     error DO_DRYRUN_SUCCEEDED();
-    error DO_INVALID_PARAM();
-    error DO_INVALID_SENDER();
     error DO_INVALID_TARGET();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
 
-    modifier onlyDAOController() {
-        if (!_isDAOController(msg.sender)) revert DO_PERMISSION_DENIED();
-        _;
-    }
-
-    constructor(
-        address _bridge,
-        address _daoController,
-        uint64 _remoteChainId
-    )
-        EssentialContract()
-    {
-        bridge = _bridge;
+    constructor(uint64 _l1ChainId, address _l1Bridge, address _daoController) EssentialContract() {
+        l1ChainId = _l1ChainId;
+        l1Bridge = _l1Bridge;
         daoController = _daoController;
-        remoteChainId = _remoteChainId;
     }
 
     receive() external payable { }
@@ -69,7 +56,12 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) external payable onlyDAOController {
+    function onMessageInvocation(bytes calldata _data) external payable {
+        if (msg.sender != bridge) return false;
+
+        IBridge.Context memory ctx = IBridge(_sender).context();
+        require(ctx.srcChainId == l1ChainId && ctx.from == daoController, DO_PERMISSION_DENIED());
+
         _invokeCall(_data, true);
     }
 
@@ -115,12 +107,5 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         if (!success) LibBytes.revertWithExtractedError(result);
 
         emit MessageInvoked(call.txId, call.target, call.isDelegateCall, call.txdata);
-    }
-
-    function _isDAOController(address _sender) private view returns (bool) {
-        if (_sender != bridge) return false;
-
-        IBridge.Context memory ctx = IBridge(_sender).context();
-        return ctx.srcChainId == remoteChainId && ctx.from == daoController;
     }
 }
