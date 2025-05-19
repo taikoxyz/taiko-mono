@@ -50,8 +50,6 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         daoController = _daoController;
     }
 
-    receive() external payable { }
-
     function init() external initializer {
         __Essential_init(address(this));
     }
