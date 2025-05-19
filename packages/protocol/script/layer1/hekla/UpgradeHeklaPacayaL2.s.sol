@@ -43,7 +43,7 @@ contract UpgradeHeklaPacayaL2 is DeployCapability {
         calls[3].target = 0x1670090000000000000000000000000000000006;
         calls[3].allowFailure = false;
         calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newResolver));
-        // Register B_TAIKO_INBOX
+        // Register B_TAIKO
         calls[4].target = 0x1670090000000000000000000000000000000006;
         calls[4].allowFailure = false;
         calls[4].callData = abi.encodeCall(
