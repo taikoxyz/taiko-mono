@@ -32,11 +32,13 @@ abstract contract Layer2Test is CommonTest {
         returns (DelegateOwner)
     {
         return DelegateOwner(
-            payable(deploy({
-                name: "delegate_owner",
-                impl: address(new DelegateOwner(remoteChainId, bridge, daoController)),
-                data: abi.encodeCall(DelegateOwner.init, ())
-            }))
+            payable(
+                deploy({
+                    name: "delegate_owner",
+                    impl: address(new DelegateOwner(remoteChainId, bridge, daoController)),
+                    data: abi.encodeCall(DelegateOwner.init, ())
+                })
+            )
         );
     }
 }

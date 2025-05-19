@@ -65,7 +65,8 @@ contract TestDelegateOwner is Layer2Test {
     }
 
     function test_delegate_owner_single_non_delegatecall_self() public onTaiko {
-        address tDelegateOwnerImpl2 = address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
+        address tDelegateOwnerImpl2 =
+            address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
 
         bytes memory data = abi.encode(
             DelegateOwner.Call(
@@ -98,7 +99,8 @@ contract TestDelegateOwner is Layer2Test {
     }
 
     function test_delegate_owner_delegate_tMulticall() public onTaiko {
-        address tDelegateOwnerImpl2 = address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
+        address tDelegateOwnerImpl2 =
+            address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
         address impl1 = address(new EssentialContract_EmptyStub());
         address impl2 = address(new EssentialContract_EmptyStub());
 
