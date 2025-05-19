@@ -235,7 +235,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Check if the preconfirmation router is set, if so, skip proposing.
-	preconfRouter, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+	preconfRouter, err := p.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
 	}

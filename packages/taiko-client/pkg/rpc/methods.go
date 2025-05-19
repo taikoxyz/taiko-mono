@@ -1010,13 +1010,13 @@ func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, 
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
 }
 
-// GetPreconfRouterPacaya resolves the preconfirmation router address.
-func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.TaikoWrapper == nil {
+// GetPreconfRouterShasta resolves the preconfirmation router address.
+func (c *Client) GetPreconfRouterShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.TaikoWrapper == nil {
 		return common.Address{}, errors.New("taikoWrapper contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
+	return getImmutableAddressPacaya(c, opts, c.ShastaClients.TaikoWrapper.PreconfRouter)
 }
 
 // getImmutableAddressPacaya resolves the Pacaya contract address.

@@ -21,7 +21,7 @@ cd ../protocol &&
   cd -
 
 ABIGEN_BIN=$TAIKO_GETH_DIR/build/bin/abigen
-FORK=pacaya
+FORK=shasta
 
 echo ""
 echo "PROTOCOL_FORK_NAME: ${FORK}"

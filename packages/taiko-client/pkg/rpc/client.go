@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 const (
@@ -32,6 +33,20 @@ type PacayaClients struct {
 	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
 
+// ShastaClients contains all smart contract clients for ShastaClients fork.
+type ShastaClients struct {
+	TaikoInbox           *shastaBindings.TaikoInboxClient
+	TaikoWrapper         *shastaBindings.TaikoWrapperClient
+	ForcedInclusionStore *shastaBindings.ForcedInclusionStore
+	TaikoAnchor          *shastaBindings.TaikoAnchorClient
+	TaikoToken           *shastaBindings.TaikoToken
+	ProverSet            *shastaBindings.ProverSet
+	ForkRouter           *shastaBindings.ForkRouter
+	ComposeVerifier      *shastaBindings.ComposeVerifier
+	PreconfWhitelist     *shastaBindings.PreconfWhitelist
+	ForkHeights          *shastaBindings.ITaikoInboxForkHeights
+}
+
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
 	// Geth ethclient clients
@@ -44,6 +59,7 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
 	PacayaClients *PacayaClients
+	ShastaClients *ShastaClients
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -134,6 +150,9 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
+	if err := c.initShastaClients(cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -148,6 +167,90 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	return c, nil
+}
+
+// initPacayaClients initializes all Shasta smart contract clients.
+func (c *Client) initShastaClients(cfg *ClientConfig) error {
+	taikoInbox, err := shastaBindings.NewTaikoInboxClient(cfg.TaikoInboxAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of TaikoInboxClient: %w", err)
+	}
+
+	forkRouter, err := shastaBindings.NewForkRouter(cfg.TaikoInboxAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ForkRouter: %w", err)
+	}
+
+	taikoAnchor, err := shastaBindings.NewTaikoAnchorClient(cfg.TaikoAnchorAddress, c.L2)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of TaikoAnchorClient: %w", err)
+	}
+
+	var (
+		taikoToken           *shastaBindings.TaikoToken
+		proverSet            *shastaBindings.ProverSet
+		taikoWrapper         *shastaBindings.TaikoWrapperClient
+		forcedInclusionStore *shastaBindings.ForcedInclusionStore
+		preconfWhitelist     *shastaBindings.PreconfWhitelist
+	)
+	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
+		if taikoToken, err = shastaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
+			return fmt.Errorf("failed to create new instance of TaikoToken: %w", err)
+		}
+	}
+	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
+		if proverSet, err = shastaBindings.NewProverSet(cfg.ProverSetAddress, c.L1); err != nil {
+			return fmt.Errorf("failed to create new instance of ProverSet: %w", err)
+		}
+	}
+	var cancel context.CancelFunc
+	opts := &bind.CallOpts{Context: context.Background()}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+	composeVerifierAddress, err := taikoInbox.Verifier(opts)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve compose verifier address: %w", err)
+	}
+	composeVerifier, err := shastaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
+	}
+
+	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
+		if taikoWrapper, err = shastaBindings.NewTaikoWrapperClient(cfg.TaikoWrapperAddress, c.L1); err != nil {
+			return fmt.Errorf("failed to create new instance of TaikoWrapperClient: %w", err)
+		}
+	}
+
+	if cfg.ForcedInclusionStoreAddress.Hex() != ZeroAddress.Hex() {
+		if forcedInclusionStore, err = shastaBindings.NewForcedInclusionStore(
+			cfg.ForcedInclusionStoreAddress,
+			c.L1,
+		); err != nil {
+			return fmt.Errorf("failed to create new instance of ForcedInclusionStore: %w", err)
+		}
+	}
+
+	if cfg.PreconfWhitelistAddress.Hex() != ZeroAddress.Hex() {
+		preconfWhitelist, err = shastaBindings.NewPreconfWhitelist(cfg.PreconfWhitelistAddress, c.L1)
+		if err != nil {
+			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
+		}
+	}
+
+	c.ShastaClients = &ShastaClients{
+		TaikoInbox:           taikoInbox,
+		TaikoAnchor:          taikoAnchor,
+		TaikoToken:           taikoToken,
+		ProverSet:            proverSet,
+		ForkRouter:           forkRouter,
+		TaikoWrapper:         taikoWrapper,
+		ForcedInclusionStore: forcedInclusionStore,
+		ComposeVerifier:      composeVerifier,
+		PreconfWhitelist:     preconfWhitelist,
+	}
+
+	return nil
 }
 
 // initPacayaClients initializes all Pacaya smart contract clients.
@@ -235,22 +338,34 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 }
 
 // initForkHeightConfigs initializes the fork heights in protocol.
-func (c *Client) initForkHeightConfigs(ctx context.Context) error {
-	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
+func (c *Client) initForkHeightConfigs(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			log.Info(
+				"Fork height configs",
+				"pacayaForkHeight", c.PacayaClients.ForkHeights,
+				"shastaForkHeight", c.ShastaClients.ForkHeights,
+			)
+		}
+	}()
+
+	// Try to get the fork heights from the Shasta protocol at first,
+	// if it fails, then try to get the fork heights from the Pacaya protocol.
+	protocolConfigs, err := c.ShastaClients.TaikoInbox.V4GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return err
+		protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return err
+		}
+
+		c.PacayaClients.ForkHeights.Pacaya = protocolConfigs.ForkHeights.Pacaya
+		c.ShastaClients.ForkHeights.Shasta = protocolConfigs.ForkHeights.Shasta
+
+		return nil
 	}
 
-	c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
-		Ontake: protocolConfigs.ForkHeights.Ontake,
-		Pacaya: protocolConfigs.ForkHeights.Pacaya,
-	}
-
-	log.Info(
-		"Fork height configs",
-		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
-		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
-	)
+	c.PacayaClients.ForkHeights.Pacaya = protocolConfigs.ForkHeights.Pacaya
+	c.ShastaClients.ForkHeights.Shasta = protocolConfigs.ForkHeights.Shasta
 
 	return nil
 }
