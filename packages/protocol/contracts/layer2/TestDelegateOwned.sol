@@ -15,6 +15,7 @@ contract TestDelegateOwned is EssentialContract {
     /// @notice Variable, changeable by the owner. By default this is the amount sent by the
     /// withdraw function. It is not necessarily "ether" per see. It can be any token but the amount
     /// denominated in ether.
+
     uint256 public etherAmount; // slot 1
 
     event EtherAmountChanged(uint256 oldValue, uint256 newValue);
