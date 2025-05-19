@@ -13,6 +13,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -73,7 +74,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		blobs                 []*eth.Blob
 		encodedParams         []byte
 		blockParams           []pacayaBindings.ITaikoInboxBlockParams
-		forcedInclusionParams *encoding.BatchParams
+		forcedInclusionParams *encoding.BatchParamsPacaya
 		allTxs                types.Transactions
 	)
 
@@ -84,7 +85,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 
 	if forcedInclusion != nil {
 		blobParams, blockParams := buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
-		forcedInclusionParams = &encoding.BatchParams{
+		forcedInclusionParams = &encoding.BatchParamsPacaya{
 			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
@@ -111,7 +112,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
-	params := &encoding.BatchParams{
+	params := &encoding.BatchParamsPacaya{
 		Proposer:                 proposer,
 		Coinbase:                 b.l2SuggestedFeeRecipient,
 		RevertIfNotFirstProposal: b.revertProtectionEnabled,
@@ -133,7 +134,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		}
 	}
 
-	if encodedParams, err = encoding.EncodeBatchParamsWithForcedInclusion(forcedInclusionParams, params); err != nil {
+	if encodedParams, err = encoding.EncodeBatchParamsPacayaWithForcedInclusion(forcedInclusionParams, params); err != nil {
 		return nil, err
 	}
 
@@ -142,7 +143,108 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 			return nil, err
 		}
 	} else {
-		if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
+		if data, err = encoding.TaikoWrapperPacayaABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
+			return nil, err
+		}
+	}
+
+	return &txmgr.TxCandidate{
+		TxData:   data,
+		Blobs:    blobs,
+		To:       to,
+		GasLimit: b.gasLimit,
+	}, nil
+}
+
+// BuildShasta implements the ProposeBatchTransactionBuilder interface.
+func (b *BlobTransactionBuilder) BuildShasta(
+	ctx context.Context,
+	txBatch []types.Transactions,
+	forcedInclusion *shastaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
+	parentMetahash common.Hash,
+) (*txmgr.TxCandidate, error) {
+	// ABI encode the TaikoWrapper.v4ProposeBatch / ProverSet.v4ProposeBatch parameters.
+	var (
+		to                    = &b.taikoWrapperAddress
+		proposer              = crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey)
+		data                  []byte
+		blobs                 []*eth.Blob
+		encodedParams         []byte
+		blockParams           []shastaBindings.ITaikoInboxBlockParams
+		forcedInclusionParams *encoding.BatchParamsShasta
+		allTxs                types.Transactions
+	)
+
+	if b.proverSetAddress != rpc.ZeroAddress {
+		to = &b.proverSetAddress
+		proposer = b.proverSetAddress
+	}
+
+	if forcedInclusion != nil {
+		blobParams, blockParams := buildParamsShastaForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		forcedInclusionParams = &encoding.BatchParamsShasta{
+			Proposer:                 proposer,
+			Coinbase:                 b.l2SuggestedFeeRecipient,
+			RevertIfNotFirstProposal: b.revertProtectionEnabled,
+			BlobParams:               *blobParams,
+			Blocks:                   blockParams,
+		}
+	}
+
+	for _, txs := range txBatch {
+		allTxs = append(allTxs, txs...)
+		blockParams = append(blockParams, shastaBindings.ITaikoInboxBlockParams{
+			NumTransactions: uint16(len(txs)),
+			TimeShift:       0,
+			SignalSlots:     make([][32]byte, 0),
+		})
+	}
+
+	txListsBytes, err := utils.EncodeAndCompressTxList(allTxs)
+	if err != nil {
+		return nil, err
+	}
+
+	if blobs, err = b.splitToBlobs(txListsBytes); err != nil {
+		return nil, err
+	}
+
+	params := &encoding.BatchParamsShasta{
+		Proposer:                 proposer,
+		Coinbase:                 b.l2SuggestedFeeRecipient,
+		RevertIfNotFirstProposal: b.revertProtectionEnabled,
+		BlobParams: encoding.BlobParams{
+			BlobHashes:     [][32]byte{},
+			FirstBlobIndex: 0,
+			NumBlobs:       uint8(len(blobs)),
+			ByteOffset:     0,
+			ByteSize:       uint32(len(txListsBytes)),
+		},
+		Blocks: blockParams,
+	}
+
+	if b.revertProtectionEnabled {
+		if forcedInclusionParams != nil {
+			forcedInclusionParams.ParentMetaHash = parentMetahash
+		} else {
+			params.ParentMetaHash = parentMetahash
+		}
+	}
+
+	if encodedParams, err = encoding.EncodeBatchParamsShastaWithForcedInclusion(
+		forcedInclusionParams,
+		params,
+	); err != nil {
+		return nil, err
+	}
+
+	if b.proverSetAddress != rpc.ZeroAddress {
+		if data, err = encoding.ProverSetShastaABI.Pack("v4ProposeBatch", encodedParams, []byte{}); err != nil {
+			return nil, err
+		}
+	} else {
+		if data, err = encoding.TaikoWrapperShastaABI.Pack("v4ProposeBatch", encodedParams, []byte{}); err != nil {
 			return nil, err
 		}
 	}

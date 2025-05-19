@@ -152,7 +152,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoTokenAddress})
 	s.Nil(err)
 
-	data, err = encoding.TaikoInboxABI.Pack("depositBond", balance)
+	data, err = encoding.TaikoInboxPacayaABI.Pack("depositBond", balance)
 	s.Nil(err)
 
 	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoInboxAddress})

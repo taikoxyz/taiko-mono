@@ -6,16 +6,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 // ABI arguments marshaling components.
 var (
-	BatchParamsComponents = []abi.ArgumentMarshaling{
+	// Pacaya components.
+	BatchParamsPacayaComponents = []abi.ArgumentMarshaling{
 		{Name: "proposer", Type: "address"},
 		{Name: "coinbase", Type: "address"},
 		{Name: "parentMetaHash", Type: "bytes32"},
@@ -44,9 +43,53 @@ var (
 			},
 		},
 	}
-	BatchMetaDataComponents = []abi.ArgumentMarshaling{
+	BatchMetaDataPacayaComponents = []abi.ArgumentMarshaling{
 		{Name: "infoHash", Type: "bytes32"},
 		{Name: "proposer", Type: "address"},
+		{Name: "batchId", Type: "uint64"},
+		{Name: "proposedAt", Type: "uint64"},
+	}
+)
+
+var (
+	// Shasta components.
+	BatchParamsShastaComponents = []abi.ArgumentMarshaling{
+		{Name: "proposer", Type: "address"},
+		{Name: "coinbase", Type: "address"},
+		{Name: "parentMetaHash", Type: "bytes32"},
+		{Name: "anchorBlockId", Type: "uint64"},
+		{Name: "lastBlockTimestamp", Type: "uint64"},
+		{Name: "revertIfNotFirstProposal", Type: "bool"},
+		{
+			Name: "blobParams",
+			Type: "tuple",
+			Components: []abi.ArgumentMarshaling{
+				{Name: "blobHashes", Type: "bytes32[]"},
+				{Name: "firstBlobIndex", Type: "uint8"},
+				{Name: "numBlobs", Type: "uint8"},
+				{Name: "byteOffset", Type: "uint32"},
+				{Name: "byteSize", Type: "uint32"},
+				{Name: "createdIn", Type: "uint64"},
+			},
+		},
+		{
+			Name: "blocks",
+			Type: "tuple[]",
+			Components: []abi.ArgumentMarshaling{
+				{Name: "numTransactions", Type: "uint16"},
+				{Name: "timeShift", Type: "uint8"},
+				{Name: "signalSlots", Type: "bytes32[]"},
+			},
+		},
+		{Name: "proverAuth", Type: "bytes"},
+	}
+)
+
+var (
+	// Shared components
+	BatchMetaDataShastaComponents = []abi.ArgumentMarshaling{
+		{Name: "infoHash", Type: "bytes32"},
+		{Name: "prover", Type: "address"},
 		{Name: "batchId", Type: "uint64"},
 		{Name: "proposedAt", Type: "uint64"},
 	}
@@ -62,18 +105,36 @@ var (
 )
 
 var (
-	BatchParamsComponentsType, _ = abi.NewType("tuple", "ITaikoInbox.BatchParams", BatchParamsComponents)
-	BatchParamsComponentsArgs    = abi.Arguments{
-		{Name: "ITaikoInbox.BatchParams", Type: BatchParamsComponentsType},
+	// Pacaya arguments.
+	BatchParamsPacayaComponentsType, _ = abi.NewType("tuple", "ITaikoInbox.BatchParams", BatchParamsPacayaComponents)
+	BatchParamsPacayaComponentsArgs    = abi.Arguments{
+		{Name: "ITaikoInbox.BatchParams", Type: BatchParamsPacayaComponentsType},
 	}
-	BatchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataComponents)
+	BatchMetaDataPacayaComponentsArrayType, _ = abi.NewType(
+		"tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataPacayaComponents,
+	)
+)
+
+var (
+	// Shasta arguments.
+	BatchParamsShastaComponentsType, _ = abi.NewType("tuple", "ITaikoInbox.BatchParams", BatchParamsShastaComponents)
+	BatchParamsShastaComponentsArgs    = abi.Arguments{
+		{Name: "ITaikoInbox.BatchParams", Type: BatchParamsShastaComponentsType},
+	}
+	BatchMetaDataShastaComponentsArrayType, _ = abi.NewType(
+		"tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataShastaComponents,
+	)
+)
+
+var (
+	// Shared arguments.
 	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
 	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofComponents)
 	SubProofsComponentsArrayArgs          = abi.Arguments{
 		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
 	}
 	ProveBatchesInputArgs = abi.Arguments{
-		{Name: "ITaikoInbox.BlockMetadata[]", Type: BatchMetaDataComponentsArrayType},
+		{Name: "ITaikoInbox.BlockMetadata[]", Type: BatchMetaDataPacayaComponentsArrayType},
 		{Name: "TaikoData.Transition[]", Type: BatchTransitionComponentsArrayType},
 	}
 	stringType, _             = abi.NewType("string", "", nil)
@@ -89,161 +150,38 @@ var (
 	}
 )
 
-// Contract ABIs.
-var (
-	// Ontake fork
-	TaikoL1ABI          *abi.ABI
-	TaikoL2ABI          *abi.ABI
-	TaikoTokenABI       *abi.ABI
-	GuardianProverABI   *abi.ABI
-	LibProposingABI     *abi.ABI
-	LibProvingABI       *abi.ABI
-	LibUtilsABI         *abi.ABI
-	LibVerifyingABI     *abi.ABI
-	SGXVerifierABI      *abi.ABI
-	GuardianVerifierABI *abi.ABI
-	ProverSetABI        *abi.ABI
-	ForkRouterABI       *abi.ABI
-
-	// Pacaya fork
-	TaikoInboxABI           *abi.ABI
-	TaikoWrapperABI         *abi.ABI
-	ForcedInclusionStoreABI *abi.ABI
-	TaikoAnchorABI          *abi.ABI
-	ResolverBaseABI         *abi.ABI
-	ComposeVerifierABI      *abi.ABI
-	ForkRouterPacayaABI     *abi.ABI
-	TaikoTokenPacayaABI     *abi.ABI
-	ProverSetPacayaABI      *abi.ABI
-
-	customErrorMaps []map[string]abi.Error
-)
-
-func init() {
-	var err error
-
-	if TaikoL1ABI, err = ontakeBindings.TaikoL1ClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoL1 ABI error", "error", err)
-	}
-
-	if TaikoL2ABI, err = ontakeBindings.TaikoL2ClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoL2 ABI error", "error", err)
-	}
-
-	if TaikoTokenABI, err = ontakeBindings.TaikoTokenMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoToken ABI error", "error", err)
-	}
-
-	if GuardianProverABI, err = ontakeBindings.GuardianProverMetaData.GetAbi(); err != nil {
-		log.Crit("Get GuardianProver ABI error", "error", err)
-	}
-
-	if LibProposingABI, err = ontakeBindings.LibProposingMetaData.GetAbi(); err != nil {
-		log.Crit("Get LibProposing ABI error", "error", err)
-	}
-
-	if LibProvingABI, err = ontakeBindings.LibProvingMetaData.GetAbi(); err != nil {
-		log.Crit("Get LibProving ABI error", "error", err)
-	}
-
-	if LibUtilsABI, err = ontakeBindings.LibUtilsMetaData.GetAbi(); err != nil {
-		log.Crit("Get LibUtils ABI error", "error", err)
-	}
-
-	if LibVerifyingABI, err = ontakeBindings.LibVerifyingMetaData.GetAbi(); err != nil {
-		log.Crit("Get LibVerifying ABI error", "error", err)
-	}
-
-	if SGXVerifierABI, err = ontakeBindings.SgxVerifierMetaData.GetAbi(); err != nil {
-		log.Crit("Get SGXVerifier ABI error", err)
-	}
-
-	if GuardianVerifierABI, err = ontakeBindings.GuardianVerifierMetaData.GetAbi(); err != nil {
-		log.Crit("Get GuardianVerifier ABI error", "error", err)
-	}
-
-	if ProverSetABI, err = ontakeBindings.ProverSetMetaData.GetAbi(); err != nil {
-		log.Crit("Get ProverSet ABI error", "error", err)
-	}
-
-	if ForkRouterABI, err = ontakeBindings.ForkRouterMetaData.GetAbi(); err != nil {
-		log.Crit("Get ForkRouter ABI error", "error", err)
-	}
-
-	if TaikoInboxABI, err = pacayaBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoInbox ABI error", "error", err)
-	}
-
-	if TaikoWrapperABI, err = pacayaBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoWrapper ABI error", "error", err)
-	}
-
-	if ForcedInclusionStoreABI, err = pacayaBindings.ForcedInclusionStoreMetaData.GetAbi(); err != nil {
-		log.Crit("Get ForcedInclusionStore ABI error", "error", err)
-	}
-
-	if TaikoAnchorABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoAnchor ABI error", "error", err)
-	}
-
-	if ResolverBaseABI, err = pacayaBindings.ResolverBaseMetaData.GetAbi(); err != nil {
-		log.Crit("Get ResolverBase ABI error", "error", err)
-	}
-
-	if ComposeVerifierABI, err = pacayaBindings.ComposeVerifierMetaData.GetAbi(); err != nil {
-		log.Crit("Get ComposeVerifier ABI error", "error", err)
-	}
-
-	if ForkRouterPacayaABI, err = pacayaBindings.ForkRouterMetaData.GetAbi(); err != nil {
-		log.Crit("Get ForkRouter ABI error", "error", err)
-	}
-
-	if TaikoTokenPacayaABI, err = pacayaBindings.TaikoTokenMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoToken ABI error", "error", err)
-	}
-
-	if ProverSetPacayaABI, err = pacayaBindings.ProverSetMetaData.GetAbi(); err != nil {
-		log.Crit("Get ProverSet ABI error", "error", err)
-	}
-
-	customErrorMaps = []map[string]abi.Error{
-		TaikoL1ABI.Errors,
-		TaikoL2ABI.Errors,
-		GuardianProverABI.Errors,
-		LibProposingABI.Errors,
-		LibProvingABI.Errors,
-		LibUtilsABI.Errors,
-		LibVerifyingABI.Errors,
-		SGXVerifierABI.Errors,
-		GuardianVerifierABI.Errors,
-		ProverSetABI.Errors,
-		ForkRouterABI.Errors,
-		TaikoInboxABI.Errors,
-		TaikoWrapperABI.Errors,
-		ForcedInclusionStoreABI.Errors,
-		TaikoAnchorABI.Errors,
-		ResolverBaseABI.Errors,
-		ComposeVerifierABI.Errors,
-		ForkRouterPacayaABI.Errors,
-		TaikoTokenPacayaABI.Errors,
-		ProverSetPacayaABI.Errors,
-	}
-}
-
-// EncodeBatchParamsWithForcedInclusion performs the solidity `abi.encode` for the given two Pacaya batchParams.
-func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchParams) ([]byte, error) {
+// EncodeBatchParamsPacayaWithForcedInclusion performs the solidity `abi.encode` for the given two Pacaya batchParams.
+func EncodeBatchParamsPacayaWithForcedInclusion(paramsForcedInclusion, params *BatchParamsPacaya) ([]byte, error) {
 	var (
 		x   []byte
 		err error
 	)
 	if paramsForcedInclusion != nil {
-		if x, err = BatchParamsComponentsArgs.Pack(paramsForcedInclusion); err != nil {
+		if x, err = BatchParamsPacayaComponentsArgs.Pack(paramsForcedInclusion); err != nil {
 			return nil, fmt.Errorf("failed to abi.encode Pacaya batch params, %w", err)
 		}
 	}
-	y, err := BatchParamsComponentsArgs.Pack(params)
+	y, err := BatchParamsPacayaComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode Pacaya batch params, %w", err)
+	}
+	return batchParamsWithForcedInclusionArgs.Pack(x, y)
+}
+
+// EncodeBatchParamsShastaWithForcedInclusion performs the solidity `abi.encode` for the given two Shasta batchParams.
+func EncodeBatchParamsShastaWithForcedInclusion(paramsForcedInclusion, params *BatchParamsShasta) ([]byte, error) {
+	var (
+		x   []byte
+		err error
+	)
+	if paramsForcedInclusion != nil {
+		if x, err = BatchParamsShastaComponentsArgs.Pack(paramsForcedInclusion); err != nil {
+			return nil, fmt.Errorf("failed to abi.encode Shasta batch params, %w", err)
+		}
+	}
+	y, err := BatchParamsShastaComponentsArgs.Pack(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode Shasta batch params, %w", err)
 	}
 	return batchParamsWithForcedInclusionArgs.Pack(x, y)
 }

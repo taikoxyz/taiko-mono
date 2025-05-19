@@ -47,7 +47,7 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	}
 
 	var method *abi.Method
-	if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
+	if method, err = encoding.TaikoAnchorPacayaABI.MethodById(tx.Data()); err != nil {
 		return fmt.Errorf("failed to get TaikoAnchor.anchorV3 transaction method: %w", err)
 	}
 	if method.Name != "anchorV3" {

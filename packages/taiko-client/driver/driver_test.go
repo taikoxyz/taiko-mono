@@ -133,7 +133,7 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 		s.Nil(err)
 
 		var method *abi.Method
-		method, err = encoding.TaikoAnchorABI.MethodById(anchorTx.Data())
+		method, err = encoding.TaikoAnchorPacayaABI.MethodById(anchorTx.Data())
 		s.Nil(err)
 		s.Contains(method.Name, "anchor")
 	}
@@ -334,7 +334,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 
 	var blob = &eth.Blob{}
 	s.Nil(blob.FromData(b))
-	data, err := encoding.ForcedInclusionStoreABI.Pack("storeForcedInclusion", uint8(0), uint32(0), uint32(len(b)))
+	data, err := encoding.ForcedInclusionStorePacayaABI.Pack("storeForcedInclusion", uint8(0), uint32(0), uint32(len(b)))
 	s.Nil(err)
 
 	feeInGwei, err := s.RPCClient.PacayaClients.ForcedInclusionStore.FeeInGwei(nil)
@@ -1183,9 +1183,9 @@ func (s *DriverTestSuite) proposePreconfBatch(
 	txListsBytes, err := utils.Compress(rlpEncoded)
 	s.Nil(err)
 
-	encodedParams, err := encoding.EncodeBatchParamsWithForcedInclusion(
+	encodedParams, err := encoding.EncodeBatchParamsPacayaWithForcedInclusion(
 		nil,
-		&encoding.BatchParams{
+		&encoding.BatchParamsPacaya{
 			Proposer: proposer,
 			Coinbase: blocks[0].Coinbase(),
 			BlobParams: encoding.BlobParams{
@@ -1201,7 +1201,7 @@ func (s *DriverTestSuite) proposePreconfBatch(
 	if s.p.ProverSetAddress != rpc.ZeroAddress {
 		data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
 	} else {
-		data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes)
+		data, err = encoding.TaikoInboxPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
 	}
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{TxData: data, Blobs: nil, To: to}))

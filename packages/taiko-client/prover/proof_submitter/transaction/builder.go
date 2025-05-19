@@ -94,7 +94,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			}
 			to = a.proverSetAddress
 		} else {
-			if data, err = encoding.TaikoInboxABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
+			if data, err = encoding.TaikoInboxPacayaABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
 			to = a.taikoInboxAddress

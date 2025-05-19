@@ -7,6 +7,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 var GoldenTouchPrivKey = "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38"
@@ -21,8 +22,8 @@ type BlobParams struct {
 	CreatedIn      uint64
 }
 
-// BatchParams should be same with ITaikoInbox.BatchParams.
-type BatchParams struct {
+// BatchParamsPacaya should be same with ITaikoInbox.BatchParams for Pacaya fork.
+type BatchParamsPacaya struct {
 	Proposer                 common.Address
 	Coinbase                 common.Address
 	ParentMetaHash           [32]byte
@@ -31,6 +32,19 @@ type BatchParams struct {
 	RevertIfNotFirstProposal bool
 	BlobParams               BlobParams
 	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
+}
+
+// BatchParamsShasta should be same with ITaikoInbox.BatchParams.
+type BatchParamsShasta struct {
+	Proposer                 common.Address
+	Coinbase                 common.Address
+	ParentMetaHash           [32]byte
+	AnchorBlockId            uint64
+	LastBlockTimestamp       uint64
+	RevertIfNotFirstProposal bool
+	BlobParams               BlobParams
+	Blocks                   []shastaBindings.ITaikoInboxBlockParams
+	ProverAuth               []byte
 }
 
 // SubProof should be same with ComposeVerifier.SubProof.

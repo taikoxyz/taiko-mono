@@ -10,6 +10,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // ProposeBatchTransactionBuilder is an interface for building a TaikoInbox.proposeBatch
@@ -19,6 +20,13 @@ type ProposeBatchTransactionBuilder interface {
 		ctx context.Context,
 		txBatch []types.Transactions,
 		forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+		minTxsPerForcedInclusion *big.Int,
+		parentMetahash common.Hash,
+	) (*txmgr.TxCandidate, error)
+	BuildShasta(
+		ctx context.Context,
+		txBatch []types.Transactions,
+		forcedInclusion *shastaBindings.IForcedInclusionStoreForcedInclusion,
 		minTxsPerForcedInclusion *big.Int,
 		parentMetahash common.Hash,
 	) (*txmgr.TxCandidate, error)
@@ -40,6 +48,30 @@ func buildParamsForForcedInclusion(
 			ByteSize:   forcedInclusion.BlobByteSize,
 			CreatedIn:  forcedInclusion.BlobCreatedIn,
 		}, []pacayaBindings.ITaikoInboxBlockParams{
+			{
+				NumTransactions: uint16(minTxsPerForcedInclusion.Uint64()),
+				TimeShift:       0,
+				SignalSlots:     make([][32]byte, 0),
+			},
+		}
+}
+
+// buildParamsShastaForForcedInclusion builds the blob params and the block params
+// for the given forced inclusion for Shasta fork.
+func buildParamsShastaForForcedInclusion(
+	forcedInclusion *shastaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
+) (*encoding.BlobParams, []shastaBindings.ITaikoInboxBlockParams) {
+	if forcedInclusion == nil {
+		return nil, nil
+	}
+	return &encoding.BlobParams{
+			BlobHashes: [][32]byte{forcedInclusion.BlobHash},
+			NumBlobs:   0,
+			ByteOffset: forcedInclusion.BlobByteOffset,
+			ByteSize:   forcedInclusion.BlobByteSize,
+			CreatedIn:  forcedInclusion.BlobCreatedIn,
+		}, []shastaBindings.ITaikoInboxBlockParams{
 			{
 				NumTransactions: uint16(minTxsPerForcedInclusion.Uint64()),
 				TimeShift:       0,

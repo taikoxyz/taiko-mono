@@ -617,7 +617,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.True(paused)
 
 	// Unpause the TaikoInbox contract
-	data, err := encoding.TaikoInboxABI.Pack("unpause")
+	data, err := encoding.TaikoInboxPacayaABI.Pack("unpause")
 	s.Nil(err)
 	receipt, err := s.TxMgr("unpauseTaikoInbox", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")).
 		Send(
