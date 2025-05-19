@@ -11,6 +11,8 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     address public immutable proposeBlockEntrypoint;
     address public immutable preconfWhitelist;
 
+    error InvalidLastBlockId(uint96 _actual, uint96 _expected);
+
     uint256[50] private __gap;
 
     constructor(
@@ -46,5 +48,22 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
+    }
+
+    function proposeBatchWithExpectedLastBlockId(
+        bytes calldata _params,
+        bytes calldata _txList,
+        uint96 _expectedLastBlockId
+    )
+        external
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+    {
+        (info_, meta_) = this.proposeBatch(_params, _txList);
+
+        // Verify that the last block id is as expected
+        require(
+            info_.lastBlockId == _expectedLastBlockId,
+            InvalidLastBlockId(info_.lastBlockId, _expectedLastBlockId)
+        );
     }
 }
