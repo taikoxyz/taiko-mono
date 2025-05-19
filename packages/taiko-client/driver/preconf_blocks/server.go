@@ -532,7 +532,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		headL1OriginBlockId = headL1Origin.BlockID.Uint64()
 	}
 
-	log.Debug("Importing missing ancients from the cache",
+	log.Debug(
+		"Importing missing ancients from the cache",
 		"blockID", uint64(currentPayload.BlockNumber),
 		"hash", currentPayload.BlockHash.Hex(),
 		"headL1OriginBlockID", headL1OriginBlockId,
@@ -578,9 +579,9 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 						"hash", currentPayload.BlockHash.Hex(),
 						"error", err,
 					)
+				} else {
+					s.blockRequestsCache.Add(currentPayload.ParentHash, struct{}{})
 				}
-
-				s.blockRequestsCache.Add(currentPayload.ParentHash, struct{}{})
 			}
 
 			return fmt.Errorf(
