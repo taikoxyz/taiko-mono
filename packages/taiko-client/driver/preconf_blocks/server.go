@@ -224,6 +224,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"endOfSequencing", msg.EndOfSequencing != nil,
 	)
 
+	// Check if the payload is valid.
+	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
+		log.Warn(
+			"Invalid preconfirmation block payload",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"error", err,
+		)
+		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
+		return nil
+	}
+
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
@@ -247,20 +261,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
-
-	// Check if the payload is valid.
-	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
-		log.Warn(
-			"Invalid preconfirmation block payload",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-			"error", err,
-		)
-		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
-		return nil
-	}
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
@@ -314,6 +314,19 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return nil
 	}
 
+	// Check if the payload is valid.
+	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
+		log.Warn(
+			"Invalid preconfirmation block payload response",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"error", err,
+		)
+		return nil
+	}
+
 	// Ignore the message if it has been inserted already.
 	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
@@ -342,19 +355,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	)
 
 	metrics.DriverPreconfP2PResponseEnvelopeCounter.Inc()
-
-	// Check if the payload is valid.
-	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
-		log.Warn(
-			"Invalid preconfirmation block payload response",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-			"error", err,
-		)
-		return nil
-	}
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
@@ -713,10 +713,14 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
 
-	log.Info("Transactions list for preconfirmation block",
+	log.Info(
+		"Decoded transactions list for preconfirmation block",
 		"transactions", len(txs),
 		"blockID", uint64(payload.BlockNumber),
 		"blockHash", payload.BlockHash.Hex(),
+		"parentHash", payload.ParentHash.Hex(),
+		"timestamp", uint64(payload.Timestamp),
+		"coinbase", payload.FeeRecipient.Hex(),
 	)
 
 	return nil
