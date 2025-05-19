@@ -84,7 +84,10 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	}
 
 	if forcedInclusion != nil {
-		blobParams, blockParams := buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		blobParams, blockParams := buildParamsForForcedInclusion[
+			*pacayaBindings.IForcedInclusionStoreForcedInclusion,
+			pacayaBindings.ITaikoInboxBlockParams,
+		](forcedInclusion, minTxsPerForcedInclusion)
 		forcedInclusionParams = &encoding.BatchParamsPacaya{
 			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
@@ -182,7 +185,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	if forcedInclusion != nil {
-		blobParams, blockParams := buildParamsShastaForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		blobParams, blockParams := buildParamsForForcedInclusion[
+			*shastaBindings.IForcedInclusionStoreForcedInclusion,
+			shastaBindings.ITaikoInboxBlockParams,
+		](forcedInclusion, minTxsPerForcedInclusion)
 		forcedInclusionParams = &encoding.BatchParamsShasta{
 			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,

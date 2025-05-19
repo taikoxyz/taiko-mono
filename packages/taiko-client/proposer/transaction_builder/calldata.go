@@ -82,7 +82,9 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	}
 
 	if forcedInclusion != nil {
-		blobParams, blockParams := buildParamsForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		blobParams, blockParams := buildParamsForForcedInclusion[
+			*pacayaBindings.IForcedInclusionStoreForcedInclusion, pacayaBindings.ITaikoInboxBlockParams,
+		](forcedInclusion, minTxsPerForcedInclusion)
 		forcedInclusionParams = &encoding.BatchParamsPacaya{
 			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
@@ -139,12 +141,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		}
 	}
 
-	return &txmgr.TxCandidate{
-		TxData:   data,
-		Blobs:    nil,
-		To:       to,
-		GasLimit: b.gasLimit,
-	}, nil
+	return &txmgr.TxCandidate{TxData: data, Blobs: nil, To: to, GasLimit: b.gasLimit}, nil
 }
 
 // BuildShasta implements the ProposeBatchTransactionBuilder interface.
@@ -172,7 +169,9 @@ func (b *CalldataTransactionBuilder) BuildShasta(
 	}
 
 	if forcedInclusion != nil {
-		blobParams, blockParams := buildParamsShastaForForcedInclusion(forcedInclusion, minTxsPerForcedInclusion)
+		blobParams, blockParams := buildParamsForForcedInclusion[
+			*shastaBindings.IForcedInclusionStoreForcedInclusion, shastaBindings.ITaikoInboxBlockParams,
+		](forcedInclusion, minTxsPerForcedInclusion)
 		forcedInclusionParams = &encoding.BatchParamsShasta{
 			Proposer:                 proposer,
 			Coinbase:                 b.l2SuggestedFeeRecipient,
@@ -232,10 +231,5 @@ func (b *CalldataTransactionBuilder) BuildShasta(
 		}
 	}
 
-	return &txmgr.TxCandidate{
-		TxData:   data,
-		Blobs:    nil,
-		To:       to,
-		GasLimit: b.gasLimit,
-	}, nil
+	return &txmgr.TxCandidate{TxData: data, Blobs: nil, To: to, GasLimit: b.gasLimit}, nil
 }
