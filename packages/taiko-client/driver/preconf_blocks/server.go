@@ -715,7 +715,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
 
-	log.Info(
+	log.Debug(
 		"Decoded transactions list for preconfirmation block",
 		"transactions", len(txs),
 		"blockID", uint64(payload.BlockNumber),
