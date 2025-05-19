@@ -943,8 +943,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		return false, fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
 
-	willReorg := false
-
 	if header != nil {
 		if header.Hash() == msg.ExecutionPayload.BlockHash {
 			log.Info(
@@ -965,8 +963,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				"headerHash", header.Hash().Hex(),
 				"headerParentHash", header.ParentHash.Hex(),
 			)
-
-			willReorg = true
 		}
 	}
 
@@ -981,7 +977,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 
 	// If the block number is greater than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
-	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID || willReorg {
+	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
 		s.updateHighestUnsafeL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
 	}
 
