@@ -37,6 +37,7 @@ contract StateVerifier is EssentialContract, IStateVerifier {
 
     /// @inheritdoc IStateVerifier
     function verifyState(
+        uint64 _queryTimestamp,
         IStateQuery.Query[] calldata _queries,
         IStateQuery.QueryResult[] calldata _results,
         address[] calldata _consumers
@@ -49,7 +50,7 @@ contract StateVerifier is EssentialContract, IStateVerifier {
         require(n == _consumers.length, InvalidParamSizes());
 
         bytes32 signal =
-            LibStateQuery.hashQueriesToSignal(l1ChainId, block.timestamp, _queries, _results);
+            LibStateQuery.hashQueriesToSignal(l1ChainId, _queryTimestamp, _queries, _results);
 
         // Using an empty proof so we only rely on same-slot signal received in anchor contract
         signalService.proveSignalReceived(l1ChainId, l1StateQuerier, signal, bytes(""));
