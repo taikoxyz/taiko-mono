@@ -67,8 +67,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _updateParentHashAndTimestamp(parentId);
 
         if (_anchorBlockId == 0) {
+            // This block must not be the last block in the batch.
             require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
         } else {
+            // This block must be the last block in the batch.
             require(_anchorStateRoot != 0, ZeroAnchorStateRoot());
             _syncChainData(_anchorBlockId, _anchorStateRoot);
         }
