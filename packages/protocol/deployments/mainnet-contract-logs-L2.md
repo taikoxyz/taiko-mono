@@ -185,24 +185,23 @@
 
 #### delegate_owner
 
-- proxy: `0x17b16f89c9aEfC5329f95252a0b09492fdBE1328`
-- impl: `0x7E118aE5F6164C2b25c75454c99AAA53ED50C84D`
-- owner: `0x17b16f89c9aEfC5329f95252a0b09492fdBE1328`
+- proxy: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
+- impl: `0x50a349323CB2517Fc2C8D3570000Db0268D9D2ef`
+- owner: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
 - todo:
-  - test it (for example with `TestDelegateOwned` contract 0x5e73E7961d5355AabaB83b4600E862c42F5F0219)
+  - test it (for example with `TestDelegateOwned` contract 0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0)
 - logs:
-  - deployed on May 19, 2025 @commit`449d098` @tx`0xc44a4fa62d6ef00451bb1500377d9c463c49fcf12fa9415f28f5e0b39b5762ba`
+  - deployed on May 19, 2025 @commit`31e8c07` @tx`0xc7cbcf5a3f5a2e0cda164edc0ed90e4f1e27c3bd5aa2051169cca08429cd6b3f`
 
 #### test_delegate_owned
 
-- proxy: `0x5e73E7961d5355AabaB83b4600E862c42F5F0219`
-- impl: `0x5F6752dE8521d278fD7cA7776d29d219Ae391618`
-- owner: `0x17b16f89c9aEfC5329f95252a0b09492fdBE1328`
+- proxy: `0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0`
+- impl: `0xb2D3E492F0fD122edad7ECf0Dc58396344CAC227`
+- owner: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
 - todo:
-  - test it (for example with `DelegateOwner` contract 0x17b16f89c9aEfC5329f95252a0b09492fdBE1328)
+  - test it (for example with `DelegateOwner` contract 0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed)
 - logs:
-  - deployed on May 19, 2025 @commit`449d098` @tx`0x8e72af6a25fe1671663c1bdf444e033670b770a5545e5a178e842850eefbda03`
-
+  - deployed on May 19, 2025 @commit`31e8c07` @tx`0xdb8bdc82fb1e31559adc335dce50e9762c856bd67c755bba70efd477ca21193a`
 
 ## Pacaya Contracts
 
