@@ -13,14 +13,17 @@ import "../shared/bridge/IBridge.sol";
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
-    address public immutable l1Bridge;
+    address public immutable l2Bridge;
     address public immutable daoController;
     uint64 public immutable l1ChainId;
 
-    /// @notice The next transaction ID.
-    uint64 public nextTxId; // slot 1
+    // Was remoteChainId + admin before being immutable
+    uint256 public __deprecated;
 
-    uint256[49] private __gap;
+    /// @notice The next transaction ID.
+    uint64 public nextTxId; // slot 2
+
+    uint256[48] private __gap;
 
     struct Call {
         uint64 txId;
@@ -44,9 +47,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
 
-    constructor(uint64 _l1ChainId, address _l1Bridge, address _daoController) EssentialContract() {
+    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) EssentialContract() {
         l1ChainId = _l1ChainId;
-        l1Bridge = _l1Bridge;
+        l2Bridge = _l2Bridge;
         daoController = _daoController;
     }
 
@@ -56,7 +59,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata _data) external payable {
-        require(msg.sender == l1Bridge, DO_INVALID_SENDER());
+        require(msg.sender == l2Bridge, DO_INVALID_SENDER());
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(ctx.srcChainId == l1ChainId && ctx.from == daoController, DO_PERMISSION_DENIED());
