@@ -779,6 +779,14 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(lookahead *Lookahead) {
 	s.lookahead = lookahead
 }
 
+// GetLookahead updates the lookahead information.
+func (s *PreconfBlockAPIServer) GetLookahead() *Lookahead {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	return s.lookahead
+}
+
 // CheckLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
 // and checks the  handover window to see if we need to request the end of sequencing
 // block.
