@@ -181,3 +181,23 @@
 - WETH9: `0xA51894664A773981C6C112C43ce576f315d5b1B6`
 - `davidcai.eth`:`0x56706F118e42AE069F20c5636141B844D1324AE1`
 - `admin.l2.taiko.eth (label)`: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
+
+#### delegate_owner
+
+- proxy: `0x17b16f89c9aEfC5329f95252a0b09492fdBE1328`
+- impl: `0x7E118aE5F6164C2b25c75454c99AAA53ED50C84D`
+- owner: `0x17b16f89c9aEfC5329f95252a0b09492fdBE1328`
+- todo:
+  - test it (for example with `TestDelegateOwned` contract 0x5e73E7961d5355AabaB83b4600E862c42F5F0219)
+- logs:
+  - deployed on May 19, 2025 @commit`449d098` @tx`0xc44a4fa62d6ef00451bb1500377d9c463c49fcf12fa9415f28f5e0b39b5762ba`
+
+#### test_delegate_owned
+
+- proxy: `0x5e73E7961d5355AabaB83b4600E862c42F5F0219`
+- impl: `0x5F6752dE8521d278fD7cA7776d29d219Ae391618`
+- owner: `0x17b16f89c9aEfC5329f95252a0b09492fdBE1328`
+- todo:
+  - test it (for example with `DelegateOwner` contract 0x17b16f89c9aEfC5329f95252a0b09492fdBE1328)
+- logs:
+  - deployed on May 19, 2025 @commit`449d098` @tx`0x8e72af6a25fe1671663c1bdf444e033670b770a5545e5a178e842850eefbda03`
