@@ -965,49 +965,49 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
 }
 
-// GetOPVerifierPacaya resolves the Pacaya op verifier address.
-func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetOPVerifierShasta resolves the Shasta op verifier address.
+func (c *Client) GetOPVerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.OpVerifier)
 }
 
-// GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
-func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetSGXVerifierShasta resolves the Shasta sgx verifier address.
+func (c *Client) GetSGXVerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.SgxRethVerifier)
 }
 
-// GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
-func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetRISC0VerifierShasta resolves the Shasta risc0 verifier address.
+func (c *Client) GetRISC0VerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0RethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.Risc0RethVerifier)
 }
 
-// GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
-func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetSP1VerifierShasta resolves the Shasta sp1 verifier address.
+func (c *Client) GetSP1VerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1RethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.Sp1RethVerifier)
 }
 
-// GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
-func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetSgxGethVerifierShasta resolves the Shasta sgx geth verifier address.
+func (c *Client) GetSgxGethVerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.SgxGethVerifier)
 }
 
 // GetPreconfRouterShasta resolves the preconfirmation router address.
@@ -1016,11 +1016,11 @@ func (c *Client) GetPreconfRouterShasta(opts *bind.CallOpts) (common.Address, er
 		return common.Address{}, errors.New("taikoWrapper contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.ShastaClients.TaikoWrapper.PreconfRouter)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.TaikoWrapper.PreconfRouter)
 }
 
-// getImmutableAddressPacaya resolves the Pacaya contract address.
-func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
+// getImmutableAddressShasta resolves the Shasta contract address.
+func getImmutableAddressShasta[T func(opts *bind.CallOpts) (common.Address, error)](
 	c *Client,
 	opts *bind.CallOpts,
 	resolveFunc T,

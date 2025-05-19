@@ -102,7 +102,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	)
 
 	// Get the required sgx geth verifier address from the protocol, and initialize the sgx geth producer.
-	if sgxGethVerifierAddress, err = p.rpc.GetSgxGethVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+	if sgxGethVerifierAddress, err = p.rpc.GetSgxGethVerifierShasta(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get sgx geth verifier: %w", err)
 	}
 	if sgxGethVerifierAddress == rpc.ZeroAddress {
@@ -124,14 +124,14 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 
 	// Initialize the zk verifiers and zkvm proof producers.
 	var zkVerifiers = make(map[producer.ProofType]common.Address, proofSubmitter.MaxNumSupportedZkTypes)
-	if risc0VerifierAddress, err = p.rpc.GetRISC0VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+	if risc0VerifierAddress, err = p.rpc.GetRISC0VerifierShasta(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get risc0 verifier: %w", err)
 	}
 	if risc0VerifierAddress != rpc.ZeroAddress {
 		proofTypes = append(proofTypes, producer.ProofTypeZKR0)
 		zkVerifiers[producer.ProofTypeZKR0] = risc0VerifierAddress
 	}
-	if sp1VerifierAddress, err = p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+	if sp1VerifierAddress, err = p.rpc.GetSP1VerifierShasta(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get sp1 verifier: %w", err)
 	}
 	if sp1VerifierAddress != rpc.ZeroAddress {
@@ -204,7 +204,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 	)
 
 	// If there is an SGX verifier, then initialize the SGX prover as the base level prover.
-	if sgxVerifierAddress, err = p.rpc.GetSGXVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+	if sgxVerifierAddress, err = p.rpc.GetSGXVerifierShasta(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return "", nil, fmt.Errorf("failed to get sgx verifier: %w", err)
 	}
 	if sgxVerifierAddress != rpc.ZeroAddress {
@@ -222,7 +222,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 	} else {
 		// If there is no SGX verifier, then try to get the OP verifier address, and initialize
 		// the OP prover as the base level prover.
-		if opVerifierAddress, err = p.rpc.GetOPVerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
+		if opVerifierAddress, err = p.rpc.GetOPVerifierShasta(&bind.CallOpts{Context: p.ctx}); err != nil {
 			return "", nil, fmt.Errorf("failed to get op verifier address: %w", err)
 		}
 		if opVerifierAddress != rpc.ZeroAddress {
