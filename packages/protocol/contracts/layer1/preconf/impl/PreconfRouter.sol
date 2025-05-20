@@ -37,6 +37,33 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         bytes calldata _txList
     )
         external
+        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+    {
+        return _proposeBatch(_params, _txList);
+    }
+
+    function proposeBatchWithExpectedLastBlockId(
+        bytes calldata _params,
+        bytes calldata _txList,
+        uint96 _expectedLastBlockId
+    )
+        external
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+    {
+        (info_, meta_) = _proposeBatch(_params, _txList);
+
+        // Verify that the last block id is as expected
+        require(
+            info_.lastBlockId == _expectedLastBlockId,
+            InvalidLastBlockId(info_.lastBlockId, _expectedLastBlockId)
+        );
+    }
+
+    function _proposeBatch(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        internal
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         // Sender must be the selected operator for the epoch
@@ -48,22 +75,5 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
-    }
-
-    function proposeBatchWithExpectedLastBlockId(
-        bytes calldata _params,
-        bytes calldata _txList,
-        uint96 _expectedLastBlockId
-    )
-        external
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
-    {
-        (info_, meta_) = this.proposeBatch(_params, _txList);
-
-        // Verify that the last block id is as expected
-        require(
-            info_.lastBlockId == _expectedLastBlockId,
-            InvalidLastBlockId(info_.lastBlockId, _expectedLastBlockId)
-        );
     }
 }
