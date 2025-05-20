@@ -54,7 +54,7 @@ abstract contract BuildProposal is Test {
     }
 
     function buildProposal(
-        uint64 nextTxId,
+        uint64 txId,
         bool l2AllowFailure,
         address l2Executor
     )
@@ -84,7 +84,7 @@ abstract contract BuildProposal is Test {
             (
                 abi.encode(
                     DelegateOwner.Call({
-                        txId: nextTxId,
+                        txId: txId,
                         target: L2_MULLTICALL3,
                         isDelegateCall: true,
                         txdata: abi.encodeCall(Multicall3.aggregate3, (l2Calls))
