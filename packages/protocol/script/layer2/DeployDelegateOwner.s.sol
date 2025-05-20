@@ -20,8 +20,8 @@ contract DeployDelegateOwner is BaseScript {
             IResolver(l2Sam).resolve(LibNetwork.TAIKO_MAINNET, LibNames.B_BRIDGE, false);
         deploy({
             name: "delegate_owner",
-            impl: address(new DelegateOwner(bridge)),
-            data: abi.encodeCall(DelegateOwner.init, (l1Owner, 1, l2Admin))
+            impl: address(new DelegateOwner(1, bridge, l1Owner)),
+            data: abi.encodeCall(DelegateOwner.init, ())
         });
     }
 }
