@@ -48,34 +48,29 @@ contract TrainingModule3DanielWang is Test {
     function test_gentx_0002_TrainingModule3DanielWang() public pure {
         IBridge.Message memory message;
         {
-            Multicall3.Call3Value[] memory calls = new Multicall3.Call3Value[](6);
+            Multicall3.Call3[] memory calls = new Multicall3.Call3[](6);
 
             // Upgrade DelegateOwner to a new implementation
             calls[0].target = DELEGATE_OWNER_PROXY;
             calls[0].allowFailure = false;
-            calls[0].value = 0;
             calls[0].callData =
                 abi.encodeCall(UUPSUpgradeable.upgradeTo, (DELEGATE_OWNERE_NEW_IMPL));
 
             calls[1].target = TAIKO_TOKEN_L2;
             calls[1].allowFailure = false;
-            calls[1].value = 0;
             calls[1].callData = abi.encodeCall(IERC20.transfer, (RECIPIENT, 1 ether));
 
             calls[2].target = TEST_CONTRACT_PROXY;
             calls[2].allowFailure = false;
-            calls[2].value = 0;
             calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (TEST_CONTRACT_NEW_IMPL));
 
             calls[3].target = TEST_CONTRACT_PROXY;
             calls[3].allowFailure = false;
-            calls[3].value = 0;
             calls[3].callData =
                 abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), RECIPIENT, 0.001 ether));
 
             calls[4].target = TEST_CONTRACT_PROXY;
             calls[4].allowFailure = false;
-            calls[4].value = 0;
             calls[4].callData =
                 abi.encodeCall(ITestDelegateOwnedV2.withdraw, (TAIKO_TOKEN_L2, RECIPIENT, 1 ether));
 
@@ -84,7 +79,7 @@ contract TrainingModule3DanielWang is Test {
                     uint64(0), // nextTxId
                     MULLTICALL3,
                     true, // DELEGATECALL
-                    abi.encodeCall(Multicall3.aggregate3Value, (calls))
+                    abi.encodeCall(Multicall3.aggregate3, (calls))
                 )
             );
 
