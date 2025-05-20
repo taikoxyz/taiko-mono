@@ -43,7 +43,6 @@ contract Proposal0002 is BuildProposal {
 
         // Transfer 1 TAIKO to recipient
         calls[1].target = L2_TAIKO_TOKEN;
-        calls[1].allowFailure = false;
         calls[1].callData = abi.encodeCall(IERC20.transfer, (RECIPIENT, 1 ether));
 
         // Upgrade TestDelegateOwned to a new implementation
@@ -51,13 +50,11 @@ contract Proposal0002 is BuildProposal {
 
         // Transfer 0.001 Ether from TestDelegateOwned to recipient
         calls[3].target = TEST_CONTRACT;
-        calls[3].allowFailure = false;
         calls[3].callData =
             abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), RECIPIENT, 0.001 ether));
 
         // Transfer 1 TAIKO from TestDelegateOwned to recipient
         calls[4].target = TEST_CONTRACT;
-        calls[4].allowFailure = false;
         calls[4].callData =
             abi.encodeCall(ITestDelegateOwnedV2.withdraw, (L2_TAIKO_TOKEN, RECIPIENT, 1 ether));
     }
