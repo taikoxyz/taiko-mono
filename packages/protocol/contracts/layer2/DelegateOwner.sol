@@ -18,11 +18,14 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     uint64 public immutable l1ChainId;
 
     // Was remoteChainId + admin before being immutable
+    // solhint-disable var-name-mixedcase
     uint64 private __deprecated_remoteChainId;
+    // solhint-disable var-name-mixedcase
     address private __deprecated_admin;
 
     /// @notice The next transaction ID.
     uint64 public nextTxId; // slot 2
+        // solhint-disable var-name-mixedcase
     address private __deprecated_remoteOwner;
 
     uint256[48] private __gap;

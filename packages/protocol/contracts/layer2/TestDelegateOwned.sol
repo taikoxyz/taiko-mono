@@ -28,7 +28,15 @@ contract TestDelegateOwnedV2 is EssentialContract {
     /// @param _token Token contract address or address(0) if ether
     /// @param _to The recipient address
     /// @param _amount The amount to withdraw
-    function withdraw(address _token, address _to, uint256 _amount) external onlyOwner nonReentrant {
+    function withdraw(
+        address _token,
+        address _to,
+        uint256 _amount
+    )
+        external
+        onlyOwner
+        nonReentrant
+    {
         if (_token == address(0)) {
             LibAddress.sendEtherAndVerify(_to, _amount);
         } else {
