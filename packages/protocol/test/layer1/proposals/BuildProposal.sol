@@ -10,7 +10,7 @@ import "test/shared/thirdparty/Multicall3.sol";
 import "src/shared/bridge/IBridge.sol";
 
 abstract contract BuildProposal is Test {
-    // L2 Contracts
+    // L2 contracts
     address public constant L2_DELEGATE_OWNER = 0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed;
     address public constant L2_TAIKO_TOKEN = 0xA9d23408b9bA935c230493c40C73824Df71A0975;
     address public constant L2_MULLTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
