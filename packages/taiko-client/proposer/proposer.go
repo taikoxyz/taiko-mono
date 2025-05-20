@@ -2,6 +2,7 @@ package proposer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
