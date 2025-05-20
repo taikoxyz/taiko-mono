@@ -53,14 +53,7 @@ abstract contract BuildProposal is Test {
         });
     }
 
-    function buildProposal(
-        uint64 txId,
-        bool l2AllowFailure,
-        address l2Executor
-    )
-        internal
-        pure
-    {
+    function buildProposal(uint64 txId, bool l2AllowFailure, address l2Executor) internal pure {
         require(l2Executor != address(0), "NO EXECUTOR");
         TaikoDAOController.Call[] memory l1Calls = buildL1Calls();
         TaikoDAOController.Call[] memory allCalls =

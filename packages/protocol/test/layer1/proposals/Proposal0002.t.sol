@@ -47,14 +47,17 @@ contract Proposal0002 is BuildProposal {
         // Upgrade TestDelegateOwned to a new implementation
         calls[2] = buildL2UpgradeCall(TEST_CONTRACT, TEST_CONTRACT_NEW_IMPL);
 
-        // Transfer 0.001 Ether from TestDelegateOwned to the delegate owner (the ether will stuck there)
+        // Transfer 0.001 Ether from TestDelegateOwned to the delegate owner (the ether will stuck
+        // there)
         calls[3].target = TEST_CONTRACT;
-        calls[3].callData =
-            abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), L2_DELEGATE_OWNER, 0.001 ether));
+        calls[3].callData = abi.encodeCall(
+            ITestDelegateOwnedV2.withdraw, (address(0), L2_DELEGATE_OWNER, 0.001 ether)
+        );
 
         // Transfer 1 TAIKO from TestDelegateOwned to the delegate owner
         calls[4].target = TEST_CONTRACT;
-        calls[4].callData =
-            abi.encodeCall(ITestDelegateOwnedV2.withdraw, (L2_TAIKO_TOKEN, L2_DELEGATE_OWNER, 1 ether));
+        calls[4].callData = abi.encodeCall(
+            ITestDelegateOwnedV2.withdraw, (L2_TAIKO_TOKEN, L2_DELEGATE_OWNER, 1 ether)
+        );
     }
 }
