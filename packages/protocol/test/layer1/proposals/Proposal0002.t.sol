@@ -8,7 +8,7 @@ interface ITestDelegateOwnedV2 {
 }
 
 contract Proposal0002 is BuildProposal {
-    // L2 Contracts
+    // L2 contracts
     address public constant DELEGATE_OWNERE_NEW_IMPL = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
     address public constant TEST_CONTRACT = 0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0;
     address public constant TEST_CONTRACT_NEW_IMPL = 0xd1934807041B168f383870A0d8F565aDe2DF9D7D;
