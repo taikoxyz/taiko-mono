@@ -53,7 +53,7 @@ abstract contract BuildProposal is Test {
         });
     }
 
-    function buildProposal(uint64 _l2DelegateOwnerNextTxId) internal pure {
+    function buildProposal(uint64 nextTxId) internal pure {
         TaikoDAOController.Call[] memory l1Calls = buildL1Calls();
         TaikoDAOController.Call[] memory allCalls =
             new TaikoDAOController.Call[](l1Calls.length + 1);
@@ -71,7 +71,7 @@ abstract contract BuildProposal is Test {
             (
                 abi.encode(
                     DelegateOwner.Call({
-                        txId: _l2DelegateOwnerNextTxId,
+                        txId: nextTxId,
                         target: L2_MULLTICALL3,
                         isDelegateCall: true,
                         txdata: abi.encodeCall(Multicall3.aggregate3, (buildL2Calls()))
