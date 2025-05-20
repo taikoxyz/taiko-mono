@@ -12,7 +12,6 @@ contract Proposal0002 is BuildProposal {
     address public constant DELEGATE_OWNERE_NEW_IMPL = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
     address public constant TEST_CONTRACT = 0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0;
     address public constant TEST_CONTRACT_NEW_IMPL = 0xd1934807041B168f383870A0d8F565aDe2DF9D7D;
-    address public constant RECIPIENT = 0xe36C0F16d5fB473CC5181f5fb86b6Eb3299aD9cb;
 
     // L1 contracts
     address public constant TAIKO_DAO_CONTROLLER_NEW_IMPL =
@@ -41,21 +40,21 @@ contract Proposal0002 is BuildProposal {
         // Upgrade DelegateOwner to a new implementation
         calls[0] = buildL2UpgradeCall(L2_DELEGATE_OWNER, DELEGATE_OWNERE_NEW_IMPL);
 
-        // Transfer 1 TAIKO to recipient
+        // Transfer 1 TAIKO to the delegate owner
         calls[1].target = L2_TAIKO_TOKEN;
-        calls[1].callData = abi.encodeCall(IERC20.transfer, (RECIPIENT, 1 ether));
+        calls[1].callData = abi.encodeCall(IERC20.transfer, (L2_DELEGATE_OWNER, 1 ether));
 
         // Upgrade TestDelegateOwned to a new implementation
         calls[2] = buildL2UpgradeCall(TEST_CONTRACT, TEST_CONTRACT_NEW_IMPL);
 
-        // Transfer 0.001 Ether from TestDelegateOwned to recipient
+        // Transfer 0.001 Ether from TestDelegateOwned to the delegate owner (the ether will stuck there)
         calls[3].target = TEST_CONTRACT;
         calls[3].callData =
-            abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), RECIPIENT, 0.001 ether));
+            abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), L2_DELEGATE_OWNER, 0.001 ether));
 
-        // Transfer 1 TAIKO from TestDelegateOwned to recipient
+        // Transfer 1 TAIKO from TestDelegateOwned to the delegate owner
         calls[4].target = TEST_CONTRACT;
         calls[4].callData =
-            abi.encodeCall(ITestDelegateOwnedV2.withdraw, (L2_TAIKO_TOKEN, RECIPIENT, 1 ether));
+            abi.encodeCall(ITestDelegateOwnedV2.withdraw, (L2_TAIKO_TOKEN, L2_DELEGATE_OWNER, 1 ether));
     }
 }
