@@ -2,20 +2,27 @@
 pragma solidity ^0.8.24;
 
 import "test/shared/DeployCapability.sol";
-import "src/layer2/DelegateOwner.sol";
+import "src/layer1/token/TaikoToken.sol";
 
 contract DeployTaikoToken is DeployCapability {
+    uint256 public privateKey = vm.envUint("PRIVATE_KEY");
+    // MAINNET_SECURITY_COUNCIL: council.taiko.eth (0x7C50d60743D3FCe5a39FdbF687AFbAe5acFF49Fd)
+    address public securityCouncil = vm.envAddress("SECURITY_COUNCIL");
+    address public premintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+
     modifier broadcast() {
+        require(privateKey != 0, "invalid private key");
         vm.startBroadcast();
         _;
         vm.stopBroadcast();
     }
 
     function run() external broadcast {
-        address l2Bridge = 0x1670000000000000000000000000000000000001;
-        address daoController = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
-        DelegateOwner delegateOwner = new DelegateOwner(1, l2Bridge, daoController);
-
-        console2.log("DelegateOwner deployed at", address(delegateOwner));
+        // Deploy the TaikoToken contract, use securityCouncil address as the owner.
+        deployProxy({
+            name: "taiko_token",
+            impl: address(new TaikoToken()),
+            data: abi.encodeCall(TaikoToken.init, (securityCouncil, premintRecipient))
+        });
     }
 }
