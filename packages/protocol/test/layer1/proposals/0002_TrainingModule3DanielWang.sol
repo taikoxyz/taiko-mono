@@ -80,7 +80,7 @@ contract TrainingModule3DanielWang is Test {
             calls[4].callData =
                 abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), RECIPIENT, 0.001 ether));
 
-            calls[5].target = MULLTICALL3;
+            calls[5].target = TEST_CONTRACT_PROXY;
             calls[5].allowFailure = false;
             calls[5].value = 0;
             calls[5].callData =

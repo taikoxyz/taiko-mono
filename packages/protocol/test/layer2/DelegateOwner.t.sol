@@ -154,6 +154,67 @@ contract TestDelegateOwner is Layer2Test {
         assertEq(tDelegateOwner.impl(), tDelegateOwnerImpl2);
     }
 
+    // A new test to match TrainingModule3DanielWang
+    function test_delegate_owner_delegate_tMulticall2() public onTaiko {
+        address tDelegateOwnerImpl2 =
+            address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
+        address impl1 = address(new EssentialContract_EmptyStub());
+        address impl2 = address(new EssentialContract_EmptyStub());
+
+        vm.startPrank(deployer);
+        EssentialContract_EmptyStub stub2 = _deployEssentialContract_EmptyStub("stub2", impl2);
+        vm.stopPrank();
+
+        vm.deal(address(tDelegateOwner), 0.01 ether);
+
+        Multicall3.Call3Value[] memory calls = new Multicall3.Call3Value[](3);
+
+        calls[0].target = address(tDelegateOwner);
+        calls[0].allowFailure = false;
+        calls[0].value = 0;
+        calls[0].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateOwnerImpl2));
+
+        calls[1].target = Alice;
+        calls[1].allowFailure = false;
+        calls[1].value = 0.01 ether;
+        calls[1].callData = "";
+
+        calls[2].target = address(stub2);
+        calls[2].allowFailure = false;
+        calls[2].value = 0;
+        calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (impl1));
+
+        bytes memory data = abi.encode(
+            DelegateOwner.Call(
+                uint64(0),
+                address(tMulticall),
+                true, // DELEGATECALL
+                abi.encodeCall(Multicall3.aggregate3Value, (calls))
+            )
+        );
+
+        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
+        tDelegateOwner.dryrunInvocation{ value: 0.01 ether }(data);
+
+        IBridge.Message memory message;
+        message.from = eBridge;
+        message.destChainId = taikoChainId;
+        message.srcChainId = ethereumChainId;
+        message.destOwner = Bob;
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.to = address(tDelegateOwner);
+
+        vm.prank(Bob);
+        tBridge.processMessage(message, "");
+
+        bytes32 hash = tBridge.hashMessage(message);
+        assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
+
+        assertEq(tDelegateOwner.nextTxId(), 1);
+        assertEq(stub2.impl(), impl1);
+        assertEq(tDelegateOwner.impl(), tDelegateOwnerImpl2);
+    }
+
     function _deployEssentialContract_EmptyStub(
         bytes32 name,
         address impl
