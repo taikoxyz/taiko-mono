@@ -53,7 +53,7 @@ abstract contract BuildProposal is Test {
         });
     }
 
-    function buildProposal(uint64 nextTxId) internal pure {
+    function buildProposal(uint64 nextTxId, bool l2AllowFailure) internal pure {
         TaikoDAOController.Call[] memory l1Calls = buildL1Calls();
         TaikoDAOController.Call[] memory allCalls =
             new TaikoDAOController.Call[](l1Calls.length + 1);
@@ -61,6 +61,11 @@ abstract contract BuildProposal is Test {
         for (uint256 i; i < l1Calls.length; ++i) {
             allCalls[i] = l1Calls[i];
             require(allCalls[i].target == L1_TAIKO_DAO_CONTROLLER, "TARGET IS NOT_CONTROLLER");
+        }
+
+        Multicall3.Call3[] memory l2Calls = buildL2Calls();
+        for (uint256 i; i < l2Calls.length; ++i) {
+            l2Calls[i].allowFailure = l2AllowFailure;
         }
 
         IBridge.Message memory message;
@@ -74,7 +79,7 @@ abstract contract BuildProposal is Test {
                         txId: nextTxId,
                         target: L2_MULLTICALL3,
                         isDelegateCall: true,
-                        txdata: abi.encodeCall(Multicall3.aggregate3, (buildL2Calls()))
+                        txdata: abi.encodeCall(Multicall3.aggregate3, (l2Calls))
                     })
                 )
             )
