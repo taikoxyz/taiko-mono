@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@risc0/contracts/IRiscZeroVerifier.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -32,12 +32,7 @@ contract TaikoRisc0Verifier is EssentialContract, IVerifier {
     error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
 
-    constructor(
-        uint64 _taikoChainId,
-        address _riscoGroth16Verifier
-    )
-        EssentialContract(address(0))
-    {
+    constructor(uint64 _taikoChainId, address _riscoGroth16Verifier) EssentialContract() {
         taikoChainId = _taikoChainId;
         riscoGroth16Verifier = _riscoGroth16Verifier;
     }

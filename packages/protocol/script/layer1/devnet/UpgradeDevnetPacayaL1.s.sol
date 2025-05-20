@@ -43,7 +43,6 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public inclusionWindow = vm.envUint("INCLUSION_WINDOW");
     uint256 public inclusionFeeInGwei = vm.envUint("INCLUSION_FEE_IN_GWEI");
-    address public quotaManager = vm.envAddress("QUOTA_MANAGER");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -142,18 +141,18 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             address(new ProverSet(taikoInbox, taikoToken, taikoWrapper))
         );
         TaikoInbox taikoInboxImpl = TaikoInbox(newFork);
-        uint64 l2ChainId = taikoInboxImpl.v4GetConfig().chainId;
-        require(l2ChainId != block.chainid, "same chainid");
+        uint64 taikoChainId = taikoInboxImpl.v4GetConfig().chainId;
+        require(taikoChainId != block.chainid, "same chainid");
 
         // Other verifiers
-        upgradeVerifierContracts(opVerifier, opImpl, proofVerifier, l2ChainId);
+        upgradeVerifierContracts(opVerifier, opImpl, proofVerifier, taikoChainId);
     }
 
     function upgradeVerifierContracts(
         address opProxy,
         address opImpl,
         address proofVerifier,
-        uint64 l2ChainId
+        uint64 taikoChainId
     )
         internal
     {
@@ -167,7 +166,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
 
         deployTEEVerifiers(proofVerifier);
 
-        (address risc0RethVerifier, address sp1RethVerifier) = deployZKVerifiers(l2ChainId);
+        (address risc0RethVerifier, address sp1RethVerifier) = deployZKVerifiers(taikoChainId);
 
         // In testing, use address(0) as an sgxVerifier
         UUPSUpgradeable(proofVerifier).upgradeTo(
@@ -184,7 +183,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         );
     }
 
-    function deployZKVerifiers(uint64 l2ChainId)
+    function deployZKVerifiers(uint64 taikoChainId)
         internal
         returns (address risc0Verifier, address sp1Verifier)
     {
@@ -193,7 +192,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
-            impl: address(new TaikoRisc0Verifier(l2ChainId, address(risc0Groth16Verifier))),
+            impl: address(new TaikoRisc0Verifier(taikoChainId, address(risc0Groth16Verifier))),
             data: abi.encodeCall(TaikoRisc0Verifier.init, (address(0))),
             registerTo: address(0)
         });
@@ -202,7 +201,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
         SP1Verifier sp1RemoteVerifier = new SP1Verifier();
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
-            impl: address(new TaikoSP1Verifier(l2ChainId, address(sp1RemoteVerifier))),
+            impl: address(new TaikoSP1Verifier(taikoChainId, address(sp1RemoteVerifier))),
             data: abi.encodeCall(TaikoSP1Verifier.init, (address(0))),
             registerTo: address(0)
         });
@@ -234,9 +233,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
     }
 
     function upgradeBridgeContracts(address sharedResolver) internal {
-        UUPSUpgradeable(bridgeL1).upgradeTo(
-            address(new Bridge(sharedResolver, signalService, quotaManager))
-        );
+        UUPSUpgradeable(bridgeL1).upgradeTo(address(new Bridge(sharedResolver, signalService)));
         register(sharedResolver, "bridge", bridgeL1);
         // SignalService
         UUPSUpgradeable(signalService).upgradeTo(address(new SignalService(sharedResolver)));

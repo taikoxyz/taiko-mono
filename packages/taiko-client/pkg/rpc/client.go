@@ -20,7 +20,7 @@ const (
 	defaultTimeout                = 1 * time.Minute
 	pacayaForkHeightDevnet        = 10
 	pacayaForkHeightHekla         = 1_299_888
-	pacayaForkHeightMainnet       = 999_999_999_999
+	pacayaForkHeightMainnet       = 1_166_000
 	pacayaForkHeightPreconfDevnet = 0
 	pacayaForkHeightMasaya        = 0
 )
@@ -371,7 +371,8 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	c.OntakeClients.ForkHeight = protocolConfigs.ForkHeights.Ontake
 	c.PacayaClients.ForkHeight = protocolConfigs.ForkHeights.Pacaya
 
-	log.Info("Forkheight configs",
+	log.Info(
+		"Forkheight configs",
 		"ontakeForkHeight", c.OntakeClients.ForkHeight,
 		"pacayaForkHeight", c.PacayaClients.ForkHeight,
 	)

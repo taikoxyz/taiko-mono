@@ -7,7 +7,7 @@ import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibProverAuth.sol";
@@ -51,7 +51,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
-        EssentialContract(address(0))
+        EssentialContract()
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
@@ -542,10 +542,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         return state.bondBalance[_user];
     }
 
-    /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
-    /// Layer 2 (L2).
-    /// @return True if the contract is operating on L1, false if on L2.
-    function v4IsOnL1() external pure override returns (bool) {
+    /// @inheritdoc ITaiko
+    function v4IsInbox() external pure override returns (bool) {
         return true;
     }
 

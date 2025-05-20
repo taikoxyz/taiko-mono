@@ -36,6 +36,11 @@ var (
 	DriverPreconfP2PEnvelopeCachedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_p2p_envelope_cached",
 	})
+	DriverPreconfP2PResponseEnvelopeCounter = factory.NewCounter(
+		prometheus.CounterOpts{
+			Name: "driver_p2p_response_envelope",
+		},
+	)
 
 	// Proposer
 	ProposerProposeEpochCounter    = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_epoch"})

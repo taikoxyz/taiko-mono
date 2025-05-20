@@ -1,0 +1,75 @@
+name: Cleanup Old Releases
+
+# Run daily at 00:00 UTC (can adjust time as needed)
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Run weekly at 00:00 UTC
+  workflow_dispatch: # Allow running manually
+
+jobs:
+  cleanup-old-releases:
+    runs-on: ubuntu-latest
+
+    # Ensure the token has rights to delete releases/tags
+    permissions:
+      contents: write
+
+    # Provide GITHUB_TOKEN to gh CLI as authentication
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      # Check out the repo to access release-please-config.json
+      - uses: actions/checkout@v3
+
+      - name: Clean up old releases
+        shell: bash
+        run: |
+          echo "Loading release targets from release-please-config.json"
+          # Extract release target names from the JSON config
+          targets=$(jq -r '
+            .packages 
+            | to_entries[] 
+            | ( .value["package-name"] // .value.component // ( .key | split("/") | last ) )
+          ' release-please-config.json)
+
+          if [[ -z "$targets" ]]; then
+            echo "No release targets found in configuration. Exiting."
+            exit 0
+          fi
+
+          for target in $targets; do
+            echo "▶ Processing releases for target: $target"
+            # List all releases (excluding drafts), output JSON with tag and date
+            releases_json=$(gh release list --exclude-drafts --limit 200 --json tagName,publishedAt)
+            if [[ $? -ne 0 ]]; then
+              echo "Failed to fetch releases for $target. Skipping."
+              continue
+            fi
+
+            # Find tags for this target older than the 5 most recent releases
+            old_tags=$(echo "$releases_json" | jq -r --arg prefix "${target}-" '
+              [ .[] | select(.tagName | startswith($prefix)) ]         # filter releases of this target into an array
+              | sort_by(.publishedAt) | reverse                       # sort by date (newest first)
+              | .[5:] | .[].tagName                                   # slice to get entries beyond the first 5
+            ')
+
+            if [[ -z "$old_tags" ]]; then
+              echo "No releases to delete for $target (has 5 or fewer releases)."
+              continue
+            fi
+
+            # Loop through each old tag and delete the release and tag
+            for tag in $old_tags; do
+              echo "Deleting release '$tag' for target $target ..."
+              # Delete the release and its tag using GH CLI (with --cleanup-tag to remove tag)
+              gh release delete "$tag" --cleanup-tag -y || {
+                echo "⚠️ Error: Failed to delete release or tag '$tag'. Continuing with next."
+                continue
+              }
+            done
+
+            echo "✅ Completed cleanup for $target."
+          done
+
+          echo "🎉 Release cleanup job finished."

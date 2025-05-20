@@ -21,12 +21,19 @@ type PreconfBlockAPIServerTestSuite struct {
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*", nil, common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), nil, s.RPCClient)
+	server, err := New("*",
+		nil,
+		common.Address{},
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		nil,
+		s.RPCClient,
+		nil,
+	)
 	s.Nil(err)
 	s.s = server
 	go func() {
 		s.NotPanics(func() {
-			log.Error("Start test preconf block server", "error", s.s.Start(uint64(testutils.RandomPort())))
+			log.Error("Start test preconfirmation block server", "error", s.s.Start(uint64(testutils.RandomPort())))
 		})
 	}()
 }
@@ -83,7 +90,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 				SlotsPerEpoch: 32,
 			}
 
-			s.Equal(tt.wantErr, s.s.checkLookaheadHandover(tt.feeRecipient, tt.globalSlot))
+			s.Equal(tt.wantErr, s.s.CheckLookaheadHandover(tt.feeRecipient, tt.globalSlot))
 		})
 	}
 }
