@@ -24,8 +24,8 @@ contract TrainingModule2DanielWang is Test {
     address private constant FOO_UPGRADEABLE_V1 = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
     address private constant FOO_UPGRADEABLE_V2 = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
 
-    // FOUNDRY_PROFILE=layer1 forge test --mt test_gentx_0001_TrainingModule2DanielWang -vvv
-    function test_gentx_0001_TrainingModule2DanielWang() public pure {
+    // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0001 -vvv
+    function test_proposal_0001() public pure {
         TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](4);
 
         // Upgrade FooUpgradeable's implementation from V1 to V2
