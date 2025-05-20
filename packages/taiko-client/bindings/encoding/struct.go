@@ -39,6 +39,13 @@ type SubProof struct {
 	Proof    []byte
 }
 
+// LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
+// which contains additional information about the proposal.
+type LastSeenProposal struct {
+	metadata.TaikoProposalMetaData
+	PreconfChainReorged bool
+}
+
 // ToExecutableData converts a GETH *types.Header to *engine.ExecutableData.
 func ToExecutableData(header *types.Header) *engine.ExecutableData {
 	executableData := &engine.ExecutableData{
@@ -63,22 +70,4 @@ func ToExecutableData(header *types.Header) *engine.ExecutableData {
 	}
 
 	return executableData
-}
-
-// LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
-// which contains additional information about the proposal.
-type LastSeenProposal struct {
-	metadata.TaikoProposalMetaData
-	PreconfChainReorged bool
-}
-
-// BytesToBloom converts a [8][32]byte slice to types.Bloom.
-func BytesToBloom(b [8][32]byte) types.Bloom {
-	bytes := []byte{}
-
-	for i := 0; i < 8; i++ {
-		bytes = append(bytes, b[i][:]...)
-	}
-
-	return types.BytesToBloom(bytes)
 }
