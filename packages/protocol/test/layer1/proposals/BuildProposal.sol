@@ -53,8 +53,7 @@ abstract contract BuildProposal is Test {
         });
     }
 
-    function buildProposal(uint64 txId, bool l2AllowFailure, address l2Executor) internal pure {
-        require(l2Executor != address(0), "NO EXECUTOR");
+    function buildProposal(uint64 txId, bool l2AllowFailure) internal pure {
         TaikoDAOController.Call[] memory l1Calls = buildL1Calls();
         TaikoDAOController.Call[] memory allCalls =
             new TaikoDAOController.Call[](l1Calls.length + 1);
@@ -71,7 +70,7 @@ abstract contract BuildProposal is Test {
 
         IBridge.Message memory message;
         message.destChainId = 167_000;
-        message.destOwner = l2Executor;
+        message.destOwner = L2_PERMISSIONLESS_EXECUTOR;
         message.data = abi.encodeCall(
             DelegateOwner.onMessageInvocation,
             (

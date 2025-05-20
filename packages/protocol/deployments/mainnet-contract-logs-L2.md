@@ -193,10 +193,6 @@
 - logs:
   - deployed on May 19, 2025 @commit`31e8c07` @tx`0xc7cbcf5a3f5a2e0cda164edc0ed90e4f1e27c3bd5aa2051169cca08429cd6b3f`
 
-#### permissionless executor
-
-- impl: 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
-
 ## Pacaya Contracts
 
 #### shared_resolver
