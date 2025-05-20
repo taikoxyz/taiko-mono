@@ -89,8 +89,12 @@ abstract contract BuildProposal is Test {
 
         for (uint256 i; i < allCalls.length; ++i) {
             console2.log("ACTION #", 1 + i, "==========================");
-            console2.log(allCalls[i].target);
-            console2.log(allCalls[i].value);
+            console2.log("target:", allCalls[i].target);
+            if (allCalls[i].value > 0) {
+                console2.log("value:", allCalls[i].value);
+            }
+
+            console2.log("data:");
             console2.logBytes(allCalls[i].data);
             console2.log("");
         }
