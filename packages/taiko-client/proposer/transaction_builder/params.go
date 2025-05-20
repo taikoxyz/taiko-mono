@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -16,25 +14,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
-
-// ProposeBatchTransactionBuilder is an interface for building a TaikoInbox.proposeBatch
-// transaction.
-type ProposeBatchTransactionBuilder interface {
-	BuildPacaya(
-		ctx context.Context,
-		txBatch []types.Transactions,
-		forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
-		minTxsPerForcedInclusion *big.Int,
-		parentMetahash common.Hash,
-	) (*txmgr.TxCandidate, error)
-	BuildShasta(
-		ctx context.Context,
-		txBatch []types.Transactions,
-		forcedInclusion *shastaBindings.IForcedInclusionStoreForcedInclusion,
-		minTxsPerForcedInclusion *big.Int,
-		parentMetahash common.Hash,
-	) (*txmgr.TxCandidate, error)
-}
 
 // BuildProposalParams builds the proposal params for the given forced inclusion.
 func BuildProposalParams[
@@ -139,42 +118,4 @@ func BuildProposalParams[
 	}
 
 	return encodedParams, txListsBytes, nil
-}
-
-// buildParamsForForcedInclusion builds the blob params and the block params
-// for the given forced inclusion.
-func buildParamsForForcedInclusion[
-	T *pacayaBindings.IForcedInclusionStoreForcedInclusion | *shastaBindings.IForcedInclusionStoreForcedInclusion,
-](
-	forcedInclusion T,
-	minTxsPerForcedInclusion *big.Int,
-) (params.ITaikoInboxBlobParams, []params.ITaikoInboxBlockParams) {
-	if forcedInclusion == nil {
-		return nil, nil
-	}
-
-	var blobParams *params.BlobParams
-	switch s := any(forcedInclusion).(type) {
-	case *pacayaBindings.IForcedInclusionStoreForcedInclusion:
-		blobParams = params.NewBlobParams(
-			[][32]byte{s.BlobHash},
-			0,
-			0,
-			s.BlobByteOffset,
-			s.BlobByteSize,
-			s.BlobCreatedIn,
-		)
-	case *shastaBindings.IForcedInclusionStoreForcedInclusion:
-		blobParams = params.NewBlobParams(
-			[][32]byte{s.BlobHash},
-			0,
-			0,
-			s.BlobByteOffset,
-			s.BlobByteSize,
-			s.BlobCreatedIn,
-		)
-	}
-	return blobParams, []params.ITaikoInboxBlockParams{params.NewBlockParams(
-		uint16(minTxsPerForcedInclusion.Uint64()), 0, make([][32]byte, 0),
-	)}
 }

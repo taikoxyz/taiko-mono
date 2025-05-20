@@ -39,7 +39,7 @@ type Proposer struct {
 	proposingTimer *time.Timer
 
 	// Transaction builder
-	txBuilder builder.ProposeBatchTransactionBuilder
+	txBuilder builder.BatchProposalTransactionBuilder
 
 	// Protocol configurations
 	protocolConfigs config.ProtocolConfigs
