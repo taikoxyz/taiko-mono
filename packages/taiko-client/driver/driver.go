@@ -456,29 +456,68 @@ func (d *Driver) cacheLookaheadLoop() {
 			return err
 		}
 
-		// push into our 3‑epoch ring
-		log.Debug("Pushing into window", "epoch", currentEpoch, "currOp", currOp.Hex(), "nextOp", nextOp.Hex())
-		opWin.Push(currentEpoch, currOp, nextOp)
+		lookahead := d.preconfBlockServer.GetLookahead()
+		// we dont need to update the lookahead on every slot, we just need to make sure we do it
+		// once per epoch, since we push the next operator as the current range when we check.
+		// so, this means we should use a reliable slot past 0 where the operator has no possible
+		// way to change. mid-epooch works, so we use slot 16.
+		if lookahead == nil || lookahead.LastEpochUpdated < currentEpoch && slotInEpoch >= 15 {
+			log.Info(
+				"Pushing into window for current epoch",
+				"epoch", currentEpoch,
+				"currentSlot", currentSlot,
+				"slotInEpoch", slotInEpoch,
+				"currOp", currOp.Hex(),
+				"nextOp", nextOp.Hex(),
+			)
+			opWin.Push(currentEpoch, currOp, nextOp)
 
-		// Push next epoch (nextOp becomes currOp at next epoch)
-		log.Debug("Pushing into window", "epoch", currentEpoch+1, "currOp", nextOp.Hex(), "nextOp", common.Address{})
-		opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
+			// Push next epoch into window.
+			log.Info(
+				"Pushing into window for next epoch",
+				"epoch", currentEpoch+1,
+				"currentSlot", currentSlot,
+				"slotInEpoch", slotInEpoch,
+				"currOp", nextOp.Hex(), // currOp becomes nextOp at next epoch
+			)
+			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
 
+			var (
+				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
+				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+			)
+			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
+				CurrOperator:     currOp,
+				NextOperator:     nextOp,
+				CurrRanges:       currRanges,
+				NextRanges:       nextRanges,
+				UpdatedAt:        time.Now().UTC(),
+				LastEpochUpdated: currentEpoch,
+			})
+
+			log.Info(
+				"Lookahead updated",
+				"currentSlot", currentSlot,
+				"currentEpoch", currentEpoch,
+				"slotsLeftInEpoch", slotsLeftInEpoch,
+				"slotInEpoch", slotInEpoch,
+				"currOp", currOp.Hex(),
+				"nextOp", nextOp.Hex(),
+				"currRanges", currRanges,
+				"nextRanges", nextRanges,
+			)
+
+			return nil
+		}
+
+		// Otherwise, just log out lookahead information.
 		var (
 			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
 			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
 		)
 
-		d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
-			CurrOperator: currOp,
-			NextOperator: nextOp,
-			CurrRanges:   currRanges,
-			NextRanges:   nextRanges,
-			UpdatedAt:    time.Now().UTC(),
-		})
-
 		log.Info(
-			"Lookahead information refreshed",
+			"Lookahead tick",
 			"currentSlot", currentSlot,
 			"currentEpoch", currentEpoch,
 			"slotsLeftInEpoch", slotsLeftInEpoch,

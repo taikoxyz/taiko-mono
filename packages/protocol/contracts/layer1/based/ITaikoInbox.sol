@@ -54,6 +54,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
+        // anchorBlockId is used only by the anchor transaction in the last block in the batch.
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
