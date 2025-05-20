@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer1/governance/TaikoDAOController.sol";
-import "forge-std/src/Test.sol";
-import "src/layer2/DelegateOwner.sol";
-import "test/shared/thirdparty/Multicall3.sol";
-import "src/shared/bridge/IBridge.sol";
 import "./BuildProposal.sol";
 
 interface ITestDelegateOwnedV2 {
@@ -22,7 +15,8 @@ contract Proposal0002 is BuildProposal {
     address public constant RECIPIENT = 0xe36C0F16d5fB473CC5181f5fb86b6Eb3299aD9cb;
 
     // L1 contracts
-    address public constant TAIKO_DAO_CONTROLLER_NEW_IMPL = address(0); // TODO
+    address public constant TAIKO_DAO_CONTROLLER_NEW_IMPL =
+        0x6aC624FD2b3Bf8fbf1b121f7Aba0d1eC51f4c347;
 
     // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0002 -vvv
     function test_proposal_0002() public pure {
