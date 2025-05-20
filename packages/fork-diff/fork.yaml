@@ -343,6 +343,7 @@ ignore:
   - "Dockerfile*"
   - "Makefile"
   - "accounts/*"
+  - "scripts/*"
   - ".*"
   - ".github/*"
   - ".github/*/*"
