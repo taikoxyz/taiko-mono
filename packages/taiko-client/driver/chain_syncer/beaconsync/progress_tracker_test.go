@@ -1,14 +1,17 @@
 package beaconsync
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 type BeaconSyncProgressTrackerTestSuite struct {
@@ -83,6 +86,43 @@ func (s *BeaconSyncProgressTrackerTestSuite) TestLastSyncedVerifiedBlockHash() {
 	randomHash := testutils.RandomHash()
 	s.t.lastSyncedBlockHash = randomHash
 	s.Equal(randomHash, s.t.LastSyncedBlockHash())
+}
+
+func (s *BeaconSyncProgressTrackerTestSuite) TestToExecutableData() {
+	testHeader := &types.Header{
+		ParentHash:  testutils.RandomHash(),
+		UncleHash:   types.EmptyUncleHash,
+		Coinbase:    common.BytesToAddress(testutils.RandomHash().Bytes()),
+		Root:        testutils.RandomHash(),
+		TxHash:      testutils.RandomHash(),
+		ReceiptHash: testutils.RandomHash(),
+		Bloom:       types.BytesToBloom(testutils.RandomHash().Bytes()),
+		Difficulty:  new(big.Int).SetUint64(utils.RandUint64(nil)),
+		Number:      new(big.Int).SetUint64(utils.RandUint64(nil)),
+		GasLimit:    utils.RandUint64(nil),
+		GasUsed:     utils.RandUint64(nil),
+		Time:        uint64(time.Now().Unix()),
+		Extra:       testutils.RandomHash().Bytes(),
+		MixDigest:   testutils.RandomHash(),
+		Nonce:       types.EncodeNonce(utils.RandUint64(nil)),
+		BaseFee:     new(big.Int).SetUint64(utils.RandUint64(nil)),
+	}
+
+	data := toExecutableData(testHeader)
+	s.Equal(testHeader.ParentHash, data.ParentHash)
+	s.Equal(testHeader.Coinbase, data.FeeRecipient)
+	s.Equal(testHeader.Root, data.StateRoot)
+	s.Equal(testHeader.ReceiptHash, data.ReceiptsRoot)
+	s.Equal(testHeader.Bloom.Bytes(), data.LogsBloom)
+	s.Equal(testHeader.MixDigest, data.Random)
+	s.Equal(testHeader.Number.Uint64(), data.Number)
+	s.Equal(testHeader.GasLimit, data.GasLimit)
+	s.Equal(testHeader.GasUsed, data.GasUsed)
+	s.Equal(testHeader.Time, data.Timestamp)
+	s.Equal(testHeader.Extra, data.ExtraData)
+	s.Equal(testHeader.BaseFee, data.BaseFeePerGas)
+	s.Equal(testHeader.Hash(), data.BlockHash)
+	s.Equal(testHeader.TxHash, data.TxHash)
 }
 
 func TestBeaconSyncProgressTrackerTestSuite(t *testing.T) {

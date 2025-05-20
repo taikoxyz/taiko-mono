@@ -1,0 +1,42 @@
+package params
+
+import (
+	"github.com/ethereum/go-ethereum/common"
+)
+
+var (
+	_ ITaikoInboxBatchParams = new(BatchParamsPacaya)
+	_ ITaikoInboxBlobParams  = new(BlobParams)
+	_ ITaikoInboxBlockParams = new(BlockParams)
+)
+
+// ITaikoInboxBatchParams should be same with ITaikoInbox.BatchParams.
+type ITaikoInboxBatchParams interface {
+	Proposer() common.Address
+	Coinbase() common.Address
+	ParentMetaHash() [32]byte
+	AnchorBlockId() uint64
+	LastBlockTimestamp() uint64
+	RevertIfNotFirstProposal() bool
+	BlobParams() ITaikoInboxBlobParams
+	Blocks() []ITaikoInboxBlockParams
+	ProverAuth() []byte
+	IsShasta() bool
+}
+
+// ITaikoInboxBlockParams should be same with ITaikoInbox.BlockParams.
+type ITaikoInboxBlockParams interface {
+	NumTransactions() uint16
+	TimeShift() uint8
+	SignalSlots() [][32]byte
+}
+
+// ITaikoInboxBlobParams should be same with ITaikoInbox.BlobParams.
+type ITaikoInboxBlobParams interface {
+	BlobHashes() [][32]byte
+	FirstBlobIndex() uint8
+	NumBlobs() uint8
+	ByteOffset() uint32
+	ByteSize() uint32
+	CreatedIn() uint64
+}

@@ -3,13 +3,11 @@ package encoding
 import (
 	"crypto/rand"
 	"math/big"
-	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -34,24 +32,6 @@ var (
 		BaseFee:     new(big.Int).SetUint64(utils.RandUint64(nil)),
 	}
 )
-
-func TestToExecutableData(t *testing.T) {
-	data := ToExecutableData(testHeader)
-	require.Equal(t, testHeader.ParentHash, data.ParentHash)
-	require.Equal(t, testHeader.Coinbase, data.FeeRecipient)
-	require.Equal(t, testHeader.Root, data.StateRoot)
-	require.Equal(t, testHeader.ReceiptHash, data.ReceiptsRoot)
-	require.Equal(t, testHeader.Bloom.Bytes(), data.LogsBloom)
-	require.Equal(t, testHeader.MixDigest, data.Random)
-	require.Equal(t, testHeader.Number.Uint64(), data.Number)
-	require.Equal(t, testHeader.GasLimit, data.GasLimit)
-	require.Equal(t, testHeader.GasUsed, data.GasUsed)
-	require.Equal(t, testHeader.Time, data.Timestamp)
-	require.Equal(t, testHeader.Extra, data.ExtraData)
-	require.Equal(t, testHeader.BaseFee, data.BaseFeePerGas)
-	require.Equal(t, testHeader.Hash(), data.BlockHash)
-	require.Equal(t, testHeader.TxHash, data.TxHash)
-}
 
 // randomHash generates a random blob of data and returns it as a hash.
 func randomHash() common.Hash {

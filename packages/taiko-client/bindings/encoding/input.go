@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
@@ -150,8 +151,28 @@ var (
 	}
 )
 
+// EncodeBatchParams performs the solidity `abi.encode` for the given batchParams.
+func EncodeBatchParamsWithForcedInclusion(
+	paramsForcedInclusion,
+	p params.ITaikoInboxBatchParams,
+) ([]byte, error) {
+	if !p.IsShasta() {
+		return EncodeBatchParamsPacayaWithForcedInclusion(
+			paramsForcedInclusion.(*params.BatchParamsPacaya),
+			p.(*params.BatchParamsPacaya),
+		)
+	}
+	return EncodeBatchParamsShastaWithForcedInclusion(
+		paramsForcedInclusion.(*params.BatchParamsShasta),
+		p.(*params.BatchParamsShasta),
+	)
+}
+
 // EncodeBatchParamsPacayaWithForcedInclusion performs the solidity `abi.encode` for the given two Pacaya batchParams.
-func EncodeBatchParamsPacayaWithForcedInclusion(paramsForcedInclusion, params *BatchParamsPacaya) ([]byte, error) {
+func EncodeBatchParamsPacayaWithForcedInclusion(
+	paramsForcedInclusion,
+	params *params.BatchParamsPacaya,
+) ([]byte, error) {
 	var (
 		x   []byte
 		err error
@@ -169,7 +190,10 @@ func EncodeBatchParamsPacayaWithForcedInclusion(paramsForcedInclusion, params *B
 }
 
 // EncodeBatchParamsShastaWithForcedInclusion performs the solidity `abi.encode` for the given two Shasta batchParams.
-func EncodeBatchParamsShastaWithForcedInclusion(paramsForcedInclusion, params *BatchParamsShasta) ([]byte, error) {
+func EncodeBatchParamsShastaWithForcedInclusion(
+	paramsForcedInclusion,
+	params *params.BatchParamsShasta,
+) ([]byte, error) {
 	var (
 		x   []byte
 		err error
