@@ -179,7 +179,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		RevertIfNotFirstProposal: b.revertProtectionEnabled,
 		BlobParams: encoding.BlobParams{
 			ByteOffset: 0,
-			ByteSize:   uint32(len(txListsBytes)),
+			ByteSize:   0,
 		},
 		Blocks: blockParams,
 	}
