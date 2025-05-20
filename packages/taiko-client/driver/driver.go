@@ -317,8 +317,7 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 	)
 }
 
-// exchangeTransitionConfigLoop keeps exchanging transition configs with the
-// L2 execution engine.
+// exchangeTransitionConfigLoop keeps exchanging transition configs with the L2 execution engine.
 func (d *Driver) exchangeTransitionConfigLoop() {
 	ticker := time.NewTicker(exchangeTransitionConfigInterval)
 	d.wg.Add(1)
@@ -369,16 +368,17 @@ func (d *Driver) cacheLookaheadLoop() {
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
 		opWin                  = preconfBlocks.NewOpWindow(d.PreconfHandoverSkipSlots, d.rpc.L1Beacon.SlotsPerEpoch)
-		wasSequencer    bool   = false
+		wasSequencer           = false
 	)
 
+	// Check if the operator is transitioning to being the sequencer, if so, will check
+	// if it has seen the EndOfSequencing block of the current epoch. If it hasn't, will request it via the p2p network.
 	checkHandover := func(epoch, slot uint64) {
 		if d.p2pNode == nil {
 			return
 		}
 
-		err := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot)
-		isSequencer := err == nil
+		isSequencer := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot) == nil
 
 		if isSequencer && !wasSequencer {
 			log.Info("Lookahead transitioning to sequencing for operator", "epoch", epoch, "slot", slot)
@@ -398,18 +398,14 @@ func (d *Driver) cacheLookaheadLoop() {
 					)
 				}
 			} else {
-				log.Info(
-					"End of sequencing already seen",
-					"epoch", epoch,
-					"slot", slot,
-					"hash", hash.Hex(),
-				)
+				log.Info("End of sequencing already seen", "epoch", epoch, "slot", slot, "hash", hash.Hex())
 			}
 		}
 
 		wasSequencer = isSequencer
 	}
 
+	// cacheLookahead caches the lookahead information for the preconfirmation block server.
 	cacheLookahead := func(currentEpoch, currentSlot uint64) error {
 		var (
 			slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
@@ -457,7 +453,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		}
 
 		lookahead := d.preconfBlockServer.GetLookahead()
-		// we dont need to update the lookahead on every slot, we just need to make sure we do it
+		// We dont need to update the lookahead on every slot, we just need to make sure we do it
 		// once per epoch, since we push the next operator as the current range when we check.
 		// so, this means we should use a reliable slot past 0 where the operator has no possible
 		// way to change. mid-epooch works, so we use slot 16.
@@ -480,7 +476,7 @@ func (d *Driver) cacheLookaheadLoop() {
 				"slotInEpoch", slotInEpoch,
 				"currOp", nextOp.Hex(), // currOp becomes nextOp at next epoch
 			)
-			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // we don't know next-next-op, safe to leave zero
+			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // We don't know next-next-op, safe to leave zero
 
 			var (
 				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
@@ -531,14 +527,10 @@ func (d *Driver) cacheLookaheadLoop() {
 		return nil
 	}
 
-	// run once initially, so we dont have to wait for ticker
-	if err := cacheLookahead(
-		d.rpc.L1Beacon.CurrentEpoch(),
-		d.rpc.L1Beacon.CurrentSlot(),
-	); err != nil {
+	// Run once initially, so we dont have to wait for ticker.
+	if err := cacheLookahead(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot()); err != nil {
 		log.Warn("Failed to cache initial lookahead", "error", err)
 	}
-
 	checkHandover(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot())
 
 	for {
