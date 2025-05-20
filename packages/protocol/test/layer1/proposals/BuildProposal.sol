@@ -14,7 +14,7 @@ abstract contract BuildProposal is Test {
     address public constant L2_DELEGATE_OWNER = 0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed;
     address public constant L2_TAIKO_TOKEN = 0xA9d23408b9bA935c230493c40C73824Df71A0975;
     address public constant L2_MULLTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
-    address public constant L2_EXECUTOR = address(0); // TODO
+    address public constant L2_PERMISSIONLESS_EXECUTOR = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
 
     // L1 contracts
     address public constant L1_BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
@@ -53,7 +53,14 @@ abstract contract BuildProposal is Test {
         });
     }
 
-    function buildProposal(uint64 nextTxId, bool l2AllowFailure) internal pure {
+    function buildProposal(
+        uint64 nextTxId,
+        bool l2AllowFailure,
+        address l1Executor
+    )
+        internal
+        pure
+    {
         TaikoDAOController.Call[] memory l1Calls = buildL1Calls();
         TaikoDAOController.Call[] memory allCalls =
             new TaikoDAOController.Call[](l1Calls.length + 1);
@@ -70,7 +77,7 @@ abstract contract BuildProposal is Test {
 
         IBridge.Message memory message;
         message.destChainId = 167_000;
-        message.destOwner = L2_EXECUTOR;
+        message.destOwner = l1Executor == address(0) ? L2_PERMISSIONLESS_EXECUTOR : l1Executor;
         message.data = abi.encodeCall(
             DelegateOwner.onMessageInvocation,
             (

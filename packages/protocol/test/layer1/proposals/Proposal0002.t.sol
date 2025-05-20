@@ -20,7 +20,7 @@ contract Proposal0002 is BuildProposal {
 
     // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0002 -vvv
     function test_proposal_0002() public pure {
-        buildProposal({ nextTxId: 0, l2AllowFailure: true });
+        buildProposal({ nextTxId: 0, l2AllowFailure: true, l1Executor: address(0) });
     }
 
     function buildL1Calls()
