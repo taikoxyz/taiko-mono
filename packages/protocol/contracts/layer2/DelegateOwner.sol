@@ -63,7 +63,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) external payable {
+    function onMessageInvocation(bytes calldata _data) external payable nonReentrant {
         require(msg.sender == l2Bridge, DO_INVALID_SENDER());
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();

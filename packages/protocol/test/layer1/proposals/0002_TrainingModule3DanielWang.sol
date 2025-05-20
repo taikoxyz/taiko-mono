@@ -21,7 +21,6 @@ interface ITestDelegateOwnedV2 {
 
 // The proposal executes the following actions on L2:
 // 	•	Upgrade DelegateOwner to a new implementation (address TBD)
-// 	•	Transfer 0.001 Ether from DelegateOwner to a specified EOA
 // 	•	Transfer 1 TAIKO token from DelegateOwner to the same EOA
 // 	•	Upgrade the TestDelegateOwned contract (owned by DelegateOwner) to a new implementation
 // 	•	Transfer 0.001 Ether from TestDelegateOwned to the same EOA
@@ -58,32 +57,26 @@ contract TrainingModule3DanielWang is Test {
             calls[0].callData =
                 abi.encodeCall(UUPSUpgradeable.upgradeTo, (DELEGATE_OWNERE_NEW_IMPL));
 
-            // Transfer 0.001 Ether from DelegateOwner to a specified EOA
-            calls[1].target = RECIPIENT;
+            calls[1].target = TAIKO_TOKEN_L2;
             calls[1].allowFailure = false;
-            calls[1].value = 0.001 ether;
-            calls[1].callData = "";
+            calls[1].value = 0;
+            calls[1].callData = abi.encodeCall(IERC20.transfer, (RECIPIENT, 1 ether));
 
-            calls[2].target = TAIKO_TOKEN_L2;
+            calls[2].target = TEST_CONTRACT_PROXY;
             calls[2].allowFailure = false;
             calls[2].value = 0;
-            calls[2].callData = abi.encodeCall(IERC20.transfer, (RECIPIENT, 1 ether));
+            calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (TEST_CONTRACT_NEW_IMPL));
 
             calls[3].target = TEST_CONTRACT_PROXY;
             calls[3].allowFailure = false;
             calls[3].value = 0;
-            calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (TEST_CONTRACT_NEW_IMPL));
+            calls[3].callData =
+                abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), RECIPIENT, 0.001 ether));
 
             calls[4].target = TEST_CONTRACT_PROXY;
             calls[4].allowFailure = false;
             calls[4].value = 0;
             calls[4].callData =
-                abi.encodeCall(ITestDelegateOwnedV2.withdraw, (address(0), RECIPIENT, 0.001 ether));
-
-            calls[5].target = TEST_CONTRACT_PROXY;
-            calls[5].allowFailure = false;
-            calls[5].value = 0;
-            calls[5].callData =
                 abi.encodeCall(ITestDelegateOwnedV2.withdraw, (TAIKO_TOKEN_L2, RECIPIENT, 1 ether));
 
             bytes memory data = abi.encode(
