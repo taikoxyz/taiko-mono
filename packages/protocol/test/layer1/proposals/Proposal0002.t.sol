@@ -14,19 +14,7 @@ interface ITestDelegateOwnedV2 {
     function withdraw(address _token, address _to, uint256 _amount) external;
 }
 
-// This proposal performs multiple actions on Taiko L2 via a self-owned contract called
-// DelegateOwner. On L2, DelegateOwner is the owner of all core contracts. To execute transactions
-// on these contracts, an L2 DAO proposal must be passed and bridged through the Taiko Bridge. The
-// bridged message is then synchronously executed on L2 with DelegateOwner as the target, which
-// triggers a series of delegated calls.
-
-// The proposal executes the following actions on L2:
-// 	•	Upgrade DelegateOwner to a new implementation (address TBD)
-// 	•	Transfer 1 TAIKO token from DelegateOwner to the same EOA
-// 	•	Upgrade the TestDelegateOwned contract (owned by DelegateOwner) to a new implementation
-// 	•	Transfer 0.001 Ether from TestDelegateOwned to the same EOA
-// 	•	Transfer 1 TAIKO token from TestDelegateOwned to the same EOA
-contract TrainingModule3DanielWang is BuildProposal {
+contract Proposal0002 is BuildProposal {
     // L2 Contracts
     address public constant DELEGATE_OWNERE_NEW_IMPL = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
     address public constant TEST_CONTRACT = 0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0;
@@ -48,6 +36,8 @@ contract TrainingModule3DanielWang is BuildProposal {
         returns (TaikoDAOController.Call[] memory calls)
     {
         calls = new TaikoDAOController.Call[](1);
+
+        // Upgrade TaikoDAOController to a new implementation
         calls[0] = buildL1UpgradeCall(L1_TAIKO_DAO_CONTROLLER, TAIKO_DAO_CONTROLLER_NEW_IMPL);
     }
 

@@ -11,7 +11,7 @@ interface IReverseRegistrar {
     function setName(string memory name) external returns (bytes32);
 }
 
-contract TrainingModule2DanielWang is Test {
+contract Proposal0001 is Test {
     address private constant TO_ADDRESS = 0x992E727e73a8b5b31865646Bb16F9DC3955373ae;
 
     address private constant TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
