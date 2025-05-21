@@ -21,7 +21,7 @@ contract Proposal0002 is BuildProposal {
 
     // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0002 -vvv
     function test_proposal_0002() public pure {
-        buildProposal({ executionId: 0, l2GasLimit: 25_000_000 });
+        buildProposal({ executionId: 1, l2GasLimit: 25_000_000 });
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
