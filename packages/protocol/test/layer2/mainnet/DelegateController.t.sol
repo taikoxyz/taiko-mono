@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "test/shared/helpers/EssentialContract_EmptyStub.sol";
-import "test/shared/thirdparty/Multicall3.sol";
 import "test/layer2/Layer2Test.sol";
 
 contract TestDelegateController is Layer2Test {
@@ -10,7 +9,6 @@ contract TestDelegateController is Layer2Test {
     address private daoController = randAddress();
 
     // Contracts on Taiko
-    Multicall3 private tMulticall;
     SignalService private tSignalService;
     Bridge private tBridge;
     DelegateController private tDelegateController;
@@ -24,7 +22,6 @@ contract TestDelegateController is Layer2Test {
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
         tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
-        tMulticall = new Multicall3();
         tDelegateController =
             deployDelegateController(ethereumChainId, address(tBridge), daoController);
     }
