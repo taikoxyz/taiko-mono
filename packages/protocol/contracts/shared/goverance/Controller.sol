@@ -17,7 +17,7 @@ abstract contract Controller is EssentialContract {
         bytes data;
     }
 
-    // For backward compatibility reasons, this contract reverse no storage slots.
+    // For backward compatibility reasons, this contract reserves no storage slots.
     // bytes32[50] private __gap;
 
     event ActionExecuted(address indexed target, uint256 value, bytes data);
