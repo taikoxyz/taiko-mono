@@ -14,9 +14,9 @@ import "../shared/bridge/IBridge.sol";
 /// @dev This contract is used by Alethia Mainnet.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateController is Controller, IMessageInvocable {
+    uint64 public immutable l1ChainId;
     address public immutable l2Bridge;
     address public immutable daoController;
-    uint64 public immutable l1ChainId;
 
     error SenderNotL2Bridge();
     error InvalidExecutionId();
@@ -24,7 +24,7 @@ contract DelegateController is Controller, IMessageInvocable {
 
     // Was remoteChainId + admin before being immutable
     // solhint-disable var-name-mixedcase
-    uint64 private __deprecated_remoteChainId;
+    uint64 private __deprecated_remoteChainId; // slot 1
 
     // solhint-disable var-name-mixedcase
     address private __deprecated_admin;
