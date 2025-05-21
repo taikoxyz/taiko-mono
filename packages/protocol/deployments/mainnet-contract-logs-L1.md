@@ -224,9 +224,9 @@
   - register `prover_set` to `0x280eAbfd252f017B78e15b69580F249F45FB55Fa` @tx`0xc0e8ec30d1479ca2414d4d28a09a543c2845247d80387f78c179d663ffe55c3c`
   - remove `chain_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
 
-#### taikoL1
+#### Inbox
 
-- ens: `based.taiko.eth`
+- ens: `inbox_based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
 - impl: `0x4e030b19135869F6fd926614754B7F9c184E2B83`
 - oldFork: `0x904Da4C5bD76f932fE09fF32Ae5D7E3d2A5D2264` at commit `c80373d`
