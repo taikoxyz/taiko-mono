@@ -11,6 +11,12 @@ import { LibMainnetL1Addresses as L1 } from "src/layer1/mainnet/libs/LibMainnetL
 import { LibMainnetL2Addresses as L2 } from "src/layer2/mainnet/LibMainnetL2Addresses.sol";
 
 abstract contract BuildProposal is Script {
+    modifier broadcast() {
+        vm.startBroadcast();
+        _;
+        vm.stopBroadcast();
+    }
+
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
     function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
 
