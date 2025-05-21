@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.5...docs-site-v1.27.6) (2025-05-21)
+
+
+### Chores
+
+* **docs-site:** update proverset guide for pacaya ([#19499](https://github.com/taikoxyz/taiko-mono/issues/19499)) ([7a95c5a](https://github.com/taikoxyz/taiko-mono/commit/7a95c5accd5f7a683454a675cdcac8d2cf3d8a6a))
+
 ## [1.27.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.4...docs-site-v1.27.5) (2025-05-06)
 
 
