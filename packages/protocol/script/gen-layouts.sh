@@ -48,6 +48,7 @@ contracts_layer1=(
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/DelegateOwner.sol:DelegateOwner"
+"contracts/layer2/DelegateController.sol:DelegateController"
 "contracts/layer2/based/anchor/TaikoAnchor.sol:TaikoAnchor"
 )
 

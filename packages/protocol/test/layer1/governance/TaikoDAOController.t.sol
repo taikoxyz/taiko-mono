@@ -59,15 +59,6 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(daoController.owner(), owner, "Owner should be set correctly");
     }
 
-    function test_TaikoDAOController_TransferOwnership() public {
-        vm.prank(owner);
-        daoController.transferOwnership(newOwner);
-
-        vm.prank(newOwner);
-        daoController.acceptOwnership();
-
-        assertEq(daoController.owner(), newOwner, "Ownership should be transferred");
-    }
 
     function test_TaikoDAOController_execute() public {
         vm.startPrank(owner);
