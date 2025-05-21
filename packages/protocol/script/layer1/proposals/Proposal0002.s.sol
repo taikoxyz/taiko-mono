@@ -21,7 +21,11 @@ contract Proposal0002 is BuildProposal {
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
     function run() external pure {
-        buildProposal({ executionId: 1, l2GasLimit: 25_000_000 });
+        (
+            bytes memory protocolCallData_,
+            bytes memory l1DryrunCallData_,
+            bytes memory l2DryrunCallData_
+        ) = buildProposal({ executionId: 1, l2GasLimit: 25_000_000 });
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
