@@ -183,15 +183,12 @@
 - `davidcai.eth`:`0x56706F118e42AE069F20c5636141B844D1324AE1`
 - `admin.l2.taiko.eth (label)`: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
 
-#### delegate_owner
+#### delegate_controller
 
-- proxy: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
-- impl: `0x50a349323CB2517Fc2C8D3570000Db0268D9D2ef`
-- owner: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
-- todo:
-  - test it (for example with `TestDelegateOwned` contract 0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0)
+- proxy: `TODO`
+- impl: ``
+- owner: ``
 - logs:
-  - deployed on May 19, 2025 @commit`31e8c07` @tx`0xc7cbcf5a3f5a2e0cda164edc0ed90e4f1e27c3bd5aa2051169cca08429cd6b3f`
 
 ## Pacaya Contracts
 
