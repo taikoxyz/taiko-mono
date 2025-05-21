@@ -55,12 +55,22 @@ abstract contract BuildProposal is Test {
         });
 
         bytes memory callData = abi.encodeCall(TaikoDAOController.execute, (allActions));
-
+        console2.log("Proposal actions: ================================================");
         console2.log("Num of L1 actions:", l1Actions.length);
         console2.log("Num of L2 actions:", l2Actions.length);
         console2.log("L2 gas limit:", l2GasLimit);
         console2.log("Target:", L1.DAO_CONTROLLER);
         console2.log("Data:");
         console2.logBytes(callData);
+
+        console2.log("L1 dry run: ================================================");
+        console2.log("Target:", L1.DAO_CONTROLLER);
+        console2.log("Data:");
+        console2.logBytes(abi.encodeCall(Controller.dryrun, (allActions)));
+
+        console2.log("L2 dryrun: ================================================");
+        console2.log("Target:", L2.DELEGATE_CONTROLLER);
+        console2.log("Data:");
+        console2.logBytes(abi.encodeCall(Controller.dryrun, (l2Actions)));
     }
 }
