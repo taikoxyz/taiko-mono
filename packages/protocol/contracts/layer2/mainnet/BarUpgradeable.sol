@@ -7,10 +7,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibAddress.sol";
 
-/// @title TestDelegateOwned
+/// @title BarUpgradeable
 /// @notice The contract serves as a playground for testing DelegateOwner on mainnet
 /// @custom:security-contact security@taiko.xyz
-contract TestDelegateOwned is EssentialContract {
+contract BarUpgradeable is EssentialContract {
     using SafeERC20 for IERC20;
     /// @notice Variable, changeable by the owner. By default this is the amount sent by the
     /// withdraw function. It is not necessarily "ether" per see. It can be any token but the amount

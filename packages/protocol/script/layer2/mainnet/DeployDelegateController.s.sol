@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/layer2/mainnet/DelegateController.sol";
-import "src/layer2/mainnet/TestDelegateOwned.sol";
+import "src/layer2/mainnet/BarUpgradeable.sol";
 import "script/BaseScript.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibNames.sol";
@@ -34,16 +34,16 @@ contract DeployDelegateController is BaseScript {
             data: abi.encodeCall(DelegateController.init, ())
         });
 
-        address testDelegateOwnedImpl1 = address(new TestDelegateOwned());
-        address testDelegateOwnedImpl2 = address(new TestDelegateOwned());
+        address barUpgradeableImpl1 = address(new BarUpgradeable());
+        address barUpgradeableImpl2 = address(new BarUpgradeable());
 
-        console2.log("testDelegateOwnedImpl 1:", testDelegateOwnedImpl1);
-        console2.log("testDelegateOwnedImpl 2:", testDelegateOwnedImpl2);
+        console2.log("barUpgradeableImpl 1:", barUpgradeableImpl1);
+        console2.log("barUpgradeableImpl 2:", barUpgradeableImpl2);
 
         deploy({
-            name: "test_delegate_owned",
-            impl: testDelegateOwnedImpl1,
-            data: abi.encodeCall(TestDelegateOwned.init, (delegateController))
+            name: "bar_upgradeable",
+            impl: barUpgradeableImpl1,
+            data: abi.encodeCall(BarUpgradeable.init, (delegateController))
         });
     }
 }
