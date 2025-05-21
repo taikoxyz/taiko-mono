@@ -16,9 +16,7 @@ import (
 )
 
 // BuildProposalParams builds the proposal params for the given forced inclusion.
-func BuildProposalParams[
-	T *shastaBindings.IForcedInclusionStoreForcedInclusion | *pacayaBindings.IForcedInclusionStoreForcedInclusion,
-](
+func BuildProposalParams(
 	ctx context.Context,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
@@ -26,7 +24,7 @@ func BuildProposalParams[
 	revertProtectionEnabled bool,
 	proposer common.Address,
 	txBatch []types.Transactions,
-	forcedInclusion T,
+	forcedInclusion params.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) ([]byte, []byte, error) {
@@ -58,7 +56,7 @@ func BuildProposalParams[
 	}
 
 	if forcedInclusion != nil {
-		forcedInclusionblobParams, forcedInclusionblockParams = buildParamsForForcedInclusion[T](
+		forcedInclusionblobParams, forcedInclusionblockParams = buildParamsForForcedInclusion(
 			forcedInclusion,
 			minTxsPerForcedInclusion,
 		)

@@ -40,3 +40,13 @@ type ITaikoInboxBlobParams interface {
 	ByteSize() uint32
 	CreatedIn() uint64
 }
+
+// IForcedInclusionStoreForcedInclusion should be same with IForcedInclusionStore.ForcedInclusion.
+type IForcedInclusionStoreForcedInclusion interface {
+	BlobHash() [32]byte
+	FeeInGwei() uint64
+	CreatedAtBatchId() uint64
+	BlobByteOffset() uint32
+	BlobByteSize() uint32
+	BlobCreatedIn() uint64
+}

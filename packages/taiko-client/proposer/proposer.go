@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -368,7 +369,13 @@ func (p *Proposer) ProposeTxListPacaya(
 	}
 
 	// Build the transaction to propose batch.
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
+	txCandidate, err := p.txBuilder.BuildPacaya(
+		ctx,
+		txBatch,
+		params.NewForcedInclusionPacaya(forcedInclusion),
+		minTxsPerForcedInclusion,
+		parentMetaHash,
+	)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
 		return err

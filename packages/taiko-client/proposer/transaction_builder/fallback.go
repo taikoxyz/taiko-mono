@@ -15,8 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	protocolParams "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -83,7 +82,7 @@ func NewBuilderWithFallback(
 func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *pacaya.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion protocolParams.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
@@ -171,7 +170,7 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 func (b *TxBuilderWithFallback) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *shastaBindings.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion protocolParams.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {

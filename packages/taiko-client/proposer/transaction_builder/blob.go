@@ -13,8 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -62,7 +61,7 @@ func NewBlobTransactionBuilder(
 func (b *BlobTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion params.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
@@ -120,7 +119,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 func (b *BlobTransactionBuilder) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *shastaBindings.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion params.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
