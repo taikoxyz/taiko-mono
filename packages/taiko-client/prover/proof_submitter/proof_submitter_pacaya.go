@@ -350,18 +350,17 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 		return fmt.Errorf("unknown proof type: %s", proofType)
 	}
 	startAt := time.Now()
+	buffer, err := proofBuffer.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read proof from buffer: %w", err)
+	}
+	// If the buffer is empty, skip the aggregation.
+	if len(buffer) == 0 {
+		log.Debug("Buffer is empty now, skip aggregating")
+		return nil
+	}
 	if err := backoff.Retry(
 		func() error {
-			buffer, err := proofBuffer.ReadAll()
-			if err != nil {
-				return fmt.Errorf("failed to read proof from buffer: %w", err)
-			}
-			// If the buffer is empty, skip the aggregation.
-			if len(buffer) == 0 {
-				log.Debug("Buffer is empty now, skip aggregating")
-				return nil
-			}
-
 			result, err := producer.Aggregate(ctx, buffer, startAt)
 			if err != nil {
 				if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
