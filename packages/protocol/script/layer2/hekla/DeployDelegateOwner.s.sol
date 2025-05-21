@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer2/DelegateOwner.sol";
+import "src/layer2/hekla/DelegateOwner.sol";
 import "script/BaseScript.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibNames.sol";

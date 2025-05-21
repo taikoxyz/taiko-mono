@@ -11,7 +11,7 @@ interface IReverseRegistrar {
     function setName(string memory name) external returns (bytes32);
 }
 
-contract TrainingModule2DanielWang is Test {
+contract Proposal0001 is Test {
     address private constant TO_ADDRESS = 0x992E727e73a8b5b31865646Bb16F9DC3955373ae;
 
     address private constant TAIKO_DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
@@ -24,29 +24,29 @@ contract TrainingModule2DanielWang is Test {
     address private constant FOO_UPGRADEABLE_V1 = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
     address private constant FOO_UPGRADEABLE_V2 = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
 
-    // FOUNDRY_PROFILE=layer1 forge test --mt test_gentx_0001_TrainingModule2DanielWang -vvv
-    function test_gentx_0001_TrainingModule2DanielWang() public pure {
-        TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](4);
+    // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0001 -vvv
+    function test_proposal_0001() public pure {
+        Controller.Action[] memory actions = new Controller.Action[](4);
 
         // Upgrade FooUpgradeable's implementation from V1 to V2
-        calls[0] = TaikoDAOController.Call({
+        actions[0] = Controller.Action({
             target: FOO_UPGRADEABLE,
             value: 0,
             data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (FOO_UPGRADEABLE_V2))
         });
 
         // Send 1 TaikoToken from TaikoDAOController to DanielWang
-        calls[1] = TaikoDAOController.Call({
+        actions[1] = Controller.Action({
             target: TAIKO_TOKEN,
             value: 0,
             data: abi.encodeCall(IERC20.transfer, (TO_ADDRESS, 1 ether))
         });
 
         // Send 0.001 Ether from TaikoDAOController to 0x992E727e73a8b5b31865646Bb16F9DC3955373ae
-        calls[2] = TaikoDAOController.Call({ target: TO_ADDRESS, value: 0.001 ether, data: "" });
+        actions[2] = Controller.Action({ target: TO_ADDRESS, value: 0.001 ether, data: "" });
 
         // Set the reverse name for the DAO controller
-        calls[3] = TaikoDAOController.Call({
+        actions[3] = Controller.Action({
             target: ENS_REVERSE_REGISTRAR,
             value: 0,
             data: abi.encodeCall(IReverseRegistrar.setName, ("daocontroller.taiko.eth"))
@@ -54,11 +54,11 @@ contract TrainingModule2DanielWang is Test {
 
         console2.log("to:", TAIKO_DAO_CONTROLLER);
 
-        for (uint256 i = 0; i < calls.length; i++) {
+        for (uint256 i = 0; i < actions.length; i++) {
             console2.log("-------------- call", i, "--------------");
-            console2.log(calls[i].target);
-            console2.log(calls[i].value);
-            console2.logBytes(calls[i].data);
+            console2.log(actions[i].target);
+            console2.log(actions[i].value);
+            console2.logBytes(actions[i].data);
         }
     }
 }

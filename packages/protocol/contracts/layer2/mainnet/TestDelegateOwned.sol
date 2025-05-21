@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../shared/common/EssentialContract.sol";
-import "../shared/libs/LibAddress.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/libs/LibAddress.sol";
 
 /// @title TestDelegateOwned
 /// @notice The contract serves as a playground for testing DelegateOwner on mainnet

@@ -94,9 +94,13 @@
 |
 | __gap                       | uint256[49] | 202  | 0      | 1568  |
 |
-| __deprecated                | uint256     | 251  | 0      | 32    |
+| __deprecated_remoteChainId  | uint64      | 251  | 0      | 8     |
+|
+| __deprecated_admin          | address     | 251  | 8      | 20    |
 |
 | nextTxId                    | uint64      | 252  | 0      | 8     |
+|
+| __deprecated_remoteOwner    | address     | 252  | 8      | 20    |
 |
 | __gap                       | uint256[48] | 253  | 0      | 1536  |
 ╰-----------------------------+-------------+------+--------+-------+--------------------------------------------------╯
