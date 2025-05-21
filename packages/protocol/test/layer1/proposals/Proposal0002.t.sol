@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./BuildProposal.sol";
 import { LibMainnetL1Addresses as L1 } from "src/layer1/mainnet/libs/LibMainnetL1Addresses.sol";
 
-interface ITestDelegateOwnedV2 {
+interface IBarContract {
     function withdraw(address _token, address _to, uint256 _amount) external;
 }
 
@@ -60,7 +60,7 @@ contract Proposal0002 is BuildProposal {
             target: L2_BAR_CONTRACT,
             value: 0,
             data: abi.encodeCall(
-                ITestDelegateOwnedV2.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.001 ether)
+                IBarContract.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.001 ether)
             )
         });
 
@@ -69,7 +69,7 @@ contract Proposal0002 is BuildProposal {
             target: L2_BAR_CONTRACT,
             value: 0,
             data: abi.encodeCall(
-                ITestDelegateOwnedV2.withdraw, (L2.TAIKO_TOKEN, L2_DANIEL_WANG_ADDRESS, 1 ether)
+                IBarContract.withdraw, (L2.TAIKO_TOKEN, L2_DANIEL_WANG_ADDRESS, 1 ether)
             )
         });
     }

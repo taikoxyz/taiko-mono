@@ -54,10 +54,8 @@ abstract contract BuildProposal is Test {
             data: abi.encodeCall(IBridge.sendMessage, (message))
         });
 
-        bytes memory callData = abi.encodeCall(
-            TaikoDAOController.execute, (allActions)
-        );
-    
+        bytes memory callData = abi.encodeCall(TaikoDAOController.execute, (allActions));
+
         console2.log("Num of L1 actions:", l1Actions.length);
         console2.log("Num of L2 actions:", l2Actions.length);
         console2.log("L2 gas limit:", l2GasLimit);
