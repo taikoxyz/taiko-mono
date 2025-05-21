@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "forge-std/src/Test.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/src/Test.sol";
-import "src/layer2/DelegateController.sol";
+import "src/layer2/mainnet/DelegateController.sol";
 import "test/shared/thirdparty/Multicall3.sol";
 import "src/shared/bridge/IBridge.sol";
 

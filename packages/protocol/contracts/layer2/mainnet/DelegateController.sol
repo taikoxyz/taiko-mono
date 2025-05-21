@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../shared/libs/LibNames.sol";
-import "../shared/libs/LibAddress.sol";
-import "../shared/libs/LibBytes.sol";
-import "../shared/goverance/Controller.sol";
-import "../shared/bridge/IBridge.sol";
+import "src/shared/libs/LibNames.sol";
+import "src/shared/libs/LibAddress.sol";
+import "src/shared/libs/LibBytes.sol";
+import "src/shared/goverance/Controller.sol";
+import "src/shared/bridge/IBridge.sol";
 
 /// @title DelegateController
 /// @notice This contract will be the owner of all essential contracts deployed on the L2 chain.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
 /// not be zero, so on this chain, some EOA can help execute this transaction.
+/// @dev This contract is used by Alethia Mainnet.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateController is Controller, IMessageInvocable {
     address public immutable l2Bridge;
