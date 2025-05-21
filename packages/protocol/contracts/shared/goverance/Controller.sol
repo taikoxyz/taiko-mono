@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/libs/LibBytes.sol";
 
 /// @title Controller
 /// @notice The base contract for controllers, which act as owners of other contracts and can hold
 /// Ether and tokens.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Controller is EssentialContract {
-    error ActionFailed();
     error DryrunSucceeded();
 
     struct Action {
@@ -55,7 +55,8 @@ abstract contract Controller is EssentialContract {
     function _executeAction(Action memory _action) internal returns (bytes memory result_) {
         bool success;
         (success, result_) = _action.target.call{ value: _action.value }(_action.data);
-        require(success, ActionFailed());
+        if (!success) LibBytes.revertWithExtractedError(result_);
+
         emit ActionExecuted(_action.target, _action.value, _action.data);
     }
 }

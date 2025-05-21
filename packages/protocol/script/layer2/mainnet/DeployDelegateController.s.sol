@@ -47,3 +47,18 @@ contract DeployDelegateController is BaseScript {
         });
     }
 }
+
+//  delegateControllerImpl 1: 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65
+//   delegateControllerImpl 2: 0x4f6Ac87E2E9925D13a5689588F035a7a207273ce
+//   > 'delegate_controller'
+//          proxy   : 0xAB3968A0DBcC15bc1654dC9e557b8bF6148Ed525
+//          impl    : 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65
+//          owner   : 0xAB3968A0DBcC15bc1654dC9e557b8bF6148Ed525
+//          chain id: 167000
+//   barUpgradeableImpl 1: 0x87C752b0F70cAa237Edd7571B0845470A37DE040
+//   barUpgradeableImpl 2: 0x80654149145E1521c857e7df6305b934ce95185c
+//   > 'bar_upgradeable'
+//          proxy   : 0x5c475bB14727833394b0704266f14157678A72b6
+//          impl    : 0x87C752b0F70cAa237Edd7571B0845470A37DE040
+//          owner   : 0xAB3968A0DBcC15bc1654dC9e557b8bF6148Ed525
+//          chain id: 167000
