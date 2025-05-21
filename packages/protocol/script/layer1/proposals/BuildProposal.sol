@@ -35,23 +35,29 @@ abstract contract BuildProposal is Script {
         });
     }
 
-    function buildProposal(
+    function tryrunL1Actions(uint64 executionId, uint32 l2GasLimit) internal broadcast {
+        TaikoDAOController(payable(L1.DAO_CONTROLLER)).dryrun{ value: 0 }(
+            buildAllActions(executionId, l2GasLimit)
+        );
+    }
+
+    function tryrunL2Actions() internal broadcast {
+        DelegateController(payable(L2.DELEGATE_CONTROLLER)).dryrun{ value: 0 }(buildL2Actions());
+    }
+
+    function buildAllActions(
         uint64 executionId,
         uint32 l2GasLimit
     )
         internal
         pure
-        returns (
-            bytes memory protocolCallData_,
-            bytes memory l1DryrunCallData_,
-            bytes memory l2DryrunCallData_
-        )
+        returns (Controller.Action[] memory allActions_)
     {
         Controller.Action[] memory l1Actions = buildL1Actions();
-        Controller.Action[] memory allActions = new Controller.Action[](l1Actions.length + 1);
+        allActions_ = new Controller.Action[](l1Actions.length + 1);
 
         for (uint256 i; i < l1Actions.length; ++i) {
-            allActions[i] = l1Actions[i];
+            allActions_[i] = l1Actions[i];
         }
 
         Controller.Action[] memory l2Actions = buildL2Actions();
@@ -64,53 +70,18 @@ abstract contract BuildProposal is Script {
             DelegateController.onMessageInvocation, (abi.encode(executionId, l2Actions))
         );
 
-        allActions[l1Actions.length] = Controller.Action({
+        allActions_[l1Actions.length] = Controller.Action({
             target: L1.BRIDGE,
             value: 0,
             data: abi.encodeCall(IBridge.sendMessage, (message))
         });
+    }
 
-        console2.log("Proposal actions list: ================================================");
-        protocolCallData_ = abi.encodeCall(TaikoDAOController.execute, (allActions));
-        console2.log("Num of L1 actions:", l1Actions.length);
-        for (uint256 i; i < l1Actions.length; ++i) {
-            console2.log("L1 action #", i);
-            console2.log("- Target:", l1Actions[i].target);
-            if (l1Actions[i].value > 0) {
-                console2.log("- Value:", l1Actions[i].value);
-            }
-            console2.logBytes(l1Actions[i].data);
-        }
-        console2.log("");
-        console2.log("Num of L2 actions:", l2Actions.length);
-        for (uint256 i; i < l2Actions.length; ++i) {
-            console2.log("L2 action #", i);
-            console2.log("- Target:", l2Actions[i].target);
-            if (l2Actions[i].value > 0) {
-                console2.log("- Value:", l2Actions[i].value);
-            }
-            console2.logBytes(l2Actions[i].data);
-        }
+    function logProposalAction(uint64 executionId, uint32 l2GasLimit) internal pure {
+        Controller.Action[] memory allActions = buildAllActions(executionId, l2GasLimit);
 
-        console2.log("===============================================");
-        console2.log("ACTION LIST");
-        console2.log("- L2 gas limit:", l2GasLimit);
-        console2.log("- Target:", L1.DAO_CONTROLLER);
-        console2.log("- Data:");
-        console2.logBytes(protocolCallData_);
-
-        console2.log("===============================================");
-        console2.log("L1 DRYRUN");
-        l1DryrunCallData_ = abi.encodeCall(Controller.dryrun, (allActions));
-        console2.log("- Target:", L1.DAO_CONTROLLER);
-        console2.log("- Data:");
-        console2.logBytes(l1DryrunCallData_);
-
-        console2.log("===============================================");
-        console2.log("L2 DRYRUN");
-        l2DryrunCallData_ = abi.encodeCall(Controller.dryrun, (l2Actions));
-        console2.log("- Target:", L2.DELEGATE_CONTROLLER);
-        console2.log("- Data:");
-        console2.logBytes(l2DryrunCallData_);
+        console2.log("Proposal Action--------------------------------");
+        console2.log("Target:", L1.DAO_CONTROLLER);
+        console2.logBytes(abi.encodeCall(TaikoDAOController.execute, (allActions)));
     }
 }
