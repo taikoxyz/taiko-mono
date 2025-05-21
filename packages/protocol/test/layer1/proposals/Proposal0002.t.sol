@@ -23,41 +23,45 @@ contract Proposal0002 is BuildProposal {
         buildProposal({ txId: 0, l2AllowFailure: true });
     }
 
-    function buildL1Calls()
-        internal
-        pure
-        override
-        returns (TaikoDAOController.Action[] memory calls)
-    {
-        calls = new TaikoDAOController.Action[](1);
+    function buildL1Calls() internal pure override returns (Controller.Action[] memory actions) {
+        actions = new Controller.Action[](1);
 
         // Upgrade TaikoDAOController to a new implementation
-        calls[0] = buildL1UpgradeCall(L1_TAIKO_DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);
+        actions[0] =    buildUpgradeAction(L1_TAIKO_DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);
     }
 
-    function buildL2Calls() internal pure override returns (Multicall3.Call3[] memory calls) {
-        calls = new Multicall3.Call3[](5);
+    function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
+        actions = new Controller.Action[](5);
 
         // Upgrade DelegateOwner to a new implementation
-        calls[0] = buildL2UpgradeCall(L2_DELEGATE_OWNER, L2_DELEGATE_OWNERE_NEW_IMPL);
+        actions[0] = buildUpgradeAction(L2_DELEGATE_OWNER, L2_DELEGATE_OWNERE_NEW_IMPL);
 
         // Transfer 1 TAIKO to Daniel Wang
-        calls[1].target = L2_TAIKO_TOKEN;
-        calls[1].callData = abi.encodeCall(IERC20.transfer, (L2_DANIEL_WANG_ADDRESS, 1 ether));
+        actions[1] = Controller.Action({
+            target: L2_TAIKO_TOKEN,
+            value: 0,
+            data: abi.encodeCall(IERC20.transfer, (L2_DANIEL_WANG_ADDRESS, 1 ether))
+        });
 
         // Upgrade TestDelegateOwned to a new implementation
-        calls[2] = buildL2UpgradeCall(L2_TEST_CONTRACT, L2_TEST_CONTRACT_NEW_IMPL);
+        actions[2] = buildUpgradeAction(L2_TEST_CONTRACT, L2_TEST_CONTRACT_NEW_IMPL);
 
         // Transfer 0.001 Ether from TestDelegateOwned to Daniel Wang
-        calls[3].target = L2_TEST_CONTRACT;
-        calls[3].callData = abi.encodeCall(
-            ITestDelegateOwnedV2.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.001 ether)
-        );
+        actions[3] = Controller.Action({
+            target: L2_TEST_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(
+                ITestDelegateOwnedV2.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.001 ether)
+            )
+        });
 
         // Transfer 1 TAIKO from TestDelegateOwned to Daniel Wang
-        calls[4].target = L2_TEST_CONTRACT;
-        calls[4].callData = abi.encodeCall(
-            ITestDelegateOwnedV2.withdraw, (L2_TAIKO_TOKEN, L2_DANIEL_WANG_ADDRESS, 1 ether)
-        );
+        actions[4] = Controller.Action({
+            target: L2_TEST_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(
+                ITestDelegateOwnedV2.withdraw, (L2_TAIKO_TOKEN, L2_DANIEL_WANG_ADDRESS, 1 ether)
+            )
+        });
     }
 }

@@ -3,9 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer1/governance/TaikoDAOController.sol";
 import "forge-std/src/Test.sol";
-import "src/layer2/DelegateOwner.sol";
+import "src/layer2/DelegateController.sol";
 import "test/shared/thirdparty/Multicall3.sol";
 import "src/shared/bridge/IBridge.sol";
 
@@ -20,16 +19,16 @@ abstract contract BuildProposal is Test {
     address public constant L1_BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant L1_TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
 
-    function buildL1Calls() internal pure virtual returns (TaikoDAOController.Action[] memory);
-    function buildL2Calls() internal pure virtual returns (Multicall3.Call3[] memory);
+    function buildL1Calls() internal pure virtual returns (Controller.Action[] memory);
+    function buildL2Calls() internal pure virtual returns (Controller.Action[] memory);
 
-    function buildL1UpgradeCall(
+    function buildUpgradeAction(
         address _target,
         address _newImpl
     )
         internal
         pure
-        returns (TaikoDAOController.Action memory)
+        returns (Controller.Action memory)
     {
         return Controller.Action({
             target: _target,
@@ -38,69 +37,39 @@ abstract contract BuildProposal is Test {
         });
     }
 
-    function buildL2UpgradeCall(
-        address _target,
-        address _newImpl
-    )
-        internal
-        pure
-        returns (Multicall3.Call3 memory)
-    {
-        return Multicall3.Call3({
-            target: _target,
-            allowFailure: false,
-            callData: abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl))
-        });
-    }
+    function buildProposal(uint64 executionId) internal pure {
+        Controller.Action[] memory l1Actions = buildL1Calls();
+        Controller.Action[] memory allActions = new Controller.Action[](l1Actions.length + 1);
 
-    function buildProposal(uint64 txId, bool l2AllowFailure) internal pure {
-        TaikoDAOController.Action[] memory l1Calls = buildL1Calls();
-        TaikoDAOController.Action[] memory allCalls =
-            new TaikoDAOController.Action[](l1Calls.length + 1);
-
-        for (uint256 i; i < l1Calls.length; ++i) {
-            allCalls[i] = l1Calls[i];
-            require(allCalls[i].target == L1_TAIKO_DAO_CONTROLLER, "TARGET IS NOT_CONTROLLER");
+        for (uint256 i; i < l1Actions.length; ++i) {
+            allActions[i] = l1Actions[i];
+            require(allActions[i].target == L1_TAIKO_DAO_CONTROLLER, "TARGET IS NOT_CONTROLLER");
         }
 
-        Multicall3.Call3[] memory l2Calls = buildL2Calls();
-        for (uint256 i; i < l2Calls.length; ++i) {
-            l2Calls[i].allowFailure = l2AllowFailure;
-        }
+        Controller.Action[] memory l2Actions = buildL2Calls();
 
         IBridge.Message memory message;
         message.destChainId = 167_000;
         message.destOwner = L2_PERMISSIONLESS_EXECUTOR;
         message.data = abi.encodeCall(
-            DelegateOwner.onMessageInvocation,
-            (
-                abi.encode(
-                    DelegateOwner.Call({
-                        txId: txId,
-                        target: L2_MULLTICALL3,
-                        isDelegateCall: true,
-                        txdata: abi.encodeCall(Multicall3.aggregate3, (l2Calls))
-                    })
-                )
-            )
+            DelegateController.onMessageInvocation, (abi.encode(executionId, l2Actions))
         );
-        message.to = L2_DELEGATE_OWNER;
 
-        allCalls[l1Calls.length] = Controller.Action({
+        allActions[l1Actions.length] = Controller.Action({
             target: L1_BRIDGE,
             value: 0,
             data: abi.encodeCall(IBridge.sendMessage, (message))
         });
 
-        for (uint256 i; i < allCalls.length; ++i) {
+        for (uint256 i; i < allActions.length; ++i) {
             console2.log("ACTION #", 1 + i, "==========================");
-            console2.log("target:", allCalls[i].target);
-            if (allCalls[i].value > 0) {
-                console2.log("value:", allCalls[i].value);
+            console2.log("target:", allActions[i].target);
+            if (allActions[i].value > 0) {
+                console2.log("value:", allActions[i].value);
             }
 
             console2.log("data:");
-            console2.logBytes(allCalls[i].data);
+            console2.logBytes(allActions[i].data);
             console2.log("");
         }
     }

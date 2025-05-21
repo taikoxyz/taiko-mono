@@ -17,7 +17,6 @@ contract DelegateController is Controller, IMessageInvocable {
     address public immutable daoController;
     uint64 public immutable l1ChainId;
 
-
     error SenderNotL2Bridge();
     error InvalidTxId();
     error SenderNotL1DaoController();
@@ -37,8 +36,6 @@ contract DelegateController is Controller, IMessageInvocable {
 
     uint256[48] private __gap;
 
- 
-
     constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) Controller() {
         l1ChainId = _l1ChainId;
         l2Bridge = _l2Bridge;
@@ -54,9 +51,12 @@ contract DelegateController is Controller, IMessageInvocable {
         require(msg.sender == l2Bridge, SenderNotL2Bridge());
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        require(ctx.srcChainId == l1ChainId && ctx.from == daoController, SenderNotL1DaoController());
+        require(
+            ctx.srcChainId == l1ChainId && ctx.from == daoController, SenderNotL1DaoController()
+        );
 
-        (uint64 executionId, Controller.Action[] memory actions) = abi.decode(_data, (uint64, Controller.Action[]));
+        (uint64 executionId, Controller.Action[] memory actions) =
+            abi.decode(_data, (uint64, Controller.Action[]));
 
         // Check txID
         require(executionId == 0 || executionId == ++lastExecutionId, InvalidTxId());

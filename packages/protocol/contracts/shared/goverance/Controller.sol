@@ -36,7 +36,7 @@ abstract contract Controller is EssentialContract {
         Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
     }
 
-    function dryrun(Action[] calldata _actions) external payable  {
+    function dryrun(Action[] calldata _actions) external payable {
         _executeActions(_actions);
         revert DryrunSucceeded();
     }
@@ -46,7 +46,7 @@ abstract contract Controller is EssentialContract {
     /// @param _actions The actions to execute
     /// @return results_ The raw returned data from the action
     function _executeActions(Action[] memory _actions) internal returns (bytes[] memory results_) {
-        require(_actions.length != 0,   NoActionToExecute());
+        require(_actions.length != 0, NoActionToExecute());
         results_ = new bytes[](_actions.length);
         for (uint256 i; i < _actions.length; ++i) {
             results_[i] = _executeAction(_actions[i]);

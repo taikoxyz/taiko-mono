@@ -59,7 +59,6 @@ contract TestTaikoDAOController is Layer1Test {
         assertEq(daoController.owner(), owner, "Owner should be set correctly");
     }
 
-
     function test_TaikoDAOController_execute() public {
         vm.startPrank(owner);
         (bool success,) = target.call(data);
@@ -84,8 +83,6 @@ contract TestTaikoDAOController is Layer1Test {
         daoController.execute(actions);
         vm.stopPrank();
     }
-
-   
 
     function test_TaikoDAOController_acceptOwnershipOf() public {
         vm.startPrank(Bob);

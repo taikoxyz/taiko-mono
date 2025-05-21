@@ -25,7 +25,8 @@ contract TestDelegateController is Layer2Test {
         );
         tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
         tMulticall = new Multicall3();
-        tDelegateController = deployDelegateController(ethereumChainId, address(tBridge), daoController);
+        tDelegateController =
+            deployDelegateController(ethereumChainId, address(tBridge), daoController);
     }
 
     function test_delegate_controller_single_action() public onTaiko {
@@ -49,7 +50,9 @@ contract TestDelegateController is Layer2Test {
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateController.onMessageInvocation, (abi.encode(uint(1), actions)));
+        message.data = abi.encodeCall(
+            DelegateController.onMessageInvocation, (abi.encode(uint256(1), actions))
+        );
         message.to = address(tDelegateController);
 
         vm.prank(Bob);
@@ -58,13 +61,14 @@ contract TestDelegateController is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-                    assertEq(tDelegateController.lastExecutionId(), 1);
+        assertEq(tDelegateController.lastExecutionId(), 1);
         assertTrue(stub1.paused());
     }
 
     function test_delegate_controller_multiple_actions() public onTaiko {
-        address tDelegateControllerImpl2 =
-            address(new DelegateController(ethereumChainId, address(tBridge), address(tDelegateController)));
+        address tDelegateControllerImpl2 = address(
+            new DelegateController(ethereumChainId, address(tBridge), address(tDelegateController))
+        );
         address impl1 = address(new EssentialContract_EmptyStub());
         address impl2 = address(new EssentialContract_EmptyStub());
 
@@ -100,7 +104,8 @@ contract TestDelegateController is Layer2Test {
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateController.onMessageInvocation, (abi.encode(uint64(1), actions)));
+        message.data =
+            abi.encodeCall(DelegateController.onMessageInvocation, (abi.encode(uint64(1), actions)));
         message.to = address(tDelegateController);
 
         vm.prank(Bob);
