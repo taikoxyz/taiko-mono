@@ -74,7 +74,7 @@ contract TestDelegateController is Layer2Test {
         EssentialContract_EmptyStub stub2 = _deployEssentialContract_EmptyStub("stub2", impl2);
         vm.stopPrank();
 
-        Controller.Action[] memory actions = new Controller.Action[](3);
+        Controller.Action[] memory actions = new Controller.Action[](4);
         actions[0] = Controller.Action({
             target: address(stub1),
             value: 0,
@@ -92,6 +92,14 @@ contract TestDelegateController is Layer2Test {
             value: 0,
             data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateControllerImpl2))
         });
+
+        actions[3] = Controller.Action({
+            target: Alice,
+            value: 0.1 ether,
+            data: abi.encodeCall(IERC20.transfer, (Alice, 0.1 ether))
+        });
+
+        vm.deal(address(tDelegateController), 0.1 ether);
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
         tDelegateController.dryrun(actions);
@@ -115,6 +123,8 @@ contract TestDelegateController is Layer2Test {
         assertTrue(stub1.paused());
         assertEq(stub2.impl(), impl2);
         assertEq(tDelegateController.impl(), tDelegateControllerImpl2);
+        assertEq(Alice.balance, 0.1 ether);
+        assertEq(address(tDelegateController).balance, 0);
     }
 
     function _deployEssentialContract_EmptyStub(
