@@ -17,5 +17,5 @@ type Proposer interface {
 	utils.SubcommandApplication
 	ProposeOp(ctx context.Context) error
 	ProposeTxLists(ctx context.Context, txLists []types.Transactions, l2Head uint64, parentMetaHash common.Hash) error
-	RegisterTxMgrSelctorToBlobServer(blobServer *MemoryBlobServer)
+	RegisterTxMgrSelectorToBlobServer(blobServer *MemoryBlobServer)
 }

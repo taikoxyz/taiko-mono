@@ -100,7 +100,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.p = prop
-	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
+	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 }
 
 func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {

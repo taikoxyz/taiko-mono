@@ -718,7 +718,7 @@ func (s *DriverTestSuite) InitProposer() {
 		},
 	}, nil, nil))
 	s.p = p
-	s.p.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
+	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 }
 
 func (s *DriverTestSuite) TearDownTestTearDown() {

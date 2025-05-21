@@ -120,7 +120,7 @@ func (s *ProverTestSuite) SetupTest() {
 	}, s.txmgr, s.txmgr))
 
 	s.proposer = prop
-	s.proposer.RegisterTxMgrSelctorToBlobServer(s.BlobServer)
+	s.proposer.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 }
 
 func (s *ProverTestSuite) TestName() {
