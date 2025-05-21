@@ -41,8 +41,7 @@ abstract contract Controller is EssentialContract {
         revert DryrunSucceeded();
     }
 
-    /// @notice Forward arbitrary actions to another contract.
-    ///         This lets TaikoDAOController directly interact with contracts it owns.
+    /// @notice Execute a list of actions.
     /// @param _actions The actions to execute
     /// @return results_ The raw returned data from the action
     function _executeActions(Action[] memory _actions) internal returns (bytes[] memory results_) {
