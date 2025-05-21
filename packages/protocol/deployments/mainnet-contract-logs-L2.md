@@ -185,9 +185,9 @@
 
 #### delegate_controller
 
-- proxy: `TODO`
-- impl: ``
-- owner: ``
+- proxy: `0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106`
+- impl: `0x5aB94081655555cC48653d7956D02C6402F32b99`
+- owner: `0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106`
 - logs:
 
 ## Pacaya Contracts

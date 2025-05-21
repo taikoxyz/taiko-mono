@@ -10,7 +10,6 @@ library LibMainnetL1Addresses {
     address public constant BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
 
-    // Third party contracts
+    // Third-party addresses
     address public constant ENS_REVERSE_REGISTRAR = 0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb;
-    address public constant MULTICALL3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
 }
