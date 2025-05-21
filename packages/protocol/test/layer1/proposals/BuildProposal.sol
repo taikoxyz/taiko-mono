@@ -37,7 +37,7 @@ abstract contract BuildProposal is Test {
         });
     }
 
-    function buildProposal(uint64 executionId) internal pure {
+    function buildProposal(uint64 executionId, uint32 gasLimit) internal pure {
         Controller.Action[] memory l1Actions = buildL1Actions();
         Controller.Action[] memory allActions = new Controller.Action[](l1Actions.length + 1);
 
@@ -50,6 +50,7 @@ abstract contract BuildProposal is Test {
 
         IBridge.Message memory message;
         message.destChainId = 167_000;
+        message.gasLimit = gasLimit;
         message.destOwner = L2_PERMISSIONLESS_EXECUTOR;
         message.data = abi.encodeCall(
             DelegateController.onMessageInvocation, (abi.encode(executionId, l2Actions))
