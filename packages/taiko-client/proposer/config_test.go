@@ -82,21 +82,6 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContextL2RecipErr() {
 	}), "invalid L2 suggested fee recipient address")
 }
 
-func (s *ProposerTestSuite) TestNewConfigFromCliContextTxPoolLocalsErr() {
-	goldenTouchAddress, err := s.RPCClient.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
-	s.Nil(err)
-
-	app := s.SetupApp()
-
-	s.ErrorContains(app.Run([]string{
-		"TestNewConfigFromCliContextTxPoolLocalsErr",
-		"--" + flags.L1ProposerPrivKey.Name, encoding.GoldenTouchPrivKey,
-		"--" + flags.ProposeInterval.Name, proposeInterval,
-		"--" + flags.MinProposingInternal.Name, proposeInterval,
-		"--" + flags.L2SuggestedFeeRecipient.Name, goldenTouchAddress.Hex(),
-	}), "invalid account in --txpool.locals")
-}
-
 func (s *ProposerTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{

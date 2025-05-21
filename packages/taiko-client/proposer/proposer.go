@@ -2,6 +2,7 @@ package proposer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -191,7 +192,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		p.protocolConfigs.BlockMaxGasLimit(),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
-		p.MaxProposedTxListsPerEpoch,
+		p.MaxTxListsPerEpoch,
 		minTip,
 		p.chainConfig,
 		p.protocolConfigs.BaseFeeConfig(),
@@ -413,7 +414,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)
-		if isPrivate {
+		if isPrivate && !errors.Is(err, context.DeadlineExceeded) {
 			p.txmgrSelector.RecordPrivateTxMgrFailed()
 		}
 		return err

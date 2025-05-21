@@ -15,14 +15,11 @@ contract SendMessageToDelegateOwner is BaseScript {
         vm.envOr("TEST_ADDRESS_1", address(0x0000000000000000000000000000000000000000));
 
     function run() external broadcast {
-        Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](1);
+
         calls[0].target = delegateOwner;
         calls[0].allowFailure = false;
-        calls[0].callData = abi.encodeCall(DelegateOwner.setAdmin, (testAddress1));
-
-        calls[1].target = delegateOwner;
-        calls[1].allowFailure = false;
-        calls[1].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl));
+        calls[0].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
             txId: 1, // Has to match with DelegateOwner's nextTxId or 0

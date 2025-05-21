@@ -13,19 +13,15 @@ import "../shared/bridge/IBridge.sol";
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
-    address public immutable bridge;
+    address public immutable l2Bridge;
+    address public immutable daoController;
+    uint64 public immutable l1ChainId;
 
-    /// @notice The owner chain ID.
-    uint64 public remoteChainId; // slot 1
-
-    /// @notice The admin who can directly call `invokeCall`.
-    address public admin;
+    // Was remoteChainId + admin before being immutable
+    uint256 public __deprecated;
 
     /// @notice The next transaction ID.
     uint64 public nextTxId; // slot 2
-
-    /// @notice The real owner on L1, supposedly the DAO.
-    address public remoteOwner;
 
     uint256[48] private __gap;
 
@@ -45,54 +41,29 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         uint64 indexed txId, address indexed target, bool isDelegateCall, bytes txdata
     );
 
-    /// @notice Emitted when the admin has been changed.
-    /// @param oldAdmin The old admin address.
-    /// @param newAdmin The new admin address.
-    event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
-
     error DO_DRYRUN_SUCCEEDED();
-    error DO_INVALID_PARAM();
     error DO_INVALID_SENDER();
     error DO_INVALID_TARGET();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
 
-    modifier onlyAdminOrRemoteOwner() {
-        if (!_isAdminOrRemoteOwner(msg.sender)) revert DO_PERMISSION_DENIED();
-        _;
+    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) EssentialContract() {
+        l1ChainId = _l1ChainId;
+        l2Bridge = _l2Bridge;
+        daoController = _daoController;
     }
 
-    constructor(address _bridge) EssentialContract() {
-        bridge = _bridge;
-    }
-
-    /// @notice Initializes the contract.
-    /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
-    /// `onMessageInvocation`.
-    /// @param _remoteChainId The L1 chain's ID.
-    /// @param _admin The admin address.
-    function init(
-        address _remoteOwner,
-        uint64 _remoteChainId,
-        address _admin
-    )
-        external
-        initializer
-    {
-        // This contract's owner will be itself.
+    function init() external initializer {
         __Essential_init(address(this));
-
-        require(_remoteOwner != address(0), DO_INVALID_PARAM());
-        require(_remoteChainId != 0, DO_INVALID_PARAM());
-        require(_remoteChainId != block.chainid, DO_INVALID_PARAM());
-
-        remoteChainId = _remoteChainId;
-        remoteOwner = _remoteOwner;
-        admin = _admin;
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data) external payable onlyAdminOrRemoteOwner {
+    function onMessageInvocation(bytes calldata _data) external payable {
+        require(msg.sender == l2Bridge, DO_INVALID_SENDER());
+
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
+        require(ctx.srcChainId == l1ChainId && ctx.from == daoController, DO_PERMISSION_DENIED());
+
         _invokeCall(_data, true);
     }
 
@@ -105,20 +76,12 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         revert DO_DRYRUN_SUCCEEDED();
     }
 
-    /// @dev Updates the admin address.
-    /// @param _admin The new admin address.
-    function setAdmin(address _admin) external nonReentrant onlyOwner {
-        require(_admin != admin, DO_INVALID_PARAM());
-        require(_admin != address(this), DO_INVALID_PARAM());
-
-        emit AdminUpdated(admin, _admin);
-        admin = _admin;
-    }
-
-    /// @dev Accepts contract ownership
-    /// @param _target Target addresses.
-    function acceptOwnership(address _target) external nonReentrant onlyOwner {
-        Ownable2StepUpgradeable(_target).acceptOwnership();
+    /// @notice Accept ownership of the given contract.
+    /// @dev This function is callable by anyone to accept ownership without going through
+    /// the TaikoDAO.
+    /// @param _contractToOwn The contract to accept ownership of.
+    function acceptOwnership(address _contractToOwn) external nonReentrant {
+        Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
     }
 
     function transferOwnership(address) public pure override notImplemented { }
@@ -146,13 +109,5 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         if (!success) LibBytes.revertWithExtractedError(result);
 
         emit MessageInvoked(call.txId, call.target, call.isDelegateCall, call.txdata);
-    }
-
-    function _isAdminOrRemoteOwner(address _sender) private view returns (bool) {
-        if (_sender == admin) return true;
-        if (_sender != bridge) return false;
-
-        IBridge.Context memory ctx = IBridge(_sender).context();
-        return ctx.srcChainId == remoteChainId && ctx.from == remoteOwner;
     }
 }

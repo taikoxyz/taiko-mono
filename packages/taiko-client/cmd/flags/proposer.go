@@ -66,7 +66,7 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_ALLOW_ZERO_TIP_INTERVAL"},
 	}
-	MaxProposedTxListsPerEpoch = &cli.Uint64Flag{
+	MaxTxListsPerEpoch = &cli.Uint64Flag{
 		Name:     "txPool.maxTxListsPerEpoch",
 		Usage:    "Maximum number of transaction lists which will be proposed inside one proposing epoch",
 		Value:    1,
@@ -111,7 +111,7 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinTip,
 	MinProposingInternal,
 	AllowZeroTipInterval,
-	MaxProposedTxListsPerEpoch,
+	MaxTxListsPerEpoch,
 	BlobAllowed,
 	FallbackToCalldata,
 	RevertProtectionEnabled,

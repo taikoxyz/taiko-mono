@@ -167,11 +167,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	header := headers[0]
 
-	// If the block number is greater than the highest unsafe L2 payload block ID,
-	// update the highest unsafe L2 payload block ID.
-	if header.Number.Uint64() > s.highestUnsafeL2PayloadBlockID {
-		s.updateHighestUnsafeL2Payload(header.Number.Uint64())
-	}
+	// always update the highest unsafe L2 payload block ID.
+	// its either higher than the existing one, or we reorged.
+	s.updateHighestUnsafeL2Payload(header.Number.Uint64())
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
