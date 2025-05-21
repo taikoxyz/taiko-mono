@@ -189,9 +189,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
-                info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                    ? stats2.numBatches + nBlocks - 1
-                    : lastBatch.lastBlockId + nBlocks;
+                info_.lastBlockId = lastBatch.lastBlockId + nBlocks;
 
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
