@@ -206,7 +206,6 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             keccak256(abi.encode(_signedCommitment.commitment)), _signedCommitment.signature
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
-        require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
 
         return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
     }
