@@ -10,8 +10,7 @@ interface ITestDelegateOwnedV2 {
 
 contract Proposal0002 is BuildProposal {
     // L1 contracts
-    address public constant L1_TAIKO_DAO_CONTROLLER_NEW_IMPL =
-        0x31de0330c9FDa46FE8a7d84A88531bB8Fc72185f;
+    address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
     // L2 contracts
     address public constant L2_DELEGATE_CONTROLLER_NEW_IMPL =
@@ -26,16 +25,24 @@ contract Proposal0002 is BuildProposal {
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](1);
+        actions = new Controller.Action[](2);
 
-        // Upgrade TaikoDAOController to a new implementation
-        actions[0] = buildUpgradeAction(L1.DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);
+        // Transfer 0.001 ETH from DAO Controller to Daniel Wang
+        actions[0] =
+            Controller.Action({ target: L1_DANIEL_WANG_ADDRESS, value: 0.001 ether, data: "" });
+
+        // Transfer 1 USDC from DAO Controller to Daniel Wang
+        actions[1] = Controller.Action({
+            target: L1.USDC_TOKEN,
+            value: 0,
+            data: abi.encodeCall(IERC20.transfer, (L1_DANIEL_WANG_ADDRESS, 1e6))
+        });
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](5);
 
-        // Upgrade DelegateOwner to a new implementation
+        // Upgrade DelegateController to a new implementation
         actions[0] = buildUpgradeAction(L2.DELEGATE_CONTROLLER, L2_DELEGATE_CONTROLLER_NEW_IMPL);
 
         // Transfer 1 TAIKO to Daniel Wang
@@ -45,10 +52,10 @@ contract Proposal0002 is BuildProposal {
             data: abi.encodeCall(IERC20.transfer, (L2_DANIEL_WANG_ADDRESS, 1 ether))
         });
 
-        // Upgrade TestDelegateOwned to a new implementation
+        // Upgrade Bar contract to a new implementation
         actions[2] = buildUpgradeAction(L2_BAR_CONTRACT, L2_BAR_CONTRACT_NEW_IMPL);
 
-        // Transfer 0.001 Ether from TestDelegateOwned to Daniel Wang
+        // Transfer 0.001 Ether from Bar contract to Daniel Wang
         actions[3] = Controller.Action({
             target: L2_BAR_CONTRACT,
             value: 0,
@@ -57,7 +64,7 @@ contract Proposal0002 is BuildProposal {
             )
         });
 
-        // Transfer 1 TAIKO from TestDelegateOwned to Daniel Wang
+        // Transfer 1 TAIKO from Bar contract to Daniel Wang
         actions[4] = Controller.Action({
             target: L2_BAR_CONTRACT,
             value: 0,
