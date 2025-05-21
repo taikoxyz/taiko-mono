@@ -7,13 +7,13 @@ import "../shared/libs/LibBytes.sol";
 import "../shared/goverance/Controller.sol";
 import "../shared/bridge/IBridge.sol";
 
-/// @title DelegateOwner
+/// @title DelegateController
 /// @notice This contract will be the owner of all essential contracts deployed on the L2 chain.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @dev Do not send Ether to this contract as it cannot transfer Ether out.
 /// @custom:security-contact security@taiko.xyz
-contract DelegateOwner is Controller, IMessageInvocable {
+contract DelegateController is Controller, IMessageInvocable {
     address public immutable l2Bridge;
     address public immutable daoController;
     uint64 public immutable l1ChainId;

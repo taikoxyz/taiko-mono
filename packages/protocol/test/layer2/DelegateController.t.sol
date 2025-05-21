@@ -5,7 +5,7 @@ import "test/shared/helpers/EssentialContract_EmptyStub.sol";
 import "test/shared/thirdparty/Multicall3.sol";
 import "test/layer2/Layer2Test.sol";
 
-contract TestDelegateOwner is Layer2Test {
+contract TestDelegateController is Layer2Test {
     // Contracts on Ethereum
     address private daoController = randAddress();
 
@@ -13,7 +13,7 @@ contract TestDelegateOwner is Layer2Test {
     Multicall3 private tMulticall;
     SignalService private tSignalService;
     Bridge private tBridge;
-    DelegateOwner private tDelegateOwner;
+    DelegateController private tDelegateController;
 
     function setUpOnEthereum() internal override {
         register("bridge", daoController);
@@ -25,10 +25,10 @@ contract TestDelegateOwner is Layer2Test {
         );
         tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
         tMulticall = new Multicall3();
-        tDelegateOwner = deployDelegateOwner(ethereumChainId, address(tBridge), daoController);
+        tDelegateController = deployDelegateController(ethereumChainId, address(tBridge), daoController);
     }
 
-    function test_delegate_owner_single_non_delegatecall() public onTaiko {
+    function test_delegate_controller_single_non_delegatecall() public onTaiko {
         vm.startPrank(deployer);
         EssentialContract_EmptyStub stub1 =
             _deployEssentialContract_EmptyStub("stub1", address(new EssentialContract_EmptyStub()));
@@ -42,15 +42,15 @@ contract TestDelegateOwner is Layer2Test {
         });
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
-        tDelegateOwner.dryrun(calls);
+        tDelegateController.dryrun(actions);
 
         IBridge.Message memory message;
         message.from = daoController;
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (abi.encode(uint(1), calls)));
-        message.to = address(tDelegateOwner);
+        message.data = abi.encodeCall(DelegateController.onMessageInvocation, (abi.encode(uint(1), actions)));
+        message.to = address(tDelegateController);
 
         vm.prank(Bob);
         tBridge.processMessage(message, "");
@@ -58,7 +58,7 @@ contract TestDelegateOwner is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        assertEq(tDelegateOwner.txId(), 1);
+                    assertEq(tDelegateController.lastExecutionId(), 1);
         assertTrue(stub1.paused());
     }
 
@@ -91,8 +91,8 @@ contract TestDelegateOwner is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        assertEq(tDelegateOwner.txId(), 1);
-        assertEq(tDelegateOwner.impl(), tDelegateOwnerImpl2);
+        assertEq(tDelegate      Controller.lastExecutionId(), 1);
+        assertEq(tDelegateController.impl(), tDelegateControllerImpl2);
     }
 
     function test_delegate_owner_delegate_tMulticall() public onTaiko {
