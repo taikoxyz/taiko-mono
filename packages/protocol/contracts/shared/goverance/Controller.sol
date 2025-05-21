@@ -58,12 +58,4 @@ abstract contract Controller is EssentialContract {
         require(success, ActionFailed());
         emit ActionExecuted(_action.target, _action.value, _action.data);
     }
-
-    /// @notice Transfer ownership of the contract.
-    /// @dev This function is disabled.
-    function transferOwnership(address) public pure override notImplemented { }
-
-    /// @notice Pause the contract.
-    /// @dev This function is disabled.
-    function _authorizePause(address, bool) internal pure override notImplemented { }
 }
