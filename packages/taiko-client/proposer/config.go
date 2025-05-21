@@ -21,19 +21,19 @@ import (
 // Config contains all configurations to initialize a Taiko proposer.
 type Config struct {
 	*rpc.ClientConfig
-	L1ProposerPrivKey          *ecdsa.PrivateKey
-	L2SuggestedFeeRecipient    common.Address
-	ProposeInterval            time.Duration
-	MinTip                     uint64
-	MinProposingInternal       time.Duration
-	AllowZeroTipInterval       uint64
-	MaxProposedTxListsPerEpoch uint64
-	ProposeBatchTxGasLimit     uint64
-	BlobAllowed                bool
-	FallbackToCalldata         bool
-	RevertProtectionEnabled    bool
-	TxmgrConfigs               *txmgr.CLIConfig
-	PrivateTxmgrConfigs        *txmgr.CLIConfig
+	L1ProposerPrivKey       *ecdsa.PrivateKey
+	L2SuggestedFeeRecipient common.Address
+	ProposeInterval         time.Duration
+	MinTip                  uint64
+	MinProposingInternal    time.Duration
+	AllowZeroTipInterval    uint64
+	MaxTxListsPerEpoch      uint64
+	ProposeBatchTxGasLimit  uint64
+	BlobAllowed             bool
+	FallbackToCalldata      bool
+	RevertProtectionEnabled bool
+	TxmgrConfigs            *txmgr.CLIConfig
+	PrivateTxmgrConfigs     *txmgr.CLIConfig
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -59,11 +59,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, err
 	}
 
-	maxProposedTxListsPerEpoch := c.Uint64(flags.MaxProposedTxListsPerEpoch.Name)
-	if maxProposedTxListsPerEpoch > eth.MaxBlobsPerBlobTx {
+	maxTxListsPerEpoch := c.Uint64(flags.MaxTxListsPerEpoch.Name)
+	if maxTxListsPerEpoch > eth.MaxBlobsPerBlobTx {
 		return nil, fmt.Errorf("max proposed tx lists per epoch should not exceed %d, got: %d",
 			eth.MaxBlobsPerBlobTx,
-			maxProposedTxListsPerEpoch,
+			maxTxListsPerEpoch,
 		)
 	}
 
@@ -81,17 +81,17 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		},
-		L1ProposerPrivKey:          l1ProposerPrivKey,
-		L2SuggestedFeeRecipient:    common.HexToAddress(l2SuggestedFeeRecipient),
-		ProposeInterval:            c.Duration(flags.ProposeInterval.Name),
-		MinTip:                     minTip.Uint64(),
-		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
-		MaxProposedTxListsPerEpoch: maxProposedTxListsPerEpoch,
-		AllowZeroTipInterval:       c.Uint64(flags.AllowZeroTipInterval.Name),
-		ProposeBatchTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
-		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
-		FallbackToCalldata:         c.Bool(flags.FallbackToCalldata.Name),
-		RevertProtectionEnabled:    c.Bool(flags.RevertProtectionEnabled.Name),
+		L1ProposerPrivKey:       l1ProposerPrivKey,
+		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),
+		ProposeInterval:         c.Duration(flags.ProposeInterval.Name),
+		MinTip:                  minTip.Uint64(),
+		MinProposingInternal:    c.Duration(flags.MinProposingInternal.Name),
+		MaxTxListsPerEpoch:      maxTxListsPerEpoch,
+		AllowZeroTipInterval:    c.Uint64(flags.AllowZeroTipInterval.Name),
+		ProposeBatchTxGasLimit:  c.Uint64(flags.TxGasLimit.Name),
+		BlobAllowed:             c.Bool(flags.BlobAllowed.Name),
+		FallbackToCalldata:      c.Bool(flags.FallbackToCalldata.Name),
+		RevertProtectionEnabled: c.Bool(flags.RevertProtectionEnabled.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
 			l1ProposerPrivKey,

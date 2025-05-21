@@ -192,7 +192,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		p.protocolConfigs.BlockMaxGasLimit(),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
-		p.MaxProposedTxListsPerEpoch,
+		p.MaxTxListsPerEpoch,
 		minTip,
 		p.chainConfig,
 		p.protocolConfigs.BaseFeeConfig(),

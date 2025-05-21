@@ -184,7 +184,7 @@ func (d *Driver) Start() error {
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
-		log.Info("P2P starting discovery process")
+		log.Info("Start P2P discovery process")
 
 		go d.p2pNode.DiscoveryProcess(
 			d.ctx,
@@ -193,7 +193,7 @@ func (d *Driver) Start() error {
 			d.p2pSetup.TargetPeers(),
 		)
 	} else {
-		log.Warn("P2P skipping discovery process")
+		log.Warn("Skip P2P discovery process")
 	}
 
 	go d.cacheLookaheadLoop()

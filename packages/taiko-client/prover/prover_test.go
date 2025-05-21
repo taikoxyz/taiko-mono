@@ -111,10 +111,10 @@ func (s *ProverTestSuite) SetupTest() {
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
-		L1ProposerPrivKey:          l1ProposerPrivKey,
-		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-		ProposeInterval:            1024 * time.Hour,
-		MaxProposedTxListsPerEpoch: 1,
+		L1ProposerPrivKey:       l1ProposerPrivKey,
+		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		ProposeInterval:         1024 * time.Hour,
+		MaxTxListsPerEpoch:      1,
 	}, s.txmgr, s.txmgr))
 
 	s.proposer = prop
