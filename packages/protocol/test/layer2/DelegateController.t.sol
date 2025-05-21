@@ -91,7 +91,7 @@ contract TestDelegateController is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        assertEq(tDelegate      Controller.lastExecutionId(), 1);
+        assertEq(tDelegateController.lastExecutionId(), 1);
         assertEq(tDelegateController.impl(), tDelegateControllerImpl2);
     }
 
@@ -143,10 +143,10 @@ contract TestDelegateController is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        assertEq(tDelegateOwner.txId(), 1);
+        assertEq(tDelegateController.lastExecutionId(), 1);
         assertTrue(stub1.paused());
         assertEq(stub2.impl(), impl2);
-        assertEq(tDelegateOwner.impl(), tDelegateOwnerImpl2);
+        assertEq(tDelegateController.impl(), tDelegateControllerImpl2);
     }
 
     function _deployEssentialContract_EmptyStub(
@@ -160,7 +160,7 @@ contract TestDelegateController is Layer2Test {
             deploy({
                 name: name,
                 impl: impl,
-                data: abi.encodeCall(EssentialContract_EmptyStub.init, (address(tDelegateOwner)))
+                data: abi.encodeCall(EssentialContract_EmptyStub.init, (address(tDelegateController)))
             })
         );
     }
