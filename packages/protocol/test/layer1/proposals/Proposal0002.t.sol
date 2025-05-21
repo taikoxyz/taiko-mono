@@ -13,9 +13,9 @@ contract Proposal0002 is BuildProposal {
         0x6aC624FD2b3Bf8fbf1b121f7Aba0d1eC51f4c347;
 
     // L2 contracts
-    address public constant L2_DELEGATE_OWNERE_NEW_IMPL = 0xdC2FaA24e73207C32314E6E1595Da454F53c7f34;
-    address public constant L2_TEST_CONTRACT = 0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0;
-    address public constant L2_TEST_CONTRACT_NEW_IMPL = 0xd1934807041B168f383870A0d8F565aDe2DF9D7D;
+    address public constant L2_DELEGATE_CONTROLLER_NEW_IMPL = address(0); // TODO
+    address public constant L2_TEST_CONTRACT = address(0); // TODO
+    address public constant L2_TEST_CONTRACT_NEW_IMPL = address(0); // TODO
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
     // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0002 -vvv
@@ -34,7 +34,7 @@ contract Proposal0002 is BuildProposal {
         actions = new Controller.Action[](5);
 
         // Upgrade DelegateOwner to a new implementation
-        actions[0] = buildUpgradeAction(L2_DELEGATE_OWNER, L2_DELEGATE_OWNERE_NEW_IMPL);
+        actions[0] = buildUpgradeAction(L2_DELEGATE_CONTROLLER, L2_DELEGATE_CONTROLLER_NEW_IMPL);
 
         // Transfer 1 TAIKO to Daniel Wang
         actions[1] = Controller.Action({
