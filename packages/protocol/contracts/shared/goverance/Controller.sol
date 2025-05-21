@@ -11,7 +11,6 @@ import "src/shared/common/EssentialContract.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract Controller is EssentialContract {
     error ActionFailed();
-    error InvalidTarget();
     error NoActionToExecute();
     error DryrunSucceeded();
 
@@ -37,7 +36,7 @@ abstract contract Controller is EssentialContract {
         Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
     }
 
-    function dryrun(Action[] calldata _actions) external payable nonReentrant {
+    function dryrun(Action[] calldata _actions) external payable  {
         _executeActions(_actions);
         revert DryrunSucceeded();
     }
@@ -58,9 +57,6 @@ abstract contract Controller is EssentialContract {
     /// @param _action The action to execute
     /// @return result_ The raw returned data from the action
     function _executeAction(Action memory _action) internal returns (bytes memory result_) {
-        require(_action.target != owner(), InvalidTarget());
-        require(_action.target != address(this), InvalidTarget());
-
         bool success;
         (success, result_) = _action.target.call{ value: _action.value }(_action.data);
         require(success, ActionFailed());

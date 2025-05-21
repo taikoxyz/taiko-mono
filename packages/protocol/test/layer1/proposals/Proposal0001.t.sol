@@ -29,24 +29,24 @@ contract Proposal0001 is Test {
         TaikoDAOController.Action[] memory actions = new TaikoDAOController.Action[](4);
 
         // Upgrade FooUpgradeable's implementation from V1 to V2
-        calls[0] = Controller.Action({
+        actions[0] = Controller.Action({
             target: FOO_UPGRADEABLE,
             value: 0,
             data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (FOO_UPGRADEABLE_V2))
         });
 
         // Send 1 TaikoToken from TaikoDAOController to DanielWang
-        calls[1] = Controller.Action({
+        actions[1] = TaikoDAOController.Action({
             target: TAIKO_TOKEN,
             value: 0,
             data: abi.encodeCall(IERC20.transfer, (TO_ADDRESS, 1 ether))
         });
 
         // Send 0.001 Ether from TaikoDAOController to 0x992E727e73a8b5b31865646Bb16F9DC3955373ae
-        calls[2] = Controller.Action({ target: TO_ADDRESS, value: 0.001 ether, data: "" });
+        actions[2] = TaikoDAOController.Action({ target: TO_ADDRESS, value: 0.001 ether, data: "" });
 
         // Set the reverse name for the DAO controller
-        calls[3] = Controller.Action({
+        actions[3] = TaikoDAOController.Action({
             target: ENS_REVERSE_REGISTRAR,
             value: 0,
             data: abi.encodeCall(IReverseRegistrar.setName, ("daocontroller.taiko.eth"))
@@ -54,11 +54,11 @@ contract Proposal0001 is Test {
 
         console2.log("to:", TAIKO_DAO_CONTROLLER);
 
-        for (uint256 i = 0; i < calls.length; i++) {
+        for (uint256 i = 0; i < actions.length; i++) {
             console2.log("-------------- call", i, "--------------");
-            console2.log(calls[i].target);
-            console2.log(calls[i].value);
-            console2.logBytes(calls[i].data);
+            console2.log(actions[i].target);
+            console2.log(actions[i].value);
+            console2.logBytes(actions[i].data);
         }
     }
 }

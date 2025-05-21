@@ -42,7 +42,7 @@ contract UpdatePacayaL2 is DeployCapability {
         calls[3].allowFailure = false;
         calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newAddressManager));
 
-        DelegateOwner.Action memory dcall = DelegateOwner.Action({
+        DelegateOwner.Call memory dcall = DelegateOwner.Call({
             target: multicall3,
             value: 0,
             data: abi.encodeCall(Multicall3.aggregate3, (calls))

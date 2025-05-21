@@ -28,14 +28,14 @@ contract TestDelegateController is Layer2Test {
         tDelegateController = deployDelegateController(ethereumChainId, address(tBridge), daoController);
     }
 
-    function test_delegate_controller_single_non_delegatecall() public onTaiko {
+    function test_delegate_controller_single_action() public onTaiko {
         vm.startPrank(deployer);
         EssentialContract_EmptyStub stub1 =
             _deployEssentialContract_EmptyStub("stub1", address(new EssentialContract_EmptyStub()));
         vm.stopPrank();
 
         Controller.Action[] memory actions = new Controller.Action[](1);
-        calls[0] = Controller.Action({
+        actions[0] = Controller.Action({
             target: address(stub1),
             value: 0,
             data: abi.encodeCall(EssentialContract.pause, ())
@@ -62,42 +62,9 @@ contract TestDelegateController is Layer2Test {
         assertTrue(stub1.paused());
     }
 
-    function test_delegate_owner_single_non_delegatecall_self() public onTaiko {
-        address tDelegateOwnerImpl2 =
-            address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
-
-        Controller.Action[] memory actions = new Controller.Action[](1);
-        calls[0] = Controller.Action({
-            target: address(tDelegateOwner),
-            value: 0,
-            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateOwnerImpl2))
-        });
-
-
-        vm.expectRevert(Controller.DryrunSucceeded.selector);
-        tDelegateOwner.dryrun(calls);
-
-        IBridge.Message memory message;
-        message.from = daoController;
-        message.destChainId = taikoChainId;
-        message.srcChainId = ethereumChainId;
-        message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (abi.encode(uint64(1), actions)));
-        message.to = address(tDelegateOwner);
-
-        vm.prank(Bob);
-        tBridge.processMessage(message, "");
-
-        bytes32 hash = tBridge.hashMessage(message);
-        assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
-
-        assertEq(tDelegateController.lastExecutionId(), 1);
-        assertEq(tDelegateController.impl(), tDelegateControllerImpl2);
-    }
-
-    function test_delegate_owner_delegate_tMulticall() public onTaiko {
-        address tDelegateOwnerImpl2 =
-            address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
+    function test_delegate_controller_multiple_actions() public onTaiko {
+        address tDelegateControllerImpl2 =
+            address(new DelegateController(ethereumChainId, address(tBridge), address(tDelegateController)));
         address impl1 = address(new EssentialContract_EmptyStub());
         address impl2 = address(new EssentialContract_EmptyStub());
 
@@ -106,36 +73,35 @@ contract TestDelegateController is Layer2Test {
         EssentialContract_EmptyStub stub2 = _deployEssentialContract_EmptyStub("stub2", impl2);
         vm.stopPrank();
 
-        Multicall3.Call3[] memory calls = new Multicall3.Call3[](3);
-        calls[0].target = address(stub1);
-        calls[0].allowFailure = false;
-        calls[0].callData = abi.encodeCall(EssentialContract.pause, ());
+        Controller.Action[] memory actions = new Controller.Action[](3);
+        actions[0] = Controller.Action({
+            target: address(stub1),
+            value: 0,
+            data: abi.encodeCall(EssentialContract.pause, ())
+        });
 
-        calls[1].target = address(stub2);
-        calls[1].allowFailure = false;
-        calls[1].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (impl2));
+        actions[1] = Controller.Action({
+            target: address(stub2),
+            value: 0,
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (impl2))
+        });
 
-        calls[2].target = address(tDelegateOwner);
-        calls[2].allowFailure = false;
-        calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateOwnerImpl2));
-
-        Controller.Action[] memory actions = new Controller.Action[](1);
-        calls[0] = Controller.Action({
-            target: address(tMulticall),
-                value: 0,
-            data: abi.encodeCall(Multicall3.aggregate3, (calls))
+        actions[2] = Controller.Action({
+            target: address(tDelegateController),
+            value: 0,
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateControllerImpl2))
         });
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
-        tDelegateOwner.dryrun(calls);
+        tDelegateController.dryrun(actions);
 
         IBridge.Message memory message;
         message.from = daoController;
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (abi.encode(uint64(1), actions)));
-        message.to = address(tDelegateOwner);
+        message.data = abi.encodeCall(DelegateController.onMessageInvocation, (abi.encode(uint64(1), actions)));
+        message.to = address(tDelegateController);
 
         vm.prank(Bob);
         tBridge.processMessage(message, "");
