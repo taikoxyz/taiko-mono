@@ -22,7 +22,6 @@ contract DelegateController is Controller, IMessageInvocable {
     error InvalidExecutionId();
     error SenderNotL1DaoController();
 
-    // Was remoteChainId + admin before being immutable
     // solhint-disable var-name-mixedcase
     uint64 private __deprecated_remoteChainId; // slot 1
 
