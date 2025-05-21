@@ -140,9 +140,6 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)

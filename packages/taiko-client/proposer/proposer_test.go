@@ -162,10 +162,6 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
-
 	var (
 		txsCountForEachSender = 300
 		sendersCount          = 5
