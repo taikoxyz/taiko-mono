@@ -19,8 +19,8 @@ contract Proposal0002 is BuildProposal {
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x8f752026dC3f53003C4772a81c7b38EA7430fECB;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
-    // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0002 -vvv
-    function test_proposal_0002() public pure {
+    // FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0002.s.sol
+    function run() external pure {
         buildProposal({ executionId: 1, l2GasLimit: 25_000_000 });
     }
 

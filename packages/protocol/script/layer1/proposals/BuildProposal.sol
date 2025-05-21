@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Test.sol";
+import "forge-std/src/Script.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/layer2/mainnet/DelegateController.sol";
 import "src/layer1/governance/TaikoDAOController.sol";
-import "test/shared/thirdparty/Multicall3.sol";
 import "src/shared/bridge/IBridge.sol";
 import { LibMainnetL1Addresses as L1 } from "src/layer1/mainnet/libs/LibMainnetL1Addresses.sol";
 import { LibMainnetL2Addresses as L2 } from "src/layer2/mainnet/LibMainnetL2Addresses.sol";
 
-abstract contract BuildProposal is Test {
+abstract contract BuildProposal is Script {
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
     function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
 
