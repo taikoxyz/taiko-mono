@@ -63,18 +63,3 @@ contract DelegateController is Controller, IMessageInvocable {
         _executeActions(actions);
     }
 }
-
-//  delegateControllerImpl 1: 0x5aB94081655555cC48653d7956D02C6402F32b99
-//   delegateControllerImpl 2: 0x30AEf68b8A1784C5C553be9391b6c7cbd1f76ba3
-//   > 'delegate_controller'
-//          proxy   : 0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106
-//          impl    : 0x5aB94081655555cC48653d7956D02C6402F32b99
-//          owner   : 0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106
-//          chain id: 167000
-//   barUpgradeableImpl 1: 0x69E8296EE9feb2bf9cb46c266CdA4763451f51C0
-//   barUpgradeableImpl 2: 0x6aC624FD2b3Bf8fbf1b121f7Aba0d1eC51f4c347
-//   > 'bar_upgradeable'
-//          proxy   : 0x43d5b77471D599D89340511d731BE80E8D54b327
-//          impl    : 0x69E8296EE9feb2bf9cb46c266CdA4763451f51C0
-//          owner   : 0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106
-//          chain id: 167000
