@@ -3,15 +3,12 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 
-/// @title TaikoDAOController
-/// @notice This contract maintains ownership of all contracts and assets, and is itself owned by
-/// the TaikoDAO. This architecture allows the TaikoDAO to seamlessly transition from one DAO to
-/// another by simply changing the owner of this contract. In essence, the TaikoDAO does not
-/// directly own contracts or any assets.
+/// @title Controller
+/// @notice The base contract for controllers, which act as owners of other contracts and can hold
+/// Ether and tokens.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Controller is EssentialContract {
     error ActionFailed();
-    error NoActionToExecute();
     error DryrunSucceeded();
 
     struct Action {
@@ -19,6 +16,7 @@ abstract contract Controller is EssentialContract {
         uint256 value;
         bytes data;
     }
+
     // For backward compatibility reasons, this contract reverse no storage slots.
     // bytes32[50] private __gap;
 
@@ -45,7 +43,6 @@ abstract contract Controller is EssentialContract {
     /// @param _actions The actions to execute
     /// @return results_ The raw returned data from the action
     function _executeActions(Action[] memory _actions) internal returns (bytes[] memory results_) {
-        require(_actions.length != 0, NoActionToExecute());
         results_ = new bytes[](_actions.length);
         for (uint256 i; i < _actions.length; ++i) {
             results_[i] = _executeAction(_actions[i]);

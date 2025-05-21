@@ -22,19 +22,10 @@ contract DelegateController is Controller, IMessageInvocable {
     error InvalidExecutionId();
     error SenderNotL1DaoController();
 
-    // solhint-disable var-name-mixedcase
-    uint64 private __deprecated_remoteChainId; // slot 1
-
-    // solhint-disable var-name-mixedcase
-    address private __deprecated_admin;
-
     /// @notice The last processed execution ID.
-    uint64 public lastExecutionId; // slot 2
+    uint64 public lastExecutionId; // slot 1
 
-    // solhint-disable var-name-mixedcase
-    address private __deprecated_remoteOwner;
-
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 
     constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) Controller() {
         l1ChainId = _l1ChainId;
