@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../shared/common/EssentialContract.sol";
 import "../shared/libs/LibNames.sol";
 import "../shared/libs/LibAddress.sol";
 import "../shared/libs/LibBytes.sol";
+import "../shared/goverance/Controller.sol";
 import "../shared/bridge/IBridge.sol";
 
 /// @title DelegateOwner
@@ -13,47 +13,34 @@ import "../shared/bridge/IBridge.sol";
 /// not be zero, so on this chain, some EOA can help execute this transaction.
 /// @dev Do not send Ether to this contract as it cannot transfer Ether out.
 /// @custom:security-contact security@taiko.xyz
-contract DelegateOwner is EssentialContract, IMessageInvocable {
+contract DelegateOwner is Controller, IMessageInvocable {
     address public immutable l2Bridge;
     address public immutable daoController;
     uint64 public immutable l1ChainId;
 
+
+    error SenderNotL2Bridge();
+    error InvalidTxId();
+    error SenderNotL1DaoController();
+
     // Was remoteChainId + admin before being immutable
     // solhint-disable var-name-mixedcase
     uint64 private __deprecated_remoteChainId;
+
     // solhint-disable var-name-mixedcase
     address private __deprecated_admin;
 
-    /// @notice The next transaction ID.
-    uint64 public nextTxId; // slot 2
-        // solhint-disable var-name-mixedcase
+    /// @notice The last processed execution ID.
+    uint64 public lastExecutionId; // slot 2
+
+    // solhint-disable var-name-mixedcase
     address private __deprecated_remoteOwner;
 
     uint256[48] private __gap;
 
-    struct Call {
-        uint64 txId;
-        address target;
-        bool isDelegateCall;
-        bytes txdata;
-    }
+ 
 
-    /// @notice Emitted when a message is invoked.
-    /// @param txId The transaction ID.
-    /// @param target The target address.
-    /// @param isDelegateCall True if the call is a `delegatecall`.
-    /// @param txdata The transaction data.
-    event MessageInvoked(
-        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes txdata
-    );
-
-    error DO_DRYRUN_SUCCEEDED();
-    error DO_INVALID_SENDER();
-    error DO_INVALID_TARGET();
-    error DO_INVALID_TX_ID();
-    error DO_PERMISSION_DENIED();
-
-    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) EssentialContract() {
+    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) Controller() {
         l1ChainId = _l1ChainId;
         l2Bridge = _l2Bridge;
         daoController = _daoController;
@@ -65,55 +52,16 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata _data) external payable nonReentrant {
-        require(msg.sender == l2Bridge, DO_INVALID_SENDER());
+        require(msg.sender == l2Bridge, SenderNotL2Bridge());
 
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        require(ctx.srcChainId == l1ChainId && ctx.from == daoController, DO_PERMISSION_DENIED());
+        require(ctx.srcChainId == l1ChainId && ctx.from == daoController, SenderNotL1DaoController());
 
-        _invokeCall(_data, true);
-    }
+        (uint64 executionId, Controller.Action[] memory actions) = abi.decode(_data, (uint64, Controller.Action[]));
 
-    /// @notice Dryruns a message invocation but always revert.
-    /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
-    /// Note that this function shall not be used in transaction and is designed for offchain
-    /// simulation only.
-    function dryrunInvocation(bytes calldata _data) external payable {
-        _invokeCall(_data, false);
-        revert DO_DRYRUN_SUCCEEDED();
-    }
+        // Check txID
+        require(executionId == 0 || executionId == ++lastExecutionId, InvalidTxId());
 
-    /// @notice Accept ownership of the given contract.
-    /// @dev This function is callable by anyone to accept ownership without going through
-    /// the TaikoDAO.
-    /// @param _contractToOwn The contract to accept ownership of.
-    function acceptOwnership(address _contractToOwn) external nonReentrant {
-        Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
-    }
-
-    function transferOwnership(address) public pure override notImplemented { }
-
-    function _authorizePause(address, bool) internal pure override notImplemented { }
-
-    function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
-        Call memory call = abi.decode(_data, (Call));
-
-        if (call.txId == 0) {
-            call.txId = nextTxId;
-        } else if (_verifyTxId && call.txId != nextTxId) {
-            revert DO_INVALID_TX_ID();
-        }
-
-        nextTxId += 1;
-
-        // By design, the target must be a contract address if the txdata is not empty
-        require(call.txdata.length == 0 || Address.isContract(call.target), DO_INVALID_TARGET());
-
-        (bool success, bytes memory result) = call.isDelegateCall //
-            ? call.target.delegatecall(call.txdata)
-            : call.target.call{ value: msg.value }(call.txdata);
-
-        if (!success) LibBytes.revertWithExtractedError(result);
-
-        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, call.txdata);
+        _executeActions(actions);
     }
 }

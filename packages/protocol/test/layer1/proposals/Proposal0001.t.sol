@@ -26,27 +26,27 @@ contract Proposal0001 is Test {
 
     // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0001 -vvv
     function test_proposal_0001() public pure {
-        TaikoDAOController.Call[] memory calls = new TaikoDAOController.Call[](4);
+        TaikoDAOController.Action[] memory actions = new TaikoDAOController.Action[](4);
 
         // Upgrade FooUpgradeable's implementation from V1 to V2
-        calls[0] = TaikoDAOController.Call({
+        calls[0] = Controller.Action({
             target: FOO_UPGRADEABLE,
             value: 0,
             data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (FOO_UPGRADEABLE_V2))
         });
 
         // Send 1 TaikoToken from TaikoDAOController to DanielWang
-        calls[1] = TaikoDAOController.Call({
+        calls[1] = Controller.Action({
             target: TAIKO_TOKEN,
             value: 0,
             data: abi.encodeCall(IERC20.transfer, (TO_ADDRESS, 1 ether))
         });
 
         // Send 0.001 Ether from TaikoDAOController to 0x992E727e73a8b5b31865646Bb16F9DC3955373ae
-        calls[2] = TaikoDAOController.Call({ target: TO_ADDRESS, value: 0.001 ether, data: "" });
+        calls[2] = Controller.Action({ target: TO_ADDRESS, value: 0.001 ether, data: "" });
 
         // Set the reverse name for the DAO controller
-        calls[3] = TaikoDAOController.Call({
+        calls[3] = Controller.Action({
             target: ENS_REVERSE_REGISTRAR,
             value: 0,
             data: abi.encodeCall(IReverseRegistrar.setName, ("daocontroller.taiko.eth"))

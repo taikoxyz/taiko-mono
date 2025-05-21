@@ -34,24 +34,22 @@ contract TestDelegateOwner is Layer2Test {
             _deployEssentialContract_EmptyStub("stub1", address(new EssentialContract_EmptyStub()));
         vm.stopPrank();
 
-        bytes memory data = abi.encode(
-            DelegateOwner.Call({
-                txId: uint64(0),
-                target: address(stub1),
-                isDelegateCall: false, // CALL
-                txdata: abi.encodeCall(EssentialContract.pause, ())
-            })
-        );
+        Controller.Action[] memory actions = new Controller.Action[](1);
+        calls[0] = Controller.Action({
+            target: address(stub1),
+            value: 0,
+            data: abi.encodeCall(EssentialContract.pause, ())
+        });
 
-        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        tDelegateOwner.dryrunInvocation(data);
+        vm.expectRevert(Controller.DryrunSucceeded.selector);
+        tDelegateOwner.dryrun(calls);
 
         IBridge.Message memory message;
         message.from = daoController;
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (abi.encode(uint(1), calls)));
         message.to = address(tDelegateOwner);
 
         vm.prank(Bob);
@@ -60,7 +58,7 @@ contract TestDelegateOwner is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        assertEq(tDelegateOwner.nextTxId(), 1);
+        assertEq(tDelegateOwner.txId(), 1);
         assertTrue(stub1.paused());
     }
 
@@ -68,24 +66,23 @@ contract TestDelegateOwner is Layer2Test {
         address tDelegateOwnerImpl2 =
             address(new DelegateOwner(ethereumChainId, address(tBridge), address(tDelegateOwner)));
 
-        bytes memory data = abi.encode(
-            DelegateOwner.Call({
-                txId: uint64(0),
-                target: address(tDelegateOwner),
-                isDelegateCall: false, // CALL
-                txdata: abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateOwnerImpl2))
-            })
-        );
+        Controller.Action[] memory actions = new Controller.Action[](1);
+        calls[0] = Controller.Action({
+            target: address(tDelegateOwner),
+            value: 0,
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateOwnerImpl2))
+        });
 
-        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        tDelegateOwner.dryrunInvocation(data);
+
+        vm.expectRevert(Controller.DryrunSucceeded.selector);
+        tDelegateOwner.dryrun(calls);
 
         IBridge.Message memory message;
         message.from = daoController;
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (abi.encode(uint64(1), actions)));
         message.to = address(tDelegateOwner);
 
         vm.prank(Bob);
@@ -94,7 +91,7 @@ contract TestDelegateOwner is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        assertEq(tDelegateOwner.nextTxId(), 1);
+        assertEq(tDelegateOwner.txId(), 1);
         assertEq(tDelegateOwner.impl(), tDelegateOwnerImpl2);
     }
 
@@ -122,24 +119,22 @@ contract TestDelegateOwner is Layer2Test {
         calls[2].allowFailure = false;
         calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (tDelegateOwnerImpl2));
 
-        bytes memory data = abi.encode(
-            DelegateOwner.Call({
-                txId: uint64(0),
-                target: address(tMulticall),
-                isDelegateCall: true, // DELEGATECALL
-                txdata: abi.encodeCall(Multicall3.aggregate3, (calls))
-            })
-        );
+        Controller.Action[] memory actions = new Controller.Action[](1);
+        calls[0] = Controller.Action({
+            target: address(tMulticall),
+                value: 0,
+            data: abi.encodeCall(Multicall3.aggregate3, (calls))
+        });
 
-        vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        tDelegateOwner.dryrunInvocation(data);
+        vm.expectRevert(Controller.DryrunSucceeded.selector);
+        tDelegateOwner.dryrun(calls);
 
         IBridge.Message memory message;
         message.from = daoController;
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
+        message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (abi.encode(uint64(1), actions)));
         message.to = address(tDelegateOwner);
 
         vm.prank(Bob);
@@ -148,7 +143,7 @@ contract TestDelegateOwner is Layer2Test {
         bytes32 hash = tBridge.hashMessage(message);
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
-        assertEq(tDelegateOwner.nextTxId(), 1);
+        assertEq(tDelegateOwner.txId(), 1);
         assertTrue(stub1.paused());
         assertEq(stub2.impl(), impl2);
         assertEq(tDelegateOwner.impl(), tDelegateOwnerImpl2);

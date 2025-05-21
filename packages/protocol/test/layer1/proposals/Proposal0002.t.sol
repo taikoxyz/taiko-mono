@@ -27,9 +27,9 @@ contract Proposal0002 is BuildProposal {
         internal
         pure
         override
-        returns (TaikoDAOController.Call[] memory calls)
+        returns (TaikoDAOController.Action[] memory calls)
     {
-        calls = new TaikoDAOController.Call[](1);
+        calls = new TaikoDAOController.Action[](1);
 
         // Upgrade TaikoDAOController to a new implementation
         calls[0] = buildL1UpgradeCall(L1_TAIKO_DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);

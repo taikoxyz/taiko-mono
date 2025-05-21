@@ -20,7 +20,7 @@ abstract contract BuildProposal is Test {
     address public constant L1_BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant L1_TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
 
-    function buildL1Calls() internal pure virtual returns (TaikoDAOController.Call[] memory);
+    function buildL1Calls() internal pure virtual returns (TaikoDAOController.Action[] memory);
     function buildL2Calls() internal pure virtual returns (Multicall3.Call3[] memory);
 
     function buildL1UpgradeCall(
@@ -29,9 +29,9 @@ abstract contract BuildProposal is Test {
     )
         internal
         pure
-        returns (TaikoDAOController.Call memory)
+        returns (TaikoDAOController.Action memory)
     {
-        return TaikoDAOController.Call({
+        return Controller.Action({
             target: _target,
             value: 0,
             data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl))
@@ -54,9 +54,9 @@ abstract contract BuildProposal is Test {
     }
 
     function buildProposal(uint64 txId, bool l2AllowFailure) internal pure {
-        TaikoDAOController.Call[] memory l1Calls = buildL1Calls();
-        TaikoDAOController.Call[] memory allCalls =
-            new TaikoDAOController.Call[](l1Calls.length + 1);
+        TaikoDAOController.Action[] memory l1Calls = buildL1Calls();
+        TaikoDAOController.Action[] memory allCalls =
+            new TaikoDAOController.Action[](l1Calls.length + 1);
 
         for (uint256 i; i < l1Calls.length; ++i) {
             allCalls[i] = l1Calls[i];
@@ -86,7 +86,7 @@ abstract contract BuildProposal is Test {
         );
         message.to = L2_DELEGATE_OWNER;
 
-        allCalls[l1Calls.length] = TaikoDAOController.Call({
+        allCalls[l1Calls.length] = Controller.Action({
             target: L1_BRIDGE,
             value: 0,
             data: abi.encodeCall(IBridge.sendMessage, (message))
