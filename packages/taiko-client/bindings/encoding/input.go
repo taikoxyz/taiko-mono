@@ -252,7 +252,7 @@ func EncodeBatchParamsWithForcedInclusion(paramsForcedInclusion, params *BatchPa
 func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
 	b, err := SubProofsComponentsArrayArgs.Pack(subProofs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode Pacaya batch subproofs, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode Pacaya batch subproofs (count: %d), %w", len(subProofs), err)
 	}
 	return b, nil
 }
