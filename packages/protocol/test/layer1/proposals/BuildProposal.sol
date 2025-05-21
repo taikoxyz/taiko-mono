@@ -19,8 +19,8 @@ abstract contract BuildProposal is Test {
     address public constant L1_BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant L1_TAIKO_DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
 
-    function buildL1Calls() internal pure virtual returns (Controller.Action[] memory);
-    function buildL2Calls() internal pure virtual returns (Controller.Action[] memory);
+    function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
+    function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
 
     function buildUpgradeAction(
         address _target,
@@ -38,7 +38,7 @@ abstract contract BuildProposal is Test {
     }
 
     function buildProposal(uint64 executionId) internal pure {
-        Controller.Action[] memory l1Actions = buildL1Calls();
+        Controller.Action[] memory l1Actions = buildL1Actions();
         Controller.Action[] memory allActions = new Controller.Action[](l1Actions.length + 1);
 
         for (uint256 i; i < l1Actions.length; ++i) {
@@ -46,7 +46,7 @@ abstract contract BuildProposal is Test {
             require(allActions[i].target == L1_TAIKO_DAO_CONTROLLER, "TARGET IS NOT_CONTROLLER");
         }
 
-        Controller.Action[] memory l2Actions = buildL2Calls();
+        Controller.Action[] memory l2Actions = buildL2Actions();
 
         IBridge.Message memory message;
         message.destChainId = 167_000;

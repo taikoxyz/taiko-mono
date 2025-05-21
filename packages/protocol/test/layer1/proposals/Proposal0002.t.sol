@@ -20,14 +20,14 @@ contract Proposal0002 is BuildProposal {
 
     // FOUNDRY_PROFILE=layer1 forge test --mt test_proposal_0002 -vvv
     function test_proposal_0002() public pure {
-        buildProposal({ txId: 0, l2AllowFailure: true });
+        buildProposal({ executionId: 0 });
     }
 
-    function buildL1Calls() internal pure override returns (Controller.Action[] memory actions) {
+    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](1);
 
         // Upgrade TaikoDAOController to a new implementation
-        actions[0] =    buildUpgradeAction(L1_TAIKO_DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);
+        actions[0] = buildUpgradeAction(L1_TAIKO_DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
