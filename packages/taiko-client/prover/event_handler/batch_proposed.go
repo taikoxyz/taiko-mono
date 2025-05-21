@@ -236,11 +236,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		return nil
 	}
 
-	log.Info(
-		"Proposed batch is provable",
-		"batchID", meta.Pacaya().GetBatchID(),
-		"assignProver", meta.GetProposer(),
-	)
+	log.Info("Proposed batch is provable", "batchID", meta.Pacaya().GetBatchID(), "assignProver", meta.GetProposer())
 
 	metrics.ProverProofsAssigned.Add(1)
 
