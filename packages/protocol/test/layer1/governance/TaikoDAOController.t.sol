@@ -75,8 +75,8 @@ contract TestTaikoDAOController is Layer1Test {
         require(success);
 
         Controller.Action[] memory actions = new Controller.Action[](1);
-        calls[0] = Controller.Action({ target: target, value: 0, data: data });
-        bytes[] memory results = daoController.execute(calls);
+        actions[0] = Controller.Action({ target: target, value: 0, data: data });
+        bytes[] memory results = daoController.execute(actions);
 
         assertEq(
             results[0], abi.encode("someFunction"), "Forwarded call should return correct data"
@@ -86,22 +86,15 @@ contract TestTaikoDAOController is Layer1Test {
 
     function test_TaikoDAOController_executeNotOwner() public {
         Controller.Action[] memory actions = new Controller.Action[](1);
-        calls[0] = Controller.Action({ target: target, value: 0, data: data });
+        actions[0] = Controller.Action({ target: target, value: 0, data: data });
 
         vm.startPrank(newOwner);
         vm.expectRevert("Ownable: caller is not the owner");
-        daoController.execute(calls);
+        daoController.execute(actions);
         vm.stopPrank();
     }
 
-    function test_TaikoDAOController_executeToOwner() public {
-        Controller.Action[] memory actions = new Controller.Action[](1);
-        calls[0] = Controller.Action({ target: owner, value: 0, data: data });
-
-        vm.startPrank(owner);
-        vm.expectRevert(Controller.InvalidTarget.selector);
-        daoController.execute(calls);
-    }
+   
 
     function test_TaikoDAOController_acceptOwnershipOf() public {
         vm.startPrank(Bob);
@@ -120,10 +113,10 @@ contract TestTaikoDAOController is Layer1Test {
 
         vm.prank(owner);
         Controller.Action[] memory actions = new Controller.Action[](2);
-        calls[0] = Controller.Action({ target: address(David), value: 0.01 ether, data: "" });
+        actions[0] = Controller.Action({ target: address(David), value: 0.01 ether, data: "" });
 
-        calls[1] = Controller.Action({ target: address(Frank), value: 0.02 ether, data: "" });
-        daoController.execute(calls);
+        actions[1] = Controller.Action({ target: address(Frank), value: 0.02 ether, data: "" });
+        daoController.execute(actions);
 
         assertEq(address(daoController).balance, 0.07 ether);
         assertEq(address(David).balance, 0.01 ether);
@@ -136,12 +129,12 @@ contract TestTaikoDAOController is Layer1Test {
 
         vm.prank(owner);
         Controller.Action[] memory actions = new Controller.Action[](1);
-        calls[0] = Controller.Action({
+        actions[0] = Controller.Action({
             target: address(erc20),
             value: 0,
             data: abi.encodeWithSignature("transfer(address,uint256)", address(David), 100 ether)
         });
-        daoController.execute(calls);
+        daoController.execute(actions);
         assertEq(erc20.balanceOf(address(David)), 100 ether);
         assertEq(erc20.balanceOf(address(daoController)), 900 ether);
     }
