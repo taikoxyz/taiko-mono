@@ -6,6 +6,8 @@ pragma solidity ^0.8.24;
 library LibMainnetL1Addresses {
     address public constant DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
     address public constant DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
+    address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
+    address public constant TAIKO_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
     address public constant INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     address public constant BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
@@ -16,9 +18,6 @@ library LibMainnetL1Addresses {
     address public constant BRIDGED_ERC20 = 0x65666141a541423606365123Ed280AB16a09A2e1;
     address public constant BRIDGED_ERC721 = 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
     address public constant BRIDGED_ERC1155 = 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
-
-    address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
-    address public constant TAIKO_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
 
     // Third-party addresses
     address public constant ENS_REVERSE_REGISTRAR = 0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb;
