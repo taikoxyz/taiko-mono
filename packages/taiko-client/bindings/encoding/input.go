@@ -92,18 +92,16 @@ var (
 // Contract ABIs.
 var (
 	// Ontake fork
-	TaikoL1ABI          *abi.ABI
-	TaikoL2ABI          *abi.ABI
-	TaikoTokenABI       *abi.ABI
-	GuardianProverABI   *abi.ABI
-	LibProposingABI     *abi.ABI
-	LibProvingABI       *abi.ABI
-	LibUtilsABI         *abi.ABI
-	LibVerifyingABI     *abi.ABI
-	SGXVerifierABI      *abi.ABI
-	GuardianVerifierABI *abi.ABI
-	ProverSetABI        *abi.ABI
-	ForkRouterABI       *abi.ABI
+	TaikoL1ABI      *abi.ABI
+	TaikoL2ABI      *abi.ABI
+	TaikoTokenABI   *abi.ABI
+	LibProposingABI *abi.ABI
+	LibProvingABI   *abi.ABI
+	LibUtilsABI     *abi.ABI
+	LibVerifyingABI *abi.ABI
+	SGXVerifierABI  *abi.ABI
+	ProverSetABI    *abi.ABI
+	ForkRouterABI   *abi.ABI
 
 	// Pacaya fork
 	TaikoInboxABI           *abi.ABI
@@ -134,10 +132,6 @@ func init() {
 		log.Crit("Get TaikoToken ABI error", "error", err)
 	}
 
-	if GuardianProverABI, err = ontakeBindings.GuardianProverMetaData.GetAbi(); err != nil {
-		log.Crit("Get GuardianProver ABI error", "error", err)
-	}
-
 	if LibProposingABI, err = ontakeBindings.LibProposingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProposing ABI error", "error", err)
 	}
@@ -156,10 +150,6 @@ func init() {
 
 	if SGXVerifierABI, err = ontakeBindings.SgxVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get SGXVerifier ABI error", err)
-	}
-
-	if GuardianVerifierABI, err = ontakeBindings.GuardianVerifierMetaData.GetAbi(); err != nil {
-		log.Crit("Get GuardianVerifier ABI error", "error", err)
 	}
 
 	if ProverSetABI, err = ontakeBindings.ProverSetMetaData.GetAbi(); err != nil {
@@ -209,13 +199,11 @@ func init() {
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
-		GuardianProverABI.Errors,
 		LibProposingABI.Errors,
 		LibProvingABI.Errors,
 		LibUtilsABI.Errors,
 		LibVerifyingABI.Errors,
 		SGXVerifierABI.Errors,
-		GuardianVerifierABI.Errors,
 		ProverSetABI.Errors,
 		ForkRouterABI.Errors,
 		TaikoInboxABI.Errors,
