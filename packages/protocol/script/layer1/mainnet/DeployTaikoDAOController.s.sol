@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/governance/TaikoDAOController.sol";
+import "src/layer1/mainnet/TaikoDAOController.sol";
 import "script/BaseScript.sol";
 
 contract DeployTaikoDAOController is BaseScript {

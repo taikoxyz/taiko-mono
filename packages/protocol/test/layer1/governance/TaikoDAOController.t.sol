@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "src/layer1/governance/TaikoDAOController.sol";
+import "src/layer1/mainnet/TaikoDAOController.sol";
 import "../Layer1Test.sol";
 
 contract DummyContract {

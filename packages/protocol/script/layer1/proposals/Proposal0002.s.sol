@@ -20,7 +20,7 @@ contract Proposal0002 is BuildProposal {
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
-    function run() external {
+    function run() external pure {
         // FOUNDRY_PROFILE=layer1 forge script \
         // script/layer1/proposals/Proposal0002.s.sol:Proposal0002 \
 

@@ -4,11 +4,10 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Script.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "src/layer2/mainnet/DelegateController.sol";
-import "src/layer1/governance/TaikoDAOController.sol";
+import "src/layer1/mainnet/TaikoDAOController.sol";
 import "src/shared/bridge/IBridge.sol";
 import { LibMainnetL1Addresses as L1 } from "src/layer1/mainnet/libs/LibMainnetL1Addresses.sol";
-import { LibMainnetL2Addresses as L2 } from "src/layer2/mainnet/LibMainnetL2Addresses.sol";
+import { LibMainnetL2Addresses as L2 } from "src/layer2/mainnet/libs/LibMainnetL2Addresses.sol";
 
 abstract contract BuildProposal is Script {
     modifier broadcast() {
@@ -42,7 +41,7 @@ abstract contract BuildProposal is Script {
     }
 
     function tryrunL2Actions() internal broadcast {
-        DelegateController(payable(L2.DELEGATE_CONTROLLER)).dryrun{ value: 0 }(buildL2Actions());
+        Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun{ value: 0 }(buildL2Actions());
     }
 
     function buildAllActions(
@@ -67,7 +66,7 @@ abstract contract BuildProposal is Script {
         message.gasLimit = l2GasLimit;
         message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
         message.data = abi.encodeCall(
-            DelegateController.onMessageInvocation, (abi.encode(executionId, l2Actions))
+            IMessageInvocable.onMessageInvocation, (abi.encode(executionId, l2Actions))
         );
 
         allActions_[l1Actions.length] = Controller.Action({
