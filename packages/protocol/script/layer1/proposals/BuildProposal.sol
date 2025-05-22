@@ -39,23 +39,30 @@ abstract contract BuildProposal is Script {
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
     function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
 
-    function logProposalAction(string memory proposalId) internal  {
+    function logProposalAction(string memory proposalId) internal {
         Controller.Action[] memory allActions = _buildAllActions();
 
-    // INSERT_YOUR_CODE
-    string memory fileName = string.concat("./script/layer1/proposals/Proposal", proposalId, ".action.md");
-    string memory fileContent = string(
-        abi.encodePacked(
-            "# Proposal-", proposalId, " Action\n",
-            "- target (daocontroller.taiko.eth):   `", vm.toString(L1.DAO_CONTROLLER) , "`\n",
-            "- calldata: `", vm.toString(abi.encodeCall(TaikoDAOController.execute, (allActions))), "`\n"
-        )
-    );
+        // INSERT_YOUR_CODE
+        string memory fileName =
+            string.concat("./script/layer1/proposals/Proposal", proposalId, ".action.md");
+        string memory fileContent = string(
+            abi.encodePacked(
+                "# Proposal-",
+                proposalId,
+                " Action\n",
+                "- target (daocontroller.taiko.eth):   `",
+                vm.toString(L1.DAO_CONTROLLER),
+                "`\n",
+                "- calldata: `",
+                vm.toString(abi.encodeCall(TaikoDAOController.execute, (allActions))),
+                "`\n"
+            )
+        );
 
-    vm.writeFile(fileName, fileContent);
+        vm.writeFile(fileName, fileContent);
 
-    console2.log(fileContent);
-    console2.log("Proposal action details written to", fileName);
+        console2.log(fileContent);
+        console2.log("Proposal action details written to", fileName);
     }
 
     function dryrunL1Actions() internal broadcast {
