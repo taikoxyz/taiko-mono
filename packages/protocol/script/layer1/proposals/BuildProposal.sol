@@ -49,7 +49,7 @@ abstract contract BuildProposal is Script {
             abi.encodePacked(
                 "# Proposal-",
                 proposalId,
-                " Action\n",
+                "\n\n## Action\n",
                 "- target (daocontroller.taiko.eth):   `",
                 vm.toString(L1.DAO_CONTROLLER),
                 "`\n",
