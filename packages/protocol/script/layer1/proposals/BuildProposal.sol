@@ -55,7 +55,19 @@ abstract contract BuildProposal is Script {
                 "`\n",
                 "- calldata: `",
                 vm.toString(abi.encodeCall(TaikoDAOController.execute, (allActions))),
-                "`\n"
+                "`\n",
+                "\n\n## L1 Dryrun\n",
+                "- target (daocontroller.taiko.eth):   `",
+                vm.toString(L1.DAO_CONTROLLER),
+                "`\n",
+                "- calldata: `",
+                vm.toString(abi.encodeCall(Controller.dryrun, (allActions))),
+                "\n\n## L2 Dryrun\n",
+                "- target (delegate controller):   `",
+                vm.toString(L2.DELEGATE_CONTROLLER),
+                "`\n",
+                "- calldata: `",
+                vm.toString(abi.encodeCall(Controller.dryrun, (buildL2Actions())))
             )
         );
 
