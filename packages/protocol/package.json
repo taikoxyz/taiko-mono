@@ -23,7 +23,7 @@
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --ignore-errors inconsistent --ignore-errors unused --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category --ignore-errors inconsistent --ignore-errors corrupt && open coverage/index.html",
-    "proposal:print": "FOUNDRY_PROFILE=layer1 MODE=print forge script script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
+    "proposal": "FOUNDRY_PROFILE=layer1 MODE=print forge script script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
     "proposal:l1dryrun": "FOUNDRY_PROFILE=layer1 MODE=l1dryrun forge script --chain-id=1 script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
     "proposal:l2dryrun": "FOUNDRY_PROFILE=layer2 MODE=l2dryrun forge script --chain-id=167000 script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
     "genesis:gen": "pnpm compile:l2 && pnpm compile:shared && ts-node ./test/genesis/generate/generate.ts",

@@ -16,6 +16,20 @@ abstract contract BuildProposal is Script {
         vm.stopBroadcast();
     }
 
+    function run() external {
+        console2.log("Proposal0002");
+        string memory mode = vm.envString("MODE");
+        if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("print"))) {
+            logProposalAction();
+        } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l1dryrun"))) {
+            dryrunL1Actions();
+        } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l2dryrun"))) {
+            dryrunL2Actions();
+        } else {
+            console2.log("Error: Invalid mode. Must be one of: print, l1dryrun, l2dryrun");
+        }
+    }
+
     function getProposalConfig()
         internal
         pure

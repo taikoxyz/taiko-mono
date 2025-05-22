@@ -20,20 +20,6 @@ contract Proposal0002 is BuildProposal {
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
-    function run() external {
-        console2.log("Proposal0002");
-        string memory mode = vm.envString("MODE");
-        if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("print"))) {
-            logProposalAction();
-        } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l1dryrun"))) {
-            dryrunL1Actions();
-        } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l2dryrun"))) {
-            dryrunL2Actions();
-        } else {
-            console2.log("Error: Invalid mode. Must be one of: print, l1dryrun, l2dryrun");
-        }
-    }
-
     function getProposalConfig()
         internal
         pure
