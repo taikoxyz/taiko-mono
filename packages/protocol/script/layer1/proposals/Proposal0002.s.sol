@@ -26,9 +26,9 @@ contract Proposal0002 is BuildProposal {
         internal
         pure
         override
-        returns (uint64 executionId, uint32 l2GasLimit)
+        returns (uint64 l2ExecutionId, uint32 l2GasLimit)
     {
-        executionId = 1;
+        l2ExecutionId = 1;
         l2GasLimit = 25_000_000;
     }
 

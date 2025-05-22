@@ -33,7 +33,7 @@ abstract contract BuildProposal is Script {
         internal
         pure
         virtual
-        returns (uint64 executionId, uint32 l2GasLimit)
+        returns (uint64 l2ExecutionId, uint32 l2GasLimit)
     { }
 
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
@@ -89,7 +89,7 @@ abstract contract BuildProposal is Script {
     }
 
     function _buildAllActions() private pure returns (Controller.Action[] memory allActions_) {
-        (uint64 executionId, uint32 l2GasLimit) = proposalConfig();
+        (uint64 l2ExecutionId, uint32 l2GasLimit) = proposalConfig();
 
         Controller.Action[] memory l1Actions = buildL1Actions();
         allActions_ = new Controller.Action[](l1Actions.length + 1);
@@ -105,7 +105,7 @@ abstract contract BuildProposal is Script {
         message.gasLimit = l2GasLimit;
         message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
         message.data = abi.encodeCall(
-            IMessageInvocable.onMessageInvocation, (abi.encode(executionId, l2Actions))
+            IMessageInvocable.onMessageInvocation, (abi.encode(l2ExecutionId, l2Actions))
         );
 
         allActions_[l1Actions.length] = Controller.Action({
