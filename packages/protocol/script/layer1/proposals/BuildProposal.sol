@@ -17,10 +17,9 @@ abstract contract BuildProposal is Script {
     }
 
     function run() external {
-        console2.log("Proposal0002");
         string memory mode = vm.envString("MODE");
         if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("print"))) {
-            logProposalAction();
+            logProposalAction(vm.envString("P"));
         } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l1dryrun"))) {
             dryrunL1Actions();
         } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l2dryrun"))) {
@@ -40,21 +39,31 @@ abstract contract BuildProposal is Script {
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
     function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
 
-    function logProposalAction() internal pure {
+    function logProposalAction(string memory proposalId) internal  {
         Controller.Action[] memory allActions = _buildAllActions();
 
-        console2.log("Proposal Action--------------------------------");
-        console2.log("Target:", L1.DAO_CONTROLLER);
-        console2.logBytes(abi.encodeCall(TaikoDAOController.execute, (allActions)));
+    // INSERT_YOUR_CODE
+    string memory fileName = string.concat("./script/layer1/proposals/Proposal", proposalId, ".md");
+    string memory fileContent = string(
+        abi.encodePacked(
+            "# Proposal ", proposalId, "\n",
+            "## Action:\n",
+            "- target (daocontroller.taiko.eth):   `", vm.toString(L1.DAO_CONTROLLER) , "`\n",
+            "- calldata: `", vm.toString(abi.encodeCall(TaikoDAOController.execute, (allActions))), "`\n"
+        )
+    );
+
+    vm.writeFile(fileName, fileContent);
+
+    console2.log(fileContent);
+    console2.log("Proposal action details written to", fileName);
     }
 
     function dryrunL1Actions() internal broadcast {
-        console2.log("dryrunL1Actions");
-        Controller(payable(L1.DAO_CONTROLLER)).dryrun{ value: 0 }(buildAllActions());
+        Controller(payable(L1.DAO_CONTROLLER)).dryrun{ value: 0 }(_buildAllActions());
     }
 
     function dryrunL2Actions() internal broadcast {
-        console2.log("dryrunL2Actions");
         Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun{ value: 0 }(buildL2Actions());
     }
 
