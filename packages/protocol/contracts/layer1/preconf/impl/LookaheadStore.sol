@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadStore is ILookaheadStore, EssentialContract {
     IRegistry public immutable urc;
-    address public immutable guardian;
+    address public immutable protector;
     address public immutable preconfSlasher;
 
     // Lookahead buffer that stores the hashed lookahead entries for an epoch
@@ -21,9 +21,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     uint256[49] private __gap;
 
-    constructor(address _urc, address _guardian, address _preconfSlasher) EssentialContract() {
+    constructor(address _urc, address _protector, address _preconfSlasher) EssentialContract() {
         urc = IRegistry(_urc);
-        guardian = _guardian;
+        protector = _protector;
         preconfSlasher = _preconfSlasher;
     }
 
@@ -39,10 +39,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         external
         nonReentrant
     {
-        bool isPostedByGuardian = msg.sender == guardian;
+        bool isPostedByProtector = msg.sender == protector;
         LookaheadPayload[] memory lookaheadPayloads;
 
-        if (isPostedByGuardian) {
+        if (isPostedByProtector) {
             lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
         } else if (isLookaheadRequired()) {
             // Validate the lookahead poster's operator status within the URC
@@ -54,7 +54,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         }
 
         _updateLookahead(
-            LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByGuardian
+            LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByProtector
         );
     }
 
@@ -103,7 +103,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     function _updateLookahead(
         uint256 _nextEpochTimestamp,
         LookaheadPayload[] memory _lookaheadPayloads,
-        bool _isPostedByGuardian
+        bool _isPostedByProtector
     )
         internal
     {
@@ -170,7 +170,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
 
         emit LookaheadPosted(
-            _isPostedByGuardian, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
+                _isPostedByProtector, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
     }
 
@@ -188,10 +188,10 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         view
         returns (LookaheadPayload[] memory)
     {
-        require(_signedCommitment.commitment.slasher == guardian, SlasherIsNotGuardian());
+        require(_signedCommitment.commitment.slasher == protector, SlasherIsNotProtector());
 
         (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
-            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, guardian
+            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, protector
         );
 
         // Validate the lookahead poster's signed commitment
