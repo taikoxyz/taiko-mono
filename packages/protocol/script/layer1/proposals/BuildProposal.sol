@@ -43,11 +43,10 @@ abstract contract BuildProposal is Script {
         Controller.Action[] memory allActions = _buildAllActions();
 
     // INSERT_YOUR_CODE
-    string memory fileName = string.concat("./script/layer1/proposals/Proposal", proposalId, ".md");
+    string memory fileName = string.concat("./script/layer1/proposals/Proposal", proposalId, ".action.md");
     string memory fileContent = string(
         abi.encodePacked(
-            "# Proposal ", proposalId, "\n",
-            "## Action:\n",
+            "# Proposal-", proposalId, " Action\n",
             "- target (daocontroller.taiko.eth):   `", vm.toString(L1.DAO_CONTROLLER) , "`\n",
             "- calldata: `", vm.toString(abi.encodeCall(TaikoDAOController.execute, (allActions))), "`\n"
         )
