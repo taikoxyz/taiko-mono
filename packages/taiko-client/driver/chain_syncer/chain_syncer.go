@@ -18,7 +18,7 @@ import (
 )
 
 // L2ChainSyncer is responsible for keeping the L2 execution engine's local chain in sync with the one
-// in TaikoL1 contract.
+// in TaikoInbox contract.
 type L2ChainSyncer struct {
 	ctx   context.Context
 	state *state.State // Driver's state

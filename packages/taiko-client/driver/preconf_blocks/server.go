@@ -224,6 +224,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"endOfSequencing", msg.EndOfSequencing != nil,
 	)
 
+	// Check if the payload is valid.
+	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
+		log.Warn(
+			"Invalid preconfirmation block payload",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"error", err,
+		)
+		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
+		return nil
+	}
+
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
@@ -247,20 +261,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
-
-	// Check if the payload is valid.
-	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
-		log.Warn(
-			"Invalid preconfirmation block payload",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-			"error", err,
-		)
-		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
-		return nil
-	}
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
@@ -314,6 +314,20 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return nil
 	}
 
+	// Check if the payload is valid.
+	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
+		log.Warn(
+			"Invalid preconfirmation block payload response",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"error", err,
+		)
+		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
+		return nil
+	}
+
 	// Ignore the message if it has been inserted already.
 	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
@@ -342,19 +356,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	)
 
 	metrics.DriverPreconfP2PResponseEnvelopeCounter.Inc()
-
-	// Check if the payload is valid.
-	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
-		log.Warn(
-			"Invalid preconfirmation block payload response",
-			"peer", from,
-			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-			"error", err,
-		)
-		return nil
-	}
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
@@ -531,7 +532,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		headL1OriginBlockId = headL1Origin.BlockID.Uint64()
 	}
 
-	log.Debug("Importing missing ancients from the cache",
+	log.Debug(
+		"Importing missing ancients from the cache",
 		"blockID", uint64(currentPayload.BlockNumber),
 		"hash", currentPayload.BlockHash.Hex(),
 		"headL1OriginBlockID", headL1OriginBlockId,
@@ -577,9 +579,9 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 						"hash", currentPayload.BlockHash.Hex(),
 						"error", err,
 					)
+				} else {
+					s.blockRequestsCache.Add(currentPayload.ParentHash, struct{}{})
 				}
-
-				s.blockRequestsCache.Add(currentPayload.ParentHash, struct{}{})
 			}
 
 			return fmt.Errorf(
@@ -666,11 +668,11 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 
 // ValidateExecutionPayload validates the execution payload.
 func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionPayload) error {
-	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeight) {
+	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeights.Pacaya) {
 		return fmt.Errorf(
 			"block number %d is less than the Pacaya fork height %d",
 			payload.BlockNumber,
-			s.rpc.PacayaClients.ForkHeight,
+			s.rpc.PacayaClients.ForkHeights.Pacaya,
 		)
 	}
 	if payload.Timestamp == 0 {
@@ -713,10 +715,14 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 		return fmt.Errorf("invalid anchor transaction: %w", err)
 	}
 
-	log.Info("Transactions list for preconfirmation block",
+	log.Debug(
+		"Decoded transactions list for preconfirmation block",
 		"transactions", len(txs),
 		"blockID", uint64(payload.BlockNumber),
 		"blockHash", payload.BlockHash.Hex(),
+		"parentHash", payload.ParentHash.Hex(),
+		"timestamp", uint64(payload.Timestamp),
+		"coinbase", payload.FeeRecipient.Hex(),
 	)
 
 	return nil
@@ -777,6 +783,14 @@ func (s *PreconfBlockAPIServer) UpdateLookahead(lookahead *Lookahead) {
 	defer s.lookaheadMutex.Unlock()
 
 	s.lookahead = lookahead
+}
+
+// GetLookahead updates the lookahead information.
+func (s *PreconfBlockAPIServer) GetLookahead() *Lookahead {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	return s.lookahead
 }
 
 // CheckLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
@@ -928,6 +942,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
+
 	if header != nil {
 		if header.Hash() == msg.ExecutionPayload.BlockHash {
 			log.Info(
@@ -990,11 +1005,18 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 
 // updateHighestUnsafeL2Payload updates the highest unsafe L2 payload block ID.
 func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
-	log.Info(
-		"Updating highest unsafe L2 payload block ID",
-		"blockID", blockID,
-		"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-	)
+	if blockID > s.highestUnsafeL2PayloadBlockID {
+		log.Info(
+			"Updating highest unsafe L2 payload block ID",
+			"blockID", blockID,
+			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+	} else {
+		log.Info("Reorging highest unsafe L2 payload blockID",
+			"blockID", blockID,
+			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+	}
 	s.highestUnsafeL2PayloadBlockID = blockID
 }
 

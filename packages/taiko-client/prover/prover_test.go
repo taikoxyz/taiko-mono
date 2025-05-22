@@ -17,7 +17,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -25,7 +24,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
-	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
@@ -83,12 +81,12 @@ func (s *ProverTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:       os.Getenv("L1_WS"),
-			L2Endpoint:       os.Getenv("L2_WS"),
-			L2EngineEndpoint: os.Getenv("L2_AUTH"),
-			TaikoL1Address:   common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:        string(jwtSecret),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			TaikoInboxAddress:  common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:          string(jwtSecret),
 		},
 		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
@@ -106,17 +104,17 @@ func (s *ProverTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
-			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
-		L1ProposerPrivKey:          l1ProposerPrivKey,
-		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-		ProposeInterval:            1024 * time.Hour,
-		MaxProposedTxListsPerEpoch: 1,
+		L1ProposerPrivKey:       l1ProposerPrivKey,
+		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		ProposeInterval:         1024 * time.Hour,
+		MaxTxListsPerEpoch:      1,
 	}, s.txmgr, s.txmgr))
 
 	s.proposer = prop
@@ -140,8 +138,8 @@ func (s *ProverTestSuite) TestInitError() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
 		Dummy:                 true,
@@ -152,68 +150,53 @@ func (s *ProverTestSuite) TestInitError() {
 	}, s.txmgr, s.txmgr))
 }
 
-func (s *ProverTestSuite) TestOnBlockProposed() {
+func (s *ProverTestSuite) TestOnBatchProposed() {
 	// Init prover
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 	// Valid block
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.Nil(s.p.eventHandlers.blockProposedHandler.Handle(context.Background(), m, func() {}))
+	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
 	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	if m.IsPacaya() {
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	} else {
-		s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
-	}
+	s.Nil(s.p.requestProofOp(req.Meta))
+	s.True(m.IsPacaya())
+	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 }
 
-func (s *ProverTestSuite) TestOnBlockVerifiedEmptyBlockHash() {
-	s.NotPanics(func() {
-		s.p.eventHandlers.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
-			BlockId:   common.Big1,
-			BlockHash: common.Hash{},
-		})
-	})
-}
-
-func (s *ProverTestSuite) TestSubmitProofOp() {
+func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
 	s.NotPanics(func() {
 		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&proofProducer.ProofResponse{
-				BlockID: common.Big1,
-				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
-				Proof:   []byte{},
-				Tier:    encoding.TierOptimisticID,
-				Opts:    &proofProducer.ProofRequestOptionsOntake{},
-			})
-		})
-	})
-	s.NotPanics(func() {
-		s.p.withRetry(func() error {
-			return s.p.submitProofOp(&proofProducer.ProofResponse{
-				BlockID: common.Big1,
-				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
-				Proof:   []byte{},
-				Tier:    encoding.TierOptimisticID,
-				Opts:    &proofProducer.ProofRequestOptionsOntake{},
+			return s.p.submitProofAggregationOp(&proofProducer.BatchProofs{
+				ProofResponses: []*proofProducer.ProofResponse{
+					{
+						BatchID: common.Big1,
+						Meta:    &metadata.TaikoDataBlockMetadataPacaya{},
+						Proof:   []byte{},
+						Opts:    &proofProducer.ProofRequestOptionsPacaya{},
+					},
+				},
+				BatchProof:        []byte{},
+				BatchIDs:          []*big.Int{common.Big1},
+				ProofType:         proofProducer.ProofTypeOp,
+				SgxGethBatchProof: []byte{},
 			})
 		})
 	})
 }
 
-func (s *ProverTestSuite) TestOnBlockVerified() {
-	id := testutils.RandomHash().Big().Uint64()
+func (s *ProverTestSuite) TestOnBatchesVerified() {
 	s.NotPanics(func() {
-		s.p.eventHandlers.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
-			BlockId: testutils.RandomHash().Big(),
-			Raw: types.Log{
-				BlockHash:   testutils.RandomHash(),
-				BlockNumber: id,
-			},
-		})
+		s.NotNil(s.p.eventHandlers.batchesVerifiedHandler.HandlePacaya(
+			context.Background(),
+			&pacayaBindings.TaikoInboxClientBatchesVerified{
+				BatchId: testutils.RandomHash().Big().Uint64(),
+				Raw: types.Log{
+					BlockHash:   testutils.RandomHash(),
+					BlockNumber: testutils.RandomHash().Big().Uint64(),
+				},
+			}))
 	})
 }
 
@@ -221,62 +204,39 @@ func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
-	sink2 := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
 	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
-	s.Nil(err)
-	sub2, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub1.Unsubscribe()
-		sub2.Unsubscribe()
 		close(sink1)
-		close(sink2)
 	}()
 	s.Nil(s.p.proveOp())
 
 	for req := range s.p.proofSubmissionCh {
-		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-		if m.IsPacaya() {
-			if req.Meta.IsPacaya() && req.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
-				break
-			}
-		} else {
-			if !req.Meta.IsPacaya() && req.Meta.Ontake().GetBlockID().Cmp(m.Ontake().GetBlockID()) == 0 {
-				break
-			}
+		s.Nil(s.p.requestProofOp(req.Meta))
+		s.True(req.Meta.IsPacaya())
+		if req.Meta.Pacaya().GetBatchID().Cmp(m.Pacaya().GetBatchID()) == 0 {
+			break
 		}
 	}
 
-	if m.IsPacaya() {
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	} else {
-		for res := range s.p.proofGenerationCh {
-			s.Nil(s.p.selectSubmitter(res.Tier).SubmitProof(context.Background(), res))
-			if !res.Meta.IsPacaya() && res.Meta.Ontake().GetBlockID().Cmp(m.Ontake().GetBlockID()) == 0 {
-				break
-			}
-		}
-	}
+	s.True(m.IsPacaya())
+	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
 	var (
 		blockHash  common.Hash
 		parentHash common.Hash
 		blockID    *big.Int
 	)
-	select {
-	case e := <-sink1:
-		tran := e.Transitions[len(e.Transitions)-1]
-		blockHash = common.BytesToHash(tran.BlockHash[:])
-		parentHash = common.BytesToHash(tran.ParentHash[:])
-		batch, err := s.p.rpc.GetBatchByID(context.Background(), new(big.Int).SetUint64(e.BatchIds[len(e.BatchIds)-1]))
-		s.Nil(err)
-		blockID = new(big.Int).SetUint64(batch.LastBlockId)
-	case e := <-sink2:
-		blockHash = common.BytesToHash(e.Tran.BlockHash[:])
-		parentHash = common.BytesToHash(e.Tran.ParentHash[:])
-		blockID = e.BlockId
-	}
+
+	e := <-sink1
+	tran := e.Transitions[len(e.Transitions)-1]
+	blockHash = common.BytesToHash(tran.BlockHash[:])
+	parentHash = common.BytesToHash(tran.ParentHash[:])
+	batch, err := s.p.rpc.GetBatchByID(context.Background(), new(big.Int).SetUint64(e.BatchIds[len(e.BatchIds)-1]))
+	s.Nil(err)
+	blockID = new(big.Int).SetUint64(batch.LastBlockId)
 
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), blockID)
 	s.Nil(err)
@@ -285,102 +245,7 @@ func (s *ProverTestSuite) TestProveOp() {
 	s.Equal(header.ParentHash, parentHash)
 }
 
-func (s *ProverTestSuite) TestOntakeToPacayaVerification() {
-	snapshotID := s.SetL1Snapshot()
-	defer func() {
-		s.RevertL1Snapshot(snapshotID)
-		s.SetNextBlockTimestamp(uint64(time.Now().Unix()))
-	}()
-
-	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().EventSyncer())
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.True(m.IsPacaya())
-	s.Nil(s.p.proveOp())
-
-	head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.GreaterOrEqual(head.Number.Uint64(), s.RPCClient.PacayaClients.ForkHeight)
-
-	// Prove all blocks.
-provingLoop:
-	for {
-		select {
-		case req := <-s.p.proofSubmissionCh:
-			s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-			if req.Meta.IsPacaya() {
-				s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-				s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-			} else {
-				s.Nil(s.p.selectSubmitter(req.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
-			}
-		default:
-			break provingLoop
-		}
-	}
-
-	// Ensure all blocks are proved.
-	for i := 1; i <= int(head.Number.Uint64()); i++ {
-		header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(uint64(i)))
-		s.Nil(err)
-		if i < int(s.RPCClient.PacayaClients.ForkHeight) {
-			ts, err := s.p.rpc.OntakeClients.TaikoL1.GetTransition0(nil, uint64(i), header.ParentHash)
-			s.Nil(err)
-			s.NotEqual([32]byte{}, ts.BlockHash)
-		} else {
-			ts, err := s.p.rpc.PacayaClients.TaikoInbox.GetTransitionByParentHash(nil, uint64(i), header.ParentHash)
-			s.Nil(err)
-			s.NotEqual([32]byte{}, ts.BlockHash)
-		}
-	}
-
-	// Start verify blocks.
-	_, slotB, err := s.RPCClient.GetProtocolStateVariablesOntake(nil)
-	s.Nil(err)
-	s.Equal(uint64(0), slotB.LastVerifiedBlockId)
-
-	state, err := s.RPCClient.PacayaClients.TaikoInbox.State(nil)
-	s.Nil(err)
-	s.Equal(uint64(0), state.Stats2.LastVerifiedBatchId)
-
-	s.IncreaseTime(uint64((1024 * time.Hour).Seconds()))
-
-	// Verify all Ontake blocks.
-	data, err := encoding.TaikoL1ABI.Pack("verifyBlocks", s.RPCClient.PacayaClients.ForkHeight-1)
-	s.Nil(err)
-	receipt, err := s.p.txmgr.Send(context.Background(), txmgr.TxCandidate{
-		TxData: data,
-		To:     &s.p.cfg.TaikoL1Address,
-	})
-	s.Nil(err)
-	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
-
-	_, slotB, err = s.RPCClient.GetProtocolStateVariablesOntake(nil)
-	s.Nil(err)
-	s.Equal(s.RPCClient.PacayaClients.ForkHeight-1, slotB.LastVerifiedBlockId)
-	s.Less(slotB.LastVerifiedBlockId, head.Number.Uint64())
-
-	// Verify all Pacaya blocks.
-	data, err = encoding.TaikoInboxABI.Pack("verifyBatches", head.Number.Uint64())
-	s.Nil(err)
-	receipt, err = s.p.txmgr.Send(context.Background(), txmgr.TxCandidate{
-		TxData: data,
-		To:     &s.p.cfg.TaikoL1Address,
-	})
-	s.Nil(err)
-	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
-
-	state, err = s.RPCClient.PacayaClients.TaikoInbox.State(nil)
-	s.Nil(err)
-	lastVerifiedBatch, err := s.p.rpc.GetBatchByID(
-		context.Background(),
-		new(big.Int).SetUint64(state.Stats2.LastVerifiedBatchId),
-	)
-	s.Nil(err)
-	s.Equal(head.Number.Uint64(), lastVerifiedBatch.LastBlockId)
-}
-
 func (s *ProverTestSuite) TestProveMultiBlobBatch() {
-	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().EventSyncer())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.True(m.IsPacaya())
 
@@ -432,7 +297,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 		if !req.Meta.IsPacaya() {
 			continue
 		}
-		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		s.Nil(s.p.requestProofOp(req.Meta))
 		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
@@ -450,73 +315,13 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 	s.Nil(s.p.proveOp())
 
 	for req := range s.p.proofSubmissionCh {
-		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+		s.Nil(s.p.requestProofOp(req.Meta))
 		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
 			break
 		}
 	}
-}
-
-func (s *ProverTestSuite) TestGetBlockProofStatus() {
-	parent, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-
-	// No proof submitted
-	status, err := rpc.GetBlockProofStatus(
-		context.Background(),
-		s.p.rpc,
-		m.Ontake().GetBlockID(),
-		s.p.ProverAddress(),
-		rpc.ZeroAddress,
-	)
-	s.Nil(err)
-	s.False(status.IsSubmitted)
-
-	// Valid proof submitted
-	s.Nil(s.p.proveOp())
-	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-	s.Nil(s.p.selectSubmitter(
-		m.Ontake().GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh),
-	)
-
-	status, err = rpc.GetBlockProofStatus(
-		context.Background(),
-		s.p.rpc,
-		m.Ontake().GetBlockID(),
-		s.p.ProverAddress(),
-		rpc.ZeroAddress,
-	)
-	s.Nil(err)
-
-	s.True(status.IsSubmitted)
-	s.False(status.Invalid)
-	s.Equal(parent.Hash(), status.ParentHeader.Hash())
-
-	m = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	status, err = rpc.GetBlockProofStatus(
-		context.Background(),
-		s.p.rpc,
-		m.Ontake().GetBlockID(),
-		s.p.ProverAddress(),
-		rpc.ZeroAddress,
-	)
-	s.Nil(err)
-	s.False(status.IsSubmitted)
-
-	s.Nil(s.p.proveOp())
-	req = <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
-
-	proofWithHeader := <-s.p.proofGenerationCh
-	proofWithHeader.Opts.OntakeOptions().BlockHash = testutils.RandomHash()
-	s.NotNil(s.p.selectSubmitter(
-		m.Ontake().GetMinTier()).SubmitProof(context.Background(), proofWithHeader),
-	)
 }
 
 func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
@@ -532,8 +337,8 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
@@ -543,8 +348,6 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
-		L1NodeVersion:         "1.0.0",
-		L2NodeVersion:         "0.1.0",
 		SGXProofBufferSize:    uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
@@ -553,43 +356,32 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	}
 
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
-	sink2 := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
 	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
-	s.Nil(err)
-	sub2, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub1.Unsubscribe()
-		sub2.Unsubscribe()
 		close(sink1)
-		close(sink2)
 	}()
 
 	s.Nil(s.p.proveOp())
 	s.Nil(batchProver.proveOp())
 	for i := 0; i < batchSize; i++ {
 		req1 := <-s.p.proofSubmissionCh
-		s.Nil(s.p.requestProofOp(req1.Meta, req1.Tier))
+		s.Nil(s.p.requestProofOp(req1.Meta))
 		req2 := <-batchProver.proofSubmissionCh
-		s.Nil(batchProver.requestProofOp(req2.Meta, req2.Tier))
-		s.Nil(s.p.selectSubmitter(req1.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+		s.Nil(batchProver.requestProofOp(req2.Meta))
+		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 	}
-	tier := <-batchProver.aggregationNotify
-	s.Nil(batchProver.aggregateOp(tier))
+	s.Nil(batchProver.aggregateOpPacaya(<-batchProver.batchesAggregationNotify))
 	s.ErrorIs(
-		batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh),
+		batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh),
 		proofSubmitter.ErrInvalidProof,
 	)
-	for i := 0; i < batchSize; i++ {
-		select {
-		case <-sink1:
-		case <-sink2:
-		}
-	}
 }
 
 func (s *ProverTestSuite) TestAggregateProofs() {
-	// Init batch prover
+	// Init a batch prover
 	var (
 		l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 		batchSize       = 2
@@ -601,8 +393,8 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
@@ -612,8 +404,6 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
-		L1NodeVersion:         "1.0.0",
-		L2NodeVersion:         "0.1.0",
 		SGXProofBufferSize:    uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
@@ -621,8 +411,8 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
 
-	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
-	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
+	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -632,41 +422,41 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	s.Nil(batchProver.proveOp())
 	for i := 0; i < batchSize; i++ {
 		req := <-batchProver.proofSubmissionCh
-		s.Nil(batchProver.requestProofOp(req.Meta, req.Tier))
+		s.Nil(batchProver.requestProofOp(req.Meta))
 	}
-	tier := <-batchProver.aggregationNotify
-	s.Nil(batchProver.aggregateOp(tier))
-	s.Nil(batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
-	for i := 0; i < batchSize; i++ {
-		s.NotNil(<-sink)
-	}
+	proofType := <-batchProver.batchesAggregationNotify
+	s.Nil(batchProver.aggregateOpPacaya(proofType))
+	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 }
 
 func (s *ProverTestSuite) TestForceAggregate() {
 	batchSize := 3
-	// Init batch prover
+	// Init a batch prover
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
-	decimal, err := s.RPCClient.OntakeClients.TaikoToken.Decimals(nil)
+	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
+	s.NotZero(decimal)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:              os.Getenv("L1_WS"),
-		L2WsEndpoint:              os.Getenv("L2_WS"),
-		L2HttpEndpoint:            os.Getenv("L2_HTTP"),
-		TaikoL1Address:            common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:            common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:         common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		ProverSetAddress:          common.HexToAddress(os.Getenv("PROVER_SET")),
-		L1ProverPrivKey:           l1ProverPrivKey,
-		Dummy:                     true,
-		ProveUnassignedBlocks:     true,
-		Allowance:                 new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L2WsEndpoint:          os.Getenv("L2_WS"),
+		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
+		L1ProverPrivKey:       l1ProverPrivKey,
+		Dummy:                 true,
+		ProveUnassignedBlocks: true,
+		Allowance: new(big.Int).Exp(
+			big.NewInt(1_000_000_000),
+			new(big.Int).SetUint64(uint64(decimal)),
+			nil,
+		),
 		RPCTimeout:                3 * time.Second,
 		BackOffRetryInterval:      3 * time.Second,
 		BackOffMaxRetries:         12,
-		L1NodeVersion:             "1.0.0",
-		L2NodeVersion:             "0.1.0",
 		SGXProofBufferSize:        uint64(batchSize),
 		ForceBatchProvingInterval: 5 * time.Second,
 	}, s.txmgr, s.txmgr))
@@ -675,8 +465,8 @@ func (s *ProverTestSuite) TestForceAggregate() {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
 
-	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
-	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
+	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -685,34 +475,34 @@ func (s *ProverTestSuite) TestForceAggregate() {
 
 	s.Nil(batchProver.proveOp())
 	req1 := <-batchProver.proofSubmissionCh
-	s.Nil(batchProver.requestProofOp(req1.Meta, req1.Tier))
+	s.Nil(batchProver.requestProofOp(req1.Meta))
 
 	time.Sleep(5 * time.Second)
 	req2 := <-batchProver.proofSubmissionCh
-	s.Nil(batchProver.requestProofOp(req2.Meta, req2.Tier))
+	s.Nil(batchProver.requestProofOp(req2.Meta))
 
-	tier := <-batchProver.aggregationNotify
-	s.Nil(batchProver.aggregateOp(tier))
-	s.Nil(batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
-	for i := 0; i < batchSize-1; i++ {
-		<-sink
-	}
+	proofType := <-batchProver.batchesAggregationNotify
+	s.Nil(batchProver.aggregateOpPacaya(proofType))
+	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 }
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 	s.p.cfg.Allowance = common.Big256
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoInboxAddress))
 
-	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(
+		nil,
+		s.p.ProverAddress(),
+		s.p.cfg.TaikoInboxAddress,
+	)
 	s.Nil(err)
-
 	s.NotZero(originalAllowance.Uint64())
 
 	s.p.cfg.Allowance = new(big.Int).Sub(originalAllowance, common.Big1)
 
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoInboxAddress))
 
-	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.TaikoInboxAddress)
 	s.Nil(err)
 
 	s.Zero(allowance.Cmp(originalAllowance))
@@ -729,7 +519,6 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	l1Current, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.ForkIntoPacaya(s.proposer, s.d.ChainSyncer().EventSyncer())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.True(m.IsPacaya())
 	s.Nil(s.p.proveOp())
@@ -759,14 +548,12 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 		s.txmgr,
 		s.p.privateTxmgr,
 		s.d.ProverSetAddress,
-		s.proposer.ProposeBlockTxGasLimit,
+		s.proposer.ProposeBatchTxGasLimit,
 	)
-	builder := transaction.NewProveBlockTxBuilder(
+	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 	)
 	originalRoot := res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root
 	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()
@@ -795,7 +582,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.False(paused)
 
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBlockID(0)
+	s.p.sharedState.SetLastHandledBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {
@@ -835,14 +622,14 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	receipt, err := s.TxMgr("unpauseTaikoInbox", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")).
 		Send(
 			context.Background(),
-			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.TaikoL1Address},
+			txmgr.TxCandidate{TxData: data, To: &s.p.cfg.TaikoInboxAddress},
 		)
 	s.Nil(err)
 	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 
 	// Then submit a valid proof again
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBlockID(0)
+	s.p.sharedState.SetLastHandledBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {
@@ -889,8 +676,8 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoInboxAddress:     common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
 		L1ProverPrivKey:       key,
@@ -900,18 +687,10 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
-		L1NodeVersion:         "1.0.0",
-		L2NodeVersion:         "0.1.0",
 		SGXProofBufferSize:    1,
 		ZKVMProofBufferSize:   1,
 		BlockConfirmations:    0,
 	}, s.txmgr, s.txmgr))
 
-	p.guardianProverHeartbeater = guardianProverHeartbeater.New(
-		key,
-		p.cfg.GuardianProverHealthCheckServerEndpoint,
-		p.rpc,
-		p.ProverAddress(),
-	)
 	s.p = p
 }

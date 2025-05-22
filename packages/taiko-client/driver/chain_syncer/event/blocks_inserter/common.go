@@ -40,7 +40,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -49,11 +49,7 @@ func createPayloadAndSetHead(
 	}
 
 	// Increase the gas limit for the anchor block.
-	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
-		meta.GasLimit += consensus.AnchorV3GasLimit
-	} else {
-		meta.GasLimit += consensus.AnchorGasLimit
-	}
+	meta.GasLimit += consensus.AnchorV3GasLimit
 
 	// Update execution payload id for the L1 origin.
 	var (
@@ -91,18 +87,11 @@ func createExecutionPayloadsAndSetHead(
 	var lastVerifiedBlockHash common.Hash
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		lastVerifiedBlockInfo, err := rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-		}
+		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+	}
 
-		if meta.BlockID.Uint64() > lastVerifiedBlockInfo.BlockId {
-			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
-		}
-	} else {
-		if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
-			lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
-		}
+	if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
+		lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -305,6 +294,14 @@ func isKnownCanonicalBlock(
 		}
 		id = args.Id()
 	)
+
+	log.Info(
+		"Check if block is known in canonical chain",
+		"blockID", blockID,
+		"blockHash", block.Hash(),
+		"args", args,
+	)
+
 	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
@@ -333,6 +330,64 @@ func isKnownCanonicalBlock(
 			meta.Difficulty.Hex(),
 			txListHash.Hex(),
 		)
+	}
+	defer func() {
+		if err != nil {
+			log.Warn("Invalid known block", "blockID", blockID, "coinbase", block.Coinbase(), "reason", err)
+		}
+	}()
+
+	if block.ParentHash() != meta.Parent.Hash() {
+		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash())
+		return nil, err
+	}
+	if block.Transactions().Len() == 0 {
+		err = errors.New("transactions list is empty")
+		return nil, err
+	}
+	if block.Transactions()[0].Hash() != anchorTx.Hash() {
+		err = fmt.Errorf("anchor transaction mismatch: %s != %s", block.Transactions()[0].Hash(), anchorTx.Hash())
+		return nil, err
+	}
+	if block.UncleHash() != types.EmptyUncleHash {
+		err = fmt.Errorf("uncle hash mismatch: %s != %s", block.UncleHash(), types.EmptyUncleHash)
+		return nil, err
+	}
+	if block.Coinbase() != meta.SuggestedFeeRecipient {
+		err = fmt.Errorf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient)
+		return nil, err
+	}
+	if block.Difficulty().Cmp(common.Big0) != 0 {
+		err = fmt.Errorf("difficulty mismatch: %s != 0", block.Difficulty())
+		return nil, err
+	}
+	if block.MixDigest() != meta.Difficulty {
+		err = fmt.Errorf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty)
+		return nil, err
+	}
+	if block.Number().Uint64() != meta.BlockID.Uint64() {
+		err = fmt.Errorf("block number mismatch: %d != %d", block.Number(), meta.BlockID)
+		return nil, err
+	}
+	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3GasLimit {
+		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3GasLimit)
+		return nil, err
+	}
+	if block.Time() != meta.Timestamp {
+		err = fmt.Errorf("timestamp mismatch: %d != %d", block.Time(), meta.Timestamp)
+		return nil, err
+	}
+	if !bytes.Equal(block.Extra(), meta.ExtraData) {
+		err = fmt.Errorf("extra data mismatch: %s != %s", block.Extra(), meta.ExtraData)
+		return nil, err
+	}
+	if block.BaseFee().Cmp(meta.BaseFee) != 0 {
+		err = fmt.Errorf("base fee mismatch: %s != %s", block.BaseFee(), meta.BaseFee)
+		return nil, err
+	}
+	if block.Withdrawals().Len() != 0 {
+		err = fmt.Errorf("withdrawals mismatch: %d != 0", block.Withdrawals().Len())
+		return nil, err
 	}
 
 	return block.Header(), nil
@@ -370,7 +425,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, true, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
 	if err != nil {
 		return nil, nil, err
 	}

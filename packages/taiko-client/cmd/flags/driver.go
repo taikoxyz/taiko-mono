@@ -68,9 +68,9 @@ var (
 	PreconfHandoverSkipSlots = &cli.Uint64Flag{
 		Name:     "preconfirmation.handoverSkipSlots",
 		Usage:    "Handover slots to provide a boundary at the end of an epoch",
+		Value:    4,
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONF_HANDOVER_SKIP_SLOTS"},
-		Value:    4,
 	}
 )
 
