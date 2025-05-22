@@ -16,15 +16,15 @@ import (
 var (
 	l1Endpoint      = os.Getenv("L1_WS")
 	l2Endpoint      = os.Getenv("L2_HTTP")
-	taikoL1         = os.Getenv("TAIKO_INBOX")
-	taikoL2         = os.Getenv("TAIKO_ANCHOR")
+	taikoInbox      = os.Getenv("TAIKO_INBOX")
+	taikoAnchor     = os.Getenv("TAIKO_ANCHOR")
 	taikoToken      = os.Getenv("TAIKO_TOKEN")
 	proposeInterval = "10s"
 	rpcTimeout      = "5s"
 )
 
 func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
-	goldenTouchAddress, err := s.RPCClient.OntakeClients.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	app := s.SetupApp()
@@ -34,14 +34,12 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		s.Nil(err)
 		s.Equal(l1Endpoint, c.L1Endpoint)
 		s.Equal(l2Endpoint, c.L2Endpoint)
-		s.Equal(taikoL1, c.TaikoL1Address.String())
-		s.Equal(taikoL2, c.TaikoL2Address.String())
+		s.Equal(taikoInbox, c.TaikoInboxAddress.String())
+		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(taikoToken, c.TaikoTokenAddress.String())
 		s.Equal(goldenTouchAddress, crypto.PubkeyToAddress(c.L1ProposerPrivKey.PublicKey))
 		s.Equal(goldenTouchAddress, c.L2SuggestedFeeRecipient)
 		s.Equal(float64(10), c.ProposeInterval.Seconds())
-		s.Equal(1, len(c.LocalAddresses))
-		s.Equal(goldenTouchAddress, c.LocalAddresses[0])
 		s.Equal(5*time.Second, c.Timeout)
 
 		s.Nil(new(Proposer).InitFromCli(context.Background(), cliCtx))
@@ -52,13 +50,12 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		"TestNewConfigFromCliContext",
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
 		"--" + flags.L2HTTPEndpoint.Name, l2Endpoint,
-		"--" + flags.TaikoL1Address.Name, taikoL1,
-		"--" + flags.TaikoL2Address.Name, taikoL2,
+		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.TaikoTokenAddress.Name, taikoToken,
 		"--" + flags.L1ProposerPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.L2SuggestedFeeRecipient.Name, goldenTouchAddress.Hex(),
 		"--" + flags.ProposeInterval.Name, proposeInterval,
-		"--" + flags.TxPoolLocals.Name, goldenTouchAddress.Hex(),
 		"--" + flags.RPCTimeout.Name, rpcTimeout,
 		"--" + flags.TxGasLimit.Name, "100000",
 	}))
@@ -85,35 +82,18 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContextL2RecipErr() {
 	}), "invalid L2 suggested fee recipient address")
 }
 
-func (s *ProposerTestSuite) TestNewConfigFromCliContextTxPoolLocalsErr() {
-	goldenTouchAddress, err := s.RPCClient.OntakeClients.TaikoL2.GOLDENTOUCHADDRESS(nil)
-	s.Nil(err)
-
-	app := s.SetupApp()
-
-	s.ErrorContains(app.Run([]string{
-		"TestNewConfigFromCliContextTxPoolLocalsErr",
-		"--" + flags.L1ProposerPrivKey.Name, encoding.GoldenTouchPrivKey,
-		"--" + flags.ProposeInterval.Name, proposeInterval,
-		"--" + flags.MinProposingInternal.Name, proposeInterval,
-		"--" + flags.L2SuggestedFeeRecipient.Name, goldenTouchAddress.Hex(),
-		"--" + flags.TxPoolLocals.Name, "notAnAddress",
-	}), "invalid account in --txpool.locals")
-}
-
 func (s *ProposerTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
-		&cli.StringFlag{Name: flags.TaikoL1Address.Name},
-		&cli.StringFlag{Name: flags.TaikoL2Address.Name},
+		&cli.StringFlag{Name: flags.TaikoInboxAddress.Name},
+		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoTokenAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProposerPrivKey.Name},
 		&cli.StringFlag{Name: flags.L2SuggestedFeeRecipient.Name},
 		&cli.DurationFlag{Name: flags.MinProposingInternal.Name},
 		&cli.DurationFlag{Name: flags.ProposeInterval.Name},
-		&cli.StringFlag{Name: flags.TxPoolLocals.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)

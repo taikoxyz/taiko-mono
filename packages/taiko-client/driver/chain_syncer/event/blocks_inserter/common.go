@@ -40,7 +40,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -49,11 +49,7 @@ func createPayloadAndSetHead(
 	}
 
 	// Increase the gas limit for the anchor block.
-	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
-		meta.GasLimit += consensus.AnchorV3GasLimit
-	} else {
-		meta.GasLimit += consensus.AnchorGasLimit
-	}
+	meta.GasLimit += consensus.AnchorV3GasLimit
 
 	// Update execution payload id for the L1 origin.
 	var (
@@ -91,18 +87,11 @@ func createExecutionPayloadsAndSetHead(
 	var lastVerifiedBlockHash common.Hash
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		lastVerifiedBlockInfo, err := rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-		}
+		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+	}
 
-		if meta.BlockID.Uint64() > lastVerifiedBlockInfo.BlockId {
-			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
-		}
-	} else {
-		if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
-			lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
-		}
+	if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
+		lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -305,6 +294,14 @@ func isKnownCanonicalBlock(
 		}
 		id = args.Id()
 	)
+
+	log.Info(
+		"Check if block is known in canonical chain",
+		"blockID", blockID,
+		"blockHash", block.Hash(),
+		"args", args,
+	)
+
 	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
@@ -428,7 +425,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, true, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
 	if err != nil {
 		return nil, nil, err
 	}

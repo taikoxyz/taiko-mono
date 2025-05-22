@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -41,7 +40,7 @@ type Proposer struct {
 	proposingTimer *time.Timer
 
 	// Transaction builder
-	txBuilder builder.ProposeBlocksTransactionBuilder
+	txBuilder builder.ProposeBatchTransactionBuilder
 
 	// Protocol configurations
 	protocolConfigs config.ProtocolConfigs
@@ -114,17 +113,17 @@ func (p *Proposer) InitFromConfig(
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 	p.chainConfig = config.NewChainConfig(
 		p.rpc.L2.ChainID,
-		p.rpc.OntakeClients.ForkHeight,
-		p.rpc.PacayaClients.ForkHeight,
+		p.rpc.PacayaClients.ForkHeights.Ontake,
+		p.rpc.PacayaClients.ForkHeights.Pacaya,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.TaikoL1Address,
+		cfg.TaikoInboxAddress,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
-		cfg.ProposeBlockTxGasLimit,
+		cfg.ProposeBatchTxGasLimit,
 		p.chainConfig,
 		p.txmgrSelector,
 		cfg.RevertProtectionEnabled,
@@ -192,8 +191,8 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		p.proposerAddress,
 		p.protocolConfigs.BlockMaxGasLimit(),
 		rpc.BlockMaxTxListBytes,
-		p.LocalAddresses,
-		p.MaxProposedTxListsPerEpoch,
+		[]common.Address{},
+		p.MaxTxListsPerEpoch,
 		minTip,
 		p.chainConfig,
 		p.protocolConfigs.BaseFeeConfig(),
@@ -221,34 +220,6 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		txLists = append(txLists, types.Transactions{})
 	}
 
-	// If LocalAddressesOnly is set, filter the transactions by the local addresses.
-	if p.LocalAddressesOnly {
-		var (
-			localTxsLists []types.Transactions
-			signer        = types.LatestSignerForChainID(p.rpc.L2.ChainID)
-		)
-		for _, txs := range txLists {
-			var filtered types.Transactions
-			for _, tx := range txs {
-				sender, err := types.Sender(signer, tx)
-				if err != nil {
-					return nil, err
-				}
-
-				for _, localAddress := range p.LocalAddresses {
-					if sender == localAddress {
-						filtered = append(filtered, tx)
-					}
-				}
-			}
-
-			if filtered.Len() != 0 {
-				localTxsLists = append(localTxsLists, filtered)
-			}
-		}
-		txLists = localTxsLists
-	}
-
 	log.Info(
 		"Transactions lists count",
 		"proposer", p.proposerAddress.Hex(),
@@ -262,7 +233,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 
 // ProposeOp performs a proposing operation, fetching transactions
 // from L2 execution engine's tx pool, splitting them by proposing constraints,
-// and then proposing them to TaikoL1 contract.
+// and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Check if the preconfirmation router is set, if so, skip proposing.
 	preconfRouter, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
@@ -317,97 +288,17 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	return p.ProposeTxLists(ctx, txLists, l2Head, parentMetaHash)
 }
 
-// ProposeTxList proposes the given transactions lists to TaikoL1 smart contract.
+// ProposeTxList proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
 	l2Head uint64,
 	parentMetaHash common.Hash,
 ) error {
-	// Check if the current L2 chain is after Pacaya fork, propose blocks batch.
-	if p.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head + 1)) {
-		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
-			return err
-		}
-		p.lastProposedAt = time.Now()
-		return nil
-	}
-
-	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
-	if err := p.ProposeTxListOntake(ctx, txLists, parentMetaHash); err != nil {
+	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
 		return err
 	}
 	p.lastProposedAt = time.Now()
-	return nil
-}
-
-// ProposeTxListOntake proposes the given transactions lists to TaikoL1 smart contract.
-func (p *Proposer) ProposeTxListOntake(
-	ctx context.Context,
-	txLists []types.Transactions,
-	parentMetaHash common.Hash,
-) error {
-	var (
-		proverAddress     = p.proposerAddress
-		txListsBytesArray [][]byte
-		txNums            []int
-		totalTxs          int
-	)
-	for _, txs := range txLists {
-		txListBytes, err := rlp.EncodeToBytes(txs)
-		if err != nil {
-			return fmt.Errorf("failed to encode transactions: %w", err)
-		}
-
-		compressedTxListBytes, err := utils.Compress(txListBytes)
-		if err != nil {
-			return err
-		}
-
-		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
-		txNums = append(txNums, len(txs))
-		totalTxs += len(txs)
-	}
-
-	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proverAddress = p.Config.ClientConfig.ProverSetAddress
-	}
-
-	ok, err := rpc.CheckProverBalance(
-		ctx,
-		p.rpc,
-		proverAddress,
-		p.TaikoL1Address,
-		new(big.Int).Mul(
-			p.protocolConfigs.LivenessBond(),
-			new(big.Int).SetUint64(uint64(len(txLists))),
-		),
-	)
-
-	if err != nil {
-		log.Warn("Failed to check prover balance", "error", err)
-		return err
-	}
-
-	if !ok {
-		return errors.New("insufficient prover balance")
-	}
-
-	txCandidate, err := p.txBuilder.BuildOntake(ctx, txListsBytesArray, parentMetaHash)
-	if err != nil {
-		log.Warn("Failed to build TaikoL1.proposeBlocksV2 transaction", "error", encoding.TryParsingCustomError(err))
-		return err
-	}
-
-	if err := p.SendTx(ctx, txCandidate); err != nil {
-		return err
-	}
-
-	log.Info("📝 Batch propose transactions succeeded", "txs", txNums)
-
-	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
-	metrics.ProposerProposedTxsCounter.Add(float64(totalTxs))
-
 	return nil
 }
 
@@ -440,13 +331,10 @@ func (p *Proposer) ProposeTxListPacaya(
 		ctx,
 		p.rpc,
 		proposerAddress,
-		p.TaikoL1Address,
+		p.TaikoInboxAddress,
 		new(big.Int).Add(
 			p.protocolConfigs.LivenessBond(),
-			new(big.Int).Mul(
-				p.protocolConfigs.LivenessBondPerBlock(),
-				new(big.Int).SetUint64(uint64(len(txBatch))),
-			),
+			new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
 		),
 	)
 
@@ -459,11 +347,11 @@ func (p *Proposer) ProposeTxListPacaya(
 		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
 
+	// Check forced inclusion.
 	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
 	}
-
 	if forcedInclusion == nil {
 		log.Info("No forced inclusion", "proposer", proposerAddress.Hex())
 	} else {
@@ -479,6 +367,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		)
 	}
 
+	// Build the transaction to propose batch.
 	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
@@ -521,7 +410,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoL1.proposeBlockV2 / TaikoInbox.proposeBatch transaction by tx manager",
+			"Failed to send TaikoInbox.proposeBatch transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)
@@ -532,7 +421,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("failed to propose block: %s", receipt.TxHash.Hex())
+		return fmt.Errorf("failed to propose batch: %s", receipt.TxHash.Hex())
 	}
 	return nil
 }
@@ -554,29 +443,15 @@ func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.Memor
 
 // GetParentMetaHash returns the parent meta hash of the given L2 head.
 func (p *Proposer) GetParentMetaHash(ctx context.Context, l2Head uint64) (common.Hash, error) {
-	// Check if the current L2 chain is after Pacaya fork.
-	if p.chainConfig.IsPacaya(new(big.Int).SetUint64(l2Head + 1)) {
-		state, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch protocol state variables: %w", err)
-		}
-
-		batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(state.Stats2.NumBatches-1))
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch batch by ID: %w", err)
-		}
-
-		return batch.MetaHash, nil
-	}
-
-	_, slotB, err := p.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
+	state, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch protocol state variables: %w", err)
 	}
-	blockInfo, err := p.rpc.GetL2BlockInfoV2(ctx, new(big.Int).SetUint64(slotB.NumBlocks-1))
+
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(state.Stats2.NumBatches-1))
 	if err != nil {
-		return common.Hash{}, err
+		return common.Hash{}, fmt.Errorf("failed to fetch batch by ID: %w", err)
 	}
 
-	return blockInfo.MetaHash, nil
+	return batch.MetaHash, nil
 }

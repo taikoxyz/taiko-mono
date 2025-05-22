@@ -62,7 +62,6 @@ var (
 	ProverProofsAssigned             = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_assigned"})
 	ProverReceivedProposedBlockGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proposed_received"})
 	ProverReceivedProvenBlockGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proven_received"})
-	ProverProvenByGuardianGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proven_by_guardian"})
 	ProverSubmissionAcceptedCounter  = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_submission_accepted",
 	})

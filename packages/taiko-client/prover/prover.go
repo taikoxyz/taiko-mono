@@ -14,22 +14,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
-	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
@@ -38,11 +32,10 @@ import (
 
 // eventHandlers contains all event handlers which will be used by the prover.
 type eventHandlers struct {
-	blockProposedHandler       handler.BlockProposedHandler
-	blockVerifiedHandler       handler.BlockVerifiedHandler
-	transitionContestedHandler handler.TransitionContestedHandler
-	transitionProvedHandler    handler.TransitionProvedHandler
-	assignmentExpiredHandler   handler.AssignmentExpiredHandler
+	batchProposedHandler     handler.BatchProposedHandler
+	batchesVerifiedHandler   handler.BatchesVerifiedHandler
+	batchesProvedHandler     handler.BatchesProvedHandler
+	assignmentExpiredHandler handler.AssignmentExpiredHandler
 }
 
 // Prover keeps trying to prove newly proposed blocks.
@@ -54,9 +47,6 @@ type Prover struct {
 	// Clients
 	rpc *rpc.Client
 
-	// Guardian prover related
-	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
-
 	// Contract configurations
 	protocolConfigs config.ProtocolConfigs
 
@@ -67,19 +57,14 @@ type Prover struct {
 	eventHandlers *eventHandlers
 
 	// Proof submitters
-	proofSubmittersOntake []proofSubmitter.Submitter
-	proofContesterOntake  proofSubmitter.Contester
-	proofSubmitterPacaya  proofSubmitter.Submitter
+	proofSubmitterPacaya proofSubmitter.Submitter
 
 	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
 	proveNotify              chan struct{}
-	aggregationNotify        chan uint16
 	batchesAggregationNotify chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
-	proofContestCh         chan *proofProducer.ContestRequestBody
-	proofGenerationCh      chan *proofProducer.ProofResponse
 	batchProofGenerationCh chan *proofProducer.BatchProofs
 
 	// Transactions manager
@@ -121,15 +106,13 @@ func InitFromConfig(
 
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
-		L1Endpoint:                    cfg.L1WsEndpoint,
-		L2Endpoint:                    cfg.L2WsEndpoint,
-		TaikoL1Address:                cfg.TaikoL1Address,
-		TaikoL2Address:                cfg.TaikoL2Address,
-		TaikoTokenAddress:             cfg.TaikoTokenAddress,
-		ProverSetAddress:              cfg.ProverSetAddress,
-		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
-		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
-		Timeout:                       cfg.RPCTimeout,
+		L1Endpoint:         cfg.L1WsEndpoint,
+		L2Endpoint:         cfg.L2WsEndpoint,
+		TaikoInboxAddress:  cfg.TaikoInboxAddress,
+		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
+		TaikoTokenAddress:  cfg.TaikoTokenAddress,
+		ProverSetAddress:   cfg.ProverSetAddress,
+		Timeout:            cfg.RPCTimeout,
 	}); err != nil {
 		return err
 	}
@@ -142,30 +125,20 @@ func InitFromConfig(
 	config.ReportProtocolConfigs(p.protocolConfigs)
 
 	chBufferSize := p.protocolConfigs.MaxProposals()
-	p.proofGenerationCh = make(chan *proofProducer.ProofResponse, chBufferSize)
 	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
-	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.aggregationNotify = make(chan uint16, 1)
 	p.batchesAggregationNotify = make(chan proofProducer.ProofType, 1)
 
-	if err := p.initL1Current(cfg.StartingBlockID); err != nil {
+	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
 	}
 
-	// Protocol proof tiers
-	if err := p.initProofTiers(ctx); err != nil {
-		log.Warn("Initialize proof tiers error", "error", err)
-	}
-
-	txBuilder := transaction.NewProveBlockTxBuilder(
+	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
-		p.cfg.TaikoL1Address,
+		p.cfg.TaikoInboxAddress,
 		p.cfg.ProverSetAddress,
-		p.cfg.GuardianProverMajorityAddress,
-		p.cfg.GuardianProverMinorityAddress,
 	)
 
 	if txMgr != nil {
@@ -199,40 +172,8 @@ func InitFromConfig(
 	}
 
 	// Proof submitters
-	if err := p.initProofSubmitters(txBuilder, p.sharedState.GetTiers()); err != nil {
+	if err := p.initPacayaProofSubmitter(txBuilder); err != nil {
 		return err
-	}
-
-	// Proof contester
-	p.proofContesterOntake = proofSubmitter.NewProofContester(
-		p.rpc,
-		p.cfg.ProveBlockGasLimit,
-		p.txmgr,
-		p.privateTxmgr,
-		p.cfg.ProverSetAddress,
-		p.cfg.Graffiti,
-		txBuilder,
-	)
-
-	// Guardian prover heartbeat sender
-	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
-		// Check guardian prover contract address is correct.
-		if _, err := p.rpc.OntakeClients.GuardianProverMajority.MinGuardians(&bind.CallOpts{Context: ctx}); err != nil {
-			return fmt.Errorf("failed to get MinGuardians from majority guardian prover contract: %w", err)
-		}
-
-		if p.rpc.OntakeClients.GuardianProverMinority != nil {
-			if _, err := p.rpc.OntakeClients.GuardianProverMinority.MinGuardians(&bind.CallOpts{Context: ctx}); err != nil {
-				return fmt.Errorf("failed to get MinGuardians from minority guardian prover contract: %w", err)
-			}
-		}
-
-		p.guardianProverHeartbeater = guardianProverHeartbeater.New(
-			p.cfg.L1ProverPrivKey,
-			p.cfg.GuardianProverHealthCheckServerEndpoint,
-			p.rpc,
-			p.ProverAddress(),
-		)
 	}
 
 	// Initialize event handlers.
@@ -246,27 +187,10 @@ func InitFromConfig(
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
 	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.TaikoL1Address} {
+	for _, contract := range []common.Address{p.cfg.TaikoInboxAddress} {
 		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
 			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
 		}
-	}
-
-	// 2. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
-	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
-		// Send the startup message to the guardian prover health check server.
-		if err := p.guardianProverHeartbeater.SendStartupMessage(
-			p.ctx,
-			version.CommitVersion(),
-			version.CommitVersion(),
-			p.cfg.L1NodeVersion,
-			p.cfg.L2NodeVersion,
-		); err != nil {
-			log.Error("Failed to send guardian prover startup message", "error", err)
-		}
-
-		// Start the guardian prover heartbeat loop.
-		go p.guardianProverHeartbeatLoop(p.ctx)
 	}
 
 	// 3. Start the main event loop of the prover.
@@ -292,34 +216,22 @@ func (p *Prover) eventLoop() {
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
-	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoL1 contract, there will be no new
-	// BlockProposed event temporarily, so except the BlockProposed subscription, we need another trigger to start
-	// fetching the proposed blocks.
+	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoInbox contract, there will be no
+	// new BatchProposed event temporarily, so except the BatchProposed subscription, we need another trigger to start
+	// fetching the proposed batches.
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
 	// Channels
 	chBufferSize := p.protocolConfigs.MaxProposals()
-	blockProposedV2Ch := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2, chBufferSize)
-	blockVerifiedV2Ch := make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
-	transitionProvedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
-	transitionContestedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	batchProposedCh := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, chBufferSize)
 	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
 	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
 	// Subscriptions
-	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.OntakeClients.TaikoL1, blockProposedV2Ch)
-	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.OntakeClients.TaikoL1, blockVerifiedV2Ch)
-	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.OntakeClients.TaikoL1, transitionProvedV2Ch)
-	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.OntakeClients.TaikoL1, transitionContestedV2Ch)
 	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
 	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
 	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
 	defer func() {
-		blockProposedV2Sub.Unsubscribe()
-		blockVerifiedV2Sub.Unsubscribe()
-		transitionProvedV2Sub.Unsubscribe()
-		transitionContestedV2Sub.Unsubscribe()
 		batchProposedSub.Unsubscribe()
 		batchesVerifiedSub.Unsubscribe()
 		batchesProvedSub.Unsubscribe()
@@ -329,44 +241,24 @@ func (p *Prover) eventLoop() {
 		select {
 		case <-p.ctx.Done():
 			return
-		case req := <-p.proofContestCh:
-			p.withRetry(func() error { return p.contestProofOp(req) })
-		case proofResponse := <-p.proofGenerationCh:
-			p.withRetry(func() error { return p.submitProofOp(proofResponse) })
 		case batchProof := <-p.batchProofGenerationCh:
 			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Meta, req.Tier) })
+			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
-		case tier := <-p.aggregationNotify:
-			p.withRetry(func() error { return p.aggregateOp(tier) })
 		case proofType := <-p.batchesAggregationNotify:
 			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
-		case e := <-blockVerifiedV2Ch:
-			p.eventHandlers.blockVerifiedHandler.Handle(e)
 		case e := <-batchesVerifiedCh:
-			if err := p.eventHandlers.blockVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
+			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
 			}
-		case e := <-transitionProvedV2Ch:
-			p.withRetry(func() error {
-				return p.eventHandlers.transitionProvedHandler.Handle(p.ctx, e)
-			})
-		case e := <-transitionContestedV2Ch:
-			p.withRetry(func() error {
-				return p.eventHandlers.transitionContestedHandler.Handle(p.ctx, e)
-			})
 		case e := <-batchesProvedCh:
-			p.withRetry(func() error {
-				return p.eventHandlers.transitionProvedHandler.HandlePacaya(p.ctx, e)
-			})
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) })
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
-		case <-blockProposedV2Ch:
-			reqProving()
 		case <-batchProposedCh:
 			reqProving()
 		case <-forceProvingTicker.C:
@@ -380,216 +272,37 @@ func (p *Prover) Close(_ context.Context) {
 	p.wg.Wait()
 }
 
-// proveOp iterates through BlockProposed events.
+// proveOp iterates through BatchProposed events.
 func (p *Prover) proveOp() error {
-	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
+	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               p.rpc.L1,
-		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
-		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeight,
+		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
-		OnBlockProposedEvent: p.eventHandlers.blockProposedHandler.Handle,
+		OnBatchProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
 	})
 	if err != nil {
-		log.Error("Failed to start event iterator", "event", "BlockProposed", "error", err)
+		log.Error("Failed to start event iterator", "event", "BatchProposed", "error", err)
 		return err
 	}
 
 	return iter.Iter()
 }
 
-// aggregateOp aggregates all proofs in buffer.
-func (p *Prover) aggregateOp(tier uint16) error {
-	g, gCtx := errgroup.WithContext(p.ctx)
-	for _, submitter := range p.proofSubmittersOntake {
-		g.Go(func() error {
-			if submitter.AggregationEnabled() && submitter.Tier() == tier {
-				if err := submitter.AggregateProofs(gCtx); err != nil {
-					log.Error(
-						"Failed to aggregate proofs",
-						"error", err,
-						"tier", submitter.Tier(),
-					)
-					return err
-				}
-			} else {
-				log.Debug(
-					"Skip the current aggregation operation",
-					"requestTier", tier,
-					"submitterTier", submitter.Tier(),
-					"bufferSize", submitter.BufferSize(),
-				)
-			}
-			return nil
-		})
-	}
-
-	return g.Wait()
-}
-
 // aggregateOpPacaya aggregates all proofs in buffer for Pacaya.
 func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
-	// Try to aggregate Ontake proofs first.
-	for _, submitter := range p.proofSubmittersOntake {
-		if s, ok := submitter.(*proofSubmitter.ProofSubmitterOntake); ok {
-			if !s.AggregationEnabled() {
-				continue
-			}
-			if aggregated := s.TryAggregate(); aggregated {
-				log.Info("Aggregated Ontake proofs")
-			}
-		}
-	}
-
 	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
-		log.Error(
-			"Failed to aggregate proofs",
-			"error", err,
-			"proofType", proofType,
-		)
+		log.Error("Failed to aggregate proofs", "error", err, "proofType", proofType)
 		return err
 	}
-	return nil
-}
-
-// contestProofOp performs a proof contest operation.
-func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
-	if err := p.proofContesterOntake.SubmitContest(
-		p.ctx,
-		req.BlockID,
-		req.ProposedIn,
-		req.ParentHash,
-		req.Meta,
-		req.Tier,
-	); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
-			log.Error(
-				"Proof contest submission reverted",
-				"blockID", req.BlockID,
-				"minTier", req.Meta.Ontake().GetMinTier(),
-				"error", err,
-			)
-			return nil
-		}
-		log.Error(
-			"Request new proof contest error",
-			"blockID", req.BlockID,
-			"minTier", req.Meta.Ontake().GetMinTier(),
-			"error", err,
-		)
-		return err
-	}
-
 	return nil
 }
 
 // requestProofOp requests a new proof generation operation.
-func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData, minTier uint16) error {
-	if meta.IsPacaya() {
-		if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
-			log.Error(
-				"Request new batch proof error",
-				"batchID", meta.Pacaya().GetBatchID(),
-				"error", err,
-			)
-			return err
-		}
-
-		return nil
-	}
-	if p.IsGuardianProver() {
-		if minTier > encoding.TierGuardianMinorityID {
-			minTier = encoding.TierGuardianMajorityID
-		} else {
-			minTier = encoding.TierGuardianMinorityID
-		}
-	}
-	if minTier == encoding.TierOptimisticID ||
-		minTier >= encoding.TierGuardianMinorityID ||
-		len(p.cfg.RaikoZKVMHostEndpoint) == 0 {
-		if submitter := p.selectSubmitter(minTier); submitter != nil {
-			if err := submitter.RequestProof(p.ctx, meta); err != nil {
-				log.Error(
-					"Request new proof error",
-					"blockID", meta.Ontake().GetBlockID(),
-					"minTier", meta.Ontake().GetMinTier(),
-					"error", err,
-				)
-				return err
-			}
-
-			return nil
-		}
-	} else {
-		if submitter := p.selectSubmitter(encoding.TierZkVMSp1ID); submitter != nil {
-			if err := submitter.RequestProof(p.ctx, meta); err != nil {
-				if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-					log.Debug(
-						"ZK proof was not chosen, attempting to request SGX proof",
-						"blockID", meta.Ontake().GetBlockID(),
-					)
-					if sgxSubmitter := p.selectSubmitter(encoding.TierSgxID); sgxSubmitter != nil {
-						if err := sgxSubmitter.RequestProof(p.ctx, meta); err != nil {
-							log.Error(
-								"Request new proof error",
-								"blockID", meta.Ontake().GetBlockID(),
-								"proofType", "sgx",
-								"error", err,
-							)
-							return err
-						}
-						return nil
-					}
-				} else {
-					log.Error(
-						"Request new proof error",
-						"blockID", meta.Ontake().GetBlockID(),
-						"proofType", "zkAny",
-						"error", err,
-					)
-					return err
-				}
-			} else {
-				return nil
-			}
-		}
-	}
-
-	log.Error(
-		"Failed to find proof submitter",
-		"blockID", meta.Ontake().GetBlockID(),
-		"minTier", minTier,
-	)
-	return nil
-}
-
-// submitProofOp performs a proof submission operation.
-func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error {
-	var submitter proofSubmitter.Submitter
-	if proofResponse.Meta.IsPacaya() {
-		submitter = p.proofSubmitterPacaya
-	} else {
-		submitter = p.getSubmitterByTier(proofResponse.Meta.Ontake().GetMinTier())
-	}
-	if submitter == nil {
-		return nil
-	}
-
-	if err := submitter.SubmitProof(p.ctx, proofResponse); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
-			log.Error(
-				"Proof submission reverted",
-				"blockID", proofResponse.BlockID,
-				"error", err,
-			)
-			return nil
-		}
-		log.Error(
-			"Submit proof error",
-			"blockID", proofResponse.BlockID,
-			"error", err,
-		)
+func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
+	if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
+		log.Error("Request new batch proof error", "batchID", meta.Pacaya().GetBatchID(), "error", err)
 		return err
 	}
 
@@ -598,22 +311,16 @@ func (p *Prover) submitProofOp(proofResponse *proofProducer.ProofResponse) error
 
 // submitProofsOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
-	var submitter proofSubmitter.Submitter
-	if batchProof.IsPacaya {
-		submitter = p.proofSubmitterPacaya
-	} else {
-		submitter = p.getSubmitterByTier(batchProof.Tier)
-	}
+	submitter := p.proofSubmitterPacaya
 	if utils.IsNil(submitter) {
-		return fmt.Errorf("submitter not found %d & %s", batchProof.Tier, batchProof.ProofType)
+		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
 
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
 		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
 			log.Error(
 				"Proof submission reverted",
-				"blockIDs", batchProof.BlockIDs,
-				"tier", batchProof.Tier,
+				"blockIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
@@ -621,8 +328,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		} else if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Warn(
 				"Detected proven blocks",
-				"blockIDs", batchProof.BlockIDs,
-				"tier", batchProof.Tier,
+				"blockIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
@@ -630,8 +336,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		}
 		log.Error(
 			"Submit proof error",
-			"blockIDs", batchProof.BlockIDs,
-			"tier", batchProof.Tier,
+			"blockIDs", batchProof.BatchIDs,
 			"proofType", batchProof.ProofType,
 			"error", err,
 		)
@@ -644,45 +349,6 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 // Name returns the application name.
 func (p *Prover) Name() string {
 	return "prover"
-}
-
-// selectSubmitter returns the proof submitter with the given minTier.
-func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
-	for _, s := range p.proofSubmittersOntake {
-		if s.Tier() >= minTier {
-			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
-				continue
-			}
-			log.Debug("Proof submitter selected", "tier", s.Tier(), "minTier", minTier)
-			return s
-		}
-	}
-
-	log.Warn("No proof producer / submitter found for the given minTier", "minTier", minTier)
-
-	return nil
-}
-
-// getSubmitterByTier returns the proof submitter with the given tier.
-func (p *Prover) getSubmitterByTier(tier uint16) proofSubmitter.Submitter {
-	for _, s := range p.proofSubmittersOntake {
-		if s.Tier() == tier {
-			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
-				continue
-			}
-
-			return s
-		}
-	}
-
-	log.Warn("No proof producer / submitter found for the given tier", "tier", tier)
-
-	return nil
-}
-
-// IsGuardianProver returns true if the current prover is a guardian prover.
-func (p *Prover) IsGuardianProver() bool {
-	return p.cfg.GuardianProverMajorityAddress != common.Address{}
 }
 
 // ProverAddress returns the current prover account address.

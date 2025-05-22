@@ -668,11 +668,11 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 
 // ValidateExecutionPayload validates the execution payload.
 func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionPayload) error {
-	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeight) {
+	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeights.Pacaya) {
 		return fmt.Errorf(
 			"block number %d is less than the Pacaya fork height %d",
 			payload.BlockNumber,
-			s.rpc.PacayaClients.ForkHeight,
+			s.rpc.PacayaClients.ForkHeights.Pacaya,
 		)
 	}
 	if payload.Timestamp == 0 {
