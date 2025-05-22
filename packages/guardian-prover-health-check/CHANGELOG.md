@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/guardian-prover-health-check-v0.1.0...guardian-prover-health-check-v0.1.1) (2025-05-22)
+
+
+### Chores
+
+* **guardian-prover-health-check:** fix api doc ([#18693](https://github.com/taikoxyz/taiko-mono/issues/18693)) ([3236547](https://github.com/taikoxyz/taiko-mono/commit/3236547f209e1b597e07a638662686de7ad5bbae))
+* **guardian-prover-health-check:** golangci-lint v2 migrate ([#19216](https://github.com/taikoxyz/taiko-mono/issues/19216)) ([4872f08](https://github.com/taikoxyz/taiko-mono/commit/4872f08c6b6cbfcd8f34b266fa3c1e832490ebad))
+* **taiko-client:** fix typos in Swagger documentation for uptime endpoint ([#18681](https://github.com/taikoxyz/taiko-mono/issues/18681)) ([9eca280](https://github.com/taikoxyz/taiko-mono/commit/9eca280c620ecfbe572c331cdb4618c176e1727e))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
