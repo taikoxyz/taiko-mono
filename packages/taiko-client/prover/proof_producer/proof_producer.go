@@ -12,33 +12,25 @@ import (
 )
 
 var (
-	errProofGenerating = errors.New("proof is generating")
-	errEmptyProof      = errors.New("proof is empty")
+	ErrEmptyProof      = errors.New("proof is empty")
 	ErrInvalidLength   = errors.New("invalid items length")
+	ErrProofInProgress = errors.New("work_in_progress")
+	ErrRetry           = errors.New("retry")
+	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
+	StatusRegistered   = "registered"
 )
 
 // ProofRequestBody represents a request body to generate a proof.
 type ProofRequestBody struct {
-	Tier uint16
 	Meta metadata.TaikoProposalMetaData
-}
-
-// ContestRequestBody represents a request body to generate a proof for contesting.
-type ContestRequestBody struct {
-	BlockID    *big.Int
-	ProposedIn *big.Int
-	ParentHash common.Hash
-	Meta       metadata.TaikoProposalMetaData
-	Tier       uint16
 }
 
 // ProofResponse represents a response of a proof request.
 type ProofResponse struct {
-	BlockID   *big.Int
+	BatchID   *big.Int
 	Meta      metadata.TaikoProposalMetaData
 	Proof     []byte
 	Opts      ProofRequestOptions
-	Tier      uint16
 	ProofType ProofType
 }
 
@@ -46,13 +38,11 @@ type ProofResponse struct {
 type BatchProofs struct {
 	ProofResponses       []*ProofResponse
 	BatchProof           []byte
-	Tier                 uint16
-	BlockIDs             []*big.Int
+	BatchIDs             []*big.Int
 	ProofType            ProofType
 	Verifier             common.Address
 	SgxGethBatchProof    []byte
 	SgxGethProofVerifier common.Address
-	IsPacaya             bool
 }
 
 // ProofProducer is an interface that contains all methods to generate a proof.
@@ -60,20 +50,9 @@ type ProofProducer interface {
 	RequestProof(
 		ctx context.Context,
 		opts ProofRequestOptions,
-		blockID *big.Int,
+		batchID *big.Int,
 		meta metadata.TaikoProposalMetaData,
 		requestAt time.Time,
 	) (*ProofResponse, error)
-	Aggregate(
-		ctx context.Context,
-		items []*ProofResponse,
-		requestAt time.Time,
-	) (*BatchProofs, error)
-	// RequestCancel @dev this function would be deprecated after Pacaya fork
-	RequestCancel(
-		ctx context.Context,
-		opts ProofRequestOptions,
-	) error
-	// Tier @dev this function would be deprecated after Pacaya fork
-	Tier() uint16
+	Aggregate(ctx context.Context, items []*ProofResponse, requestAt time.Time) (*BatchProofs, error)
 }

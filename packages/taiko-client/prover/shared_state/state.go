@@ -4,30 +4,27 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // SharedState represents the internal state of a prover.
 type SharedState struct {
-	lastHandledBlockID atomic.Uint64
+	lastHandledBatchID atomic.Uint64
 	l1Current          atomic.Value
-	tiers              []*rpc.TierProviderTierWithID
 }
 
 // New creates a new prover shared state instance.
 func New() *SharedState {
-	return &SharedState{tiers: make([]*rpc.TierProviderTierWithID, 0)}
+	return new(SharedState)
 }
 
-// GetLastHandledBlockID returns the last handled block ID.
-func (s *SharedState) GetLastHandledBlockID() uint64 {
-	return s.lastHandledBlockID.Load()
+// GetLastHandledBatchID returns the last handled batch ID.
+func (s *SharedState) GetLastHandledBatchID() uint64 {
+	return s.lastHandledBatchID.Load()
 }
 
-// SetLastHandledBlockID sets the last handled block ID.
-func (s *SharedState) SetLastHandledBlockID(blockID uint64) {
-	s.lastHandledBlockID.Store(blockID)
+// SetLastHandledBatchID sets the last handled batch ID.
+func (s *SharedState) SetLastHandledBatchID(batchID uint64) {
+	s.lastHandledBatchID.Store(batchID)
 }
 
 // GetL1Current returns the current L1 header cursor.
@@ -41,14 +38,4 @@ func (s *SharedState) GetL1Current() *types.Header {
 // SetL1Current sets the current L1 header cursor.
 func (s *SharedState) SetL1Current(header *types.Header) {
 	s.l1Current.Store(header)
-}
-
-// GetTiers returns the current proof tiers.
-func (s *SharedState) GetTiers() []*rpc.TierProviderTierWithID {
-	return s.tiers
-}
-
-// SetTiers sets the current proof tiers.
-func (s *SharedState) SetTiers(tiers []*rpc.TierProviderTierWithID) {
-	s.tiers = tiers
 }
