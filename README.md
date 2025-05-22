@@ -34,25 +34,23 @@ Get started with Taiko Alethia:
 > [!TIP]
 > Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments)!
 
-| Package                                                                       | Description                                                        |
-| :---------------------------------------------------------------------------- | :----------------------------------------------------------------- |
-| [balance-monitor](./packages/balance-monitor)                                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
-| [bridge-ui](./packages/bridge-ui)                                             | Bridge UI.                                                         |
-| [docs-site](./packages/docs-site)                                             | End user documentation site.                                       |
-| [eventindexer](./packages/eventindexer)                                       | Event indexer.                                                     |
-| [fork-diff](./packages/fork-diff)                                             | Fork diff page.                                                    |
-| [geth-rpc-gateway](./packages/geth-rpc-gateway)                               | RPC gateway for geth nodes.                                        |
-| [guardian-prover-health-check](./packages/guardian-prover-health-check)       | Guardian prover health check service.                              |
-| [guardian-prover-health-check-ui](./packages/guardian-prover-health-check-ui) | Guardian prover health check UI.                                   |
-| [monitors](./packages/monitors)                                               | Monitoring and alerting services.                                  |
-| [nfts](./packages/nfts)                                                       | NFT-related smart contracts and utilities.                         |
-| [protocol](./packages/protocol)                                               | Taiko Alethia protocol smart contracts.                            |
-| [relayer](./packages/relayer)                                                 | Bridge backend relayer.                                            |
-| [snaefell-ui](./packages/snaefell-ui)                                         | Snaefell UI.                                                       |
-| [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary contracts not part of the Taiko Alethia protocol.    |
-| [taiko-client](./packages/taiko-client)                                       | Taiko Alethia client implementation in Go.                         |
-| [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI.                                                        |
-| [ui-lib](./packages/ui-lib)                                                   | UI library.                                                        |
+| Package                                                       | Description                                                        |
+| :------------------------------------------------------------ | :----------------------------------------------------------------- |
+| [balance-monitor](./packages/balance-monitor)                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
+| [bridge-ui](./packages/bridge-ui)                             | Bridge UI.                                                         |
+| [docs-site](./packages/docs-site)                             | End user documentation site.                                       |
+| [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
+| [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
+| [geth-rpc-gateway](./packages/geth-rpc-gateway)               | RPC gateway for geth nodes.                                        |
+| [monitors](./packages/monitors)                               | Monitoring and alerting services.                                  |
+| [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
+| [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
+| [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |
+| [snaefell-ui](./packages/snaefell-ui)                         | Snaefell UI.                                                       |
+| [supplementary-contracts](./packages/supplementary-contracts) | Supplementary contracts not part of the Taiko Alethia protocol.    |
+| [taiko-client](./packages/taiko-client)                       | Taiko Alethia client implementation in Go.                         |
+| [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
+| [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
 
 ## Issues
 

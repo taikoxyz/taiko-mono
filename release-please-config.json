@@ -20,8 +20,6 @@
     "packages/docs-site": {},
     "packages/eventindexer": {},
     "packages/fork-diff": {},
-    "packages/guardian-prover-health-check": {},
-    "packages/guardian-prover-health-check-ui": {},
     "packages/protocol": {
       "package-name": "taiko-alethia-protocol"
     },
