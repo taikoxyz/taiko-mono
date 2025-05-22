@@ -16,6 +16,13 @@ abstract contract BuildProposal is Script {
         vm.stopBroadcast();
     }
 
+    function getProposalConfig()
+        internal
+        pure
+        virtual
+        returns (uint64 executionId, uint32 l2GasLimit)
+    { }
+
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
     function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
 
@@ -34,24 +41,19 @@ abstract contract BuildProposal is Script {
         });
     }
 
-    function tryrunL1Actions(uint64 executionId, uint32 l2GasLimit) internal broadcast {
-        TaikoDAOController(payable(L1.DAO_CONTROLLER)).dryrun{ value: 0 }(
-            buildAllActions(executionId, l2GasLimit)
-        );
+    function dryrunL1Actions() internal broadcast {
+        console2.log("dryrunL1Actions");
+        Controller(payable(L1.DAO_CONTROLLER)).dryrun{ value: 0 }(buildAllActions());
     }
 
-    function tryrunL2Actions() internal broadcast {
+    function dryrunL2Actions() internal broadcast {
+        console2.log("dryrunL2Actions");
         Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun{ value: 0 }(buildL2Actions());
     }
 
-    function buildAllActions(
-        uint64 executionId,
-        uint32 l2GasLimit
-    )
-        internal
-        pure
-        returns (Controller.Action[] memory allActions_)
-    {
+    function buildAllActions() internal pure returns (Controller.Action[] memory allActions_) {
+        (uint64 executionId, uint32 l2GasLimit) = getProposalConfig();
+
         Controller.Action[] memory l1Actions = buildL1Actions();
         allActions_ = new Controller.Action[](l1Actions.length + 1);
 
@@ -76,8 +78,8 @@ abstract contract BuildProposal is Script {
         });
     }
 
-    function logProposalAction(uint64 executionId, uint32 l2GasLimit) internal pure {
-        Controller.Action[] memory allActions = buildAllActions(executionId, l2GasLimit);
+    function logProposalAction() internal pure {
+        Controller.Action[] memory allActions = buildAllActions();
 
         console2.log("Proposal Action--------------------------------");
         console2.log("Target:", L1.DAO_CONTROLLER);

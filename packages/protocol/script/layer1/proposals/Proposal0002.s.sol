@@ -8,7 +8,7 @@ interface IBarContract {
     function withdraw(address _token, address _to, uint256 _amount) external;
 }
 
-// FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0002.s.sol:Proposal0002
+// FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0002.s.sol
 contract Proposal0002 is BuildProposal {
     // L1 contracts
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
@@ -20,25 +20,28 @@ contract Proposal0002 is BuildProposal {
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
-    function run() external pure {
-        // FOUNDRY_PROFILE=layer1 forge script \
-        // script/layer1/proposals/Proposal0002.s.sol:Proposal0002 \
+    function run() external {
+        console2.log("Proposal0002");
+        string memory mode = vm.envString("MODE");
+        if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("print"))) {
+            logProposalAction();
+        } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l1dryrun"))) {
+            dryrunL1Actions();
+        } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l2dryrun"))) {
+            dryrunL2Actions();
+        } else {
+            console2.log("Error: Invalid mode. Must be one of: print, l1dryrun, l2dryrun");
+        }
+    }
 
-        logProposalAction({ executionId: 1, l2GasLimit: 25_000_000 });
-
-        // FOUNDRY_PROFILE=layer2 forge script \
-        // script/layer1/proposals/Proposal0002.s.sol:Proposal0002 \
-        // --private-key $(echo $PRIVATE_KEY) \
-        // --chain 167000 --broadcast --rpc-url https://rpc.taiko.xyz \
-
-        // tryrunL2Actions();
-
-        // FOUNDRY_PROFILE=layer1 forge script \
-        // script/layer1/proposals/Proposal0002.s.sol:Proposal0002 \
-        // --private-key $(echo $PRIVATE_KEY) \
-        // --chain 1 --rpc-url ${echo $RPC_URL} \
-
-        // tryrunL1Actions({ executionId: 1, l2GasLimit: 25_000_000 });
+    function getProposalConfig()
+        internal
+        pure
+        override
+        returns (uint64 executionId, uint32 l2GasLimit)
+    {
+        executionId = 1;
+        l2GasLimit = 25_000_000;
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
