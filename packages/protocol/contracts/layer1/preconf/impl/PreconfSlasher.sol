@@ -131,9 +131,9 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         bytes32 actualBlockHash = evidence.blockhashProofs.actualBlockHeader.hash();
         require(_payload.blockHash != actualBlockHash, PreconfirmationIsValid());
 
-        // Validate that the batch has been verified
+        // Validate that the next batch has been verified
         ITaikoInbox.TransitionState memory transition =
-            taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId));
+            taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId + 1));
 
         // Validate the verified blockheader
         require(
