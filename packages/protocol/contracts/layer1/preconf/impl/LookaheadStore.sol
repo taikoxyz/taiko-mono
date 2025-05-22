@@ -170,7 +170,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
 
         emit LookaheadPosted(
-                _isPostedByProtector, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
+            _isPostedByProtector, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
         );
     }
 
