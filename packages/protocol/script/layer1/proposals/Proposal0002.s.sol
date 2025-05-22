@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./BuildProposal.sol";
-import { LibMainnetL1Addresses as L1 } from "src/layer1/mainnet/libs/LibMainnetL1Addresses.sol";
+import { LibL1Addrs as L1 } from "src/layer1/mainnet/libs/LibL1Addrs.sol";
 
 interface IBarContract {
     function withdraw(address _token, address _to, uint256 _amount) external;

@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/layer1/mainnet/TaikoDAOController.sol";
 import "src/shared/bridge/IBridge.sol";
-import { LibMainnetL1Addresses as L1 } from "src/layer1/mainnet/libs/LibMainnetL1Addresses.sol";
-import { LibMainnetL2Addresses as L2 } from "src/layer2/mainnet/libs/LibMainnetL2Addresses.sol";
+import { LibL1Addrs as L1 } from "src/layer1/mainnet/libs/LibL1Addrs.sol";
+import { LibL2Addrs as L2 } from "src/layer2/mainnet/libs/LibL2Addrs.sol";
 
 abstract contract BuildProposal is Script {
     modifier broadcast() {

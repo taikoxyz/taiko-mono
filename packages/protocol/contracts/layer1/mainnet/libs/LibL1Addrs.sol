@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title LibMainnetL1Addresses
+/// @title LibL1Addrs
 /// @custom:security-contact security@taiko.xyz
-library LibMainnetL1Addresses {
+library LibL1Addrs {
     address public constant DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
     address public constant DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
     address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
