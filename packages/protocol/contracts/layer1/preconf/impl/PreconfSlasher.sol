@@ -146,6 +146,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             taikoInbox.v4GetBatchVerifyingTransition(uint64(_payload.batchId + 1));
 
         // Validate the verified blockheader
+        LibBlockHeader.BlockHeader memory verified = evidence.verifiedBlockHeader;
         require(transition.blockHash == verified.hash(), InvalidVerifiedBlockHeader());
 
         // Validate that the parent on which this block was preconfirmed made it to the inbox, i.e
@@ -160,20 +161,16 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             evidence.parentBlockhashProofs.storageProof
         );
 
-        if (verified.number == blockId) {
-            require(transition.blockHash == actualBlockHash, InvalidVerifiedBlockHeader());
-        } else {
-            // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
-            // at the same height as the preconfirmed block.
-            LibTrieProof.verifyMerkleProof(
-                verified.stateRoot,
-                taikoAnchor,
-                _calcBlockHashSlot(blockId),
-                actualBlockHash,
-                evidence.parentBlockhashProofs.accountProof,
-                evidence.parentBlockhashProofs.storageProof
-            );
-        }
+        // Verify that `blockhashProofs` correctly proves the blockhash of the block proposed
+        // at the same height as the preconfirmed block.
+        LibTrieProof.verifyMerkleProof(
+            verified.stateRoot,
+            taikoAnchor,
+            _calcBlockHashSlot(blockId),
+            actualBlockHash,
+            evidence.parentBlockhashProofs.accountProof,
+            evidence.parentBlockhashProofs.storageProof
+        );
 
         return getSlashAmount().invalidPreconf;
     }
