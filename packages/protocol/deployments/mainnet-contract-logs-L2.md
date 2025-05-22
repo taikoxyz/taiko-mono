@@ -136,7 +136,7 @@
   - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
-#### taikoL2
+#### Anchor
 
 - proxy: `0x1670000000000000000000000000000000010001`
 - impl: `0x3cfe9b8E0e12289D78c91295c8353aB1731F06E1`
@@ -183,25 +183,12 @@
 - `davidcai.eth`:`0x56706F118e42AE069F20c5636141B844D1324AE1`
 - `admin.l2.taiko.eth (label)`: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
 
-#### delegate_owner
+#### delegate_controller
 
-- proxy: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
-- impl: `0x50a349323CB2517Fc2C8D3570000Db0268D9D2ef`
-- owner: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
-- todo:
-  - test it (for example with `TestDelegateOwned` contract 0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0)
+- proxy: `0x6D840cCbAea6077331A394B9104a7bAfe93AEa4A`
+- impl: `0xd85BC772a1B8Db1291CDbf4965c3e3fF72AD3aF5`
+- owner: `0x6D840cCbAea6077331A394B9104a7bAfe93AEa4A`
 - logs:
-  - deployed on May 19, 2025 @commit`31e8c07` @tx`0xc7cbcf5a3f5a2e0cda164edc0ed90e4f1e27c3bd5aa2051169cca08429cd6b3f`
-
-#### test_delegate_owned
-
-- proxy: `0xB0de2DD046732Ae94B2570d4785dcd55F79a19c0`
-- impl: `0xb2D3E492F0fD122edad7ECf0Dc58396344CAC227`
-- owner: `0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed`
-- todo:
-  - test it (for example with `DelegateOwner` contract 0xEfc270A7c1B34683Ff51e7cCe1B64626293237ed)
-- logs:
-  - deployed on May 19, 2025 @commit`31e8c07` @tx`0xdb8bdc82fb1e31559adc335dce50e9762c856bd67c755bba70efd477ca21193a`
 
 ## Pacaya Contracts
 
