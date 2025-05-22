@@ -41,8 +41,8 @@ interface IPreconfSlasher is ISlasher {
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
-        // This is the Blockheader of the last block in the batch that contains the block at height
-        // X. This is used as the reference blockheader for verifying anchor state.
+        // This is the Blockheader of the last block in the next batch.
+        // This is used as the reference blockheader for verifying anchor state.
         LibBlockHeader.BlockHeader verifiedBlockHeader;
         // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
         // This is the blockhash of the block that was proposed at height X,
@@ -116,6 +116,7 @@ interface IPreconfSlasher is ISlasher {
         uint256 slashAmount
     );
 
+    error BatchNotVerified();
     error BlockNotInBatch();
     error BlockNotLastInBatch();
     error EOPIsNotMissing();
