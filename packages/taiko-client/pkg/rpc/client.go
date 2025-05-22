@@ -169,6 +169,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	return c, nil
 }
 
+<<<<<<< HEAD
 // initPacayaClients initializes all Shasta smart contract clients.
 func (c *Client) initShastaClients(cfg *ClientConfig) error {
 	taikoInbox, err := shastaBindings.NewTaikoInboxClient(cfg.TaikoInboxAddress, c.L1)
@@ -253,6 +254,8 @@ func (c *Client) initShastaClients(cfg *ClientConfig) error {
 	return nil
 }
 
+=======
+>>>>>>> origin/main
 // initPacayaClients initializes all Pacaya smart contract clients.
 func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoInboxAddress, c.L1)
@@ -338,6 +341,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 }
 
 // initForkHeightConfigs initializes the fork heights in protocol.
+<<<<<<< HEAD
 func (c *Client) initForkHeightConfigs(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
@@ -366,6 +370,24 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) (err error) {
 
 	c.PacayaClients.ForkHeights.Pacaya = protocolConfigs.ForkHeights.Pacaya
 	c.ShastaClients.ForkHeights.Shasta = protocolConfigs.ForkHeights.Shasta
+=======
+func (c *Client) initForkHeightConfigs(ctx context.Context) error {
+	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+
+	c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
+		Ontake: protocolConfigs.ForkHeights.Ontake,
+		Pacaya: protocolConfigs.ForkHeights.Pacaya,
+	}
+
+	log.Info(
+		"Fork height configs",
+		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
+		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
+	)
+>>>>>>> origin/main
 
 	return nil
 }
