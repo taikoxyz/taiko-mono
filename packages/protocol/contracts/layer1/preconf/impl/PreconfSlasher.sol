@@ -168,8 +168,8 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             taikoAnchor,
             _calcBlockHashSlot(blockId),
             actualBlockHash,
-            evidence.parentBlockhashProofs.accountProof,
-            evidence.parentBlockhashProofs.storageProof
+            evidence.blockhashProofs.accountProof,
+            evidence.blockhashProofs.storageProof
         );
 
         return getSlashAmount().invalidPreconf;
