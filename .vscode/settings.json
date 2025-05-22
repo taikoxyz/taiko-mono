@@ -12,8 +12,5 @@
   "solidity.compileUsingRemoteVersion": "v0.8.24+commit.e11b9ed9",
   "solidity.formatter": "forge",
   "i18n-ally.keystyle": "nested",
-  "i18n-ally.localesPaths": [
-    "packages/bridge-ui/src/i18n",
-    "packages/guardian-prover-health-check-ui/src/i18n"
-  ]
+  "i18n-ally.localesPaths": ["packages/bridge-ui/src/i18n"]
 }
