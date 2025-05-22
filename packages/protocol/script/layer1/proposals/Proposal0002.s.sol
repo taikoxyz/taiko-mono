@@ -8,7 +8,9 @@ interface IBarContract {
     function withdraw(address _token, address _to, uint256 _amount) external;
 }
 
-// FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0002.s.sol
+// To print the proposal action data: `P=0002 pnpm proposal`
+// To dryrun the proposal on L1: `P=0002 pnpm proposal:dryrun:l1`
+// To dryrun the proposal on L2: `P=0002 pnpm proposal:dryrun:l2`
 contract Proposal0002 is BuildProposal {
     // L1 contracts
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
@@ -20,7 +22,7 @@ contract Proposal0002 is BuildProposal {
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
-    function getProposalConfig()
+    function proposalConfig()
         internal
         pure
         override

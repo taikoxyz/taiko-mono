@@ -30,7 +30,7 @@ abstract contract BuildProposal is Script {
         }
     }
 
-    function getProposalConfig()
+    function proposalConfig()
         internal
         pure
         virtual
@@ -39,6 +39,24 @@ abstract contract BuildProposal is Script {
 
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
     function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
+
+    function logProposalAction() internal pure {
+        Controller.Action[] memory allActions = _buildAllActions();
+
+        console2.log("Proposal Action--------------------------------");
+        console2.log("Target:", L1.DAO_CONTROLLER);
+        console2.logBytes(abi.encodeCall(TaikoDAOController.execute, (allActions)));
+    }
+
+    function dryrunL1Actions() internal broadcast {
+        console2.log("dryrunL1Actions");
+        Controller(payable(L1.DAO_CONTROLLER)).dryrun{ value: 0 }(buildAllActions());
+    }
+
+    function dryrunL2Actions() internal broadcast {
+        console2.log("dryrunL2Actions");
+        Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun{ value: 0 }(buildL2Actions());
+    }
 
     function buildUpgradeAction(
         address _target,
@@ -55,18 +73,8 @@ abstract contract BuildProposal is Script {
         });
     }
 
-    function dryrunL1Actions() internal broadcast {
-        console2.log("dryrunL1Actions");
-        Controller(payable(L1.DAO_CONTROLLER)).dryrun{ value: 0 }(buildAllActions());
-    }
-
-    function dryrunL2Actions() internal broadcast {
-        console2.log("dryrunL2Actions");
-        Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun{ value: 0 }(buildL2Actions());
-    }
-
-    function buildAllActions() internal pure returns (Controller.Action[] memory allActions_) {
-        (uint64 executionId, uint32 l2GasLimit) = getProposalConfig();
+    function _buildAllActions() private pure returns (Controller.Action[] memory allActions_) {
+        (uint64 executionId, uint32 l2GasLimit) = proposalConfig();
 
         Controller.Action[] memory l1Actions = buildL1Actions();
         allActions_ = new Controller.Action[](l1Actions.length + 1);
@@ -90,13 +98,5 @@ abstract contract BuildProposal is Script {
             value: 0,
             data: abi.encodeCall(IBridge.sendMessage, (message))
         });
-    }
-
-    function logProposalAction() internal pure {
-        Controller.Action[] memory allActions = buildAllActions();
-
-        console2.log("Proposal Action--------------------------------");
-        console2.log("Target:", L1.DAO_CONTROLLER);
-        console2.logBytes(abi.encodeCall(TaikoDAOController.execute, (allActions)));
     }
 }
