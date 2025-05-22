@@ -71,15 +71,10 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
             uint256 slotIndex,
             ILookaheadStore.LookaheadSlot[] memory prevLookahead,
             ILookaheadStore.LookaheadSlot[] memory currLookahead,
-            ILookaheadStore.LookaheadSlot[] memory nextLookahead
+            bytes memory nextLookaheadUpdateData
         ) = abi.decode(
             _lookaheadData,
-            (
-                uint256,
-                ILookaheadStore.LookaheadSlot[],
-                ILookaheadStore.LookaheadSlot[],
-                ILookaheadStore.LookaheadSlot[]
-            )
+            (uint256, ILookaheadStore.LookaheadSlot[], ILookaheadStore.LookaheadSlot[], bytes)
         );
 
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
@@ -95,15 +90,13 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
 
         {
             // Try fetching the lookahead for the next epoch.
-            // This call fails if the lookahead for next epoch is not posted, thus requiring the
-            // first preconfer to post the next epoch's lookahead before proposing a batch in the
-            // current epoch.
             uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
             bytes26 nextLookaheadHash = lookaheadStore.getLookaheadHash(nextEpochTimestamp);
             if (nextLookaheadHash == 0) {
-                // TODO: post the lookahead for next epoch here
-            } else {
-                _validateLookahead(nextEpochTimestamp, nextLookahead, nextLookaheadHash);
+                // If the lookahead for the next epoch is not posted, we post it here.
+                (bytes32 registrationRoot, bytes memory data) =
+                    abi.decode(nextLookaheadUpdateData, (bytes32, bytes));
+                lookaheadStore.updateLookahead(registrationRoot, data);
             }
         }
 
