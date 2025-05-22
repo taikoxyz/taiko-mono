@@ -668,11 +668,11 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 
 // ValidateExecutionPayload validates the execution payload.
 func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionPayload) error {
-	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeight) {
+	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeights.Pacaya) {
 		return fmt.Errorf(
 			"block number %d is less than the Pacaya fork height %d",
 			payload.BlockNumber,
-			s.rpc.PacayaClients.ForkHeight,
+			s.rpc.PacayaClients.ForkHeights.Pacaya,
 		)
 	}
 	if payload.Timestamp == 0 {
@@ -942,6 +942,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
+
 	if header != nil {
 		if header.Hash() == msg.ExecutionPayload.BlockHash {
 			log.Info(
@@ -1004,11 +1005,18 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 
 // updateHighestUnsafeL2Payload updates the highest unsafe L2 payload block ID.
 func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
-	log.Info(
-		"Updating highest unsafe L2 payload block ID",
-		"blockID", blockID,
-		"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-	)
+	if blockID > s.highestUnsafeL2PayloadBlockID {
+		log.Info(
+			"Updating highest unsafe L2 payload block ID",
+			"blockID", blockID,
+			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+	} else {
+		log.Info("Reorging highest unsafe L2 payload blockID",
+			"blockID", blockID,
+			"currentHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+	}
 	s.highestUnsafeL2PayloadBlockID = blockID
 }
 

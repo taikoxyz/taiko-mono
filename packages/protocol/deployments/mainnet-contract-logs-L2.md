@@ -136,7 +136,7 @@
   - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 
-#### taikoL2
+#### Anchor
 
 - proxy: `0x1670000000000000000000000000000000010001`
 - impl: `0x3cfe9b8E0e12289D78c91295c8353aB1731F06E1`
@@ -182,6 +182,13 @@
 - WETH9: `0xA51894664A773981C6C112C43ce576f315d5b1B6`
 - `davidcai.eth`:`0x56706F118e42AE069F20c5636141B844D1324AE1`
 - `admin.l2.taiko.eth (label)`: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
+
+#### delegate_controller
+
+- proxy: `0x6D840cCbAea6077331A394B9104a7bAfe93AEa4A`
+- impl: `0xd85BC772a1B8Db1291CDbf4965c3e3fF72AD3aF5`
+- owner: `0x6D840cCbAea6077331A394B9104a7bAfe93AEa4A`
+- logs:
 
 ## Pacaya Contracts
 

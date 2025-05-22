@@ -339,9 +339,11 @@ def:
 # files can be ignored globally, these will be listed in a separate grayed-out section,
 # and do not count towards the total line count.
 ignore:
+  - ".release-please-manifest.json"
   - "Dockerfile*"
   - "Makefile"
   - "accounts/*"
+  - "scripts/*"
   - ".*"
   - ".github/*"
   - ".github/*/*"

@@ -15,11 +15,10 @@ func TestProofBuffer(t *testing.T) {
 	require.Zero(t, b.Len())
 	require.Less(t, b.FirstItemAt(), time.Now())
 	require.False(t, b.IsAggregating())
-	require.True(t, b.Enabled())
 
 	// Write items to the buffer.
 	for i := 0; i < bufferSize; i++ {
-		_, err := b.Write(&ProofResponse{BlockID: new(big.Int).SetUint64(uint64(i))})
+		_, err := b.Write(&ProofResponse{BatchID: new(big.Int).SetUint64(uint64(i))})
 		require.NoError(t, err)
 		require.Equal(t, i+1, b.Len())
 	}
