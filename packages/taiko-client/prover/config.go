@@ -84,11 +84,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	var localProposerAddresses []common.Address
 	for _, localProposerAddress := range c.StringSlice(flags.LocalProposerAddresses.Name) {
-		addr := common.HexToAddress(localProposerAddress)
 		if !common.IsHexAddress(localProposerAddress) {
 			log.Debug("Invalid local proposer address", "address", localProposerAddress)
 			continue
 		}
+		addr := common.HexToAddress(localProposerAddress)
 		localProposerAddresses = append(localProposerAddresses, addr)
 	}
 
