@@ -104,8 +104,9 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 	d.chainConfig = config.NewChainConfig(
 		d.rpc.L2.ChainID,
-		d.rpc.PacayaClients.ForkHeights.Ontake,
-		d.rpc.PacayaClients.ForkHeights.Pacaya,
+		d.rpc.ShastaClients.ForkHeights.Ontake,
+		d.rpc.ShastaClients.ForkHeights.Pacaya,
+		d.rpc.ShastaClients.ForkHeights.Pacaya,
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {

@@ -26,8 +26,9 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
 		chainConfig       = config.NewChainConfig(
 			s.RPCClient.L2.ChainID,
-			s.RPCClient.PacayaClients.ForkHeights.Ontake,
-			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
+			s.RPCClient.ShastaClients.ForkHeights.Ontake,
+			s.RPCClient.ShastaClients.ForkHeights.Pacaya,
+			s.RPCClient.ShastaClients.ForkHeights.Shasta,
 		)
 	)
 

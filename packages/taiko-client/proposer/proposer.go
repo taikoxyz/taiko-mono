@@ -114,8 +114,9 @@ func (p *Proposer) InitFromConfig(
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 	p.chainConfig = config.NewChainConfig(
 		p.rpc.L2.ChainID,
-		p.rpc.PacayaClients.ForkHeights.Ontake,
-		p.rpc.PacayaClients.ForkHeights.Pacaya,
+		p.rpc.ShastaClients.ForkHeights.Ontake,
+		p.rpc.ShastaClients.ForkHeights.Pacaya,
+		p.rpc.ShastaClients.ForkHeights.Shasta,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
