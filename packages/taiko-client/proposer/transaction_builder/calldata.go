@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
