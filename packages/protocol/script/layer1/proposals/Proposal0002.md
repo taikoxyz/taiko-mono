@@ -9,6 +9,7 @@ The following L1 actions will be executed by the `TaikoDAOController`:
 - Transfer 0.001 ETH to Daniel Wang
 - Transfer 1 USDC to Daniel Wang
 - Transfer `FooUpgradable` ownership to Daniel Wang
+- Upgrade `TaikoDAOController` to new implementation ``
 
 These actions aim to validate that the `TaikoDAOController` can securely manage and transfer both Ether and ERC20 tokens.
 

@@ -9,6 +9,8 @@ import "src/shared/libs/LibBytes.sol";
 /// Ether and tokens.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Controller is EssentialContract {
+    event DryrunGasCost(uint256 gasUsed);
+
     error DryrunSucceeded();
 
     struct Action {
@@ -17,8 +19,18 @@ abstract contract Controller is EssentialContract {
         bytes data;
     }
 
-    // For backward compatibility reasons, this contract reserves no storage slots.
-    // bytes32[50] private __gap;
+    // __reserved0 and __reserved1 are here to make sure this contract's layout is compatible with
+    // the DelegateOwner contract.
+
+    // solhint-disable var-name-mixedcase
+    uint256 private __reserved0;
+
+    /// @notice The last processed execution ID.
+    uint64 public lastExecutionId; // slot 2
+
+    // solhint-disable var-name-mixedcase
+    address private __reserved1; //
+    uint256[48] private __gap;
 
     event ActionExecuted(address indexed target, uint256 value, bytes data);
 
@@ -35,7 +47,11 @@ abstract contract Controller is EssentialContract {
     }
 
     function dryrun(Action[] calldata _actions) external payable {
+        uint256 gas = gasleft();
         _executeActions(_actions);
+        emit DryrunGasCost(gas - gasleft());
+
+        // Always revert!
         revert DryrunSucceeded();
     }
 

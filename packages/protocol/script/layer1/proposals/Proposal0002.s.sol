@@ -15,10 +15,12 @@ contract Proposal0002 is BuildProposal {
     // L1 contracts
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
     address public constant L1_FOO_CONTRACT = 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65;
+    address public constant L1_TAIKO_DAO_CONTROLLER_NEW_IMPL =
+        0x0000000000000000000000000000000000000000;
 
     // L2 contracts
     address public constant L2_DELEGATE_CONTROLLER_NEW_IMPL =
-        0x15a4109238d5673C9E6Cca27831AEF1AfdA99830;
+        0x0000000000000000000000000000000000000000;
     address public constant L2_BAR_CONTRACT = 0xD381F8e696a8e20a5d0c0a8658e5C1Cb23C0AB69;
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
@@ -34,7 +36,7 @@ contract Proposal0002 is BuildProposal {
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](3);
+        actions = new Controller.Action[](7);
 
         // Transfer 0.001 ETH from DAO Controller to Daniel Wang
         actions[0] =
@@ -53,6 +55,9 @@ contract Proposal0002 is BuildProposal {
             value: 0,
             data: abi.encodeCall(Ownable.transferOwnership, (L1_DANIEL_WANG_ADDRESS))
         });
+
+        // Upgrade TaikoDAOController to a new implementation
+        actions[3] = buildUpgradeAction(L1.DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
