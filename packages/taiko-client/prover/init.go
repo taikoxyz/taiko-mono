@@ -308,15 +308,16 @@ func (p *Prover) initEventHandlers() error {
 	p.eventHandlers = &eventHandlers{}
 	// ------- BatchProposed -------
 	opts := &handler.NewBatchProposedEventHandlerOps{
-		SharedState:           p.sharedState,
-		ProverAddress:         p.ProverAddress(),
-		ProverSetAddress:      p.cfg.ProverSetAddress,
-		RPC:                   p.rpc,
-		AssignmentExpiredCh:   p.assignmentExpiredCh,
-		ProofSubmissionCh:     p.proofSubmissionCh,
-		BackOffRetryInterval:  p.cfg.BackOffRetryInterval,
-		BackOffMaxRetrys:      p.cfg.BackOffMaxRetries,
-		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
+		SharedState:            p.sharedState,
+		ProverAddress:          p.ProverAddress(),
+		ProverSetAddress:       p.cfg.ProverSetAddress,
+		RPC:                    p.rpc,
+		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
+		AssignmentExpiredCh:    p.assignmentExpiredCh,
+		ProofSubmissionCh:      p.proofSubmissionCh,
+		BackOffRetryInterval:   p.cfg.BackOffRetryInterval,
+		BackOffMaxRetrys:       p.cfg.BackOffMaxRetries,
+		ProveUnassignedBlocks:  p.cfg.ProveUnassignedBlocks,
 	}
 	p.eventHandlers.batchProposedHandler = handler.NewBatchProposedEventHandler(opts)
 	// ------- BatchesProved -------
