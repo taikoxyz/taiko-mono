@@ -81,9 +81,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
 
         {
             bytes26 currLookaheadHash = lookaheadStore.getLookaheadHash(epochTimestamp);
-            if (currLookaheadHash == 0) {
-                // TODO: post the lookahead for current epoch here
-            } else {
+            if (currLookaheadHash != 0) {
                 _validateLookahead(epochTimestamp, currLookahead, currLookaheadHash);
             }
         }
@@ -102,7 +100,6 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
 
         if (currLookahead.length == 0) {
             // The current lookahead is empty, so we use a whitelisted preconfer
-            require(prevLookahead.length == 0, InvalidPreviousLookahead()); // Do not need it
             _validateWhitelistPreconfer();
         } else {
             _validatePreconfingPeriod(epochTimestamp, slotIndex, prevLookahead, currLookahead);
@@ -136,19 +133,8 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadSlot.registrationRoot);
 
-        require(
-            operatorData.registeredAt != 0 && operatorData.registeredAt <= block.timestamp,
-            OperatorIsNotRegistered()
-        );
-        require(
-            operatorData.unregisteredAt == 0 || operatorData.unregisteredAt > block.timestamp,
-            OperatorIsUnregistered()
-        );
-        require(
-            operatorData.slashedAt == 0 || operatorData.slashedAt > block.timestamp,
-            OperatorIsSlashed()
-        );
-
+        require(operatorData.unregisteredAt == 0, OperatorIsUnregistered());
+        require(operatorData.slashedAt == 0, OperatorIsSlashed());
         require(
             urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher),
             OperatorIsNotOptedIn()
@@ -198,12 +184,12 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                 _validateLookahead(prevEpochTimestamp, _prevLookahead, prevLookaheadHash);
                 prevSlotTimestamp = _prevLookahead[_prevLookahead.length - 1].slotTimestamp;
             } else {
-                prevSlotTimestamp = _epochTimestamp;
+                prevSlotTimestamp = _epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
             }
         }
 
         require(
-            block.timestamp >= prevSlotTimestamp
+            block.timestamp > prevSlotTimestamp
                 && block.timestamp <= _currLookahead[_slotIndex].slotTimestamp,
             InvalidLookaheadTimestamp()
         );
