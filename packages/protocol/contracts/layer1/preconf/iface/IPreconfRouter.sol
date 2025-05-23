@@ -9,4 +9,5 @@ interface IPreconfRouter is IProposeBatch {
     error ForcedInclusionNotSupported();
     error NotPreconferOrFallback();
     error ProposerIsNotPreconfer();
+    error NotTheOperator();
 }

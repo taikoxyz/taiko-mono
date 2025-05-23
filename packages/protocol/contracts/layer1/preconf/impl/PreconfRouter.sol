@@ -83,9 +83,9 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         require(msg.sender == selectedOperator, NotTheOperator());
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = IProposeBatch(proposeBlockEntrypoint).proposeBatch(_params, _txList);
+        (info_, meta_) = IProposeBatch(proposeBatchEntrypoint).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
-        require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
+        require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());
     }
 }
