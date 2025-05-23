@@ -10,6 +10,8 @@ import "src/shared/common/EssentialContract.sol";
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
+    uint256 private constant _RANDOMNESS_DELAY_EPOCHS = 2;
+
     struct OperatorInfo {
         uint64 activeSince; // Epoch when the operator becomes active.
         uint64 inactiveSince; // Epoch when the operator is no longer active.
@@ -213,11 +215,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             return address(0);
         }
 
-        // Use the previous epoch's start timestamp as the random number, if it is not available
-        // (zero), return address(0) directly.
+        // Use the `_RANDOMNESS_DELAY_EPOCHS` epochs ago's start timestamp as the random number,
+        // if it is not available (zero), return address(0) directly.
         uint256 rand = uint256(
             LibPreconfUtils.getBeaconBlockRootAtOrAfter(
-                _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
+                _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH * _RANDOMNESS_DELAY_EPOCHS
             )
         );
 
