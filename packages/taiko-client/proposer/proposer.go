@@ -291,6 +291,17 @@ func (p *Proposer) ProposeTxLists(
 	txLists []types.Transactions,
 	parentMetaHash common.Hash,
 ) error {
+	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to fetch protocol state variables: %w", err)
+	}
+	if p.chainConfig.IsShasta(new(big.Int).SetUint64(stats.NumBatches())) {
+		if err := p.ProposeTxListShasta(ctx, txLists, parentMetaHash); err != nil {
+			return err
+		}
+		p.lastProposedAt = time.Now()
+		return nil
+	}
 	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
 		return err
 	}
@@ -298,7 +309,17 @@ func (p *Proposer) ProposeTxLists(
 	return nil
 }
 
-// ProposeTxListPacaya proposes the given transactions lists to TaikoInbox smart contract.
+// ProposeTxListShasta proposes the given transactions lists to Shasta TaikoInbox smart contract.
+func (p *Proposer) ProposeTxListShasta(
+	ctx context.Context,
+	txBatch []types.Transactions,
+	parentMetaHash common.Hash,
+) error {
+	// TODO: Implement Shasta proposer.
+	return nil
+}
+
+// ProposeTxListPacaya proposes the given transactions lists to Pacaya TaikoInbox smart contract.
 func (p *Proposer) ProposeTxListPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
