@@ -254,12 +254,12 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 			lastVerifiedBatchID *big.Int
 			genesisHeight       *big.Int
 		)
-		stateVars, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: p.ctx})
+		stateVars, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: p.ctx})
 		if err != nil {
 			return err
 		}
-		lastVerifiedBatchID = new(big.Int).SetUint64(stateVars.Stats2.LastVerifiedBatchId)
-		genesisHeight = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+		lastVerifiedBatchID = new(big.Int).SetUint64(stateVars.LastVerifiedBatchId())
+		genesisHeight = new(big.Int).SetUint64(stateVars.GenesisHeight())
 
 		if lastVerifiedBatchID.Cmp(common.Big0) == 0 {
 			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, genesisHeight)

@@ -69,13 +69,13 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 
 // FindBatchForBlockID finds the TaikoInboxBatch for the given block ID.
 func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacayaBindings.ITaikoInboxBatch, error) {
-	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	stateVars, err := s.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		lastBatchID = stateVars.Stats2.NumBatches - 1
+		lastBatchID = stateVars.NumBatches() - 1
 		lastBatch   *pacayaBindings.ITaikoInboxBatch
 	)
 	batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))

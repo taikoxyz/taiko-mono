@@ -450,12 +450,12 @@ func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.Memor
 
 // GetParentMetaHash returns the parent meta hash of the given L2 head.
 func (p *Proposer) GetParentMetaHash(ctx context.Context, l2Head uint64) (common.Hash, error) {
-	state, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	state, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch protocol state variables: %w", err)
 	}
 
-	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(state.Stats2.NumBatches-1))
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(state.NumBatches()-1))
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch batch by ID: %w", err)
 	}

@@ -303,7 +303,7 @@ func (d *Driver) reportProtocolStatus() {
 
 // reportProtocolStatusPacaya reports some status for Pacaya protocol.
 func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
-	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
+	vars, err := d.rpc.GetProtocolStats(&bind.CallOpts{Context: d.ctx})
 	if err != nil {
 		log.Error("Failed to get protocol state variables", "error", err)
 		return
@@ -311,9 +311,9 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 
 	log.Info(
 		"📖 Protocol status",
-		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
-		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
-		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
+		"lastVerifiedBacthID", vars.LastVerifiedBatchId(),
+		"pendingBatchs", vars.NumBatches()-vars.LastVerifiedBatchId()-1,
+		"availableSlots", vars.LastVerifiedBatchId()+maxNumProposals-vars.NumBatches(),
 	)
 }
 

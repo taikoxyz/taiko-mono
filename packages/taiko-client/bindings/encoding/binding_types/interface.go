@@ -50,3 +50,15 @@ type IForcedInclusionStoreForcedInclusion interface {
 	BlobByteSize() uint32
 	BlobCreatedIn() uint64
 }
+
+// ITaikoInboxStats should be same with ITaikoInbox.Stats1 and ITaikoInbox.Stats2.
+type ITaikoInboxStats interface {
+	GenesisHeight() uint64
+	LastSyncedBatchId() uint64
+	LastSyncedAt() uint64
+	NumBatches() uint64
+	LastVerifiedBatchId() uint64
+	Paused() bool
+	LastProposedIn() uint64
+	LastUnpausedAt() uint64
+}

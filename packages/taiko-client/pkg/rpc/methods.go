@@ -20,8 +20,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -56,12 +58,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return err
 	}
 
-	genesisHeight := stateVars.Stats1.GenesisHeight
+	genesisHeight := stateVars.GenesisHeight()
 
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
@@ -249,12 +251,12 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return nil, err
 	}
 
-	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight))
+	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.GenesisHeight()))
 }
 
 // GetBatchByID fetches the batch by ID from the Pacaya protocol.
@@ -477,12 +479,12 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	})
 	g.Go(func() error {
 		// Try get the highest block ID from the Pacaya protocol state variables.
-		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+		stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return err
 		}
 
-		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
+		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.NumBatches()-1)
 		if err != nil {
 			return err
 		}
@@ -515,8 +517,22 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	return progress, nil
 }
 
-// GetProtocolStateVariablesPacaya gets the protocol states from TaikoInbox contract.
-func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
+// GetProtocolStats gets the protocol states from TaikoInbox contract.
+func (c *Client) GetProtocolStats(opts *bind.CallOpts) (bindingTypes.ITaikoInboxStats, error) {
+	statsShasta, err := c.getProtocolStatsShasta(opts)
+	if err == nil {
+		statsPacaya, err := c.getProtocolStatsPacaya(opts)
+		if err == nil {
+			return nil, err
+		}
+		return bindingTypes.NewInboxStatsPacaya(&statsPacaya.Stats1, &statsPacaya.Stats2), nil
+	}
+
+	return bindingTypes.NewInboxStatsShasta(&statsShasta.Stats1, &statsShasta.Stats2), nil
+}
+
+// getProtocolStatsPacaya gets the protocol states from Pacaya TaikoInbox contract.
+func (c *Client) getProtocolStatsPacaya(opts *bind.CallOpts) (*struct {
 	Stats1 pacayaBindings.ITaikoInboxStats1
 	Stats2 pacayaBindings.ITaikoInboxStats2
 }, error) {
@@ -547,6 +563,44 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	})
 	g.Go(func() error {
 		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
+		return err
+	})
+
+	return states, g.Wait()
+}
+
+// getProtocolStatsShasta gets the protocol states from Shasta TaikoInbox contract.
+func (c *Client) getProtocolStatsShasta(opts *bind.CallOpts) (*struct {
+	Stats1 shastaBindings.ITaikoInboxStats1
+	Stats2 shastaBindings.ITaikoInboxStats2
+}, error) {
+	if opts == nil {
+		opts = &bind.CallOpts{}
+	}
+
+	var ctx = context.Background()
+	if opts.Context != nil {
+		ctx = opts.Context
+	}
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+	opts.Context = ctxWithTimeout
+
+	var (
+		states = new(struct {
+			Stats1 shastaBindings.ITaikoInboxStats1
+			Stats2 shastaBindings.ITaikoInboxStats2
+		})
+		err error
+	)
+
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		states.Stats1, err = c.ShastaClients.TaikoInbox.V4GetStats1(opts)
+		return err
+	})
+	g.Go(func() error {
+		states.Stats2, err = c.ShastaClients.TaikoInbox.V4GetStats2(opts)
 		return err
 	})
 
@@ -857,12 +911,12 @@ func (c *Client) calculateBaseFeePacaya(
 
 // getGenesisHeight fetches the genesis height from the protocol.
 func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
 
-	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
+	return new(big.Int).SetUint64(stateVars.GenesisHeight()), nil
 }
 
 // GetProofVerifierPacaya resolves the Pacaya proof verifier address.
