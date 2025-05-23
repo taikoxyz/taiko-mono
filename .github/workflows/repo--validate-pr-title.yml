@@ -35,8 +35,6 @@ jobs:
             eventindexer
             fork-diff
             geth-rpc-gateway
-            guardian-prover-health-check
-            guardian-prover-health-check-ui
             protocol
             relayer
             nfts

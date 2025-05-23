@@ -182,6 +182,7 @@ func EncodeBatchParamsPacayaWithForcedInclusion(
 			return nil, fmt.Errorf("failed to abi.encode Pacaya batch params, %w", err)
 		}
 	}
+
 	y, err := BatchParamsPacayaComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode Pacaya batch params, %w", err)
