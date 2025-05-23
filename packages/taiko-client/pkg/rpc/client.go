@@ -358,14 +358,31 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) (err error) {
 			return err
 		}
 
-		c.PacayaClients.ForkHeights.Pacaya = protocolConfigs.ForkHeights.Pacaya
-		c.ShastaClients.ForkHeights.Shasta = protocolConfigs.ForkHeights.Shasta
-
+		c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
+			Ontake: protocolConfigs.ForkHeights.Ontake,
+			Pacaya: protocolConfigs.ForkHeights.Pacaya,
+			Shasta: protocolConfigs.ForkHeights.Shasta,
+			Unzen:  protocolConfigs.ForkHeights.Unzen,
+		}
+		c.ShastaClients.ForkHeights = &shastaBindings.ITaikoInboxForkHeights{
+			Ontake: protocolConfigs.ForkHeights.Ontake,
+			Pacaya: protocolConfigs.ForkHeights.Pacaya,
+			Shasta: protocolConfigs.ForkHeights.Shasta,
+			Unzen:  protocolConfigs.ForkHeights.Unzen,
+		}
 		return nil
 	}
-
-	c.PacayaClients.ForkHeights.Pacaya = protocolConfigs.ForkHeights.Pacaya
-	c.ShastaClients.ForkHeights.Shasta = protocolConfigs.ForkHeights.Shasta
-
+	c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
+		Ontake: protocolConfigs.ForkHeights.Ontake,
+		Pacaya: protocolConfigs.ForkHeights.Pacaya,
+		Shasta: protocolConfigs.ForkHeights.Shasta,
+		Unzen:  protocolConfigs.ForkHeights.Unzen,
+	}
+	c.ShastaClients.ForkHeights = &shastaBindings.ITaikoInboxForkHeights{
+		Ontake: protocolConfigs.ForkHeights.Ontake,
+		Pacaya: protocolConfigs.ForkHeights.Pacaya,
+		Shasta: protocolConfigs.ForkHeights.Shasta,
+		Unzen:  protocolConfigs.ForkHeights.Unzen,
+	}
 	return nil
 }
