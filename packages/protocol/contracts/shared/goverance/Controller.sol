@@ -56,19 +56,27 @@ abstract contract Controller is EssentialContract {
     /// @return results_ The raw returned data from the action
     function _executeActions(Action[] memory _actions) internal returns (bytes[] memory results_) {
         results_ = new bytes[](_actions.length);
+        uint64 _executionId = lastExecutionId;
         for (uint256 i; i < _actions.length; ++i) {
-            results_[i] = _executeAction(_actions[i]);
+            results_[i] = _executeAction(_executionId, _actions[i]);
         }
+        lastExecutionId = _executionId + 1;
     }
 
     /// @notice Execute a single action.
     /// @param _action The action to execute
     /// @return result_ The raw returned data from the action
-    function _executeAction(Action memory _action) internal returns (bytes memory result_) {
+    function _executeAction(
+        uint64 _executionId,
+        Action memory _action
+    )
+        internal
+        returns (bytes memory result_)
+    {
         bool success;
         (success, result_) = _action.target.call{ value: _action.value }(_action.data);
         if (!success) LibBytes.revertWithExtractedError(result_);
 
-        emit ActionExecuted(lastExecutionId, _action.target, _action.value, _action.data);
+        emit ActionExecuted(_executionId, _action.target, _action.value, _action.data);
     }
 }
