@@ -17,10 +17,22 @@ abstract contract Controller is EssentialContract {
         bytes data;
     }
 
-    // For backward compatibility reasons, this contract reserves no storage slots.
-    // bytes32[50] private __gap;
+    event ActionExecuted(
+        uint64 indexed executionId, address indexed target, uint256 value, bytes data
+    );
 
-    event ActionExecuted(address indexed target, uint256 value, bytes data);
+    // __reserved0 and __reserved1 are here to make sure this contract's layout is compatible with
+    // the DelegateOwner contract.
+
+    // solhint-disable var-name-mixedcase
+    uint256 private __reserved0;
+
+    /// @notice The last processed execution ID.
+    uint64 public lastExecutionId; // slot 2
+
+    // solhint-disable var-name-mixedcase
+    address private __reserved1; //
+    uint256[48] private __gap;
 
     constructor() EssentialContract() { }
 
@@ -57,6 +69,6 @@ abstract contract Controller is EssentialContract {
         (success, result_) = _action.target.call{ value: _action.value }(_action.data);
         if (!success) LibBytes.revertWithExtractedError(result_);
 
-        emit ActionExecuted(_action.target, _action.value, _action.data);
+        emit ActionExecuted(lastExecutionId, _action.target, _action.value, _action.data);
     }
 }

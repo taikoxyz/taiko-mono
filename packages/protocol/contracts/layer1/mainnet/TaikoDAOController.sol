@@ -27,6 +27,7 @@ contract TaikoDAOController is Controller {
         onlyOwner
         returns (bytes[] memory results_)
     {
-        return _executeActions(_actions);
+        lastExecutionId++;
+        results_ = _executeActions(_actions);
     }
 }
