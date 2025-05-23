@@ -315,7 +315,7 @@ func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 	// If current block number is less than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
 	if newHead.Number.Uint64() < s.highestUnsafeL2PayloadBlockID {
-		s.highestUnsafeL2PayloadBlockID = newHead.Number.Uint64()
+		s.updateHighestUnsafeL2Payload(newHead.Number.Uint64())
 	}
 
 	log.Debug(
