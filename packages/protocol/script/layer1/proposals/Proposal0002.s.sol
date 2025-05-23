@@ -35,7 +35,7 @@ contract Proposal0002 is BuildProposal {
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](7);
+        actions = new Controller.Action[](3);
 
         // Transfer 0.001 ETH from DAO Controller to Daniel Wang
         actions[0] =
@@ -54,9 +54,6 @@ contract Proposal0002 is BuildProposal {
             value: 0,
             data: abi.encodeCall(Ownable.transferOwnership, (L1_DANIEL_WANG_ADDRESS))
         });
-
-        // Upgrade TaikoDAOController to a new implementation
-        actions[3] = buildUpgradeAction(L1.DAO_CONTROLLER, L1_DAO_CONTROLLER_NEW_IMPL);
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {

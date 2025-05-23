@@ -122,9 +122,13 @@ abstract contract BuildProposal is Script {
 
         for (uint256 i; i < l1Actions.length; ++i) {
             allActions_[i] = l1Actions[i];
+            require(l1Actions[i].target != address(0), "l1 action's target is zero address");
         }
 
         Controller.Action[] memory l2Actions = buildL2Actions();
+        for (uint256 i; i < l2Actions.length; ++i) {
+            require(l2Actions[i].target != address(0), "l2 action's target is zero address");
+        }
 
         IBridge.Message memory message;
         message.destChainId = 167_000;
