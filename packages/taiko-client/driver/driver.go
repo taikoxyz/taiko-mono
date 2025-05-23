@@ -456,8 +456,8 @@ func (d *Driver) cacheLookaheadLoop() {
 		// We dont need to update the lookahead on every slot, we just need to make sure we do it
 		// once per epoch, since we push the next operator as the current range when we check.
 		// so, this means we should use a reliable slot past 0 where the operator has no possible
-		// way to change. mid-epooch works, so we use slot 16.
-		if lookahead == nil || lookahead.LastEpochUpdated < currentEpoch && slotInEpoch >= 15 {
+		// way to change. mid-epooch works, so we use slot 2.
+		if lookahead == nil || lookahead.LastEpochUpdated < currentEpoch && slotInEpoch >= 2 {
 			log.Info(
 				"Pushing into window for current epoch",
 				"epoch", currentEpoch,
