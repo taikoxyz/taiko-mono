@@ -15,8 +15,8 @@ contract Proposal0002 is BuildProposal {
     // L1 contracts
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
     address public constant L1_FOO_CONTRACT = 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65;
-    address public constant L1_TAIKO_DAO_CONTROLLER_NEW_IMPL =
-        0x0000000000000000000000000000000000000000;
+    address public constant L1_DAO_CONTROLLER_NEW_IMPL =
+        0x7a7CE80502c46C768B8d341dcbaa99Ffe7338f33;
 
     // L2 contracts
     address public constant L2_DELEGATE_CONTROLLER_NEW_IMPL =
@@ -57,7 +57,7 @@ contract Proposal0002 is BuildProposal {
         });
 
         // Upgrade TaikoDAOController to a new implementation
-        actions[3] = buildUpgradeAction(L1.DAO_CONTROLLER, L1_TAIKO_DAO_CONTROLLER_NEW_IMPL);
+        actions[3] = buildUpgradeAction(L1.DAO_CONTROLLER, L1_DAO_CONTROLLER_NEW_IMPL);
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
