@@ -253,7 +253,7 @@ func isKnownCanonicalBatch(
 				b,
 				anchorTx,
 			); err != nil {
-				return fmt.Errorf("failed to check if block is preconfirmed: %w", err)
+				return fmt.Errorf("block %d is an unknown block, reason: %w", createExecutionPayloadsMetaData.BlockID, err)
 			}
 
 			return nil
