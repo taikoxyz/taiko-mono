@@ -8,6 +8,7 @@ The following L1 actions will be executed by the `TaikoDAOController`:
 
 - Transfer 0.001 ETH to Daniel Wang
 - Transfer 1 USDC to Daniel Wang
+- Transfer `FooUpgradable` ownership to Daniel Wang
 
 These actions aim to validate that the `TaikoDAOController` can securely manage and transfer both Ether and ERC20 tokens.
 
@@ -20,6 +21,7 @@ The following L2 actions will be executed via the `DelegateController` contract:
 - Upgrade `BarUpgradable` (a test contract) to a new implementation (code remains unchanged)
 - Transfer 1 TAIKO token from `BarUpgradable` to Daniel Wang
 - Transfer 0.001 ETH from `BarUpgradable` to Daniel Wang
+- Transfer `BarUpgradable` ownership to Daniel Wang
 
 These actions aim to validate that the `DelegateController` can securely manage and transfer both Ether and tokens.
 

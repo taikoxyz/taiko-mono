@@ -14,6 +14,7 @@ interface IBarContract {
 contract Proposal0002 is BuildProposal {
     // L1 contracts
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
+    address public constant L1_FOO_CONTRACT = 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65;
 
     // L2 contracts
     address public constant L2_DELEGATE_CONTROLLER_NEW_IMPL =
@@ -33,7 +34,7 @@ contract Proposal0002 is BuildProposal {
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](2);
+        actions = new Controller.Action[](3);
 
         // Transfer 0.001 ETH from DAO Controller to Daniel Wang
         actions[0] =
@@ -45,10 +46,17 @@ contract Proposal0002 is BuildProposal {
             value: 0,
             data: abi.encodeCall(IERC20.transfer, (L1_DANIEL_WANG_ADDRESS, 1e6))
         });
+
+        // Transfer Foo contract ownership to Daniel Wang
+        actions[2] = Controller.Action({
+            target: L1_FOO_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(Ownable.transferOwnership, (L1_DANIEL_WANG_ADDRESS))
+        });
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](5);
+        actions = new Controller.Action[](6);
 
         // Upgrade DelegateController to a new implementation
         actions[0] = buildUpgradeAction(L2.DELEGATE_CONTROLLER, L2_DELEGATE_CONTROLLER_NEW_IMPL);
@@ -79,6 +87,13 @@ contract Proposal0002 is BuildProposal {
             data: abi.encodeCall(
                 IBarContract.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.001 ether)
             )
+        });
+
+        // Transfer Bar contract ownership to Daniel Wang
+        actions[5] = Controller.Action({
+            target: L2_BAR_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(Ownable.transferOwnership, (L2_DANIEL_WANG_ADDRESS))
         });
     }
 }
