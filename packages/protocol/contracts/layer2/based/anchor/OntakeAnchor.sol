@@ -11,6 +11,8 @@ import "../IBlockHashProvider.sol";
 abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
     error L2_DEPRECATED_METHOD();
 
+    constructor() EssentialContract() { }
+
     modifier deprecated() {
         revert L2_DEPRECATED_METHOD();
         _;

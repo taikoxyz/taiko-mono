@@ -60,11 +60,11 @@ interface ILookaheadStore {
     error PosterHasInsufficientCollateral();
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
-    error SlasherIsNotGuardian();
+    error SlasherIsNotProtector();
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
-        bool indexed isPostedByGuardian,
+        bool indexed isPostedByProtector,
         uint256 indexed epochTimestamp,
         bytes32 lookaheadHash,
         LookaheadSlot[] lookaheadSlot
@@ -73,7 +73,7 @@ interface ILookaheadStore {
     /// @notice Allows a registered operator to post the lookahead for the next epoch.
     /// @param _registrationRoot The registration root of the posting-operator in the URC.
     /// @param _data The signed commitment containing the lookahead data, or the lookahead data if
-    /// posted by the guardian.
+    /// posted by the protector.
     function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external;
 
     /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.

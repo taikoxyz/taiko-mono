@@ -10,33 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
 
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 const (
-	defaultTimeout                = 1 * time.Minute
-	pacayaForkHeightDevnet        = 10
-	pacayaForkHeightHekla         = 1_299_888
-	pacayaForkHeightMainnet       = 999_999_999_999
-	pacayaForkHeightPreconfDevnet = 0
-	pacayaForkHeightMasaya        = 0
+	defaultTimeout = 1 * time.Minute
 )
-
-// OntakeClients contains all smart contract clients for Ontake fork.
-type OntakeClients struct {
-	TaikoL1                *ontakeBindings.TaikoL1Client
-	LibProposing           *ontakeBindings.LibProposing
-	TaikoL2                *ontakeBindings.TaikoL2Client
-	TaikoToken             *ontakeBindings.TaikoToken
-	GuardianProverMajority *ontakeBindings.GuardianProver
-	GuardianProverMinority *ontakeBindings.GuardianProver
-	ProverSet              *ontakeBindings.ProverSet
-	ForkRouter             *ontakeBindings.ForkRouter
-	ForkHeight             uint64
-}
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
 type PacayaClients struct {
@@ -49,7 +29,7 @@ type PacayaClients struct {
 	ForkRouter           *pacayaBindings.ForkRouter
 	ComposeVerifier      *pacayaBindings.ComposeVerifier
 	PreconfWhitelist     *pacayaBindings.PreconfWhitelist
-	ForkHeight           uint64
+	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -63,7 +43,6 @@ type Client struct {
 	// Beacon clients
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
-	OntakeClients *OntakeClients
 	PacayaClients *PacayaClients
 }
 
@@ -71,22 +50,20 @@ type Client struct {
 // RPC client. If not providing L2EngineEndpoint or JwtSecret, then the L2Engine client
 // won't be initialized.
 type ClientConfig struct {
-	L1Endpoint                    string
-	L2Endpoint                    string
-	L1BeaconEndpoint              string
-	L2CheckPoint                  string
-	TaikoL1Address                common.Address
-	TaikoWrapperAddress           common.Address
-	TaikoL2Address                common.Address
-	TaikoTokenAddress             common.Address
-	ForcedInclusionStoreAddress   common.Address
-	PreconfWhitelistAddress       common.Address
-	GuardianProverMinorityAddress common.Address
-	GuardianProverMajorityAddress common.Address
-	ProverSetAddress              common.Address
-	L2EngineEndpoint              string
-	JwtSecret                     string
-	Timeout                       time.Duration
+	L1Endpoint                  string
+	L2Endpoint                  string
+	L1BeaconEndpoint            string
+	L2CheckPoint                string
+	TaikoInboxAddress           common.Address
+	TaikoWrapperAddress         common.Address
+	TaikoAnchorAddress          common.Address
+	TaikoTokenAddress           common.Address
+	ForcedInclusionStoreAddress common.Address
+	PreconfWhitelistAddress     common.Address
+	ProverSetAddress            common.Address
+	L2EngineEndpoint            string
+	JwtSecret                   string
+	Timeout                     time.Duration
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -154,9 +131,6 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	// Initialize all smart contract clients.
-	if err := c.initOntakeClients(cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Ontake clients: %w", err)
-	}
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
@@ -169,95 +143,26 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
-	if err := c.ensureGenesisMatched(ctxWithTimeout); err != nil {
+	if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.TaikoInboxAddress); err != nil {
 		return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
 	}
 
 	return c, nil
 }
 
-// initOntakeClients initializes all Ontake smart contract clients.
-func (c *Client) initOntakeClients(cfg *ClientConfig) error {
-	taikoL1, err := ontakeBindings.NewTaikoL1Client(cfg.TaikoL1Address, c.L1)
-	if err != nil {
-		return err
-	}
-
-	forkRouter, err := ontakeBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
-	if err != nil {
-		return err
-	}
-
-	libProposing, err := ontakeBindings.NewLibProposing(cfg.TaikoL1Address, c.L1)
-	if err != nil {
-		return err
-	}
-
-	taikoL2, err := ontakeBindings.NewTaikoL2Client(cfg.TaikoL2Address, c.L2)
-	if err != nil {
-		return err
-	}
-
-	var (
-		taikoToken             *ontakeBindings.TaikoToken
-		guardianProverMajority *ontakeBindings.GuardianProver
-		guardianProverMinority *ontakeBindings.GuardianProver
-		proverSet              *ontakeBindings.ProverSet
-	)
-	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
-		if taikoToken, err = ontakeBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
-			return err
-		}
-	}
-	if cfg.GuardianProverMinorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMinority, err = ontakeBindings.NewGuardianProver(
-			cfg.GuardianProverMinorityAddress,
-			c.L1,
-		); err != nil {
-			return err
-		}
-	}
-	if cfg.GuardianProverMajorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMajority, err = ontakeBindings.NewGuardianProver(
-			cfg.GuardianProverMajorityAddress,
-			c.L1,
-		); err != nil {
-			return err
-		}
-	}
-	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
-		if proverSet, err = ontakeBindings.NewProverSet(cfg.ProverSetAddress, c.L1); err != nil {
-			return err
-		}
-	}
-
-	c.OntakeClients = &OntakeClients{
-		TaikoL1:                taikoL1,
-		LibProposing:           libProposing,
-		TaikoL2:                taikoL2,
-		TaikoToken:             taikoToken,
-		GuardianProverMajority: guardianProverMajority,
-		GuardianProverMinority: guardianProverMinority,
-		ProverSet:              proverSet,
-		ForkRouter:             forkRouter,
-	}
-
-	return nil
-}
-
 // initPacayaClients initializes all Pacaya smart contract clients.
 func (c *Client) initPacayaClients(cfg *ClientConfig) error {
-	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoL1Address, c.L1)
+	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoInboxAddress, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of TaikoInboxClient: %w", err)
 	}
 
-	forkRouter, err := pacayaBindings.NewForkRouter(cfg.TaikoL1Address, c.L1)
+	forkRouter, err := pacayaBindings.NewForkRouter(cfg.TaikoInboxAddress, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of ForkRouter: %w", err)
 	}
 
-	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoL2Address, c.L2)
+	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoAnchorAddress, c.L2)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of TaikoAnchorClient: %w", err)
 	}
@@ -332,48 +237,19 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 // initForkHeightConfigs initializes the fork heights in protocol.
 func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
-	// If failed to get protocol configs, we are assuming the current chain is still before the Pacaya fork,
-	// use pre-defined Pacaya fork height.
 	if err != nil {
-		log.Debug(
-			"Failed to get protocol configs, using pre-defined Pacaya fork height",
-			"error", err,
-		)
-		switch c.L2.ChainID.Uint64() {
-		case params.HeklaNetworkID.Uint64():
-			c.PacayaClients.ForkHeight = pacayaForkHeightHekla
-		case params.TaikoMainnetNetworkID.Uint64():
-			c.PacayaClients.ForkHeight = pacayaForkHeightMainnet
-		case params.PreconfDevnetNetworkID.Uint64():
-			c.PacayaClients.ForkHeight = pacayaForkHeightPreconfDevnet
-		case params.MasayaDevnetNetworkID.Uint64():
-			c.PacayaClients.ForkHeight = pacayaForkHeightMasaya
-		default:
-			log.Debug("Using devnet Pacaya fork height", "height", pacayaForkHeightDevnet)
-			c.PacayaClients.ForkHeight = pacayaForkHeightDevnet
-		}
-
-		log.Info(
-			"Pacaya fork client fork height",
-			"chainID", c.L2.ChainID.Uint64(),
-			"forkHeight", c.PacayaClients.ForkHeight,
-		)
-
-		ontakeProtocolConfigs, err := c.OntakeClients.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return fmt.Errorf("failed to get Ontake protocol configs: %w", err)
-		}
-		c.OntakeClients.ForkHeight = ontakeProtocolConfigs.OntakeForkHeight
-		return nil
+		return err
 	}
 
-	// Otherwise, chain is after the Pacaya fork, just use the fork height numbers from the protocol configs.
-	c.OntakeClients.ForkHeight = protocolConfigs.ForkHeights.Ontake
-	c.PacayaClients.ForkHeight = protocolConfigs.ForkHeights.Pacaya
+	c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
+		Ontake: protocolConfigs.ForkHeights.Ontake,
+		Pacaya: protocolConfigs.ForkHeights.Pacaya,
+	}
 
-	log.Info("Forkheight configs",
-		"ontakeForkHeight", c.OntakeClients.ForkHeight,
-		"pacayaForkHeight", c.PacayaClients.ForkHeight,
+	log.Info(
+		"Fork height configs",
+		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
+		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
 	)
 
 	return nil

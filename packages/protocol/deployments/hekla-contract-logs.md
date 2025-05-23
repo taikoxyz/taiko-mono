@@ -204,30 +204,6 @@
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
-### guardian_prover
-
-- proxy: `0x92F195a8702da2104aE8E3E10779176E7C35d6BC`
-- impl: `0x426A2DA100727d8f3e89252Ba125acbd0e048aDe`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - upgraded on May 10, 2024 at commit `4903bec`
-  - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transferred ownership on Jul 8, 2024
-  - upgraded on Sep 20, 2024 at commit `fd1c039`
-  - upgraded on Oct 29, 2024 at commit `3d12cb2`
-
-### guardian_minority
-
-- proxy: `0x31d4d27da5c299d4b6CE19c869B8891C0002795d`
-- impl: `0x8ACaB96A6e8bf611E21A6eA332C6509c8d0b699f`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on May 20, 2024 at commit `6e56475`
-  - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transferred ownership on Jul 8, 2024
-  - upgraded on Sep 20, 2024 at commit `fd1c039`
-  - upgraded on Oct 29, 2024 at commit `3d12cb2`
-
 ### tier_sgx
 
 - proxy : 0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9

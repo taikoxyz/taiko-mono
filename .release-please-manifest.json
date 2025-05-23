@@ -1,10 +1,8 @@
 {
   "packages/bridge-ui": "2.14.0",
-  "packages/docs-site": "1.27.5",
+  "packages/docs-site": "1.27.6",
   "packages/eventindexer": "0.13.0",
-  "packages/fork-diff": "0.6.3",
-  "packages/guardian-prover-health-check": "0.1.0",
-  "packages/guardian-prover-health-check-ui": "0.2.0",
+  "packages/fork-diff": "0.7.0",
   "packages/protocol": "2.3.0",
   "packages/relayer": "0.12.0",
   "packages/snaefell-ui": "1.1.0",

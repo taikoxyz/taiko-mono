@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
@@ -38,32 +37,14 @@ func (s *AnchorTxConstructorTestSuite) TestGasLimit() {
 	s.Greater(consensus.AnchorGasLimit, uint64(0))
 }
 
-func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorTx() {
-	tx, err := s.c.AssembleAnchorTx(context.Background(), s.l1Height, s.l1Hash, common.Big1, common.Big256, 1024)
-	s.Nil(err)
-	s.NotNil(tx)
-}
-
-func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
-	tx, err := s.c.AssembleAnchorV2Tx(
-		context.Background(),
-		s.l1Height,
-		s.l1Hash,
-		1024,
-		&ontakeBindings.LibSharedDataBaseFeeConfig{},
-		common.Big1,
-		common.Big256,
-	)
-	s.Nil(err)
-	s.NotNil(tx)
-}
-
 func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
 	tx, err := s.c.AssembleAnchorV3Tx(
 		context.Background(),
 		s.l1Height,
 		s.l1Hash,
-		1024,
+		head,
 		&pacayaBindings.LibSharedDataBaseFeeConfig{},
 		[][32]byte{},
 		common.Big1,
@@ -74,13 +55,16 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
 }
 
 func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
-	goldenTouchAddress, err := s.RPCClient.OntakeClients.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	c, err := New(s.RPCClient)
 	s.Nil(err)
 
-	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256)
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256, head.Hash())
 	s.Nil(err)
 	s.Equal(true, opts.NoSend)
 	s.Equal(common.Big0, opts.Nonce)
@@ -92,7 +76,11 @@ func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
 func (s *AnchorTxConstructorTestSuite) TestCancelCtxTransactOpts() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	opts, err := s.c.transactOpts(ctx, common.Big1, common.Big256)
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	opts, err := s.c.transactOpts(ctx, common.Big1, common.Big256, head.Hash())
 	s.Nil(opts)
 	s.ErrorContains(err, "context canceled")
 }

@@ -42,7 +42,7 @@ jobs:
           echo "TAIKO_GETH_VERSION=$(jq -r '.gethVersion' packages/fork-diff/version_config.json)" >> $GITHUB_ENV
 
       - name: Clone forkdiff
-        run: git clone https://github.com/protolambda/forkdiff.git
+        run: git clone --branch patch-1 https://github.com/taikoxyz/forkdiff.git
 
       - name: Clone taiko-geth
         run: git clone --branch ${{ env.TAIKO_GETH_VERSION }} https://github.com/taikoxyz/taiko-geth.git

@@ -102,4 +102,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	IndexNFTs,
 	IndexERC20s,
 	OntakeForkHeight,
+	PacayaForkHeight,
 })

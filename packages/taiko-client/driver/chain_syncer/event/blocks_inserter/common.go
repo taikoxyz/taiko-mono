@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -39,7 +40,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoL2.anchorV2 / TaikoAnchor.anchorV3 transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -48,11 +49,22 @@ func createPayloadAndSetHead(
 	}
 
 	// Increase the gas limit for the anchor block.
-	if meta.BlockID.Uint64() >= rpc.PacayaClients.ForkHeight {
-		meta.GasLimit += consensus.AnchorV3GasLimit
-	} else {
-		meta.GasLimit += consensus.AnchorGasLimit
-	}
+	meta.GasLimit += consensus.AnchorV3GasLimit
+
+	// Update execution payload id for the L1 origin.
+	var (
+		txListHash = crypto.Keccak256Hash(txListBytes)
+		args       = &miner.BuildPayloadArgs{
+			Parent:       meta.ParentHash,
+			Timestamp:    meta.Timestamp,
+			FeeRecipient: meta.SuggestedFeeRecipient,
+			Random:       meta.Difficulty,
+			Withdrawals:  make([]*types.Withdrawal, 0),
+			Version:      engine.PayloadV2,
+			TxListHash:   &txListHash,
+		}
+	)
+	meta.L1Origin.BuildPayloadArgsID = args.Id()
 
 	// Create a new execution payload and set the chain head.
 	return createExecutionPayloadsAndSetHead(ctx, rpc, meta.createExecutionPayloadsMetaData, txListBytes)
@@ -75,18 +87,11 @@ func createExecutionPayloadsAndSetHead(
 	var lastVerifiedBlockHash common.Hash
 	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
 	if err != nil {
-		lastVerifiedBlockInfo, err := rpc.GetLastVerifiedBlockOntake(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-		}
+		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+	}
 
-		if meta.BlockID.Uint64() > lastVerifiedBlockInfo.BlockId {
-			lastVerifiedBlockHash = lastVerifiedBlockInfo.BlockHash
-		}
-	} else {
-		if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
-			lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
-		}
+	if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
+		lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -132,7 +137,7 @@ func createExecutionPayloads(
 	}
 
 	log.Debug(
-		"PayloadAttributes",
+		"Payload attributes",
 		"blockID", meta.BlockID,
 		"timestamp", attributes.Timestamp,
 		"random", attributes.Random,
@@ -193,9 +198,9 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
-// isBatchPreconfirmed checks if all blocks in the given batch are preconfirmed,
-// and returns the header of the last block in the batch if it is preconfirmed.
-func isBatchPreconfirmed(
+// isKnownCanonicalBatch checks if all blocks in the given batch are in the canonical chain already.,
+// and returns the header of the last block in the batch if it is.
+func isKnownCanonicalBatch(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
@@ -235,7 +240,7 @@ func isBatchPreconfirmed(
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
 
-			if headers[i], err = isBlockPreconfirmed(
+			if headers[i], err = isKnownCanonicalBlock(
 				ctx,
 				rpc,
 				&createPayloadAndSetHeadMetaData{
@@ -258,8 +263,8 @@ func isBatchPreconfirmed(
 	return headers[len(headers)-1], g.Wait()
 }
 
-// isBlockPreconfirmed checks if the block is preconfirmed.
-func isBlockPreconfirmed(
+// isKnownCanonicalBlock checks if the block is in canonical chain already.
+func isKnownCanonicalBlock(
 	ctx context.Context,
 	rpc *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
@@ -280,32 +285,60 @@ func isBlockPreconfirmed(
 		txListHash = crypto.Keccak256Hash(txListBytes[:])
 		args       = &miner.BuildPayloadArgs{
 			Parent:       meta.Parent.Hash(),
-			Timestamp:    block.Time(),
-			FeeRecipient: block.Coinbase(),
-			Random:       block.MixDigest(),
+			Timestamp:    meta.Timestamp,
+			FeeRecipient: meta.SuggestedFeeRecipient,
+			Random:       meta.Difficulty,
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
 		}
 		id = args.Id()
 	)
-	executableData, err := rpc.L2Engine.GetPayload(ctx, &id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get payload: %w", err)
-	}
 
+	log.Info(
+		"Check if block is known in canonical chain",
+		"blockID", blockID,
+		"blockHash", block.Hash(),
+		"args", args,
+	)
+
+	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return nil, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
+	}
+	// If L1Origin is not found, it means this block is synced from beacon sync.
+	if l1Origin == nil {
+		return nil, fmt.Errorf("L1Origin not found by ID %d", blockID)
+	}
+	// If the payload ID matches, it means this block is already in the canonical chain.
+	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
+		return nil, fmt.Errorf(
+			`payload ID for block %d mismatch,
+			l1Origin payload id: %s,
+			current payload id %s,
+			parentHash: %s,
+			timestamp: %d,
+			suggestedFeeRecipient: %s,
+			difficulty: %s,
+			txListHash: %s`,
+			blockID,
+			engine.PayloadID(l1Origin.BuildPayloadArgsID),
+			id,
+			meta.Parent.Hash().Hex(),
+			meta.Timestamp,
+			meta.SuggestedFeeRecipient.Hex(),
+			meta.Difficulty.Hex(),
+			txListHash.Hex(),
+		)
+	}
 	defer func() {
 		if err != nil {
-			log.Warn("Invalid preconfirmed block", "blockID", blockID, "coinbase", executableData.FeeRecipient, "reason", err)
+			log.Warn("Invalid known block", "blockID", blockID, "coinbase", block.Coinbase(), "reason", err)
 		}
 	}()
 
-	if executableData.BlockHash != block.Hash() {
-		err = fmt.Errorf("block hash mismatch: %s != %s", executableData.BlockHash, block.Hash())
-		return nil, err
-	}
-	if block.ParentHash() != meta.ParentHash {
-		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.ParentHash)
+	if block.ParentHash() != meta.Parent.Hash() {
+		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash())
 		return nil, err
 	}
 	if block.Transactions().Len() == 0 {
@@ -392,7 +425,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, true, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -401,6 +434,8 @@ func assembleCreateExecutionPayloadMetaPacaya(
 		"L2 baseFee",
 		"blockID", blockID,
 		"baseFee", utils.WeiToGWei(baseFee),
+		"parentnumber", parent.Number,
+		"parentHash", parent.Hash(),
 		"parentGasUsed", parent.GasUsed,
 		"batchID", meta.GetBatchID(),
 		"indexInBatch", blockIndex,
@@ -416,7 +451,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 		ctx,
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		anchorBlockHeader.Root,
-		parent.GasUsed,
+		parent,
 		meta.GetBaseFeeConfig(),
 		meta.GetBlocks()[blockIndex].SignalSlots,
 		blockID,
@@ -458,6 +493,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	}, anchorTx, nil
 }
 
+// updateL1OriginForBatch updates the L1 origin for the given batch of blocks.
 func updateL1OriginForBatch(
 	ctx context.Context,
 	rpc *rpc.Client,
@@ -487,9 +523,19 @@ func updateL1OriginForBatch(
 				L1BlockHeight: meta.GetRawBlockHeight(),
 				L1BlockHash:   meta.GetRawBlockHash(),
 			}
+			// Fetch the original L1Origin to get the BuildPayloadArgsID.
+			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
+			if err != nil && !errors.Is(err, ethereum.NotFound) {
+				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
+			}
+			// If L1Origin is not found, it means this block is synced from beacon sync,
+			// and we also won't set the `BuildPayloadArgsID` value.
+			if originalL1Origin != nil {
+				l1Origin.BuildPayloadArgsID = originalL1Origin.BuildPayloadArgsID
+			}
 
 			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
-				return fmt.Errorf("failed to update L1 origin: %w", err)
+				return fmt.Errorf("failed to update L1Origin: %w", err)
 			}
 
 			// If this is the most recent block, update the HeadL1Origin.

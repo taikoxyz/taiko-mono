@@ -26,69 +26,8 @@ func NewBlobTxListFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher 
 	return &BlobFetcher{cli, ds}
 }
 
-// FetchOntake implements the TxListFetcher interface.
-func (d *BlobFetcher) FetchOntake(
-	ctx context.Context,
-	meta metadata.TaikoBlockMetaDataOntake,
-) ([]byte, error) {
-	if !meta.GetBlobUsed() {
-		return nil, pkg.ErrBlobUnused
-	}
-
-	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(
-		ctx,
-		meta.GetProposedAt(),
-		[]common.Hash{meta.GetBlobHash()},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Info(
-		"Fetch sidecars",
-		"blockNumber", meta.GetRawBlockHeight(),
-		"sidecars", len(sidecars),
-	)
-
-	// Compare the blob hash with the sidecar's kzg commitment.
-	for i, sidecar := range sidecars {
-		log.Info(
-			"Block sidecar",
-			"index", i,
-			"KzgCommitment", sidecar.KzgCommitment,
-			"blobHash", meta.GetBlobHash(),
-		)
-
-		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() {
-			blob := eth.Blob(common.FromHex(sidecar.Blob))
-			bytes, err := blob.ToData()
-			if err != nil {
-				return nil, err
-			}
-
-			if meta.GetBlobTxListLength() == 0 {
-				return bytes, nil
-			}
-
-			b, err := sliceTxList(meta.GetBlockID(), bytes, meta.GetBlobTxListOffset(), meta.GetBlobTxListLength())
-			if err != nil {
-				log.Warn("Invalid txlist offset and size in metadata", "blockID", meta.GetBlockID(), "err", err)
-				return []byte{}, nil
-			}
-			return b, nil
-		}
-	}
-
-	return nil, pkg.ErrSidecarNotFound
-}
-
 // FetchPacaya implements the TxListFetcher interface.
-func (d *BlobFetcher) FetchPacaya(
-	ctx context.Context,
-	meta metadata.TaikoBatchMetaDataPacaya,
-) ([]byte, error) {
+func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchMetaDataPacaya) ([]byte, error) {
 	if len(meta.GetBlobHashes()) == 0 {
 		return nil, pkg.ErrBlobUnused
 	}
@@ -97,7 +36,7 @@ func (d *BlobFetcher) FetchPacaya(
 	if meta.GetBlobCreatedIn().Int64() == 0 {
 		blockNum = meta.GetProposedIn()
 	} else {
-		blockNum = uint64(meta.GetBlobCreatedIn().Int64())
+		blockNum = meta.GetBlobCreatedIn().Uint64()
 	}
 
 	// Fetch the L1 block header with the given blob.
@@ -106,23 +45,15 @@ func (d *BlobFetcher) FetchPacaya(
 		return nil, err
 	}
 
-	var b []byte
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(
-		ctx,
-		l1Header.Time,
-		meta.GetBlobHashes(),
-	)
+	sidecars, err := d.dataSource.GetBlobs(ctx, l1Header.Time, meta.GetBlobHashes())
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info(
-		"Fetch sidecars",
-		"blockNumber", blockNum,
-		"sidecars", len(sidecars),
-	)
+	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(sidecars))
 
+	var b []byte
 	for _, blobHash := range meta.GetBlobHashes() {
 		// Compare the blob hash with the sidecar's kzg commitment.
 		for j, sidecar := range sidecars {
@@ -142,6 +73,8 @@ func (d *BlobFetcher) FetchPacaya(
 				}
 
 				b = append(b, bytes...)
+				// Exit the loop as the matching sidecar has been found and processed.
+				break
 			}
 		}
 	}

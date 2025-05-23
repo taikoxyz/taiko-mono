@@ -12,7 +12,7 @@ contract BridgedTaikoTokenTest is CommonTest {
         return BridgedTaikoToken(
             deploy({
                 name: "taiko_token",
-                impl: address(new BridgedTaikoToken()),
+                impl: address(new BridgedTaikoToken(deployer)),
                 data: abi.encodeCall(BridgedTaikoToken.init, (address(0)))
             })
         );
@@ -20,8 +20,6 @@ contract BridgedTaikoTokenTest is CommonTest {
 
     function setUpOnTaiko() internal override {
         token = deployBridgedTaikoToken();
-
-        resolver.registerAddress(block.chainid, LibStrings.B_ERC20_VAULT, deployer);
     }
 
     function test_init() public view {
