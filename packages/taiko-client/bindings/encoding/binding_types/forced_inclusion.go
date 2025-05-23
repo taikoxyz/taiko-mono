@@ -1,4 +1,4 @@
-package params
+package bindingTypes
 
 import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"

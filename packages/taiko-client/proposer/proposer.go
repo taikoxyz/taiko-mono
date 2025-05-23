@@ -18,7 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -372,7 +372,7 @@ func (p *Proposer) ProposeTxListPacaya(
 	txCandidate, err := p.txBuilder.BuildPacaya(
 		ctx,
 		txBatch,
-		params.NewForcedInclusionPacaya(forcedInclusion),
+		bindingTypes.NewForcedInclusionPacaya(forcedInclusion),
 		minTxsPerForcedInclusion,
 		parentMetaHash,
 	)

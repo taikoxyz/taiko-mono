@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	protocolParams "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -1154,7 +1154,7 @@ func (s *DriverTestSuite) proposePreconfBatch(
 		to          = &s.p.TaikoInboxAddress
 		proposer    = crypto.PubkeyToAddress(s.p.L1ProposerPrivKey.PublicKey)
 		data        []byte
-		blockParams []protocolParams.ITaikoInboxBlockParams
+		blockParams []bindingTypes.ITaikoInboxBlockParams
 		allTxs      types.Transactions
 	)
 
@@ -1169,7 +1169,7 @@ func (s *DriverTestSuite) proposePreconfBatch(
 
 	for i, b := range blocks {
 		allTxs = append(allTxs, b.Transactions()[1:]...)
-		blockParams = append(blockParams, protocolParams.NewBlockParams(
+		blockParams = append(blockParams, bindingTypes.NewBlockParams(
 			uint16(b.Transactions()[1:].Len()),
 			timeShifts[i],
 			[][32]byte{},
@@ -1183,14 +1183,14 @@ func (s *DriverTestSuite) proposePreconfBatch(
 
 	encodedParams, err := encoding.EncodeBatchParamsWithForcedInclusion(
 		nil,
-		protocolParams.NewBatchParamsShasta(
+		bindingTypes.NewBatchParamsShasta(
 			proposer,
 			blocks[0].Coinbase(),
 			[32]byte{},
 			anchoredL1Blocks[0].Number.Uint64(),
 			blocks[len(blocks)-1].Time(),
 			false,
-			protocolParams.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
+			bindingTypes.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
 			blockParams,
 			[]byte{},
 		),

@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 )
 
 // BatchProposalTransactionBuilder is an interface for building a TaikoInbox.proposeBatch /
@@ -17,14 +17,14 @@ type BatchProposalTransactionBuilder interface {
 	BuildPacaya(
 		ctx context.Context,
 		txBatch []types.Transactions,
-		forcedInclusion params.IForcedInclusionStoreForcedInclusion,
+		forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
 		minTxsPerForcedInclusion *big.Int,
 		parentMetahash common.Hash,
 	) (*txmgr.TxCandidate, error)
 	BuildShasta(
 		ctx context.Context,
 		txBatch []types.Transactions,
-		forcedInclusion params.IForcedInclusionStoreForcedInclusion,
+		forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
 		minTxsPerForcedInclusion *big.Int,
 		parentMetahash common.Hash,
 	) (*txmgr.TxCandidate, error)

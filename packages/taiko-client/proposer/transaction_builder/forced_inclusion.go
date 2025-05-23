@@ -3,20 +3,20 @@ package builder
 import (
 	"math/big"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 )
 
 // buildParamsForForcedInclusion builds the blob params and the block params
 // for the given forced inclusion.
 func buildParamsForForcedInclusion(
-	forcedInclusion params.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
-) (params.ITaikoInboxBlobParams, []params.ITaikoInboxBlockParams) {
+) (bindingTypes.ITaikoInboxBlobParams, []bindingTypes.ITaikoInboxBlockParams) {
 	if forcedInclusion == nil {
 		return nil, nil
 	}
 
-	blobParams := params.NewBlobParams(
+	blobParams := bindingTypes.NewBlobParams(
 		[][32]byte{forcedInclusion.BlobHash()},
 		0,
 		0,
@@ -25,7 +25,7 @@ func buildParamsForForcedInclusion(
 		forcedInclusion.BlobCreatedIn(),
 	)
 
-	return blobParams, []params.ITaikoInboxBlockParams{params.NewBlockParams(
+	return blobParams, []bindingTypes.ITaikoInboxBlockParams{bindingTypes.NewBlockParams(
 		uint16(minTxsPerForcedInclusion.Uint64()), 0, make([][32]byte, 0),
 	)}
 }

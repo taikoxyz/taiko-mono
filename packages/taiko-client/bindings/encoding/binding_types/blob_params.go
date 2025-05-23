@@ -1,4 +1,4 @@
-package params
+package bindingTypes
 
 // BlobParams should be same with ITaikoInbox.BlobParams.
 type BlobParams struct {

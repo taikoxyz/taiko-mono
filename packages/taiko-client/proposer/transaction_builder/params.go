@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/params"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -24,16 +24,16 @@ func BuildProposalParams(
 	revertProtectionEnabled bool,
 	proposer common.Address,
 	txBatch []types.Transactions,
-	forcedInclusion params.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) ([]byte, []byte, error) {
 	var (
-		forcedInclusionblobParams  params.ITaikoInboxBlobParams
-		forcedInclusionblockParams []params.ITaikoInboxBlockParams
-		forcedInclusionBatchParams params.ITaikoInboxBatchParams
-		blockParams                []params.ITaikoInboxBlockParams
-		batchParams                params.ITaikoInboxBatchParams
+		forcedInclusionblobParams  bindingTypes.ITaikoInboxBlobParams
+		forcedInclusionblockParams []bindingTypes.ITaikoInboxBlockParams
+		forcedInclusionBatchParams bindingTypes.ITaikoInboxBatchParams
+		blockParams                []bindingTypes.ITaikoInboxBlockParams
+		batchParams                bindingTypes.ITaikoInboxBatchParams
 		allTxs                     types.Transactions
 	)
 
@@ -47,7 +47,7 @@ func BuildProposalParams(
 
 	for _, txs := range txBatch {
 		allTxs = append(allTxs, txs...)
-		blockParams = append(blockParams, params.NewBlockParams(uint16(len(txs)), 0, make([][32]byte, 0)))
+		blockParams = append(blockParams, bindingTypes.NewBlockParams(uint16(len(txs)), 0, make([][32]byte, 0)))
 	}
 
 	txListsBytes, err := utils.EncodeAndCompressTxList(allTxs)
@@ -63,7 +63,7 @@ func BuildProposalParams(
 
 		switch any(forcedInclusion).(type) {
 		case *pacayaBindings.IForcedInclusionStoreForcedInclusion:
-			forcedInclusionBatchParams = params.NewBatchParamsPacaya(
+			forcedInclusionBatchParams = bindingTypes.NewBatchParamsPacaya(
 				proposer,
 				l2SuggestedFeeRecipient,
 				parentMetahash,
@@ -74,18 +74,18 @@ func BuildProposalParams(
 				forcedInclusionblockParams,
 			)
 			// TODO: move to outside of the if statement
-			batchParams = params.NewBatchParamsPacaya(
+			batchParams = bindingTypes.NewBatchParamsPacaya(
 				proposer,
 				l2SuggestedFeeRecipient,
 				parentMetahash,
 				0,
 				0,
 				revertProtectionEnabled,
-				params.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
+				bindingTypes.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
 				blockParams,
 			)
 		case *shastaBindings.IForcedInclusionStoreForcedInclusion:
-			forcedInclusionBatchParams = params.NewBatchParamsShasta(
+			forcedInclusionBatchParams = bindingTypes.NewBatchParamsShasta(
 				proposer,
 				l2SuggestedFeeRecipient,
 				parentMetahash,
@@ -96,14 +96,14 @@ func BuildProposalParams(
 				forcedInclusionblockParams,
 				[]byte{},
 			)
-			batchParams = params.NewBatchParamsShasta(
+			batchParams = bindingTypes.NewBatchParamsShasta(
 				proposer,
 				l2SuggestedFeeRecipient,
 				parentMetahash,
 				0,
 				0,
 				revertProtectionEnabled,
-				params.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
+				bindingTypes.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
 				blockParams,
 				nil,
 			)

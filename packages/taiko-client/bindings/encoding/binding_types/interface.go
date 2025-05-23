@@ -1,4 +1,4 @@
-package params
+package bindingTypes
 
 import (
 	"github.com/ethereum/go-ethereum/common"
