@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
@@ -38,6 +39,7 @@ type Config struct {
 	RaikoZKVMHostEndpoint     string
 	RaikoJWT                  string
 	RaikoRequestTimeout       time.Duration
+	LocalProposerAddresses    []common.Address
 	BlockConfirmations        uint64
 	TxmgrConfigs              *txmgr.CLIConfig
 	PrivateTxmgrConfigs       *txmgr.CLIConfig
@@ -80,29 +82,40 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	var localProposerAddresses []common.Address
+	for _, localProposerAddress := range c.StringSlice(flags.LocalProposerAddresses.Name) {
+		addr := common.HexToAddress(localProposerAddress)
+		if !common.IsHexAddress(localProposerAddress) {
+			log.Debug("Invalid local proposer address", "address", localProposerAddress)
+			continue
+		}
+		localProposerAddresses = append(localProposerAddresses, addr)
+	}
+
 	return &Config{
-		L1WsEndpoint:          c.String(flags.L1WSEndpoint.Name),
-		L2WsEndpoint:          c.String(flags.L2WSEndpoint.Name),
-		L2HttpEndpoint:        c.String(flags.L2HTTPEndpoint.Name),
-		TaikoInboxAddress:     common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
-		TaikoAnchorAddress:    common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-		TaikoTokenAddress:     common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
-		ProverSetAddress:      common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
-		L1ProverPrivKey:       l1ProverPrivKey,
-		RaikoHostEndpoint:     c.String(flags.RaikoHostEndpoint.Name),
-		RaikoZKVMHostEndpoint: c.String(flags.RaikoZKVMHostEndpoint.Name),
-		RaikoJWT:              common.Bytes2Hex(jwtSecret),
-		RaikoRequestTimeout:   c.Duration(flags.RaikoRequestTimeout.Name),
-		StartingBatchID:       startingBatchID,
-		Dummy:                 c.Bool(flags.Dummy.Name),
-		BackOffMaxRetries:     c.Uint64(flags.BackOffMaxRetries.Name),
-		BackOffRetryInterval:  c.Duration(flags.BackOffRetryInterval.Name),
-		ProveUnassignedBlocks: c.Bool(flags.ProveUnassignedBlocks.Name),
-		RPCTimeout:            c.Duration(flags.RPCTimeout.Name),
-		ProveBatchesGasLimit:  c.Uint64(flags.TxGasLimit.Name),
-		Allowance:             allowance,
-		BlockConfirmations:    c.Uint64(flags.BlockConfirmations.Name),
-		TxmgrConfigs:          pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
+		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
+		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
+		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
+		TaikoInboxAddress:      common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
+		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
+		L1ProverPrivKey:        l1ProverPrivKey,
+		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
+		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
+		RaikoJWT:               common.Bytes2Hex(jwtSecret),
+		RaikoRequestTimeout:    c.Duration(flags.RaikoRequestTimeout.Name),
+		StartingBatchID:        startingBatchID,
+		Dummy:                  c.Bool(flags.Dummy.Name),
+		BackOffMaxRetries:      c.Uint64(flags.BackOffMaxRetries.Name),
+		BackOffRetryInterval:   c.Duration(flags.BackOffRetryInterval.Name),
+		ProveUnassignedBlocks:  c.Bool(flags.ProveUnassignedBlocks.Name),
+		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
+		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
+		Allowance:              allowance,
+		LocalProposerAddresses: localProposerAddresses,
+		BlockConfirmations:     c.Uint64(flags.BlockConfirmations.Name),
+		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,

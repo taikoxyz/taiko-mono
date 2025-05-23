@@ -80,6 +80,13 @@ var (
 		Value:    10 * time.Second,
 		EnvVars:  []string{"PROVER_PROOF_POLLING_INTERVAL"},
 	}
+	LocalProposerAddresses = &cli.StringSliceFlag{
+		Name: "prover.localProposerAddresses",
+		Usage: "Comma separated list of local proposer addresses, " +
+			"if set, prover will prove the batches proposed by these addresses before the assignment expiration time",
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_LOCAL_PROPOSER_ADDRESSES"},
+	}
 	// Confirmations specific flag
 	BlockConfirmations = &cli.Uint64Flag{
 		Name:     "prover.blockConfirmations",
@@ -128,6 +135,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	TaikoTokenAddress,
 	Allowance,
 	ProofPollingInterval,
+	LocalProposerAddresses,
 	BlockConfirmations,
 	RaikoRequestTimeout,
 	RaikoZKVMHostEndpoint,

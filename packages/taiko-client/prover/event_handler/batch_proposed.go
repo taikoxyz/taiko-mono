@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -27,28 +28,30 @@ var (
 
 // BatchProposedEventHandler is responsible for handling the BatchProposed event as a prover.
 type BatchProposedEventHandler struct {
-	sharedState           *state.SharedState
-	proverAddress         common.Address
-	proverSetAddress      common.Address
-	rpc                   *rpc.Client
-	assignmentExpiredCh   chan<- metadata.TaikoProposalMetaData
-	proofSubmissionCh     chan<- *proofProducer.ProofRequestBody
-	backOffRetryInterval  time.Duration
-	backOffMaxRetrys      uint64
-	proveUnassignedBlocks bool
+	sharedState            *state.SharedState
+	proverAddress          common.Address
+	proverSetAddress       common.Address
+	rpc                    *rpc.Client
+	localProposerAddresses []common.Address
+	assignmentExpiredCh    chan<- metadata.TaikoProposalMetaData
+	proofSubmissionCh      chan<- *proofProducer.ProofRequestBody
+	backOffRetryInterval   time.Duration
+	backOffMaxRetrys       uint64
+	proveUnassignedBlocks  bool
 }
 
 // NewBatchProposedEventHandlerOps is the options for creating a new BatchProposedEventHandler.
 type NewBatchProposedEventHandlerOps struct {
-	SharedState           *state.SharedState
-	ProverAddress         common.Address
-	ProverSetAddress      common.Address
-	RPC                   *rpc.Client
-	AssignmentExpiredCh   chan metadata.TaikoProposalMetaData
-	ProofSubmissionCh     chan *proofProducer.ProofRequestBody
-	BackOffRetryInterval  time.Duration
-	BackOffMaxRetrys      uint64
-	ProveUnassignedBlocks bool
+	SharedState            *state.SharedState
+	ProverAddress          common.Address
+	ProverSetAddress       common.Address
+	RPC                    *rpc.Client
+	LocalProposerAddresses []common.Address
+	AssignmentExpiredCh    chan metadata.TaikoProposalMetaData
+	ProofSubmissionCh      chan *proofProducer.ProofRequestBody
+	BackOffRetryInterval   time.Duration
+	BackOffMaxRetrys       uint64
+	ProveUnassignedBlocks  bool
 }
 
 // NewBatchProposedEventHandler creates a new BatchProposedEventHandler instance.
@@ -58,6 +61,7 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProverAddress,
 		opts.ProverSetAddress,
 		opts.RPC,
+		opts.LocalProposerAddresses,
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,
 		opts.BackOffRetryInterval,
@@ -196,12 +200,14 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
 	if !windowExpired &&
 		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress {
+		meta.GetProposer() != h.proverSetAddress &&
+		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
 		log.Info(
 			"Proposed batch is not provable by current prover at the moment",
 			"batchID", meta.Pacaya().GetBatchID(),
 			"prover", meta.GetProposer(),
 			"timeToExpire", timeToExpire,
+			"localProposerAddresses", h.localProposerAddresses,
 		)
 
 		if h.proveUnassignedBlocks {
@@ -210,6 +216,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 				"batchID", meta.Pacaya().GetBatchID(),
 				"assignProver", meta.GetProposer(),
 				"timeToExpire", timeToExpire,
+				"localProposerAddresses", h.localProposerAddresses,
 			)
 			time.AfterFunc(
 				// Add another 72 seconds, to ensure one more L1 block will be mined before the proof submission
@@ -232,11 +239,17 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 			"currentProver", h.proverAddress,
 			"currentProverSet", h.proverSetAddress,
 			"assignProver", meta.GetProposer(),
+			"localProposerAddresses", h.localProposerAddresses,
 		)
 		return nil
 	}
 
-	log.Info("Proposed batch is provable", "batchID", meta.Pacaya().GetBatchID(), "assignProver", meta.GetProposer())
+	log.Info(
+		"Proposed batch is provable",
+		"batchID", meta.Pacaya().GetBatchID(),
+		"assignProver", meta.GetProposer(),
+		"localProposerAddresses", h.localProposerAddresses,
+	)
 
 	metrics.ProverProofsAssigned.Add(1)
 
