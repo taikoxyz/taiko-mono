@@ -281,7 +281,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			}
 		}
 
-		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
+		s.Nil(s.proposer.ProposeTxLists(context.Background(), txsBatch, common.Hash{}))
 		s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 	}
 

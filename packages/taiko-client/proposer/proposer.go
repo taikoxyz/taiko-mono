@@ -285,49 +285,22 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	return p.ProposeTxLists(ctx, txLists, parentMetaHash)
 }
 
-// ProposeTxList proposes the given transactions lists to TaikoInbox smart contract.
+// ProposeTxLists proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
-	ctx context.Context,
-	txLists []types.Transactions,
-	parentMetaHash common.Hash,
-) error {
-	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to fetch protocol state variables: %w", err)
-	}
-	if p.chainConfig.IsShasta(new(big.Int).SetUint64(stats.NumBatches())) {
-		if err := p.ProposeTxListShasta(ctx, txLists, parentMetaHash); err != nil {
-			return err
-		}
-		p.lastProposedAt = time.Now()
-		return nil
-	}
-	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
-		return err
-	}
-	p.lastProposedAt = time.Now()
-	return nil
-}
-
-// ProposeTxListShasta proposes the given transactions lists to Shasta TaikoInbox smart contract.
-func (p *Proposer) ProposeTxListShasta(
-	ctx context.Context,
-	txBatch []types.Transactions,
-	parentMetaHash common.Hash,
-) error {
-	// TODO: Implement Shasta proposer.
-	return nil
-}
-
-// ProposeTxListPacaya proposes the given transactions lists to Pacaya TaikoInbox smart contract.
-func (p *Proposer) ProposeTxListPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	parentMetaHash common.Hash,
 ) error {
 	var (
-		proposerAddress = p.proposerAddress
-		txs             uint64
+		proposerAddress      = p.proposerAddress
+		buildTxCandidateFunc func(
+			ctx context.Context,
+			txBatch []types.Transactions,
+			forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
+			minTxsPerForcedInclusion *big.Int,
+			parentMetahash common.Hash,
+		) (*txmgr.TxCandidate, error)
+		txs uint64
 	)
 
 	// Make sure the tx list is not bigger than the maxBlocksPerBatch.
@@ -339,11 +312,10 @@ func (p *Proposer) ProposeTxListPacaya(
 		txs += uint64(len(txList))
 	}
 
-	// Check balance.
+	// Check bond balance.
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
 		proposerAddress = p.Config.ClientConfig.ProverSetAddress
 	}
-
 	ok, err := rpc.CheckProverBalance(
 		ctx,
 		p.rpc,
@@ -354,12 +326,10 @@ func (p *Proposer) ProposeTxListPacaya(
 			new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
 		),
 	)
-
 	if err != nil {
 		log.Warn("Failed to check prover balance", "proposer", proposerAddress, "error", err)
 		return err
 	}
-
 	if !ok {
 		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
@@ -375,7 +345,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		log.Info(
 			"Forced inclusion",
 			"proposer", proposerAddress.Hex(),
-			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"blobHash", common.Hash(forcedInclusion.BlobHash()).Hex(),
 			"feeInGwei", forcedInclusion.FeeInGwei,
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
 			"blobByteOffset", forcedInclusion.BlobByteOffset,
@@ -384,16 +354,21 @@ func (p *Proposer) ProposeTxListPacaya(
 		)
 	}
 
-	// Build the transaction to propose batch.
-	txCandidate, err := p.txBuilder.BuildPacaya(
-		ctx,
-		txBatch,
-		bindingTypes.NewForcedInclusionPacaya(forcedInclusion),
-		minTxsPerForcedInclusion,
-		parentMetaHash,
-	)
+	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
+		return fmt.Errorf("failed to fetch protocol state variables: %w", err)
+	}
+
+	// Build the transaction to propose batch.
+	if p.chainConfig.IsShasta(new(big.Int).SetUint64(stats.NumBatches())) {
+		buildTxCandidateFunc = p.txBuilder.BuildShasta
+	} else {
+		buildTxCandidateFunc = p.txBuilder.BuildPacaya
+	}
+
+	txCandidate, err := buildTxCandidateFunc(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
+	if err != nil {
+		log.Warn("Failed to build batch proposal transaction", "error", encoding.TryParsingCustomError(err))
 		return err
 	}
 
@@ -433,7 +408,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoInbox.proposeBatch transaction by tx manager",
+			"Failed to send TaikoInbox.proposeBatch / TaikoInbox.v4ProposeBatch transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)

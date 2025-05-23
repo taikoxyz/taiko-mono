@@ -969,9 +969,10 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 }
 
-// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
+// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address,
+// TODO: support Shasta forced inclusion contract.
 func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
-	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	bindingTypes.IForcedInclusionStoreForcedInclusion,
 	*big.Int,
 	error,
 ) {
@@ -1022,7 +1023,8 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		return nil, nil, encoding.TryParsingCustomError(err)
 	}
 
-	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
+	return bindingTypes.NewForcedInclusionPacaya(&forcedInclusion),
+		new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
 }
 
 // GetOPVerifierShasta resolves the Shasta op verifier address.

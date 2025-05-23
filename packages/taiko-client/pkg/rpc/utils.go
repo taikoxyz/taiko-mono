@@ -48,7 +48,7 @@ func CheckProverBalance(
 	defer cancel()
 
 	// Check allowance on taiko token contract
-	allowance, err := rpc.PacayaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
+	allowance, err := rpc.ShastaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
 	if err != nil {
 		return false, err
 	}
@@ -60,14 +60,20 @@ func CheckProverBalance(
 		"bond", utils.WeiToEther(bond),
 	)
 
-	// Check prover's taiko token bondBalance
-	bondBalance, err := rpc.PacayaClients.TaikoInbox.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
-	if err != nil {
-		return false, err
+	// Check prover's taiko token bondBalance.
+	var bondBalance *big.Int
+	if bondBalance, err = rpc.ShastaClients.TaikoInbox.V4BondBalanceOf(
+		&bind.CallOpts{Context: ctxWithTimeout},
+		prover,
+	); err != nil {
+		bondBalance, err = rpc.PacayaClients.TaikoInbox.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	// Check prover's taiko token tokenBalance
-	tokenBalance, err := rpc.PacayaClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	tokenBalance, err := rpc.ShastaClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
