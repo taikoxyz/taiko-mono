@@ -65,11 +65,11 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // Parse the violation type from the first byte
         ViolationType violationType = ViolationType(uint8(_evidence[0]));
         if (violationType == ViolationType.InvalidPreconfirmation) {
-            slashAmount_ = _validatePreconfirmationViolation(_committer, payload, _evidence);
+            slashAmount_ = _validatePreconfirmationViolation(_committer, payload, _evidence[1:]);
         } else if (violationType == ViolationType.InvalidEOP) {
-            slashAmount_ = _validateInvalidEOP(payload, _evidence);
+            slashAmount_ = _validateInvalidEOP(payload, _evidence[1:]);
         } else if (violationType == ViolationType.MissingEOP) {
-            slashAmount_ = _validateMissingEOP(payload, _evidence);
+            slashAmount_ = _validateMissingEOP(payload, _evidence[1:]);
         } else {
             revert InvalidViolationType();
         }
@@ -94,14 +94,14 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
     function _validatePreconfirmationViolation(
         address _committer,
         CommitmentPayload memory _payload,
-        bytes calldata _evidence
+        bytes calldata _evidenceData
     )
         internal
         view
         returns (uint256)
     {
         EvidenceInvalidPreconfirmation memory evidence =
-            abi.decode(_evidence[1:], (EvidenceInvalidPreconfirmation));
+            abi.decode(_evidenceData, (EvidenceInvalidPreconfirmation));
 
         LibBlockHeader.BlockHeader memory preconfed = evidence.preconfedBlockHeader;
         require(preconfed.hash() == _payload.blockHash, InvalidBlockHeader());
@@ -177,13 +177,13 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     function _validateInvalidEOP(
         CommitmentPayload memory _payload,
-        bytes calldata _evidence
+        bytes calldata _evidenceData
     )
         internal
         view
         returns (uint256)
     {
-        EvidenceInvalidEOP memory evidence = abi.decode(_evidence[1:], (EvidenceInvalidEOP));
+        EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData, (EvidenceInvalidEOP));
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         // Validate that the commitment is an EOP
@@ -211,13 +211,13 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
     function _validateMissingEOP(
         CommitmentPayload memory _payload,
-        bytes calldata _evidence
+        bytes calldata _evidenceData
     )
         internal
         view
         returns (uint256)
     {
-        EvidenceMissingEOP memory evidence = abi.decode(_evidence[1:], (EvidenceMissingEOP));
+        EvidenceMissingEOP memory evidence = abi.decode(_evidenceData, (EvidenceMissingEOP));
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         // Validate that the commitment is not an EOP
