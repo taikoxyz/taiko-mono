@@ -49,14 +49,9 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         bytes calldata _txList
     )
         external
-        onlyFromPreconferOrFallback
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = proposeBatchEntrypoint.proposeBatch(_params, _txList);
-
-        // Verify that the sender had set itself as the proposer
-        require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());
+        return _proposeBatch(_params, _txList);
     }
 
     function proposeBatchWithExpectedLastBlockId(
@@ -67,12 +62,30 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
-        (info_, meta_) = this.proposeBatch(_params, _txList);
+        (info_, meta_) = _proposeBatch(_params, _txList);
 
         // Verify that the last block id is as expected
         require(
             info_.lastBlockId == _expectedLastBlockId,
             InvalidLastBlockId(info_.lastBlockId, _expectedLastBlockId)
         );
+    }
+
+    function _proposeBatch(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        internal
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+    {
+        // Sender must be the selected operator for the epoch
+        address selectedOperator = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
+        require(msg.sender == selectedOperator, NotTheOperator());
+
+        // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
+        (info_, meta_) = IProposeBatch(proposeBlockEntrypoint).proposeBatch(_params, _txList);
+
+        // Verify that the sender had set itself as the proposer
+        require(meta_.proposer == msg.sender, ProposerIsNotTheSender());
     }
 }
