@@ -70,7 +70,6 @@ func getMetadataFromBatch(
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               rpc.L1,
 		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
-		PacayaForkHeight:     rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId()),
 		EndHeight:            endHeight,
 		OnBatchProposedEvent: callback,

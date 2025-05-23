@@ -12,6 +12,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -31,7 +32,8 @@ type OnBatchProposedEvent func(
 // with the awareness of reorganization.
 type BatchProposedIterator struct {
 	ctx                context.Context
-	taikoInbox         *pacayaBindings.TaikoInboxClient
+	pacayaTaikoInbox   *pacayaBindings.TaikoInboxClient
+	shastaTaikoInbox   *shastaBindings.TaikoInboxClient
 	blockBatchIterator *chainIterator.BlockBatchIterator
 	isEnd              bool
 }
@@ -40,7 +42,6 @@ type BatchProposedIterator struct {
 type BatchProposedIteratorConfig struct {
 	Client                *rpc.EthClient
 	TaikoInbox            *pacayaBindings.TaikoInboxClient
-	PacayaForkHeight      uint64
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
@@ -54,7 +55,7 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 		return nil, errors.New("invalid callback")
 	}
 
-	iterator := &BatchProposedIterator{ctx: ctx, taikoInbox: cfg.TaikoInbox}
+	iterator := &BatchProposedIterator{ctx: ctx, pacayaTaikoInbox: cfg.TaikoInbox}
 
 	// Initialize the inner block iterator.
 	blockIterator, err := chainIterator.NewBlockBatchIterator(ctx, &chainIterator.BlockBatchIteratorConfig{
@@ -66,7 +67,6 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 		OnBlocks: assembleBatchProposedIteratorCallback(
 			cfg.Client,
 			cfg.TaikoInbox,
-			cfg.PacayaForkHeight,
 			cfg.OnBatchProposedEvent,
 			iterator,
 		),
@@ -96,7 +96,6 @@ func (i *BatchProposedIterator) end() {
 func assembleBatchProposedIteratorCallback(
 	client *rpc.EthClient,
 	taikoInbox *pacayaBindings.TaikoInboxClient,
-	pacayaForkHeight uint64,
 	callback OnBatchProposedEvent,
 	eventIter *BatchProposedIterator,
 ) chainIterator.OnBlocksFunc {
