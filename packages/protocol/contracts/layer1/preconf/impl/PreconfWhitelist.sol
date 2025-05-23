@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../iface/IPreconfWhitelist.sol";
 import "../libs/LibPreconfUtils.sol";
 import "../libs/LibPreconfConstants.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNames.sol";
 import "src/shared/common/EssentialContract.sol";
 
 /// @title PreconfWhitelist
@@ -29,7 +29,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     uint256[47] private __gap;
 
-    constructor() EssentialContract(address(0)) { }
+    constructor() EssentialContract() { }
 
     function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
@@ -216,7 +216,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         // Use the previous epoch's start timestamp as the random number, if it is not available
         // (zero), return address(0) directly.
         uint256 rand = uint256(
-            LibPreconfUtils.getBeaconBlockRoot(
+            LibPreconfUtils.getBeaconBlockRootAtOrAfter(
                 _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
             )
         );

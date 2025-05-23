@@ -13,6 +13,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -64,12 +65,12 @@ func (s *DriverTestSuite) SetupTest() {
 
 	s.Nil(d.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:       os.Getenv("L1_WS"),
-			L2Endpoint:       os.Getenv("L2_WS"),
-			L2EngineEndpoint: os.Getenv("L2_AUTH"),
-			TaikoL1Address:   common.HexToAddress(os.Getenv("TAIKO_INBOX")),
-			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:        string(jwtSecret),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			TaikoInboxAddress:  common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:          string(jwtSecret),
 		},
 		BlobServerEndpoint:     s.BlobServer.URL(),
 		P2PConfigs:             p2pConfig,
@@ -133,18 +134,12 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 
 		var method *abi.Method
 		method, err = encoding.TaikoAnchorABI.MethodById(anchorTx.Data())
-		if err != nil {
-			method, err = encoding.TaikoL2ABI.MethodById(anchorTx.Data())
-		}
 		s.Nil(err)
 		s.Contains(method.Name, "anchor")
 	}
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -318,8 +313,6 @@ func (s *DriverTestSuite) TestDoSyncNoNewL2Blocks() {
 }
 
 func (s *DriverTestSuite) TestForcedInclusion() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
-
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
@@ -398,158 +391,134 @@ func (s *DriverTestSuite) TestL1Current() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocks() {
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
-
-	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
-
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
 
 	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert two preconfirmation blocks
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1, l1Head1.Time).IsSuccess())
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head1.Number.Uint64()+1, l1Head1.Time).IsSuccess())
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(2, len(l2Head2.Transactions()))
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head2.Number().Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), l1Origin.L2BlockHash)
+	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
+	s.True(l1Origin.IsPreconfBlock())
+
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head1.Number.Uint64()+2, l1Head1.Time).IsSuccess())
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	s.Equal(2, len(l2Head3.Transactions()))
 
-	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big1))
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), l1Origin.L2BlockHash)
-	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
-	s.True(l1Origin.IsPreconfBlock())
-
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2, l1Head1.Time).IsSuccess())
-	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.Equal(2, len(l2Head4.Transactions()))
-
-	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
-	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin2.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), l1Origin2.L2BlockHash)
 	s.Equal(common.Hash{}, l1Origin2.L1BlockHash)
 	s.True(l1Origin2.IsPreconfBlock())
 
-	// Remove one preconf block
+	// Remove one preconfirmation block
 	res, err = resty.New().
 		R().
-		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{
-			NewLastBlockID: l2Head4.Number().Uint64() - 1,
-		}).
+		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{NewLastBlockID: l2Head3.Number().Uint64() - 1}).
 		Delete(s.preconfServerURL.String() + "/preconfBlocks")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Hash(), l2Head5.Hash())
-
-	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
-	s.Nil(err)
-	s.Equal(l2Head2.Number.Uint64(), canonicalL1Origin.BlockID.Uint64())
-	s.False(canonicalL1Origin.IsPreconfBlock())
+	s.Equal(l2Head2.Hash(), l2Head4.Hash())
 
 	// Propose 3 valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
-	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64()+2, l2Head6.Number().Uint64())
-	s.Equal(1, len(l2Head6.Transactions()))
+	s.Equal(l2Head2.Number().Uint64()+2, l2Head5.Number().Uint64())
+	s.Equal(1, len(l2Head5.Transactions()))
 
-	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head6.Number())
+	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head5.Number())
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64()+2, l1Origin3.BlockID.Uint64())
-	s.Equal(l2Head6.Hash(), l1Origin3.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64()+2, l1Origin3.BlockID.Uint64())
+	s.Equal(l2Head5.Hash(), l1Origin3.L2BlockHash)
 	s.NotZero(l1Origin3.L1BlockHeight.Uint64())
 	s.NotEmpty(l1Origin3.L1BlockHash)
 	s.False(l1Origin3.IsPreconfBlock())
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 
-	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
-
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-
-	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 
 	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
 	// Try to insert two preconfirmation blocks
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+1, l1Head1.Time).IsSuccess())
-	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head1.Number.Uint64()+1, l1Head1.Time).IsSuccess())
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.Equal(2, len(l2Head3.Transactions()))
+	s.Equal(2, len(l2Head2.Transactions()))
 
-	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big1))
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), l1Origin.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), l1Origin.L2BlockHash)
 	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 	s.True(l1Origin.IsPreconfBlock())
 
-	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number.Uint64()+2, l1Head1.Time).IsSuccess())
-	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.True(s.insertPreconfBlock(s.preconfServerURL, l1Head1, l2Head2.Number().Uint64()+1, l1Head1.Time).IsSuccess())
+	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64()+1, l2Head4.Number().Uint64())
-	s.Equal(2, len(l2Head4.Transactions()))
+	s.Equal(l2Head2.Number().Uint64()+1, l2Head3.Number().Uint64())
+	s.Equal(2, len(l2Head3.Transactions()))
 
 	// Propose two same L2 blocks in a batch
 	s.proposePreconfBatch(
-		[]*types.Block{l2Head3, l2Head4},
+		[]*types.Block{l2Head2, l2Head3},
 		[]*types.Header{l1Head1, l1Head1},
 		[]uint8{0, 0},
 	)
 
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head4.Number().Uint64(), l2Head5.Number().Uint64())
-	s.Equal(2, len(l2Head5.Transactions()))
+	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
+	s.Equal(2, len(l2Head4.Transactions()))
 
-	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big2))
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head1.Number, common.Big2))
 	s.Nil(err)
-	s.Equal(l2Head5.Number().Uint64(), l1Origin2.BlockID.Uint64())
-	s.Equal(l2Head5.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head4.Number().Uint64(), l1Origin2.BlockID.Uint64())
 	s.Equal(l2Head4.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
 	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
 	s.False(l1Origin2.IsPreconfBlock())
 
 	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l1Origin2, canonicalL1Origin)
-	s.Equal(l2Head5.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
+	s.Equal(l2Head4.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -566,7 +535,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 		context.Background(),
 		l1Head.Number,
 		l1Head.Root,
-		l2Head1.GasUsed,
+		l2Head1,
 		s.d.protocolConfig.BaseFeeConfig(),
 		[][32]byte{},
 		new(big.Int).Add(l2Head1.Number, common.Big1),
@@ -613,21 +582,11 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocksWithReorg() {
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
-
-	// Propose valid L2 blocks to make the L2 fork into Pacaya fork.
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
-
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.GreaterOrEqual(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
 
 	res, err := resty.New().R().Get(s.preconfServerURL.String() + "/healthz")
 	s.Nil(err)
@@ -642,7 +601,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksWithReorg() {
 		s.True(s.insertPreconfBlock(
 			s.preconfServerURL,
 			l1Head1,
-			l2Head2.Number.Uint64()+1+uint64(i),
+			l2Head1.Number.Uint64()+1+uint64(i),
 			l1Head1.Time+uint64(preconfBlocksNum),
 		).IsSuccess())
 		head, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -653,7 +612,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksWithReorg() {
 
 		l1Origin, err := s.RPCClient.L2.L1OriginByID(
 			context.Background(),
-			new(big.Int).SetUint64(l2Head2.Number.Uint64()+1+uint64(i)),
+			new(big.Int).SetUint64(l2Head1.Number.Uint64()+1+uint64(i)),
 		)
 		s.Nil(err)
 		s.Equal(head.Number().Uint64(), l1Origin.BlockID.Uint64())
@@ -661,11 +620,8 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksWithReorg() {
 		s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 		s.True(l1Origin.IsPreconfBlock())
 
-		headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
-		s.Nil(err)
-		s.Equal(l2Head2.Number, headL1Origin.BlockID)
-		s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
-		s.False(headL1Origin.IsPreconfBlock())
+		_, err = s.RPCClient.L2.HeadL1Origin(context.Background())
+		s.Error(err, ethereum.NotFound)
 	}
 
 	// Propose three same L2 blocks in a batch
@@ -675,32 +631,31 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksWithReorg() {
 		[]uint8{0, 1, 0, 0},
 	)
 
-	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), preconfBlocks[len(preconfBlocks)-1].Number().Uint64())
-	s.NotEqual(l2Head3.Hash(), preconfBlocks[len(preconfBlocks)-1].Hash())
-	s.Equal(2, len(l2Head3.Transactions()))
+	s.Equal(l2Head2.Number().Uint64(), preconfBlocks[len(preconfBlocks)-1].Number().Uint64())
+	s.NotEqual(l2Head2.Hash(), preconfBlocks[len(preconfBlocks)-1].Hash())
+	s.Equal(2, len(l2Head2.Transactions()))
 
 	l1Origin2, err := s.RPCClient.L2.L1OriginByID(
 		context.Background(),
-		new(big.Int).SetUint64(l2Head2.Number.Uint64()+uint64(preconfBlocksNum)),
+		new(big.Int).SetUint64(l2Head1.Number.Uint64()+uint64(preconfBlocksNum)),
 	)
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l1Origin2.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
-	s.Equal(l2Head3.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(l2Head2.Hash(), l1Origin2.L2BlockHash)
 	s.NotEqual(common.Hash{}, l1Origin2.L1BlockHash)
 	s.False(l1Origin2.IsPreconfBlock())
 
 	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l1Origin2, canonicalL1Origin)
-	s.Equal(l2Head3.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
-	s.Equal(l2Head3.Hash(), canonicalL1Origin.L2BlockHash)
+	s.Equal(l2Head2.Number().Uint64(), canonicalL1Origin.BlockID.Uint64())
+	s.Equal(l2Head2.Hash(), canonicalL1Origin.L2BlockHash)
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -739,7 +694,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
 }
 
 func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -928,8 +882,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	}
 }
 
-func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingChildren() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
+func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -1123,7 +1076,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingChildren() {
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
-	s.ForkIntoPacaya(s.p, s.d.ChainSyncer().EventSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -1199,7 +1151,7 @@ func (s *DriverTestSuite) proposePreconfBatch(
 	timeShifts []uint8,
 ) {
 	var (
-		to          = &s.p.TaikoL1Address
+		to          = &s.p.TaikoInboxAddress
 		proposer    = crypto.PubkeyToAddress(s.p.L1ProposerPrivKey.PublicKey)
 		data        []byte
 		blockParams []pacayaBindings.ITaikoInboxBlockParams
@@ -1272,18 +1224,18 @@ func (s *DriverTestSuite) InitProposer() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
-		L1ProposerPrivKey:          l1ProposerPrivKey,
-		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-		ProposeInterval:            1024 * time.Hour,
-		MaxProposedTxListsPerEpoch: 1,
-		BlobAllowed:                true,
+		L1ProposerPrivKey:       l1ProposerPrivKey,
+		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		ProposeInterval:         1024 * time.Hour,
+		MaxTxListsPerEpoch:      1,
+		BlobAllowed:             true,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
@@ -1367,7 +1319,6 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	baseFee, err := s.RPCClient.CalculateBaseFee(
 		context.Background(),
 		parent,
-		true,
 		s.d.protocolConfig.BaseFeeConfig(),
 		timestamp,
 	)
@@ -1380,7 +1331,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 		context.Background(),
 		anchoredL1Block.Number,
 		anchoredL1Block.Root,
-		parent.GasUsed,
+		parent,
 		s.d.protocolConfig.BaseFeeConfig(),
 		[][32]byte{},
 		new(big.Int).Add(parent.Number, common.Big1),

@@ -5,17 +5,17 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "src/shared/based/ITaiko.sol";
-import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
+import "src/shared/signal/LibSignals.sol";
 import "../eip1559/LibEIP1559.sol";
 import "./OntakeAnchor.sol";
 
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract PacayaAnchor is OntakeAnchor {
+abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -87,13 +87,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _;
     }
 
-    constructor(
-        address _resolver,
-        address _signalService,
-        uint64 _pacayaForkHeight
-    )
-        EssentialContract(_resolver)
-    {
+    constructor(address _signalService, uint64 _pacayaForkHeight) OntakeAnchor() {
         signalService = ISignalService(_signalService);
         pacayaForkHeight = _pacayaForkHeight;
     }
@@ -148,7 +142,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         external
         nonZeroAddr(_to)
         whenNotPaused
-        onlyFromOwnerOrNamed(LibStrings.B_WITHDRAWER)
+        onlyOwner
         nonReentrant
     {
         if (_token == address(0)) {
@@ -203,10 +197,8 @@ abstract contract PacayaAnchor is OntakeAnchor {
         return _blockhashes[_blockId];
     }
 
-    /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
-    /// Layer 2 (L2).
-    /// @return True if the contract is operating on L1, false if on L2.
-    function v4IsOnL1() external pure returns (bool) {
+    /// @inheritdoc ITaiko
+    function v4IsInbox() external pure returns (bool) {
         return false;
     }
 
@@ -227,7 +219,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         /// @dev Store the L1's state root as a signal to the local signal service to
         /// allow for multi-hop bridging.
         signalService.syncChainData(
-            l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
+            l1ChainId, LibSignals.STATE_ROOT, _anchorBlockId, _anchorStateRoot
         );
 
         /// @dev Update the last synced block to the current anchor block ID.

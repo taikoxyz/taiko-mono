@@ -20,7 +20,7 @@ contract MainnetInbox is TaikoInbox {
         TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     { }
 
-    function v4GetConfig() public pure virtual override returns (ITaikoInbox.Config memory) {
+    function _getConfig() internal pure virtual override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 1_000_000
@@ -34,7 +34,7 @@ contract MainnetInbox is TaikoInbox {
             batchRingBufferSize: batchRingBufferSize_,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 50e18, // 50 Taiko token per batch
+            livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -61,12 +61,7 @@ contract MainnetInbox is TaikoInbox {
     }
 
     function _getForkHeights() internal pure virtual returns (ITaikoInbox.ForkHeights memory) {
-        return ITaikoInbox.ForkHeights({
-            ontake: 538_304,
-            pacaya: type(uint64).max, // TODO(david): update this value
-            shasta: 0,
-            unzen: 0
-        });
+        return ITaikoInbox.ForkHeights({ ontake: 538_304, pacaya: 1_166_000, shasta: 0, unzen: 0 });
     }
 
     /// @dev Never change the following two values!!!

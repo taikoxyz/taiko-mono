@@ -54,6 +54,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
+        // anchorBlockId is used only by the anchor transaction in the last block in the batch.
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
@@ -278,6 +279,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error TimestampTooSmall();
     error TooManyBatches();
     error TooManyBlocks();
+    error TooManyBatchesToProve();
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
@@ -299,9 +301,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
 
     /// @notice Verify batches by providing the length of the batches to verify.
     /// @dev This function is necessary to upgrade from this fork to the next one.
-    /// @param _length Specifis how many batches to verify. The max number of batches to verify is
-    /// `v4GetConfig().maxBatchesToVerify * _length`.
-    function v4VerifyBatches(uint64 _length) external;
+    /// @param _count Specifis how many batches to verify. The max number of batches to verify is
+    /// `v4GetConfig().maxBatchesToVerify * _count`.
+    function v4VerifyBatches(uint8 _count) external;
 
     /// @notice Retrieves the first set of protocol statistics.
     /// @return Stats1 structure containing the statistics.

@@ -24,8 +24,7 @@ contract DevnetInbox is TaikoInbox {
         cooldownWindow = _cooldownWindow;
     }
 
-    /// @inheritdoc ITaikoInbox
-    function v4GetConfig() public view override returns (ITaikoInbox.Config memory) {
+    function _getConfig() internal view override returns (ITaikoInbox.Config memory) {
         return ITaikoInbox.Config({
             chainId: chainId,
             maxUnverifiedBatches: 324_000,
@@ -46,7 +45,7 @@ contract DevnetInbox is TaikoInbox {
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             baseFeeSharings: [uint8(50), uint8(0)],
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10, shasta: 0, unzen: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0, shasta: 0, unzen: 0 })
         });
     }
 }

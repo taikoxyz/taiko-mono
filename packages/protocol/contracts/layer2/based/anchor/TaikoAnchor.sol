@@ -8,16 +8,18 @@ import "./ShastaAnchor.sol";
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
-/// verified L1 block information
+/// verified L1 block information.
+///
+/// This contract receives a portion of L2 base fees, while the remainder is directed to
+/// L2 block's coinbase address.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoAnchor is ShastaAnchor {
     constructor(
-        address _resolver,
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight
     )
-        ShastaAnchor(_resolver, _signalService, _pacayaForkHeight, _shastaForkHeight)
+        ShastaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
     { }
 
     /// @notice Initializes the contract.

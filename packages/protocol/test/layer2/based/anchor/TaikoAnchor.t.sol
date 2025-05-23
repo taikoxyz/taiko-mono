@@ -21,8 +21,7 @@ contract TestTaikoAnchor is Layer2Test {
         );
 
         anchor = deployAnchor(
-            address(new TaikoAnchor_NoBaseFeeCheck(address(resolver), address(signalService))),
-            ethereumChainId
+            address(new TaikoAnchor_NoBaseFeeCheck(address(signalService))), ethereumChainId
         );
 
         signalService.authorize(address(anchor), true);
@@ -72,7 +71,7 @@ contract TestTaikoAnchor is Layer2Test {
         assertEq(Alice.balance, 100 ether);
 
         // Random EOA cannot call withdraw
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(Alice, Alice);
         anchor.withdraw(address(0), Alice);
     }

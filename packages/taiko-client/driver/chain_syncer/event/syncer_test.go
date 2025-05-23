@@ -17,12 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
@@ -46,6 +44,7 @@ func (s *EventSyncerTestSuite) SetupTest() {
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -57,39 +56,46 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	ctx := context.Background()
 
 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
-	s.False(meta.IsPacaya())
+	s.True(meta.IsPacaya())
+	s.Equal(1, len(meta.Pacaya().GetBlocks()))
 
-	block, err := s.RPCClient.L2.BlockByNumber(ctx, meta.Ontake().GetBlockID())
+	block, err := s.RPCClient.L2.BlockByNumber(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
 	s.Nil(err)
 
-	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedBlockOntake(ctx)
+	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 	s.Nil(err)
 
 	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
 	s.Nil(err)
 
-	parent, err := s.RPCClient.L2ParentByCurrentBlockID(context.Background(), meta.Ontake().GetBlockID())
+	parent, err := s.RPCClient.L2ParentByCurrentBlockID(
+		context.Background(),
+		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
+	)
 	s.Nil(err)
 
-	// Reset l2 chain.
+	// Reset the L2 chain.
 	s.Nil(rpc.SetHead(ctx, s.RPCClient.L2, common.Big0))
 
+	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
+	s.Nil(err)
+
 	attributes := &engine.PayloadAttributes{
-		Timestamp:             meta.Ontake().GetTimestamp(),
-		Random:                meta.Ontake().GetDifficulty(),
+		Timestamp:             meta.Pacaya().GetLastBlockTimestamp(),
+		Random:                common.BytesToHash(difficulty),
 		SuggestedFeeRecipient: meta.GetCoinbase(),
 		Withdrawals:           make([]*types.Withdrawal, 0),
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.GetCoinbase(),
-			GasLimit:    uint64(meta.Ontake().GetGasLimit()) + consensus.AnchorGasLimit,
-			Timestamp:   meta.Ontake().GetTimestamp(),
+			GasLimit:    uint64(meta.Pacaya().GetGasLimit()) + consensus.AnchorV3GasLimit,
+			Timestamp:   meta.Pacaya().GetLastBlockTimestamp(),
 			TxList:      txListBytes,
-			MixHash:     meta.Ontake().GetDifficulty(),
-			ExtraData:   meta.Ontake().GetExtraData(),
+			MixHash:     common.BytesToHash(difficulty),
+			ExtraData:   meta.Pacaya().GetExtraData(),
 		},
 		BaseFeePerGas: block.BaseFee(),
 		L1Origin: &rawdb.L1Origin{
-			BlockID:       meta.Ontake().GetBlockID(),
+			BlockID:       new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
 			L1BlockHeight: meta.GetRawBlockHeight(),
 			L1BlockHash:   meta.GetRawBlockHash(),
@@ -124,8 +130,8 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	step3 := func(payload *engine.ExecutableData) {
 		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{
 			HeadBlockHash:      payload.BlockHash,
-			SafeBlockHash:      lastVerifiedBlockInfo.BlockHash,
-			FinalizedBlockHash: lastVerifiedBlockInfo.BlockHash,
+			SafeBlockHash:      lastVerifiedBlockInfo.Ts.BlockHash,
+			FinalizedBlockHash: lastVerifiedBlockInfo.Ts.BlockHash,
 		}, nil)
 		s.Nil(err)
 		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
@@ -154,19 +160,6 @@ func (s *EventSyncerTestSuite) TestProcessL1Blocks() {
 func (s *EventSyncerTestSuite) TestProcessL1BlocksReorg() {
 	s.ProposeAndInsertEmptyBlocks(s.p, s.s)
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
-}
-
-func (s *EventSyncerTestSuite) TestOnBlockProposed() {
-	s.Nil(s.s.onBlockProposed(
-		context.Background(),
-		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 0}},
-		func() {},
-	))
-	s.NotNil(s.s.onBlockProposed(
-		context.Background(),
-		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: ontakeBindings.TaikoDataBlockMetadataV2{Id: 1}},
-		func() {},
-	))
 }
 
 func (s *EventSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
@@ -214,15 +207,7 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	s.True(balanceAfter.Cmp(balance) > 0)
 
 	var hasNoneAnchorTxs bool
-	chainConfig := config.NewChainConfig(
-		s.RPCClient.L2.ChainID,
-		s.RPCClient.OntakeClients.ForkHeight,
-		s.RPCClient.PacayaClients.ForkHeight,
-	)
-
 	pacayaCfg, err := s.RPCClient.GetProtocolConfigs(nil)
-	s.Nil(err)
-	ontakeCfg, err := s.RPCClient.OntakeClients.TaikoL1.GetConfig(nil)
 	s.Nil(err)
 
 	for i := headBefore + 1; i <= headAfter; i++ {
@@ -241,10 +226,7 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 			s.Nil(err)
 
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
-			sharingPctg := uint64(ontakeCfg.BaseFeeConfig.SharingPctg)
-			if chainConfig.IsPacaya(block.Number()) {
-				sharingPctg = uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
-			}
+			sharingPctg := uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
 
 			feeCoinbase := new(big.Int).Div(
 				new(big.Int).Mul(fee, new(big.Int).SetUint64(sharingPctg)),
@@ -275,17 +257,17 @@ func (s *EventSyncerTestSuite) initProposer() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoL1Address:              common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
-			TaikoL2Address:              common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
-		L1ProposerPrivKey:          l1ProposerPrivKey,
-		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-		ProposeInterval:            1024 * time.Hour,
-		MaxProposedTxListsPerEpoch: 1,
+		L1ProposerPrivKey:       l1ProposerPrivKey,
+		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		ProposeInterval:         1024 * time.Hour,
+		MaxTxListsPerEpoch:      1,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,

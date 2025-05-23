@@ -36,6 +36,11 @@ var (
 	DriverPreconfP2PEnvelopeCachedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_p2p_envelope_cached",
 	})
+	DriverPreconfP2PResponseEnvelopeCounter = factory.NewCounter(
+		prometheus.CounterOpts{
+			Name: "driver_p2p_response_envelope",
+		},
+	)
 
 	// Proposer
 	ProposerProposeEpochCounter    = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_epoch"})
@@ -57,7 +62,6 @@ var (
 	ProverProofsAssigned             = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_assigned"})
 	ProverReceivedProposedBlockGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proposed_received"})
 	ProverReceivedProvenBlockGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proven_received"})
-	ProverProvenByGuardianGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proven_by_guardian"})
 	ProverSubmissionAcceptedCounter  = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_submission_accepted",
 	})

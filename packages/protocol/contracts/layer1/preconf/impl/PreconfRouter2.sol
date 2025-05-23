@@ -23,7 +23,6 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
     uint256[50] private __gap;
 
     constructor(
-        address _resolver,
         address _lookaheadStore,
         address _preconfWhitelist,
         address _iProposeBatch,
@@ -31,7 +30,7 @@ contract PreconfRouter2 is IPreconfRouter2, EssentialContract {
         address _urc,
         address _fallbackPreconfer
     )
-        EssentialContract(_resolver)
+        EssentialContract()
     {
         lookaheadStore = ILookaheadStore(_lookaheadStore);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
