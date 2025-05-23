@@ -183,7 +183,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         view
         returns (uint256)
     {
-        EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData[1:], (EvidenceInvalidEOP));
+        EvidenceInvalidEOP memory evidence = abi.decode(_evidenceData, (EvidenceInvalidEOP));
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         // Validate that the commitment is an EOP
