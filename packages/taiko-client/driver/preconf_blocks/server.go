@@ -78,6 +78,7 @@ type PreconfBlockAPIServer struct {
 	// Last seen proposal
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	latestSeenProposal   *encoding.LastSeenProposal
+
 	// Mutex for P2P message handlers
 	mutex sync.Mutex
 }

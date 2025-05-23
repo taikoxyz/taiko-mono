@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,6 +18,7 @@ import (
 	"github.com/modern-go/reflect2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -64,6 +66,20 @@ type BuildPreconfBlockResponseBody struct {
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	taikoWrapper, err := s.rpc.PacayaClients.TaikoWrapper.PreconfRouter(
+		&bind.CallOpts{
+			Context: c.Request().Context(),
+		},
+	)
+	if err != nil {
+		return s.returnError(c, http.StatusInternalServerError, err)
+	}
+
+	if taikoWrapper == rpc.ZeroAddress {
+		return s.returnError(c, http.StatusInternalServerError, errors.New("preconfs are disabled via taiko wrapper"))
+	}
+
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
