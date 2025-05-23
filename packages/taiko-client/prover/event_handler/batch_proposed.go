@@ -232,7 +232,8 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	// we should skip proving this batch.
 	if !h.proveUnassignedBlocks &&
 		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress {
+		meta.GetProposer() != h.proverSetAddress &&
+		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
 		log.Info(
 			"Expired batch is not provable by current prover",
 			"batchID", meta.Pacaya().GetBatchID(),
