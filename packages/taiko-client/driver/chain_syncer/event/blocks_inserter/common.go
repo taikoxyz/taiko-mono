@@ -333,7 +333,7 @@ func isKnownCanonicalBlock(
 	}
 	defer func() {
 		if err != nil {
-			log.Warn("Invalid known block", "blockID", blockID, "coinbase", block.Coinbase(), "reason", err)
+			log.Warn("Unknown block for the canonical chain", "blockID", blockID, "coinbase", block.Coinbase(), "reason", err)
 		}
 	}()
 
