@@ -136,7 +136,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 					if err != nil {
 						return fmt.Errorf("failed to fetch last batch (%d): %w", meta.GetBatchID().Uint64()-1, err)
 					}
-					parentNumber = new(big.Int).SetUint64(lastBatch.LastBlockId)
+					parentNumber = new(big.Int).SetUint64(lastBatch.LastBlockId())
 				}
 			} else {
 				parentNumber = new(big.Int).SetUint64(lastPayloadData.Number)

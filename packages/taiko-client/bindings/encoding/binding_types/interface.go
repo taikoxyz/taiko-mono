@@ -1,13 +1,22 @@
 package bindingTypes
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
-	_ ITaikoInboxBatchParams = new(BatchParamsPacaya)
-	_ ITaikoInboxBlobParams  = new(BlobParams)
-	_ ITaikoInboxBlockParams = new(BlockParams)
+	_ ITaikoInboxBatchParams               = new(BatchParamsPacaya)
+	_ ITaikoInboxBatchParams               = new(BatchParamsShasta)
+	_ ITaikoInboxBlobParams                = new(BlobParams)
+	_ ITaikoInboxBlockParams               = new(BlockParams)
+	_ IForcedInclusionStoreForcedInclusion = new(ForcedInclusionPacaya)
+	_ IForcedInclusionStoreForcedInclusion = new(ForcedInclusionShasta)
+	_ ITaikoInboxStats                     = new(InboxStatsPacaya)
+	_ ITaikoInboxStats                     = new(InboxStatsShasta)
+	_ ITaikoInboxBatch                     = new(InboxBatchPacaya)
+	_ ITaikoInboxBatch                     = new(InboxBatchShasta)
 )
 
 // ITaikoInboxBatchParams should be same with ITaikoInbox.BatchParams.
@@ -61,4 +70,16 @@ type ITaikoInboxStats interface {
 	Paused() bool
 	LastProposedIn() uint64
 	LastUnpausedAt() uint64
+}
+
+// ITaikoInboxBatch should be same with ITaikoInbox.Batch.
+type ITaikoInboxBatch interface {
+	MetaHash() common.Hash
+	LastBlockId() uint64
+	LivenessBond() *big.Int
+	BatchId() uint64
+	LastBlockTimestamp() uint64
+	AnchorBlockId() uint64
+	NextTransitionId() *big.Int
+	VerifiedTransitionId() *big.Int
 }

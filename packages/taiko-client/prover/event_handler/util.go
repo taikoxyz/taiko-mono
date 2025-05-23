@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -25,11 +25,11 @@ func isBatchVerified(ctx context.Context, rpc *rpc.Client, id *big.Int) (bool, e
 	return id.Uint64() <= lastVerifiedTransition.BatchId, nil
 }
 
-// getMetadataFromBatchPacaya fetches the batch meta from the onchain event by the given batch id.
-func getMetadataFromBatchPacaya(
+// getMetadataFromBatch fetches the batch meta from the onchain event by the given batch id.
+func getMetadataFromBatch(
 	ctx context.Context,
 	rpc *rpc.Client,
-	batch *pacaya.ITaikoInboxBatch,
+	batch bindingTypes.ITaikoInboxBatch,
 ) (m metadata.TaikoProposalMetaData, err error) {
 	callback := func(
 		_ context.Context,
@@ -40,7 +40,7 @@ func getMetadataFromBatchPacaya(
 			return nil
 		}
 		// Only filter for exact batchID we want.
-		if meta.Pacaya().GetBatchID().Cmp(new(big.Int).SetUint64(batch.BatchId)) != 0 {
+		if meta.Pacaya().GetBatchID().Cmp(new(big.Int).SetUint64(batch.BatchId())) != 0 {
 			return nil
 		}
 
@@ -60,7 +60,7 @@ func getMetadataFromBatchPacaya(
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
 	}
 	endHeight := new(big.Int).Add(
-		new(big.Int).SetUint64(batch.AnchorBlockId),
+		new(big.Int).SetUint64(batch.AnchorBlockId()),
 		new(big.Int).SetUint64(config.MaxAnchorHeightOffset()),
 	)
 	if endHeight.Cmp(l1Head.Number) > 0 {
@@ -71,7 +71,7 @@ func getMetadataFromBatchPacaya(
 		Client:               rpc.L1,
 		TaikoInbox:           rpc.PacayaClients.TaikoInbox,
 		PacayaForkHeight:     rpc.PacayaClients.ForkHeights.Pacaya,
-		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId),
+		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId()),
 		EndHeight:            endHeight,
 		OnBatchProposedEvent: callback,
 	})

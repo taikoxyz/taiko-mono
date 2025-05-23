@@ -250,19 +250,13 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 	}
 
 	if startingBatchID == nil {
-		var (
-			lastVerifiedBatchID *big.Int
-			genesisHeight       *big.Int
-		)
-		stateVars, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: p.ctx})
+		stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: p.ctx})
 		if err != nil {
 			return err
 		}
-		lastVerifiedBatchID = new(big.Int).SetUint64(stateVars.LastVerifiedBatchId())
-		genesisHeight = new(big.Int).SetUint64(stateVars.GenesisHeight())
 
-		if lastVerifiedBatchID.Cmp(common.Big0) == 0 {
-			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, genesisHeight)
+		if stats.LastVerifiedBatchId() == 0 {
+			genesisL1Header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(stats.GenesisHeight()))
 			if err != nil {
 				return err
 			}
@@ -271,7 +265,7 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 			return nil
 		}
 
-		startingBatchID = lastVerifiedBatchID
+		startingBatchID = new(big.Int).SetUint64(stats.LastVerifiedBatchId())
 	}
 
 	log.Info("Init L1Current cursor", "startingBatchID", startingBatchID)
@@ -284,7 +278,7 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 				return fmt.Errorf("failed to get batch by ID: %d", startingBatchID)
 			}
 
-			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
+			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId()))
 			if err != nil {
 				return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
 			}

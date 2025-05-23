@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 )
 
 // GetL1Current reads the L1 current cursor concurrent safely.
@@ -54,7 +54,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to find batch for block ID (%d): %w", blockID, err)
 	}
-	proposedIn := batch.AnchorBlockId
+	proposedIn := batch.AnchorBlockId()
 
 	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(proposedIn))
 	if err != nil {
@@ -68,15 +68,15 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 }
 
 // FindBatchForBlockID finds the TaikoInboxBatch for the given block ID.
-func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacayaBindings.ITaikoInboxBatch, error) {
-	stateVars, err := s.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
+func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (bindingTypes.ITaikoInboxBatch, error) {
+	stats, err := s.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		lastBatchID = stateVars.NumBatches() - 1
-		lastBatch   *pacayaBindings.ITaikoInboxBatch
+		lastBatchID = stats.NumBatches() - 1
+		lastBatch   bindingTypes.ITaikoInboxBatch
 	)
 	batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))
 	if err != nil {
@@ -90,12 +90,12 @@ func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacay
 			return nil, err
 		}
 
-		if batch.LastBlockId < blockID {
+		if batch.LastBlockId() < blockID {
 			return lastBatch, nil
 		}
 
 		lastBatch = batch
-		lastBatchID = batch.BatchId
+		lastBatchID = batch.BatchId()
 		continue
 	}
 }

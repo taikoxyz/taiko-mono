@@ -193,11 +193,11 @@ func (s *State) IsPacaya(num *big.Int) bool {
 
 // initGenesisHeight fetches the genesis height from the current protocol.
 func (s *State) initGenesisHeight(ctx context.Context) error {
-	stateVars, err := s.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
+	stats, err := s.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
 	}
 
-	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.GenesisHeight())
+	s.GenesisL1Height = new(big.Int).SetUint64(stats.GenesisHeight())
 	return nil
 }

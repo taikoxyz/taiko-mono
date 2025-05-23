@@ -58,12 +58,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
+	stats, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return err
 	}
 
-	genesisHeight := stateVars.GenesisHeight()
+	genesisHeight := stats.GenesisHeight()
 
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
@@ -251,25 +251,31 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
+	stats, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return nil, err
 	}
 
-	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.GenesisHeight()))
+	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stats.GenesisHeight()))
 }
 
-// GetBatchByID fetches the batch by ID from the Pacaya protocol.
-func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBindings.ITaikoInboxBatch, error) {
+// GetBatchByID fetches the batch by ID from the protocol, it will first try to fetch
+// the batch from the Shasta TaikoInbox contract, if it fails, it will try to fetch
+// the batch from the Pacaya TaikoInbox contract.
+func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (bindingTypes.ITaikoInboxBatch, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
+	batch, err := c.ShastaClients.TaikoInbox.V4GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+		}
+		return bindingTypes.NewInboxBatchPacaya(&batch), nil
 	}
 
-	return &batch, nil
+	return bindingTypes.NewInboxBatchShasta(&batch), nil
 }
 
 // L2ParentByCurrentBlockID fetches the block header from L2 execution engine with the largest block id that
@@ -478,13 +484,13 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
-		// Try get the highest block ID from the Pacaya protocol state variables.
-		stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctx})
+		// Try get the highest block ID from the protocol state variables.
+		stats, err := c.GetProtocolStats(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return err
 		}
 
-		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.NumBatches()-1)
+		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stats.NumBatches()-1)
 		if err != nil {
 			return err
 		}
@@ -677,7 +683,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 			return nil, fmt.Errorf("failed to fetch batch (%d) by ID: %w", batchID, err)
 		}
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
-		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId()))
 		if err != nil {
 			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 			// its local database, we skip this check.
@@ -717,7 +723,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		// 2. Check whether the L1 information which in the given L2 block's anchor transaction has been reorged.
 		isSyncedL1SnippetInvalid, err := c.checkSyncedL1SnippetFromAnchor(
 			ctxWithTimeout,
-			new(big.Int).SetUint64(batch.LastBlockId),
+			new(big.Int).SetUint64(batch.LastBlockId()),
 			l1Origin.L1BlockHeight.Uint64(),
 		)
 		if err != nil {
