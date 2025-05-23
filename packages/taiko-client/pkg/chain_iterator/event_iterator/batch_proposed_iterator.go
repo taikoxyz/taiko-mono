@@ -181,6 +181,7 @@ func assembleBatchProposedIteratorCallback(
 			return iterPacaya.Error()
 		}
 
+		// TODO: merge the handler
 		for iterShasta.Next() {
 			event := iterShasta.Event
 			log.Debug(
@@ -203,7 +204,7 @@ func assembleBatchProposedIteratorCallback(
 				)
 			}
 
-			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataShasta(event), eventIter.end); err != nil {
 				log.Warn("Error while processing BatchProposed events, keep retrying", "error", err)
 				return err
 			}
@@ -227,8 +228,8 @@ func assembleBatchProposedIteratorCallback(
 		}
 
 		// Check if there is any error during the iteration.
-		if iterPacaya.Error() != nil {
-			return iterPacaya.Error()
+		if iterShasta.Error() != nil {
+			return iterShasta.Error()
 		}
 
 		return nil
