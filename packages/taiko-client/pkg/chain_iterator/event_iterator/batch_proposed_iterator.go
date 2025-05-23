@@ -41,7 +41,8 @@ type BatchProposedIterator struct {
 // BatchProposedIteratorConfig represents the configs of a BatchProposed event iterator.
 type BatchProposedIteratorConfig struct {
 	Client                *rpc.EthClient
-	TaikoInbox            *pacayaBindings.TaikoInboxClient
+	PacayaTaikoInbox      *pacayaBindings.TaikoInboxClient
+	ShastaTaikoInbox      *shastaBindings.TaikoInboxClient
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
@@ -55,7 +56,7 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 		return nil, errors.New("invalid callback")
 	}
 
-	iterator := &BatchProposedIterator{ctx: ctx, pacayaTaikoInbox: cfg.TaikoInbox}
+	iterator := &BatchProposedIterator{ctx: ctx, pacayaTaikoInbox: cfg.PacayaTaikoInbox}
 
 	// Initialize the inner block iterator.
 	blockIterator, err := chainIterator.NewBlockBatchIterator(ctx, &chainIterator.BlockBatchIteratorConfig{
@@ -66,7 +67,8 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 		BlockConfirmations:    cfg.BlockConfirmations,
 		OnBlocks: assembleBatchProposedIteratorCallback(
 			cfg.Client,
-			cfg.TaikoInbox,
+			cfg.PacayaTaikoInbox,
+			cfg.ShastaTaikoInbox,
 			cfg.OnBatchProposedEvent,
 			iterator,
 		),
@@ -95,7 +97,8 @@ func (i *BatchProposedIterator) end() {
 // by a event iterator's inner block iterator.
 func assembleBatchProposedIteratorCallback(
 	client *rpc.EthClient,
-	taikoInbox *pacayaBindings.TaikoInboxClient,
+	pacayaTaikoInbox *pacayaBindings.TaikoInboxClient,
+	shastaTaikoInbox *shastaBindings.TaikoInboxClient,
 	callback OnBatchProposedEvent,
 	eventIter *BatchProposedIterator,
 ) chainIterator.OnBlocksFunc {
@@ -111,17 +114,80 @@ func assembleBatchProposedIteratorCallback(
 		)
 
 		// Iterate the BatchProposed events.
-		iterPacaya, err := taikoInbox.FilterBatchProposed(
+		iterPacaya, err := pacayaTaikoInbox.FilterBatchProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 		)
 		if err != nil {
 			return err
 		}
-		defer iterPacaya.Close()
+		iterShasta, err := shastaTaikoInbox.FilterBatchProposed(
+			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
+		)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			iterPacaya.Close()
+			iterShasta.Close()
+		}()
 
 		for iterPacaya.Next() {
 			event := iterPacaya.Event
-			log.Debug("Processing BatchProposed event", "batch", event.Meta.BatchId, "l1BlockHeight", event.Raw.BlockNumber)
+			log.Debug(
+				"Processing Pacaya BatchProposed event",
+				"batch", event.Meta.BatchId,
+				"l1BlockHeight", event.Raw.BlockNumber,
+			)
+
+			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
+				log.Warn(
+					"BatchProposed event is not continuous, rescan the L1 chain",
+					"fromL1Block", start.Number,
+					"toL1Block", endHeight,
+					"lastScannedBatchID", lastBatchID,
+					"currentScannedBatchID", event.Meta.BatchId,
+				)
+				return fmt.Errorf(
+					"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
+					lastBatchID, event.Meta.BatchId,
+				)
+			}
+
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {
+				log.Warn("Error while processing BatchProposed events, keep retrying", "error", err)
+				return err
+			}
+
+			if eventIter.isEnd {
+				log.Debug("BatchProposedIterator is ended", "start", start.Number, "end", endHeight)
+				endFunc()
+				return nil
+			}
+
+			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			if err != nil {
+				return err
+			}
+
+			log.Debug("Updating current block cursor for processing BatchProposed events", "block", current.Number)
+
+			lastBatchID = event.Meta.BatchId
+
+			updateCurrentFunc(current)
+		}
+
+		// Check if there is any error during the iteration.
+		if iterPacaya.Error() != nil {
+			return iterPacaya.Error()
+		}
+
+		for iterShasta.Next() {
+			event := iterShasta.Event
+			log.Debug(
+				"Processing Shasta BatchProposed event",
+				"batch", event.Meta.BatchId,
+				"l1BlockHeight", event.Raw.BlockNumber,
+			)
 
 			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
 				log.Warn(

@@ -6,12 +6,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // TaikoProposalMetaData defines all the metadata of a Taiko block.
 type TaikoProposalMetaData interface {
 	Pacaya() TaikoBatchMetaDataPacaya
 	IsPacaya() bool
+	Shasta() TaikoBatchMetaDataShasta
+	IsShasta() bool
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
@@ -45,4 +48,30 @@ type TaikoBatchMetaDataPacaya interface {
 	GetTxIndex() uint
 	GetTxHash() common.Hash
 	InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata
+}
+
+type TaikoBatchMetaDataShasta interface {
+	GetTxListHash() common.Hash
+	GetBlocks() []shastaBindings.ITaikoInboxBlockParams
+	GetBlobHashes() []common.Hash
+	GetExtraData() []byte
+	GetCoinbase() common.Address
+	GetProposer() common.Address
+	GetProposedIn() uint64
+	GetBlobCreatedIn() *big.Int
+	GetBlobByteOffset() uint32
+	GetBlobByteSize() uint32
+	GetGasLimit() uint32
+	GetLastBlockID() uint64
+	GetLastBlockTimestamp() uint64
+	GetAnchorBlockID() uint64
+	GetAnchorBlockHash() common.Hash
+	GetBaseFeeConfig() *shastaBindings.LibSharedDataBaseFeeConfig
+	GetBatchID() *big.Int
+	GetProposedAt() uint64
+	GetRawBlockHeight() *big.Int
+	GetRawBlockHash() common.Hash
+	GetTxIndex() uint
+	GetTxHash() common.Hash
+	InnerMetadata() *shastaBindings.ITaikoInboxBatchMetadata
 }
