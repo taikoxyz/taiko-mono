@@ -547,10 +547,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Config memory config = _getConfig();
         if (config.forkHeights.shasta == 0) {
             return 0;
-        } else if (state.stats1.shastaForkBlockHeight == 0) {
+        }
+        Stats1 memory stats1 = state.stats1;
+        if (stats1.shastaForkBlockHeight == 0) {
             return type(uint64).max;
         } else {
-            return state.stats1.shastaForkBlockHeight;
+            return stats1.shastaForkBlockHeight;
         }
     }
 
