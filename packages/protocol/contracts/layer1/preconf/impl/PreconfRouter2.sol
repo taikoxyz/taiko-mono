@@ -99,6 +99,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
             bytes26 nextLookaheadHash = lookaheadStore.getLookaheadHash(nextEpochTimestamp);
             bool nextLookaheadNeedsValidation;
 
+            // Wrapped inside a scope to avoid stack too deep error
             {
                 if (nextLookaheadHash == 0) {
                     // If the lookahead for the next epoch is not posted, we post it here.
