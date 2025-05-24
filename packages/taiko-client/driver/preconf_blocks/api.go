@@ -194,7 +194,17 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
 	if s.p2pNode != nil && !reflect2.IsNil(s.p2pSigner) {
-		log.Info("Gossiping L2 Payload", "blockID", header.Number.Uint64(), "time", header.Time)
+		log.Info(
+			"Gossiping L2 Payload",
+			"blockID", header.Number,
+			"coinbase", header.Coinbase,
+			"timestamp", header.Time,
+			"gasLimit", header.GasLimit,
+			"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(header.BaseFee.Uint64())),
+			"extraData", common.Bytes2Hex(header.Extra),
+			"parentHash", header.ParentHash,
+			"endOfSequencing", endOfSequencing,
+		)
 
 		var u256 uint256.Int
 		if overflow := u256.SetFromBig(header.BaseFee); overflow {
