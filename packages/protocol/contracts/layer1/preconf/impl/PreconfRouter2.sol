@@ -27,6 +27,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     error InvalidLookaheadTimestamp();
     error InvalidNextLookahead();
     error InvalidPreviousLookahead();
+    error InvalidSlotIndex();
     error NotPreconfer();
     error NotPreconferOrFallback();
     error OperatorIsNotOptedIn();
@@ -77,12 +78,19 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
             (uint64, ILookaheadStore.LookaheadSlot[], ILookaheadStore.LookaheadSlot[], bytes)
         );
 
+        require(
+            slotIndex == type(uint64).max || slotIndex < currLookahead.length, InvalidSlotIndex()
+        );
+
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
 
         {
             bytes26 currLookaheadHash = lookaheadStore.getLookaheadHash(epochTimestamp);
             if (currLookaheadHash != 0) {
                 _validateLookahead(epochTimestamp, currLookahead, currLookaheadHash);
+            } else {
+                // @anshu, not sure if this is correct!!!
+                require(currLookahead.length == 0, InvalidCurrentLookahead());
             }
         }
 
@@ -100,7 +108,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
             }
         }
 
-        if (currLookahead.length == 0) {
+        if (currLookahead.length == 0 || nextLookahead.length == 0) {
             // The current lookahead is empty, so we use a whitelisted preconfer
             _validateWhitelistPreconfer();
         } else {
