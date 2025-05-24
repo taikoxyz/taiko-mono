@@ -104,26 +104,8 @@ func Compress(txList []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// Decompress decompresses the given txList bytes using zlib.
+// Decompress decompresses the given txList bytes using zlib, it checks the ErrUnexpectedEOF error.
 func Decompress(compressedTxList []byte) ([]byte, error) {
-	r, err := zlib.NewReader(bytes.NewBuffer(compressedTxList))
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
-	b, err := io.ReadAll(r)
-	if err != nil {
-		if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-			return nil, err
-		}
-	}
-
-	return b, nil
-}
-
-// DecompressPacaya decompresses the given txList bytes using zlib, it checks the ErrUnexpectedEOF error.
-func DecompressPacaya(compressedTxList []byte) ([]byte, error) {
 	r, err := zlib.NewReader(bytes.NewBuffer(compressedTxList))
 	if err != nil {
 		return nil, err
