@@ -188,9 +188,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
-                info_.lastBlockId = stats2.numBatches == config.forkHeights.shasta
-                    ? stats2.numBatches + nBlocks - 1
-                    : lastBatch.lastBlockId + nBlocks;
+                info_.lastBlockId = lastBatch.lastBlockId + nBlocks;
 
                 // Fork activation shall be L2 block based
                 require(info_.lastBlockId >= config.forkHeights.shasta, ForkNotActivated());
