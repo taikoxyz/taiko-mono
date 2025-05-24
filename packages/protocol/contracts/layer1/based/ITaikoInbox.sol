@@ -95,7 +95,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
-        uint64 lastBlockHeightInBatch;
+        uint64 firstBlockHeightInBatch;
     }
 
     /// @notice Struct representing transition to be proven.

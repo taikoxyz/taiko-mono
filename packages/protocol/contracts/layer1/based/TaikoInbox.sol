@@ -191,7 +191,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 info_.lastBlockId = lastBatch.lastBlockId + nBlocks;
 
                 // Fork activation shall be L2 block based
-                require(info_.lastBlockId >= config.forkHeights.shasta, ForkNotActivated());
+                // This check means first block of this batch is at least equals to shasta block
+                // height
+                require(lastBatch.lastBlockId + 1 >= config.forkHeights.shasta, ForkNotActivated());
 
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
@@ -201,7 +203,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     prover: info_.proposer,
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp),
-                    lastBlockHeightInBatch: info_.lastBlockId
+                    firstBlockHeightInBatch: lastBatch.lastBlockId + 1
                 });
 
                 if (params.proverAuth.length == 0) {
@@ -304,10 +306,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.lastBlockHeightInBatch >= config.forkHeights.shasta, ForkNotActivated());
+            require(meta.firstBlockHeightInBatch >= config.forkHeights.shasta, ForkNotActivated());
             require(
                 config.forkHeights.unzen == 0
-                    || meta.lastBlockHeightInBatch < config.forkHeights.unzen,
+                    || meta.firstBlockHeightInBatch < config.forkHeights.unzen,
                 BeyondCurrentFork()
             );
 
