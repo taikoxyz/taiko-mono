@@ -20,6 +20,10 @@ contract MainnetInbox is TaikoInbox {
         TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     { }
 
+    function init2() external reinitializer(2) {
+        state.stats1.shastaForkBlockHeight = 0;
+    }
+
     function _getConfig() internal pure virtual override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.

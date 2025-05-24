@@ -135,7 +135,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     struct Stats1 {
         uint64 genesisHeight;
-        uint64 __reserved2;
+        uint64 shastaForkBlockHeight;
         uint64 lastSyncedBatchId;
         uint64 lastSyncedAt;
     }
@@ -241,6 +241,10 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param batchId The ID of the verified batch.
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
+
+    /// @notice Emitted when the shasta fork block height is finalized.
+    /// @param shastaForkBlockHeight The shasta fork block height.
+    event ShastaForkBlockHeightFinalized(uint64 shastaForkBlockHeight);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
@@ -373,4 +377,10 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
     function v4GetConfig() external view returns (Config memory);
+
+    /// @notice Retrieves the shasta fork block height.
+    /// @return The shasta fork block height. 0 will be returned if shasta batch-based fork number
+    /// is not set, and type(uint64).max will be returned if shasta batch-based fork number is set
+    /// but not finalized.
+    function v4GetShastaForkBlockHeight() external view returns (uint64);
 }
