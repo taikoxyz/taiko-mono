@@ -16,8 +16,9 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         // Setup mock beacon for operator selection
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        // Current epoch
-        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
+        // Set current epoch to `RANDOMNESS_DELAY_EPOCHS` epochs after genesis
+        uint256 currentEpoch = epochOneStart
+            + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
@@ -44,8 +45,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proverAuth: ""
         });
 
-        // Warp to arbitrary slot in epoch 2
-        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        // Warp to arbitrary slot in current epoch
+        vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
@@ -66,11 +67,12 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Current epoch
-        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 currentEpoch = epochOneStart
+            + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
         _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
-        // Warp to arbitrary slot in epoch 2
-        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        // Warp to arbitrary slot in current epoch
+        vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as David (not the selected operator) and propose blocks
         vm.prank(David);
@@ -89,7 +91,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         // Current epoch
-        uint256 epochTwoStart = epochOneStart + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 currentEpoch = epochOneStart
+            + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
@@ -116,8 +119,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proverAuth: ""
         });
 
-        // Warp to arbitrary slot in epoch 2
-        vm.warp(epochTwoStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
+        // Warp to arbitrary slot in current epoch
+        vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
         vm.prank(Carol);
