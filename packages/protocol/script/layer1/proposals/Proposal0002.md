@@ -6,8 +6,7 @@ This proposal demonstrates the Taiko DAO's capability to execute multiple cross-
 
 The following L1 actions will be executed by the `TaikoDAOController`:
 
-
-- Upgrade implementation to `0x7a7CE80502c46C768B8d341dcbaa99Ffe7338f33`
+- Upgrade the implementation to `0x7a7CE80502c46C768B8d341dcbaa99Ffe7338f33`. This proposal serves the same purpose as Emergency Proposal #13, which expired due to a DAO configuration issue.
 - Transfer 0.001 ETH to Daniel Wang
 - Transfer 1 USDC to Daniel Wang
 - Transfer `FooUpgradable` ownership to Daniel Wang
