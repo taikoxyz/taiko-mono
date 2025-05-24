@@ -20,8 +20,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -56,12 +58,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	stats, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return err
 	}
 
-	genesisHeight := stateVars.Stats1.GenesisHeight
+	genesisHeight := stats.GenesisHeight()
 
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
@@ -249,25 +251,31 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	stats, err := c.GetProtocolStats(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return nil, err
 	}
 
-	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight))
+	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stats.GenesisHeight()))
 }
 
-// GetBatchByID fetches the batch by ID from the Pacaya protocol.
-func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBindings.ITaikoInboxBatch, error) {
+// GetBatchByID fetches the batch by ID from the protocol, it will first try to fetch
+// the batch from the Shasta TaikoInbox contract, if it fails, it will try to fetch
+// the batch from the Pacaya TaikoInbox contract.
+func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (bindingTypes.ITaikoInboxBatch, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
+	batch, err := c.ShastaClients.TaikoInbox.V4GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
+		}
+		return bindingTypes.NewInboxBatchPacaya(&batch), nil
 	}
 
-	return &batch, nil
+	return bindingTypes.NewInboxBatchShasta(&batch), nil
 }
 
 // L2ParentByCurrentBlockID fetches the block header from L2 execution engine with the largest block id that
@@ -360,7 +368,7 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 func (c *Client) CalculateBaseFee(
 	ctx context.Context,
 	l2Head *types.Header,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
@@ -388,7 +396,7 @@ func (c *Client) GetPoolContent(
 	maxTransactionsLists uint64,
 	minTip uint64,
 	chainConfig *config.ChainConfig,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -476,13 +484,13 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
-		// Try get the highest block ID from the Pacaya protocol state variables.
-		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+		// Try get the highest block ID from the protocol state variables.
+		stats, err := c.GetProtocolStats(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return err
 		}
 
-		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
+		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stats.NumBatches()-1)
 		if err != nil {
 			return err
 		}
@@ -515,8 +523,22 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	return progress, nil
 }
 
-// GetProtocolStateVariablesPacaya gets the protocol states from TaikoInbox contract.
-func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
+// GetProtocolStats gets the protocol states from TaikoInbox contract.
+func (c *Client) GetProtocolStats(opts *bind.CallOpts) (bindingTypes.ITaikoInboxStats, error) {
+	statsShasta, err := c.getProtocolStatsShasta(opts)
+	if err == nil {
+		statsPacaya, err := c.getProtocolStatsPacaya(opts)
+		if err == nil {
+			return nil, err
+		}
+		return bindingTypes.NewInboxStatsPacaya(&statsPacaya.Stats1, &statsPacaya.Stats2), nil
+	}
+
+	return bindingTypes.NewInboxStatsShasta(&statsShasta.Stats1, &statsShasta.Stats2), nil
+}
+
+// getProtocolStatsPacaya gets the protocol states from Pacaya TaikoInbox contract.
+func (c *Client) getProtocolStatsPacaya(opts *bind.CallOpts) (*struct {
 	Stats1 pacayaBindings.ITaikoInboxStats1
 	Stats2 pacayaBindings.ITaikoInboxStats2
 }, error) {
@@ -547,6 +569,44 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	})
 	g.Go(func() error {
 		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
+		return err
+	})
+
+	return states, g.Wait()
+}
+
+// getProtocolStatsShasta gets the protocol states from Shasta TaikoInbox contract.
+func (c *Client) getProtocolStatsShasta(opts *bind.CallOpts) (*struct {
+	Stats1 shastaBindings.ITaikoInboxStats1
+	Stats2 shastaBindings.ITaikoInboxStats2
+}, error) {
+	if opts == nil {
+		opts = &bind.CallOpts{}
+	}
+
+	var ctx = context.Background()
+	if opts.Context != nil {
+		ctx = opts.Context
+	}
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+	opts.Context = ctxWithTimeout
+
+	var (
+		states = new(struct {
+			Stats1 shastaBindings.ITaikoInboxStats1
+			Stats2 shastaBindings.ITaikoInboxStats2
+		})
+		err error
+	)
+
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		states.Stats1, err = c.ShastaClients.TaikoInbox.V4GetStats1(opts)
+		return err
+	})
+	g.Go(func() error {
+		states.Stats2, err = c.ShastaClients.TaikoInbox.V4GetStats2(opts)
 		return err
 	})
 
@@ -623,7 +683,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 			return nil, fmt.Errorf("failed to fetch batch (%d) by ID: %w", batchID, err)
 		}
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
-		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId()))
 		if err != nil {
 			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 			// its local database, we skip this check.
@@ -663,7 +723,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		// 2. Check whether the L1 information which in the given L2 block's anchor transaction has been reorged.
 		isSyncedL1SnippetInvalid, err := c.checkSyncedL1SnippetFromAnchor(
 			ctxWithTimeout,
-			new(big.Int).SetUint64(batch.LastBlockId),
+			new(big.Int).SetUint64(batch.LastBlockId()),
 			l1Origin.L1BlockHeight.Uint64(),
 		)
 		if err != nil {
@@ -754,7 +814,7 @@ func (c *Client) getSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	err error,
 ) {
 	var method *abi.Method
-	if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
+	if method, err = encoding.TaikoAnchorPacayaABI.MethodById(tx.Data()); err != nil {
 		return common.Hash{}, 0, 0, fmt.Errorf("failed to get TaikoAnchor.AnchorV3 method by ID: %w", err)
 	}
 
@@ -831,7 +891,7 @@ func (c *Client) calculateBaseFeePacaya(
 	ctx context.Context,
 	l2Head *types.Header,
 	currentTimestamp uint64,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 ) (*big.Int, error) {
 	log.Info(
 		"Calculate base fee for the Pacaya block",
@@ -846,7 +906,13 @@ func (c *Client) calculateBaseFeePacaya(
 		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
 		uint32(l2Head.GasUsed),
 		currentTimestamp,
-		*baseFeeConfig,
+		pacayaBindings.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
+			SharingPctg:            baseFeeConfig.SharingPctgs()[0],
+			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
+			MinGasExcess:           baseFeeConfig.MinGasExcess(),
+			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", err)
@@ -857,12 +923,12 @@ func (c *Client) calculateBaseFeePacaya(
 
 // getGenesisHeight fetches the genesis height from the protocol.
 func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	stateVars, err := c.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
 
-	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
+	return new(big.Int).SetUint64(stateVars.GenesisHeight()), nil
 }
 
 // GetProofVerifierPacaya resolves the Pacaya proof verifier address.
@@ -909,9 +975,10 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 }
 
-// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
+// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address,
+// TODO: support Shasta forced inclusion contract.
 func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
-	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	bindingTypes.IForcedInclusionStoreForcedInclusion,
 	*big.Int,
 	error,
 ) {
@@ -962,65 +1029,66 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		return nil, nil, encoding.TryParsingCustomError(err)
 	}
 
-	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
+	return bindingTypes.NewForcedInclusionPacaya(&forcedInclusion),
+		new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
 }
 
-// GetOPVerifierPacaya resolves the Pacaya op verifier address.
-func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetOPVerifierShasta resolves the Shasta op verifier address.
+func (c *Client) GetOPVerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.OpVerifier)
 }
 
-// GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
-func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetSGXVerifierShasta resolves the Shasta sgx verifier address.
+func (c *Client) GetSGXVerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.SgxRethVerifier)
 }
 
-// GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
-func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetRISC0VerifierShasta resolves the Shasta risc0 verifier address.
+func (c *Client) GetRISC0VerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0RethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.Risc0RethVerifier)
 }
 
-// GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
-func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetSP1VerifierShasta resolves the Shasta sp1 verifier address.
+func (c *Client) GetSP1VerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1RethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.Sp1RethVerifier)
 }
 
-// GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
-func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
+// GetSgxGethVerifierShasta resolves the Shasta sgx geth verifier address.
+func (c *Client) GetSgxGethVerifierShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.ComposeVerifier == nil {
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.ComposeVerifier.SgxGethVerifier)
 }
 
-// GetPreconfRouterPacaya resolves the preconfirmation router address.
-func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.TaikoWrapper == nil {
+// GetPreconfRouterShasta resolves the preconfirmation router address.
+func (c *Client) GetPreconfRouterShasta(opts *bind.CallOpts) (common.Address, error) {
+	if c.ShastaClients.TaikoWrapper == nil {
 		return common.Address{}, errors.New("taikoWrapper contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
+	return getImmutableAddressShasta(c, opts, c.ShastaClients.TaikoWrapper.PreconfRouter)
 }
 
-// getImmutableAddressPacaya resolves the Pacaya contract address.
-func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
+// getImmutableAddressShasta resolves the Shasta contract address.
+func getImmutableAddressShasta[T func(opts *bind.CallOpts) (common.Address, error)](
 	c *Client,
 	opts *bind.CallOpts,
 	resolveFunc T,

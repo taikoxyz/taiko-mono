@@ -22,10 +22,7 @@ import (
 )
 
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}, head.Number.Uint64(), common.Hash{}))
+	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}, common.Hash{}))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
@@ -54,11 +51,8 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 		close(sink1)
 	}()
 
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	// RLP encoded empty list
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head.Number.Uint64(), common.Hash{}))
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.

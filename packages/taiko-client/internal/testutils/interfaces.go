@@ -16,6 +16,6 @@ type ChainSyncer interface {
 type Proposer interface {
 	utils.SubcommandApplication
 	ProposeOp(ctx context.Context) error
-	ProposeTxLists(ctx context.Context, txLists []types.Transactions, l2Head uint64, parentMetaHash common.Hash) error
+	ProposeTxLists(ctx context.Context, txLists []types.Transactions, parentMetaHash common.Hash) error
 	RegisterTxMgrSelectorToBlobServer(blobServer *MemoryBlobServer)
 }

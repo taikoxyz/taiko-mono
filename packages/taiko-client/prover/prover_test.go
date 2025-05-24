@@ -236,7 +236,7 @@ func (s *ProverTestSuite) TestProveOp() {
 	parentHash = common.BytesToHash(tran.ParentHash[:])
 	batch, err := s.p.rpc.GetBatchByID(context.Background(), new(big.Int).SetUint64(e.BatchIds[len(e.BatchIds)-1]))
 	s.Nil(err)
-	blockID = new(big.Int).SetUint64(batch.LastBlockId)
+	blockID = new(big.Int).SetUint64(batch.LastBlockId())
 
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), blockID)
 	s.Nil(err)
@@ -281,7 +281,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			}
 		}
 
-		s.Nil(s.proposer.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
+		s.Nil(s.proposer.ProposeTxLists(context.Background(), txsBatch, common.Hash{}))
 		s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 	}
 
@@ -617,7 +617,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.True(paused)
 
 	// Unpause the TaikoInbox contract
-	data, err := encoding.TaikoInboxABI.Pack("unpause")
+	data, err := encoding.TaikoInboxPacayaABI.Pack("unpause")
 	s.Nil(err)
 	receipt, err := s.TxMgr("unpauseTaikoInbox", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")).
 		Send(

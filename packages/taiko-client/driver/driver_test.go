@@ -30,7 +30,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -133,7 +134,7 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 		s.Nil(err)
 
 		var method *abi.Method
-		method, err = encoding.TaikoAnchorABI.MethodById(anchorTx.Data())
+		method, err = encoding.TaikoAnchorPacayaABI.MethodById(anchorTx.Data())
 		s.Nil(err)
 		s.Contains(method.Name, "anchor")
 	}
@@ -331,7 +332,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 
 	var blob = &eth.Blob{}
 	s.Nil(blob.FromData(b))
-	data, err := encoding.ForcedInclusionStoreABI.Pack("storeForcedInclusion", uint8(0), uint32(0), uint32(len(b)))
+	data, err := encoding.ForcedInclusionStorePacayaABI.Pack("storeForcedInclusion", uint8(0), uint32(0), uint32(len(b)))
 	s.Nil(err)
 
 	feeInGwei, err := s.RPCClient.PacayaClients.ForcedInclusionStore.FeeInGwei(nil)
@@ -357,7 +358,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Nil(err)
 
 	// Propose an empty batch, should with another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head1.Number.Uint64(), common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -374,7 +375,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, l2Head2.Number().Uint64(), common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -1154,7 +1155,7 @@ func (s *DriverTestSuite) proposePreconfBatch(
 		to          = &s.p.TaikoInboxAddress
 		proposer    = crypto.PubkeyToAddress(s.p.L1ProposerPrivKey.PublicKey)
 		data        []byte
-		blockParams []pacayaBindings.ITaikoInboxBlockParams
+		blockParams []bindingTypes.ITaikoInboxBlockParams
 		allTxs      types.Transactions
 	)
 
@@ -1169,10 +1170,11 @@ func (s *DriverTestSuite) proposePreconfBatch(
 
 	for i, b := range blocks {
 		allTxs = append(allTxs, b.Transactions()[1:]...)
-		blockParams = append(blockParams, pacayaBindings.ITaikoInboxBlockParams{
-			NumTransactions: uint16(b.Transactions()[1:].Len()),
-			TimeShift:       timeShifts[i],
-		})
+		blockParams = append(blockParams, bindingTypes.NewBlockParams(
+			uint16(b.Transactions()[1:].Len()),
+			timeShifts[i],
+			[][32]byte{},
+		))
 	}
 
 	rlpEncoded, err := rlp.EncodeToBytes(allTxs)
@@ -1182,23 +1184,24 @@ func (s *DriverTestSuite) proposePreconfBatch(
 
 	encodedParams, err := encoding.EncodeBatchParamsWithForcedInclusion(
 		nil,
-		&encoding.BatchParams{
-			Proposer: proposer,
-			Coinbase: blocks[0].Coinbase(),
-			BlobParams: encoding.BlobParams{
-				ByteOffset: 0,
-				ByteSize:   uint32(len(txListsBytes)),
-			},
-			Blocks:             blockParams,
-			AnchorBlockId:      anchoredL1Blocks[0].Number.Uint64(),
-			LastBlockTimestamp: blocks[len(blocks)-1].Time(),
-		})
+		bindingTypes.NewBatchParamsShasta(
+			proposer,
+			blocks[0].Coinbase(),
+			[32]byte{},
+			anchoredL1Blocks[0].Number.Uint64(),
+			blocks[len(blocks)-1].Time(),
+			false,
+			bindingTypes.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
+			blockParams,
+			[]byte{},
+		),
+	)
 	s.Nil(err)
 
 	if s.p.ProverSetAddress != rpc.ZeroAddress {
 		data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
 	} else {
-		data, err = encoding.TaikoInboxABI.Pack("proposeBatch", encodedParams, txListsBytes)
+		data, err = encoding.TaikoInboxPacayaABI.Pack("proposeBatch", encodedParams, txListsBytes)
 	}
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{TxData: data, Blobs: nil, To: to}))
@@ -1342,7 +1345,13 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	b, err := utils.EncodeAndCompressTxList(types.Transactions{anchorTx, signedTx})
 	s.Nil(err)
 
-	extraData := encoding.EncodeBaseFeeConfig(s.d.protocolConfig.BaseFeeConfig())
+	extraData := encoding.EncodeBaseFeeConfig(&pacaya.LibSharedDataBaseFeeConfig{
+		AdjustmentQuotient:     s.d.protocolConfig.BaseFeeConfig().AdjustmentQuotient(),
+		SharingPctg:            s.d.protocolConfig.BaseFeeConfig().SharingPctgs()[0],
+		GasIssuancePerSecond:   s.d.protocolConfig.BaseFeeConfig().GasIssuancePerSecond(),
+		MinGasExcess:           s.d.protocolConfig.BaseFeeConfig().MinGasExcess(),
+		MaxGasIssuancePerBlock: s.d.protocolConfig.BaseFeeConfig().MaxGasIssuancePerBlock(),
+	})
 	s.NotEmpty(extraData)
 
 	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{

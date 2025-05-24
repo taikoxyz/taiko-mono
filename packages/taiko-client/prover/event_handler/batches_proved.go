@@ -46,7 +46,7 @@ func (h *BatchesProvedEventHandler) HandlePacaya(
 		if err != nil {
 			return fmt.Errorf("failed to get batch by ID: %w", err)
 		}
-		metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId))
+		metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId()))
 
 		status, err := rpc.GetBatchProofStatus(ctx, h.rpc, new(big.Int).SetUint64(batchID))
 		if err != nil {
@@ -58,7 +58,7 @@ func (h *BatchesProvedEventHandler) HandlePacaya(
 			continue
 		}
 		// Otherwise, the proof onchain is either invalid or missed, we need to submit a new proof.
-		meta, err := getMetadataFromBatchPacaya(ctx, h.rpc, batch)
+		meta, err := getMetadataFromBatch(ctx, h.rpc, batch)
 		if err != nil {
 			return fmt.Errorf("failed to fetch metadata for batch (%d): %w", batchID, err)
 		}
