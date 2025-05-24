@@ -67,13 +67,16 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Check if the preconfirmation is enabled.
-	preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: c.Request().Context()})
-	if err != nil {
-		return s.returnError(c, http.StatusInternalServerError, err)
-	}
-	if preconfRouter == rpc.ZeroAddress {
-		return s.returnError(c, http.StatusInternalServerError, errors.New("preconfirmation is disabled via taikoWrapper"))
+	if s.rpc.PacayaClients.TaikoWrapper != nil {
+		// Check if the preconfirmation is enabled.
+		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: c.Request().Context()})
+		if err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
+		if preconfRouter == rpc.ZeroAddress {
+			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
+			return s.returnError(c, http.StatusInternalServerError, errors.New("preconfirmation is disabled via taikoWrapper"))
+		}
 	}
 
 	// Parse the request body.
