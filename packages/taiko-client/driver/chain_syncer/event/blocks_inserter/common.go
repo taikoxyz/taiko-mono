@@ -253,7 +253,7 @@ func isKnownCanonicalBatch(
 				b,
 				anchorTx,
 			); err != nil {
-				return fmt.Errorf("failed to check if block is preconfirmed: %w", err)
+				return fmt.Errorf("block %d is an unknown block, reason: %w", createExecutionPayloadsMetaData.BlockID, err)
 			}
 
 			return nil
@@ -333,7 +333,7 @@ func isKnownCanonicalBlock(
 	}
 	defer func() {
 		if err != nil {
-			log.Warn("Invalid known block", "blockID", blockID, "coinbase", block.Coinbase(), "reason", err)
+			log.Warn("Unknown block for the canonical chain", "blockID", blockID, "coinbase", block.Coinbase(), "reason", err)
 		}
 	}()
 
