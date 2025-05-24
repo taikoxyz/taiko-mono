@@ -33,6 +33,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
+        // Note: If you want to ensure operator changes don't affect whitelist lookahead,
+        // set operatorChangeDelay >= RANDOMNESS_DELAY_EPOCHS. If you want to allow lookahead
+        // to be affected by operator changes (e.g., for emergency evictions), set operatorChangeDelay = 0.
         operatorChangeDelay = _operatorChangeDelay;
         havingPerfectOperators = true;
     }
