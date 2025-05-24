@@ -182,7 +182,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Warn("Failed to check if batch is in canonical chain already", "batchID", meta.GetBatchID(), "err", err)
+				log.Info("Unknown batch for the current canonical chain", "batchID", meta.GetBatchID(), "reason", err)
 			} else if lastBlockHeader != nil {
 				log.Info(
 					"🧬 Known batch in canonical chain",
@@ -367,7 +367,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	}
 
 	// Decompress the transactions list.
-	decompressedTxs, err := utils.DecompressPacaya(executableData.Transactions[0])
+	decompressedTxs, err := utils.Decompress(executableData.Transactions[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}

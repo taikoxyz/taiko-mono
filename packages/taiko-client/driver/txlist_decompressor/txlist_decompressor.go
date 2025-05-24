@@ -60,7 +60,7 @@ func (v *TxListDecompressor) tryDecompress(
 	)
 
 	// Decompress the transaction list bytes.
-	if txListBytes, err = utils.DecompressPacaya(txListBytes); err != nil {
+	if txListBytes, err = utils.Decompress(txListBytes); err != nil {
 		log.Info("Failed to decompress tx list bytes", "error", err)
 		return types.Transactions{}
 	}
