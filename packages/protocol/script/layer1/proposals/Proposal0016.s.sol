@@ -8,10 +8,10 @@ interface IBarContract {
     function withdraw(address _token, address _to, uint256 _amount) external;
 }
 
-// To print the proposal action data: `P=0002 pnpm proposal`
-// To dryrun the proposal on L1: `P=0002 pnpm proposal:dryrun:l1`
-// To dryrun the proposal on L2: `P=0002 pnpm proposal:dryrun:l2`
-contract Proposal0002 is BuildProposal {
+// To print the proposal action data: `P=0016 pnpm proposal`
+// To dryrun the proposal on L1: `P=0016 pnpm proposal:dryrun:l1`
+// To dryrun the proposal on L2: `P=0016 pnpm proposal:dryrun:l2`
+contract Proposal0016 is BuildProposal {
     // L1 contracts
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
     address public constant L1_FOO_CONTRACT = 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65;
