@@ -30,21 +30,22 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// BlocksInserterPacaya is responsible for inserting Pacaya blocks to the L2 execution engine.
-type BlocksInserterPacaya struct {
-	rpc                  *rpc.Client
-	progressTracker      *beaconsync.SyncProgressTracker
-	blobDatasource       *rpc.BlobDataSource
-	txListDecompressor   *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor // TaikoAnchor.anchorV3 transactions constructor
+// BlocksInserter is responsible for inserting Pacaya / Shasta blocks to the L2 execution engine.
+type BlocksInserter struct {
+	rpc                *rpc.Client
+	progressTracker    *beaconsync.SyncProgressTracker
+	blobDatasource     *rpc.BlobDataSource
+	txListDecompressor *txListDecompressor.TxListDecompressor // Transactions list decompressor
+	// TaikoAnchor.anchorV3 / TaikoAnchor.anchorV4 transactions constructor
+	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor
 	calldataFetcher      txlistFetcher.TxListFetcher
 	blobFetcher          txlistFetcher.TxListFetcher
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	mutex                sync.Mutex
 }
 
-// NewBlocksInserterPacaya creates a new BlocksInserterPacaya instance.
-func NewBlocksInserterPacaya(
+// NewBlocksInserter creates a new BlocksInserter instance.
+func NewBlocksInserter(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobDatasource *rpc.BlobDataSource,
@@ -53,8 +54,8 @@ func NewBlocksInserterPacaya(
 	calldataFetcher txlistFetcher.TxListFetcher,
 	blobFetcher txlistFetcher.TxListFetcher,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
-) *BlocksInserterPacaya {
-	return &BlocksInserterPacaya{
+) *BlocksInserter {
+	return &BlocksInserter{
 		rpc:                  rpc,
 		progressTracker:      progressTracker,
 		blobDatasource:       blobDatasource,
@@ -66,13 +67,13 @@ func NewBlocksInserterPacaya(
 	}
 }
 
-// InsertBlocks inserts new Pacaya blocks to the L2 execution engine.
-func (i *BlocksInserterPacaya) InsertBlocks(
+// InsertBlocks inserts new Pacaya / Shasta blocks to the L2 execution engine.
+func (i *BlocksInserter) InsertBlocks(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
-	if !meta.IsPacaya() && !meta.IsPacaya() {
+	if !meta.IsPacaya() && !meta.IsShasta() {
 		return fmt.Errorf("metadata is not for Pacaya / Shasta fork")
 	}
 	i.mutex.Lock()
@@ -270,7 +271,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 }
 
 // InsertPreconfBlocksFromExecutionPayloads inserts preconfirmation blocks from the given execution payloads.
-func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
+func (i *BlocksInserter) InsertPreconfBlocksFromExecutionPayloads(
 	ctx context.Context,
 	executionPayloads []*eth.ExecutionPayload,
 	fromCache bool,
@@ -311,7 +312,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 
 // insertPreconfBlockFromExecutionPayload the inner method to insert a preconfirmation block from
 // the given execution payload.
-func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
+func (i *BlocksInserter) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
@@ -430,7 +431,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 }
 
 // RemovePreconfBlocks removes preconfirmation blocks from the L2 execution engine.
-func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error {
+func (i *BlocksInserter) RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
@@ -452,7 +453,7 @@ func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastB
 }
 
 // IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
-func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
+func (i *BlocksInserter) IsBasedOnCanonicalChain(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 	headL1Origin *rawdb.L1Origin,
@@ -493,7 +494,7 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 }
 
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
-func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
+func (i *BlocksInserter) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		log.Debug(
 			"Sending latest seen proposal from blocksInserter",

@@ -80,7 +80,7 @@ func NewSyncer(
 		state:              state,
 		progressTracker:    progressTracker,
 		txListDecompressor: txListDecompressor,
-		blocksInserterPacaya: blocksInserter.NewBlocksInserterPacaya(
+		blocksInserterPacaya: blocksInserter.NewBlocksInserter(
 			client,
 			progressTracker,
 			blobDataSource,
@@ -357,6 +357,6 @@ func (s *Syncer) checkReorg(ctx context.Context, batchID *big.Int) (*rpc.ReorgCh
 }
 
 // BlocksInserterPacaya returns the Pacaya blocks inserter.
-func (s *Syncer) BlocksInserterPacaya() *blocksInserter.BlocksInserterPacaya {
-	return s.blocksInserterPacaya.(*blocksInserter.BlocksInserterPacaya)
+func (s *Syncer) BlocksInserterPacaya() *blocksInserter.BlocksInserter {
+	return s.blocksInserterPacaya.(*blocksInserter.BlocksInserter)
 }
