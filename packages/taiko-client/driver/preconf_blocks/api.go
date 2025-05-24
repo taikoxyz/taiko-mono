@@ -197,6 +197,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		log.Info(
 			"Gossiping unsafe L2 payload",
 			"blockID", header.Number,
+			"hash", header.Hash(),
 			"coinbase", header.Coinbase,
 			"timestamp", header.Time,
 			"gasLimit", header.GasLimit,
