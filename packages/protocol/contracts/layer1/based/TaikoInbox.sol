@@ -277,6 +277,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             );
             stats2.lastProposedIn = uint56(block.number);
 
+            if (stats2.numBatches == config.forkHeights.shasta - 1) {
+                state.stats1.shastaForkBlockHeight = info_.lastBlockId + 1;
+                emit ShastaForkBlockHeightFinalized(info_.lastBlockId + 1);
+            }
+
             emit BatchProposed(info_, meta_, _txList);
         } // end-of-unchecked
 
@@ -537,6 +542,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         ts_ = state.getBatchVerifyingTransition(config, batchId_);
     }
 
+    /// @inheritdoc ITaikoInbox
+    function v4GetShastaForkBlockHeight() external view returns (uint64) {
+        Config memory config = _getConfig();
+        if (config.forkHeights.shasta == 0) {
+            return 0;
+        } else if (state.stats1.shastaForkBlockHeight == 0) {
+            return type(uint64).max;
+        } else {
+            return state.stats1.shastaForkBlockHeight;
+        }
+    }
+
     /// @inheritdoc IBondManager
     function v4BondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
@@ -589,6 +606,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         batch.verifiedTransitionId = 1;
 
         state.stats1.genesisHeight = uint64(block.number);
+        state.stats1.shastaForkBlockHeight = 0;
 
         state.stats2.lastProposedIn = uint56(block.number);
         state.stats2.numBatches = 1;
