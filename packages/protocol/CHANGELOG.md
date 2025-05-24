@@ -1,5 +1,95 @@
 # Changelog
 
+## [2.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.3.0...taiko-alethia-protocol-v2.4.0) (2025-05-24)
+
+
+### Features
+
+* **protocol:** add `getEpochTimestamp(uint epochOffset)` ([#19338](https://github.com/taikoxyz/taiko-mono/issues/19338)) ([373747b](https://github.com/taikoxyz/taiko-mono/commit/373747b7159a149c88e1bb2a0d3a890057eb9df2))
+* **protocol:** add lookahead store ([#19335](https://github.com/taikoxyz/taiko-mono/issues/19335)) ([72d6735](https://github.com/taikoxyz/taiko-mono/commit/72d6735665aadfb8cea3d441a82f2d8b21ec2d98))
+* **protocol:** add unit tests for LibProverAuth (+some fixes) ([#19397](https://github.com/taikoxyz/taiko-mono/issues/19397)) ([0b35f5d](https://github.com/taikoxyz/taiko-mono/commit/0b35f5d74a2012aba9211985332849910e108209))
+* **protocol:** allow for different unlocking schedule in TokenUnlock ([#19457](https://github.com/taikoxyz/taiko-mono/issues/19457)) ([8a741d5](https://github.com/taikoxyz/taiko-mono/commit/8a741d5c3910e9ab38be6a086d8f86a1d7e0473e))
+* **protocol:** blacklist non-voting addresses for Taiko token ([#19402](https://github.com/taikoxyz/taiko-mono/issues/19402)) ([619af45](https://github.com/taikoxyz/taiko-mono/commit/619af45e72b76bdbd9a71f99d32b08dec373d72a))
+* **protocol:** change IProposeBatch and delete IPreconfRouter ([#19337](https://github.com/taikoxyz/taiko-mono/issues/19337)) ([7d62280](https://github.com/taikoxyz/taiko-mono/commit/7d62280be4a179df50667f990d5e9bc40cce584c))
+* **protocol:** enable 3-way base fee sharing ([#19348](https://github.com/taikoxyz/taiko-mono/issues/19348)) ([862f56c](https://github.com/taikoxyz/taiko-mono/commit/862f56c2ffdc8d823a478b09eb74ccf9cad0779b))
+* **protocol:** enforce tail-only anchoring ([#19475](https://github.com/taikoxyz/taiko-mono/issues/19475)) ([10e6770](https://github.com/taikoxyz/taiko-mono/commit/10e6770daefd2673886aa4b0573cf691c609d15b))
+* **protocol:** fix anchor tests ([#19350](https://github.com/taikoxyz/taiko-mono/issues/19350)) ([2f98736](https://github.com/taikoxyz/taiko-mono/commit/2f98736dbb6a436ebca42c0bbf537e8057b6efb0))
+* **protocol:** fix and deploy TokenLocker & TaikoTreasuryVault ([#19418](https://github.com/taikoxyz/taiko-mono/issues/19418)) ([e0612f5](https://github.com/taikoxyz/taiko-mono/commit/e0612f5a415430c0c1ffefd809f1c34bec013b25))
+* **protocol:** improve DelegateOwner ([#19485](https://github.com/taikoxyz/taiko-mono/issues/19485)) ([d91267c](https://github.com/taikoxyz/taiko-mono/commit/d91267c3bbde24ec5be221b6c02c02b524331b51))
+* **protocol:** introduce prover market for Proposer-Prover Separation ([#19273](https://github.com/taikoxyz/taiko-mono/issues/19273)) ([4de24bc](https://github.com/taikoxyz/taiko-mono/commit/4de24bc9088805561668c0054e1384e6351d224e))
+* **protocol:** introduce ShastaForkRouter with ITaikoInbox's functions named ([#19253](https://github.com/taikoxyz/taiko-mono/issues/19253)) ([2c66ede](https://github.com/taikoxyz/taiko-mono/commit/2c66ede1e773021d4ca1d30b1b1e4d33bff87db6))
+* **protocol:** make the token unlock contract delegate to recipient by default ([#19401](https://github.com/taikoxyz/taiko-mono/issues/19401)) ([29f8d0b](https://github.com/taikoxyz/taiko-mono/commit/29f8d0bc983660c109ed6e65a60a054e6f752c57))
+* **protocol:** measure and store `lastAnchorGasUsed` in TaikoAnchor ([#19359](https://github.com/taikoxyz/taiko-mono/issues/19359)) ([9729f16](https://github.com/taikoxyz/taiko-mono/commit/9729f168e0711b723e58304983b7bd22c8b6ba63))
+* **protocol:** optimize ProverMarket gas cost ([#19319](https://github.com/taikoxyz/taiko-mono/issues/19319)) ([1c62db0](https://github.com/taikoxyz/taiko-mono/commit/1c62db0d5dc3f6d4ee89b73adeac4a0c3ccade02))
+* **protocol:** optimize TaikoInbox gas ([#19415](https://github.com/taikoxyz/taiko-mono/issues/19415)) ([1fe0f2b](https://github.com/taikoxyz/taiko-mono/commit/1fe0f2bc01ba965d1dd74fb62583039a152044df))
+* **protocol:** remove `RollupResolver` ([#19419](https://github.com/taikoxyz/taiko-mono/issues/19419)) ([d57f244](https://github.com/taikoxyz/taiko-mono/commit/d57f244e58281e3da84062c710552869c5155a0b))
+* **protocol:** remove average fee tracking from ProverMarket ([#19325](https://github.com/taikoxyz/taiko-mono/issues/19325)) ([38c59df](https://github.com/taikoxyz/taiko-mono/commit/38c59dfd2f6c15e93a17f03fb88bc77dc4877db4))
+* **protocol:** remove chain/bridge watch dogs from Bridge ([#19442](https://github.com/taikoxyz/taiko-mono/issues/19442)) ([daaa537](https://github.com/taikoxyz/taiko-mono/commit/daaa53755bfceb9539ff622cb89371e271f69d80))
+* **protocol:** remove quota manager ([#19443](https://github.com/taikoxyz/taiko-mono/issues/19443)) ([e552932](https://github.com/taikoxyz/taiko-mono/commit/e552932e228dacc166a5ce01faa6f44708c5244c))
+* **protocol:** replace onchain ProverMarket with offchain markets ([#19385](https://github.com/taikoxyz/taiko-mono/issues/19385)) ([9bf554c](https://github.com/taikoxyz/taiko-mono/commit/9bf554c4505a0aac0d0f6947e256ff0faa8dff8e))
+* **protocol:** some gas optimization for TaikoInbox ([#19324](https://github.com/taikoxyz/taiko-mono/issues/19324)) ([455f59e](https://github.com/taikoxyz/taiko-mono/commit/455f59e1d9a7db172f5d0512df54c78af2eebe1b))
+* **protocol:** update contract address in config script ([#19464](https://github.com/taikoxyz/taiko-mono/issues/19464)) ([c6854c5](https://github.com/taikoxyz/taiko-mono/commit/c6854c581d1ffed8794d3df0757b234ea7362d77))
+
+
+### Bug Fixes
+
+* **protocol:** fix inbox code size too large issue (ci failure) ([#19414](https://github.com/taikoxyz/taiko-mono/issues/19414)) ([d93210c](https://github.com/taikoxyz/taiko-mono/commit/d93210cf3c3d47e1f1699097adc8994b723e5e9c))
+* **protocol:** fix TaikoToken getPastTotalSupply ([#19461](https://github.com/taikoxyz/taiko-mono/issues/19461)) ([a144a11](https://github.com/taikoxyz/taiko-mono/commit/a144a1107cef3d7869c9ee68c41c4ee02dc726ac))
+* **protocol:** remove unnecessary slasher check in LookaheadStore ([#19505](https://github.com/taikoxyz/taiko-mono/issues/19505)) ([a219ba2](https://github.com/taikoxyz/taiko-mono/commit/a219ba298785174297f1c9f8660f01f929ad29f9))
+
+
+### Chores
+
+* **protocol:** add URC (https://github.com/eth-fabric/urc main branch) dependency ([#19287](https://github.com/taikoxyz/taiko-mono/issues/19287)) ([8adc862](https://github.com/taikoxyz/taiko-mono/commit/8adc862a6cf96add1221715a6799d6d5c6113a7e))
+* **protocol:** change the `livenessBondBase` back to 125 TAIKO ([#19463](https://github.com/taikoxyz/taiko-mono/issues/19463)) ([9f70297](https://github.com/taikoxyz/taiko-mono/commit/9f70297914bba34dcbc66ac798e2376fc9bd9635))
+* **protocol:** create a DAO standard proposal for exercise ([#19431](https://github.com/taikoxyz/taiko-mono/issues/19431)) ([d12fd47](https://github.com/taikoxyz/taiko-mono/commit/d12fd47699d356aad21f5a311845e46fc4af7bc4))
+* **protocol:** introduce Controller and build DAO proposal-0002 ([#19498](https://github.com/taikoxyz/taiko-mono/issues/19498)) ([ff21332](https://github.com/taikoxyz/taiko-mono/commit/ff213326bc8cd942028a56c5c27ad7ca5b77330a))
+* **protocol:** log TaikoToken implementation upgrade ([#19432](https://github.com/taikoxyz/taiko-mono/issues/19432)) ([601c346](https://github.com/taikoxyz/taiko-mono/commit/601c3464d79c6f3d94e8cd1801c6814a85165fd2))
+* **protocol:** refactor TaikoSgxVerifier constructor ([#19380](https://github.com/taikoxyz/taiko-mono/issues/19380)) ([3217008](https://github.com/taikoxyz/taiko-mono/commit/3217008323ec62924430b644dfeb817dee8967cb))
+* **protocol:** remove LibProverAuth.sol (wrongly committed) ([#19406](https://github.com/taikoxyz/taiko-mono/issues/19406)) ([e7d0329](https://github.com/taikoxyz/taiko-mono/commit/e7d032948f662feadaf6bea3def4085a3b11f14b))
+* **protocol:** remove unused EigenLayer dependency ([#19404](https://github.com/taikoxyz/taiko-mono/issues/19404)) ([7005265](https://github.com/taikoxyz/taiko-mono/commit/70052658632e9ad54e97917e0661587d0ac68681))
+* **protocol:** remove unused packages and add urc remapping ([#19321](https://github.com/taikoxyz/taiko-mono/issues/19321)) ([88657b3](https://github.com/taikoxyz/taiko-mono/commit/88657b34a68c9eee65f5aa70e5f4fdbb3becf4da))
+* **protocol:** rename entrypoint to iProposeBatch ([#19371](https://github.com/taikoxyz/taiko-mono/issues/19371)) ([6a8a702](https://github.com/taikoxyz/taiko-mono/commit/6a8a70263e17a281fcbdca4e410433ecfe970394))
+* **protocol:** rename guardian to protector to avoid confusion ([#19508](https://github.com/taikoxyz/taiko-mono/issues/19508)) ([9c6699e](https://github.com/taikoxyz/taiko-mono/commit/9c6699e6d33c4e8cc5acc49b5e1297c361996960))
+* **protocol:** rename l2ChainId to taikoChainId in sol files ([#19460](https://github.com/taikoxyz/taiko-mono/issues/19460)) ([1da7e08](https://github.com/taikoxyz/taiko-mono/commit/1da7e08e3f7beeded39b232e94cb63ed137310a2))
+* **protocol:** update tcbs ([#19512](https://github.com/taikoxyz/taiko-mono/issues/19512)) ([a264d41](https://github.com/taikoxyz/taiko-mono/commit/a264d41205feafafb81e04a99a42d93e8faaabcf))
+* **protocol:** update the pacaya fork height on mainnet ([#19449](https://github.com/taikoxyz/taiko-mono/issues/19449)) ([6b481c7](https://github.com/taikoxyz/taiko-mono/commit/6b481c7d9a7a9587dcc8cf6a6e29a4d4032e3d71))
+* **protocol:** use txt files for logging gas and layout tables ([#19306](https://github.com/taikoxyz/taiko-mono/issues/19306)) ([54183ea](https://github.com/taikoxyz/taiko-mono/commit/54183eaa200ceb41780c8d6933a9c831a5880049))
+
+
+### Documentation
+
+* **protocol:** deployment logs on alethia for Pacaya ([#19484](https://github.com/taikoxyz/taiko-mono/issues/19484)) ([108a4fd](https://github.com/taikoxyz/taiko-mono/commit/108a4fd4eb7d536fb1b8b7d1012047584f8562b5))
+* **protocol:** deployment logs on mainnet for Pacaya ([#19465](https://github.com/taikoxyz/taiko-mono/issues/19465)) ([1b2a23c](https://github.com/taikoxyz/taiko-mono/commit/1b2a23cfe4cf8562c7e66347738ef9dec6c85807))
+* **protocol:** fix registered address in mainnet log ([#19456](https://github.com/taikoxyz/taiko-mono/issues/19456)) ([2ddcc71](https://github.com/taikoxyz/taiko-mono/commit/2ddcc71f0f8eae1763cfd0950ddc84c451365566))
+* **protocol:** update mainnet deployment ([#19468](https://github.com/taikoxyz/taiko-mono/issues/19468)) ([6bcd3c1](https://github.com/taikoxyz/taiko-mono/commit/6bcd3c1c7341ac9ffa0121e13ed7006a70fbafb4))
+* **protocol:** update mainnet L1 deployment ([#19480](https://github.com/taikoxyz/taiko-mono/issues/19480)) ([40c1dd4](https://github.com/taikoxyz/taiko-mono/commit/40c1dd4d4007013d743f87d23a78dc4aafd4b788))
+
+
+### Code Refactoring
+
+* **protocol:** add TaikoDAOController ([#19423](https://github.com/taikoxyz/taiko-mono/issues/19423)) ([10e7910](https://github.com/taikoxyz/taiko-mono/commit/10e7910767762839a0b58195a6c9d0c80ed80358))
+* **protocol:** further refactor address resolving code ([#19451](https://github.com/taikoxyz/taiko-mono/issues/19451)) ([57ee57b](https://github.com/taikoxyz/taiko-mono/commit/57ee57b0b92bc7b14f4b04dbd8d74707cafc5737))
+* **protocol:** introduce EssentialResolverContract ([#19441](https://github.com/taikoxyz/taiko-mono/issues/19441)) ([3692890](https://github.com/taikoxyz/taiko-mono/commit/3692890bebbe38fc9700a5a744cef2a51739c370))
+* **protocol:** make HeklaInbox inherit MainInbox ([#19346](https://github.com/taikoxyz/taiko-mono/issues/19346)) ([d2a812e](https://github.com/taikoxyz/taiko-mono/commit/d2a812ed2f83bebb3eaa08f14c2ca5e534bae6c7))
+* **protocol:** optimize inbox tests to share configs ([#19345](https://github.com/taikoxyz/taiko-mono/issues/19345)) ([a1ac69d](https://github.com/taikoxyz/taiko-mono/commit/a1ac69d8a73309d7dcc6c9ebc47055e64d5d6a20))
+* **protocol:** refactor LibPreconfUtils and LibPreconfConstants ([#19436](https://github.com/taikoxyz/taiko-mono/issues/19436)) ([de7ce0d](https://github.com/taikoxyz/taiko-mono/commit/de7ce0d4934efd9323853d43ffc2ef064166547c))
+* **protocol:** refactor TaikoAnchor code ([#19291](https://github.com/taikoxyz/taiko-mono/issues/19291)) ([6da8380](https://github.com/taikoxyz/taiko-mono/commit/6da8380e83a59f5f9e27e20a7101f735c609883f))
+* **protocol:** refactor verifier code ([#19450](https://github.com/taikoxyz/taiko-mono/issues/19450)) ([9a2cd64](https://github.com/taikoxyz/taiko-mono/commit/9a2cd6443bd613f9e48e95bcd176fc5c8742872b))
+* **protocol:** remove resolver dependency from TaikoAnchor ([#19416](https://github.com/taikoxyz/taiko-mono/issues/19416)) ([1dfe991](https://github.com/taikoxyz/taiko-mono/commit/1dfe991965cda22b43e2f3fb342f496a91a5c8f3))
+* **protocol:** rename v4IsOnL1 to v4IsInbox ([#19474](https://github.com/taikoxyz/taiko-mono/issues/19474)) ([6632e9a](https://github.com/taikoxyz/taiko-mono/commit/6632e9a024911d2607dfce7a8772327a2ad81d6d))
+* **taiko-client:** cleanup `Ontake` fork implementation ([#19294](https://github.com/taikoxyz/taiko-mono/issues/19294)) ([e6c780d](https://github.com/taikoxyz/taiko-mono/commit/e6c780d28bef967441f96c38a22eba28e39d782d))
+
+
+### Workflow
+
+* **protocol:** fix layout generation issue in ci ([#19377](https://github.com/taikoxyz/taiko-mono/issues/19377)) ([61e508b](https://github.com/taikoxyz/taiko-mono/commit/61e508b9b1696690a8a6d52e91b2ca5f313ab22c))
+
+
+### Reverted Commits
+
+* **protocol:** remove marker from batch parameter ([#19309](https://github.com/taikoxyz/taiko-mono/issues/19309)) ([efa58ea](https://github.com/taikoxyz/taiko-mono/commit/efa58ea15191b3cbda80bdf309046bcadc273406))
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.2.0...taiko-alethia-protocol-v2.3.0) (2025-05-06)
 
 
