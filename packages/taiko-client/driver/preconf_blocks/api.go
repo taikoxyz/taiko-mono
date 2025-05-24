@@ -75,7 +75,11 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		}
 		if preconfRouter == rpc.ZeroAddress {
 			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
-			return s.returnError(c, http.StatusInternalServerError, errors.New("preconfirmation is disabled via taikoWrapper"))
+			return s.returnError(
+				c,
+				http.StatusInternalServerError,
+				errors.New("preconfirmation is disabled via taikoWrapper"),
+			)
 		}
 	}
 
