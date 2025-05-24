@@ -68,13 +68,13 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         (
-            uint256 slotIndex,
+            uint64 slotIndex,
             ILookaheadStore.LookaheadSlot[] memory currLookahead,
             ILookaheadStore.LookaheadSlot[] memory nextLookahead,
             bytes memory nextLookaheadUpdateData
         ) = abi.decode(
             _lookaheadData,
-            (uint256, ILookaheadStore.LookaheadSlot[], ILookaheadStore.LookaheadSlot[], bytes)
+            (uint64, ILookaheadStore.LookaheadSlot[], ILookaheadStore.LookaheadSlot[], bytes)
         );
 
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
@@ -147,7 +147,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     /// @dev Validates if the provided lookahead data points to the current preconfing period.
     function _validatePreconfingPeriod(
         uint256 _epochTimestamp,
-        uint256 _slotIndex,
+        uint64 _slotIndex,
         ILookaheadStore.LookaheadSlot[] memory _currLookahead,
         ILookaheadStore.LookaheadSlot[] memory _nextLookahead
     )
@@ -157,7 +157,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         uint256 preconfSlotTimestamp;
         uint256 prevSlotTimestamp;
 
-        if (_slotIndex == type(uint256).max) {
+        if (_slotIndex == type(uint64).max) {
             // This is the case when the first preconfer from the next epoch is proposing in
             // advanced in the current epoch.
             //
