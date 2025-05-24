@@ -65,8 +65,17 @@ abstract contract BuildProposal is Script {
             );
         }
 
-        string memory actionSection =
-            string(abi.encodePacked("# Proposal Action Details\n", "## Actions:\n", actionsStr));
+        string memory actionSection = string(
+            abi.encodePacked(
+                "# Proposal",
+                proposalId,
+                "\n\n- DAO Controller: `",
+                vm.toString(L1.DAO_CONTROLLER),
+                "`\n\n",
+                "## Actions:\n",
+                actionsStr
+            )
+        );
 
         string memory l1DryrunSection = string(
             abi.encodePacked(
