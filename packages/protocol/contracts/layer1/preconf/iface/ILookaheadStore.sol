@@ -74,7 +74,13 @@ interface ILookaheadStore {
     /// @param _registrationRoot The registration root of the posting-operator in the URC.
     /// @param _data The signed commitment containing the lookahead data, or the lookahead data if
     /// posted by the protector.
-    function updateLookahead(bytes32 _registrationRoot, bytes calldata _data) external;
+    /// @return lookaheadHash_ The lookahead hash.
+    function updateLookahead(
+        bytes32 _registrationRoot,
+        bytes calldata _data
+    )
+        external
+        returns (bytes26 lookaheadHash_);
 
     /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.
     /// @param _epochTimestamp The timestamp of the epoch.

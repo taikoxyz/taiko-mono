@@ -38,6 +38,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         external
         nonReentrant
+        returns (bytes26 lookaheadHash_)
     {
         bool isPostedByProtector = msg.sender == protector;
         LookaheadPayload[] memory lookaheadPayloads;
@@ -53,7 +54,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             revert LookaheadNotRequired();
         }
 
-        _updateLookahead(
+        return _updateLookahead(
             LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByProtector
         );
     }
@@ -107,6 +108,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         bool _isPostedByProtector
     )
         internal
+        returns (bytes26 lookaheadHash_)
     {
         LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
 
@@ -166,12 +168,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
-        bytes26 lookaheadHash =
-            LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
-        _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
+        lookaheadHash_ = LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+        _setLookaheadHash(_nextEpochTimestamp, lookaheadHash_);
 
         emit LookaheadPosted(
-            _isPostedByProtector, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
+            _isPostedByProtector, _nextEpochTimestamp, lookaheadHash_, lookaheadSlots
         );
     }
 

@@ -94,10 +94,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                 // If the lookahead for the next epoch is not posted, we post it here.
                 (bytes32 registrationRoot, bytes memory data) =
                     abi.decode(nextLookaheadUpdateData, (bytes32, bytes));
-                lookaheadStore.updateLookahead(registrationRoot, data);
-
-                // Refetch the lookahead hash for the next epoch.
-                nextLookaheadHash = lookaheadStore.getLookaheadHash(nextEpochTimestamp);
+                nextLookaheadHash = lookaheadStore.updateLookahead(registrationRoot, data);
             }
         }
 
