@@ -92,6 +92,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		localProposerAddresses = append(localProposerAddresses, addr)
 	}
 
+	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
+
 	return &Config{
 		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
