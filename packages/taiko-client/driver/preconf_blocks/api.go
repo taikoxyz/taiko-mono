@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -65,6 +67,23 @@ type BuildPreconfBlockResponseBody struct {
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	if s.rpc.PacayaClients.TaikoWrapper != nil {
+		// Check if the preconfirmation is enabled.
+		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: c.Request().Context()})
+		if err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
+		if preconfRouter == rpc.ZeroAddress {
+			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
+			return s.returnError(
+				c,
+				http.StatusInternalServerError,
+				errors.New("preconfirmation is disabled via taikoWrapper"),
+			)
+		}
+	}
+
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
@@ -175,7 +194,18 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
 	if s.p2pNode != nil && !reflect2.IsNil(s.p2pSigner) {
-		log.Info("Gossiping L2 Payload", "blockID", header.Number.Uint64(), "time", header.Time)
+		log.Info(
+			"Gossiping unsafe L2 payload",
+			"blockID", header.Number,
+			"hash", header.Hash(),
+			"coinbase", header.Coinbase,
+			"timestamp", header.Time,
+			"gasLimit", header.GasLimit,
+			"baseFeePerGas", utils.WeiToEther(new(big.Int).SetUint64(header.BaseFee.Uint64())),
+			"extraData", common.Bytes2Hex(header.Extra),
+			"parentHash", header.ParentHash,
+			"endOfSequencing", endOfSequencing,
+		)
 
 		var u256 uint256.Int
 		if overflow := u256.SetFromBig(header.BaseFee); overflow {
@@ -270,6 +300,22 @@ type RemovePreconfBlocksResponseBody struct {
 //		@Success		200	{object} RemovePreconfBlocksResponseBody
 //		@Router			/preconfBlocks [delete]
 func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
+	if s.rpc.PacayaClients.TaikoWrapper != nil {
+		// Check if the preconfirmation is enabled.
+		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: c.Request().Context()})
+		if err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
+		if preconfRouter == rpc.ZeroAddress {
+			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
+			return s.returnError(
+				c,
+				http.StatusInternalServerError,
+				errors.New("preconfirmation is disabled via taikoWrapper"),
+			)
+		}
+	}
+
 	// Parse the request body.
 	reqBody := new(RemovePreconfBlocksRequestBody)
 	if err := c.Bind(reqBody); err != nil {
