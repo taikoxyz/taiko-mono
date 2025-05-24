@@ -17,7 +17,7 @@ contract TestPreconfWhitelist is Layer1Test {
             deploy({
                 name: "preconf_whitelist",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
             })
         );
 
@@ -25,15 +25,15 @@ contract TestPreconfWhitelist is Layer1Test {
             deploy({
                 name: "preconf_whitelist_nodelay",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0, 2))
             })
         );
 
-        // Advance time to ensure we're at least `RANDOMNESS_DELAY_EPOCHS` epochs after genesis to
+        // Advance time to ensure we're at least `randomnessDelay` epochs after genesis to
         // avoid underflow
         vm.warp(
             LibPreconfConstants.SECONDS_IN_SLOT
-                + LibPreconfConstants.SECONDS_IN_EPOCH * LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS
+                + LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.randomnessDelay()
         );
     }
 
