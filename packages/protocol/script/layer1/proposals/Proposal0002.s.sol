@@ -8,41 +8,35 @@ interface IBarContract {
     function withdraw(address _token, address _to, uint256 _amount) external;
 }
 
-// FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0002.s.sol:Proposal0002
+// To print the proposal action data: `P=0002 pnpm proposal`
+// To dryrun the proposal on L1: `P=0002 pnpm proposal:dryrun:l1`
+// To dryrun the proposal on L2: `P=0002 pnpm proposal:dryrun:l2`
 contract Proposal0002 is BuildProposal {
     // L1 contracts
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
+    address public constant L1_FOO_CONTRACT = 0xD1Ed20C8fEc53db3274c2De09528f45dF6c06A65;
+    // address public constant L1_DAO_CONTROLLER_NEW_IMPL =
+    // 0x7a7CE80502c46C768B8d341dcbaa99Ffe7338f33;
 
     // L2 contracts
     address public constant L2_DELEGATE_CONTROLLER_NEW_IMPL =
-        0x15a4109238d5673C9E6Cca27831AEF1AfdA99830;
+        0x6f4006D0f805B55D1106dFdDfb73C3D53d12c12D;
     address public constant L2_BAR_CONTRACT = 0xD381F8e696a8e20a5d0c0a8658e5C1Cb23C0AB69;
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
-    function run() external pure {
-        // FOUNDRY_PROFILE=layer1 forge script \
-        // script/layer1/proposals/Proposal0002.s.sol:Proposal0002 \
-
-        logProposalAction({ executionId: 1, l2GasLimit: 25_000_000 });
-
-        // FOUNDRY_PROFILE=layer2 forge script \
-        // script/layer1/proposals/Proposal0002.s.sol:Proposal0002 \
-        // --private-key $(echo $PRIVATE_KEY) \
-        // --chain 167000 --broadcast --rpc-url https://rpc.taiko.xyz \
-
-        // tryrunL2Actions();
-
-        // FOUNDRY_PROFILE=layer1 forge script \
-        // script/layer1/proposals/Proposal0002.s.sol:Proposal0002 \
-        // --private-key $(echo $PRIVATE_KEY) \
-        // --chain 1 --rpc-url ${echo $RPC_URL} \
-
-        // tryrunL1Actions({ executionId: 1, l2GasLimit: 25_000_000 });
+    function proposalConfig()
+        internal
+        pure
+        override
+        returns (uint64 l2ExecutionId, uint32 l2GasLimit)
+    {
+        l2ExecutionId = 1;
+        l2GasLimit = 25_000_000;
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](2);
+        actions = new Controller.Action[](3);
 
         // Transfer 0.001 ETH from DAO Controller to Daniel Wang
         actions[0] =
@@ -54,10 +48,17 @@ contract Proposal0002 is BuildProposal {
             value: 0,
             data: abi.encodeCall(IERC20.transfer, (L1_DANIEL_WANG_ADDRESS, 1e6))
         });
+
+        // Transfer Foo contract ownership to Daniel Wang
+        actions[2] = Controller.Action({
+            target: L1_FOO_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(Ownable.transferOwnership, (L1_DANIEL_WANG_ADDRESS))
+        });
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](5);
+        actions = new Controller.Action[](6);
 
         // Upgrade DelegateController to a new implementation
         actions[0] = buildUpgradeAction(L2.DELEGATE_CONTROLLER, L2_DELEGATE_CONTROLLER_NEW_IMPL);
@@ -88,6 +89,13 @@ contract Proposal0002 is BuildProposal {
             data: abi.encodeCall(
                 IBarContract.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.001 ether)
             )
+        });
+
+        // Transfer Bar contract ownership to Daniel Wang
+        actions[5] = Controller.Action({
+            target: L2_BAR_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(Ownable.transferOwnership, (L2_DANIEL_WANG_ADDRESS))
         });
     }
 }

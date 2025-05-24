@@ -35,6 +35,7 @@ fs_permissions = [
   { access = "read", path = "./out" },
   { access = "read-write", path = "./deployments" },
   { access = "read-write", path = "./gas-reports" },
+  { access = "read-write", path = "./script/layer1/proposals/" },
   { access = "read", path = "./test" },
   { access = "read", path = "./script/" },
   { access = "read", path = "./genesis" },
