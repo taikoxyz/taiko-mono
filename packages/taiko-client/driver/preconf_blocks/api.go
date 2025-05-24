@@ -67,17 +67,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	taikoWrapper, err := s.rpc.PacayaClients.TaikoWrapper.PreconfRouter(
-		&bind.CallOpts{
-			Context: c.Request().Context(),
-		},
-	)
-	if err != nil {
-		return s.returnError(c, http.StatusInternalServerError, err)
-	}
+	if s.rpc.PacayaClients != nil && s.rpc.PacayaClients.TaikoWrapper != nil {
+		taikoWrapper, err := s.rpc.PacayaClients.TaikoWrapper.PreconfRouter(
+			&bind.CallOpts{
+				Context: c.Request().Context(),
+			},
+		)
+		if err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
 
-	if taikoWrapper == rpc.ZeroAddress {
-		return s.returnError(c, http.StatusInternalServerError, errors.New("preconfs are disabled via taiko wrapper"))
+		if taikoWrapper == rpc.ZeroAddress {
+			return s.returnError(c, http.StatusInternalServerError, errors.New("preconfs are disabled via taiko wrapper"))
+		}
 	}
 
 	// Parse the request body.
