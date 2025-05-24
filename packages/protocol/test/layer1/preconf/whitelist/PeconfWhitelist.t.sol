@@ -29,7 +29,8 @@ contract TestPreconfWhitelist is Layer1Test {
             })
         );
 
-        vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
+        // Advance time to ensure we're at least `RANDOMNESS_DELAY_EPOCHS` epochs after genesis to avoid underflow
+        vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH * LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS);
     }
 
     function test_whitelist_delay2epoch_addThenRemoveOneOperator() external {
