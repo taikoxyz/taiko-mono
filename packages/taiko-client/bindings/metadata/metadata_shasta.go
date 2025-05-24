@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -54,8 +55,12 @@ func (m *TaikoDataBlockMetadataShasta) GetTxListHash() common.Hash {
 }
 
 // GetBlocks returns the blocks parameters in this batch.
-func (m *TaikoDataBlockMetadataShasta) GetBlocks() []shastaBindings.ITaikoInboxBlockParams {
-	return m.Blocks
+func (m *TaikoDataBlockMetadataShasta) GetBlocks() []bindingTypes.BlockParams {
+	var params []bindingTypes.BlockParams
+	for _, b := range m.Blocks {
+		params = append(params, *bindingTypes.NewBlockParams(b.NumTransactions, b.TimeShift, b.SignalSlots))
+	}
+	return params
 }
 
 // GetBlobHashes returns blob hashes in this batch.
@@ -92,13 +97,13 @@ func (m *TaikoDataBlockMetadataShasta) GetBlobCreatedIn() *big.Int {
 	return new(big.Int).SetUint64(m.BlobCreatedIn)
 }
 
-// GetBlobByteOffset returns the offset of the blob in the batch.
-func (m *TaikoDataBlockMetadataShasta) GetBlobByteOffset() uint32 {
+// GetTxListOffset returns the offset of the blob in the batch.
+func (m *TaikoDataBlockMetadataShasta) GetTxListOffset() uint32 {
 	return m.BlobByteOffset
 }
 
-// GetBlobByteSize returns the size of the blob in the batch.
-func (m *TaikoDataBlockMetadataShasta) GetBlobByteSize() uint32 {
+// GetTxListSize returns the size of the blob in the batch.
+func (m *TaikoDataBlockMetadataShasta) GetTxListSize() uint32 {
 	return m.BlobByteSize
 }
 
@@ -128,8 +133,8 @@ func (m *TaikoDataBlockMetadataShasta) GetAnchorBlockHash() common.Hash {
 }
 
 // GetBaseFeeConfig returns the base fee config of this batch.
-func (m *TaikoDataBlockMetadataShasta) GetBaseFeeConfig() *shastaBindings.LibSharedDataBaseFeeConfig {
-	return &m.BaseFeeConfig
+func (m *TaikoDataBlockMetadataShasta) GetBaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
+	return bindingTypes.NewBaseFeeConfigShasta(&m.BaseFeeConfig, &m.ITaikoInboxBatchInfo)
 }
 
 // GetBatchID returns the batch ID of this batch.

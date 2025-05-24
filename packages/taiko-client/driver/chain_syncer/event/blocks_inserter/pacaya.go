@@ -69,11 +69,11 @@ func NewBlocksInserterPacaya(
 // InsertBlocks inserts new Pacaya blocks to the L2 execution engine.
 func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
-	metadata metadata.TaikoProposalMetaData,
+	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
-	if !metadata.IsPacaya() {
-		return fmt.Errorf("metadata is not for Pacaya fork")
+	if !meta.IsPacaya() && !meta.IsPacaya() {
+		return fmt.Errorf("metadata is not for Pacaya / Shasta fork")
 	}
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
@@ -81,8 +81,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	var (
 		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
 		// to the channel.
-		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
-		meta               = metadata.Pacaya()
+		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: meta}
 		txListBytes        []byte
 	)
 
@@ -176,7 +175,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
-				metadata,
+				meta,
 				allTxs,
 				txListBytes,
 				parent,
@@ -199,7 +198,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				)
 
 				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatch(ctx, i.rpc, metadata); err != nil {
+				if err := updateL1OriginForBatch(ctx, i.rpc, meta); err != nil {
 					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetBatchID().Uint64(), err)
 				}
 
@@ -212,7 +211,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 			ctx,
 			i.rpc,
 			i.anchorConstructor,
-			metadata,
+			meta,
 			allTxs,
 			parent,
 			j,

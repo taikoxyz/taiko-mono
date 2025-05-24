@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -43,7 +44,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
 	parent *types.Header,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 	signalSlots [][32]byte,
 	// Height of the L2 block which including the TaikoAnchor.anchorV3 transaction.
 	l2Height *big.Int,
@@ -72,7 +73,13 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
 		uint32(parent.GasUsed),
-		*baseFeeConfig,
+		pacayaBindings.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
+			SharingPctg:            baseFeeConfig.SharingPctgs()[0],
+			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
+			MinGasExcess:           baseFeeConfig.MinGasExcess(),
+			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),
+		},
 		signalSlots,
 	)
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -15,7 +16,7 @@ import (
 
 // Configs is an interface that provides Taiko protocol specific configurations.
 type ProtocolConfigs interface {
-	BaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig
+	BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig
 	BlockMaxGasLimit() uint32
 	ForkHeightsOntake() uint64
 	ForkHeightsPacaya() uint64
@@ -123,8 +124,8 @@ func NewPacayaProtocolConfigs(configs *pacayaBindings.ITaikoInboxConfig) *Pacaya
 }
 
 // BaseFeeConfig implements the ProtocolConfigs interface.
-func (c *PacayaProtocolConfigs) BaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig {
-	return &c.configs.BaseFeeConfig
+func (c *PacayaProtocolConfigs) BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
+	return bindingTypes.NewBaseFeeConfigPacaya(&c.configs.BaseFeeConfig)
 }
 
 // ForkHeightsOntake implements the ProtocolConfigs interface.

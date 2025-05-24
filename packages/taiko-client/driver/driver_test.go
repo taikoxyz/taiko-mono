@@ -31,6 +31,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -1344,7 +1345,13 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	b, err := utils.EncodeAndCompressTxList(types.Transactions{anchorTx, signedTx})
 	s.Nil(err)
 
-	extraData := encoding.EncodeBaseFeeConfig(s.d.protocolConfig.BaseFeeConfig())
+	extraData := encoding.EncodeBaseFeeConfig(&pacaya.LibSharedDataBaseFeeConfig{
+		AdjustmentQuotient:     s.d.protocolConfig.BaseFeeConfig().AdjustmentQuotient(),
+		SharingPctg:            s.d.protocolConfig.BaseFeeConfig().SharingPctgs()[0],
+		GasIssuancePerSecond:   s.d.protocolConfig.BaseFeeConfig().GasIssuancePerSecond(),
+		MinGasExcess:           s.d.protocolConfig.BaseFeeConfig().MinGasExcess(),
+		MaxGasIssuancePerBlock: s.d.protocolConfig.BaseFeeConfig().MaxGasIssuancePerBlock(),
+	})
 	s.NotEmpty(extraData)
 
 	reqBody := &preconfblocks.BuildPreconfBlockRequestBody{

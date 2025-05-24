@@ -83,3 +83,12 @@ type ITaikoInboxBatch interface {
 	NextTransitionId() *big.Int
 	VerifiedTransitionId() *big.Int
 }
+
+// LibSharedDataBaseFeeConfig should be same with LibSharedData.BaseFeeConfig.
+type LibSharedDataBaseFeeConfig interface {
+	AdjustmentQuotient() uint8
+	GasIssuancePerSecond() uint32
+	SharingPctgs() [2]uint8
+	MinGasExcess() uint64
+	MaxGasIssuancePerBlock() uint32
+}

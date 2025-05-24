@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
@@ -21,6 +22,17 @@ type TaikoProposalMetaData interface {
 	GetTxHash() common.Hash
 	GetProposer() common.Address
 	GetCoinbase() common.Address
+	GetBatchID() *big.Int
+	GetLastBlockID() uint64
+	GetLastBlockTimestamp() uint64
+	GetBlobHashes() []common.Hash
+	GetBlocks() []bindingTypes.BlockParams
+	GetAnchorBlockID() uint64
+	GetAnchorBlockHash() common.Hash
+	GetBaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig
+	GetProposedIn() uint64
+	GetTxListOffset() uint32
+	GetTxListSize() uint32
 	GetBlobCreatedIn() *big.Int
 }
 
@@ -41,8 +53,8 @@ type TaikoBatchMetaDataPacaya interface {
 	GetBlobHashes() []common.Hash
 	GetAnchorBlockID() uint64
 	GetAnchorBlockHash() common.Hash
-	GetBlocks() []pacayaBindings.ITaikoInboxBlockParams
-	GetBaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig
+	GetBlocks() []bindingTypes.BlockParams
+	GetBaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
@@ -52,21 +64,21 @@ type TaikoBatchMetaDataPacaya interface {
 
 type TaikoBatchMetaDataShasta interface {
 	GetTxListHash() common.Hash
-	GetBlocks() []shastaBindings.ITaikoInboxBlockParams
+	GetBlocks() []bindingTypes.BlockParams
 	GetBlobHashes() []common.Hash
 	GetExtraData() []byte
 	GetCoinbase() common.Address
 	GetProposer() common.Address
 	GetProposedIn() uint64
 	GetBlobCreatedIn() *big.Int
-	GetBlobByteOffset() uint32
-	GetBlobByteSize() uint32
+	GetTxListOffset() uint32
+	GetTxListSize() uint32
 	GetGasLimit() uint32
 	GetLastBlockID() uint64
 	GetLastBlockTimestamp() uint64
 	GetAnchorBlockID() uint64
 	GetAnchorBlockHash() common.Hash
-	GetBaseFeeConfig() *shastaBindings.LibSharedDataBaseFeeConfig
+	GetBaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig
 	GetBatchID() *big.Int
 	GetProposedAt() uint64
 	GetRawBlockHeight() *big.Int

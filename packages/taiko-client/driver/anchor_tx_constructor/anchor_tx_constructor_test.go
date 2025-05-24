@@ -11,7 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
@@ -45,7 +46,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
 		s.l1Height,
 		s.l1Hash,
 		head,
-		&pacayaBindings.LibSharedDataBaseFeeConfig{},
+		bindingTypes.NewBaseFeeConfigPacaya(&pacaya.LibSharedDataBaseFeeConfig{}),
 		[][32]byte{},
 		common.Big1,
 		common.Big256,

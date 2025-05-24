@@ -423,7 +423,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	}
 	timestamp := meta.GetLastBlockTimestamp()
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
-		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
+		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift())
 	}
 	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
 	if err != nil {
@@ -453,7 +453,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 		anchorBlockHeader.Root,
 		parent,
 		meta.GetBaseFeeConfig(),
-		meta.GetBlocks()[blockIndex].SignalSlots,
+		meta.GetBlocks()[blockIndex].SignalSlots(),
 		blockID,
 		baseFee,
 	)
@@ -462,13 +462,13 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	}
 
 	for i := 0; i < blockIndex; i++ {
-		txListCursor += int(meta.GetBlocks()[i].NumTransactions)
+		txListCursor += int(meta.GetBlocks()[i].NumTransactions())
 	}
 
 	// Get transactions in the block.
 	txs := types.Transactions{}
-	if txListCursor+int(blockInfo.NumTransactions) <= len(allTxsInBatch) {
-		txs = allTxsInBatch[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
+	if txListCursor+int(blockInfo.NumTransactions()) <= len(allTxsInBatch) {
+		txs = allTxsInBatch[txListCursor : txListCursor+int(blockInfo.NumTransactions())]
 	} else if txListCursor < len(allTxsInBatch) {
 		txs = allTxsInBatch[txListCursor:]
 	}

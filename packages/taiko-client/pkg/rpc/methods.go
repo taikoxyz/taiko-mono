@@ -368,7 +368,7 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 func (c *Client) CalculateBaseFee(
 	ctx context.Context,
 	l2Head *types.Header,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
@@ -396,7 +396,7 @@ func (c *Client) GetPoolContent(
 	maxTransactionsLists uint64,
 	minTip uint64,
 	chainConfig *config.ChainConfig,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -891,7 +891,7 @@ func (c *Client) calculateBaseFeePacaya(
 	ctx context.Context,
 	l2Head *types.Header,
 	currentTimestamp uint64,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 ) (*big.Int, error) {
 	log.Info(
 		"Calculate base fee for the Pacaya block",
@@ -906,7 +906,13 @@ func (c *Client) calculateBaseFeePacaya(
 		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
 		uint32(l2Head.GasUsed),
 		currentTimestamp,
-		*baseFeeConfig,
+		pacayaBindings.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
+			SharingPctg:            baseFeeConfig.SharingPctgs()[0],
+			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
+			MinGasExcess:           baseFeeConfig.MinGasExcess(),
+			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", err)
