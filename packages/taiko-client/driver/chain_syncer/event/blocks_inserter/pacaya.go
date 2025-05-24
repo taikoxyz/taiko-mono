@@ -367,7 +367,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	}
 
 	// Decompress the transactions list.
-	decompressedTxs, err := utils.DecompressPacaya(executableData.Transactions[0])
+	decompressedTxs, err := utils.Decompress(executableData.Transactions[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
