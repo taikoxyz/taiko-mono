@@ -1,5 +1,6 @@
 # Proposal Action Details
-- DAO Controller: `0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3`
+
+0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3
 
 ## Actions:
 - target: `0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55`
