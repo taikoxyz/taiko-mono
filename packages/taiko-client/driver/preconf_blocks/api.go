@@ -195,7 +195,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// connects to the P2P network.
 	if s.p2pNode != nil && !reflect2.IsNil(s.p2pSigner) {
 		log.Info(
-			"Gossiping L2 Payload",
+			"Gossiping L2 unsafe payload",
 			"blockID", header.Number,
 			"coinbase", header.Coinbase,
 			"timestamp", header.Time,
