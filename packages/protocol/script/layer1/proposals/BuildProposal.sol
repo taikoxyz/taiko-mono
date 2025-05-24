@@ -66,8 +66,8 @@ abstract contract BuildProposal is Script {
         }
 
         string memory actionSection =
-            string(abi.encodePacked("# Proposal Action Details\n- DAO Controller:", 
-            vm.toString(L1.DAO_CONTROLLER), "\n\n",
+            string(abi.encodePacked("# Proposal Action Details\n- DAO Controller: `", 
+            vm.toString(L1.DAO_CONTROLLER), "`\n\n",
             
             "## Actions:\n", actionsStr));
 
