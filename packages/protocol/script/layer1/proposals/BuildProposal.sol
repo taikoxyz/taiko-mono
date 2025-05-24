@@ -46,19 +46,27 @@ abstract contract BuildProposal is Script {
         string memory fileName =
             string.concat("./script/layer1/proposals/Proposal", proposalId, ".action.md");
 
-        string memory actionHeader = string(
-            abi.encodePacked(
-                "# Proposal-",
-                proposalId,
-                "\n\n## Action\n",
-                "- target (daocontroller.taiko.eth):   `",
-                vm.toString(L1.DAO_CONTROLLER),
-                "`\n",
-                "- calldata: `",
-                vm.toString(abi.encodeCall(TaikoDAOController.execute, (allActions))),
-                "`\n"
-            )
-        );
+        string memory actionsStr;
+
+        for (uint256 i; i < allActions.length; ++i) {
+            actionsStr = string(
+                abi.encodePacked(
+                    actionsStr,
+                    "- target: `",
+                    vm.toString(allActions[i].target),
+                    "`\n",
+                    "  value: `",
+                    vm.toString(allActions[i].value),
+                    "`\n",
+                    "  data: `",
+                    vm.toString(allActions[i].data),
+                    "`\n\n"
+                )
+            );
+        }
+
+        string memory actionSection =
+            string(abi.encodePacked("# Proposal Action Details\n", "## Actions:\n", actionsStr));
 
         string memory l1DryrunSection = string(
             abi.encodePacked(
@@ -83,7 +91,7 @@ abstract contract BuildProposal is Script {
         );
 
         string memory fileContent =
-            string(abi.encodePacked(actionHeader, l1DryrunSection, l2DryrunSection));
+            string(abi.encodePacked(actionSection, l1DryrunSection, l2DryrunSection));
 
         vm.writeFile(fileName, fileContent);
 
