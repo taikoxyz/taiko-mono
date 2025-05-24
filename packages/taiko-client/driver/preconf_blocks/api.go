@@ -18,8 +18,8 @@ import (
 	"github.com/modern-go/reflect2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
