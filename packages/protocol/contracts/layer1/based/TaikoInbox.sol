@@ -82,7 +82,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         Stats2 memory stats2 = state.stats2;
         Config memory config = _getConfig();
-        require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
             require(
@@ -189,9 +188,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
-                info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
+                info_.lastBlockId = stats2.numBatches == config.forkHeights.shasta
                     ? stats2.numBatches + nBlocks - 1
                     : lastBatch.lastBlockId + nBlocks;
+
+                // Fork activation shall be L2 block based
+                require(info_.lastBlockId >= config.forkHeights.shasta, ForkNotActivated());
 
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
@@ -200,7 +202,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     infoHash: keccak256(abi.encode(info_)),
                     prover: info_.proposer,
                     batchId: stats2.numBatches,
-                    proposedAt: uint64(block.timestamp)
+                    proposedAt: uint64(block.timestamp),
+                    lastBlockHeightInBatch: info_.lastBlockId
                 });
 
                 if (params.proverAuth.length == 0) {
@@ -303,9 +306,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
+            require(meta.lastBlockHeightInBatch >= config.forkHeights.shasta, ForkNotActivated());
             require(
-                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
+                config.forkHeights.unzen == 0
+                    || meta.lastBlockHeightInBatch < config.forkHeights.unzen,
                 BeyondCurrentFork()
             );
 

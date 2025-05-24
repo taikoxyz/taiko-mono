@@ -52,7 +52,8 @@ contract MockTaikoInbox is EssentialContract {
             batchId: 0,
             prover: params.proposer,
             proposedAt: uint64(block.timestamp),
-            infoHash: keccak256(abi.encode(info_))
+            infoHash: keccak256(abi.encode(info_)),
+            lastBlockHeightInBatch: info_.lastBlockId
         });
 
         metaHash = keccak256(abi.encode(meta_));

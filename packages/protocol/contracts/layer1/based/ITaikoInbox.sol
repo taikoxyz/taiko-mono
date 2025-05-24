@@ -95,6 +95,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
+        uint64 lastBlockHeightInBatch;
     }
 
     /// @notice Struct representing transition to be proven.
@@ -150,8 +151,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
 
     struct ForkHeights {
         uint64 ontake; // v2, measured with block number.
-        uint64 pacaya; // v3, measured with the batch Id, not block number.
-        uint64 shasta; // v4, measured with the batch Id, not block number.
+        uint64 pacaya; // v3, measured with the batch Id, not block number. (actually it is still
+            // block number based, since first batchId is a blockId too)
+        uint64 shasta; // v4, should be block number - due to block based P2P sync
         uint64 unzen; // v5, measured with the batch Id, not block number.
     }
 
