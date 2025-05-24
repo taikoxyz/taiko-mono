@@ -95,6 +95,8 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                 (bytes32 registrationRoot, bytes memory data) =
                     abi.decode(nextLookaheadUpdateData, (bytes32, bytes));
                 nextLookaheadHash = lookaheadStore.updateLookahead(registrationRoot, data);
+            } else {
+                require(nextLookaheadUpdateData.length == 0, InvalidNextLookahead());
             }
         }
 
