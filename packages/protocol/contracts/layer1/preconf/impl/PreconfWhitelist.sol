@@ -213,7 +213,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             return address(0);
         }
 
-        // Use the `_RANDOMNESS_DELAY_EPOCHS` epochs ago's start timestamp as the random number,
+        // Use the `RANDOMNESS_DELAY_EPOCHS` epochs ago's start timestamp as the random number,
         // if it is not available (zero), return address(0) directly.
         uint256 rand = uint256(
             LibPreconfUtils.getBeaconBlockRootAtOrAfter(
