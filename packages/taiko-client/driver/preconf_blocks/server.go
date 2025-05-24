@@ -78,6 +78,7 @@ type PreconfBlockAPIServer struct {
 	// Last seen proposal
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	latestSeenProposal   *encoding.LastSeenProposal
+
 	// Mutex for P2P message handlers
 	mutex sync.Mutex
 }
@@ -707,7 +708,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	}
 
 	var txs types.Transactions
-	b, err := utils.DecompressPacaya(payload.Transactions[0])
+	b, err := utils.Decompress(payload.Transactions[0])
 	if err != nil {
 		return fmt.Errorf("invalid zlib bytes for transactions: %w", err)
 	}
