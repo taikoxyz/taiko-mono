@@ -67,12 +67,23 @@ func (s *PreconfBlockAPIServerTestSuite) TestLookheadSequencingWindowSplitWithDu
 
 	s.True(reflect.DeepEqual(currRanges, []SlotRange{
 		{Start: 0, End: 28},
-		{Start: 32, End: 60},
 		{Start: 64, End: 92},
 	}), "currRanges = %v", currRanges)
 
 	s.True(reflect.DeepEqual(nextRanges, []SlotRange{
 		{Start: 60, End: 64},
+	}), "nextRanges = %v", nextRanges)
+
+	currRanges = w.SequencingWindowSplit(other, true)
+	nextRanges = w.SequencingWindowSplit(other, false)
+
+	s.True(reflect.DeepEqual(currRanges, []SlotRange{
+		{Start: 32, End: 60},
+	}), "currRanges = %v", currRanges)
+
+	s.True(reflect.DeepEqual(nextRanges, []SlotRange{
+		{Start: 28, End: 32},
+		{Start: 92, End: 96},
 	}), "nextRanges = %v", nextRanges)
 }
 
