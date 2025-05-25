@@ -21,8 +21,8 @@ contract Proposal0002 is BuildProposal {
     address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
     // L2 contracts
-    address public constant L2_BAR_CONTRACT = 0x877DDC3AebDD3010714B16769d6dB0Cb11abaF30;
-    address public constant L2_BAR_CONTRACT_NEW_IMPL = 0xCA335abAcaDe77a8C3e2E82B551B3E3337f2CaF4;
+    address public constant L2_BAR_CONTRACT = 0x0e577Bb67d38c18E4B9508984DA36d6D316ade58;
+    address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x7fBd8DbA7678eDb9eaDf83e204372d8a39F75398;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
     function proposalConfig()

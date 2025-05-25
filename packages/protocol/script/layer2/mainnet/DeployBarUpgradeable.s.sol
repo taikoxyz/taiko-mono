@@ -16,17 +16,17 @@ contract DeployBarUpgradeable is BaseScript {
         // --verifier-url https://api.taikoscan.io/api \
         // --etherscan-api-key (echo $ETHERSCAN_API_KEY)
 
-        //   > 'bar_upgradeable'
-        //          proxy   : 0x877DDC3AebDD3010714B16769d6dB0Cb11abaF30
-        //          impl    : 0x0919082b1e30d212e0359ea10cCCD6955ddc8263
-        //          owner   : 0xe1eFEd95aDc9250A633ac3f6Ff8BA3F2cD0855A4
+        //  > 'bar_upgradeable'
+        //          proxy   : 0x0e577Bb67d38c18E4B9508984DA36d6D316ade58
+        //          impl    : 0x49c3a8c535c42939D38d46dF56d49e8B2cb58409
+        //          owner   : 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
         //          chain id: 167000
-        address barUpgradeableImpl2 = address(new BarUpgradeable());
+        address barUpgradeableImpl3 = address(new BarUpgradeable());
+        console.log("barUpgradeableImpl3", barUpgradeableImpl3);
 
-        console.log("barUpgradeableImpl2", barUpgradeableImpl2);
         // deploy({
         //     name: "bar_upgradeable",
-        //     impl: barUpgradeableImpl1,
+        //     impl: barUpgradeableImpl3,
         //     data: abi.encodeCall(BarUpgradeable.init, (L2.DELEGATE_CONTROLLER))
         // });
     }

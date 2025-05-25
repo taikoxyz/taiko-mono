@@ -23,17 +23,16 @@ contract DeployDelegateController is BaseScript {
         // --verifier-url https://api.taikoscan.io/api \
         // --etherscan-api-key (echo $ETHERSCAN_API_KEY)
 
-        address delegateControllerImpl1 = address(
+        address delegateControllerImpl4 = address(
             new DelegateController(
                 uint64(LibNetwork.ETHEREUM_MAINNET), L2.BRIDGE, L1.DAO_CONTROLLER
             )
         );
 
-        console.log("delegateControllerImpl1", delegateControllerImpl1);
-        // deploy({
-        //     name: "delegate_controller",
-        //     impl: delegateControllerImpl1,
-        //     data: abi.encodeCall(DelegateController.init, ())
-        // });
+        deploy({
+            name: "delegate_controller",
+            impl: delegateControllerImpl4,
+            data: abi.encodeCall(DelegateController.init, ())
+        });
     }
 }

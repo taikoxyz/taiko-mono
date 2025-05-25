@@ -13,6 +13,9 @@ import { LibL2Addrs as L2 } from "src/layer2/mainnet/libs/LibL2Addrs.sol";
 abstract contract BuildProposal is Script {
     error TargetIsZeroAddress();
     error TargetIsDAOController();
+    error DelegateControllerNotSelfOwned();
+    error DelegateControllerIncorrectL2Bridge();
+    error DelegateControllerIncorrectDaoController();
 
     modifier broadcast() {
         vm.startBroadcast();
@@ -73,6 +76,25 @@ abstract contract BuildProposal is Script {
     }
 
     function dryrunL2Actions() internal broadcast {
+        require(
+            Ownable(L2.DELEGATE_CONTROLLER).owner() == L2.DELEGATE_CONTROLLER,
+            DelegateControllerNotSelfOwned()
+        );
+
+        (bool success, bytes memory result) =
+            L2.DELEGATE_CONTROLLER.staticcall(abi.encodeWithSignature("l2Bridge()"));
+        require(
+            success && abi.decode(result, (address)) == L2.BRIDGE,
+            DelegateControllerIncorrectL2Bridge()
+        );
+
+        (success, result) =
+            L2.DELEGATE_CONTROLLER.staticcall(abi.encodeWithSignature("daoController()"));
+        require(
+            success && abi.decode(result, (address)) == L1.DAO_CONTROLLER,
+            DelegateControllerIncorrectDaoController()
+        );
+
         Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(abi.encode(buildL2Actions()));
     }
 
