@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
@@ -44,6 +44,6 @@ type createPayloadAndSetHeadMetaData struct {
 	*createExecutionPayloadsMetaData
 	AnchorBlockID   *big.Int
 	AnchorBlockHash common.Hash
-	BaseFeeConfig   *pacayaBindings.LibSharedDataBaseFeeConfig
+	BaseFeeConfig   bindingTypes.LibSharedDataBaseFeeConfig
 	Parent          *types.Header
 }

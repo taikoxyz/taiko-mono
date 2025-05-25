@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -48,7 +48,7 @@ func CheckProverBalance(
 	defer cancel()
 
 	// Check allowance on taiko token contract
-	allowance, err := rpc.PacayaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
+	allowance, err := rpc.ShastaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
 	if err != nil {
 		return false, err
 	}
@@ -60,14 +60,20 @@ func CheckProverBalance(
 		"bond", utils.WeiToEther(bond),
 	)
 
-	// Check prover's taiko token bondBalance
-	bondBalance, err := rpc.PacayaClients.TaikoInbox.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
-	if err != nil {
-		return false, err
+	// Check prover's taiko token bondBalance.
+	var bondBalance *big.Int
+	if bondBalance, err = rpc.ShastaClients.TaikoInbox.V4BondBalanceOf(
+		&bind.CallOpts{Context: ctxWithTimeout},
+		prover,
+	); err != nil {
+		bondBalance, err = rpc.PacayaClients.TaikoInbox.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	// Check prover's taiko token tokenBalance
-	tokenBalance, err := rpc.PacayaClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	tokenBalance, err := rpc.ShastaClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
@@ -125,7 +131,7 @@ func GetBatchProofStatus(
 
 	var (
 		parentID *big.Int
-		batch    *pacayaBindings.ITaikoInboxBatch
+		batch    bindingTypes.ITaikoInboxBatch
 		err      error
 	)
 	if batchID.Uint64() == cli.PacayaClients.ForkHeights.Pacaya {
@@ -135,7 +141,7 @@ func GetBatchProofStatus(
 		if err != nil {
 			return nil, err
 		}
-		parentID = new(big.Int).SetUint64(lastBatch.LastBlockId)
+		parentID = new(big.Int).SetUint64(lastBatch.LastBlockID())
 	}
 
 	if batch, err = cli.GetBatchByID(ctx, batchID); err != nil {
@@ -163,7 +169,7 @@ func GetBatchProofStatus(
 		return &BatchProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
 
-	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockID()))
 	if err != nil {
 		return nil, err
 	}

@@ -70,7 +70,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if s.rpc.PacayaClients.TaikoWrapper != nil {
 		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: c.Request().Context()})
+		preconfRouter, err := s.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: c.Request().Context()})
 		if err != nil {
 			return s.returnError(c, http.StatusInternalServerError, err)
 		}
@@ -302,7 +302,7 @@ type RemovePreconfBlocksResponseBody struct {
 func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
 	if s.rpc.PacayaClients.TaikoWrapper != nil {
 		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: c.Request().Context()})
+		preconfRouter, err := s.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: c.Request().Context()})
 		if err != nil {
 			return s.returnError(c, http.StatusInternalServerError, err)
 		}
