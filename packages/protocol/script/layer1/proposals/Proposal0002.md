@@ -8,6 +8,8 @@ The following L1 actions will be executed by the DAOController:
 
 - Set the reverse ENS name of DAOController to "controller.taiko.eth"
 - Transfer 0.0001 ETH from DAOController to Daniel Wang
+- Transfer 1 USDC from DAOController to Daniel Wang
+- Transfer FooUpgradeable's ownership to Daniel Wang
 
 These actions aim to validate that the DAOController can also securely manage and transfer both Ether and ERC20 tokens.
 
@@ -34,18 +36,18 @@ All actions in this proposal are generated using the following script:
 
 Please review the `proposalConfig()`, `buildL1Actions()`, and `buildL2Actions()` functions for logic verification.
 
-### `proposalConfig()`
+### proposalConfig()
 
 This function returns execution parameters for L2:
 
 - `l2ExecutionId`: Determines the execution order. Here, `l2ExecutionId = 1`, which enforces that the proposal must execute in sequence. Setting this value to `0` would skip ordering constraints, allowing execution at any time after approval.
 - `l2GasLimit`: Specifies the minimum gas required for executing L2 actions. This proposal sets the limit to `25,000,000`, allowing any L2 address to trigger execution.
 
-### `buildL1Actions()`
+### buildL1Actions()
 
 This function generates all L1 transactions. The final action in the list sends a cross-chain message via the Taiko bridge, embedding the L2 action payload. This message targets the L2 `DelegateController` contract to execute the L2 actions sequentially.
 
-### `buildL2Actions()`
+###buildL2Actions()
 
 This function defines the atomic set of L2 transactions. If any single action fails, the entire batch is reverted. Nevertheless, the proposal is still marked as executed from the DAO's perspective.
 
