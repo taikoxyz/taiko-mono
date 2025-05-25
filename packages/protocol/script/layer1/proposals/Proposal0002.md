@@ -32,7 +32,7 @@ These actions aim to validate that the DelegateController can also securely mana
 
 All actions in this proposal are generated using the following script:
 
-https://github.com/taikoxyz/taiko-mono/blob/a36bf9f1af98d29772277fbd27699c576c571a2e/packages/protocol/script/layer1/proposals/Proposal0002.s.sol
+https://github.com/taikoxyz/taiko-mono/blob/proposal0002-fix/packages/protocol/script/layer1/proposals/Proposal0002.s.sol
 
 Please review the `proposalConfig()`, `buildL1Actions()`, and `buildL2Actions()` functions for logic verification.
 
