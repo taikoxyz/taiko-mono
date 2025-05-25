@@ -11,6 +11,9 @@ import { LibL1Addrs as L1 } from "src/layer1/mainnet/libs/LibL1Addrs.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/libs/LibL2Addrs.sol";
 
 abstract contract BuildProposal is Script {
+    error TargetIsZeroAddress();
+    error TargetIsDAOController();
+
     modifier broadcast() {
         vm.startBroadcast();
         _;
@@ -50,11 +53,11 @@ abstract contract BuildProposal is Script {
             abi.encodePacked(
                 "# Proposal",
                 proposalId,
-                "\n\n- DAO Controller: `",
-                vm.toString(L1.DAO_CONTROLLER),
-                "`\n\n",
-                "## Actions:\n",
-                abi.encode(abi.encode(allActions))
+                "\n",
+                "- To (DAO Controller): `",
+            vm.toString(L1.DAO_CONTROLLER),
+                "`\n- Value: `0`\n- Calldata: `",
+                vm.toString(abi.encode(allActions)), "`\n"
             )
         );
 
@@ -95,12 +98,13 @@ abstract contract BuildProposal is Script {
 
         for (uint256 i; i < l1Actions.length; ++i) {
             allActions_[i] = l1Actions[i];
-            require(l1Actions[i].target != address(0), "l1 action's target is zero address");
+            require(l1Actions[i].target != address(0), TargetIsZeroAddress());
+            require(l1Actions[i].target != L1.DAO_CONTROLLER, TargetIsDAOController());
         }
 
         Controller.Action[] memory l2Actions = buildL2Actions();
         for (uint256 i; i < l2Actions.length; ++i) {
-            require(l2Actions[i].target != address(0), "l2 action's target is zero address");
+            require(l2Actions[i].target != address(0), TargetIsZeroAddress());
         }
 
         IBridge.Message memory message;
@@ -108,7 +112,8 @@ abstract contract BuildProposal is Script {
         message.gasLimit = l2GasLimit;
         message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
         message.data = abi.encodeCall(
-            IMessageInvocable.onMessageInvocation, (abi.encode(l2ExecutionId, l2Actions))
+            IMessageInvocable.onMessageInvocation,
+            (abi.encodePacked(l2ExecutionId, abi.encode(l2Actions)))
         );
 
         allActions_[l1Actions.length] = Controller.Action({
