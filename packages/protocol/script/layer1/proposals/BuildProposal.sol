@@ -135,6 +135,7 @@ abstract contract BuildProposal is Script {
         message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
         message.destChainId = 167_000;
         message.gasLimit = l2GasLimit;
+        message.to =L2.DELEGATE_CONTROLLER;
         message.data = abi.encodeCall(
             IMessageInvocable.onMessageInvocation,
             (abi.encodePacked(l2ExecutionId, abi.encode(l2Actions)))
