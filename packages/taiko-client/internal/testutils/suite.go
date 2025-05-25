@@ -75,8 +75,18 @@ func (s *ClientTestSuite) SetupTest() {
 		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))
 	}
 
-	bondBalance, err := rpcCli.PacayaClients.TaikoInbox.BondBalanceOf(nil, common.HexToAddress(os.Getenv("PROVER_SET")))
-	s.Nil(err)
+	// Check prover's taiko token bondBalance.
+	var bondBalance *big.Int
+	if bondBalance, err = rpcCli.ShastaClients.TaikoInbox.V4BondBalanceOf(
+		&bind.CallOpts{Context: context.Background()},
+		common.HexToAddress(os.Getenv("PROVER_SET")),
+	); err != nil {
+		bondBalance, err = rpcCli.PacayaClients.TaikoInbox.BondBalanceOf(
+			&bind.CallOpts{Context: context.Background()},
+			common.HexToAddress(os.Getenv("PROVER_SET")),
+		)
+		s.Nil(err)
+	}
 
 	if bondBalance.Cmp(common.Big0) == 0 {
 		s.sendBondTokens(ownerPrivKey, crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey))
