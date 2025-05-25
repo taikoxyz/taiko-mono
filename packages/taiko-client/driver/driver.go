@@ -467,7 +467,7 @@ func (d *Driver) cacheLookaheadLoop() {
 					"currOp", currOp.Hex(),
 					"nextOp", nextOp.Hex(),
 				)
-				opWin.Push(currentEpoch, currOp, nextOp)
+				opWin.Push(currentEpoch, currOp, nextOp) // push both ops in, we are current and next
 
 				log.Info(
 					"Pushing into window for next epoch as current operator",
