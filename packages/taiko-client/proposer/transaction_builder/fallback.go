@@ -167,6 +167,7 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 }
 
 // BuildShasta implements the ProposeBatchTransactionBuilder interface.
+// TODO: cleanup this method, it is very similar to BuildPacaya.
 func (b *TxBuilderWithFallback) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
@@ -174,7 +175,84 @@ func (b *TxBuilderWithFallback) BuildShasta(
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
-	return nil, nil
+	// If calldata is the only option, just use it.
+	if b.blobTransactionBuilder == nil {
+		return b.calldataTransactionBuilder.BuildShasta(
+			ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash,
+		)
+	}
+	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
+	if !b.fallback {
+		return b.blobTransactionBuilder.BuildShasta(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+	}
+
+	// Otherwise, compare the cost, and choose the cheaper option.
+	var (
+		g              = new(errgroup.Group)
+		txWithCalldata *txmgr.TxCandidate
+		txWithBlob     *txmgr.TxCandidate
+		costCalldata   *big.Int
+		costBlob       *big.Int
+		err            error
+	)
+
+	g.Go(func() error {
+		if txWithCalldata, err = b.calldataTransactionBuilder.BuildShasta(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+			parentMetahash,
+		); err != nil {
+			return fmt.Errorf("failed to build type-2 transaction: %w", err)
+		}
+		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
+			return fmt.Errorf("failed to estimate type-2 transaction cost: %w", encoding.TryParsingCustomError(err))
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if txWithBlob, err = b.blobTransactionBuilder.BuildShasta(
+			ctx,
+			txBatch,
+			forcedInclusion,
+			minTxsPerForcedInclusion,
+			parentMetahash,
+		); err != nil {
+			return fmt.Errorf("failed to build type-3 transaction: %w", err)
+		}
+		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
+			return fmt.Errorf("failed to estimate type-3 transaction cost: %w", encoding.TryParsingCustomError(err))
+		}
+		return nil
+	})
+
+	if err = g.Wait(); err != nil {
+		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
+		metrics.ProposerCostEstimationError.Inc()
+		// If there is an error, just build a blob transaction.
+		return b.blobTransactionBuilder.BuildShasta(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+	}
+
+	var (
+		costCalldataFloat64 float64
+		costBlobFloat64     float64
+	)
+	costCalldataFloat64, _ = utils.WeiToEther(costCalldata).Float64()
+	costBlobFloat64, _ = utils.WeiToEther(costBlob).Float64()
+
+	metrics.ProposerEstimatedCostCalldata.Set(costCalldataFloat64)
+	metrics.ProposerEstimatedCostBlob.Set(costBlobFloat64)
+
+	if costCalldata.Cmp(costBlob) < 0 {
+		log.Info("Building a type-2 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
+		metrics.ProposerProposeByCalldata.Inc()
+		return txWithCalldata, nil
+	}
+
+	log.Info("Building a type-3 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
+	metrics.ProposerProposeByBlob.Inc()
+	return txWithBlob, nil
 }
 
 // estimateCandidateCost estimates the realtime onchain cost of the given transaction.
