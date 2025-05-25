@@ -55,9 +55,10 @@ abstract contract BuildProposal is Script {
                 proposalId,
                 "\n",
                 "- To (DAO Controller): `",
-            vm.toString(L1.DAO_CONTROLLER),
+                vm.toString(L1.DAO_CONTROLLER),
                 "`\n- Value: `0`\n- Calldata: `",
-                vm.toString(abi.encode(allActions)), "`\n"
+                vm.toString(abi.encode(allActions)),
+                "`\n"
             )
         );
 
@@ -108,8 +109,9 @@ abstract contract BuildProposal is Script {
         }
 
         IBridge.Message memory message;
-        message.destChainId = 167_000;
         message.gasLimit = l2GasLimit;
+        message.srcOwner = L1.DAO_CONTROLLER;
+        message.destChainId = 167_000;
         message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
         message.data = abi.encodeCall(
             IMessageInvocable.onMessageInvocation,
