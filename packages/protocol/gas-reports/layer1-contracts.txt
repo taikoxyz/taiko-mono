@@ -116,7 +116,7 @@ TestPreconfWhitelist:test_whitelist_delay2epoch_addThenRemoveOneOperator() (gas:
 TestPreconfWhitelist:test_whitelist_delay2epoch_addThenRemoveTwoOperators() (gas: 317959)
 TestPreconfWhitelist:test_whitelist_noDelay_addThenRemoveOneOperator() (gas: 158243)
 TestPreconfWhitelist:test_whitelist_removeNonExistingOperatorWillRevert() (gas: 25210)
-TestPreconfWhitelist:test_whitelist_selfRemoval() (gas: 180711)
+TestPreconfWhitelist:test_whitelist_selfRemoval() (gas: 214316)
 TestTaikoDAOController:test_TaikoDAOController_InitialOwner() (gas: 17901)
 TestTaikoDAOController:test_TaikoDAOController_acceptOwnershipOf() (gas: 49424)
 TestTaikoDAOController:test_TaikoDAOController_execute() (gas: 40926)

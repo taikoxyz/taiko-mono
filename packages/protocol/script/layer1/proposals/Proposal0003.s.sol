@@ -31,8 +31,7 @@ contract Proposal0003 is BuildProposal {
         l2GasLimit = 25_000_000;
     }
 
-    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-    }
+    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) { }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](6);
