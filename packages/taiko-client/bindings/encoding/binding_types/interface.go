@@ -75,7 +75,7 @@ type ITaikoInboxStats interface {
 // ITaikoInboxBatch should be same with ITaikoInbox.Batch.
 type ITaikoInboxBatch interface {
 	MetaHash() common.Hash
-	LastBlockId() uint64
+	LastBlockID() uint64
 	LivenessBond() *big.Int
 	BatchId() uint64
 	LastBlockTimestamp() uint64

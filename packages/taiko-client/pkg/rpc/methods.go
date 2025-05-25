@@ -44,12 +44,16 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	configs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
+	configs, err := c.ShastaClients.TaikoInbox.V4GetConfig(opts)
 	if err != nil {
-		return nil, err
+		pacayaConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
+		if err != nil {
+			return nil, err
+		}
+		return config.NewPacayaProtocolConfigs(&pacayaConfigs), nil
 	}
 
-	return config.NewPacayaProtocolConfigs(&configs), nil
+	return config.NewShastaProtocolConfigs(&configs), nil
 }
 
 // ensureGenesisMatched fetches the L2 genesis block from TaikoInbox contract,
@@ -515,12 +519,12 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 			return err
 		}
 
-		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stats.NumBatches()-1)
+		batch, err := c.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()-1))
 		if err != nil {
 			return err
 		}
 
-		progress.HighestBlockID = new(big.Int).SetUint64(batch.LastBlockId)
+		progress.HighestBlockID = new(big.Int).SetUint64(batch.LastBlockID())
 
 		return nil
 	})
@@ -551,7 +555,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 // GetProtocolStats gets the protocol states from TaikoInbox contract.
 func (c *Client) GetProtocolStats(opts *bind.CallOpts) (bindingTypes.ITaikoInboxStats, error) {
 	statsShasta, err := c.getProtocolStatsShasta(opts)
-	if err == nil {
+	if err != nil {
 		statsPacaya, err := c.getProtocolStatsPacaya(opts)
 		if err == nil {
 			return nil, err
@@ -708,7 +712,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 			return nil, fmt.Errorf("failed to fetch batch (%d) by ID: %w", batchID, err)
 		}
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
-		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId()))
+		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockID()))
 		if err != nil {
 			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 			// its local database, we skip this check.
@@ -748,7 +752,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		// 2. Check whether the L1 information which in the given L2 block's anchor transaction has been reorged.
 		isSyncedL1SnippetInvalid, err := c.checkSyncedL1SnippetFromAnchor(
 			ctxWithTimeout,
-			new(big.Int).SetUint64(batch.LastBlockId()),
+			new(big.Int).SetUint64(batch.LastBlockID()),
 			l1Origin.L1BlockHeight.Uint64(),
 		)
 		if err != nil {

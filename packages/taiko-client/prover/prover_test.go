@@ -236,7 +236,7 @@ func (s *ProverTestSuite) TestProveOp() {
 	parentHash = common.BytesToHash(tran.ParentHash[:])
 	batch, err := s.p.rpc.GetBatchByID(context.Background(), new(big.Int).SetUint64(e.BatchIds[len(e.BatchIds)-1]))
 	s.Nil(err)
-	blockID = new(big.Int).SetUint64(batch.LastBlockId())
+	blockID = new(big.Int).SetUint64(batch.LastBlockID())
 
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), blockID)
 	s.Nil(err)

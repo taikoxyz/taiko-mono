@@ -46,7 +46,7 @@ func (h *BatchesProvedEventHandler) HandlePacaya(
 		if err != nil {
 			return fmt.Errorf("failed to get batch by ID: %w", err)
 		}
-		metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockId()))
+		metrics.ProverReceivedProvenBlockGauge.Set(float64(batch.LastBlockID()))
 
 		status, err := rpc.GetBatchProofStatus(ctx, h.rpc, new(big.Int).SetUint64(batchID))
 		if err != nil {
@@ -54,7 +54,7 @@ func (h *BatchesProvedEventHandler) HandlePacaya(
 		}
 		// If the batch proof is valid, we skip it.
 		if status.IsSubmitted && !status.Invalid {
-			log.Info("New valid proven batch received", "batchID", batchID, "lastBatchID", batch.LastBlockId)
+			log.Info("New valid proven batch received", "batchID", batchID, "lastBatchID", batch.LastBlockID())
 			continue
 		}
 		// Otherwise, the proof onchain is either invalid or missed, we need to submit a new proof.

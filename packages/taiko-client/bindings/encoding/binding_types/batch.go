@@ -23,8 +23,8 @@ func (b *InboxBatchPacaya) MetaHash() common.Hash {
 	return b.ITaikoInboxBatch.MetaHash
 }
 
-// LastBlockId returns the last block ID of the batch.
-func (b *InboxBatchPacaya) LastBlockId() uint64 {
+// LastBlockID returns the last block ID of the batch.
+func (b *InboxBatchPacaya) LastBlockID() uint64 {
 	return b.ITaikoInboxBatch.LastBlockId
 }
 
@@ -73,8 +73,8 @@ func (b *InboxBatchShasta) MetaHash() common.Hash {
 	return b.ITaikoInboxBatch.MetaHash
 }
 
-// LastBlockId returns the last block ID of the batch.
-func (b *InboxBatchShasta) LastBlockId() uint64 {
+// LastBlockID returns the last block ID of the batch.
+func (b *InboxBatchShasta) LastBlockID() uint64 {
 	return b.ITaikoInboxBatch.LastBlockId
 }
 

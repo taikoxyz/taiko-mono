@@ -141,7 +141,7 @@ func GetBatchProofStatus(
 		if err != nil {
 			return nil, err
 		}
-		parentID = new(big.Int).SetUint64(lastBatch.LastBlockId())
+		parentID = new(big.Int).SetUint64(lastBatch.LastBlockID())
 	}
 
 	if batch, err = cli.GetBatchByID(ctx, batchID); err != nil {
@@ -169,7 +169,7 @@ func GetBatchProofStatus(
 		return &BatchProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
 
-	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId()))
+	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockID()))
 	if err != nil {
 		return nil, err
 	}

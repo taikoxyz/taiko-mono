@@ -31,12 +31,12 @@ func (h *BatchesVerifiedEventHandler) HandlePacaya(
 	if err != nil {
 		return err
 	}
-	metrics.ProverLatestVerifiedIDGauge.Set(float64(batch.LastBlockId()))
+	metrics.ProverLatestVerifiedIDGauge.Set(float64(batch.LastBlockID()))
 
 	log.Info(
 		"New verified batch",
 		"batchID", e.BatchId,
-		"lastBlockID", batch.LastBlockId,
+		"lastBlockID", batch.LastBlockID(),
 		"hash", common.BytesToHash(e.BlockHash[:]),
 	)
 	return nil

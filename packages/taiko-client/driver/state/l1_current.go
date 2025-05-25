@@ -90,7 +90,7 @@ func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (bindin
 			return nil, err
 		}
 
-		if batch.LastBlockId() < blockID {
+		if batch.LastBlockID() < blockID {
 			return lastBatch, nil
 		}
 

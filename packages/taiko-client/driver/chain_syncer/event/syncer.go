@@ -300,14 +300,14 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
 		}
-		if header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId())); err != nil {
+		if header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockID())); err != nil {
 			return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
 		}
 
 		if header.Hash() == ts.BlockHash {
 			log.Info(
 				"Verified block matched, start reorging",
-				"currentHeightToCheck", batch.LastBlockId(),
+				"currentHeightToCheck", batch.LastBlockID(),
 				"chainBlockHash", header.Hash(),
 				"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
 			)
@@ -324,7 +324,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 		log.Info(
 			"Verified block mismatch",
-			"currentHeightToCheck", batch.LastBlockId,
+			"currentHeightToCheck", batch.LastBlockID,
 			"chainBlockHash", header.Hash(),
 			"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
 		)

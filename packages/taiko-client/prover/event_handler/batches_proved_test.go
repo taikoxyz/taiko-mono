@@ -136,7 +136,7 @@ func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	batch, err := s.RPCClient.GetBatchByID(context.Background(), m.Pacaya().GetBatchID())
 	s.Nil(err)
 
-	block, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId()))
+	block, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockID()))
 	s.Nil(err)
 
 	s.Nil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesProved{
