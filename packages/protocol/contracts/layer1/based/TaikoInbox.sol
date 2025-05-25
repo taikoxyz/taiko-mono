@@ -82,7 +82,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         Stats2 memory stats2 = state.stats2;
         Config memory config = _getConfig();
-        require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
+        // require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
             require(
@@ -189,9 +189,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
-                info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                    ? stats2.numBatches + nBlocks - 1
-                    : lastBatch.lastBlockId + nBlocks;
+                info_.lastBlockId = lastBatch.lastBlockId + nBlocks;
 
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
@@ -303,7 +301,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
+            // require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
             require(
                 config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
                 BeyondCurrentFork()
@@ -519,7 +517,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         batchId_ = state.stats2.lastVerifiedBatchId;
 
         ITaikoInbox.Config memory config = _getConfig();
-        require(batchId_ >= config.forkHeights.pacaya, BatchNotFound());
+        // require(batchId_ >= config.forkHeights.pacaya, BatchNotFound());
 
         blockId_ = state.getBatch(config, batchId_).lastBlockId;
         ts_ = state.getBatchVerifyingTransition(config, batchId_);
