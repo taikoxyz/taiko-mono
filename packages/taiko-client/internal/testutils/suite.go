@@ -76,19 +76,7 @@ func (s *ClientTestSuite) SetupTest() {
 	}
 
 	// Check prover's taiko token bondBalance.
-	var bondBalance *big.Int
-	if bondBalance, err = rpcCli.ShastaClients.TaikoInbox.V4BondBalanceOf(
-		&bind.CallOpts{Context: context.Background()},
-		common.HexToAddress(os.Getenv("PROVER_SET")),
-	); err != nil {
-		bondBalance, err = rpcCli.PacayaClients.TaikoInbox.BondBalanceOf(
-			&bind.CallOpts{Context: context.Background()},
-			common.HexToAddress(os.Getenv("PROVER_SET")),
-		)
-		s.Nil(err)
-	}
-
-	if bondBalance.Cmp(common.Big0) == 0 {
+	if s.BondBalanceOf(common.HexToAddress(os.Getenv("PROVER_SET"))).Cmp(common.Big0) == 0 {
 		s.sendBondTokens(ownerPrivKey, crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey))
 		s.sendBondTokens(ownerPrivKey, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey))
 		s.sendBondTokens(ownerPrivKey, common.HexToAddress(os.Getenv("PROVER_SET")))
@@ -138,7 +126,7 @@ func (s *ClientTestSuite) sendBondTokens(key *ecdsa.PrivateKey, recipient common
 	opts, err := bind.NewKeyedTransactorWithChainID(key, s.RPCClient.L1.ChainID)
 	s.Nil(err)
 
-	_, err = s.RPCClient.PacayaClients.TaikoToken.Transfer(opts, recipient, amount)
+	_, err = s.RPCClient.ShastaClients.TaikoToken.Transfer(opts, recipient, amount)
 	s.Nil(err)
 }
 
@@ -152,7 +140,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 
 	log.Info("Deposit tokens", "address", crypto.PubkeyToAddress(key.PublicKey).Hex())
 
-	balance, err := s.RPCClient.PacayaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(key.PublicKey))
+	balance, err := s.RPCClient.ShastaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(key.PublicKey))
 	s.Nil(err)
 	s.Greater(balance.Cmp(common.Big0), 0)
 
@@ -162,11 +150,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoTokenAddress})
 	s.Nil(err)
 
-	data, err = encoding.TaikoInboxPacayaABI.Pack("depositBond", balance)
-	s.Nil(err)
-
-	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoInboxAddress})
-	s.Nil(err)
+	s.DepositBond(t, balance, taikoInboxAddress)
 }
 
 func (s *ClientTestSuite) depositProverSetTokens(key *ecdsa.PrivateKey) {
@@ -174,17 +158,33 @@ func (s *ClientTestSuite) depositProverSetTokens(key *ecdsa.PrivateKey) {
 
 	var proverSetAddress = common.HexToAddress(os.Getenv("PROVER_SET"))
 
-	balance, err := s.RPCClient.PacayaClients.TaikoToken.BalanceOf(nil, proverSetAddress)
+	balance, err := s.RPCClient.ShastaClients.TaikoToken.BalanceOf(nil, proverSetAddress)
 	s.Nil(err)
 	s.Greater(balance.Cmp(common.Big0), 0)
 
 	log.Info("Deposit ProverSet tokens", "address", proverSetAddress.Hex(), "balance", utils.WeiToEther(balance))
 
-	data, err := encoding.ProverSetPacayaABI.Pack("depositBond", balance)
+	data, err := encoding.ProverSetShastaABI.Pack("depositBond", balance)
 	s.Nil(err)
 
 	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &proverSetAddress})
 	s.Nil(err)
+}
+
+func (s *ClientTestSuite) DepositBond(
+	t txmgr.TxManager,
+	balance *big.Int,
+	taikoInboxAddress common.Address,
+) {
+	data, err := encoding.TaikoInboxShastaABI.Pack("v4DepositBond", balance)
+	s.Nil(err)
+
+	if _, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoInboxAddress}); err != nil {
+		data, err = encoding.TaikoInboxPacayaABI.Pack("depositBond", balance)
+		s.Nil(err)
+		_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoInboxAddress})
+		s.Nil(err)
+	}
 }
 
 func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) txmgr.TxManager {
@@ -210,6 +210,25 @@ func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) txmgr.TxMana
 	)
 	s.Nil(err)
 	return NewMemoryBlobTxMgr(s.RPCClient, txmgr, s.BlobServer)
+}
+
+func (s *ClientTestSuite) BondBalanceOf(account common.Address) *big.Int {
+	var (
+		bondBalance *big.Int
+		err         error
+	)
+	if bondBalance, err = s.RPCClient.ShastaClients.TaikoInbox.V4BondBalanceOf(
+		&bind.CallOpts{Context: context.Background()},
+		account,
+	); err != nil {
+		bondBalance, err = s.RPCClient.PacayaClients.TaikoInbox.BondBalanceOf(
+			&bind.CallOpts{Context: context.Background()},
+			account,
+		)
+		s.Nil(err)
+		return bondBalance
+	}
+	return bondBalance
 }
 
 func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
