@@ -4,21 +4,19 @@ This proposal demonstrates the Taiko DAO's capability to execute multiple cross-
 
 ## L1 Actions
 
-The following L1 actions will be executed by the `TaikoDAOController`:
+The following L1 actions will be executed by the DAOController:
 
-- Set `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`'s reverse DNS record to `daocontroller.taiko.eth`
-- Transfer 0.001 ETH to Daniel Wang
-- Transfer 1 USDC to Daniel Wang
-- Transfer `FooUpgradable` ownership to Daniel Wang
+- Set the reverse ENS name of DAOController to "controller.taiko.eth"
+- Transfer 0.0001 ETH from DAOController to Daniel Wang
 
-These actions aim to validate that the `TaikoDAOController` can also securely manage and transfer both Ether and ERC20 tokens.
+These actions aim to validate that the DAOController can also securely manage and transfer both Ether and ERC20 tokens.
 
 ## L2 Actions
 
 The following L2 actions will be executed via the DelegateController contract:
 
-- Transfer 0.001 Ether from DelegateOwner to Daniel Wang
-- Transfer 1 TAIKO from DelegateOwner to Daniel Wang
+- Transfer 0.0001 Ether from DelegateController to Daniel Wang
+- Transfer 1 TAIKO from DelegateController to Daniel Wang
 - Upgrade BarUpgradeable to use a new (but identical)implementation
 - Transfer BarUpgradeable's ownership to Daniel Wang
 - Transfer 0.0001 Ether from BarUpgradeable to Daniel Wang

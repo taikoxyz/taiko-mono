@@ -36,28 +36,28 @@ contract Proposal0002 is BuildProposal {
     }
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](1);
+        actions = new Controller.Action[](3);
 
-        // Set the ENS name of the DAO Controller to "daocontroller.taiko.eth"
+        // Set the reverse ENS name of the DAOController to "controller.taiko.eth"
         actions[0] = Controller.Action({
             target: L1.ENS_REVERSE_REGISTRAR,
             value: 0,
-            data: abi.encodeCall(IReverseRegistrar.setName, ("daocontroller.taiko.eth"))
+            data: abi.encodeCall(IReverseRegistrar.setName, ("controller.taiko.eth"))
         });
 
-        // // Transfer 0.0001 ETH from DAO Controller to Daniel Wang
-        // actions[1] =
-        //     Controller.Action({ target: L1_DANIEL_WANG_ADDRESS, value: 0.0001 ether, data: "" });
+        // Transfer 0.0001 ETH from DAOController to Daniel Wang
+        actions[1] =
+            Controller.Action({ target: L1_DANIEL_WANG_ADDRESS, value: 0.0001 ether, data: "" });
 
-        // // Transfer 1 USDC from DAO Controller to Daniel Wang
+        // // Transfer 1 USDC from DAOController to Daniel Wang
+        actions[2] = Controller.Action({
+            target: L1.USDC_TOKEN,
+            value: 0,
+            data: abi.encodeCall(IERC20.transfer, (L1_DANIEL_WANG_ADDRESS, 1e6))
+        });
+
+        // Transfer Foo contract ownership to Daniel Wang
         // actions[2] = Controller.Action({
-        //     target: L1.USDC_TOKEN,
-        //     value: 0,
-        //     data: abi.encodeCall(IERC20.transfer, (L1_DANIEL_WANG_ADDRESS, 1e6))
-        // });
-
-        // // Transfer Foo contract ownership to Daniel Wang
-        // actions[3] = Controller.Action({
         //     target: L1_FOO_CONTRACT,
         //     value: 0,
         //     data: abi.encodeCall(Ownable.transferOwnership, (L1_DANIEL_WANG_ADDRESS))
@@ -67,11 +67,11 @@ contract Proposal0002 is BuildProposal {
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](6);
 
-        // Transfer 0.001 Ether from DelegateOwner to Daniel Wang
+        // Transfer 0.0001 Ether from DelegateController to Daniel Wang
         actions[0] =
             Controller.Action({ target: L2_DANIEL_WANG_ADDRESS, value: 0.0001 ether, data: "" });
 
-        // Transfer 1 TAIKO from DelegateOwner to Daniel Wang
+        // Transfer 1 TAIKO from DelegateController to Daniel Wang
         actions[1] = Controller.Action({
             target: L2.TAIKO_TOKEN,
             value: 0,
