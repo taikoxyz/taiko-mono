@@ -21,7 +21,7 @@ contract TaikoDAOController is Controller {
     /// @notice Execute a list of actions.
     /// @param _actions The actions to execute
     /// @return results_ The raw returned data from the action
-    function execute(Action[] calldata _actions)
+    function execute(bytes calldata _actions)
         external
         nonReentrant
         onlyOwner
