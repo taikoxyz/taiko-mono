@@ -15,15 +15,16 @@ These actions aim to validate that the `TaikoDAOController` can also securely ma
 
 ## L2 Actions
 
-The following L2 actions will be executed via the `DelegateController` contract:
+The following L2 actions will be executed via the DelegateController contract:
 
-- Transfer 1 TAIKO token to Daniel Wang
-- Upgrade `BarUpgradable` (a test contract) to a new implementation (code remains unchanged)
-- Transfer 1 TAIKO token from `BarUpgradable` to Daniel Wang
-- Transfer 0.001 ETH from `BarUpgradable` to Daniel Wang
-- Transfer `BarUpgradable` ownership to Daniel Wang
+- Transfer 0.001 Ether from DelegateOwner to Daniel Wang
+- Transfer 1 TAIKO from DelegateOwner to Daniel Wang
+- Upgrade BarUpgradeable to use a new (but identical)implementation
+- Transfer BarUpgradeable's ownership to Daniel Wang
+- Transfer 0.0001 Ether from BarUpgradeable to Daniel Wang
+- Transfer 1 TAIKO from BarUpgradeable to Daniel Wang
 
-These actions aim to validate that the `DelegateController` can also securely manage and transfer both Ether and tokens.
+These actions aim to validate that the DelegateController can also securely manage and transfer both Ether and tokens.
 
 ## Action Verification
 

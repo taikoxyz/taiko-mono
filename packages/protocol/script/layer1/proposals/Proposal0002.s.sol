@@ -45,9 +45,9 @@ contract Proposal0002 is BuildProposal {
             data: abi.encodeCall(IReverseRegistrar.setName, ("daocontroller.taiko.eth"))
         });
 
-        // // Transfer 0.001 ETH from DAO Controller to Daniel Wang
+        // // Transfer 0.0001 ETH from DAO Controller to Daniel Wang
         // actions[1] =
-        //     Controller.Action({ target: L1_DANIEL_WANG_ADDRESS, value: 0.001 ether, data: "" });
+        //     Controller.Action({ target: L1_DANIEL_WANG_ADDRESS, value: 0.0001 ether, data: "" });
 
         // // Transfer 1 USDC from DAO Controller to Daniel Wang
         // actions[2] = Controller.Action({
@@ -65,41 +65,45 @@ contract Proposal0002 is BuildProposal {
     }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](2);
+        actions = new Controller.Action[](6);
 
-        // Upgrade Bar contract to a new implementation
-        actions[0] = buildUpgradeAction(L2_BAR_CONTRACT, L2_BAR_CONTRACT_NEW_IMPL);
+        // Transfer 0.001 Ether from DelegateOwner to Daniel Wang
+        actions[0] =
+            Controller.Action({ target: L2_DANIEL_WANG_ADDRESS, value: 0.0001 ether, data: "" });
 
-        // Transfer Bar contract ownership to Daniel Wang
+        // Transfer 1 TAIKO from DelegateOwner to Daniel Wang
         actions[1] = Controller.Action({
+            target: L2.TAIKO_TOKEN,
+            value: 0,
+            data: abi.encodeCall(IERC20.transfer, (L2_DANIEL_WANG_ADDRESS, 1 ether))
+        });
+
+        // Upgrade BarUpgradeable to use a new (but identical)implementation
+        actions[2] = buildUpgradeAction(L2_BAR_CONTRACT, L2_BAR_CONTRACT_NEW_IMPL);
+
+        // Transfer BarUpgradeable's ownership to Daniel Wang
+        actions[3] = Controller.Action({
             target: L2_BAR_CONTRACT,
             value: 0,
             data: abi.encodeCall(Ownable.transferOwnership, (L2_DANIEL_WANG_ADDRESS))
         });
 
-        //   // Transfer 1 TAIKO to Daniel Wang
-        // actions[3] = Controller.Action({
-        //     target: L2.TAIKO_TOKEN,
-        //     value: 0,
-        //     data: abi.encodeCall(IERC20.transfer, (L2_DANIEL_WANG_ADDRESS, 1 ether))
-        // });
+        // Transfer 0.0001 Ether from BarUpgradeable to Daniel Wang
+        actions[4] = Controller.Action({
+            target: L2_BAR_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(
+                IBarContract.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.0001 ether)
+            )
+        });
 
-        // // Transfer 1 TAIKO from Bar contract to Daniel Wang
-        // actions[4] = Controller.Action({
-        //     target: L2_BAR_CONTRACT,
-        //     value: 0,
-        //     data: abi.encodeCall(
-        //         IBarContract.withdraw, (L2.TAIKO_TOKEN, L2_DANIEL_WANG_ADDRESS, 1 ether)
-        //     )
-        // });
-
-        // // Transfer 0.001 Ether from Bar contract to Daniel Wang
-        // actions[5] = Controller.Action({
-        //     target: L2_BAR_CONTRACT,
-        //     value: 0,
-        //     data: abi.encodeCall(
-        //         IBarContract.withdraw, (address(0), L2_DANIEL_WANG_ADDRESS, 0.001 ether)
-        //     )
-        // });
+        // Transfer 1 TAIKO from BarUpgradeable to Daniel Wang
+        actions[5] = Controller.Action({
+            target: L2_BAR_CONTRACT,
+            value: 0,
+            data: abi.encodeCall(
+                IBarContract.withdraw, (L2.TAIKO_TOKEN, L2_DANIEL_WANG_ADDRESS, 1 ether)
+            )
+        });
     }
 }
