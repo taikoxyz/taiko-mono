@@ -50,21 +50,18 @@ abstract contract BuildProposal is Script {
         Controller.Action[] memory allActions = _buildAllActions();
 
         string memory fileName =
-            string.concat("./script/layer1/proposals/Proposal", proposalId, ".json");
+            string.concat("./script/layer1/proposals/Proposal", proposalId, ".action.md");
 
         string memory fileContent = string(
             abi.encodePacked(
-                "[\n",
-                "    {\n",
-                '        "to": "',
+                "# Proposal",
+                proposalId,
+                "\n",
+                "- To (DAO Controller): `",
                 vm.toString(L1.DAO_CONTROLLER),
-                '",\n',
-                '        "data": "',
+                "`\n- Value: `0`\n- Calldata: `",
                 vm.toString(abi.encode(allActions)),
-                '",\n',
-                '        "value": "0"\n',
-                "    }\n",
-                "]\n"
+                "`\n"
             )
         );
 

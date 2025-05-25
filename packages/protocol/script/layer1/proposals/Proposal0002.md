@@ -2,18 +2,6 @@
 
 This proposal demonstrates the Taiko DAO's capability to execute multiple cross-chain actions involving both Layer 1 (L1) and Layer 2 (L2) operations.
 
-## About
-
-This is another attempt to test a cross-chain proposal, as the previous one (https://dao.taiko.xyz/plugins/emergency-council/#/proposals/16)) failed due to a bug in my proposal generation script.
-
-Please note the following updates:
-
-- The **TaikoDAOController** has been re-deployed on L1 to:  
-  `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` (`controller.taiko.eth`)
-
-- The **DelegateController** has been re-deployed on L2 to:  
-  `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
-
 ## L1 Actions
 
 The following L1 actions will be executed by the DAOController:
@@ -84,6 +72,10 @@ P=0002 pnpm proposal:dryrun:l1
 P=0002 pnpm proposal:dryrun:l2
 ```
 
-These two commands will revert with `DryrunSucceeded`, which indicates the current on-chain state allows for successful execution. Note that state changes from other proposals may affect future outcomes.
+If the execution ends in a revert with `DryrunSucceeded`, this indicates the current on-chain state allows for successful execution. Note that state changes from other proposals may affect future outcomes.
 
 Please be aware that `l2ExecutionId` won't be verified during the dryrun.
+
+## Risks and Contingencies
+
+Despite thorough testing, execution risks remain. Should the actions fail, a follow-up proposal will be submitted. This process contributes to continuous improvement in proposal reliability and infrastructure resilience.
