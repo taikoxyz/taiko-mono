@@ -43,12 +43,9 @@ contract DelegateController is Controller, IMessageInvocable {
             ctx.srcChainId == l1ChainId && ctx.from == daoController, SenderNotL1DaoController()
         );
 
-        (uint64 executionId, Controller.Action[] memory actions) =
-            abi.decode(_data, (uint64, Controller.Action[]));
-
-        // Check txID
+        uint64 executionId = uint64(bytes8(_data[:8]));
         require(executionId == 0 || executionId == ++lastExecutionId, InvalidTxId());
 
-        _executeActions(actions);
+        _executeActions(_data[8:]);
     }
 }

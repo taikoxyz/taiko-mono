@@ -46,7 +46,7 @@ abstract contract Controller is EssentialContract {
         Ownable2StepUpgradeable(_contractToOwn).acceptOwnership();
     }
 
-    function dryrun(Action[] calldata _actions) external payable {
+    function dryrun(bytes calldata _actions) external payable {
         uint256 gas = gasleft();
         _executeActions(_actions);
         emit DryrunGasCost(gas - gasleft());
@@ -58,10 +58,11 @@ abstract contract Controller is EssentialContract {
     /// @notice Execute a list of actions.
     /// @param _actions The actions to execute
     /// @return results_ The raw returned data from the action
-    function _executeActions(Action[] memory _actions) internal returns (bytes[] memory results_) {
-        results_ = new bytes[](_actions.length);
-        for (uint256 i; i < _actions.length; ++i) {
-            results_[i] = _executeAction(_actions[i]);
+    function _executeActions(bytes calldata _actions) internal returns (bytes[] memory results_) {
+        Action[] memory actions = abi.decode(_actions, (Action[]));
+        results_ = new bytes[](actions.length);
+        for (uint256 i; i < actions.length; ++i) {
+            results_[i] = _executeAction(actions[i]);
         }
     }
 

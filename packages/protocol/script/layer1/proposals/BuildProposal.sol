@@ -46,26 +46,7 @@ abstract contract BuildProposal is Script {
         string memory fileName =
             string.concat("./script/layer1/proposals/Proposal", proposalId, ".action.md");
 
-        string memory actionsStr;
-
-        for (uint256 i; i < allActions.length; ++i) {
-            actionsStr = string(
-                abi.encodePacked(
-                    actionsStr,
-                    "- target: `",
-                    vm.toString(allActions[i].target),
-                    "`\n",
-                    "  value: `",
-                    vm.toString(allActions[i].value),
-                    "`\n",
-                    "  data: `",
-                    vm.toString(allActions[i].data),
-                    "`\n\n"
-                )
-            );
-        }
-
-        string memory actionSection = string(
+        string memory fileContent = string(
             abi.encodePacked(
                 "# Proposal",
                 proposalId,
@@ -73,34 +54,9 @@ abstract contract BuildProposal is Script {
                 vm.toString(L1.DAO_CONTROLLER),
                 "`\n\n",
                 "## Actions:\n",
-                actionsStr
+                abi.encode(abi.encode(allActions))
             )
         );
-
-        string memory l1DryrunSection = string(
-            abi.encodePacked(
-                "\n\n## L1 Dryrun\n",
-                "- target (daocontroller.taiko.eth):   `",
-                vm.toString(L1.DAO_CONTROLLER),
-                "`\n",
-                "- calldata: `",
-                vm.toString(abi.encodeCall(Controller.dryrun, (allActions)))
-            )
-        );
-
-        string memory l2DryrunSection = string(
-            abi.encodePacked(
-                "\n\n## L2 Dryrun\n",
-                "- target (delegate controller):   `",
-                vm.toString(L2.DELEGATE_CONTROLLER),
-                "`\n",
-                "- calldata: `",
-                vm.toString(abi.encodeCall(Controller.dryrun, (buildL2Actions())))
-            )
-        );
-
-        string memory fileContent =
-            string(abi.encodePacked(actionSection, l1DryrunSection, l2DryrunSection));
 
         vm.writeFile(fileName, fileContent);
 
@@ -109,11 +65,11 @@ abstract contract BuildProposal is Script {
     }
 
     function dryrunL1Actions() internal broadcast {
-        Controller(payable(L1.DAO_CONTROLLER)).dryrun(_buildAllActions());
+        Controller(payable(L1.DAO_CONTROLLER)).dryrun(abi.encode(_buildAllActions()));
     }
 
     function dryrunL2Actions() internal broadcast {
-        Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(buildL2Actions());
+        Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(abi.encode(buildL2Actions()));
     }
 
     function buildUpgradeAction(
