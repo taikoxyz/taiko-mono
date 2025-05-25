@@ -1324,6 +1324,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 		parent,
 		s.d.protocolConfig.BaseFeeConfig(),
 		timestamp,
+		true, // TODO: check this value
 	)
 	s.Nil(err)
 

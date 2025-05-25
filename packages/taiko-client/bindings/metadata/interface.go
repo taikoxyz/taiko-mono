@@ -22,6 +22,8 @@ type TaikoProposalMetaData interface {
 	GetTxHash() common.Hash
 	GetProposer() common.Address
 	GetCoinbase() common.Address
+	GetExtraData() []byte
+	GetGasLimit() uint32
 	GetBatchID() *big.Int
 	GetLastBlockID() uint64
 	GetLastBlockTimestamp() uint64

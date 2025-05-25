@@ -394,25 +394,24 @@ func isKnownCanonicalBlock(
 }
 
 // assembleCreateExecutionPayloadMetaPacaya assembles the metadata for creating an execution payload,
-// and the `TaikoAnchor.anchorV3` transaction for the given Pacaya block.
+// and the `TaikoAnchor.anchorV3` / `TaikoAnchor.anchorV4` transaction for the given Pacaya / Shasta block.
 func assembleCreateExecutionPayloadMetaPacaya(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
-	metadata metadata.TaikoProposalMetaData,
+	meta metadata.TaikoProposalMetaData,
 	allTxsInBatch []*types.Transaction,
 	parent *types.Header,
 	blockIndex int,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
-	if !metadata.IsPacaya() {
-		return nil, nil, fmt.Errorf("metadata is not for Pacaya fork")
+	if !meta.IsPacaya() && !meta.IsShasta() {
+		return nil, nil, fmt.Errorf("metadata is not for Pacaya / Shasta fork")
 	}
-	if blockIndex >= len(metadata.Pacaya().GetBlocks()) {
+	if blockIndex >= len(meta.GetBlocks()) {
 		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
 	}
 
 	var (
-		meta         = metadata.Pacaya()
 		blockID      = new(big.Int).Add(parent.Number, common.Big1)
 		blockInfo    = meta.GetBlocks()[blockIndex]
 		txListCursor = 0
@@ -425,7 +424,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift())
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp, meta.IsShasta())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -441,13 +440,20 @@ func assembleCreateExecutionPayloadMetaPacaya(
 		"indexInBatch", blockIndex,
 	)
 
-	// Assemble a TaikoAnchor.anchorV3 transaction
+	// Assemble a TaikoAnchor.anchorV3 / TaikoAnchor.v4Anchor transaction
 	anchorBlockHeader, err := rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
 	}
 
-	anchorTx, err := anchorConstructor.AssembleAnchorV3Tx(
+	var (
+		anchorTx          *types.Transaction
+		anchorBuilderFunc = anchorConstructor.AssembleAnchorV3Tx
+	)
+	if meta.IsShasta() {
+		anchorBuilderFunc = anchorConstructor.AssembleV4AnchorTx
+	}
+	if anchorTx, err = anchorBuilderFunc(
 		ctx,
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		anchorBlockHeader.Root,
@@ -456,9 +462,8 @@ func assembleCreateExecutionPayloadMetaPacaya(
 		meta.GetBlocks()[blockIndex].SignalSlots(),
 		blockID,
 		baseFee,
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
+	); err != nil {
+		return nil, nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 / TaikoAnchor.v4Anchor transaction: %w", err)
 	}
 
 	for i := 0; i < blockIndex; i++ {

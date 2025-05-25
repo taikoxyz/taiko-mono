@@ -370,14 +370,21 @@ func (c *Client) CalculateBaseFee(
 	l2Head *types.Header,
 	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
+	isShastaBlock bool,
 ) (*big.Int, error) {
 	var (
 		baseFee *big.Int
 		err     error
 	)
 
-	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
-		return nil, err
+	if isShastaBlock {
+		if baseFee, err = c.calculateBaseFeeShasta(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
+			return nil, err
+		}
+	} else {
+		if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
+			return nil, err
+		}
 	}
 
 	log.Info("Base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
@@ -406,7 +413,13 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
-	baseFee, err := c.CalculateBaseFee(ctx, l2Head, baseFeeConfig, uint64(time.Now().Unix()))
+	baseFee, err := c.CalculateBaseFee(
+		ctx,
+		l2Head,
+		baseFeeConfig,
+		uint64(time.Now().Unix()),
+		chainConfig.IsShasta(new(big.Int).Add(l2Head.Number, common.Big1)),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -915,7 +928,41 @@ func (c *Client) calculateBaseFeePacaya(
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", err)
+		return nil, fmt.Errorf("failed to calculate Pacaya block base fee by getBasefeeV2: %w", err)
+	}
+
+	return baseFeeInfo.Basefee, nil
+}
+
+// calculateBaseFeeShasta calculates the base fee after Shasta fork from the L2 protocol.
+func (c *Client) calculateBaseFeeShasta(
+	ctx context.Context,
+	l2Head *types.Header,
+	currentTimestamp uint64,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
+) (*big.Int, error) {
+	log.Info(
+		"Calculate base fee for the Shasta block",
+		"parentNumber", l2Head.Number,
+		"parentHash", l2Head.Hash(),
+		"parentGasUsed", l2Head.GasUsed,
+		"currentTimestamp", currentTimestamp,
+		"baseFeeConfig", baseFeeConfig,
+	)
+
+	baseFeeInfo, err := c.ShastaClients.TaikoAnchor.V4GetBaseFee(
+		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
+		uint32(l2Head.GasUsed),
+		currentTimestamp,
+		shastaBindings.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
+			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
+			MinGasExcess:           baseFeeConfig.MinGasExcess(),
+			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate Shasta block base fee by v4GetBaseFee: %w", err)
 	}
 
 	return baseFeeInfo.Basefee, nil

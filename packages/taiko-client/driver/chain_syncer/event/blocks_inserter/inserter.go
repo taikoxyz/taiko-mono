@@ -257,6 +257,7 @@ func (i *BlocksInserter) InsertBlocks(
 			"gasLimit", lastPayloadData.GasLimit,
 			"gasUsed", lastPayloadData.GasUsed,
 			"parentHash", lastPayloadData.ParentHash,
+			"shastaBlock", meta.IsShasta(),
 			"indexInBatch", j,
 		)
 

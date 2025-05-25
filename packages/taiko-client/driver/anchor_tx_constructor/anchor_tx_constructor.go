@@ -15,6 +15,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -76,6 +77,53 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		pacayaBindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
 			SharingPctg:            baseFeeConfig.SharingPctgs()[0],
+			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
+			MinGasExcess:           baseFeeConfig.MinGasExcess(),
+			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),
+		},
+		signalSlots,
+	)
+}
+
+// AssembleAnchorV3Tx assembles a signed TaikoAnchor.v4Anchor transaction.
+func (c *AnchorTxConstructor) AssembleV4AnchorTx(
+	ctx context.Context,
+	// Parameters of the TaikoAnchor.v4Anchor transaction.
+	anchorBlockID *big.Int,
+	anchorStateRoot common.Hash,
+	parent *types.Header,
+	baseFeeConfig bindingTypes.LibSharedDataBaseFeeConfig,
+	signalSlots [][32]byte,
+	// Height of the L2 block which including the TaikoAnchor.anchorV3 transaction.
+	l2Height *big.Int,
+	baseFee *big.Int,
+) (*types.Transaction, error) {
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"TaikoAnchor.v4Anchor arguments",
+		"l2Height", l2Height,
+		"anchorBlockId", anchorBlockID,
+		"anchorStateRoot", anchorStateRoot,
+		"parentGasUsed", parent.GasUsed,
+		"parentHash", parent.Hash(),
+		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
+		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
+		"signalSlots", len(signalSlots),
+		"baseFee", utils.WeiToGWei(baseFee),
+	)
+
+	return c.rpc.ShastaClients.TaikoAnchor.V4Anchor(
+		opts,
+		anchorBlockID.Uint64(),
+		anchorStateRoot,
+		parent.BaseFee,
+		uint32(parent.GasUsed),
+		shasta.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
 			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
 			MinGasExcess:           baseFeeConfig.MinGasExcess(),
 			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),
