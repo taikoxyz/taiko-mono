@@ -11,6 +11,7 @@ import (
 	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -20,6 +21,7 @@ type ProtocolConfigs interface {
 	BlockMaxGasLimit() uint32
 	ForkHeightsOntake() uint64
 	ForkHeightsPacaya() uint64
+	ForkHeightsShasta() uint64
 	LivenessBond() *big.Int
 	LivenessBondPerBlock() *big.Int
 	MaxProposals() uint64
@@ -32,14 +34,15 @@ type ProtocolConfigs interface {
 func ReportProtocolConfigs(configs ProtocolConfigs) {
 	log.Info(
 		"Protocol configs",
-		"BaseFeeConfig", configs.BaseFeeConfig(),
-		"BlockMaxGasLimit", configs.BlockMaxGasLimit(),
-		"ForkHeightsOntake", configs.ForkHeightsOntake(),
-		"ForkHeightsPacaya", configs.ForkHeightsPacaya(),
-		"LivenessBond", utils.WeiToEther(configs.LivenessBond()),
-		"LivenessBondPerBlock", utils.WeiToEther(configs.LivenessBondPerBlock()),
-		"MaxProposals", configs.MaxProposals(),
-		"MaxBlocksPerBatch", configs.MaxBlocksPerBatch(),
+		"baseFeeConfig", configs.BaseFeeConfig(),
+		"blockMaxGasLimit", configs.BlockMaxGasLimit(),
+		"forkHeightsOntake", configs.ForkHeightsOntake(),
+		"forkHeightsPacaya", configs.ForkHeightsPacaya(),
+		"forkHeightsShasta", configs.ForkHeightsShasta(),
+		"livenessBond", utils.WeiToEther(configs.LivenessBond()),
+		"livenessBondPerBlock", utils.WeiToEther(configs.LivenessBondPerBlock()),
+		"maxProposals", configs.MaxProposals(),
+		"maxBlocksPerBatch", configs.MaxBlocksPerBatch(),
 	)
 }
 
@@ -47,13 +50,19 @@ func ReportProtocolConfigs(configs ProtocolConfigs) {
 type OntakeProtocolConfigs struct {
 	configs          *ontakeBindings.TaikoDataConfig
 	pacayaForkHeight uint64
+	shastaForkHeight uint64
 }
 
 // NewOntakeProtocolConfigs creates a new OntakeProtocolConfigs instance.
-func NewOntakeProtocolConfigs(configs *ontakeBindings.TaikoDataConfig, pacayaForkHeight uint64) *OntakeProtocolConfigs {
+func NewOntakeProtocolConfigs(
+	configs *ontakeBindings.TaikoDataConfig,
+	pacayaForkHeight uint64,
+	shastaForkHeight uint64,
+) *OntakeProtocolConfigs {
 	return &OntakeProtocolConfigs{
 		configs:          configs,
 		pacayaForkHeight: pacayaForkHeight,
+		shastaForkHeight: shastaForkHeight,
 	}
 }
 
@@ -81,6 +90,11 @@ func (c *OntakeProtocolConfigs) ForkHeightsOntake() uint64 {
 // ForkHeightsPacaya implements the ProtocolConfigs interface.
 func (c *OntakeProtocolConfigs) ForkHeightsPacaya() uint64 {
 	return c.pacayaForkHeight
+}
+
+// ForkHeightsShasta implements the ProtocolConfigs interface.
+func (c *OntakeProtocolConfigs) ForkHeightsShasta() uint64 {
+	return c.shastaForkHeight
 }
 
 // LivenessBond implements the ProtocolConfigs interface.
@@ -113,6 +127,8 @@ func (c *OntakeProtocolConfigs) MaxAnchorHeightOffset() uint64 {
 	return c.configs.MaxAnchorHeightOffset
 }
 
+// ===============================================================
+
 // PacayaProtocolConfigs is the configuration for the Pacaya fork protocol.
 type PacayaProtocolConfigs struct {
 	configs *pacayaBindings.ITaikoInboxConfig
@@ -143,6 +159,11 @@ func (c *PacayaProtocolConfigs) ForkHeightsPacaya() uint64 {
 	return c.configs.ForkHeights.Pacaya
 }
 
+// ForkHeightsShasta implements the ProtocolConfigs interface.
+func (c *PacayaProtocolConfigs) ForkHeightsShasta() uint64 {
+	return c.configs.ForkHeights.Shasta
+}
+
 // MaxProposals implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) LivenessBond() *big.Int {
 	return c.configs.LivenessBondBase
@@ -170,5 +191,72 @@ func (c *PacayaProtocolConfigs) MaxBlocksPerBatch() int {
 
 // MaxAnchorHeightOffset implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) MaxAnchorHeightOffset() uint64 {
+	return c.configs.MaxAnchorHeightOffset
+}
+
+// ===============================================================
+
+// ShastaProtocolConfigs is the configuration for the Pacaya fork protocol.
+type ShastaProtocolConfigs struct {
+	configs *shastaBindings.ITaikoInboxConfig
+}
+
+// NewShastaProtocolConfigs creates a new ShastaProtocolConfigs instance.
+func NewShastaProtocolConfigs(configs *shastaBindings.ITaikoInboxConfig) *ShastaProtocolConfigs {
+	return &ShastaProtocolConfigs{configs: configs}
+}
+
+// BaseFeeConfig implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
+	return bindingTypes.NewBaseFeeConfigShasta(&c.configs.BaseFeeConfig, c.configs.BaseFeeSharings)
+}
+
+// ForkHeightsOntake implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) BlockMaxGasLimit() uint32 {
+	return c.configs.BlockMaxGasLimit
+}
+
+// ForkHeightsOntake implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) ForkHeightsOntake() uint64 {
+	return c.configs.ForkHeights.Ontake
+}
+
+// ForkHeightsPacaya implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) ForkHeightsPacaya() uint64 {
+	return c.configs.ForkHeights.Pacaya
+}
+
+// ForkHeightsShasta implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) ForkHeightsShasta() uint64 {
+	return c.configs.ForkHeights.Shasta
+}
+
+// MaxProposals implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) LivenessBond() *big.Int {
+	return c.configs.LivenessBond
+}
+
+// LivenessBondPerBlock implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) LivenessBondPerBlock() *big.Int {
+	return common.Big0
+}
+
+// MaxProposals implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) MaxProposals() uint64 {
+	return c.configs.MaxUnverifiedBatches
+}
+
+// ProvingWindow implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) ProvingWindow() (time.Duration, error) {
+	return time.Duration(c.configs.ProvingWindow) * time.Second, nil
+}
+
+// MaxBlocksPerBatch implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) MaxBlocksPerBatch() int {
+	return int(c.configs.MaxBlocksPerBatch)
+}
+
+// MaxAnchorHeightOffset implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) MaxAnchorHeightOffset() uint64 {
 	return c.configs.MaxAnchorHeightOffset
 }

@@ -82,7 +82,19 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	}
 
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
-	if protocolConfigs.ForkHeightsPacaya() == 0 {
+	if protocolConfigs.ForkHeightsShasta() == 0 {
+		// Fetch the genesis `BatchesVerified` event.
+		iter, err := c.ShastaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
+		if err != nil {
+			return err
+		}
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+		if iter.Error() != nil {
+			return iter.Error()
+		}
+	} else if protocolConfigs.ForkHeightsPacaya() == 0 {
 		// Fetch the genesis `BatchesVerified` event.
 		iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
 		if err != nil {

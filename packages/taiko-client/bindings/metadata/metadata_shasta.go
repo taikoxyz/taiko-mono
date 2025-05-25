@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -134,7 +135,7 @@ func (m *TaikoDataBlockMetadataShasta) GetAnchorBlockHash() common.Hash {
 
 // GetBaseFeeConfig returns the base fee config of this batch.
 func (m *TaikoDataBlockMetadataShasta) GetBaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
-	return bindingTypes.NewBaseFeeConfigShasta(&m.BaseFeeConfig, &m.ITaikoInboxBatchInfo)
+	return bindingTypes.NewBaseFeeConfigShasta(&m.BaseFeeConfig, core.DecodeExtraData(m.ExtraData[:]))
 }
 
 // GetBatchID returns the batch ID of this batch.

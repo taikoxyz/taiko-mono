@@ -1,7 +1,6 @@
 package bindingTypes
 
 import (
-	"github.com/ethereum/go-ethereum/core"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
@@ -44,15 +43,15 @@ func (b *BaseFeeConfigPacaya) MaxGasIssuancePerBlock() uint32 {
 // BaseFeeConfigShasta represents a base fee config from TaikoInbox for the Shasta fork.
 type BaseFeeConfigShasta struct {
 	*shastaBindings.LibSharedDataBaseFeeConfig
-	*shastaBindings.ITaikoInboxBatchInfo
+	baseFeeSharings [2]uint8
 }
 
 // NewBaseFeeConfigShasta creates a new BaseFeeConfigShasta instance.
 func NewBaseFeeConfigShasta(
 	config *shastaBindings.LibSharedDataBaseFeeConfig,
-	batchInfo *shastaBindings.ITaikoInboxBatchInfo,
+	baseFeeSharings [2]uint8,
 ) *BaseFeeConfigShasta {
-	return &BaseFeeConfigShasta{LibSharedDataBaseFeeConfig: config, ITaikoInboxBatchInfo: batchInfo}
+	return &BaseFeeConfigShasta{LibSharedDataBaseFeeConfig: config, baseFeeSharings: baseFeeSharings}
 }
 
 // AdjustmentQuotient returns the adjustment quotient of the base fee config.
@@ -62,7 +61,7 @@ func (b *BaseFeeConfigShasta) AdjustmentQuotient() uint8 {
 
 // SharingPctg returns the sharing percentage of the base fee config.
 func (b *BaseFeeConfigShasta) SharingPctgs() [2]uint8 {
-	return core.DecodeExtraData(b.ExtraData[:])
+	return b.baseFeeSharings
 }
 
 // GasIssuancePerSecond returns the gas issuance per second of the base fee config.
