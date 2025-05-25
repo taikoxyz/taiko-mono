@@ -32,7 +32,7 @@ These actions aim to validate that the DelegateController can also securely mana
 
 All actions in this proposal are generated using the following script:
 
-[Proposal0002.s.sol](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/script/layer1/proposals/Proposal0002.s.sol)
+https://github.com/taikoxyz/taiko-mono/blob/a36bf9f1af98d29772277fbd27699c576c571a2e/packages/protocol/script/layer1/proposals/Proposal0002.s.sol
 
 Please review the `proposalConfig()`, `buildL1Actions()`, and `buildL2Actions()` functions for logic verification.
 
@@ -45,7 +45,7 @@ This function returns execution parameters for L2:
 
 ### buildL1Actions()
 
-This function generates all L1 transactions. The final action in the list sends a cross-chain message via the Taiko bridge, embedding the L2 action payload. This message targets the L2 `DelegateController` contract to execute the L2 actions sequentially.
+This function generates all L1 transactions. The final action in the list sends a cross-chain message via the Taiko bridge, embedding the L2 action payload. This message targets the L2 DelegateController contract to execute the L2 actions sequentially.
 
 ###buildL2Actions()
 
@@ -61,7 +61,7 @@ To confirm the action data matches this proposal, clone the Taiko [monorepo](htt
 P=0002 pnpm proposal
 ```
 
-This will print the generated calldata and write it to `Proposal0002.action.md` for comparison. Byte-by-byte validation can then be performed.
+This will print the generated calldata and write it to Proposal0002.action.md for comparison. Byte-by-byte validation can then be performed.
 
 ### Dryrun Execution
 
