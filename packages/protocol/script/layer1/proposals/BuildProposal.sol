@@ -59,6 +59,7 @@ abstract contract BuildProposal is Script {
                 "\n",
                 "- To (DAO Controller): `",
                 vm.toString(L1.DAO_CONTROLLER),
+                "`\n- Function: `Execute"
                 "`\n- Value: `0`\n- Calldata: `",
                 vm.toString(abi.encode(allActions)),
                 "`\n"
