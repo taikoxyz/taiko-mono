@@ -6,7 +6,7 @@ This proposal demonstrates the Taiko DAO's capability to execute multiple cross-
 
 The following L1 actions will be executed by the `TaikoDAOController`:
 
-- Upgrade the implementation to `0x7a7CE80502c46C768B8d341dcbaa99Ffe7338f33`. This proposal serves the same purpose as Emergency Proposal #13, which expired due to a DAO configuration issue.
+- Set `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`'s reverse DNS record to `daocontroller.taiko.eth`
 - Transfer 0.001 ETH to Daniel Wang
 - Transfer 1 USDC to Daniel Wang
 - Transfer `FooUpgradable` ownership to Daniel Wang
@@ -17,7 +17,6 @@ These actions aim to validate that the `TaikoDAOController` can also securely ma
 
 The following L2 actions will be executed via the `DelegateController` contract:
 
-- Upgrade the `DelegateController` contract to a new implementation (code remains unchanged)
 - Transfer 1 TAIKO token to Daniel Wang
 - Upgrade `BarUpgradable` (a test contract) to a new implementation (code remains unchanged)
 - Transfer 1 TAIKO token from `BarUpgradable` to Daniel Wang
