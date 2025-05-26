@@ -169,7 +169,7 @@ library LibVerification {
     )
         internal
         view
-        returns (ITaikoInbox.Batch memory batch_)
+        returns (ITaikoInbox.Batch storage batch_)
     {
         batch_ = _state.batches[_batchId % _config.batchRingBufferSize];
         require(batch_.batchId == _batchId, ITaikoInbox.BatchNotFound());
