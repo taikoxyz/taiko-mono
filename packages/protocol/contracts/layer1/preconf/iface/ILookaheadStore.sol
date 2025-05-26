@@ -6,18 +6,9 @@ import "@eth-fabric/urc/ISlasher.sol";
 /// @title ILookaheadStore
 /// @custom:security-contact security@taiko.xyz
 interface ILookaheadStore {
-    // An array of `LookaheadPayload` will be byte-encoded to be the payload of the
-    // lookahead commitment.
-    struct LookaheadPayload {
-        // Timestamp of the L1 slot
-        uint48 slotTimestamp;
-        // Registration root of the operator in the URC
-        bytes32 registrationRoot;
-        // Index of the Operator's registration merkle tree leaf that contains the validator
-        // for the slot
-        uint256 validatorLeafIndex;
-    }
-
+    // An array of LookaheadSlot structs is used in two ways:
+    // 1. It is byte-encoded to form the payload of the lookahead commitment
+    // 2. The same array is hashed (using keccak256) and stored in the lookahead store
     struct LookaheadSlot {
         // The preconfer operator's committer address that is fetched from the slashing commitment.
         address committer;
@@ -47,6 +38,7 @@ interface ILookaheadStore {
     }
 
     error CommitmentSignerMismatch();
+    error CommitterMismatch();
     error InvalidLookaheadEpoch();
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();
