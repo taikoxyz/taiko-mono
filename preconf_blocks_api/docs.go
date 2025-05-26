@@ -73,34 +73,6 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "delete": {
-                "description": "Remove all preconfirmation blocks from the blockchain beyond the specified block height,\nensuring the latest block ID does not exceed the given height. This method will fail if\nthe block with an ID one greater than the specified height is not a preconfirmation block. If the\nspecified block height is greater than the latest preconfirmation block ID, the method will succeed\nwithout modifying the blockchain.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "parameters": [
-                    {
-                        "description": "preconfirmation blocks removing request body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/preconfblocks.RemovePreconfBlocksRequestBody"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/preconfblocks.RemovePreconfBlocksResponseBody"
-                        }
-                    }
-                }
             }
         },
         "/status": {
@@ -220,32 +192,6 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
-                }
-            }
-        },
-        "preconfblocks.RemovePreconfBlocksRequestBody": {
-            "type": "object",
-            "properties": {
-                "newLastBlockId": {
-                    "description": "@param newLastBlockID uint64 New last block ID of the blockchain, it should\n@param not smaller than the canonical chain's highest block ID.",
-                    "type": "integer"
-                }
-            }
-        },
-        "preconfblocks.RemovePreconfBlocksResponseBody": {
-            "type": "object",
-            "properties": {
-                "headsRemoved": {
-                    "description": "@param headsRemoved uint64 Number of preconfirmation heads removed",
-                    "type": "integer"
-                },
-                "lastBlockId": {
-                    "description": "@param lastBlockID uint64 Current highest block ID of the blockchain (including preconfirmation blocks)",
-                    "type": "integer"
-                },
-                "lastProposedBlockID": {
-                    "description": "@param lastProposedBlockID uint64 Highest block ID of the cnonical chain",
-                    "type": "integer"
                 }
             }
         },
