@@ -102,8 +102,6 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
             {
                 if (nextLookaheadHash == 0) {
                     // If the lookahead for the next epoch is not posted, we post it here.
-                    // TODO: @anshu, maybe we can reuse nextLookahead and remove
-                    // nextLookaheadUpdateData?
                     (bytes32 registrationRoot, bytes memory data) =
                         abi.decode(nextLookaheadUpdateData, (bytes32, bytes));
                     nextLookaheadHash = lookaheadStore.updateLookahead(registrationRoot, data);
