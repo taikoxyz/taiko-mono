@@ -37,6 +37,11 @@ export async function deployTaikoAnchor(
 
     console.log({ bridgeInitialEtherBalance });
     console.log("\n");
+    console.log({
+        pacayaForkHeight: config.pacayaForkHeight,
+        shastaForkHeight: config.shastaForkHeight,
+    });
+    console.log("\n");
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
