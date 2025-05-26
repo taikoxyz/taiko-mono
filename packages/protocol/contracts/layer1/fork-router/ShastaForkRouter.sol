@@ -25,6 +25,7 @@ interface IPacayaFork {
     function getLastSyncedTransition() external;
     function getBatchVerifyingTransition(uint64) external;
     function pacayaConfig() external;
+    function isOnL1() external;
 }
 
 /// @title ShastaForkRouter
@@ -51,6 +52,7 @@ contract ShastaForkRouter is ForkRouter {
                 || _selector == IPacayaFork.getLastSyncedTransition.selector
                 || _selector == IPacayaFork.getBatchVerifyingTransition.selector
                 || _selector == IPacayaFork.pacayaConfig.selector
+                || _selector == IPacayaFork.isOnL1.selector
         ) return true;
 
         return false;

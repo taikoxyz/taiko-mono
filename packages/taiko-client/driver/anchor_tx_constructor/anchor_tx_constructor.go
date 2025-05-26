@@ -13,14 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoL2.anchor) in
+// AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoAnchor.anchorV3) in
 // each L2 block, which must be the first transaction, and its sender must be the golden touch account.
 type AnchorTxConstructor struct {
 	rpc    *rpc.Client
@@ -35,78 +34,6 @@ func New(rpc *rpc.Client) (*AnchorTxConstructor, error) {
 	}
 
 	return &AnchorTxConstructor{rpc, signer}, nil
-}
-
-// AssembleAnchorTx assembles a signed TaikoL2.anchor transaction.
-func (c *AnchorTxConstructor) AssembleAnchorTx(
-	ctx context.Context,
-	// Parameters of the TaikoL2.anchor transaction.
-	l1Height *big.Int,
-	l1Hash common.Hash,
-	// Height of the L2 block which including the TaikoL2.anchor transaction.
-	l2Height *big.Int,
-	baseFee *big.Int,
-	parent *types.Header,
-) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
-	if err != nil {
-		return nil, err
-	}
-
-	l1Header, err := c.rpc.L1.HeaderByHash(ctx, l1Hash)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Info(
-		"Anchor arguments",
-		"l2Height", l2Height,
-		"l1Height", l1Height,
-		"l1Hash", l1Hash,
-		"stateRoot", l1Header.Root,
-		"baseFee", utils.WeiToGWei(baseFee),
-		"gasUsed", parent.GasUsed,
-	)
-
-	return c.rpc.OntakeClients.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parent.GasUsed))
-}
-
-// AssembleAnchorV2Tx assembles a signed TaikoL2.anchorV2 transaction.
-func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
-	ctx context.Context,
-	// Parameters of the TaikoL2.anchorV2 transaction.
-	anchorBlockID *big.Int,
-	anchorStateRoot common.Hash,
-	parent *types.Header,
-	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
-	// Height of the L2 block which including the TaikoL2.anchorV2 transaction.
-	l2Height *big.Int,
-	baseFee *big.Int,
-) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
-	if err != nil {
-		return nil, err
-	}
-
-	log.Info(
-		"AnchorV2 arguments",
-		"l2Height", l2Height,
-		"anchorBlockId", anchorBlockID,
-		"anchorStateRoot", anchorStateRoot,
-		"parentGasUsed", parent.GasUsed,
-		"parentHash", parent.Hash(),
-		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
-		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
-		"baseFee", utils.WeiToGWei(baseFee),
-	)
-
-	return c.rpc.OntakeClients.TaikoL2.AnchorV2(
-		opts,
-		anchorBlockID.Uint64(),
-		anchorStateRoot,
-		uint32(parent.GasUsed),
-		*baseFeeConfig,
-	)
 }
 
 // AssembleAnchorV3Tx assembles a signed TaikoAnchor.anchorV3 transaction.
@@ -177,7 +104,7 @@ func (c *AnchorTxConstructor) transactOpts(
 	)
 
 	gasLimit := consensus.AnchorGasLimit
-	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeight {
+	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Pacaya {
 		gasLimit = consensus.AnchorV3GasLimit
 	}
 
@@ -214,7 +141,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign TaikoL2.anchor transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign TaikoAnchor.anchorV3 transaction using K = 1 and K = 2")
 		}
 	}
 

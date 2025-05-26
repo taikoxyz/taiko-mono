@@ -40,7 +40,6 @@ interface IPreconfSlasher is ISlasher {
     // The evidence bytes will be encoded as:
     // - First byte: ViolationType (0 = InvalidPreconfirmation, 1 = InvalidEOP, 2 = MissingEOP)
     // - Remaining bytes: ABI-encoded struct based on the violation type
-
     struct EvidenceInvalidPreconfirmation {
         // Header of the preconfirmed block at height X
         LibBlockHeader.BlockHeader preconfedBlockHeader;
@@ -48,6 +47,12 @@ interface IPreconfSlasher is ISlasher {
         ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
+        // Blockhash value of the block that was proposed at height X,
+        // but does not match with the blockhash of the preconfirmed block at the same height.
+        LibBlockHeader.BlockHeader actualBlockHeader;
+        // This is the Blockheader of the last block in the next batch.
+        // This is used as the reference blockheader for verifying anchor state.
+        LibBlockHeader.BlockHeader verifiedBlockHeader;
         // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
         // This is the blockhash of the block that was proposed at height X,
         // but does not match with the blockhash of the preconfirmed block at the same height.
@@ -85,8 +90,6 @@ interface IPreconfSlasher is ISlasher {
     // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
     // The EVM `slot` containing the blockhash is calculated dynamically based on the block number.
     struct BlockhashProofs {
-        // Blockhash value
-        bytes32 value;
         // Patricia trie account proof
         bytes[] accountProof;
         // Patricia trie storage proof
@@ -121,17 +124,26 @@ interface IPreconfSlasher is ISlasher {
     );
 
     error BatchNotVerified();
+    error BlockNotInBatch();
+    error BlockNotLastInBatch();
     error EOPIsNotMissing();
     error EOPIsPresent();
     error EOPIsValid();
+    error FallBackPreconferCannotBeSlashed();
     error InvalidBatchInfo();
     error InvalidBatchMetadata();
     error InvalidBlockHeader();
     error InvalidBlockType();
     error InvalidChainId();
     error InvalidDomainSeparator();
+    error InvalidActualBlockHeader();
     error InvalidNextBatchMetadata();
+    error InvalidVerifiedBlockHeader();
     error InvalidViolationType();
+    error NextBatchProposedBySameProposer();
+    error NextBatchProposedInNextPreconfWindow();
+    error NextBatchProposedInTheSamePreconfWindow();
+    error NotEndOfPreconfirmation();
     error ParentHashMismatch();
     error PossibleReorgOfAnchorBlock();
     error PreconfirmationIsValid();

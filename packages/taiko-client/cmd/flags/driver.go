@@ -38,7 +38,7 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SERVER"},
 	}
-	// preconf block server
+	// preconfirmation block server
 	PreconfBlockServerPort = &cli.Uint64Flag{
 		Name:     "preconfirmation.serverPort",
 		Usage:    "HTTP port of the preconfirmation block server, 0 means disabled",
@@ -68,9 +68,9 @@ var (
 	PreconfHandoverSkipSlots = &cli.Uint64Flag{
 		Name:     "preconfirmation.handoverSkipSlots",
 		Usage:    "Handover slots to provide a boundary at the end of an epoch",
+		Value:    4,
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONF_HANDOVER_SKIP_SLOTS"},
-		Value:    4,
 	}
 )
 

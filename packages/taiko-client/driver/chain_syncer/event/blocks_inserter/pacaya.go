@@ -30,20 +30,20 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// BlocksInserterOntake is responsible for inserting Ontake blocks to the L2 execution engine.
+// BlocksInserterPacaya is responsible for inserting Pacaya blocks to the L2 execution engine.
 type BlocksInserterPacaya struct {
 	rpc                  *rpc.Client
 	progressTracker      *beaconsync.SyncProgressTracker
 	blobDatasource       *rpc.BlobDataSource
 	txListDecompressor   *txListDecompressor.TxListDecompressor   // Transactions list decompressor
-	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor // TaikoL2.anchor transactions constructor
+	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor // TaikoAnchor.anchorV3 transactions constructor
 	calldataFetcher      txlistFetcher.TxListFetcher
 	blobFetcher          txlistFetcher.TxListFetcher
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	mutex                sync.Mutex
 }
 
-// NewBlocksInserterOntake creates a new BlocksInserterOntake instance.
+// NewBlocksInserterPacaya creates a new BlocksInserterPacaya instance.
 func NewBlocksInserterPacaya(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,
@@ -70,7 +70,7 @@ func NewBlocksInserterPacaya(
 func (i *BlocksInserterPacaya) InsertBlocks(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBlockProposedEventIterFunc,
+	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
 		return fmt.Errorf("metadata is not for Pacaya fork")
@@ -78,14 +78,23 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	log.Debug("Inserting blocks to L2 execution engine",
-		"batchID", metadata.Pacaya().GetBatchID(),
-		"lastBlockID", metadata.Pacaya().GetLastBlockID(),
+	var (
+		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
+		// to the channel.
+		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
+		meta               = metadata.Pacaya()
+		txListBytes        []byte
 	)
 
-	var (
-		meta        = metadata.Pacaya()
-		txListBytes []byte
+	log.Debug(
+		"Inserting blocks to L2 execution engine",
+		"batchID", meta.GetBatchID(),
+		"lastBlockID", meta.GetLastBlockID(),
+		"assignedProver", meta.GetProposer(),
+		"lastTimestamp", meta.GetLastBlockTimestamp(),
+		"coinbase", meta.GetCoinbase(),
+		"numBlobs", len(meta.GetBlobHashes()),
+		"blocks", len(meta.GetBlocks()),
 	)
 
 	// Fetch transactions list.
@@ -100,17 +109,9 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	}
 
 	var (
-		allTxs = i.txListDecompressor.TryDecompress(
-			i.rpc.L2.ChainID,
-			txListBytes,
-			len(meta.GetBlobHashes()) != 0,
-			true,
-		)
-		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
-		// to the channel.
-		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
-		parent             *types.Header
-		lastPayloadData    *engine.ExecutableData
+		allTxs          = i.txListDecompressor.TryDecompress(txListBytes, len(meta.GetBlobHashes()) != 0)
+		parent          *types.Header
+		lastPayloadData *engine.ExecutableData
 	)
 
 	go i.sendLatestSeenProposal(latestSeenProposal)
@@ -128,7 +129,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		} else {
 			var parentNumber *big.Int
 			if lastPayloadData == nil {
-				if meta.GetBatchID().Uint64() == i.rpc.PacayaClients.ForkHeight {
+				if meta.GetBatchID().Uint64() == i.rpc.PacayaClients.ForkHeights.Pacaya {
 					parentNumber = new(big.Int).SetUint64(meta.GetBatchID().Uint64() - 1)
 				} else {
 					lastBatch, err := i.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(meta.GetBatchID().Uint64()-1))
@@ -158,9 +159,15 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 		// trying to fetch the last block header from L2 EE. If it is known in canonical,
 		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
-			log.Debug("Checking if batch is in canonical chain",
+			log.Debug(
+				"Checking if batch is in canonical chain",
 				"batchID", meta.GetBatchID(),
 				"lastBlockID", meta.GetLastBlockID(),
+				"assignedProver", meta.GetProposer(),
+				"lastTimestamp", meta.GetLastBlockTimestamp(),
+				"coinbase", meta.GetCoinbase(),
+				"numBlobs", len(meta.GetBlobHashes()),
+				"blocks", len(meta.GetBlocks()),
 				"parentNumber", parent.Number,
 				"parentHash", parent.Hash(),
 			)
@@ -175,7 +182,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Warn("Failed to check if batch is in canonical chain already", "batchID", meta.GetBatchID(), "err", err)
+				log.Info("Unknown batch for the current canonical chain", "batchID", meta.GetBatchID(), "reason", err)
 			} else if lastBlockHeader != nil {
 				log.Info(
 					"🧬 Known batch in canonical chain",
@@ -263,7 +270,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	return nil
 }
 
-// InsertPreconfBlocksFromExecutionPayloads inserts preconf blocks from the given execution payloads.
+// InsertPreconfBlocksFromExecutionPayloads inserts preconfirmation blocks from the given execution payloads.
 func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	ctx context.Context,
 	executionPayloads []*eth.ExecutionPayload,
@@ -272,15 +279,17 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	log.Debug("Insert preconf blocks from execution payloads",
+	log.Debug(
+		"Insert preconfirmation blocks from execution payloads",
 		"numBlocks", len(executionPayloads),
+		"fromCache", fromCache,
 	)
 
 	headers := make([]*types.Header, len(executionPayloads))
 	for j, executableData := range executionPayloads {
 		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert preconf block %d: %w", executableData.BlockNumber, err)
+			return nil, fmt.Errorf("failed to insert preconfirmation block %d: %w", executableData.BlockNumber, err)
 		}
 		log.Info(
 			"⏰ New preconfirmation L2 block inserted",
@@ -301,12 +310,14 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	return headers, nil
 }
 
-// insertPreconfBlockFromExecutionPayload the inner method to insert a preconf block from the given execution payload.
+// insertPreconfBlockFromExecutionPayload the inner method to insert a preconfirmation block from
+// the given execution payload.
 func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	executableData *eth.ExecutionPayload,
 ) (*types.Header, error) {
-	log.Debug("Inserting preconf block from execution payload",
+	log.Debug(
+		"Inserting preconfirmation block from execution payload",
 		"blockID", uint64(executableData.BlockNumber),
 		"blockHash", executableData.BlockHash,
 		"parentHash", executableData.ParentHash,
@@ -356,7 +367,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	}
 
 	// Decompress the transactions list.
-	decompressedTxs, err := utils.DecompressPacaya(executableData.Transactions[0])
+	decompressedTxs, err := utils.Decompress(executableData.Transactions[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
@@ -375,7 +386,8 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 
 	payloadID := args.Id()
 
-	log.Debug("Payload args",
+	log.Debug(
+		"Payload arguments",
 		"blockID", uint64(executableData.BlockNumber),
 		"parent", args.Parent.Hex(),
 		"timestamp", args.Timestamp,
@@ -418,28 +430,6 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
 
-// RemovePreconfBlocks removes preconf blocks from the L2 execution engine.
-func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	newHead, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(newLastBlockID))
-	if err != nil {
-		return err
-	}
-
-	fc := &engine.ForkchoiceStateV1{HeadBlockHash: newHead.Hash()}
-	fcRes, err := i.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
-	if err != nil {
-		return err
-	}
-	if fcRes.PayloadStatus.Status != engine.VALID {
-		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
-	}
-
-	return nil
-}
-
 // IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
 func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	ctx context.Context,
@@ -466,9 +456,15 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 		}
 	}
 
+	// If the current parent block hash matches the L2 block hash in the head L1 origin, it is in the canonical chain.
 	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
 
-	log.Debug("IsBasedOnCanonicalChain",
+	log.Debug(
+		"Check if block is based on canonical chain",
+		"blockID", uint64(executableData.BlockNumber),
+		"blockHash", executableData.BlockHash,
+		"parentHash", executableData.ParentHash,
+		"headL1OriginBlockID", headL1Origin.BlockID,
 		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
 	)
 
@@ -478,7 +474,8 @@ func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
 func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
-		log.Debug("Sending latest seen proposal from blocksInserter",
+		log.Debug(
+			"Sending latest seen proposal from blocksInserter",
 			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
 			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
 			"preconfChainReoged", proposal.PreconfChainReorged,

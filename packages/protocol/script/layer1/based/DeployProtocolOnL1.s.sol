@@ -131,7 +131,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         console2.log("------------------------------------------");
         console2.log("msg.sender: ", msg.sender);
-        console2.log("address(this): ", address(this));
         console2.log("signalService.owner(): ", signalService.owner());
         console2.log("------------------------------------------");
 
@@ -494,7 +493,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2)),
+            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2)),
             registerTo: address(0)
         });
 
@@ -602,14 +601,16 @@ contract DeployProtocolOnL1 is DeployCapability {
         Ownable2StepUpgradeable(store).transferOwnership(owner);
         console2.log("** forced_inclusion_store ownership transferred to:", owner);
 
-        router = deployProxy({
-            name: "preconf_router",
-            impl: address(
-                new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
-            ),
-            data: abi.encodeCall(PreconfRouter.init, (owner)),
-            registerTo: address(0)
-        });
+        if (vm.envBool("PRECONF_ROUTER")) {
+            router = deployProxy({
+                name: "preconf_router",
+                impl: address(
+                    new PreconfRouter(taikoWrapper, whitelist, vm.envOr("FALLBACK_PRECONF", address(0)))
+                ),
+                data: abi.encodeCall(PreconfRouter.init, (owner)),
+                registerTo: address(0)
+            });
+        }
 
         UUPSUpgradeable(taikoWrapper).upgradeTo({
             newImplementation: address(new TaikoWrapper(taikoInbox, store, router))

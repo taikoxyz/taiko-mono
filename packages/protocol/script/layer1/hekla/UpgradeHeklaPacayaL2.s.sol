@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/thirdparty/Multicall3.sol";
-import "src/layer2/DelegateOwner.sol";
+import "src/layer2/hekla/DelegateOwner.sol";
 import "test/shared/DeployCapability.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
@@ -43,7 +43,7 @@ contract UpgradeHeklaPacayaL2 is DeployCapability {
         calls[3].target = 0x1670090000000000000000000000000000000006;
         calls[3].allowFailure = false;
         calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newResolver));
-        // Register B_TAIKO_INBOX
+        // Register B_TAIKO
         calls[4].target = 0x1670090000000000000000000000000000000006;
         calls[4].allowFailure = false;
         calls[4].callData = abi.encodeCall(
