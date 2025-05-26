@@ -217,7 +217,7 @@ func (p *Processor) processMessage(
 	slog.Info(
 		"updating message status",
 		"status", relayer.EventStatus(messageStatus).String(),
-		"occuredtxHash", msgBody.Event.Raw.TxHash.Hex(),
+		"occurredTxHash", msgBody.Event.Raw.TxHash.Hex(),
 	)
 
 	if messageStatus == uint8(relayer.EventStatusRetriable) {
