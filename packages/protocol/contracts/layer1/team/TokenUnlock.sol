@@ -23,6 +23,7 @@ contract TokenUnlock is EssentialContract {
     using LibMath for uint256;
 
     uint256 public constant ONE_YEAR = 365 days;
+    uint256 public constant CLIFF = ONE_YEAR + 60 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
     uint256 public constant TGE_TIMESTAMP = 1_717_588_800;
 
@@ -207,7 +208,7 @@ contract TokenUnlock is EssentialContract {
 
         uint256 _startTime = startTime;
 
-        if (block.timestamp < _startTime + ONE_YEAR) return _amountVested;
+        if (block.timestamp < _startTime + CLIFF) return _amountVested;
         if (block.timestamp >= _startTime + FOUR_YEARS) return 0;
         return _amountVested * (_startTime + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
     }
