@@ -277,7 +277,6 @@ func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               p.rpc.L1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
-		PacayaForkHeight:     p.rpc.PacayaClients.ForkHeights.Pacaya,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBatchProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,

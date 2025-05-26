@@ -457,26 +457,56 @@ func (d *Driver) cacheLookaheadLoop() {
 		// once per epoch, since we push the next operator as the current range when we check.
 		// so, this means we should use a reliable slot past 0 where the operator has no possible
 		// way to change. mid-epooch works, so we use slot 16.
-		if lookahead == nil || lookahead.LastEpochUpdated < currentEpoch && slotInEpoch >= 15 {
-			log.Info(
-				"Pushing into window for current epoch",
-				"epoch", currentEpoch,
-				"currentSlot", currentSlot,
-				"slotInEpoch", slotInEpoch,
-				"currOp", currOp.Hex(),
-				"nextOp", nextOp.Hex(),
-			)
-			opWin.Push(currentEpoch, currOp, nextOp)
+		if lookahead == nil || lookahead.LastEpochUpdated < currentEpoch && slotInEpoch >= 2 {
+			if currOp == d.PreconfOperatorAddress && nextOp == d.PreconfOperatorAddress {
+				log.Info(
+					"Pushing into window for current epoch as current and next operator",
+					"epoch", currentEpoch,
+					"currentSlot", currentSlot,
+					"slotInEpoch", slotInEpoch,
+					"currOp", currOp.Hex(),
+					"nextOp", nextOp.Hex(),
+				)
+				opWin.Push(currentEpoch, currOp, nextOp) // push both ops in, we are current and next
 
-			// Push next epoch into window.
-			log.Info(
-				"Pushing into window for next epoch",
-				"epoch", currentEpoch+1,
-				"currentSlot", currentSlot,
-				"slotInEpoch", slotInEpoch,
-				"currOp", nextOp.Hex(), // currOp becomes nextOp at next epoch
-			)
-			opWin.Push(currentEpoch+1, nextOp, common.Address{}) // We don't know next-next-op, safe to leave zero
+				log.Info(
+					"Pushing into window for next epoch as current operator",
+					"epoch", currentEpoch+1,
+					"currentSlot", currentSlot,
+					"slotInEpoch", slotInEpoch,
+					"currOp", nextOp.Hex(),
+				)
+				opWin.Push(currentEpoch+1, nextOp, common.Address{}) // next next op is safe to leave 0
+			} else if currOp == d.PreconfOperatorAddress {
+				log.Info(
+					"Pushing into window for current epoch as current operator",
+					"epoch", currentEpoch,
+					"currentSlot", currentSlot,
+					"slotInEpoch", slotInEpoch,
+					"currOp", currOp.Hex(),
+					"nextOp", nextOp.Hex(),
+				)
+				opWin.Push(currentEpoch, currOp, common.Address{})
+			} else if nextOp == d.PreconfOperatorAddress {
+				log.Info(
+					"Pushing into window for current epoch as next operator",
+					"epoch", currentEpoch,
+					"currentSlot", currentSlot,
+					"slotInEpoch", slotInEpoch,
+					"currOp", currOp.Hex(),
+					"nextOp", nextOp.Hex(),
+				)
+				opWin.Push(currentEpoch, common.Address{}, nextOp)
+
+				log.Info(
+					"Pushing into window for next epoch as current operator",
+					"epoch", currentEpoch+1,
+					"currentSlot", currentSlot,
+					"slotInEpoch", slotInEpoch,
+					"currOp", nextOp.Hex(),
+				)
+				opWin.Push(currentEpoch+1, nextOp, common.Address{}) // next next op is safe to leave 0
+			}
 
 			var (
 				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)

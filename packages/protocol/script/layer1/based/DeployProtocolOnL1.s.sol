@@ -131,7 +131,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         console2.log("------------------------------------------");
         console2.log("msg.sender: ", msg.sender);
-        console2.log("address(this): ", address(this));
         console2.log("signalService.owner(): ", signalService.owner());
         console2.log("------------------------------------------");
 
@@ -494,7 +493,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2)),
+            data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2)),
             registerTo: address(0)
         });
 
