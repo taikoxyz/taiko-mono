@@ -3,7 +3,7 @@ title: Bridge
 description: Taiko Alethia protocol page for "Bridge.sol".
 ---
 
-[Bridge](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.12.0/packages/protocol/contracts/shared/bridge/Bridge.sol) is a **cross-chain message passing contract** that enables **secure asset transfers** between Layer 1 (Ethereum) and Layer 2 (Taiko Alethia). The bridge allows users to **send, process, retry, and recall messages** between chains, leveraging the **Signal Service** for proof verification.
+[Bridge](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/shared/bridge/Bridge.sol) is a **cross-chain message passing contract** that enables **secure asset transfers** between Layer 1 (Ethereum) and Layer 2 (Taiko Alethia). The bridge allows users to **send, process, retry, and recall messages** between chains, leveraging the **Signal Service** for proof verification.
 
 The contract also supports **quota management** to prevent excessive withdrawals and is designed to work efficiently in rollup environments.
 

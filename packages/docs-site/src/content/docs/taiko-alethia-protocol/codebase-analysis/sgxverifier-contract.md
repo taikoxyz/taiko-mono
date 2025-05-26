@@ -3,7 +3,7 @@ title: SGXVerifier
 description: Taiko Alethia protocol page for "SGXVerifier.sol".
 ---
 
-[SGXVerifier](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.12.0/packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol)is a smart contract that implements **SGX (Software Guard Extensions) signature proof verification** on-chain. It ensures the integrity and security of rollup state transitions by **validating SGX-generated signatures**. The contract also manages SGX instance registration, tracking, and lifecycle operations.
+[SGXVerifier](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol)is a smart contract that implements **SGX (Software Guard Extensions) signature proof verification** on-chain. It ensures the integrity and security of rollup state transitions by **validating SGX-generated signatures**. The contract also manages SGX instance registration, tracking, and lifecycle operations.
 
 SGX instances are uniquely identified by Ethereum addresses, derived from **an ECDSA public-private key pair** generated within the SGX enclave. The SGXVerifier contract ensures **only authorized instances participate in rollup verification**.
 
