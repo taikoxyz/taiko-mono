@@ -155,6 +155,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 pacaya;
         uint64 shasta;
         uint64 unzen;
+        uint64 etna;
+        uint64 fuji;
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
