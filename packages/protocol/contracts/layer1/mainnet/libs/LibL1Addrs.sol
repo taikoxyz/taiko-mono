@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibL1Addrs {
     address public constant DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
-    address public constant DAO_CONTROLLER = 0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3;
+    address public constant DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a;
     address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
     address public constant TAIKO_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
     address public constant INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;

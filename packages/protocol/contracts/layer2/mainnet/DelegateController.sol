@@ -22,18 +22,7 @@ contract DelegateController is Controller, IMessageInvocable {
     error InvalidTxId();
     error SenderNotL1DaoController();
 
-    // __reserved0 and __reserved1 are here to make sure this contract's layout is compatible with
-    // the DelegateOwner contract.
-
-    // solhint-disable var-name-mixedcase
-    uint256 private __reserved0;
-
-    /// @notice The last processed execution ID.
-    uint64 public lastExecutionId; // slot 2
-
-    // solhint-disable var-name-mixedcase
-    address private __reserved1; //
-    uint256[48] private __gap;
+    uint256[50] private __gap;
 
     constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) Controller() {
         l1ChainId = _l1ChainId;
@@ -54,12 +43,9 @@ contract DelegateController is Controller, IMessageInvocable {
             ctx.srcChainId == l1ChainId && ctx.from == daoController, SenderNotL1DaoController()
         );
 
-        (uint64 executionId, Controller.Action[] memory actions) =
-            abi.decode(_data, (uint64, Controller.Action[]));
-
-        // Check txID
+        uint64 executionId = uint64(bytes8(_data[:8]));
         require(executionId == 0 || executionId == ++lastExecutionId, InvalidTxId());
 
-        _executeActions(actions);
+        _executeActions(_data[8:]);
     }
 }
