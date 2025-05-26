@@ -73,4 +73,6 @@ contract StubInbox is ITaikoInbox {
     function v4GetStats2() external view returns (Stats2 memory) { }
 
     function v4GetConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
+
+    function v4HashMetadata(BatchMetadata memory _meta) external pure returns (bytes32) { }
 }

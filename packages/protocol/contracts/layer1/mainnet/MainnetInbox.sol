@@ -74,4 +74,8 @@ contract MainnetInbox is TaikoInbox {
         maxUnverifiedBatches_ = 324_000;
         batchRingBufferSize_ = 360_000;
     }
+
+    function _forkIdentifier() internal pure virtual override returns (bytes32) {
+        return "mainnet-shasta";
+    }
 }

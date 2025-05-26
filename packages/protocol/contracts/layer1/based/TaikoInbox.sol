@@ -82,7 +82,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         Stats2 memory stats2 = state.stats2;
         Config memory config = _getConfig();
-        // require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
             require(
@@ -191,6 +190,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 info_.lastBlockId = lastBatch.lastBlockId + nBlocks;
 
+                // A batch cannot contain blocks that are not in the current fork.
+                require(
+                    lastBatch.lastBlockId + 1 >= config.forkHeights.shasta
+                        && info_.lastBlockId >= config.forkHeights.shasta,
+                    InvalidBatchForThisFork()
+                );
+
+                require(
+                    config.forkHeights.unzen == 0 || info_.lastBlockId < config.forkHeights.unzen,
+                    ForkNotActivated()
+                );
+
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
 
@@ -251,7 +262,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
 
                 // SSTORE #1
-                batch.metaHash = keccak256(abi.encode(meta_));
+                batch.metaHash = _hashMetadata(meta_);
 
                 // SSTORE #2 {{
                 batch.batchId = stats2.numBatches;
@@ -269,10 +280,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE }}
             }
             stats2.numBatches += 1;
-            require(
-                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
-                BeyondCurrentFork()
-            );
+
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -301,12 +309,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            // require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
-            require(
-                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
-                BeyondCurrentFork()
-            );
-
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
 
@@ -316,7 +318,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             require(tran.stateRoot != 0, InvalidTransitionStateRoot());
 
             ctxs[i].batchId = meta.batchId;
-            ctxs[i].metaHash = keccak256(abi.encode(meta));
+            ctxs[i].metaHash = _hashMetadata(meta);
             ctxs[i].transition = tran;
 
             // Verify the batch's metadata.
@@ -517,7 +519,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         batchId_ = state.stats2.lastVerifiedBatchId;
 
         ITaikoInbox.Config memory config = _getConfig();
-        // require(batchId_ >= config.forkHeights.pacaya, BatchNotFound());
 
         blockId_ = state.getBatch(config, batchId_).lastBlockId;
         ts_ = state.getBatchVerifyingTransition(config, batchId_);
@@ -755,5 +756,18 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         returns (bytes32)
     {
         return bytes32(uint256(_baseFeeSharings[1]) << 8 | uint256(_baseFeeSharings[0]));
+    }
+
+    /// @inheritdoc ITaikoInbox
+    function v4HashMetadata(BatchMetadata memory _meta) external pure returns (bytes32) {
+        return _hashMetadata(_meta);
+    }
+
+    function _hashMetadata(BatchMetadata memory _meta) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_meta, _forkIdentifier()));
+    }
+
+    function _forkIdentifier() internal pure virtual returns (bytes32) {
+        return "shasta";
     }
 }

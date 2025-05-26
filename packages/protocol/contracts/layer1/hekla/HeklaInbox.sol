@@ -53,4 +53,8 @@ contract HeklaInbox is MainnetInbox {
         maxUnverifiedBatches_ = 324_000;
         batchRingBufferSize_ = 324_512;
     }
+
+    function _forkIdentifier() internal pure override returns (bytes32) {
+        return "hekla-shasta";
+    }
 }

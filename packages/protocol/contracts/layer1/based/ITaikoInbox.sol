@@ -261,6 +261,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error FirstBlockTimeShiftNotZero();
     error ForkNotActivated();
     error InsufficientBond();
+    error InvalidBatchForThisFork();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidGenesisBlockHash();
@@ -375,4 +376,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
     function v4GetConfig() external view returns (Config memory);
+
+    /// @notice Hashes the metadata of a batch.
+    /// @param _meta The metadata of the batch.
+    /// @return The hash of the metadata.
+    function v4HashMetadata(BatchMetadata memory _meta) external pure returns (bytes32);
 }

@@ -30,6 +30,7 @@ library LibVerification {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
 
+    // TODO(daniel): fix this
             if (_config.forkHeights.pacaya == 0 || batchId >= _config.forkHeights.pacaya - 1) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
                 ITaikoInbox.Batch storage batch = _state.batches[slot];

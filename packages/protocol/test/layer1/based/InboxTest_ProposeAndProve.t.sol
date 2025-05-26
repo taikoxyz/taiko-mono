@@ -90,7 +90,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(i);
-            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(batch.metaHash, inbox.v4HashMetadata(meta));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
@@ -150,7 +150,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(i);
-            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(batch.metaHash, inbox.v4HashMetadata(meta));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
@@ -244,7 +244,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(i);
-            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(batch.metaHash, inbox.v4HashMetadata(meta));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
@@ -308,7 +308,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(i);
-            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(batch.metaHash, inbox.v4HashMetadata(meta));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
@@ -359,7 +359,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(i);
-            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(batch.metaHash, inbox.v4HashMetadata(meta));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.anchorBlockId, block.number - 1);
@@ -416,7 +416,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.batchId, i);
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(i);
-            assertEq(batch.metaHash, keccak256(abi.encode(meta)));
+            assertEq(batch.metaHash, inbox.v4HashMetadata(meta));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
