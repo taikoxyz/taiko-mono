@@ -236,13 +236,15 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Check if the preconfirmation router is set, if so, skip proposing.
-	preconfRouter, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
-	}
-	if preconfRouter != rpc.ZeroAddress {
-		log.Info("Preconfirmation router is set, skip proposing", "address", preconfRouter, "time", time.Now())
-		return nil
+	if p.rpc.PacayaClients.PreconfRouter != nil {
+		fallbakcPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return fmt.Errorf("failed to get fallback preconfer address: %w", err)
+		}
+		if fallbakcPreconferAddress != p.proposerAddress || fallbakcPreconferAddress != p.ProverSetAddress {
+			log.Info("Preconfirmation is running and proposer isn't the fallback preconfer, skip proposing", "time", time.Now())
+			return nil
+		}
 	}
 
 	// Wait until L2 execution engine is synced at first.

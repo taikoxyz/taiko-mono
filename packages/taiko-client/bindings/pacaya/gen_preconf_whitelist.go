@@ -45,7 +45,7 @@ type PreconfWhitelist struct {
 	PreconfWhitelistFilterer   // Log filterer for contract events
 }
 
-// PreconfWhitelistCaller is an auto generated read-only Go binding around an Ethereum contract.
+// PreconfWhitelistCaller is an auto generaPreconfWhitelistted read-only Go binding around an Ethereum contract.
 type PreconfWhitelistCaller struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }

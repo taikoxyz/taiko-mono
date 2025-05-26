@@ -29,6 +29,7 @@ type PacayaClients struct {
 	ForkRouter           *pacayaBindings.ForkRouter
 	ComposeVerifier      *pacayaBindings.ComposeVerifier
 	PreconfWhitelist     *pacayaBindings.PreconfWhitelist
+	PreconfRouter        *pacayaBindings.PreconfRouter
 	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
 
@@ -173,6 +174,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		taikoWrapper         *pacayaBindings.TaikoWrapperClient
 		forcedInclusionStore *pacayaBindings.ForcedInclusionStore
 		preconfWhitelist     *pacayaBindings.PreconfWhitelist
+		preconfRouter        *pacayaBindings.PreconfRouter
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
@@ -218,6 +220,18 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
 		}
 	}
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(context.Background(), defaultTimeout)
+	defer cancel()
+	preconfRouterAddress, err := taikoWrapper.PreconfRouter(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return fmt.Errorf("failed to get address of PreconfRouter: %w", err)
+	}
+	if preconfRouterAddress.Hex() != ZeroAddress.Hex() {
+		preconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddress, c.L1)
+		if err != nil {
+			return fmt.Errorf("failed to create new instance of PreconfRouter: %w", err)
+		}
+	}
 
 	c.PacayaClients = &PacayaClients{
 		TaikoInbox:           taikoInbox,
@@ -229,6 +243,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		ForcedInclusionStore: forcedInclusionStore,
 		ComposeVerifier:      composeVerifier,
 		PreconfWhitelist:     preconfWhitelist,
+		PreconfRouter:        preconfRouter,
 	}
 
 	return nil
