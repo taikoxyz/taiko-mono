@@ -38,23 +38,24 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         external
         nonReentrant
+        returns (bytes26 lookaheadHash_)
     {
         bool isPostedByProtector = msg.sender == protector;
-        LookaheadPayload[] memory lookaheadPayloads;
+        LookaheadSlot[] memory lookaheadSlots;
 
         if (isPostedByProtector) {
-            lookaheadPayloads = abi.decode(_data, (LookaheadPayload[]));
+            lookaheadSlots = abi.decode(_data, (LookaheadSlot[]));
         } else if (isLookaheadRequired()) {
             // Validate the lookahead poster's operator status within the URC
-            lookaheadPayloads = _validateLookaheadPoster(
+            lookaheadSlots = _validateLookaheadPoster(
                 _registrationRoot, abi.decode(_data, (ISlasher.SignedCommitment))
             );
         } else {
             revert LookaheadNotRequired();
         }
 
-        _updateLookahead(
-            LibPreconfUtils.getEpochTimestamp(1), lookaheadPayloads, isPostedByProtector
+        return _updateLookahead(
+            LibPreconfUtils.getEpochTimestamp(1), lookaheadSlots, isPostedByProtector
         );
     }
 
@@ -103,12 +104,13 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     function _updateLookahead(
         uint256 _nextEpochTimestamp,
-        LookaheadPayload[] memory _lookaheadPayloads,
+        LookaheadSlot[] memory _lookaheadSlots,
         bool _isPostedByProtector
     )
         internal
+        returns (bytes26 lookaheadHash_)
     {
-        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadPayloads.length);
+        LookaheadSlot[] memory lookaheadSlots = new LookaheadSlot[](_lookaheadSlots.length);
 
         unchecked {
             // Set this value to the last slot timestamp of the previous epoch
@@ -118,20 +120,20 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
             uint256 minCollateralForPreconfing = getConfig().minCollateralForPreconfing;
 
-            for (uint256 i; i < _lookaheadPayloads.length; ++i) {
-                LookaheadPayload memory lookaheadPayload = _lookaheadPayloads[i];
+            for (uint256 i; i < _lookaheadSlots.length; ++i) {
+                LookaheadSlot memory lookaheadSlot = _lookaheadSlots[i];
 
                 require(
-                    lookaheadPayload.slotTimestamp > prevSlotTimestamp,
+                    lookaheadSlot.slotTimestamp > prevSlotTimestamp,
                     SlotTimestampIsNotIncrementing()
                 );
                 require(
-                    (lookaheadPayload.slotTimestamp - _nextEpochTimestamp)
+                    (lookaheadSlot.slotTimestamp - _nextEpochTimestamp)
                         % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
                     InvalidSlotTimestamp()
                 );
 
-                prevSlotTimestamp = lookaheadPayload.slotTimestamp;
+                prevSlotTimestamp = lookaheadSlot.slotTimestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
@@ -139,22 +141,23 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     IRegistry.OperatorData memory operatorData,
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateOperator(
-                    lookaheadPayload.registrationRoot,
+                    lookaheadSlot.registrationRoot,
                     currentEpochTimestamp,
                     minCollateralForPreconfing,
                     preconfSlasher
                 );
 
                 require(
-                    lookaheadPayload.validatorLeafIndex < operatorData.numKeys,
+                    lookaheadSlot.validatorLeafIndex < operatorData.numKeys,
                     InvalidValidatorLeafIndex()
                 );
+                require(lookaheadSlot.committer == slasherCommitment.committer, CommitterMismatch());
 
                 lookaheadSlots[i] = LookaheadSlot({
                     committer: slasherCommitment.committer,
-                    slotTimestamp: lookaheadPayload.slotTimestamp,
-                    registrationRoot: lookaheadPayload.registrationRoot,
-                    validatorLeafIndex: lookaheadPayload.validatorLeafIndex
+                    slotTimestamp: lookaheadSlot.slotTimestamp,
+                    registrationRoot: lookaheadSlot.registrationRoot,
+                    validatorLeafIndex: lookaheadSlot.validatorLeafIndex
                 });
             }
 
@@ -166,12 +169,11 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
-        bytes26 lookaheadHash =
-            LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
-        _setLookaheadHash(_nextEpochTimestamp, lookaheadHash);
+        lookaheadHash_ = LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
+        _setLookaheadHash(_nextEpochTimestamp, lookaheadHash_);
 
         emit LookaheadPosted(
-            _isPostedByProtector, _nextEpochTimestamp, lookaheadHash, lookaheadSlots
+            _isPostedByProtector, _nextEpochTimestamp, lookaheadHash_, lookaheadSlots
         );
     }
 
@@ -187,7 +189,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     )
         internal
         view
-        returns (LookaheadPayload[] memory)
+        returns (LookaheadSlot[] memory)
     {
         require(_signedCommitment.commitment.slasher == protector, SlasherIsNotProtector());
 
@@ -201,7 +203,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         );
         require(committer == slasherCommitment.committer, CommitmentSignerMismatch());
 
-        return abi.decode(_signedCommitment.commitment.payload, (LookaheadPayload[]));
+        return abi.decode(_signedCommitment.commitment.payload, (LookaheadSlot[]));
     }
 
     /// @dev Validates if the operator is registered and has not been slashed at the given epoch

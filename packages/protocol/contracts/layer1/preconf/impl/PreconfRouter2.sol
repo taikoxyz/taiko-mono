@@ -27,6 +27,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     error InvalidLookaheadTimestamp();
     error InvalidNextLookahead();
     error InvalidPreviousLookahead();
+    error InvalidSlotIndex();
     error NotPreconfer();
     error NotPreconferOrFallback();
     error OperatorIsNotOptedIn();
@@ -69,41 +70,104 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     {
         (
             uint256 slotIndex,
-            ILookaheadStore.LookaheadSlot[] memory prevLookahead,
             ILookaheadStore.LookaheadSlot[] memory currLookahead,
+            ILookaheadStore.LookaheadSlot[] memory nextLookahead,
             bytes memory nextLookaheadUpdateData
         ) = abi.decode(
             _lookaheadData,
             (uint256, ILookaheadStore.LookaheadSlot[], ILookaheadStore.LookaheadSlot[], bytes)
         );
 
-        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
+        require(
+            slotIndex == type(uint256).max || slotIndex < currLookahead.length, InvalidSlotIndex()
+        );
 
         {
-            bytes26 currLookaheadHash = lookaheadStore.getLookaheadHash(epochTimestamp);
-            if (currLookaheadHash != 0) {
-                _validateLookahead(epochTimestamp, currLookahead, currLookaheadHash);
+            uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
+
+            {
+                bytes26 currLookaheadHash = lookaheadStore.getLookaheadHash(epochTimestamp);
+                if (currLookaheadHash != 0) {
+                    _validateLookahead(epochTimestamp, currLookahead, currLookaheadHash);
+                } else {
+                    require(currLookahead.length == 0, InvalidCurrentLookahead());
+                }
             }
-        }
 
-        {
-            // Try fetching the lookahead for the next epoch.
             uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
             bytes26 nextLookaheadHash = lookaheadStore.getLookaheadHash(nextEpochTimestamp);
-            if (nextLookaheadHash == 0) {
-                // If the lookahead for the next epoch is not posted, we post it here.
-                (bytes32 registrationRoot, bytes memory data) =
-                    abi.decode(nextLookaheadUpdateData, (bytes32, bytes));
-                lookaheadStore.updateLookahead(registrationRoot, data);
-            }
-        }
+            bool nextLookaheadNeedsValidation;
 
-        if (currLookahead.length == 0) {
-            // The current lookahead is empty, so we use a whitelisted preconfer
-            _validateWhitelistPreconfer();
-        } else {
-            _validatePreconfingPeriod(epochTimestamp, slotIndex, prevLookahead, currLookahead);
-            _validateProposer(currLookahead[slotIndex]);
+            // Wrapped inside a scope to avoid stack too deep error
+            {
+                if (nextLookaheadHash == 0) {
+                    // If the lookahead for the next epoch is not posted, we post it here.
+                    (bytes32 registrationRoot, bytes memory data) =
+                        abi.decode(nextLookaheadUpdateData, (bytes32, bytes));
+                    nextLookaheadHash = lookaheadStore.updateLookahead(registrationRoot, data);
+                } else {
+                    require(nextLookaheadUpdateData.length == 0, InvalidNextLookahead());
+                    nextLookaheadNeedsValidation = true;
+                }
+            }
+
+            if (currLookahead.length == 0 || nextLookahead.length == 0) {
+                // The current lookahead is empty, so we use a whitelisted preconfer
+                _validateWhitelistPreconfer();
+            } else {
+                uint256 preconfSlotTimestamp;
+                uint256 prevSlotTimestamp;
+                ILookaheadStore.LookaheadSlot memory _lookaheadSlot;
+
+                if (slotIndex == type(uint256).max) {
+                    // This is the case when the first preconfer from the next epoch is proposing in
+                    // advanced in the current epoch.
+                    //
+                    // Eg: [x x x Pa y y y] [z z z Pb v v v]
+                    //     [  curr epoch  ] [  next epoch  ]
+                    // - Pb is our preconfer.
+                    // - x, y, z and v represent empty slots with no opted in preconfer.
+                    // - Pb intends to propose at any slot y
+                    //
+                    if (nextLookaheadNeedsValidation) {
+                        _validateLookahead(nextEpochTimestamp, nextLookahead, nextLookaheadHash);
+                    }
+
+                    preconfSlotTimestamp = nextLookahead[0].slotTimestamp;
+                    prevSlotTimestamp = currLookahead[currLookahead.length - 1].slotTimestamp;
+                    _lookaheadSlot = nextLookahead[0];
+                } else {
+                    // This is the case when the preconfer is proposing in the same epoch in which
+                    // it has its lookahead slot.
+                    //
+                    // Eg: [x x x Pa y y y]
+                    //     [  curr epoch  ]
+                    // - Pa is our preconfer.
+                    // - x and y represent empty slots with no opted in preconfer.
+                    // - Pa intends to propose at any slot x
+                    //
+                    // OR
+                    //
+                    // Eg: [x x x Pa y y y Pb z z z]
+                    //     [      curr epoch       ]
+                    // - Pb is our preconfer.
+                    // - x, y and z represent empty slots with no opted in preconfer.
+                    // - Pb intends to propose at any slot y
+                    //
+                    preconfSlotTimestamp = currLookahead[slotIndex].slotTimestamp;
+                    prevSlotTimestamp = slotIndex == 0
+                        ? epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT
+                        : currLookahead[slotIndex - 1].slotTimestamp;
+                    _lookaheadSlot = currLookahead[slotIndex];
+                }
+
+                require(
+                    block.timestamp > prevSlotTimestamp && block.timestamp <= preconfSlotTimestamp,
+                    InvalidLookaheadTimestamp()
+                );
+
+                _validateProposer(_lookaheadSlot);
+            }
         }
 
         // Both TaikoInbox and TaikoWrapper implement the same ABI for IProposeBatch.
@@ -138,60 +202,6 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         require(
             urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher),
             OperatorIsNotOptedIn()
-        );
-    }
-
-    /// @dev Validates if the provided lookahead data points to the current preconfing period.
-    function _validatePreconfingPeriod(
-        uint256 _epochTimestamp,
-        uint256 _slotIndex,
-        ILookaheadStore.LookaheadSlot[] memory _prevLookahead,
-        ILookaheadStore.LookaheadSlot[] memory _currLookahead
-    )
-        internal
-        view
-    {
-        uint256 prevSlotTimestamp;
-
-        if (_slotIndex != 0) {
-            // This is the case when the preconfer does not have the first preconfing slot in this
-            // epoch.
-            //
-            // Eg: [ x x x x Pa x x x Pb x x x]
-            // - Pb is our preconfer for this epoch.
-            // - Pa is the preconfer at `previousLookaheadSlot`.
-            // - x represents empty slots with no opted in preconfer.
-            prevSlotTimestamp = _currLookahead[_slotIndex - 1].slotTimestamp;
-        } else {
-            // This is the case when the preconfer does have the first preconfing slot in this
-            // epoch.
-            //
-            // Eg: [ prev-epoch ] [ x x x Pa x x x ]
-            // - Pa is our preconfer for this epoch.
-            // - x represents empty slots with no opted in preconfer.
-            //
-            // This opens up three scenarios:
-            // 1. prev-epoch lookahead had 1 or more preconfers
-            // 2. prev-epoch lookahead was empty
-            // 3. prev-epoch lookahead was not posted
-            //
-            // For case 2 and 3, we leave _previousLookahead as an empty array.
-
-            uint256 prevEpochTimestamp = _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
-            bytes26 prevLookaheadHash = lookaheadStore.getLookaheadHash(prevEpochTimestamp);
-
-            if (prevLookaheadHash != 0 && _prevLookahead.length != 0) {
-                _validateLookahead(prevEpochTimestamp, _prevLookahead, prevLookaheadHash);
-                prevSlotTimestamp = _prevLookahead[_prevLookahead.length - 1].slotTimestamp;
-            } else {
-                prevSlotTimestamp = _epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
-            }
-        }
-
-        require(
-            block.timestamp > prevSlotTimestamp
-                && block.timestamp <= _currLookahead[_slotIndex].slotTimestamp,
-            InvalidLookaheadTimestamp()
         );
     }
 
