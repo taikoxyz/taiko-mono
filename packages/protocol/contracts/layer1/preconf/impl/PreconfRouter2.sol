@@ -90,7 +90,6 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                 if (currLookaheadHash != 0) {
                     _validateLookahead(epochTimestamp, currLookahead, currLookaheadHash);
                 } else {
-                    // TODO: @anshu, not sure if this is correct!!!
                     require(currLookahead.length == 0, InvalidCurrentLookahead());
                 }
             }
