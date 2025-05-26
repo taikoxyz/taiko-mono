@@ -222,14 +222,16 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	}
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(context.Background(), defaultTimeout)
 	defer cancel()
-	preconfRouterAddress, err := taikoWrapper.PreconfRouter(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return fmt.Errorf("failed to get address of PreconfRouter: %w", err)
-	}
-	if preconfRouterAddress.Hex() != ZeroAddress.Hex() {
-		preconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddress, c.L1)
+	if taikoWrapper != nil {
+		preconfRouterAddress, err := taikoWrapper.PreconfRouter(&bind.CallOpts{Context: ctxWithTimeout})
 		if err != nil {
-			return fmt.Errorf("failed to create new instance of PreconfRouter: %w", err)
+			return fmt.Errorf("failed to get address of PreconfRouter: %w", err)
+		}
+		if preconfRouterAddress.Hex() != ZeroAddress.Hex() {
+			preconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddress, c.L1)
+			if err != nil {
+				return fmt.Errorf("failed to create new instance of PreconfRouter: %w", err)
+			}
 		}
 	}
 
