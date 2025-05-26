@@ -41,7 +41,6 @@ var (
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload, bool) ([]*types.Header, error)
-	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
 // @title Taiko Preconfirmation Block Server API
@@ -186,7 +185,6 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
-	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 
 	// WebSocket routes
 	s.echo.GET("/ws", s.ws.handleWebSocket)

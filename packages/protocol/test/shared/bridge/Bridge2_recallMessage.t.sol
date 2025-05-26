@@ -28,6 +28,7 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         message.destOwner = Bob;
         message.destChainId = taikoChainId;
         message.value = 1 ether;
+        message.to = Zachary;
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         eBridge.recallMessage(message, FAKE_PROOF);
@@ -70,6 +71,7 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         message.destChainId = taikoChainId;
         message.value = 1 ether;
         message.srcChainId = ethereumChainId;
+        message.to = Zachary;
 
         vm.prank(address(callableSender));
         (bytes32 mhash, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
