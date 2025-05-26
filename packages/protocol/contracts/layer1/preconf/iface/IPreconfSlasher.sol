@@ -8,6 +8,13 @@ import "../libs/LibBlockHeader.sol";
 /// @title IPreconfSlasher
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfSlasher is ISlasher {
+    enum BlockType {
+        BatchStart,
+        BatchEnd,
+        BatchEndAndEOP,
+        Other
+    }
+
     // Byte-encoded and used as `ISlasher.Commitment.payload`.
     struct CommitmentPayload {
         // Taiko specific DS
@@ -26,9 +33,8 @@ interface IPreconfSlasher is ISlasher {
         uint256 batchId;
         // Hash of the header of the preconfirmed block
         bytes32 blockHash;
-        // `true` if this preconfer is not going to deliver anymore
-        // preconfirmations after this block
-        bool eop; // End-Of-Preconf flag
+        // Type of the block
+        BlockType blockType;
     }
 
     // The evidence bytes will be encoded as:
@@ -127,6 +133,7 @@ interface IPreconfSlasher is ISlasher {
     error InvalidBatchInfo();
     error InvalidBatchMetadata();
     error InvalidBlockHeader();
+    error InvalidBlockType();
     error InvalidChainId();
     error InvalidDomainSeparator();
     error InvalidActualBlockHeader();

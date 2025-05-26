@@ -187,7 +187,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         // Validate that the commitment is an EOP
-        require(_payload.eop == true, NotEndOfPreconfirmation());
+        require(_payload.blockType == BlockType.BatchEndAndEOP, InvalidBlockType());
 
         ITaikoInbox.Batch memory batch =
             _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
@@ -221,7 +221,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(evidence.preconfedBlockHeader.hash() == _payload.blockHash, InvalidBlockHeader());
 
         // Validate that the commitment is not an EOP
-        require(_payload.eop == false, EOPIsPresent());
+        require(_payload.blockType != BlockType.BatchEndAndEOP, InvalidBlockType());
 
         ITaikoInbox.Batch memory batch = _verifyBatchData(_payload.batchId, evidence.batchMetadata);
         require(evidence.preconfedBlockHeader.number == batch.lastBlockId, BlockNotLastInBatch());
