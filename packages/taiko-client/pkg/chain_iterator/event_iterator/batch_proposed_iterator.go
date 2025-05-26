@@ -40,7 +40,6 @@ type BatchProposedIterator struct {
 type BatchProposedIteratorConfig struct {
 	Client                *rpc.EthClient
 	TaikoInbox            *pacayaBindings.TaikoInboxClient
-	PacayaForkHeight      uint64
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
@@ -66,7 +65,6 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 		OnBlocks: assembleBatchProposedIteratorCallback(
 			cfg.Client,
 			cfg.TaikoInbox,
-			cfg.PacayaForkHeight,
 			cfg.OnBatchProposedEvent,
 			iterator,
 		),
@@ -96,7 +94,6 @@ func (i *BatchProposedIterator) end() {
 func assembleBatchProposedIteratorCallback(
 	client *rpc.EthClient,
 	taikoInbox *pacayaBindings.TaikoInboxClient,
-	pacayaForkHeight uint64,
 	callback OnBatchProposedEvent,
 	eventIter *BatchProposedIterator,
 ) chainIterator.OnBlocksFunc {
