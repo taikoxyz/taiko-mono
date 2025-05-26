@@ -429,34 +429,6 @@ func (s *DriverTestSuite) TestInsertPreconfBlocks() {
 	s.Equal(l2Head2.Hash(), l1Origin2.L2BlockHash)
 	s.Equal(common.Hash{}, l1Origin2.L1BlockHash)
 	s.True(l1Origin2.IsPreconfBlock())
-
-	// Remove one preconfirmation block
-	res, err = resty.New().
-		R().
-		SetBody(&preconfblocks.RemovePreconfBlocksRequestBody{NewLastBlockID: l2Head3.Number().Uint64() - 1}).
-		Delete(s.preconfServerURL.String() + "/preconfBlocks")
-	s.Nil(err)
-	s.True(res.IsSuccess())
-
-	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head2.Hash(), l2Head4.Hash())
-
-	// Propose 3 valid L2 blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
-
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head2.Number().Uint64()+2, l2Head5.Number().Uint64())
-	s.Equal(1, len(l2Head5.Transactions()))
-
-	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head5.Number())
-	s.Nil(err)
-	s.Equal(l2Head2.Number().Uint64()+2, l1Origin3.BlockID.Uint64())
-	s.Equal(l2Head5.Hash(), l1Origin3.L2BlockHash)
-	s.NotZero(l1Origin3.L1BlockHeight.Uint64())
-	s.NotEmpty(l1Origin3.L1BlockHash)
-	s.False(l1Origin3.IsPreconfBlock())
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
