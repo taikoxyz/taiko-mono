@@ -127,7 +127,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         override
         nonZeroAddr(_message.srcOwner)
         nonZeroAddr(_message.destOwner)
-        // nonZeroAddr(_message.to)
+        nonZeroAddr(_message.to)
         diffChain(_message.destChainId)
         whenNotPaused
         nonReentrant
