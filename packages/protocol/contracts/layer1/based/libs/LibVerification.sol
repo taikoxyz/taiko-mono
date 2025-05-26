@@ -45,7 +45,7 @@ library LibVerification {
                     _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
 
-                // Now it is possible that one tranaction can verify both shasta and unzen batches.
+                // Now it is possible that one transaction can verify both shasta and unzen batches.
                 // if (_config.forkHeights.unzen != 0) {
                 //     stopBatchId = stopBatchId.min(_config.forkHeights.unzen);
                 // }
