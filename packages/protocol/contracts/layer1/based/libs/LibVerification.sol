@@ -30,8 +30,10 @@ library LibVerification {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
 
-    // TODO(daniel): fix this
-            if (_config.forkHeights.pacaya == 0 || batchId >= _config.forkHeights.pacaya - 1) {
+            if (
+                _config.forkHeights.shasta == 0
+                    || getBatch(_state, _config, batchId).lastBlockId + 1 >= _config.forkHeights.shasta
+            ) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
                 ITaikoInbox.Batch storage batch = _state.batches[slot];
                 uint24 tid = batch.verifiedTransitionId;
@@ -43,9 +45,10 @@ library LibVerification {
                     _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
 
-                if (_config.forkHeights.shasta != 0) {
-                    stopBatchId = stopBatchId.min(_config.forkHeights.shasta);
-                }
+                // Now it is possible that one tranaction can verify both shasta and unzen batches.
+                // if (_config.forkHeights.unzen != 0) {
+                //     stopBatchId = stopBatchId.min(_config.forkHeights.unzen);
+                // }
 
                 for (++batchId; batchId < stopBatchId; ++batchId) {
                     slot = batchId % _config.batchRingBufferSize;
