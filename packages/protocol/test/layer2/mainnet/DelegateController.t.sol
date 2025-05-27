@@ -40,7 +40,7 @@ contract TestDelegateController is Layer2Test {
         });
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
-        tDelegateController.dryrun(actions);
+        tDelegateController.dryrun(abi.encode(actions));
 
         IBridge.Message memory message;
         message.from = daoController;
@@ -48,7 +48,8 @@ contract TestDelegateController is Layer2Test {
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
         message.data = abi.encodeCall(
-            DelegateController.onMessageInvocation, (abi.encode(uint256(1), actions))
+            DelegateController.onMessageInvocation,
+            (abi.encodePacked(uint64(1), abi.encode(actions)))
         );
         message.to = address(tDelegateController);
 
@@ -102,15 +103,17 @@ contract TestDelegateController is Layer2Test {
         vm.deal(address(tDelegateController), 0.1 ether);
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
-        tDelegateController.dryrun(actions);
+        tDelegateController.dryrun(abi.encode(actions));
 
         IBridge.Message memory message;
         message.from = daoController;
         message.destChainId = taikoChainId;
         message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
-        message.data =
-            abi.encodeCall(DelegateController.onMessageInvocation, (abi.encode(uint64(1), actions)));
+        message.data = abi.encodeCall(
+            DelegateController.onMessageInvocation,
+            (abi.encodePacked(uint64(1), abi.encode(actions)))
+        );
         message.to = address(tDelegateController);
 
         vm.prank(Bob);
