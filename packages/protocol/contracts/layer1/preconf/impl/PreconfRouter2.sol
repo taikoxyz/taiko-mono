@@ -162,7 +162,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                         //
                         // The empty slots y will be taken over by the whitelist preconfer
                         // for the current epoch.
-                        // The upper boundry of the preconfing period is the last slot of the
+                        // The upper boundary of the preconfing period is the last slot of the
                         // current epoch.
                         preconfSlotTimestamp =
                             nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
