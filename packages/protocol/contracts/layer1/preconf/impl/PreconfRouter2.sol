@@ -18,6 +18,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     IRegistry public immutable urc;
     address public immutable preconfSlasher;
     address public immutable fallbackPreconfer;
+    address public immutable protector;
 
     uint256[50] private __gap;
 
@@ -42,7 +43,8 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         address _iProposeBatch,
         address _preconfSlasher,
         address _urc,
-        address _fallbackPreconfer
+        address _fallbackPreconfer,
+        address _protector
     )
         EssentialContract()
     {
@@ -52,6 +54,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         preconfSlasher = _preconfSlasher;
         urc = IRegistry(_urc);
         fallbackPreconfer = _fallbackPreconfer;
+        protector = _protector;
     }
 
     function init(address _owner) external initializer {
@@ -70,12 +73,19 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     {
         (
             uint256 slotIndex,
+            bytes32 registrationRoot,
             ILookaheadStore.LookaheadSlot[] memory currLookahead,
             ILookaheadStore.LookaheadSlot[] memory nextLookahead,
-            bytes memory nextLookaheadUpdateData
+            bytes memory commitmentSignature
         ) = abi.decode(
             _lookaheadData,
-            (uint256, ILookaheadStore.LookaheadSlot[], ILookaheadStore.LookaheadSlot[], bytes)
+            (
+                uint256,
+                bytes32,
+                ILookaheadStore.LookaheadSlot[],
+                ILookaheadStore.LookaheadSlot[],
+                bytes
+            )
         );
 
         require(
@@ -102,21 +112,33 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
             {
                 if (nextLookaheadHash == 0) {
                     // If the lookahead for the next epoch is not posted, we post it here.
-                    (bytes32 registrationRoot, bytes memory data) =
-                        abi.decode(nextLookaheadUpdateData, (bytes32, bytes));
-                    nextLookaheadHash = lookaheadStore.updateLookahead(registrationRoot, data);
+                    if (currLookahead.length == 0) {
+                        // A whitelist preconfer is expected since the current lookahead is empty.
+                        // A commitment is not required for the whitelist preconfer.
+                        nextLookaheadHash =
+                            lookaheadStore.updateLookahead(bytes32(0), abi.encode(nextLookahead));
+                    } else {
+                        // Build and pass the commitment to the lookahead store
+                        ISlasher.SignedCommitment memory signedCommitment =
+                            _buildLookaheadCommitment(nextLookahead, commitmentSignature);
+
+                        nextLookaheadHash = lookaheadStore.updateLookahead(
+                            registrationRoot, abi.encode(signedCommitment)
+                        );
+                    }
                 } else {
-                    require(nextLookaheadUpdateData.length == 0, InvalidNextLookahead());
+                    require(commitmentSignature.length == 0, InvalidNextLookahead());
                     nextLookaheadNeedsValidation = true;
                 }
             }
 
-            if (currLookahead.length == 0 || nextLookahead.length == 0) {
+            if (currLookahead.length == 0) {
                 // The current lookahead is empty, so we use a whitelisted preconfer
                 _validateWhitelistPreconfer();
             } else {
-                uint256 preconfSlotTimestamp;
-                uint256 prevSlotTimestamp;
+                uint256 preconfSlotTimestamp; // Upper boundry of the preconfing period
+                uint256 prevSlotTimestamp; // Lower boundry of the preconfing period
+
                 ILookaheadStore.LookaheadSlot memory _lookaheadSlot;
 
                 if (slotIndex == type(uint256).max) {
@@ -133,9 +155,23 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                         _validateLookahead(nextEpochTimestamp, nextLookahead, nextLookaheadHash);
                     }
 
-                    preconfSlotTimestamp = nextLookahead[0].slotTimestamp;
+                    if (nextLookahead.length == 0) {
+                        // This the special case when the next lookahead is empty
+                        // Eg: [x x x Pa y y y] [     empty    ]
+                        //     [  curr epoch  ] [  next epoch  ]
+                        //
+                        // The empty slots y will be taken over by the whitelist preconfer
+                        // for the current epoch.
+                        // The upper boundry of the preconfing period is the last slot of the
+                        // current epoch.
+                        preconfSlotTimestamp =
+                            nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+                    } else {
+                        preconfSlotTimestamp = nextLookahead[0].slotTimestamp;
+                        _lookaheadSlot = nextLookahead[0];
+                    }
+
                     prevSlotTimestamp = currLookahead[currLookahead.length - 1].slotTimestamp;
-                    _lookaheadSlot = nextLookahead[0];
                 } else {
                     // This is the case when the preconfer is proposing in the same epoch in which
                     // it has its lookahead slot.
@@ -166,7 +202,11 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                     InvalidLookaheadTimestamp()
                 );
 
-                _validateProposer(_lookaheadSlot);
+                if (nextLookahead.length == 0) {
+                    _validateWhitelistPreconfer();
+                } else {
+                    _validateProposer(_lookaheadSlot);
+                }
             }
         }
 
@@ -189,20 +229,21 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
 
     /// @dev Validates if the sender has proposing rights for the current slot
     function _validateProposer(ILookaheadStore.LookaheadSlot memory _lookaheadSlot) internal view {
-        // Sender must be the expected committer (i.e the preconfer) for the current preconfing
-        // period
-        require(msg.sender == _lookaheadSlot.committer, ProposerIsNotPreconfer());
-
-        // Ensure that the associated operator is active and opted into the preconf slasher
         IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadSlot.registrationRoot);
 
-        require(operatorData.unregisteredAt == 0, OperatorIsUnregistered());
-        require(operatorData.slashedAt == 0, OperatorIsSlashed());
-        require(
-            urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher),
-            OperatorIsNotOptedIn()
-        );
+        // If the operator is slashed or unregistered, we use the fallback or whitelist preconfer
+        if (operatorData.unregisteredAt != 0 || operatorData.slashedAt != 0) {
+            _validateWhitelistPreconfer();
+        } else {
+            // Sender must be the expected committer (i.e the opted in preconfer) for
+            // the current preconfing period
+            require(msg.sender == _lookaheadSlot.committer, ProposerIsNotPreconfer());
+            require(
+                urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher),
+                OperatorIsNotOptedIn()
+            );
+        }
     }
 
     function _validateLookahead(
@@ -215,5 +256,22 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     {
         bytes26 actualHash = LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _lookahead);
         require(_lookaheadHash == actualHash, InvalidPreviousLookahead());
+    }
+
+    function _buildLookaheadCommitment(
+        ILookaheadStore.LookaheadSlot[] memory _lookahead,
+        bytes memory _signature
+    )
+        internal
+        view
+        returns (ISlasher.SignedCommitment memory)
+    {
+        ISlasher.Commitment memory commitment = ISlasher.Commitment({
+            commitmentType: 0,
+            payload: abi.encode(_lookahead),
+            slasher: protector
+        });
+
+        return ISlasher.SignedCommitment({ commitment: commitment, signature: _signature });
     }
 }
