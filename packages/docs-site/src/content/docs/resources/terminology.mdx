@@ -9,7 +9,7 @@ This page provides clear definitions of **key rollup-related terms**, particular
 
 ## **Bonding Mechanisms in Taiko Alethia**
 
-Bonding is a fundamental mechanism in the **proving and verification process** of Taiko Alethia. Different types of bonds ensure that **provers, contesters, and the network remain accountable** for their commitments.
+Bonding is a fundamental mechanism in the **proving and verification process** of Taiko Alethia. Bonds ensure that **provers remain accountable** for their commitments.
 
 ### **Liveness Bond**
 - A bond posted by the **initially assigned block prover** to guarantee that they will **submit the first proof** within the required proving window.
@@ -18,51 +18,12 @@ Bonding is a fundamental mechanism in the **proving and verification process** o
   1. The **L2 block proposer** submits a block via `proposeBlock` on **Ethereum L1**.
   2. The assigned prover locks a **Liveness Bond** to signal commitment.
   3. If the prover submits the proof within the **proving window**, the bond is refunded.
-  4. If the proof is not submitted within the proving window, **another prover can step in**, but they must provide a new **Validity Bond**.
-
----
-
-### **Validity Bond**
-- A bond submitted by the prover at the time of **proving a block** (`proveBlock` transaction). This bond guarantees that the prover stands by the correctness of their proof.
-- **Purpose**: Protects the network from **fraudulent or incorrect proofs** by ensuring provers have **economic skin in the game**.
-- **Lifecycle**:
-  1. A prover submits a **validity proof** for a block.
-  2. The **Validity Bond** is locked in the contract.
-  3. If the proof is verified and uncontested, the bond is **returned to the prover**.
-  4. If the proof is contested and **found incorrect**, the bond is **slashed**.
-
-:::note
-**If a new prover submits a proof after the initial proving window**, they must post the **full validity bond** amount, regardless of whether the previous prover had posted a Liveness Bond.
-:::
-
----
-
-### **Contest Bond**
-- A bond submitted by a **contester** who believes an **already proven block** contains **an invalid proof** and should be escalated to a **higher-tier proof system** for validation.
-- **Purpose**: Ensures that contesters only challenge proofs when they have strong evidence, preventing spam or frivolous disputes.
-- **Lifecycle**:
-  1. A prover submits a proof for a block.
-  2. A **contester submits a Contest Bond** if they suspect the proof is invalid.
-  3. The challenge escalates to a **higher-tier prover** for verification.
-  4. If the **higher-tier proof** is valid, the **contester forfeits** their bond.
-  5. If the **higher-tier proof is invalid**, the original prover's **Validity Bond is slashed**, and the contester **receives a portion** of the slashed bond.
-
----
-
-## **Summary of Bonding Relationships**
-
-| Bond Type        | Submitted By        | When Is It Locked?      | When Is It Returned? | When Is It Forfeited? |
-|-----------------|--------------------|-------------------------|----------------------|----------------------|
-| **Liveness Bond** | Assigned Block Prover | Upon block assignment (`proposeBlock` transaction) | When the block is proved within the proving window | If proof is not submitted within the proving window |
-| **Validity Bond** | Prover (any) | Upon proof submission (`proveBlock` transaction) | If the proof is uncontested and verified | If the proof is invalid and contested successfully |
-| **Contest Bond** | Contester | Upon submitting a dispute against an existing proof | If the contested proof is found invalid | If the contested proof is verified as correct |
-
----
+  4. If the proof is not submitted within the proving window, **another prover can step in**.
 
 ## **Key Takeaways**
+
 1. **Liveness Bond** ensures that the initial prover submits their proof on time.
-2. **Validity Bond** guarantees that a submitted proof is correct and withstands scrutiny.
-3. **Contest Bond** prevents frivolous challenges by ensuring contesters have an economic stake in their disputes.
+
 
 
 

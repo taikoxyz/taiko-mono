@@ -57,7 +57,7 @@ The general flow will be as follows:
 <Aside>
 We term this "sequencing" - when a preconfirmer is creating and gossiping blocks but have not proposed on L1 yet. The user receives a transaction receipt, and all node states are updated when a block is sequenced. Blocks can be sequenced on top of other sequenced blocks.
 
-With this design, a preconfirmer can sequence hundreds of blocks, before proposing them onchain in what we call a "batch". Read more about batches [here](/taiko-alethia-protocol/pacaya-fork/#batch-based-protocol)
+With this design, a preconfirmer can sequence hundreds of blocks, before proposing them onchain in what we call a "batch". Read more about batches [here](/taiko-alethia-protocol/protocol-design/pacaya-fork-taiko-alethia/#batch-based-protocol)
 </Aside>
 
 - Each preconfirmer gets a 32 slot epoch in which to sequence and propose. It is up to the preconfirmer to determine when to propose their sequenced blocks on chain. **This will be completely irrelevant to the end-user - they will have had their transaction receipt as soon as the block including their transaction is sequenced.** Proposing onchain just confirms that sequenced state, allowing us to stay a based rollup.
@@ -106,7 +106,7 @@ The preconfirmer's process follows seven key steps:
 
 - **Censorship Resistance & Trust-Minimization**: Based preconfirmations leverage Ethereum validators to sequence transactions, ensuring decentralized sequencing with resistance to censorship by MEV players.
 
-  - With the addition of the [`ForcedInclusionStore` smart contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer1/forced-inclusion/ForcedInclusionStore.sol) which allows users to submit transactions and force their inclusion irregardless of the preconfirmers, the protocol can remain censorship-resistant even while preconfirmers are permissioned ([Stage 1](/taiko-alethia-protocol/protocol-design/based-preconfirmation/#what-are-based-preconfirmations)).
+  - With the addition of the [`ForcedInclusionStore` smart contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/forced-inclusion/ForcedInclusionStore.sol) which allows users to submit transactions and force their inclusion irregardless of the preconfirmers, the protocol can remain censorship-resistant even while preconfirmers are permissioned ([Stage 1](/taiko-alethia-protocol/protocol-design/based-preconfirmation/#what-are-based-preconfirmations)).
 
 ## Summary
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.6...docs-site-v1.28.0) (2025-05-27)
+
+
+### Features
+
+* **docs-site:** post-pacaya docs-site rehaul ([#19549](https://github.com/taikoxyz/taiko-mono/issues/19549)) ([f57bb48](https://github.com/taikoxyz/taiko-mono/commit/f57bb481ac9f33743421ccaa41c32eac5949040d))
+
 ## [1.27.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.5...docs-site-v1.27.6) (2025-05-21)
 
 
