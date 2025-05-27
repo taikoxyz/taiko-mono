@@ -136,7 +136,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                 // The current lookahead is empty, so we use a whitelisted preconfer
                 _validateWhitelistPreconfer();
             } else {
-                uint256 preconfSlotTimestamp; // Upper boundry of the preconfing period
+                uint256 preconfSlotTimestamp; // Upper boundary of the preconfing period
                 uint256 prevSlotTimestamp; // Lower boundary of the preconfing period
 
                 ILookaheadStore.LookaheadSlot memory _lookaheadSlot;
