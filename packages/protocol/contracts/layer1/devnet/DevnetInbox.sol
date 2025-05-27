@@ -35,7 +35,7 @@ contract DevnetInbox is TaikoInbox {
             livenessBondBase: 125e18, // 125 Taiko token per batch
             livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 16,
-            maxAnchorHeightOffset: 64,
+            maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 50,
@@ -47,7 +47,7 @@ contract DevnetInbox is TaikoInbox {
             cooldownWindow: cooldownWindow,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 10, shasta: 0, unzen: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0, shasta: 0, unzen: 0 })
         });
     }
 }
