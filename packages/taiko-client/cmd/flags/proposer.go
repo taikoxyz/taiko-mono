@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -95,6 +97,14 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_REVERT_PROTECTION"},
 	}
+	// Preconfirmation related
+	FallbackTimeout = &cli.DurationFlag{
+		Name:     "preconfirmation.fallback.timeout",
+		Usage:    "Timeout to propose L2 transactions as a fallback preconfer",
+		Category: proposerCategory,
+		Value:    5 * time.Minute,
+		EnvVars:  []string{"PRECONFIRMATION_FALLBACK_TIMEOUT"},
+	}
 )
 
 // ProposerFlags All proposer flags.
@@ -115,4 +125,5 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlobAllowed,
 	FallbackToCalldata,
 	RevertProtectionEnabled,
+	FallbackTimeout,
 }, TxmgrFlags)
