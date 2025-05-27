@@ -35,7 +35,7 @@ contract MainnetInbox is TaikoInbox {
             livenessBondBase: 50e18, // 50 Taiko token per batch
             livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 4,
-            maxAnchorHeightOffset: 64,
+            maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 50,
