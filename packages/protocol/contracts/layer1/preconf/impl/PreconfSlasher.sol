@@ -201,7 +201,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
                 NextBatchProposedInNextPreconfWindow()
             );
         } else {
-            // Check if the block is not the last one in the batch
             uint256 firstBlockId = batch.lastBlockId + 1 - evidence.batchInfo.blocks.length;
             require(blockId >= firstBlockId && blockId < batch.lastBlockId, BlockNotInBatch());
         }
