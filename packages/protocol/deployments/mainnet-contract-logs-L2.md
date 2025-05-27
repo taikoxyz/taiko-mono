@@ -185,10 +185,11 @@
 
 #### delegate_controller
 
-- proxy: `0x6D840cCbAea6077331A394B9104a7bAfe93AEa4A`
-- impl: `0xd85BC772a1B8Db1291CDbf4965c3e3fF72AD3aF5`
-- owner: `0x6D840cCbAea6077331A394B9104a7bAfe93AEa4A`
+- proxy: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
+- impl: `0x6900f893Fb1dcf2868c7799Ac9a2dAf1c046c6bF`
+- owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
 - logs:
+  - https://taikoscan.io/tx/0x2d60398c8f22ebccc3e3dfc5771f95cb104b2ea003230444879b08d0649d01af
 
 ## Pacaya Contracts
 
