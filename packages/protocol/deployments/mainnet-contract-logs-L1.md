@@ -522,6 +522,7 @@
 
 ### TaikoDAOController
 
-- proxy: `0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3`
+- ens: `controller.taiko.eth`
+- proxy: `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`
 - Owner (Taiko DAO): `0x9CDf589C941ee81D75F34d3755671d614f7cf261`
-- impl: `0xd1934807041B168f383870A0d8F565aDe2DF9D7D`
+- impl: `0x4347df63bdC82b8835fC9FF47bC5a71a12cC0f06`

@@ -131,7 +131,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         console2.log("------------------------------------------");
         console2.log("msg.sender: ", msg.sender);
-        console2.log("address(this): ", address(this));
         console2.log("signalService.owner(): ", signalService.owner());
         console2.log("------------------------------------------");
 
