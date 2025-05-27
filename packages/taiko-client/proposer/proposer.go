@@ -237,11 +237,11 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Check if the preconfirmation router is set, if so, skip proposing.
 	if p.rpc.PacayaClients.PreconfRouter != nil {
-		fallbakcPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
+		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return fmt.Errorf("failed to get fallback preconfer address: %w", err)
 		}
-		if fallbakcPreconferAddress != p.proposerAddress || fallbakcPreconferAddress != p.ProverSetAddress {
+		if fallbackPreconferAddress != p.proposerAddress || fallbackPreconferAddress != p.ProverSetAddress {
 			log.Info("Preconfirmation is running and proposer isn't the fallback preconfer, skip proposing", "time", time.Now())
 			return nil
 		}
