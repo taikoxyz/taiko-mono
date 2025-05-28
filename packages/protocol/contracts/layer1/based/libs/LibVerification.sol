@@ -10,7 +10,6 @@ import "../ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibVerification {
     using LibMath for uint256;
-    using LibVerification for ITaikoInbox.Config;
 
     struct SyncBlock {
         uint64 batchId;
@@ -31,7 +30,7 @@ library LibVerification {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
 
-            if (_config.currentForkHeight() == 0 || batchId >= _config.currentForkHeight() - 1) {
+            if (_config.forkHeights.shasta == 0 || batchId >= _config.forkHeights.shasta - 1) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
                 ITaikoInbox.Batch storage batch = _state.batches[slot];
                 uint24 tid = batch.verifiedTransitionId;
@@ -51,11 +50,10 @@ library LibVerification {
                     if (_stats2.paused) break;
                     if (nextTransitionId <= 1) break;
 
-                    {
-                        // avoid stack-too-deep error
-                        uint64 _nextForkHeight = _config.nextForkHeight();
-                        if (_nextForkHeight != 0 && batch.lastBlockId >= _nextForkHeight) break;
-                    }
+                    if (
+                        _config.forkHeights.unzen != 0
+                            && batch.lastBlockId >= _config.forkHeights.unzen
+                    ) break;
 
                     ITaikoInbox.TransitionState storage ts = _state.transitions[slot][1];
                     if (ts.parentHash == blockHash) {
@@ -172,13 +170,5 @@ library LibVerification {
     {
         batch_ = _state.batches[_batchId % _config.batchRingBufferSize];
         require(batch_.batchId == _batchId, ITaikoInbox.BatchNotFound());
-    }
-
-    function currentForkHeight(ITaikoInbox.Config memory _config) internal pure returns (uint64) {
-        return _config.forkHeights.shasta;
-    }
-
-    function nextForkHeight(ITaikoInbox.Config memory _config) internal pure returns (uint64) {
-        return _config.forkHeights.unzen;
     }
 }

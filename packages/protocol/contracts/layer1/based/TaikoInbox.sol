@@ -759,9 +759,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         private
         pure
     {
-        require(_firstBlockId >= _config.currentForkHeight(), ForkNotActivated());
-
-        uint64 _nextForkHeight = _config.nextForkHeight();
-        require(_nextForkHeight == 0 || _lastBlockId < _nextForkHeight, BeyondCurrentFork());
+        require(_firstBlockId >= _config.forkHeights.shasta, ForkNotActivated());
+        require(
+            _config.forkHeights.unzen == 0 || _lastBlockId < _config.forkHeights.unzen,
+            BeyondCurrentFork()
+        );
     }
 }
