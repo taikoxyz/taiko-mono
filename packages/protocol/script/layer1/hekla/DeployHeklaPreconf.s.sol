@@ -5,11 +5,14 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
+import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 
 contract DeployHeklaPreconf is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     address public taikoWrapper = vm.envAddress("TAIKO_WRAPPER");
     address public rollupResolver = vm.envAddress("ROLLUP_RESOLVER");
+    address public taikoInbox = vm.envAddress("TAIKO_INBOX");
+    address public store = vm.envAddress("FORCED_INCLUSION_STORE");
     address public fallbackPreconfProposer = vm.envAddress("FALLBACK_PRECONF_PROPOSER");
 
     modifier broadcast() {
@@ -27,11 +30,13 @@ contract DeployHeklaPreconf is DeployCapability {
             registerTo: rollupResolver
         });
 
-        deployProxy({
+        address router = deployProxy({
             name: "preconf_router",
             impl: address(new PreconfRouter(taikoWrapper, whitelist, fallbackPreconfProposer)),
             data: abi.encodeCall(PreconfRouter.init, (address(0))),
             registerTo: rollupResolver
         });
+        address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
+        console2.log("taikoWrapper: ", wrapper);
     }
 }
