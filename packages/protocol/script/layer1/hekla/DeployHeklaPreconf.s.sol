@@ -26,7 +26,7 @@ contract DeployHeklaPreconf is DeployCapability {
         address whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2)),
+            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2)),
             registerTo: rollupResolver
         });
 
