@@ -33,7 +33,7 @@ contract DevnetInbox is TaikoInbox {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 16,
-            maxAnchorHeightOffset: 64,
+            maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 gasIssuancePerSecond: 5_000_000,
