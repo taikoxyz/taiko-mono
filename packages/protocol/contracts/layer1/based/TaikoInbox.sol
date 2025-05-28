@@ -30,7 +30,6 @@ import "./IProposeBatch.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
-    using LibVerification for ITaikoInbox.Config;
     using LibVerification for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
