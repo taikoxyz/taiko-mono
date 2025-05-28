@@ -50,7 +50,8 @@ library LibVerification {
                     if (_stats2.paused) break;
                     if (nextTransitionId <= 1) break;
 
-                    { // avoid stack-too-deep error
+                    {
+                        // avoid stack-too-deep error
                         uint64 _nextForkHeight = nextForkHeight(_config);
                         if (_nextForkHeight != 0 && batch.lastBlockId >= _nextForkHeight) break;
                     }
@@ -172,11 +173,11 @@ library LibVerification {
         require(batch_.batchId == _batchId, ITaikoInbox.BatchNotFound());
     }
 
-    function currentForkHeight(ITaikoInbox.Config memory _config) public pure returns (uint64) {
+    function currentForkHeight(ITaikoInbox.Config memory _config) internal pure returns (uint64) {
         return _config.forkHeights.shasta;
     }
 
-    function nextForkHeight(ITaikoInbox.Config memory _config) public pure returns (uint64) {
+    function nextForkHeight(ITaikoInbox.Config memory _config) internal pure returns (uint64) {
         return _config.forkHeights.unzen;
     }
 }
