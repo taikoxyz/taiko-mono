@@ -478,7 +478,7 @@ func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSee
 			"Sending latest seen proposal from blocksInserter",
 			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
 			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
-			"preconfChainReoged", proposal.PreconfChainReorged,
+			"preconfChainReorged", proposal.PreconfChainReorged,
 		)
 
 		i.latestSeenProposalCh <- proposal
