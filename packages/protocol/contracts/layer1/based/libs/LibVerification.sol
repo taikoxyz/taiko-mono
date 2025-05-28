@@ -30,7 +30,7 @@ library LibVerification {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
 
-            if (_config.forkHeights.pacaya == 0 || batchId >= _config.forkHeights.pacaya - 1) {
+            if (currentForkHeight(_config) == 0 || batchId >= currentForkHeight(_config) - 1) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
                 ITaikoInbox.Batch storage batch = _state.batches[slot];
                 uint24 tid = batch.verifiedTransitionId;
@@ -42,10 +42,6 @@ library LibVerification {
                     _config.maxBatchesToVerify * _count + _stats2.lastVerifiedBatchId + 1
                 ).min(_stats2.numBatches);
 
-                if (_config.forkHeights.shasta != 0) {
-                    stopBatchId = stopBatchId.min(_config.forkHeights.shasta);
-                }
-
                 for (++batchId; batchId < stopBatchId; ++batchId) {
                     slot = batchId % _config.batchRingBufferSize;
                     batch = _state.batches[slot];
@@ -53,6 +49,11 @@ library LibVerification {
 
                     if (_stats2.paused) break;
                     if (nextTransitionId <= 1) break;
+
+                    { // avoid stack-too-deep error
+                        uint64 _nextForkHeight = nextForkHeight(_config);
+                        if (_nextForkHeight != 0 && batch.lastBlockId >= _nextForkHeight) break;
+                    }
 
                     ITaikoInbox.TransitionState storage ts = _state.transitions[slot][1];
                     if (ts.parentHash == blockHash) {
@@ -169,5 +170,13 @@ library LibVerification {
     {
         batch_ = _state.batches[_batchId % _config.batchRingBufferSize];
         require(batch_.batchId == _batchId, ITaikoInbox.BatchNotFound());
+    }
+
+    function currentForkHeight(ITaikoInbox.Config memory _config) public pure returns (uint64) {
+        return _config.forkHeights.shasta;
+    }
+
+    function nextForkHeight(ITaikoInbox.Config memory _config) public pure returns (uint64) {
+        return _config.forkHeights.unzen;
     }
 }

@@ -175,7 +175,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobByteOffset: params.blobParams.byteOffset,
                     blobByteSize: params.blobParams.byteSize,
                     gasLimit: config.blockMaxGasLimit,
-                    lastBlockId: lastBatch.lastBlockId + uint64(params.blocks.length),
+                    lastBlockId: uint64(lastBatch.lastBlockId + params.blocks.length),
                     lastBlockTimestamp: lastBlockTimestamp,
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
                     anchorBlockId: anchorBlockId,
@@ -196,10 +196,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     firstBlockId: lastBatch.lastBlockId + 1
                 });
 
-                // Fork activation shall be L2 block based
-                // This check means first block of this batch is at least equals to shasta block
-                // height
-                require(meta_.firstBlockId >= config.forkHeights.shasta, ForkNotActivated());
+                _checkBatchInForkRange(config, meta_.firstBlockId, info_.lastBlockId);
 
                 if (params.proverAuth.length == 0) {
                     // proposer is the prover
@@ -269,10 +266,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE }}
             }
             stats2.numBatches += 1;
-            require(
-                config.forkHeights.unzen == 0 || info_.lastBlockId < config.forkHeights.unzen,
-                BeyondCurrentFork()
-            );
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -301,11 +294,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.firstBlockId >= config.forkHeights.shasta, ForkNotActivated());
-            require(
-                config.forkHeights.unzen == 0 || meta.firstBlockId < config.forkHeights.unzen,
-                BeyondCurrentFork()
-            );
+            // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
+            // Hence, we only need to verify the firstBlockId of the block in the following check.
+            _checkBatchInForkRange(config, meta.firstBlockId, meta.firstBlockId);
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -750,10 +741,27 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     function _encodeBaseFeeSharings(uint8[2] memory _baseFeeSharings)
-        internal
+        private
         pure
         returns (bytes32)
     {
         return bytes32(uint256(_baseFeeSharings[1]) << 8 | uint256(_baseFeeSharings[0]));
+    }
+
+    /// @dev Check this batch is between current fork height (inclusive) and next fork height
+    /// (exclusive)
+    function _checkBatchInForkRange(
+        Config memory _config,
+        uint64 _firstBlockId,
+        uint64 _lastBlockId
+    )
+        private
+        pure
+    {
+        uint64 _currentForkHeight = LibVerification.currentForkHeight(_config);
+        require(_firstBlockId >= _currentForkHeight, ForkNotActivated());
+
+        uint64 _nextForkHeight = LibVerification.nextForkHeight(_config);
+        require(_nextForkHeight == 0 || _lastBlockId < _nextForkHeight, BeyondCurrentFork());
     }
 }
