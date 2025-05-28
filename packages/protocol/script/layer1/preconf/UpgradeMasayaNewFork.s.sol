@@ -6,7 +6,7 @@ import "test/shared/DeployCapability.sol";
 import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 
-contract DeployHeklaPacayaL1 is DeployCapability {
+contract UpgradeMasayaNewFork is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
 
     modifier broadcast() {
