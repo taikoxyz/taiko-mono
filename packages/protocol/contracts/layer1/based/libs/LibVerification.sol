@@ -10,6 +10,7 @@ import "../ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibVerification {
     using LibMath for uint256;
+    using LibVerification for ITaikoInbox.Config;
 
     struct SyncBlock {
         uint64 batchId;
@@ -30,7 +31,7 @@ library LibVerification {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
 
-            if (currentForkHeight(_config) == 0 || batchId >= currentForkHeight(_config) - 1) {
+            if (_config.currentForkHeight() == 0 || batchId >= _config.currentForkHeight() - 1) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
                 ITaikoInbox.Batch storage batch = _state.batches[slot];
                 uint24 tid = batch.verifiedTransitionId;
@@ -52,7 +53,7 @@ library LibVerification {
 
                     {
                         // avoid stack-too-deep error
-                        uint64 _nextForkHeight = nextForkHeight(_config);
+                        uint64 _nextForkHeight = _config.nextForkHeight();
                         if (_nextForkHeight != 0 && batch.lastBlockId >= _nextForkHeight) break;
                     }
 

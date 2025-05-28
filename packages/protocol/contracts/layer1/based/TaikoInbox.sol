@@ -30,6 +30,7 @@ import "./IProposeBatch.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
+    using LibVerification for ITaikoInbox.Config;
     using LibVerification for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
@@ -758,10 +759,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         private
         pure
     {
-        uint64 _currentForkHeight = LibVerification.currentForkHeight(_config);
-        require(_firstBlockId >= _currentForkHeight, ForkNotActivated());
+        require(_firstBlockId >= _config.currentForkHeight(), ForkNotActivated());
 
-        uint64 _nextForkHeight = LibVerification.nextForkHeight(_config);
+        uint64 _nextForkHeight = _config.nextForkHeight();
         require(_nextForkHeight == 0 || _lastBlockId < _nextForkHeight, BeyondCurrentFork());
     }
 }
