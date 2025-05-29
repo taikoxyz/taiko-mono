@@ -1,9 +1,4 @@
-/**
- * This script connects to multiple networks, queries for BridgedTokenDeployed events
- * from ERC20, ERC721, and ERC1155 vaults, and saves the results in JSON and CSV formats.
- * It handles pagination of blocks and organizes output by network and vault type.
- */
-
+// index.js
 import { JsonRpcProvider, ethers } from "ethers";
 import { networks } from "./networks.js";
 import { findDeploymentBlock, saveJSON, saveCSV } from "./utils.js";
@@ -22,6 +17,21 @@ const BRIDGED_TOKEN_DEPLOYED_ABIS = {
     "event BridgedTokenDeployed(uint64 indexed chainId, address indexed ctoken, address indexed btoken, string ctokenSymbol, string ctokenName)"
   ]
 };
+
+async function getLastScannedBlock(dataDir, networkName, vaultName) {
+  const dir = path.join(dataDir, networkName.replaceAll(" ", "_"), `BridgedTokenDeployed_${vaultName}`);
+  try {
+    const files = await fs.readdir(dir);
+    const chunkFiles = files.filter(f => f.startsWith("chunk_") && f.endsWith(".json"));
+    const lastBlocks = chunkFiles.map(f => {
+      const match = f.match(/^chunk_(\d+)_\d+_BridgedTokenDeployed\.json$/);
+      return match ? parseInt(match[1]) : null;
+    }).filter(Boolean);
+    return lastBlocks.length > 0 ? Math.max(...lastBlocks) + 1 : null;
+  } catch {
+    return null;
+  }
+}
 
 (async () => {
   const allEvents = [];
@@ -55,12 +65,21 @@ const BRIDGED_TOKEN_DEPLOYED_ABIS = {
         { name: "ERC1155", address: erc1155VaultAddress }
       ];
 
-      const chunkSize = 10000;
-      let startBlock = fromBlock;
-      let endBlock = toBlock === "latest" ? latestBlock : Number(toBlock);
-
       const outputDir = "data";
       await fs.mkdir(outputDir, { recursive: true });
+
+      // Determine resume block
+      let startBlock = fromBlock;
+      for (const vault of vaultContracts) {
+        const last = await getLastScannedBlock(outputDir, name, vault.name);
+        if (last !== null && last > startBlock) {
+          startBlock = last;
+        }
+      }
+
+      const chunkSize = 10000;
+      let endBlock = toBlock === "latest" ? latestBlock : Number(toBlock);
+
       const csvHeaders = [
         "network", "chainId", "blockNumber", "txHash", "vaultType", "event",
         "srcChainId", "canonicalToken", "bridgedToken", "symbol", "name", "decimals"
