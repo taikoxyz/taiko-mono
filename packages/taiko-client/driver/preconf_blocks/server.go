@@ -41,7 +41,6 @@ var (
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload, bool) ([]*types.Header, error)
-	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
 // @title Taiko Preconfirmation Block Server API
@@ -78,6 +77,7 @@ type PreconfBlockAPIServer struct {
 	// Last seen proposal
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	latestSeenProposal   *encoding.LastSeenProposal
+
 	// Mutex for P2P message handlers
 	mutex sync.Mutex
 }
@@ -185,7 +185,6 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
-	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 
 	// WebSocket routes
 	s.echo.GET("/ws", s.ws.handleWebSocket)
@@ -209,6 +208,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 	if msg == nil || msg.ExecutionPayload == nil {
 		log.Warn("Empty preconfirmation block payload", "peer", from)
+		metrics.DriverPreconfInvalidEnvelopeCounter.Inc()
 		return nil
 	}
 
@@ -223,6 +223,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
 		"endOfSequencing", msg.EndOfSequencing != nil,
 	)
+	metrics.DriverPreconfEnvelopeCounter.Inc()
 
 	// Check if the payload is valid.
 	if err := s.ValidateExecutionPayload(msg.ExecutionPayload); err != nil {
@@ -234,7 +235,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"error", err,
 		)
-		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
+		metrics.DriverPreconfInvalidEnvelopeCounter.Inc()
 		return nil
 	}
 
@@ -259,8 +260,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 		return nil
 	}
-
-	metrics.DriverPreconfP2PEnvelopeCounter.Inc()
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
@@ -303,6 +302,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return nil
 	}
 
+	metrics.DriverPreconfOnL2UnsafeResponseCounter.Inc()
+
 	// Ignore the message if it is in the cache already.
 	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Debug(
@@ -324,7 +325,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			"error", err,
 		)
-		metrics.DriverPreconfP2PInvalidEnvelopeCounter.Inc()
+		metrics.DriverPreconfInvalidEnvelopeCounter.Inc()
 		return nil
 	}
 
@@ -354,8 +355,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
 		"transactions", len(msg.ExecutionPayload.Transactions),
 	)
-
-	metrics.DriverPreconfP2PResponseEnvelopeCounter.Inc()
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
 	headL1Origin, err := checkMessageBlockNumber(ctx, s.rpc, msg)
@@ -400,6 +399,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	log.Info("🔊 New preconfirmation block request from P2P network", "peer", from, "hash", hash.Hex())
+
+	metrics.DriverPreconfOnL2UnsafeRequestCounter.Inc()
 
 	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
@@ -475,6 +476,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 		"peer", from,
 		"epoch", epoch,
 	)
+
+	metrics.DriverPreconfOnEndOfSequencingRequestCounter.Inc()
 
 	hash, ok := s.sequencingEndedForEpochCache.Get(epoch)
 	if !ok {
@@ -635,6 +638,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		return fmt.Errorf("failed to insert ancient preconfirmation blocks from cache: %w", err)
 	}
 
+	metrics.DriverImportedPreconBlocksFromCacheCounter.Add(float64(len(payloadsToImport)))
+
 	return nil
 }
 
@@ -649,12 +654,13 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 		return nil
 	}
 
+	endBlockID := uint64(childPayloads[len(childPayloads)-1].BlockNumber)
 	log.Info(
 		"Found available child payloads in the cache, start importing",
 		"count", len(childPayloads),
 		"startBlockID", uint64(childPayloads[0].BlockNumber),
 		"startBlockHash", childPayloads[0].BlockHash.Hex(),
-		"endBlockID", uint64(childPayloads[len(childPayloads)-1].BlockNumber),
+		"endBlockID", endBlockID,
 		"endBlockHash", childPayloads[len(childPayloads)-1].BlockHash.Hex(),
 	)
 
@@ -662,6 +668,10 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, childPayloads, true); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
+
+	s.updateHighestUnsafeL2Payload(endBlockID)
+
+	metrics.DriverImportedPreconBlocksFromCacheCounter.Add(float64(len(childPayloads)))
 
 	return nil
 }
@@ -699,7 +709,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	}
 
 	var txs types.Transactions
-	b, err := utils.DecompressPacaya(payload.Transactions[0])
+	b, err := utils.Decompress(payload.Transactions[0])
 	if err != nil {
 		return fmt.Errorf("invalid zlib bytes for transactions: %w", err)
 	}
@@ -794,7 +804,7 @@ func (s *PreconfBlockAPIServer) GetLookahead() *Lookahead {
 }
 
 // CheckLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
-// and checks the  handover window to see if we need to request the end of sequencing
+// and checks the handover window to see if we need to request the end of sequencing
 // block.
 func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
 	s.lookaheadMutex.Lock()
@@ -868,6 +878,8 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 		"lastBlockID", proposal.Pacaya().GetLastBlockID(),
 	)
 	s.latestSeenProposal = proposal
+	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.Pacaya().GetLastBlockID()))
+
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 	if s.latestSeenProposal.PreconfChainReorged {
 		s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
@@ -877,6 +889,7 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 			"lastBlockID", s.highestUnsafeL2PayloadBlockID,
 			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
+		metrics.DriverReorgsByProposalCounter.Inc()
 	}
 }
 
@@ -1018,6 +1031,7 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
 		)
 	}
 	s.highestUnsafeL2PayloadBlockID = blockID
+	metrics.DriverHighestPreconfUnsafePayloadGauge.Set(float64(blockID))
 }
 
 // webSocketSever is a WebSocket server that handles incoming connections,

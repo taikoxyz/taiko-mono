@@ -182,7 +182,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Warn("Failed to check if batch is in canonical chain already", "batchID", meta.GetBatchID(), "err", err)
+				log.Info("Unknown batch for the current canonical chain", "batchID", meta.GetBatchID(), "reason", err)
 			} else if lastBlockHeader != nil {
 				log.Info(
 					"🧬 Known batch in canonical chain",
@@ -367,7 +367,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	}
 
 	// Decompress the transactions list.
-	decompressedTxs, err := utils.DecompressPacaya(executableData.Transactions[0])
+	decompressedTxs, err := utils.Decompress(executableData.Transactions[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
@@ -430,28 +430,6 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
 
-// RemovePreconfBlocks removes preconfirmation blocks from the L2 execution engine.
-func (i *BlocksInserterPacaya) RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	newHead, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(newLastBlockID))
-	if err != nil {
-		return err
-	}
-
-	fc := &engine.ForkchoiceStateV1{HeadBlockHash: newHead.Hash()}
-	fcRes, err := i.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
-	if err != nil {
-		return err
-	}
-	if fcRes.PayloadStatus.Status != engine.VALID {
-		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
-	}
-
-	return nil
-}
-
 // IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
 func (i *BlocksInserterPacaya) IsBasedOnCanonicalChain(
 	ctx context.Context,
@@ -500,7 +478,7 @@ func (i *BlocksInserterPacaya) sendLatestSeenProposal(proposal *encoding.LastSee
 			"Sending latest seen proposal from blocksInserter",
 			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
 			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
-			"preconfChainReoged", proposal.PreconfChainReorged,
+			"preconfChainReorged", proposal.PreconfChainReorged,
 		)
 
 		i.latestSeenProposalCh <- proposal
