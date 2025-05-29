@@ -253,7 +253,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		// As a fallback preconfer, need to enable preconfirmation server
 		latest, err := p.rpc.L2.BlockByNumber(ctx, nil)
 		if err != nil {
-			return fmt.Errorf("failed to get latest preconf block: %w", err)
+			return fmt.Errorf("failed to get the latest block: %w", err)
 		}
 		latestBlockTime := time.Unix(int64(latest.Time()), 0)
 		if time.Since(latestBlockTime) < p.FallbackTimeout {
