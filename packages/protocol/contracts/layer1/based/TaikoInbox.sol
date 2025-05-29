@@ -745,6 +745,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         pure
         returns (bytes32)
     {
+        // The function _encodeBaseFeeSharings encodes the base fee sharing percentages into a bytes32 value.
+        // The lower 8 bits (0-7) are used to store the first element of the _baseFeeSharings array.
+        // The next 8 bits (8-15) are used to store the second element of the _baseFeeSharings array.
+        // This encoding allows for compact storage of two uint8 values within a single bytes32.
         return bytes32(uint256(_baseFeeSharings[1]) << 8 | uint256(_baseFeeSharings[0]));
     }
 
