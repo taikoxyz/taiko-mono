@@ -1,9 +1,9 @@
 ---
-title: TaikoL2
-description: Taiko Alethia protocol page for "TaikoL2.sol".
+title: TaikoAnchor
+description: Taiko Alethia protocol page for "TaikoAnchor.sol".
 ---
 
-[TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.12.0/packages/protocol/contracts/layer2/based/TaikoL2.sol) is a **core smart contract** for the Taiko Alethia rollup, responsible for **cross-layer state synchronization**, **gas pricing via EIP-1559**, and **bridging support**. It ensures L2 remains in sync with L1 and facilitates **secure message verification**.
+[TaikoAnchor](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol) is a **core smart contract** for the Taiko Alethia rollup, responsible for **cross-layer state synchronization**, **gas pricing via EIP-1559**, and **bridging support**. It ensures L2 remains in sync with L1 and facilitates **secure message verification**.
 
 ---
 
@@ -18,21 +18,19 @@ description: Taiko Alethia protocol page for "TaikoL2.sol".
 
 ## Contract Methods
 
-### `anchorV2`
+### `anchorV3`
 
-Anchors **L1 block details** to L2, ensuring state synchronization.
+Anchors the **latest L1 block details to L2** for cross-layer message verification.
 
-| Parameter          | Type      | Description                             |
-| ------------------ | --------- | --------------------------------------- |
-| `_anchorBlockId`   | `uint256` | L1 block ID to anchor.                  |
-| `_anchorStateRoot` | `bytes32` | State root of the specified L1 block.   |
-| `_parentGasUsed`   | `uint256` | Gas used in the parent block.           |
-| `_baseFeeConfig`   | `uint256` | Configuration for base fee calculation. |
+| Parameter          | Type                          | Description                             |
+| ------------------ | ----------------------------- | --------------------------------------- |
+| `_anchorBlockId`   | `uint64`                      | L1 block ID to anchor.                  |
+| `_anchorStateRoot` | `bytes32`                     | State root of the specified L1 block.   |
+| `_parentGasUsed`   | `uint32`                      | Gas used in the parent block.           |
+| `_baseFeeConfig`   | `LibSharedData.BaseFeeConfig` | Configuration for base fee calculation. |
+| `_signalSlots`     | `bytes32[]`                   | The signal slots to mark as received.   |
 
-**Returns**:
-
-- Updates `publicInputHash` and synchronizes chain data.
-- Computes gas parameters using `getBasefeeV2`.
+- Synchronizes chain data.
 
 ---
 
@@ -115,6 +113,8 @@ Emitted when **gas parameters** are updated.
 | `parentGasExcess` | `uint256` | Tracks gas usage exceeding the target for fee adjustments. |
 | `lastSyncedBlock` | `uint256` | Stores the **most recent** L1 block ID synced with L2.     |
 | `l1ChainId`       | `uint256` | Chain ID of **L1** (Ethereum).                             |
+| `parentTimeStamp` | `uint64`  | The last L2 block's timestamp.                             |
+| `parentGasTarget` | `uint64`  | The last L2 block's gas target.                            |
 
 ---
 

@@ -456,64 +456,64 @@
 
 ### forced_inclusion_store
 
-- proxy : 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03
-- impl : 0xcdb25e201Ad3fdcFe16730A6CA2cC0B1Ce2137a2
+- proxy : `0x05d88855361808fA1d7fc28084Ef3fCa191c4e03`
+- impl : `0xcdb25e201Ad3fdcFe16730A6CA2cC0B1Ce2137a2`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x042beff750bfb1b1167a5acc32f68c4565a6e698c162ecff445eaac9fca66fdf`
 
 ### taiko_wrapper
 
-- proxy : 0x9F9D2fC7abe74C79f86F0D1212107692430eef72
-- impl : 0xAdBa78120E85Add0dBD2050dBA0548CEDA81A31b
+- proxy : `0x9F9D2fC7abe74C79f86F0D1212107692430eef72`
+- impl : `0xAdBa78120E85Add0dBD2050dBA0548CEDA81A31b`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0xe0c52c898ce19785fb139e822a9b5a088b374692820bc402eb31e7a6086664e7`
 
 ### proof_verifier
 
-- proxy : 0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1
-- impl : 0x8C520BB75590deaBC30c4fcaFD8778A43E5481b9
+- proxy : `0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1`
+- impl : `0x8C520BB75590deaBC30c4fcaFD8778A43E5481b9`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x67b886b503de0cf84155cfcfe08f841808178bc40101d2dea2155db069121e08`
 
 ### sgx_reth_verifier(Pacaya)
 
-- proxy : 0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136
-- impl : 0x8ADDcf5d4CD7BD9dA1CE62eF84AeE22c9E2BfbA5
+- proxy : `0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136`
+- impl : `0x8ADDcf5d4CD7BD9dA1CE62eF84AeE22c9E2BfbA5`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x89e2ab8f03ee8042c48afb3577a840f9b63be9d88907b7171a590374e6f8e5d3`
 
 ### risc0_reth_verifier(Pacaya)
 
-- proxy : 0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE
-- impl : 0x801878e56A8DA58d6a837006345CDD11a9E6a852
+- proxy : `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE`
+- impl : `0x801878e56A8DA58d6a837006345CDD11a9E6a852`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x8480ac4bcdf12dedf9c79bed7407bd290670d9fe9c867c5354e574c56c5ff48b`
 
 ### sp1_reth_verifier(Pacaya)
 
-- proxy : 0xbee1040D0Aab17AE19454384904525aE4A3602B9
-- impl : 0x35f26e14D0dAeDd1904843370f761C60B891D466
+- proxy : `0xbee1040D0Aab17AE19454384904525aE4A3602B9`
+- impl : `0x35f26e14D0dAeDd1904843370f761C60B891D466`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x88351319725a8f90fcbd22eaaee3b627b21d83fddb86db0014f7d3e194016d4a`
 
 ### sgx_geth_verifier
 
-- proxy : 0x7e6409e9b6c5e2064064a6cC994f9a2e95680782
-- impl : 0xDb7AEe4fA967C2aB0eC28f63C8675224E59340A5
+- proxy : `0x7e6409e9b6c5e2064064a6cC994f9a2e95680782`
+- impl : `0xDb7AEe4fA967C2aB0eC28f63C8675224E59340A5`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x4bfe3199637c49162ce8bdd928a06e2318cd7bfadb9c0ca02ed7304d1599e3e8`
 
 ### sgx_geth_automata
 
-- proxy : 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261
-- impl : 0x5e46443bd131eB6d4c6Fb4849bAD29af9596dd72
+- proxy : `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261`
+- impl : `0x5e46443bd131eB6d4c6Fb4849bAD29af9596dd72`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x7486b942c054eb6641ea701f0835d23fa606accad0e96051791da26c56a10771`
@@ -522,6 +522,7 @@
 
 ### TaikoDAOController
 
-- proxy: `0xfC3C4ca95a8C4e5a587373f1718CD91301d6b2D3`
+- ens: `controller.taiko.eth`
+- proxy: `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`
 - Owner (Taiko DAO): `0x9CDf589C941ee81D75F34d3755671d614f7cf261`
-- impl: `0xd1934807041B168f383870A0d8F565aDe2DF9D7D`
+- impl: `0x4347df63bdC82b8835fC9FF47bC5a71a12cC0f06`

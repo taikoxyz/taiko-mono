@@ -12,14 +12,10 @@ interface IReverseRegistrar {
     function setName(string memory name) external returns (bytes32);
 }
 
-// To print the proposal action data: `P=0002 pnpm proposal`
-// To dryrun the proposal on L1: `P=0002 pnpm proposal:dryrun:l1`
-// To dryrun the proposal on L2: `P=0002 pnpm proposal:dryrun:l2`
-contract Proposal0002 is BuildProposal {
-    // L1 contracts
-    address public constant L1_FOO_CONTRACT = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
-    address public constant L1_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
-
+// To print the proposal action data: `P=0003 pnpm proposal`
+// To dryrun the proposal on L1: `P=0003 pnpm proposal:dryrun:l1`
+// To dryrun the proposal on L2: `P=0003 pnpm proposal:dryrun:l2`
+contract Proposal0003 is BuildProposal {
     // L2 contracts
     address public constant L2_BAR_CONTRACT = 0x0e577Bb67d38c18E4B9508984DA36d6D316ade58;
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x7fBd8DbA7678eDb9eaDf83e204372d8a39F75398;
@@ -35,34 +31,7 @@ contract Proposal0002 is BuildProposal {
         l2GasLimit = 25_000_000;
     }
 
-    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](4);
-
-        // Set the reverse ENS name of the DAOController to "controller.taiko.eth"
-        actions[0] = Controller.Action({
-            target: L1.ENS_REVERSE_REGISTRAR,
-            value: 0,
-            data: abi.encodeCall(IReverseRegistrar.setName, ("controller.taiko.eth"))
-        });
-
-        // Transfer 0.0001 ETH from DAOController to Daniel Wang
-        actions[1] =
-            Controller.Action({ target: L1_DANIEL_WANG_ADDRESS, value: 0.0001 ether, data: "" });
-
-        // Transfer 1 USDC from DAOController to Daniel Wang
-        actions[2] = Controller.Action({
-            target: L1.USDC_TOKEN,
-            value: 0,
-            data: abi.encodeCall(IERC20.transfer, (L1_DANIEL_WANG_ADDRESS, 1e6))
-        });
-
-        // Transfer FooUpgradeable's ownership to Daniel Wang
-        actions[3] = Controller.Action({
-            target: L1_FOO_CONTRACT,
-            value: 0,
-            data: abi.encodeCall(Ownable.transferOwnership, (L1_DANIEL_WANG_ADDRESS))
-        });
-    }
+    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) { }
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](6);
