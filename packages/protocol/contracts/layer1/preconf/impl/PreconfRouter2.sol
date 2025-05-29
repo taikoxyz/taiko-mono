@@ -166,6 +166,8 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                         // current epoch.
                         preconfSlotTimestamp =
                             nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+
+                        _validateWhitelistPreconfer();
                     } else {
                         preconfSlotTimestamp = nextLookahead[0].slotTimestamp;
                         _lookaheadSlot = nextLookahead[0];
@@ -197,14 +199,13 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                     _lookaheadSlot = currLookahead[slotIndex];
                 }
 
+                // Validate the preconfing period
                 require(
                     block.timestamp > prevSlotTimestamp && block.timestamp <= preconfSlotTimestamp,
                     InvalidLookaheadTimestamp()
                 );
 
-                if (nextLookahead.length == 0) {
-                    _validateWhitelistPreconfer();
-                } else {
+                if (_lookaheadSlot.committer != address(0)) {
                     _validateProposer(_lookaheadSlot);
                 }
             }
