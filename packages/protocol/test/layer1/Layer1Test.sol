@@ -40,6 +40,11 @@ contract ConfigurableInbox is TaikoInbox {
         return __config;
     }
 
+    // Helper to reach any arbitrary fork activation configs for tests.
+    function setConfig(ITaikoInbox.Config memory _NewConfig) external {
+        __config = _NewConfig;
+    }
+
     function _calculateTxsHash(
         bytes32 _txListHash,
         BlobParams memory _blobParams
