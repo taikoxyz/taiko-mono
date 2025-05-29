@@ -175,7 +175,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobByteOffset: params.blobParams.byteOffset,
                     blobByteSize: params.blobParams.byteSize,
                     gasLimit: config.blockMaxGasLimit,
-                    lastBlockId: uint64(lastBatch.lastBlockId + params.blocks.length),
+                    lastBlockId: lastBatch.lastBlockId + uint64(params.blocks.length),
                     lastBlockTimestamp: lastBlockTimestamp,
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
                     anchorBlockId: anchorBlockId,
