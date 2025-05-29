@@ -99,7 +99,7 @@ var (
 	}
 	// Preconfirmation related
 	FallbackTimeout = &cli.DurationFlag{
-		Name:     "preconfirmation.fallback.timeout",
+		Name:     "preconfirmation.fallback.forcePushTimeout",
 		Usage:    "Timeout to propose L2 transactions as a fallback preconfer",
 		Category: proposerCategory,
 		Value:    5 * time.Minute,
