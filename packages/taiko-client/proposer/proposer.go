@@ -247,7 +247,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 			return fmt.Errorf("failed to get fallback preconfer address: %w", err)
 		}
 		if fallbackPreconferAddress != p.proposerAddress || fallbackPreconferAddress != p.ProverSetAddress {
-			log.Info("Preconfirmation is running and proposer isn't the fallback preconfer, skip proposing", "time", time.Now())
+			log.Info("Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing", "time", time.Now())
 			return nil
 		}
 		// As a fallback preconfer, need to enable preconfirmation server
