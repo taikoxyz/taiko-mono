@@ -102,7 +102,7 @@ var (
 		Name:     "preconfirmation.fallback.forcePushTimeout",
 		Usage:    "Timeout to propose L2 transactions as a fallback preconfer",
 		Category: proposerCategory,
-		Value:    5 * time.Minute,
+		Value:    2 * time.Minute,
 		EnvVars:  []string{"PRECONFIRMATION_FALLBACK_TIMEOUT"},
 	}
 )
