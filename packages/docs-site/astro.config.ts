@@ -73,16 +73,16 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: "Based rollups", link: "/taiko-alethia-protocol/protocol-design/based-rollups/" },
-                { label: "Contestable rollups (BCR)", link: "/taiko-alethia-protocol/protocol-design/contestable-rollup/" },
-                { label: "Multi-proofs", link: "/taiko-alethia-protocol/protocol-design/multi-proofs/" },
                 { label: "Inception layers", link: "/taiko-alethia-protocol/protocol-design/inception-layers/" },
-                {label: "Based Preconfirmations", link: "/taiko-alethia-protocol/protocol-design/based-preconfirmation/" },
+                { label: "Pacaya fork Taiko Alethia", link: "/taiko-alethia-protocol/protocol-design/pacaya-fork-taiko-alethia/" },
+                { label: "Based preconfirmations", link: "/taiko-alethia-protocol/protocol-design/based-preconfirmation/" },
               ]
             },
             {
               label: "Protocol Architecture",
               collapsed: true,
               items: [
+                { label: "Account abstraction", link: "/taiko-alethia-protocol/protocol-architecture/account-abstraction" },
                 { label: "Block states", link: "/taiko-alethia-protocol/protocol-architecture/block-states" },
                 { label: "Bridging", link: "/taiko-alethia-protocol/protocol-architecture/bridging" },
                 { label: "Economics", link: "/taiko-alethia-protocol/protocol-architecture/economics" },
@@ -93,15 +93,15 @@ export default defineConfig({
               label: "Codebase Analysis",
               collapsed: true,
               items: [
-                {label: "TaikoL1 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol1-contract"},
-                {label: "TaikoL2 Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikol2-contract"},
+                {label: "TaikoInbox Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikoinbox-contract"},
+                {label: "TaikoAnchor Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikoanchor-contract"},
                 {label: "SGXVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/sgxverifier-contract"},
+                {label: "ComposeVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/composeverifier-contract"},
                 {label: "SignalService Contract", link: "/taiko-alethia-protocol/codebase-analysis/signalservice-contract"},
                 {label: "Bridge Contract", link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract"},
               ],
             },
             { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
-            { label: "Pacaya Fork", link: "/taiko-alethia-protocol/pacaya-fork/" },
           ]
         },
         {
@@ -187,12 +187,8 @@ export default defineConfig({
           collapsed: true,
           items: [
             {
-              label: "Alethia addresses",
-              link: "/network-reference/alethia-addresses",
-            },
-            {
-              label: "Hekla addresses",
-              link: "/network-reference/hekla-addresses",
+              label: "Contract addresses",
+              link: "/network-reference/contract-addresses",
             },
             {
               label: "Differences from Ethereum",

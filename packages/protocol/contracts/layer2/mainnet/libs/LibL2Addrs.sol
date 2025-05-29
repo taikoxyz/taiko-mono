@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 /// @title LibL2Addrs
 /// @custom:security-contact security@taiko.xyz
 library LibL2Addrs {
-    address public constant DELEGATE_CONTROLLER = 0x6D840cCbAea6077331A394B9104a7bAfe93AEa4A;
+    address public constant DELEGATE_CONTROLLER = 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C;
     address public constant PERMISSIONLESS_EXECUTOR = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
     address public constant ANCHOR = 0x1670000000000000000000000000000000010001;
     address public constant BRIDGE = 0x1670000000000000000000000000000000000001;

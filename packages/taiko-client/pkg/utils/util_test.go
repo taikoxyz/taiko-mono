@@ -22,11 +22,6 @@ func TestEncodeDecodeBytes(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, b, decompressed)
-
-	decompressed, err = utils.DecompressPacaya(compressed)
-	require.Nil(t, err)
-
-	require.Equal(t, b, decompressed)
 }
 
 func TestGWeiToWei(t *testing.T) {

@@ -1,15 +1,13 @@
 ---
-title: Pacaya Fork
+title: Pacaya fork Taiko Alethia
 description: Taiko Alethia protocol page for the upcoming Pacaya fork.
 ---
 
-## What's Changing?
+import { Aside } from '@astrojs/starlight/components';
 
-The Taiko Alethia protocol in it's current iteration (Ontake fork) utilizes the [based contestable rollup](/taiko-alethia-protocol/protocol-design/contestable-rollup) design. The design has been battle-tested and proven to be secure and cheaper to use than L1 over almost 1M blocks and 653M transactions! However, it has also revealed some limitations to the contestable rollup design specifically with regards to UX.
+The Taiko Alethia protocol has successfully transitioned into the Pacaya fork as of May 21st 2025 UTC!
 
-With this in mind, the Taiko team has been working on a protocol upgrade in conjunction with our partners to address these limitations. The primary driver is being able to support **based preconfirmations**, which will improve the UX by reducing confirmation times drastically; this new feature is however, incompatible with the current contestable rollup design.
-
-Hence, the Taiko Alethia protocol will be undergoing a major upgrade with the upcoming **Pacaya fork**. This page will cover some of the key changes that will be introduced with the fork.
+This entails a full transition into the new batch based protocol, which introduces several key changes in the interest of addressing limitations of the original contestable rollup design that will be covered in this page.
 
 ### Batch Based Protocol
 
@@ -21,7 +19,7 @@ Blocks are now proposed in batches, with each batch capable of containing **zero
 
 In the interest of simplifying the protocol and removing the added security risk that Guardian provers introduce, we have removed proof contestation entirely. This change also conveniently aligns us better as a Stage 1 L2 protocol.
 
-In it's place we are introducing **Multiproving**: every batch will be required to have multiple proofs, which will be verified by a single verifier contract. This verifier contract will handle sub-proof verifiers, and will be responsible for verifying the proofs. The required proofs will be a **sgxGeth** and the original **sgxReth** (Raiko) proof; the sgxGeth proof will be a TEE, and the sgxReth proof will be a TEE/ZK proof. Proposers will have to register some new images to ensure a smooth transition, find out more [here](/taiko-alethia-protocol/pacaya-fork/#upcoming-changes-for-proposers).
+In it's place we are introducing **Multiproving**: every batch will be required to have multiple proofs, which will be verified by a single verifier contract. This verifier contract will handle sub-proof verifiers, and will be responsible for verifying the proofs. The required proofs will be a **sgxGeth** and the original **sgxReth** (Raiko) proof; the sgxGeth proof will be a TEE, and the sgxReth proof will be a TEE/ZK proof. Proposers will have to register some new images to ensure a smooth transition, find out more [here](#upcoming-changes-for-proposers).
 
 Please note that for the upcoming Taiko Hekla upgrade we have temporarily set the sgxGeth proof to be an optimistic proof.
 
@@ -31,17 +29,17 @@ We have also shortened the proving and cooldown windows to 2 hours, with further
 
 The Pacaya fork will contain some major protocol contract changes. Here is a brief overview of the changes:
 
-- **TaikoL1 Contract:** The TaikoL1 contract has been replaced by the [TaikoInbox contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol). The `proposeBlock`, `proveBlock` and `verifyBlock` functions have been replaced in favor of their corresponding batch based functions; the rest of the functions remain the same as current TaikoL1.
+- **TaikoL1 Contract:** The TaikoL1 contract has been replaced by the [TaikoInbox contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol). The `proposeBlock`, `proveBlock` and `verifyBlock` functions have been replaced in favor of their corresponding batch based functions; the rest of the functions remain the same as current TaikoL1.
 
-- **TaikoL2 Contract:** The TaikoL2 contract has been replaced by the [TaikoAnchor contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol). The only new function is the `anchorV3` function, which will be used post Pacaya fork. Everything else remains the same.
+- **TaikoL2 Contract:** The TaikoL2 contract has been replaced by the [TaikoAnchor contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol). The only new function is the `anchorV3` function, which will be used post Pacaya fork. Everything else remains the same.
 
-- **ForcedInclusionStore Contract:** The [ForcedInclusionStore contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer1/forced-inclusion/ForcedInclusionStore.sol) allows the protocol to remain censorship-resistant while in Stage 1 Preconfs. It allows users to submit transactions and force their inclusion irregardless of the preconfers, preventing targeted censorship from malicious preconfers.
+- **ForcedInclusionStore Contract:** The [ForcedInclusionStore contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/forced-inclusion/ForcedInclusionStore.sol) allows the protocol to remain censorship-resistant while in Stage 1 Preconfs. It allows users to submit transactions and force their inclusion irregardless of the preconfers, preventing targeted censorship from malicious preconfers.
 
-- **ComposeVerifier Contract:** The [ComposeVerifier contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/layer1/verifiers/compose/ComposeVerifier.sol) is a new contract that will be used to verify the sgxGeth and sgxReth proofs. It will be responsible for verifying the proofs and ensuring that the batch proofs are valid.
+- **ComposeVerifier Contract:** The [ComposeVerifier contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/verifiers/compose/ComposeVerifier.sol) is a new contract that will be used to verify the sgxGeth and sgxReth proofs. It will be responsible for verifying the proofs and ensuring that the batch proofs are valid.
 
-- **ERC20 Solver Support:** Thanks to Nethermind’s contribution, [ERC20Vault](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.2.0/packages/protocol/contracts/shared/tokenvault/ERC20Vault.sol) now supports solvers for faster ERC20 withdrawals. (Bridge UI support is coming soon.)
+- **ERC20 Solver Support:** Thanks to Nethermind’s contribution, [ERC20Vault](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/shared/tokenvault/ERC20Vault.sol) now supports solvers for faster ERC20 withdrawals. (Bridge UI support is coming soon.)
 
-You can find more release notes [here](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v2.2.0).
+You can find more release notes [here](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v2.3.0).
 
 ### Based Preconfirmations
 
@@ -59,9 +57,13 @@ Read more about Based Preconfirmations [here](/taiko-alethia-protocol/protocol-d
 
 ### Upcoming Changes for Proposers
 
-The move to a batch based protocol necessitates some changes to the liveness bond mechanism. Previously, the liveness bond was set to 125 TAIKO per block: the 125 liveness bond is now per batch, with every block in the batch also having a liveness bond of 5 TAIKO. This may require proposers to adjust their liveness bond strategy.
+The move to a batch based protocol necessitates some changes to the liveness bond mechanism. Previously, the liveness bond was set to 125 TAIKO per block, with a validity bond of 100 TAIKO: the 125 liveness bond is now per batch, and the validity bond has been entirely removed. This may require proposers to adjust their liveness bond strategy.
 
 Proposers will also need to register new raiko images for the upcoming Pacaya fork. The new images are required for the **sgxGeth** proofs, which will be verified by the new verifier contract. The process is the same as the current image registration process, in the steps shown below.
+
+<Aside type="note">
+  As of May 21st 2025 UTC, the Taiko Alethia network has successfully transitioned to the Pacaya fork with multiproving. Provers should ensure they have registered the new images to continue operating smoothly.
+</Aside>
 
 ![Proposer Image Registration](~/assets/content/docs/taiko-alethia-protocol/raiko-registration-flow.webp)
 

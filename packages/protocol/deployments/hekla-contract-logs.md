@@ -206,15 +206,15 @@
 
 ### tier_sgx
 
-- proxy : 0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
-- impl : 0x3c1b6b0F179dab0dE5e11C9B2a531C5c693Fd70C
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9`
+- impl : `0x3c1b6b0F179dab0dE5e11C9B2a531C5c693Fd70C`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on Nov 6, 2024 at commit `0706f0a`
 
 ### risc0_groth16_verifier(Ontake)
 
-- addr : 0x714FD0666B0cee87bFC29A029E2AE66f40F12cE5
+- addr : `0x714FD0666B0cee87bFC29A029E2AE66f40F12cE5`
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
   - upgraded on October 22, 2024 at commit `684a909`
@@ -222,22 +222,22 @@
 
 ### risc0_groth16_verifier(Pacaya)
 
-- addr : 0xf365178fE7D1F34474a0eb90B2A0E8754A2dD3Ce
+- addr : `0xf365178fE7D1F34474a0eb90B2A0E8754A2dD3Ce`
 - logs:
   - deployed on Apr 16, 2025 at commit `9bcf8e5`
 
 ### tier_zkvm_risc0
 
-- proxy : 0x4fEd801C5a876D4289e869cbEfA1E1A448b10714
-- impl : 0xAF9F3B3f9276f24e4143e6247795cf71985C4890
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x4fEd801C5a876D4289e869cbEfA1E1A448b10714`
+- impl : `0xAF9F3B3f9276f24e4143e6247795cf71985C4890`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
   - upgraded on Nov 6, 2024 at commit `0706f0a`
 
 ### sp1_plonk_verifier(Ontake)
 
-- addr : 0x7110bd8909CFC4C31204BA8597882CBFa1F77dC9
+- addr : `0x7110bd8909CFC4C31204BA8597882CBFa1F77dC9`
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
@@ -247,15 +247,15 @@
 
 ### sp1_plonk_verifier(Pacaya)
 
-- addr : 0xaFa7E6aC18572265b026D147c7907b300E35D58E
+- addr : `0xaFa7E6aC18572265b026D147c7907b300E35D58E`
 - logs:
   - deployed on Apr 16, 2025 at commit `9bcf8e5`
 
 ### tier_zkvm_sp1
 
-- proxy : 0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD
-- impl : 0xB83b7f7fA8f4e6332769D123b8C973F485aC4bBc.
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD`
+- impl : `0xB83b7f7fA8f4e6332769D123b8C973F485aC4bBc`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
@@ -263,75 +263,75 @@
 
 ### shared_resolver
 
-- proxy : 0xD8e341467b4a1f83B868a6c279ad7d8660ad861c
-- impl : 0xA8bE5B49Bf5f1877Cd985A39E62D6899b0aaDd74
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0xD8e341467b4a1f83B868a6c279ad7d8660ad861c`
+- impl : `0xA8bE5B49Bf5f1877Cd985A39E62D6899b0aaDd74`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
 ### rollup_address_resolver
 
-- proxy : 0x3C82907B5895DB9713A0BB874379eF8A37aA2A68
-- impl : 0xf887fA8ffFBb289860a6ec6788B787A2E0000Ed4
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x3C82907B5895DB9713A0BB874379eF8A37aA2A68`
+- impl : `0xf887fA8ffFBb289860a6ec6788B787A2E0000Ed4`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
 ### forced_inclusion_store
 
-- proxy : 0x54231533B8d8Ac2f4F9B05377B617EFA9be080Fd
-- impl : 0xbd80216694f84dcabF342BA1A2304601d57A321a
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x54231533B8d8Ac2f4F9B05377B617EFA9be080Fd`
+- impl : `0xbd80216694f84dcabF342BA1A2304601d57A321a`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
 ### taiko_wrapper
 
-- proxy : 0x8698690dEeDB923fA0A674D3f65896B0031BF7c9
-- impl : 0x40D9cE1C32b27e65e5FbEc0ddAf69c852e9282Ae
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x8698690dEeDB923fA0A674D3f65896B0031BF7c9`
+- impl : `0x40D9cE1C32b27e65e5FbEc0ddAf69c852e9282Ae`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
 ### proof_verifier
 
-- proxy : 0x9A919115127ed338C3bFBcdfBE72D4F167Fa9E1D
-- impl : 0xA5B542eEaA24036E0De2Ced405CD8061E6e8DB38
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x9A919115127ed338C3bFBcdfBE72D4F167Fa9E1D`
+- impl : `0xA5B542eEaA24036E0De2Ced405CD8061E6e8DB38`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
 ### sgx_reth_verifier(Pacaya)
 
-- proxy : 0xa8cD459E3588D6edE42177193284d40332c3bcd4
-- impl : 0x7EB7DCd5f7053dD270c85B2388F555FCDFd6e55f
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0xa8cD459E3588D6edE42177193284d40332c3bcd4`
+- impl : `0x7EB7DCd5f7053dD270c85B2388F555FCDFd6e55f`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
 ### risc0_reth_verifier(Pacaya)
 
-- proxy : 0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2
-- impl : 0xe84676980F08631D17BF9b3e59c6b6DeBF0B0F50
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2`
+- impl : `0xe84676980F08631D17BF9b3e59c6b6DeBF0B0F50`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 16, 2025 at commit `9bcf8e5`
 
 ### sp1_reth_verifier(Pacaya)
 
-- proxy : 0x1138aA994477f0880001aa1E8106D749035b6250
-- impl : 0x3002047a5B4f8ef022Cb87e97418dd5112209182
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x1138aA994477f0880001aa1E8106D749035b6250`
+- impl : `0x3002047a5B4f8ef022Cb87e97418dd5112209182`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 16, 2025 at commit `9bcf8e5`
 
 ### sgx_geth_verifier
 
-- proxy : 0x4361B85093720bD50d25236693CA58FD6e1b3a53
-- impl : 0x36d14AFaf49783C4d405773f1934d726A2d55989
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x4361B85093720bD50d25236693CA58FD6e1b3a53`
+- impl : `0x36d14AFaf49783C4d405773f1934d726A2d55989`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 11, 2025 at commit `c58d863`
@@ -339,9 +339,9 @@
 
 ### sgx_geth_automata
 
-- proxy : 0x84af08F56AeA1f847c75bE08c96cDC4811694595
-- impl : 0x9bbd836a3b1901cdc561e22f2bE0c808352BF10E
-- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- proxy : `0x84af08F56AeA1f847c75bE08c96cDC4811694595`
+- impl : `0x9bbd836a3b1901cdc561e22f2bE0c808352BF10E`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on April 2, 2025 at commit `25af05a`
 

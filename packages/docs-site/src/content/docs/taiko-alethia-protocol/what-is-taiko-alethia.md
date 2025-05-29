@@ -13,22 +13,20 @@ Taiko Alethia is an **Ethereum-equivalent, permissionless, based rollup** design
 
 - **Fully Ethereum-equivalent**: Runs an unmodified Ethereum execution layer, making it easy for developers to migrate smart contracts and tooling.
 - **No centralized sequencer**: Ethereum L1 validators naturally order transactions in a decentralized way.
-- **Multi-proof architecture**: Supports ZK proofs, Trusted Execution Environments (TEE), and Guardian proofs, making it more flexible than single-proof rollups.
+- **Multiproving architecture**: Supports ZK proofs and Trusted Execution Environment (TEE) proofs making it more flexible than single-proof rollups.
 - **Configurable proof system**: Can operate as a ZK-rollup, optimistic rollup, or hybrid, depending on security and performance trade-offs.
 - **Decentralized proving & proposing**: Permissionless block proposing and proving, eliminating reliance on whitelisted actors.
 
 ### Key Concepts in Taiko Alethia
 
 - [Based rollup](/taiko-alethia-protocol/protocol-design/based-rollups): A rollup where Ethereum L1 validators sequence blocks, removing the need for a centralized sequencer.
-- [Based contestable rollup](/taiko-alethia-protocol/protocol-design/contestable-rollup): A configurable, multi-proof rollup with hierarchical proving mechanisms to enhance security.
 
 ## How Taiko Alethia Works
 
 At its core, Taiko Alethia is a set of smart contracts deployed on Ethereum L1 that enforce execution rules, manage proofs, and facilitate rollup operations.
 
-- **Proposing blocks**: Transactions are proposed permissionlessly by anyone following Ethereum’s sequencing rules.
-- **Proving blocks**: Provers submit validity proofs (ZK, TEE, or Guardian) to confirm the correctness of proposed blocks.
-- **Verification & contestation**: If a proof is contested, a higher-tier proof can be submitted to verify or dispute the original proof.
+- **Proposing batches**: Transactions are proposed permissionlessly by anyone following Ethereum’s sequencing rules.
+- **Proving batches**: Provers submit validity proofs (TEE + TEE, or ZK + TEE) to confirm the correctness of proposed blocks in a batch.
 
 ---
 
@@ -43,9 +41,9 @@ Taiko Alethia operates as a fully decentralized protocol governed by **DAOs, com
 | **Taiko Community**                      | Open social groups and discussions (Discord, Twitter, forums).                           |
 | **Taiko Labs**                           | Research and development entity supporting the Taiko Alethia protocol.                   |
 | **Taiko Treasury**                       | Collects fees from L2 congestion pricing and distributes funds for development.          |
-| **Taiko DAO (in progress)**              | Governing body managing smart contract upgrades, network parameters, and protocol funds. |
+| **Taiko DAO**              | Governing body managing smart contract upgrades, network parameters, and protocol funds. |
 | **Taiko Foundation**                     | Funds technical development, partnerships, and ecosystem growth.                         |
-| **Taiko Security Council (in progress)** | Handles critical protocol security, Guardian Provers, and emergency network decisions.   |
+| **Taiko Security Council (in progress)** | Handles critical protocol security and emergency network decisions.   |
 
 ---
 
@@ -68,17 +66,9 @@ These services are open-source, meaning anyone can replicate or improve them.
 
 - [Event Indexer](/api-reference/event-indexer) → Tracks rollup transactions & events.
 - [Bridge Relayer](/api-reference/bridge-relayer) → Facilitates trust-minimized bridging.
-- [Taiko Alethia & Hekla P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.9.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
-- [Taiko Alethia Taiko Labs' proposers and provers](/network-reference/alethia-addresses)
+- [Taiko Alethia & Hekla P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.16.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
+- [Taiko Alethia Taiko Labs' proposers and provers](/network-reference/contract-addresses)
 
-### Critical Infrastructure
-
-🚨 These components are trusted until full decentralization is achieved via the DAO. 🚨
-
-- [Taiko Alethia contract owners](/network-reference/alethia-addresses#contract-owners)
-- [Taiko Hekla contract owners](/network-reference/hekla-addresses#contract-owners)
-
-Taiko Alethia is actively **transitioning towards full decentralization**, following **Ethereum's rollup-centric roadmap**.
 
 ---
 
@@ -87,7 +77,7 @@ Taiko Alethia is actively **transitioning towards full decentralization**, follo
 | Feature                        | Traditional Rollups                  | Taiko Alethia                          |
 | ------------------------------ | ------------------------------------ | -------------------------------------- |
 | **Sequencing**                 | Centralized (single sequencer)       | Decentralized (L1 validators sequence) |
-| **Proof System**               | Single proof type (ZK or Optimistic) | Multi-proof (ZK, TEE, Guardian)        |
+| **Proof System**               | Single proof type (ZK or Optimistic) | Multiproving (TEE + TEE or TEE +ZK)    |
 | **Censorship Resistance**      | Operator can censor transactions     | Permissionless transaction inclusion   |
 | **Smart Contract Equivalence** | Modified Ethereum (Geth changes)     | 100% Ethereum-equivalent               |
 | **Decentralization**           | Relies on multisig governance        | DAO-controlled with open participation |

@@ -29,11 +29,11 @@ Join the Discord ([`#errors-faq` channel](https://discord.com/channels/984015101
 
 ### Where can I find the deployed contract addresses for Taiko Hekla?
 
-See [deployed contracts](/network-reference/hekla-addresses) for a list of deployed contract addresses.
+See [deployed contracts](/network-reference/contract-addresses) for a list of deployed contract addresses.
 
 ### Where can I find the deployed contract addresses for Taiko Alethia?
 
-See [deployed contracts](/network-reference/alethia-addresses) for a list of deployed contract addresses.
+See [deployed contracts](/network-reference/contract-addresses) for a list of deployed contract addresses.
 
 ### I ran a node during a previous testnet do I need to do anything different?
 
@@ -53,4 +53,4 @@ You can use the official [Taiko bridge](https://bridge.hekla.taiko.xyz/) to send
 
 ### How can I get the L1 block number from L2 on Taiko Hekla?
 
-You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/hekla-addresses#taiko-l2-taiko-hekla-contracts). You can do the same for [Taiko Alethia](/network-reference/alethia-addresses#taiko-alethia-l2-contracts).
+You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/contract-addresses#taiko-hekla-contract-addresses). You can do the same for [Taiko Alethia](/network-reference/contract-addresses#taiko-alethia-contract-addresses).

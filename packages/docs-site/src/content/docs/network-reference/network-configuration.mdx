@@ -7,56 +7,21 @@ import {Aside} from '@astrojs/starlight/components';
 
 ## Cooldown Window, Proving Window and Bonds
 
-This segment lists the cooldown windows and proving windows for every tier of proof in the Taiko Alethia protocol.
+This segment lists the cooldown windows and proving windows in Taiko Alethia.
 
 The cooldown window describes how long after the proof has been provided that the block is verified.
 
 The proving window describes how long a prover has to provide a proof for a block after they have been assigned the block (i.e. a block has been proposed with them as the assigned prover).
 
-You can find all the corresponding values below for Taiko Alethia in the [deployed TierProviderBase contract](https://etherscan.io/address/0x44d307a9ec47aA55a7a30849d065686753C86Db6#code#F3#L1)!
+You can find all the corresponding values below for Taiko Alethia in the deployed [TaikoInbox contract](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/mainnet-contract-logs-L1.md?plain=1#L231)
 
-| Tier              | Cooldown Window | Proving Window | Validity Bond |
+| Tier              | Cooldown Window | Proving Window | Liveness Bond |
 | ----------------- | --------------- | -------------- | ------------- |
-| SGX               | 240 minutes     | 300 minutes    | 100 TAIKO     |
-| ZK                | 240 minutes     | 420 minutes    | 150 TAIKO     |
-| SGX & ZK          | 240 minutes     | 420 minutes    | 150 TAIKO     |
-| Guardian Minority | 240 minutes     | 120 minutes    | 200 TAIKO     |
-| Guardian          | 480 minutes     | 0 minutes      | 0 TAIKO       |
-
-You can find all the corresponding values below for Taiko Hekla in the [most recent protocol release](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/tiers/TierProviderBase.sol)
-
-| Tier              | Cooldown Window | Proving Window | Validity Bond |
-| ----------------- | --------------- | -------------- | ------------- |
-| Optimistic        | 1440 minutes    | 60 minutes     | 75 TAIKO      |
-| SGX               | 240 minutes     | 60 minutes     | 150 TAIKO     |
-| TDX               | 240 minutes     | 60 minutes     | 150 TAIKO     |
-| ZK SP1            | 240 minutes     | 120 minutes    | 225 TAIKO     |
-| ZK R0             | 240 minutes     | 120 minutes    | 225 TAIKO     |
-| Guardian Minority | 240 minutes     | 120 minutes    | 300 TAIKO     |
-| Guardian          | 480 minutes     | 0 minutes      | 0 TAIKO       |
-
-## Tier configuration (Taiko Alethia)
-
-You can view the full `MainnetTierRouter` tier configuration [here](https://etherscan.io/address/0x44d307a9ec47aA55a7a30849d065686753C86Db6#code):
-
-![taiko alethia proof tiers](~/assets/content/docs/network-reference/proof-tier-config-alethia.webp)
-
-Currently, the ZK coverage of our prover is set to 15% (8% SP1, 7% R0). We will be increasing this percentage in the coming days.
-
-You can keep track of the actual overall coverage over the past seven days with [this Dune query](https://dune.com/queries/4809870) visible on our dashboard.
+| TEE + TEE         | 120 minutes     | 120 minutes    | 125 TAIKO     |
+| TEE + ZK          | 120 minutes     | 120 minutes    | 125 TAIKO     |
 
 If the function of the bonds is not clear to you, please find out more [here](/resources/terminology#key-takeaways).
 
-## Network configuration (Taiko Alethia)
+## Current ZK Proof Coverage
 
-You can view the full network configuration by visiting the TaikoL1 contract on Etherscan [here](https://etherscan.io/address/0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a#readProxyContract). Then connect your wallet, and select "Read as Proxy". You can then see the config details for the network.
-
-## Tier configuration (Taiko Hekla)
-
-You can view the full post ontake fork `HeklaTierRouter` tier configuration [here](https://holesky.etherscan.io/address/0x6A666F2C56a6559dB0BD8866Bd0c0dDB9ec03c66#code):
-
-![taiko hekla proof tiers](~/assets/content/docs/network-reference/proof-tier-config-hekla.webp)
-
-## Network configuration (Taiko Hekla)
-
-You can view the full network configuration by visiting the TaikoL1 contract on Etherscan [here](https://holesky.etherscan.io/address/0x79C9109b764609df928d16fC4a91e9081F7e87DB#readProxyContract). Then connect your wallet, and select "Read as Proxy". You can then see the config details for the network.
+Currently, the ZK coverage of our prover is set to 40%. You can keep track of the actual overall coverage over the past seven days with [this Dune query](https://dune.com/queries/4809870) visible on our dashboard.
