@@ -235,7 +235,9 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         uint256 collateralWei = _timestamp >= block.timestamp
             ? operatorData_.collateralWei
-            : urc.getHistoricalCollateral(_registrationRoot, _timestamp - LibPreconfConstants.SECONDS_IN_SLOT);
+            : urc.getHistoricalCollateral(
+                _registrationRoot, _timestamp - LibPreconfConstants.SECONDS_IN_SLOT
+            );
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
         // Validate the operator's slashing commitment
