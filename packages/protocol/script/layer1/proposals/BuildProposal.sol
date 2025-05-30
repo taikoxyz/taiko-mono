@@ -114,10 +114,15 @@ abstract contract BuildProposal is Script {
     }
 
     function _buildAllActions() private pure returns (Controller.Action[] memory allActions_) {
-        (uint64 l2ExecutionId, uint32 l2GasLimit) = proposalConfig();
-
         Controller.Action[] memory l1Actions = buildL1Actions();
-        allActions_ = new Controller.Action[](l1Actions.length + 1);
+        uint256 len = l1Actions.length;
+
+        Controller.Action[] memory l2Actions = buildL2Actions();
+        if (l2Actions.length > 0) {
+            len += 1;
+        }
+
+        allActions_ = new Controller.Action[](len);
 
         for (uint256 i; i < l1Actions.length; ++i) {
             allActions_[i] = l1Actions[i];
@@ -125,26 +130,29 @@ abstract contract BuildProposal is Script {
             require(l1Actions[i].target != L1.DAO_CONTROLLER, TargetIsDAOController());
         }
 
-        Controller.Action[] memory l2Actions = buildL2Actions();
-        for (uint256 i; i < l2Actions.length; ++i) {
-            require(l2Actions[i].target != address(0), TargetIsZeroAddress());
+        if (l2Actions.length > 0) {
+            for (uint256 i; i < l2Actions.length; ++i) {
+                require(l2Actions[i].target != address(0), TargetIsZeroAddress());
+            }
+
+            (uint64 l2ExecutionId, uint32 l2GasLimit) = proposalConfig();
+
+            IBridge.Message memory message;
+            message.srcOwner = L1.DAO_CONTROLLER;
+            message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
+            message.destChainId = 167_000;
+            message.gasLimit = l2GasLimit;
+            message.to = L2.DELEGATE_CONTROLLER;
+            message.data = abi.encodeCall(
+                IMessageInvocable.onMessageInvocation,
+                (abi.encodePacked(l2ExecutionId, abi.encode(l2Actions)))
+            );
+
+            allActions_[l1Actions.length] = Controller.Action({
+                target: L1.BRIDGE,
+                value: 0,
+                data: abi.encodeCall(IBridge.sendMessage, (message))
+            });
         }
-
-        IBridge.Message memory message;
-        message.srcOwner = L1.DAO_CONTROLLER;
-        message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
-        message.destChainId = 167_000;
-        message.gasLimit = l2GasLimit;
-        message.to = L2.DELEGATE_CONTROLLER;
-        message.data = abi.encodeCall(
-            IMessageInvocable.onMessageInvocation,
-            (abi.encodePacked(l2ExecutionId, abi.encode(l2Actions)))
-        );
-
-        allActions_[l1Actions.length] = Controller.Action({
-            target: L1.BRIDGE,
-            value: 0,
-            data: abi.encodeCall(IBridge.sendMessage, (message))
-        });
     }
 }
