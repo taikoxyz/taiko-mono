@@ -17,10 +17,10 @@ contract Proposal0001 is BuildProposal {
         returns (uint64 l2ExecutionId, uint32 l2GasLimit)
     {
         l2ExecutionId = 0;
-        l2GasLimit = 1000000;
+        l2GasLimit = 1_000_000;
     }
 
-    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) { 
+    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](1);
         actions[0] = Controller.Action({
             target: L1_FOO_CONTRACT,
@@ -31,7 +31,7 @@ contract Proposal0001 is BuildProposal {
 
     function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](1);
-         actions[0] = Controller.Action({
+        actions[0] = Controller.Action({
             target: L2_BAR_CONTRACT,
             value: 0,
             data: abi.encodeCall(Ownable.transferOwnership, (address(0x1)))
