@@ -221,7 +221,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     {
         operatorData_ = urc.getOperatorData(_registrationRoot);
         require(
-            operatorData_.registeredAt != 0 && operatorData_.registeredAt <= _timestamp,
+            operatorData_.registeredAt != 0 && operatorData_.registeredAt < _timestamp,
             OperatorHasNotRegistered()
         );
         require(
@@ -235,13 +235,13 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         uint256 collateralWei = _timestamp >= block.timestamp
             ? operatorData_.collateralWei
-            : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
+            : urc.getHistoricalCollateral(_registrationRoot, _timestamp - LibPreconfConstants.SECONDS_IN_SLOT);
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
         // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
         require(
-            slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt <= _timestamp,
+            slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt < _timestamp,
             OperatorHasNotOptedIn()
         );
         require(
