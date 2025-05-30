@@ -14,6 +14,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     IRegistry public immutable urc;
     address public immutable protector;
     address public immutable preconfSlasher;
+    address public immutable preconfRouter;
 
     // Lookahead buffer that stores the hashed lookahead entries for an epoch
     mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => LookaheadHash lookaheadHash) public
@@ -21,10 +22,18 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     uint256[49] private __gap;
 
-    constructor(address _urc, address _protector, address _preconfSlasher) EssentialContract() {
+    constructor(
+        address _urc,
+        address _protector,
+        address _preconfSlasher,
+        address _preconfRouter
+    )
+        EssentialContract()
+    {
         urc = IRegistry(_urc);
         protector = _protector;
         preconfSlasher = _preconfSlasher;
+        preconfRouter = _preconfRouter;
     }
 
     function init(address _owner) external initializer {
@@ -40,23 +49,29 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         nonReentrant
         returns (bytes26 lookaheadHash_)
     {
-        bool isPostedByProtector = msg.sender == protector;
         LookaheadSlot[] memory lookaheadSlots;
 
-        if (isPostedByProtector) {
+        bool isLookaheadRequired_ = isLookaheadRequired();
+
+        if (_registrationRoot == bytes32(0)) {
+            // If the registration root is 0, the lookahead is posted by a whitelist preconfer
+            // (via preconf router) or it is posted the protector.
+            if (msg.sender == preconfRouter) {
+                require(isLookaheadRequired_, LookaheadNotRequired());
+            } else {
+                require(msg.sender == protector, NotProtectorOrPreconfRouter());
+            }
             lookaheadSlots = abi.decode(_data, (LookaheadSlot[]));
-        } else if (isLookaheadRequired()) {
+        } else {
+            require(isLookaheadRequired_, LookaheadNotRequired());
+
             // Validate the lookahead poster's operator status within the URC
             lookaheadSlots = _validateLookaheadPoster(
                 _registrationRoot, abi.decode(_data, (ISlasher.SignedCommitment))
             );
-        } else {
-            revert LookaheadNotRequired();
         }
 
-        return _updateLookahead(
-            LibPreconfUtils.getEpochTimestamp(1), lookaheadSlots, isPostedByProtector
-        );
+        return _updateLookahead(LibPreconfUtils.getEpochTimestamp(1), lookaheadSlots);
     }
 
     // View and Pure functions
@@ -104,8 +119,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     function _updateLookahead(
         uint256 _nextEpochTimestamp,
-        LookaheadSlot[] memory _lookaheadSlots,
-        bool _isPostedByProtector
+        LookaheadSlot[] memory _lookaheadSlots
     )
         internal
         returns (bytes26 lookaheadHash_)
@@ -172,9 +186,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         lookaheadHash_ = LibPreconfUtils.calculateLookaheadHash(_nextEpochTimestamp, lookaheadSlots);
         _setLookaheadHash(_nextEpochTimestamp, lookaheadHash_);
 
-        emit LookaheadPosted(
-            _isPostedByProtector, _nextEpochTimestamp, lookaheadHash_, lookaheadSlots
-        );
+        emit LookaheadPosted(_nextEpochTimestamp, lookaheadHash_, lookaheadSlots);
     }
 
     function _setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) internal {

@@ -43,6 +43,7 @@ interface ILookaheadStore {
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
+    error NotProtectorOrPreconfRouter();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
     error OperatorHasNotOptedIn();
@@ -56,16 +57,13 @@ interface ILookaheadStore {
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
-        bool indexed isPostedByProtector,
-        uint256 indexed epochTimestamp,
-        bytes32 lookaheadHash,
-        LookaheadSlot[] lookaheadSlot
+        uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlot
     );
 
     /// @notice Allows a registered operator to post the lookahead for the next epoch.
     /// @param _registrationRoot The registration root of the posting-operator in the URC.
     /// @param _data The signed commitment containing the lookahead data, or the lookahead data if
-    /// posted by the protector.
+    /// posted by the protector or a whitelist preconfer (via preconf router).
     /// @return lookaheadHash_ The lookahead hash.
     function updateLookahead(
         bytes32 _registrationRoot,
