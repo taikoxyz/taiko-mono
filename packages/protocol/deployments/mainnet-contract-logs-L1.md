@@ -12,6 +12,8 @@
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449`
 - owner: `admin.taiko.eth`
+- TODO:
+- stop using it by upgrade Bridge, and vaults impl
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
@@ -411,6 +413,8 @@
 - proxy: `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`
 - impl: `0xFca4F0Ab7B95EEf2e3A60EF2Bc0c42DdAA62E66D`
 - owner: `admin.taiko.eth`
+- TODO:
+  - rename as only_resolver, this should be the only resolver
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - bond_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
@@ -436,6 +440,8 @@
 - proxy: `0x5A982Fb1818c22744f5d7D36D0C4c9f61937b33a`
 - impl: `0xE78659fbF234c84C909Cf317D84edc2f6C0D8413`
 - owner: `admin.taiko.eth`
+- TODO:
+  - remove this and use only_resolver
 - names:
   - bond_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
