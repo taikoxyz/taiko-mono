@@ -16,10 +16,11 @@ This script extracts `BridgedTokenDeployed` events from Taiko's bridge vault con
 
 ### Prerequisites
 
-- Node.js v18+
+- Node.js v22+
 - Install dependencies:
 
 ```bash
+nvm use 22
 npm install ethers
 ```
 
