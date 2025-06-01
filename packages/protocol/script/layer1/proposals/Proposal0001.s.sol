@@ -9,13 +9,14 @@ import "./BuildProposal.sol";
 contract Proposal0001 is BuildProposal {
     address public constant L1_FOO_CONTRACT = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_BAR_CONTRACT = 0x0e577Bb67d38c18E4B9508984DA36d6D316ade58;
+    address public constant ALICE = address(0x1);
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](1);
         actions[0] = Controller.Action({
             target: L1_FOO_CONTRACT,
             value: 0,
-            data: abi.encodeCall(Ownable.transferOwnership, (address(0x1)))
+            data: abi.encodeCall(Ownable.transferOwnership, (ALICE))
         });
     }
 
@@ -31,7 +32,7 @@ contract Proposal0001 is BuildProposal {
         actions[0] = Controller.Action({
             target: L2_BAR_CONTRACT,
             value: 0,
-            data: abi.encodeCall(Ownable.transferOwnership, (address(0x1)))
+            data: abi.encodeCall(Ownable.transferOwnership, (ALICE))
         });
     }
 }
