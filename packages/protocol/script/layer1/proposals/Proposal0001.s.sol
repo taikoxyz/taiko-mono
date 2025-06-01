@@ -10,16 +10,6 @@ contract Proposal0001 is BuildProposal {
     address public constant L1_FOO_CONTRACT = 0x4c234082E57d7f82AB8326A338d8F17FAbEdbd97;
     address public constant L2_BAR_CONTRACT = 0x0e577Bb67d38c18E4B9508984DA36d6D316ade58;
 
-    function proposalConfig()
-        internal
-        pure
-        override
-        returns (uint64 l2ExecutionId, uint32 l2GasLimit)
-    {
-        l2ExecutionId = 0;
-        l2GasLimit = 1_000_000;
-    }
-
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](1);
         actions[0] = Controller.Action({
@@ -29,7 +19,14 @@ contract Proposal0001 is BuildProposal {
         });
     }
 
-    function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
+    function buildL2Actions()
+        internal
+        pure
+        override
+        returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
+    {
+        l2ExecutionId = 0;
+        l2GasLimit = 1_000_000;
         actions = new Controller.Action[](1);
         actions[0] = Controller.Action({
             target: L2_BAR_CONTRACT,

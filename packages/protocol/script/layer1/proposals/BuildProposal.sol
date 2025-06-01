@@ -36,15 +36,12 @@ abstract contract BuildProposal is Script {
         }
     }
 
-    function proposalConfig()
+    function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
+    function buildL2Actions()
         internal
         pure
         virtual
-        returns (uint64 l2ExecutionId, uint32 l2GasLimit)
-    { }
-
-    function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
-    function buildL2Actions() internal pure virtual returns (Controller.Action[] memory);
+        returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory);
 
     function logProposalAction(string memory proposalId) internal {
         Controller.Action[] memory allActions = _buildAllActions();
@@ -95,7 +92,9 @@ abstract contract BuildProposal is Script {
             DelegateControllerIncorrectDaoController()
         );
 
-        Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(abi.encode(buildL2Actions()));
+        (,, Controller.Action[] memory l2Actions) = buildL2Actions();
+
+        Controller(payable(L2.DELEGATE_CONTROLLER)).dryrun(abi.encode(l2Actions));
     }
 
     function buildUpgradeAction(
@@ -117,7 +116,8 @@ abstract contract BuildProposal is Script {
         Controller.Action[] memory l1Actions = buildL1Actions();
         uint256 len = l1Actions.length;
 
-        Controller.Action[] memory l2Actions = buildL2Actions();
+        (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory l2Actions) =
+            buildL2Actions();
         if (l2Actions.length > 0) {
             len += 1;
         }
@@ -134,8 +134,6 @@ abstract contract BuildProposal is Script {
             for (uint256 i; i < l2Actions.length; ++i) {
                 require(l2Actions[i].target != address(0), TargetIsZeroAddress());
             }
-
-            (uint64 l2ExecutionId, uint32 l2GasLimit) = proposalConfig();
 
             IBridge.Message memory message;
             message.srcOwner = L1.DAO_CONTROLLER;
