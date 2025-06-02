@@ -69,6 +69,8 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 		return err
 	}
 
+	log.Info("Genesis height", "height", genesisHeight, "nodeGenesisHash", nodeGenesis.Hash())
+
 	var (
 		l2GenesisHash common.Hash
 		filterOpts    = &bind.FilterOpts{Start: genesisHeight, End: &genesisHeight, Context: ctxWithTimeout}
@@ -82,6 +84,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
 	if protocolConfigs.ForkHeightsPacaya() == 0 {
 		// Fetch the genesis `BatchesVerified` event.
+		log.Info("Filtering batchesVerified events from TaikoInbox contract")
 		iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
 		if err != nil {
 			return err
@@ -93,10 +96,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 			return iter.Error()
 		}
 	} else if protocolConfigs.ForkHeightsOntake() == 0 {
+		log.Info("Filtering blockVerifiedV2 events from TaikoInbox contract")
 		if l2GenesisHash, err = c.filterGenesisBlockVerifiedV2(ctx, filterOpts, taikoInbox); err != nil {
 			return err
 		}
 	} else {
+		log.Info("Filtering blockVerified events from TaikoInbox contract")
 		if l2GenesisHash, err = c.filterGenesisBlockVerified(ctx, filterOpts, taikoInbox); err != nil {
 			return err
 		}
@@ -130,7 +135,7 @@ func (c *Client) filterGenesisBlockVerifiedV2(
 ) (common.Hash, error) {
 	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
 	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to create lagacy TaikoL1 client: %w", err)
+		return common.Hash{}, fmt.Errorf("failed to create legacy TaikoL1 client: %w", err)
 	}
 
 	// Fetch the genesis `BlockVerifiedV2` event.
@@ -145,7 +150,7 @@ func (c *Client) filterGenesisBlockVerifiedV2(
 		return common.Hash{}, iter.Error()
 	}
 
-	return common.Hash{}, fmt.Errorf("failed to find genesis block verified event")
+	return common.Hash{}, fmt.Errorf("failed to find genesis block verified V2 event")
 }
 
 // filterGenesisBlockVerified fetches the genesis block verified
