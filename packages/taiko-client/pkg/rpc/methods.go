@@ -81,6 +81,8 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 		return err
 	}
 
+	log.Info("Protocol configs", "forkHeightsPacaya", protocolConfigs.ForkHeightsPacaya(), "forkHeightsOntake", protocolConfigs.ForkHeightsOntake())
+
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
 	if protocolConfigs.ForkHeightsPacaya() == 0 {
 		// Fetch the genesis `BatchesVerified` event.
