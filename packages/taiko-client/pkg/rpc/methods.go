@@ -82,9 +82,10 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 		return err
 	}
 
-	log.Info("Protocol configs", "forkHeightsPacaya", protocolConfigs.ForkHeightsPacaya(), "forkHeightsOntake", protocolConfigs.ForkHeightsOntake())
-
-	if c.L2.ChainID.Uint64() == 167009 {
+	var chainIDHekla uint64 = 167009
+	// hekla has a specific block verified event that never made it to other chains.
+	// we need to check for it explicitly here.
+	if c.L2.ChainID.Uint64() == chainIDHekla {
 		event, err := hekla.FilterBlockVerifiedHekla(
 			ctx,
 			c.L1.EthClient(),
