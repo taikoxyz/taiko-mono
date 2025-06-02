@@ -173,6 +173,7 @@ func (c *Client) filterGenesisBlockVerified(
 		return common.Hash{}, err
 	}
 	if iter.Next() {
+		log.Info("Found genesis block verified event", "num", iter.Event.BlockId.Uint64())
 		return iter.Event.BlockHash, nil
 	}
 	if iter.Error() != nil {
