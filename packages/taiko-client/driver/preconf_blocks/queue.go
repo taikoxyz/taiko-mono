@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
 // maxTrackedPayloads is the maximum number of prepared payloads the execution
@@ -45,6 +47,7 @@ func (q *payloadQueue) put(id uint64, payload *eth.ExecutionPayload) {
 		payload: payload,
 	}
 	q.totalCached++
+	metrics.DriverPreconfEnvelopeCachedCounter.Inc()
 }
 
 // get retrieves a previously stored payload item or nil if it does not exist.

@@ -39,15 +39,18 @@ contracts_layer1=(
 "contracts/layer1/forced-inclusion/TaikoWrapper.sol:TaikoWrapper"
 "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol:ForcedInclusionStore"
 "contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
+"contracts/layer1/preconf/impl/PreconfRouter2.sol:PreconfRouter2"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
+"contracts/layer1/preconf/impl/PreconfSlasher.sol:PreconfSlasher"
 "contracts/layer1/governance/TaikoDAOController.sol:TaikoDAOController"
 )
 
 # Layer 2 contracts
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
-"contracts/layer2/DelegateOwner.sol:DelegateOwner"
+"contracts/layer2/hekla/DelegateOwner.sol:DelegateOwner"
+"contracts/layer2/mainnet/DelegateController.sol:DelegateController"
 "contracts/layer2/based/anchor/TaikoAnchor.sol:TaikoAnchor"
 )
 

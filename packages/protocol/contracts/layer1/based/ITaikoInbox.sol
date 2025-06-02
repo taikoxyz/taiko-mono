@@ -54,6 +54,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
+        // anchorBlockId is used only by the anchor transaction in the last block in the batch.
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
@@ -94,6 +95,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
+        uint64 firstBlockId;
     }
 
     /// @notice Struct representing transition to be proven.
@@ -147,11 +149,15 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 lastUnpausedAt;
     }
 
+    /// @notice Struct holding the fork heights.
+    /// @dev All for heights are block based.
     struct ForkHeights {
-        uint64 ontake; // v2, measured with block number.
-        uint64 pacaya; // v3, measured with the batch Id, not block number.
-        uint64 shasta; // v4, measured with the batch Id, not block number.
-        uint64 unzen; // v5, measured with the batch Id, not block number.
+        uint64 ontake;
+        uint64 pacaya;
+        uint64 shasta;
+        uint64 unzen;
+        uint64 etna;
+        uint64 fuji;
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.

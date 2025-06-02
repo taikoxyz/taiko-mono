@@ -22,8 +22,8 @@ var (
 	l2Endpoint       = os.Getenv("L2_WS")
 	l2CheckPoint     = os.Getenv("L2_HTTP")
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
-	taikoL1          = os.Getenv("TAIKO_INBOX")
-	taikoL2          = os.Getenv("TAIKO_ANCHOR")
+	taikoInbox       = os.Getenv("TAIKO_INBOX")
+	taikoAnchor      = os.Getenv("TAIKO_ANCHOR")
 )
 
 func (s *DriverTestSuite) TestNewConfigFromCliContext() {
@@ -36,8 +36,8 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(l1BeaconEndpoint, c.L1BeaconEndpoint)
 		s.Equal(l2Endpoint, c.L2Endpoint)
 		s.Equal(l2EngineEndpoint, c.L2EngineEndpoint)
-		s.Equal(taikoL1, c.TaikoL1Address.String())
-		s.Equal(taikoL2, c.TaikoL2Address.String())
+		s.Equal(taikoInbox, c.TaikoInboxAddress.String())
+		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
@@ -53,8 +53,8 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.TaikoL1Address.Name, taikoL1,
-		"--" + flags.TaikoL2Address.Name, taikoL2,
+		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",
@@ -92,8 +92,8 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
-		&cli.StringFlag{Name: flags.TaikoL1Address.Name},
-		&cli.StringFlag{Name: flags.TaikoL2Address.Name},
+		&cli.StringFlag{Name: flags.TaikoInboxAddress.Name},
+		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
@@ -138,8 +138,8 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.TaikoL1Address.Name, taikoL1,
-		"--" + flags.TaikoL2Address.Name, taikoL2,
+		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",

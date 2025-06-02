@@ -15,7 +15,7 @@ import "./OntakeAnchor.sol";
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract PacayaAnchor is OntakeAnchor {
+abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -197,10 +197,8 @@ abstract contract PacayaAnchor is OntakeAnchor {
         return _blockhashes[_blockId];
     }
 
-    /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
-    /// Layer 2 (L2).
-    /// @return True if the contract is operating on L1, false if on L2.
-    function v4IsOnL1() external pure returns (bool) {
+    /// @inheritdoc ITaiko
+    function v4IsInbox() external pure returns (bool) {
         return false;
     }
 

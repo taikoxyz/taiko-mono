@@ -15,7 +15,7 @@ abstract contract InboxTestBase is Layer1Test {
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
     uint256 genesisBlockProposedIn;
-    uint256 private __blocksPerBatch;
+    uint256 internal __blocksPerBatch;
 
     function v4GetConfig() internal pure virtual returns (ITaikoInbox.Config memory) {
         ITaikoInbox.ForkHeights memory forkHeights;

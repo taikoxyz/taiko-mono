@@ -3,7 +3,7 @@ title: SignalService
 description: Taiko Alethia protocol page for "SignalService.sol".
 ---
 
-[SignalService](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.12.0/packages/protocol/contracts/shared/signal/SignalService.sol) is a **cross-chain signaling contract** that enables **secure message passing** Taiko Alethia. It allows applications to **send signals**, **synchronize chain data**, and **verify signals using Merkle proofs**. The contract ensures that cross-chain messages are **securely persisted and verifiable** without introducing additional trust assumptions.
+[SignalService](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/shared/signal/SignalService.sol) is a **cross-chain signaling contract** that enables **secure message passing** Taiko Alethia. It allows applications to **send signals**, **synchronize chain data**, and **verify signals using Merkle proofs**. The contract ensures that cross-chain messages are **securely persisted and verifiable** without introducing additional trust assumptions.
 
 ## Features
 

@@ -36,7 +36,7 @@ contract MainnetInbox is TaikoInbox {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 4,
-            maxAnchorHeightOffset: 64,
+            maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 gasIssuancePerSecond: 5_000_000,
@@ -61,7 +61,14 @@ contract MainnetInbox is TaikoInbox {
     }
 
     function _getForkHeights() internal pure virtual returns (ITaikoInbox.ForkHeights memory) {
-        return ITaikoInbox.ForkHeights({ ontake: 538_304, pacaya: 1_166_000, shasta: 0, unzen: 0 });
+        return ITaikoInbox.ForkHeights({
+            ontake: 538_304,
+            pacaya: 1_166_000,
+            shasta: 0,
+            unzen: 0,
+            etna: 0,
+            fuji: 0
+        });
     }
 
     /// @dev Never change the following two values!!!
