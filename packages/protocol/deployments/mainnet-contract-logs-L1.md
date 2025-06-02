@@ -13,7 +13,7 @@
 - impl: `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449`
 - owner: `admin.taiko.eth`
 - TODO:
-- stop using it by upgrade Bridge, and vaults impl
+   - stop using it by upgrade Bridge, and vaults impl
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
