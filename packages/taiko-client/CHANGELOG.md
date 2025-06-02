@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.0...taiko-alethia-client-v1.6.1) (2025-06-02)
+
+
+### Bug Fixes
+
+* **taiko-client:** filter genesis block verified for hekla ([#19576](https://github.com/taikoxyz/taiko-mono/issues/19576)) ([e76d61f](https://github.com/taikoxyz/taiko-mono/commit/e76d61fa5241a7853d64ec083b2ac06ea4485d47))
+
 ## [1.6.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.5.0...taiko-alethia-client-v1.6.0) (2025-05-31)
 
 
