@@ -168,7 +168,7 @@ func (c *Client) filterGenesisBlockVerified(
 	}
 
 	// Fetch the genesis `BlockVerified` event.
-	iter, err := client.FilterBlockVerified(ops, []*big.Int{common.Big0}, nil)
+	iter, err := client.FilterBlockVerified(ops, nil, nil)
 	if err != nil {
 		return common.Hash{}, err
 	}
