@@ -323,10 +323,11 @@
 
 #### sp1_remote_verifier
 
-- impl: `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371`
+- impl: `0xff5adab685362dc4c33536a65af5873738d1216b`
 - logs:
   - deployed on Nov 8, 2024 @commit`0b11101`
   - deployed on Jan 13, 2025 @commit`a58852f`
+  - deployed on Jun 3, 2025 at commit `52bc719`
 
 #### automata_dcap_attestation
 
@@ -448,7 +449,7 @@
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
   - risc0_groth16_verifier: `0x48E32eFbe22e180A3FFe617f4955cD83B983dd98`
-  - sp1_remote_verifier: `0x68593ad19705E9Ce919b2E368f5Cb7BAF04f7371`
+  - sp1_remote_verifier: `0xff5adab685362dc4c33536a65af5873738d1216b`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - prover_set: `0xB8826B144eB895eFE2923b61b3b117B1298A9526`
   - sgx_geth_automata: `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261`
@@ -502,10 +503,11 @@
 ### sp1_reth_verifier(Pacaya)
 
 - proxy : `0xbee1040D0Aab17AE19454384904525aE4A3602B9`
-- impl : `0x35f26e14D0dAeDd1904843370f761C60B891D466`
+- impl : `0x2e17ac86cafc1db939c9942e478f92bf0e548ee7`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x88351319725a8f90fcbd22eaaee3b627b21d83fddb86db0014f7d3e194016d4a`
+  - upgraded on Jun 3, 2025 at commit `52bc719` @tx `` //TODO
 
 ### sgx_geth_verifier
 
