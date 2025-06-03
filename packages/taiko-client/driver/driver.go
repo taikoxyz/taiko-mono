@@ -196,7 +196,10 @@ func (d *Driver) Start() error {
 		log.Warn("Skip P2P discovery process")
 	}
 
-	go d.cacheLookaheadLoop()
+	// only cache lookahead loop if we actually are running a signer
+	if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
+		go d.cacheLookaheadLoop()
+	}
 
 	return nil
 }
