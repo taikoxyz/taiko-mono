@@ -244,6 +244,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 }
             }
 
+            _debitBond(info_.proposer, config.provabilityBond);
+
             {
                 Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
 
