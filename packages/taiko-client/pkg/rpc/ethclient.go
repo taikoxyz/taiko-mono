@@ -69,6 +69,10 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 	}, nil
 }
 
+func (c *EthClient) EthClient() *ethclient.Client {
+	return c.ethClient.Client
+}
+
 // BlockByHash returns the given full block.
 //
 // Note that loading full blocks requires two requests. Use HeaderByHash
