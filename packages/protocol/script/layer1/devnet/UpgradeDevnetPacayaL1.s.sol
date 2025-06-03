@@ -129,6 +129,7 @@ contract UpgradeDevnetPacayaL1 is DeployCapability {
             new DevnetInbox(
                 LibNetwork.TAIKO_DEVNET,
                 2 hours,
+                6 hours,
                 taikoWrapper,
                 proofVerifier,
                 taikoToken,
