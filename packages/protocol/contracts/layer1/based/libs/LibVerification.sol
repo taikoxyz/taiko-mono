@@ -90,9 +90,9 @@ library LibVerification {
                             // prover is rewarded with 1/2 of the liveness bond.
                             bondToReturn = batch.livenessBond / 2;
                         } else {
-                            // prover is rewarded with 1/2 of the liveness bond and 4/5 of the
+                            // prover is rewarded with 1/2 of the liveness bond and 1/2 of the
                             // provability bond.
-                            bondToReturn = batch.livenessBond / 2 + _config.provabilityBond * 4 / 5;
+                            bondToReturn = (batch.livenessBond + _config.provabilityBond) / 2;
                         }
 
                         creditBond(_state, ts.prover, bondToReturn);
