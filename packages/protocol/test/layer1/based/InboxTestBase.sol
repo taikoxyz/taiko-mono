@@ -342,10 +342,7 @@ abstract contract InboxTestBase is Layer1Test {
                 );
                 console2.log(unicode"│    │    └── prover:", ts.prover);
 
-                console2.log(
-                    unicode"│    │    └── inProvingWindow:",
-                    ts.inProvingWindow ? "Y" : "N"
-                );
+                console2.log(unicode"│    │    └── proofTiming:", uint8(ts.proofTiming));
                 console2.log(unicode"│    │    └── createdAt:", ts.createdAt);
             }
         }

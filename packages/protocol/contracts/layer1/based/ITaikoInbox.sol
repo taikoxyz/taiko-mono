@@ -105,6 +105,13 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 stateRoot;
     }
 
+    enum ProofTiming {
+        OutOfExtendedProvingWindow, // 0
+        InProvingWindow, // 1
+        InExtendedProvingWindow // 2
+
+    }
+
     //  @notice Struct representing transition storage
     /// @notice 4 slots used.
     struct TransitionState {
@@ -112,7 +119,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 blockHash;
         bytes32 stateRoot;
         address prover;
-        bool inProvingWindow;
+        uint8 proofTiming;
         uint48 createdAt;
     }
 
@@ -120,7 +127,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     struct Batch {
         bytes32 metaHash; // slot 1
         uint64 lastBlockId; // slot 2
-        uint96 reserved3;
+        uint96 provabilityBond;
         uint96 livenessBond;
         uint64 batchId; // slot 3
         uint64 lastBlockTimestamp;

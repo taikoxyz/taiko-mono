@@ -263,7 +263,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 // SSTORE #3 {{
                 batch.lastBlockId = info_.lastBlockId;
-                batch.reserved3 = 0;
+                batch.provabilityBond = config.provabilityBond;
                 batch.livenessBond = config.livenessBond;
                 // SSTORE }}
             }
@@ -376,18 +376,34 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
             }
 
-            ts.inProvingWindow = inProvingWindow;
-            ts.prover = inProvingWindow ? meta.prover : msg.sender;
+            {
+                uint256 proposedAt = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
+                if (block.timestamp <= proposedAt + config.provingWindow) {
+                    ts.proofTiming = uint8(ITaikoInbox.ProofTiming.InProvingWindow);
+                    ts.prover = meta.prover;
+                } else if (block.timestamp <= proposedAt + config.extendedProvingWindow) {
+                    ts.proofTiming = uint8(ITaikoInbox.ProofTiming.InExtendedProvingWindow);
+                    ts.prover = meta.prover;
+                } else {
+                    ts.proofTiming = uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow);
+                    ts.prover = meta.prover;
+                }
+            }
+
             ts.createdAt = uint48(block.timestamp);
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
 
+                // The prover for the first transition is responsible for placing the provability
+                // if the transition is within extended proving window.
                 if (
                     ts.prover != meta.proposer
-                        && block.timestamp < meta.proposedAt + config.extendedProvingWindow
+                        && ts.proofTiming != uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow)
                 ) {
-                    _debitBond(meta.prover, config.provabilityBond);
+                    uint96 provabilityBond = batch.provabilityBond;
+                    _debitBond(meta.prover, provabilityBond);
+                    state.creditBond(meta.proposer, provabilityBond);
                 }
             } else {
                 state.transitionIds[meta.batchId][tran.parentHash] = tid;

@@ -26,7 +26,7 @@ contract HeklaInbox is MainnetInbox {
         bytes32 _blockHash,
         bytes32 _stateRoot,
         address _prover,
-        bool _inProvingWindow
+        uint8 _proofTiming
     )
         external
         onlyOwner
@@ -39,7 +39,7 @@ contract HeklaInbox is MainnetInbox {
             _blockHash,
             _stateRoot,
             _prover,
-            _inProvingWindow
+            _proofTiming
         );
     }
 
