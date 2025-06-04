@@ -80,7 +80,6 @@ library LibVerification {
 
                     {
                         uint96 bondToReturn;
-
                         if (ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InProvingWindow)) {
                             // all liveness bond is returned to the prover, this is not a reward.
                             bondToReturn = batch.livenessBond;
