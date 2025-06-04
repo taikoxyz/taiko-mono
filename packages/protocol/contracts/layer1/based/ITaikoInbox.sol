@@ -73,7 +73,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
-        address proposer;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;
         uint32 blobByteOffset;
@@ -92,6 +91,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
         bytes32 infoHash;
+        address proposer;
         address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client

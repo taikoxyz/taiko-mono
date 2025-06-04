@@ -169,7 +169,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobHashes: new bytes32[](0), // to be initialised later
                     extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
                     coinbase: params.coinbase,
-                    proposer: params.proposer,
                     proposedIn: uint64(block.number),
                     blobCreatedIn: params.blobParams.createdIn,
                     blobByteOffset: params.blobParams.byteOffset,
@@ -190,7 +189,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
-                    prover: info_.proposer,
+                    proposer: params.proposer,
+                    prover: params.proposer,
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp),
                     firstBlockId: lastBatch.lastBlockId + 1
@@ -221,7 +221,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     if (auth.feeToken == bondToken) {
                         // proposer pay the prover fee with bond tokens
-                        _debitBond(info_.proposer, auth.fee);
+                        _debitBond(meta_.proposer, auth.fee);
 
                         // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                         // if not then add the diff to the bond balance
@@ -235,16 +235,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     } else {
                         _debitBond(meta_.prover, config.livenessBond);
 
-                        if (info_.proposer != meta_.prover) {
+                        if (meta_.proposer != meta_.prover) {
                             IERC20(auth.feeToken).safeTransferFrom(
-                                info_.proposer, meta_.prover, auth.fee
+                                meta_.proposer, meta_.prover, auth.fee
                             );
                         }
                     }
                 }
             }
 
-            _debitBond(info_.proposer, config.provabilityBond);
+            _debitBond(meta_.proposer, config.provabilityBond);
 
             {
                 Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -382,6 +382,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
+
+                if (
+                    ts.prover != meta.proposer
+                        && block.timestamp < meta.proposedAt + config.extendedProvingWindow
+                ) {
+                    _debitBond(meta.prover, config.provabilityBond);
+                }
             } else {
                 state.transitionIds[meta.batchId][tran.parentHash] = tid;
             }
