@@ -383,10 +383,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     ts.prover = meta.prover;
                 } else if (block.timestamp <= proposedAt + config.extendedProvingWindow) {
                     ts.proofTiming = uint8(ITaikoInbox.ProofTiming.InExtendedProvingWindow);
-                    ts.prover = meta.prover;
+                    ts.prover = msg.sender;
                 } else {
                     ts.proofTiming = uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow);
-                    ts.prover = meta.prover;
+                    ts.prover = msg.sender;
                 }
             }
 
