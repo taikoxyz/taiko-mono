@@ -507,7 +507,7 @@
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x88351319725a8f90fcbd22eaaee3b627b21d83fddb86db0014f7d3e194016d4a`
-  - upgraded on Jun 3, 2025 at commit `52bc719` @tx `` //TODO
+  - upgraded on Jun 3, 2025 at commit `52bc719` @tx `0xbdc86ada3808a5987cd1f4bbc49ecd2d7e577bf90642956442a3d14cffa827ec`
 
 ### sgx_geth_verifier
 
