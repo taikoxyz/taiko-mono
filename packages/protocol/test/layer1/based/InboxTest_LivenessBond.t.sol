@@ -4,13 +4,15 @@ pragma solidity ^0.8.24;
 import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
-contract InboxTest_BondMechanics is InboxTestBase {
+contract InboxTest_LivenessBond is InboxTestBase {
     function setUpOnEthereum() internal override {
         bondToken = deployBondToken();
         super.setUpOnEthereum();
     }
 
-    function test_inbox_bonds_debit_and_credit_proved_by_proposer_in_proving_window() external {
+    function test_inbox_livenessbonds_debit_and_credit_proved_by_proposer_in_proving_window()
+        external
+    {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -30,7 +32,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
     }
 
-    function test_inbox_bonds_debit_and_credit_proved_by_non_proposer_in_proving_window()
+    function test_inbox_livenessbonds_debit_and_credit_proved_by_non_proposer_in_proving_window()
         external
     {
         vm.warp(1_000_000);
@@ -53,7 +55,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Bob), 0);
     }
 
-    function test_inbox_bonds_half_returned_to_proposer_out_of_proving_window() external {
+    function test_inbox_livenessbonds_half_returned_to_proposer_out_of_proving_window() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -74,7 +76,9 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond / 2);
     }
 
-    function test_inbox_bonds_half_returned_to_non_proposer_out_of_proving_window() external {
+    function test_inbox_livenessbonds_half_returned_to_non_proposer_out_of_proving_window()
+        external
+    {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -96,7 +100,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Bob), config.livenessBond / 2);
     }
 
-    function test_inbox_bonds_multiple_blocks_per_batch() external transactBy(Alice) {
+    function test_inbox_livenessbonds_multiple_blocks_per_batch() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](2);
 
