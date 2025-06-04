@@ -82,7 +82,9 @@ library LibVerification {
                         uint96 bondToReturn;
                         if (ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InProvingWindow)) {
                             // all liveness bond is returned to the prover, this is not a reward.
-                            bondToReturn = batch.livenessBond;
+                            bondToReturn = (tid == 1)
+                                ? batch.livenessBond + batch.provabilityBond
+                                : batch.livenessBond;
                         } else if (
                             ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InExtendedProvingWindow)
                         ) {
@@ -91,7 +93,7 @@ library LibVerification {
                         } else {
                             // prover is rewarded with 1/2 of the liveness bond and 1/2 of the
                             // provability bond.
-                            bondToReturn = (batch.livenessBond + _config.provabilityBond) / 2;
+                            bondToReturn = (batch.livenessBond + batch.provabilityBond) / 2;
                         }
 
                         creditBond(_state, ts.prover, bondToReturn);

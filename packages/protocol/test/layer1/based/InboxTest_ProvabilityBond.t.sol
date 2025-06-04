@@ -18,27 +18,29 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         config_.extendedProvingWindow = 4 hours;
     }
 
-    // function test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_proving_window()
-    //     external
-    // {
-    //     vm.warp(1_000_000);
+    function test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_proving_window()
+        external
+    {
+        vm.warp(1_000_000);
 
-    //     uint256 initialBondBalance = 100_000 ether;
-    //     uint256 bondBalance = 1000 ether;
+        uint256 initialBondBalance = 1_000_000 ether;
+        uint256 bondBalance = 100_000 ether;
 
-    //     setupBondTokenState(Alice, initialBondBalance, bondBalance);
+        setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
-    //     ITaikoInbox.Config memory config = v4GetConfig();
+        ITaikoInbox.Config memory config = v4GetConfig();
 
-    //     vm.prank(Alice);
-    //     uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-    //     assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
+        vm.prank(Alice);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        assertEq(
+            inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond - config.provabilityBond
+        );
 
-    //     vm.prank(Alice);
-    //     _proveBatchesWithCorrectTransitions(batchIds);
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
-    //     assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
-    // }
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
+    }
 
     // function
     // test_inbox_provability_bond_debit_and_credit_proved_by_non_proposer_in_proving_window()
