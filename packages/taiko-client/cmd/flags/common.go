@@ -85,7 +85,7 @@ var (
 	TaikoTokenAddress = &cli.StringFlag{
 		Name:     "taikoToken",
 		Usage:    "TaikoToken contract `address`",
-		Required: true,
+		Value:    rpc.ZeroAddress.Hex(),
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
@@ -155,6 +155,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
+	InboxAddress = &cli.StringFlag{
+		Name:     "inbox",
+		Usage:    "Inbox contract `address`",
+		Value:    rpc.ZeroAddress.Hex(),
+		Category: commonCategory,
+		EnvVars:  []string{"INBOX"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -174,6 +181,7 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
+	InboxAddress,
 }
 
 // MergeFlags merges the given flag slices.

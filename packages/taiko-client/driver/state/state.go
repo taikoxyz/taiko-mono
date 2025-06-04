@@ -134,6 +134,7 @@ func (s *State) eventLoop(ctx context.Context) {
 				"lastVerifiedBatchId", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
+			metrics.DriverL2VerifiedHeightGauge.Set(float64(e.BatchId))
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
 			s.l1HeadsFeed.Send(newHead)

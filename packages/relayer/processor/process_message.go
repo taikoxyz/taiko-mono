@@ -204,7 +204,7 @@ func (p *Processor) processMessage(
 
 	_, err = p.sendProcessMessageCall(ctx, msgBody.ID, msgBody.Event, encodedSignalProof)
 	if err != nil {
-		return false, msgBody.TimesRetried, err
+		return strings.Contains(err.Error(), "nonce too low"), msgBody.TimesRetried, err
 	}
 
 	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{

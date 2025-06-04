@@ -1,6 +1,7 @@
 package proposer
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -80,6 +82,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+			BridgeAddress:               common.HexToAddress(os.Getenv("BRIDGE")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -460,6 +463,173 @@ func (s *ProposerTestSuite) TestStartClose() {
 	s.Nil(s.p.Start())
 	s.cancel()
 	s.NotPanics(func() { s.p.Close(s.p.ctx) })
+}
+
+func (s *ProposerTestSuite) TestBridgeMessageMonitoring() {
+	// Start the proposer first to ensure subscription is active
+	s.Nil(s.p.Start())
+	defer func() {
+		s.cancel()
+		s.NotPanics(func() { s.p.Close(s.p.ctx) })
+	}()
+
+	bridgeAddr := s.p.Config.ClientConfig.BridgeAddress
+	s.NotEqual(bridgeAddr, common.Address{}, "Bridge address should not be zero")
+	log.Info("Using Bridge address for test", "address", bridgeAddr.Hex())
+
+	// Get the Bridge contract ABI
+	bridgeABI, err := bridge.BridgeMetaData.GetAbi()
+	s.Nil(err)
+
+	// Get the sendMessage method
+	sendMessageMethod := bridgeABI.Methods["sendMessage"]
+	s.NotNil(sendMessageMethod.ID, "Failed to get sendMessage method ID")
+
+	// Helper function to create a Bridge message transaction
+	createBridgeMessageTx := func(nonce uint64) *types.Transaction {
+		testData := append(sendMessageMethod.ID, testutils.RandomBytes(100)...)
+
+		// Get current base fee
+		header, err := s.p.rpc.L1.HeaderByNumber(context.Background(), nil)
+		s.Nil(err)
+		baseFee := header.BaseFee
+
+		// Get chain ID
+		chainID := s.p.rpc.L1.ChainID
+
+		// Create a signed transaction with very low gas price to keep it pending
+		gasFeeCap := new(big.Int).Add(baseFee, big.NewInt(1)) // Set max fee per gas just slightly above base fee
+		gasTipCap := big.NewInt(1)                            // Set priority fee (tip) very low
+
+		signer := types.LatestSignerForChainID(chainID)
+		tx := types.NewTx(&types.DynamicFeeTx{
+			ChainID:   chainID,
+			Nonce:     nonce,
+			To:        &bridgeAddr,
+			Value:     common.Big1,
+			Gas:       100000,
+			GasFeeCap: gasFeeCap,
+			GasTipCap: gasTipCap,
+			Data:      testData,
+		})
+
+		signedTx, err := types.SignTx(tx, signer, s.TestAddrPrivKey)
+		s.Nil(err)
+
+		err = s.p.rpc.L1.SendTransaction(context.Background(), signedTx)
+		s.Nil(err)
+
+		log.Info(
+			"Sent Bridge message transaction",
+			"hash", signedTx.Hash().Hex(),
+			"from", s.TestAddr.Hex(),
+			"to", bridgeAddr.Hex(),
+			"nonce", nonce,
+			"value", signedTx.Value(),
+			"gasFeeCap", gasFeeCap,
+			"gasTipCap", gasTipCap,
+		)
+
+		return signedTx
+	}
+
+	// Helper function to wait for transaction processing
+	waitForProcessing := func() {
+		time.Sleep(2 * time.Second)
+	}
+
+	s.Run("Valid Bridge Message Transaction", func() {
+		testNonce, err := s.p.rpc.L1.NonceAt(context.Background(), s.TestAddr, nil)
+		s.Nil(err)
+
+		signedTx := createBridgeMessageTx(testNonce)
+		waitForProcessing()
+
+		// Verify the transaction was detected and stored
+		s.p.bridgeMsgMu.RLock()
+		detected := s.p.pendingBridgeMessages[signedTx.Hash()]
+		s.p.bridgeMsgMu.RUnlock()
+
+		s.NotNil(detected, "Bridge message transaction should be detected")
+		s.Equal(signedTx.Hash(), detected.Hash(), "Detected transaction hash should match sent transaction")
+		s.Equal(bridgeAddr, *detected.To(), "Detected transaction should be to Bridge contract")
+		s.True(bytes.HasPrefix(detected.Data(), sendMessageMethod.ID), "Transaction should have sendMessage selector")
+	})
+
+	s.Run("Non-Bridge Transaction", func() {
+		testNonce, err := s.p.rpc.L1.NonceAt(context.Background(), s.TestAddr, nil)
+		s.Nil(err)
+
+		randomAddr := common.BytesToAddress(testutils.RandomBytes(20))
+		nonBridgeTx, err := testutils.AssembleAndSendTestTx(
+			s.p.rpc.L1,
+			s.TestAddrPrivKey,
+			testNonce,
+			&randomAddr,
+			common.Big1,
+			testutils.RandomBytes(100),
+		)
+		s.Nil(err)
+		s.NotNil(nonBridgeTx, "Non-bridge transaction should not be nil")
+
+		waitForProcessing()
+
+		// Verify the non-Bridge transaction was not detected
+		s.p.bridgeMsgMu.RLock()
+		notDetected := s.p.pendingBridgeMessages[nonBridgeTx.Hash()]
+		s.p.bridgeMsgMu.RUnlock()
+
+		s.Nil(notDetected, "Non-Bridge transaction should not be detected")
+	})
+
+	s.Run("Invalid Bridge Transaction", func() {
+		testNonce, err := s.p.rpc.L1.NonceAt(context.Background(), s.TestAddr, nil)
+		s.Nil(err)
+
+		invalidSelectorTx, err := testutils.AssembleAndSendTestTx(
+			s.p.rpc.L1,
+			s.TestAddrPrivKey,
+			testNonce,
+			&bridgeAddr,
+			common.Big1,
+			testutils.RandomBytes(100),
+		)
+		s.Nil(err)
+		s.NotNil(invalidSelectorTx, "Invalid selector transaction should not be nil")
+
+		waitForProcessing()
+
+		// Verify the Bridge transaction without sendMessage selector was not detected
+		s.p.bridgeMsgMu.RLock()
+		notDetectedInvalid := s.p.pendingBridgeMessages[invalidSelectorTx.Hash()]
+		s.p.bridgeMsgMu.RUnlock()
+
+		s.Nil(notDetectedInvalid, "Bridge transaction without sendMessage selector should not be detected")
+	})
+
+	s.Run("Cleanup After Proposal", func() {
+		// First create a valid bridge message to ensure we have something to clean up
+		testNonce, err := s.p.rpc.L1.NonceAt(context.Background(), s.TestAddr, nil)
+		s.Nil(err)
+
+		createBridgeMessageTx(testNonce)
+		waitForProcessing()
+
+		// Verify we have a pending message
+		s.p.bridgeMsgMu.RLock()
+		initialMsgs := len(s.p.pendingBridgeMessages)
+		s.p.bridgeMsgMu.RUnlock()
+		s.Greater(initialMsgs, 0, "Should have pending messages before cleanup")
+
+		// Test that detected transactions are cleared after being proposed
+		s.Nil(s.p.ProposeOp(context.Background()))
+
+		s.p.bridgeMsgMu.RLock()
+		remainingMsgs := len(s.p.pendingBridgeMessages)
+		s.p.bridgeMsgMu.RUnlock()
+
+		s.Equal(0, remainingMsgs, "Pending messages should be cleared after proposing")
+	})
 }
 
 func TestProposerTestSuite(t *testing.T) {

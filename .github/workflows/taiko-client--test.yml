@@ -61,6 +61,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.1.0
 
       - name: Set up Go
         uses: actions/setup-go@v5

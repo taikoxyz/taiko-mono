@@ -31,6 +31,12 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 		return nil
 	}
 
+	// Skip setting allowance if taiko token contract is not found.
+	if p.rpc.PacayaClients.TaikoToken == nil {
+		log.Info("Skipping setting allowance, taiko token contract not found")
+		return nil
+	}
+
 	// Check the existing allowance for the contract.
 	allowance, err := p.rpc.PacayaClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctx}, p.ProverAddress(), contract)
 	if err != nil {

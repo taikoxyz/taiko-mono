@@ -1,15 +1,18 @@
 package proposer
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -54,6 +58,12 @@ type Proposer struct {
 
 	ctx context.Context
 	wg  sync.WaitGroup
+
+	forceProposeOnce bool // TODO: to verify that this works as expected
+
+	// Bridge message monitoring
+	pendingBridgeMessages map[common.Hash]*types.Transaction
+	bridgeMsgMu           sync.RWMutex
 }
 
 // InitFromCli initializes the given proposer instance based on the command line flags.
@@ -81,6 +91,13 @@ func (p *Proposer) InitFromConfig(
 	if p.rpc, err = rpc.NewClient(p.ctx, cfg.ClientConfig); err != nil {
 		return fmt.Errorf("initialize rpc clients error: %w", err)
 	}
+
+	// Check L1 RPC connection
+	blockNum, err := p.rpc.L1.BlockNumber(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to connect to L1 RPC: %w", err)
+	}
+	log.Info("Successfully connected to L1 RPC", "currentBlock", blockNum)
 
 	// Protocol configs
 	if p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx}); err != nil {
@@ -131,6 +148,44 @@ func (p *Proposer) InitFromConfig(
 		cfg.FallbackToCalldata,
 	)
 
+	if (cfg.ClientConfig.InboxAddress != common.Address{}) {
+		if err := p.subscribeToSignalSentEvent(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// subscribeToSignalSentEvent subscribes to SignalSent event on eth l1 RPC
+func (p *Proposer) subscribeToSignalSentEvent() error {
+	logChan := make(chan types.Log)
+	sub, err := p.rpc.L1.SubscribeFilterLogs(p.ctx, ethereum.FilterQuery{
+		Addresses: []common.Address{p.Config.InboxAddress},
+		Topics:    [][]common.Hash{{common.HexToHash("0x0ad2d108660a211f47bf7fb43a0443cae181624995d3d42b88ee6879d200e973")}},
+	}, logChan)
+	if err != nil {
+		return fmt.Errorf("subscribe error: %w", err)
+	}
+
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		defer sub.Unsubscribe()
+
+		for {
+			select {
+			case <-p.ctx.Done():
+				return
+			case err := <-sub.Err():
+				log.Error("subscription error", "err", err)
+				return
+			case vLog := <-logChan:
+				log.Info("SignalSent event received", "log", vLog)
+				p.forceProposeOnce = true
+			}
+		}
+	}()
 	return nil
 }
 
@@ -138,6 +193,11 @@ func (p *Proposer) InitFromConfig(
 func (p *Proposer) Start() error {
 	p.wg.Add(1)
 	go p.eventLoop()
+
+	// Start monitoring L1 Bridge messages
+	p.wg.Add(1)
+	go p.monitorBridgeMessages()
+
 	return nil
 }
 
@@ -164,6 +224,99 @@ func (p *Proposer) eventLoop() {
 				log.Error("Proposing operation error", "error", err)
 				continue
 			}
+		}
+	}
+}
+
+// monitorBridgeMessages monitors L1 transaction pool for Bridge sendMessage calls
+func (p *Proposer) monitorBridgeMessages() {
+	defer p.wg.Done()
+
+	// Create a channel for new pending transactions
+	pendingTxs := make(chan common.Hash)
+
+	// Subscribe to new pending transactions using RPC client
+	sub, err := p.rpc.L1.Client.Subscribe(p.ctx, "eth", pendingTxs, "newPendingTransactions")
+	if err != nil {
+		log.Error("Failed to subscribe to pending transactions", "error", err)
+		return
+	}
+	defer sub.Unsubscribe()
+
+	// Initialize pending messages map
+	p.pendingBridgeMessages = make(map[common.Hash]*types.Transaction)
+
+	// Get the Bridge contract ABI
+	bridgeABI, err := bridge.BridgeMetaData.GetAbi()
+	if err != nil {
+		log.Error("Failed to get Bridge ABI", "error", err)
+		return
+	}
+
+	// Get the sendMessage method
+	sendMessageMethod := bridgeABI.Methods["sendMessage"]
+	if sendMessageMethod.ID == nil {
+		log.Error("Failed to get sendMessage method ID")
+		return
+	}
+
+	log.Debug("Starting Bridge message monitoring",
+		"bridgeAddress", p.Config.ClientConfig.BridgeAddress.Hex(),
+		"sendMessageSelector", common.BytesToHash(sendMessageMethod.ID).Hex())
+
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case err := <-sub.Err():
+			log.Error("Subscription error", "error", err)
+			return
+		case txHash := <-pendingTxs:
+			log.Debug("New pending transaction detected", "hash", txHash.Hex())
+
+			// Skip if we already have this transaction
+			p.bridgeMsgMu.RLock()
+			if _, exists := p.pendingBridgeMessages[txHash]; exists {
+				p.bridgeMsgMu.RUnlock()
+				continue
+			}
+			p.bridgeMsgMu.RUnlock()
+
+			// Get transaction details
+			tx, isPending, err := p.rpc.L1.TransactionByHash(p.ctx, txHash)
+			if err != nil {
+				log.Error("Failed to get transaction details", "hash", txHash, "error", err)
+				continue
+			}
+
+			// Skip if transaction is no longer pending (as in, has been mined already) because with the fast
+			// L1-to-L2 bridging, proposer will propose the sendMessage transactions as part of its block
+			if !isPending {
+				log.Debug("Transaction is no longer pending", "hash", txHash.Hex())
+				continue
+			}
+
+			// Check if transaction is to Bridge contract
+			if tx.To() == nil || *tx.To() != p.Config.ClientConfig.BridgeAddress {
+				log.Debug("Transaction is not to Bridge contract", "hash", txHash.Hex())
+				continue
+			}
+
+			// Check if transaction data starts with sendMessage selector
+			if len(tx.Data()) < 4 || !bytes.Equal(tx.Data()[:4], sendMessageMethod.ID) {
+				log.Debug("Transaction data does not start with sendMessage selector", "hash", txHash.Hex())
+				log.Debug("Transaction data comparison",
+					"hash", txHash.Hex(),
+					"actual", common.BytesToHash(tx.Data()[:4]).Hex(),
+					"expected", common.BytesToHash(sendMessageMethod.ID).Hex())
+				continue
+			}
+
+			// Add to pending messages
+			p.bridgeMsgMu.Lock()
+			p.pendingBridgeMessages[txHash] = tx
+			log.Info("New Bridge sendMessage transaction detected in mempool", "hash", txHash)
+			p.bridgeMsgMu.Unlock()
 		}
 	}
 }
@@ -249,6 +402,22 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
+
+	// Add pending Bridge messages to the transaction list
+	txList := types.Transactions{}
+	p.bridgeMsgMu.Lock()
+	if len(p.pendingBridgeMessages) > 0 {
+		log.Info("Pending Bridge sendMessage transactions", "count", len(p.pendingBridgeMessages))
+		for _, tx := range p.pendingBridgeMessages {
+			txList = append(txList, tx)
+		}
+		log.Debug("Added bridge message to txList", "txList", txList)
+		p.pendingBridgeMessages = make(map[common.Hash]*types.Transaction) // Clear processed messages
+	}
+	p.bridgeMsgMu.Unlock()
+
+	// TODO(@jmadibekov): Add a check that the transaction is valid and hasn't been mined already
+	// (whether by relayer or some other way) and include it in the proposed block
 
 	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
 	allowEmptyPoolContent := time.Now().After(p.lastProposedAt.Add(p.MinProposingInternal))
@@ -368,9 +537,17 @@ func (p *Proposer) ProposeTxListPacaya(
 		return err
 	}
 
-	if err := p.SendTx(ctx, txCandidate); err != nil {
+	err = retryOnError(
+		func() error {
+			return p.SendTx(ctx, txCandidate)
+		},
+		"nonce too low",
+		3,
+		1*time.Second)
+	if err != nil {
 		return err
 	}
+	p.forceProposeOnce = false
 
 	log.Info("📝 Propose blocks batch succeeded", "blocksInBatch", len(txBatch), "txs", txs)
 
@@ -378,6 +555,22 @@ func (p *Proposer) ProposeTxListPacaya(
 	metrics.ProposerProposedTxsCounter.Add(float64(txs))
 
 	return nil
+}
+
+func retryOnError(operation func() error, retryon string, maxRetries int, delay time.Duration) error {
+	for i := 0; i < maxRetries; i++ {
+		err := operation()
+		if err == nil {
+			return nil // Success
+		}
+		if !strings.Contains(err.Error(), retryon) {
+			return err // Stop retrying on unexpected errors
+		}
+
+		fmt.Printf("Retrying due to: %v (attempt %d/%d)\n", err, i+1, maxRetries)
+		time.Sleep(delay)
+	}
+	return fmt.Errorf("operation failed after %d retries", maxRetries)
 }
 
 // updateProposingTicker updates the internal proposing timer.

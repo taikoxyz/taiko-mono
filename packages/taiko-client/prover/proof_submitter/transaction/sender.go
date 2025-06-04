@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,8 +54,18 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 
 	// Send the transaction.
 	txMgr, isPrivate := s.txmgrSelector.Select()
-	receipt, err := txMgr.Send(ctx, *txCandidate)
-	if err != nil {
+	var receipt *types.Receipt
+	if err = backoff.Retry(
+		func() error {
+			var err error
+			receipt, err = txMgr.Send(ctx, *txCandidate)
+			return err
+		},
+		backoff.WithContext(
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(3*time.Second), 5),
+			ctx,
+		),
+	); err != nil {
 		if isPrivate {
 			s.txmgrSelector.RecordPrivateTxMgrFailed()
 		}

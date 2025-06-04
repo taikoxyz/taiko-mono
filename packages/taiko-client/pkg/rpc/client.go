@@ -61,6 +61,8 @@ type ClientConfig struct {
 	ForcedInclusionStoreAddress common.Address
 	PreconfWhitelistAddress     common.Address
 	ProverSetAddress            common.Address
+	InboxAddress                common.Address
+	BridgeAddress               common.Address
 	L2EngineEndpoint            string
 	JwtSecret                   string
 	Timeout                     time.Duration
