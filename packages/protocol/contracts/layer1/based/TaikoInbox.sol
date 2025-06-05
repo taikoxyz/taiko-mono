@@ -182,7 +182,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     //   - 00 for all other blocks
                     // The prover must prove 1) and 2) initially, and 3) may not be enforeced by the
                     // protocol but it can be verified by slashing logics.
-                    extraData: _encodeExtraData(config, params),
+                    extraData: bytes32(uint256(_encodeExtraData(config, params))),
                     coinbase: params.coinbase,
                     proposer: params.proposer,
                     proposedIn: uint64(block.number),
@@ -761,19 +761,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         private
         pure
-        returns (bytes32)
+        returns (uint128)
     {
-        // The function _encodeExtraData encodes certain information into the least significant 128
-        // bits of a bytes32.
+        // The function _encodeExtraData encodes certain information into uint128.
         // The lower 8 bits (0-7) are used to store _config.baseFeeSharings[0].
         // The next 8 bits (8-15) are used to store _config.baseFeeSharings[1].
         // The next 8 bits (16-23) are used to store boolean values:
         //   - the 16th bit for _batchParams.isForcedInclusion.
-        return bytes32(
-            uint256(_config.baseFeeSharings[0]) // 0-7
-                | uint256(_config.baseFeeSharings[1]) << 8 // 8-15
-                | uint256(_batchParams.isForcedInclusion ? 1 : 0) << 16 // 16th
-        );
+        return uint128(_config.baseFeeSharings[0]) // 0-7
+            | uint128(_config.baseFeeSharings[1]) << 8 // 8-15
+            | uint128(_batchParams.isForcedInclusion ? 1 : 0) << 16; // 16th
     }
 
     /// @dev Check this batch is between current fork height (inclusive) and next fork height
