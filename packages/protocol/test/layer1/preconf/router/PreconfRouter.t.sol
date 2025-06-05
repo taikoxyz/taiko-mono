@@ -40,6 +40,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             parentMetaHash: bytes32(0),
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
+            isForcedInclusion: false,
             blobParams: blobParams,
             blocks: blockParams,
             proverAuth: ""
@@ -114,6 +115,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             parentMetaHash: bytes32(0),
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
+            isForcedInclusion: false,
             blobParams: blobParams,
             blocks: blockParams,
             proverAuth: ""
