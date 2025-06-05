@@ -155,6 +155,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             {
+                uint256 nBlocks = params.blocks.length;
+
                 info_ = BatchInfo({
                     txsHash: bytes32(0), // to be initialised later
                     //
@@ -169,7 +171,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobByteOffset: params.blobParams.byteOffset,
                     blobByteSize: params.blobParams.byteSize,
                     gasLimit: config.blockMaxGasLimit,
-                    lastBlockId: lastBatch.lastBlockId + uint64(params.blocks.length),
+                    lastBlockId: lastBatch.lastBlockId + uint64(nBlocks),
                     lastBlockTimestamp: _validateBatchParams(
                         params,
                         config.maxAnchorHeightOffset,
@@ -178,21 +180,21 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                         lastBatch
                     ),
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
-                    anchorBlockIds: new uint64[](params.blocks.length), // to be initialised later
-                    anchorBlockHashes: new bytes32[](params.blocks.length), // to be initialised
+                    anchorBlockIds: new uint64[](nBlocks), // to be initialised later
+                    anchorBlockHashes: new bytes32[](nBlocks), // to be initialised
                         // later
                     baseFeeConfig: config.baseFeeConfig
                 });
 
                 require(info_.lastBlockTimestamp != 0, NoBlockIsAnchored());
 
-                for (uint256 i; i < params.blocks.length; ++i) {
+                for (uint256 i; i < nBlocks; ++i) {
                     if (params.blocks[i].anchorBlockId != 0) {
                         if (lastAnchorBlockId == 0) {
                             require(
                                 params.blocks[i].anchorBlockId + config.maxAnchorHeightOffset
                                     >= block.number,
-                                AnchorBlockIdTooSmall()
+                                AnchorBlockIdTooLarge()
                             );
 
                             require(
