@@ -95,8 +95,11 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
         // Propose the normal batch after the potential forced inclusion batch.
         ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
+
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
+        require(params.isForcedInclusion == false, ITaikoInbox.InvalidForcedInclusion());
+
         return inbox.v4ProposeBatch(bytesY, _txList, "");
     }
 
@@ -113,6 +116,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
         // Only one block can be built from the request
         require(p.blocks.length == 1, InvalidBlockSize());
+        require(p.isForcedInclusion, ITaikoInbox.InvalidForcedInclusion());
 
         // Need to make sure enough transactions in the forced inclusion request are included.
         require(p.blocks[0].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
