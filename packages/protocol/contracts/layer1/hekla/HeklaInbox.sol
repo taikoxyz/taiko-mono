@@ -53,4 +53,9 @@ contract HeklaInbox is MainnetInbox {
         maxUnverifiedBatches_ = 324_000;
         batchRingBufferSize_ = 324_512;
     }
+
+    function _getConfig() internal pure override returns (ITaikoInbox.Config memory config_) {
+        config_ = super._getConfig();
+        config_.chainId = LibNetwork.TAIKO_HEKLA;
+    }
 }
