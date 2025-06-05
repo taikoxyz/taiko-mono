@@ -1,0 +1,295 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: "db"
+    cap_add:
+      - SYS_NICE
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - rabbitmq_go_net
+    profiles:
+      - init
+
+  migrations:
+    image: ghcr.io/kukymbr/goose-docker:3.22.1
+    environment:
+      - GOOSE_DRIVER=mysql
+      - GOOSE_DBSTRING=root:root@tcp(db:3306)/relayer
+    volumes:
+      - ./migrations:/migrations
+    networks:
+      - rabbitmq_go_net
+    profiles:
+      - migrations
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: "rabbitmq"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    ports:
+      - ${RABBITMQ_PORT}:${RABBITMQ_PORT}
+      - 15672:15672
+      - 15692:15692
+    volumes:
+      - ./rabbitmq/data/:/var/lib/rabbitmq/
+      - ./rabbitmq/log/:/var/log/rabbitmq
+    networks:
+      - rabbitmq_go_net
+    profiles:
+      - init
+
+  relayer-l1-processor:
+    image: nethsurge/relayer:surge-devnet
+    container_name: relayer-l1-processor
+    restart: always
+    entrypoint: ["/usr/local/bin/relayer"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 6063:6063
+    command:
+      - processor
+      - --queue.prefetch=${QUEUE_PREFETCH}
+      - --db.host=db
+      - --db.maxIdleConns=${MYSQL_MAX_IDLE_CONNS}
+      - --db.maxOpenConns=${MYSQL_MAX_OPEN_CONNS}
+      - --db.name=${MYSQL_DATABASE}
+      - --db.password=${MYSQL_PASSWORD}
+      - --db.username=${MYSQL_USER}
+      - --queue.host=rabbitmq
+      - --queue.password=${RABBITMQ_PASSWORD}
+      - --queue.port=${RABBITMQ_PORT}
+      - --queue.username=${RABBITMQ_USER}
+      - --processorPrivateKey=${PROCESSOR_PRIVATE_KEY}
+      - --srcSignalServiceAddress=${L1_SIGNAL_SERVICE_ADDRESS}
+      - --srcRpcUrl=${L1_RPC_URL}
+      - --destBridgeAddress=${L2_BRIDGE_ADDRESS}
+      - --destERC20VaultAddress=${L2_ERC20_VAULT_ADDRESS}
+      - --destERC721Address=${L2_ERC721_VAULT_ADDRESS}
+      - --destERC1155Address=${L2_ERC1155_VAULT_ADDRESS}
+      - --destTaikoAddress=${L2_TAIKO_ADDRESS}
+      - --destRpcUrl=${L2_RPC_URL}
+      - --confirmations=${CONFIRMATIONS_BEFORE_PROCESSING:-0}
+      - --headerSyncInterval=${HEADER_SYNC_INTERVAL_IN_SECONDS:-2}
+      - --profitableOnly=${PROFITABLE_ONLY:-false}
+      - --tx.minTipCap=${TX_MIN_TIP_CAP:-0.01}
+      - --metrics.port=6063
+    networks:
+      - rabbitmq_go_net
+    labels:
+      metrics_enabled: "true"
+      metrics_port: "6063"
+      logs_enabled: "true"
+    profiles:
+      - l1
+
+  relayer-l1-indexer:
+    image: nethsurge/relayer:surge-devnet
+    container_name: relayer-l1-indexer
+    restart: always
+    entrypoint: ["/usr/local/bin/relayer"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 6064:6064
+    command:
+      - indexer
+      - --db.host=db
+      - --db.connMaxLifetime=${MYSQL_CONN_MAX_LIFETIME}
+      - --db.maxIdleConns=${MYSQL_MAX_IDLE_CONNS}
+      - --db.maxOpenConns=${MYSQL_MAX_OPEN_CONNS}
+      - --db.name=${MYSQL_DATABASE}
+      - --db.password=${MYSQL_PASSWORD}
+      - --db.username=${MYSQL_USER}
+      - --queue.host=rabbitmq
+      - --queue.password=${RABBITMQ_PASSWORD}
+      - --queue.port=${RABBITMQ_PORT}
+      - --queue.username=${RABBITMQ_USER}
+      - --srcBridgeAddress=${L1_BRIDGE_ADDRESS}
+      - --srcTaikoAddress=${L1_TAIKO_ADDRESS}
+      - --srcSignalServiceAddress=${L1_SIGNAL_SERVICE_ADDRESS}
+      - --srcRpcUrl=${L1_RPC_URL}
+      - --destBridgeAddress=${L2_BRIDGE_ADDRESS}
+      - --destRpcUrl=${L2_RPC_URL}
+      - --maxNumGoroutines=${NUM_GOROUTINES}
+      - --blockBatchSize=${BLOCK_BATCH_SIZE}
+      - --event=MessageSent
+      - --confirmations=${CONFIRMATIONS_BEFORE_PROCESSING:-0}
+      - --metrics.port=6064
+    networks:
+      - rabbitmq_go_net
+    labels:
+      metrics_enabled: "true"
+      metrics_port: "6064"
+      logs_enabled: "true"
+    profiles:
+      - l1
+
+  relayer-l1-api:
+    image: nethsurge/relayer:surge-devnet
+    container_name: relayer-l1-api
+    restart: always
+    entrypoint: ["/usr/local/bin/relayer"]
+    ports:
+      - 4102:4102
+      - 6065:6065
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - api
+      - --db.host=db
+      - --db.connMaxLifetime=${MYSQL_CONN_MAX_LIFETIME}
+      - --db.maxIdleConns=${MYSQL_MAX_IDLE_CONNS}
+      - --db.maxOpenConns=${MYSQL_MAX_OPEN_CONNS}
+      - --db.name=${MYSQL_DATABASE}
+      - --db.password=${MYSQL_PASSWORD}
+      - --db.username=${MYSQL_USER}
+      - --srcRpcUrl=${L1_RPC_URL}
+      - --destRpcUrl=${L2_RPC_URL}
+      - --destTaikoAddress=${L2_TAIKO_ADDRESS}
+      - --processingFeeMultiplier=${PROCESSING_FEE_MULTIPLIER}
+      - --metrics.port=6065
+    networks:
+      - rabbitmq_go_net
+    labels:
+      metrics_enabled: "true"
+      metrics_port: "6065"
+      logs_enabled: "true"
+    profiles:
+      - api
+
+  relayer-l2-api:
+    image: nethsurge/relayer:surge-devnet
+    container_name: relayer-l2-api
+    restart: always
+    entrypoint: ["/usr/local/bin/relayer"]
+    ports:
+      - 4103:4103
+      - 6066:6066
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - api
+      - --db.host=db
+      - --db.connMaxLifetime=${MYSQL_CONN_MAX_LIFETIME}
+      - --db.maxIdleConns=${MYSQL_MAX_IDLE_CONNS}
+      - --db.maxOpenConns=${MYSQL_MAX_OPEN_CONNS}
+      - --db.name=${MYSQL_DATABASE}
+      - --db.password=${MYSQL_PASSWORD}
+      - --db.username=${MYSQL_USER}
+      - --srcRpcUrl=${L2_RPC_URL}
+      - --destRpcUrl=${L1_RPC_URL}
+      - --destTaikoAddress=${L1_TAIKO_ADDRESS}
+      - --processingFeeMultiplier=${PROCESSING_FEE_MULTIPLIER}
+      - --metrics.port=6066
+    networks:
+      - rabbitmq_go_net
+    labels:
+      metrics_enabled: "true"
+      metrics_port: "6066"
+      logs_enabled: "true"
+    profiles:
+      - api
+
+  relayer-l2-processor:
+    image: nethsurge/relayer:surge-devnet
+    container_name: relayer-l2-processor
+    restart: always
+    entrypoint: ["/usr/local/bin/relayer"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 6067:6067
+    command:
+      - processor
+      - --queue.prefetch=100
+      - --db.host=db
+      - --db.maxIdleConns=${MYSQL_MAX_IDLE_CONNS}
+      - --db.maxOpenConns=${MYSQL_MAX_OPEN_CONNS}
+      - --db.name=${MYSQL_DATABASE}
+      - --db.password=${MYSQL_PASSWORD}
+      - --db.username=${MYSQL_USER}
+      - --queue.host=rabbitmq
+      - --queue.password=${RABBITMQ_PASSWORD}
+      - --queue.port=${RABBITMQ_PORT}
+      - --queue.username=${RABBITMQ_USER}
+      - --processorPrivateKey=${PROCESSOR_PRIVATE_KEY}
+      - --srcSignalServiceAddress=${L2_SIGNAL_SERVICE_ADDRESS}
+      - --srcRpcUrl=${L2_RPC_URL}
+      - --destBridgeAddress=${L1_BRIDGE_ADDRESS}
+      - --destERC20VaultAddress=${L1_ERC20_VAULT_ADDRESS}
+      - --destERC721Address=${L1_ERC721_VAULT_ADDRESS}
+      - --destERC1155Address=${L1_ERC1155_VAULT_ADDRESS}
+      - --destTaikoAddress=${L1_TAIKO_ADDRESS}
+      - --destRpcUrl=${L1_RPC_URL}
+      - --confirmations=${CONFIRMATIONS_BEFORE_PROCESSING:-0}
+      - --headerSyncInterval=${HEADER_SYNC_INTERVAL_IN_SECONDS:-2}
+      - --profitableOnly=${PROFITABLE_ONLY:-false}
+      - --tx.minTipCap=${TX_MIN_TIP_CAP:-0.01}
+      - --metrics.port=6067
+    networks:
+      - rabbitmq_go_net
+    labels:
+      metrics_enabled: "true"
+      metrics_port: "6067"
+      logs_enabled: "true"
+    profiles:
+      - l2
+
+  relayer-l2-indexer:
+    image: nethsurge/relayer:surge-devnet
+    container_name: relayer-l2-indexer
+    restart: always
+    entrypoint: ["/usr/local/bin/relayer"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 6068:6068
+    command:
+      - indexer
+      - --db.host=db
+      - --db.connMaxLifetime=${MYSQL_CONN_MAX_LIFETIME}
+      - --db.maxIdleConns=${MYSQL_MAX_IDLE_CONNS}
+      - --db.maxOpenConns=${MYSQL_MAX_OPEN_CONNS}
+      - --db.name=${MYSQL_DATABASE}
+      - --db.password=${MYSQL_PASSWORD}
+      - --db.username=${MYSQL_USER}
+      - --queue.host=rabbitmq
+      - --queue.password=${RABBITMQ_PASSWORD}
+      - --queue.port=${RABBITMQ_PORT}
+      - --queue.username=${RABBITMQ_USER}
+      - --srcBridgeAddress=${L2_BRIDGE_ADDRESS}
+      - --srcSignalServiceAddress=${L2_SIGNAL_SERVICE_ADDRESS}
+      - --srcRpcUrl=${L2_RPC_URL}
+      - --destBridgeAddress=${L1_BRIDGE_ADDRESS}
+      - --destRpcUrl=${L1_RPC_URL}
+      - --maxNumGoroutines=${NUM_GOROUTINES}
+      - --blockBatchSize=${BLOCK_BATCH_SIZE}
+      - --event=MessageSent
+      - --confirmations=${CONFIRMATIONS_BEFORE_PROCESSING:-0}
+      - --metrics.port=6068
+    networks:
+      - rabbitmq_go_net
+    labels:
+      metrics_enabled: "true"
+      metrics_port: "6068"
+      logs_enabled: "true"
+    profiles:
+      - l2
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  rabbitmq_go_net:
+    driver: bridge
