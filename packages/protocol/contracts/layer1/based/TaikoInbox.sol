@@ -168,17 +168,20 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Data to build L2 blocks
                     blocks: params.blocks,
                     blobHashes: new bytes32[](0), // to be initialised later
-                    // Each block's extraData field (ED) in the block header must meet these criteria:
-                    // - The least significant 128 bits must match the extraData below:
+                    // Each block's extraData field (ED) in the block header must meet these
+                    // criteria:
+                    // 1) The least significant 128 bits must match the extraData below:
                     //   `ED & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF == extraData`
-                    // - The most significant 2 bits should be:
+                    // 2) The most significant 2 bits should be:
                     //   - 01 for the first block in a batch
                     //   - 10 for the last block in a batch
                     //   - 00 for other blocks
-                    // - The second most significant 2 bits should be:
+                    // 3) The second most significant 2 bits should be:
                     //   - 01 for the first block in a group of preconfirmed batches
                     //   - 10 for the last block in a group of preconfirmed batches
                     //   - 00 for all other blocks
+                    // The prover must prove 1) and 2) initially, and 3) may not be enforeced by the
+                    // protocol but it can be verified by slashing logics.
                     extraData: _encodeExtraData(config, params),
                     coinbase: params.coinbase,
                     proposer: params.proposer,
