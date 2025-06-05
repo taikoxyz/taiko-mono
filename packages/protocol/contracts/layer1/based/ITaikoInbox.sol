@@ -109,7 +109,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         OutOfExtendedProvingWindow, // 0
         InProvingWindow, // 1
         InExtendedProvingWindow // 2
-
     }
 
     //  @notice Struct representing transition storage
