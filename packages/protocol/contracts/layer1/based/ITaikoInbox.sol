@@ -30,6 +30,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
+        // Optional anchor block id.
+        uint64 anchorBlockId;
     }
 
     struct BlobParams {
@@ -54,8 +56,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
-        // anchorBlockId is used only by the anchor transaction in the last block in the batch.
-        uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
         // Specifies the number of blocks to be generated from this batch.
@@ -82,10 +82,10 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
-        uint64 anchorBlockId;
+        uint64[] anchorBlockIds;
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
-        bytes32 anchorBlockHash;
+        bytes32[] anchorBlockHashes;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -273,6 +273,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error InvalidTransitionStateRoot();
     error MetaHashMismatch();
     error MsgValueNotZero();
+    error NoBlockIsAnchored();
     error NoBlocksToProve();
     error NotFirstProposal();
     error NotInboxWrapper();

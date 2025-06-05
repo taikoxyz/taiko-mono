@@ -142,13 +142,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             Batch memory lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
-            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
+            uint64 lastBlockTimestamp = _validateBatchParams(
                 params,
                 config.maxAnchorHeightOffset,
                 config.maxSignalsToReceive,
                 config.maxBlocksPerBatch,
                 lastBatch
             );
+
+            uint64 lastAnchorBlockId;
 
             // This section constructs the metadata for the proposed batch, which is crucial for
             // nodes/clients to process the batch. The metadata itself is not stored on-chain;
@@ -178,12 +180,43 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     lastBlockId: lastBatch.lastBlockId + uint64(params.blocks.length),
                     lastBlockTimestamp: lastBlockTimestamp,
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
-                    anchorBlockId: anchorBlockId,
-                    anchorBlockHash: blockhash(anchorBlockId),
+                    anchorBlockIds: new uint64[](params.blocks.length), // to be initialised later
+                    anchorBlockHashes: new bytes32[](params.blocks.length), // to be initialised
+                        // later
                     baseFeeConfig: config.baseFeeConfig
                 });
 
-                require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
+                {
+                    for (uint256 i; i < params.blocks.length; ++i) {
+                        if (params.blocks[i].anchorBlockId != 0) {
+                            if (lastAnchorBlockId == 0) {
+                                require(
+                                    params.blocks[i].anchorBlockId + config.maxAnchorHeightOffset
+                                        >= block.number,
+                                    AnchorBlockIdTooSmall()
+                                );
+
+                                require(
+                                    params.blocks[i].anchorBlockId >= lastBatch.anchorBlockId,
+                                    AnchorBlockIdSmallerThanParent()
+                                );
+                            }
+
+                            // anchor block id must be strictly increasing
+                            require(
+                                params.blocks[i].anchorBlockId > lastAnchorBlockId,
+                                AnchorBlockIdSmallerThanParent()
+                            );
+                            lastAnchorBlockId = params.blocks[i].anchorBlockId;
+
+                            info_.anchorBlockIds[i] = lastAnchorBlockId;
+                            info_.anchorBlockHashes[i] = blockhash(params.blocks[i].anchorBlockId);
+                            require(info_.anchorBlockHashes[i] != 0, ZeroAnchorBlockHash());
+                        }
+                    }
+
+                    require(lastBlockTimestamp != 0, NoBlockIsAnchored());
+                }
 
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
@@ -253,7 +286,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE #2 {{
                 batch.batchId = stats2.numBatches;
                 batch.lastBlockTimestamp = lastBlockTimestamp;
-                batch.anchorBlockId = anchorBlockId;
+                batch.anchorBlockId = lastAnchorBlockId;
                 batch.nextTransitionId = 1;
                 batch.verifiedTransitionId = 0;
                 batch.reserved4 = 0;
@@ -673,28 +706,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         private
         view
-        returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
+        returns (uint64 lastBlockTimestamp_)
     {
         uint256 nBlocks = _params.blocks.length;
         require(nBlocks != 0, BlockNotFound());
         require(nBlocks <= _maxBlocksPerBatch, TooManyBlocks());
 
         unchecked {
-            if (_params.anchorBlockId == 0) {
-                anchorBlockId_ = uint64(block.number - 1);
-            } else {
-                require(
-                    _params.anchorBlockId + _maxAnchorHeightOffset >= block.number,
-                    AnchorBlockIdTooSmall()
-                );
-                require(_params.anchorBlockId < block.number, AnchorBlockIdTooLarge());
-                require(
-                    _params.anchorBlockId >= _lastBatch.anchorBlockId,
-                    AnchorBlockIdSmallerThanParent()
-                );
-                anchorBlockId_ = _params.anchorBlockId;
-            }
-
             lastBlockTimestamp_ = _params.lastBlockTimestamp == 0
                 ? uint64(block.timestamp)
                 : _params.lastBlockTimestamp;
