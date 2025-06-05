@@ -44,7 +44,7 @@ contract MainnetInbox is TaikoInbox {
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                gasIssuancePerSecond: 12_500_000, // 12.5 million gas per second    
+                gasIssuancePerSecond: 12_500_000, // 12.5 million gas per second
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 250_000_000 // two minutes: 12_500_000 * 20
              }),
