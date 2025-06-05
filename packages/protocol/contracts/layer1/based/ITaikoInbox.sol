@@ -73,7 +73,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
-        address proposer;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;
         uint32 blobByteOffset;
@@ -92,6 +91,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
         bytes32 infoHash;
+        address proposer;
         address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
@@ -105,6 +105,13 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 stateRoot;
     }
 
+    enum ProofTiming {
+        OutOfExtendedProvingWindow, // 0
+        InProvingWindow, // 1
+        InExtendedProvingWindow // 2
+
+    }
+
     //  @notice Struct representing transition storage
     /// @notice 4 slots used.
     struct TransitionState {
@@ -112,7 +119,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 blockHash;
         bytes32 stateRoot;
         address prover;
-        bool inProvingWindow;
+        uint8 proofTiming;
         uint48 createdAt;
     }
 
@@ -120,7 +127,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     struct Batch {
         bytes32 metaHash; // slot 1
         uint64 lastBlockId; // slot 2
-        uint96 reserved3;
+        uint96 provabilityBond;
         uint96 livenessBond;
         uint64 batchId; // slot 3
         uint64 lastBlockTimestamp;
@@ -174,6 +181,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
         uint96 livenessBond;
+        /// @notice The amount of Taiko token as a proposer's provability bond per batch.
+        uint96 provabilityBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -182,6 +191,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
+        /// @notice The extended proving window in seconds before provability bond is used as
+        /// reward.
+        uint24 extendedProvingWindow;
         /// @notice The time required for a transition to be used for verifying a batch.
         uint24 cooldownWindow;
         /// @notice The maximum number of signals to be received by TaikoL2.

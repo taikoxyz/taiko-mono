@@ -78,9 +78,26 @@ library LibVerification {
                         blockHash = _blockHash;
                     }
 
-                    uint96 bondToReturn =
-                        ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
-                    creditBond(_state, ts.prover, bondToReturn);
+                    {
+                        uint96 bondToReturn;
+                        if (ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InProvingWindow)) {
+                            // all liveness bond is returned to the prover, this is not a reward.
+                            bondToReturn = (tid == 1)
+                                ? batch.livenessBond + batch.provabilityBond
+                                : batch.livenessBond;
+                        } else if (
+                            ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InExtendedProvingWindow)
+                        ) {
+                            // prover is rewarded with 1/2 of the liveness bond.
+                            bondToReturn = batch.livenessBond / 2;
+                        } else {
+                            // prover is rewarded with 1/2 of the liveness bond and 1/2 of the
+                            // provability bond.
+                            bondToReturn = (batch.livenessBond + batch.provabilityBond) / 2;
+                        }
+
+                        creditBond(_state, ts.prover, bondToReturn);
+                    }
 
                     if (batchId % _config.stateRootSyncInternal == 0) {
                         synced.batchId = batchId;

@@ -59,6 +59,6 @@ contract PreconfRouter is EssentialContract, IProposeBatch {
         (info_, meta_) = iProposeBatch.v4ProposeBatch(_params, _txList, "");
 
         // Verify that the sender had set itself as the proposer
-        require(info_.proposer == msg.sender, ProposerIsNotPreconfer());
+        require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());
     }
 }

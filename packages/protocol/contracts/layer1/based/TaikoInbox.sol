@@ -169,7 +169,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobHashes: new bytes32[](0), // to be initialised later
                     extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
                     coinbase: params.coinbase,
-                    proposer: params.proposer,
                     proposedIn: uint64(block.number),
                     blobCreatedIn: params.blobParams.createdIn,
                     blobByteOffset: params.blobParams.byteOffset,
@@ -190,7 +189,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
-                    prover: info_.proposer,
+                    proposer: params.proposer,
+                    prover: params.proposer,
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp),
                     firstBlockId: lastBatch.lastBlockId + 1
@@ -221,7 +221,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     if (auth.feeToken == bondToken) {
                         // proposer pay the prover fee with bond tokens
-                        _debitBond(info_.proposer, auth.fee);
+                        _debitBond(meta_.proposer, auth.fee);
 
                         // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                         // if not then add the diff to the bond balance
@@ -235,14 +235,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     } else {
                         _debitBond(meta_.prover, config.livenessBond);
 
-                        if (info_.proposer != meta_.prover) {
+                        if (meta_.proposer != meta_.prover) {
                             IERC20(auth.feeToken).safeTransferFrom(
-                                info_.proposer, meta_.prover, auth.fee
+                                meta_.proposer, meta_.prover, auth.fee
                             );
                         }
                     }
                 }
             }
+
+            _debitBond(meta_.proposer, config.provabilityBond);
 
             {
                 Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -261,7 +263,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 // SSTORE #3 {{
                 batch.lastBlockId = info_.lastBlockId;
-                batch.reserved3 = 0;
+                batch.provabilityBond = config.provabilityBond;
                 batch.livenessBond = config.livenessBond;
                 // SSTORE }}
             }
@@ -374,12 +376,35 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
             }
 
-            ts.inProvingWindow = inProvingWindow;
-            ts.prover = inProvingWindow ? meta.prover : msg.sender;
+            {
+                uint256 proposedAt = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
+                if (block.timestamp <= proposedAt + config.provingWindow) {
+                    ts.proofTiming = uint8(ITaikoInbox.ProofTiming.InProvingWindow);
+                    ts.prover = meta.prover;
+                } else if (block.timestamp <= proposedAt + config.extendedProvingWindow) {
+                    ts.proofTiming = uint8(ITaikoInbox.ProofTiming.InExtendedProvingWindow);
+                    ts.prover = msg.sender;
+                } else {
+                    ts.proofTiming = uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow);
+                    ts.prover = msg.sender;
+                }
+            }
+
             ts.createdAt = uint48(block.timestamp);
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
+
+                // The prover for the first transition is responsible for placing the provability
+                // if the transition is within extended proving window.
+                if (
+                    ts.prover != meta.proposer
+                        && ts.proofTiming != uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow)
+                ) {
+                    uint96 provabilityBond = batch.provabilityBond;
+                    _debitBond(meta.prover, provabilityBond);
+                    state.creditBond(meta.proposer, provabilityBond);
+                }
             } else {
                 state.transitionIds[meta.batchId][tran.parentHash] = tid;
             }

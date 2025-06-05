@@ -9,10 +9,12 @@ import "../based/TaikoInbox.sol";
 contract DevnetInbox is TaikoInbox {
     uint64 internal immutable chainId;
     uint24 internal immutable cooldownWindow;
+    uint24 internal immutable extendedProvingWindow;
 
     constructor(
         uint64 _chainId,
         uint24 _cooldownWindow,
+        uint24 _extendedProvingWindow,
         address _wrapper,
         address _verifier,
         address _bondToken,
@@ -22,6 +24,7 @@ contract DevnetInbox is TaikoInbox {
     {
         chainId = _chainId;
         cooldownWindow = _cooldownWindow;
+        extendedProvingWindow = _extendedProvingWindow;
     }
 
     function _getConfig() internal view override returns (ITaikoInbox.Config memory) {
@@ -32,6 +35,7 @@ contract DevnetInbox is TaikoInbox {
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token per batch
+            provabilityBond: 0,
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -42,6 +46,7 @@ contract DevnetInbox is TaikoInbox {
             }),
             provingWindow: 2 hours,
             cooldownWindow: cooldownWindow,
+            extendedProvingWindow: extendedProvingWindow,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             baseFeeSharings: [uint8(50), uint8(0)],

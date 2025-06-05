@@ -126,7 +126,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         require(_payload.anchorHash == batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock());
 
         // Check for reorgs if the committer missed the proposal
-        if (batchInfo.proposer != _committer) {
+        if (evidence.batchMetadata.proposer != _committer) {
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
             if (LibPreconfUtils.getBeaconBlockRootAt(_payload.preconferSlotTimestamp) == 0) {

@@ -35,6 +35,7 @@ contract MainnetInbox is TaikoInbox {
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token per batch
+            provabilityBond: 0,
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -44,6 +45,7 @@ contract MainnetInbox is TaikoInbox {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 2 hours,
+            extendedProvingWindow: 6 hours,
             cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
