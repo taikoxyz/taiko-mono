@@ -99,6 +99,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                     require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                    require(params.isForcedInclusion == false, InvalidForcedInclusion());
                 } else {
                     require(params.proposer != address(0), CustomProposerMissing());
                     require(msg.sender == inboxWrapper, NotInboxWrapper());
@@ -167,7 +168,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Data to build L2 blocks
                     blocks: params.blocks,
                     blobHashes: new bytes32[](0), // to be initialised later
-                    extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
+                    extraData: _encodeExtraData(config, params),
                     coinbase: params.coinbase,
                     proposer: params.proposer,
                     proposedIn: uint64(block.number),
@@ -740,18 +741,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    function _encodeBaseFeeSharings(uint8[2] memory _baseFeeSharings)
+    function _encodeExtraData(
+        Config memory _config,
+        BatchParams memory _batchParams
+    )
         private
         pure
         returns (bytes32)
     {
-        // The function _encodeBaseFeeSharings encodes the base fee sharing percentages into a
-        // bytes32 value.
-        // The lower 8 bits (0-7) are used to store the first element of the _baseFeeSharings array.
-        // The next 8 bits (8-15) are used to store the second element of the _baseFeeSharings
-        // array.
-        // This encoding allows for compact storage of two uint8 values within a single bytes32.
-        return bytes32(uint256(_baseFeeSharings[1]) << 8 | uint256(_baseFeeSharings[0]));
+        // The function _encodeExtraData encodes certain information into a bytes32 value.
+        // The lower 8 bits (0-7) are used to store _config.baseFeeSharings[0].
+        // The next 8 bits (8-15) are used to store _config.baseFeeSharings[1].
+        // The next 8 bits (16-23) are used to store _batchParams.isForcedInclusion.
+        return bytes32(
+            uint256(_config.baseFeeSharings[0]) // 0-7
+                | uint256(_config.baseFeeSharings[1]) << 8 // 8-15
+                | uint256(_batchParams.isForcedInclusion ? 1 : 0) << 16 // 16-23
+        );
     }
 
     /// @dev Check this batch is between current fork height (inclusive) and next fork height
