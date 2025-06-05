@@ -33,18 +33,20 @@ contract MainnetInbox is TaikoInbox {
             maxUnverifiedBatches: maxUnverifiedBatches_,
             batchRingBufferSize: batchRingBufferSize_,
             maxBatchesToVerify: 16,
-            // Ethereum developers are testing a fourfold increase of the gas limit to 150 million
-            // as part of the upcoming Fusaka hard fork, scheduled for late 2025.
-            // 150 million gas per block (12 seconds) translates into 12.5 million gas per second.
-            // Assuming Taiko preconfirm blocks per 2 seconds, our block gas limit should be 25
-            // million.
-            blockMaxGasLimit: 25_000_000,
+            blockMaxGasLimit: 240_000_000, // changing this rquires a node hardfork
             livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
+                // Ethereum developers are testing a fourfold increase of the gas limit to 150 million
+                // as part of the upcoming Fusaka hard fork, scheduled for late 2025.
+                // 150 million gas per block (12 seconds) translates into 12.5 million gas per second.
+                // Assuming Taiko preconfirm blocks per 2 seconds, our block gas limit should be 25
+                // million.
                 adjustmentQuotient: 8,
                 gasIssuancePerSecond: 12_500_000, // 12.5 million gas per second
+                // TODO(daniel): need to change this magic number to make sure the the min price stay
+                // 0.01 gwei
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 250_000_000 // two minutes: 12_500_000 * 20
              }),
