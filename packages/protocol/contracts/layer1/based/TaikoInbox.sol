@@ -763,8 +763,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         pure
         returns (bytes32)
     {
-        // The function _encodeExtraData encodes certain information into the least 128 bits of a
-        // bytes32.
+        // The function _encodeExtraData encodes certain information into the least significant 128
+        // bits of a bytes32.
         // The lower 8 bits (0-7) are used to store _config.baseFeeSharings[0].
         // The next 8 bits (8-15) are used to store _config.baseFeeSharings[1].
         // The next 8 bits (16-23) are used to store boolean values:
