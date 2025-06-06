@@ -319,6 +319,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── lastBlockTimestamp:", batch.lastBlockTimestamp);
             console2.log(unicode"│    |── lastBlockId:", batch.lastBlockId);
             console2.log(unicode"│    |── livenessBond:", batch.livenessBond);
+            console2.log(unicode"│ |── anchorBlockId:", batch.anchorBlockId);
             console2.log(unicode"│    |── nextTransitionId:", batch.nextTransitionId);
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 
