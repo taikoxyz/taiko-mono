@@ -358,9 +358,12 @@ func (p *Proposer) ProposeTxLists(
 	if err != nil {
 		return fmt.Errorf("failed to fetch protocol state variables: %w", err)
 	}
-
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()))
+	if err != nil {
+		return fmt.Errorf("failed to fetch protocol batch info: %w", err)
+	}
 	// Build the transaction to propose batch.
-	if p.chainConfig.IsShasta(new(big.Int).SetUint64(stats.NumBatches())) {
+	if p.chainConfig.IsShasta(new(big.Int).SetUint64(batch.LastBlockID() + 1)) {
 		buildTxCandidateFunc = p.txBuilder.BuildShasta
 	} else {
 		buildTxCandidateFunc = p.txBuilder.BuildPacaya

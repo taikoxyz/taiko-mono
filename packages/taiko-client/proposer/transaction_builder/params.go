@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -55,6 +56,16 @@ func BuildProposalParams(
 		return nil, nil, fmt.Errorf("failed to encode and compress transactions list: %w", err)
 	}
 
+	batchParams = bindingTypes.NewBatchParamsPacaya(
+		proposer,
+		l2SuggestedFeeRecipient,
+		parentMetahash,
+		0,
+		0,
+		revertProtectionEnabled,
+		bindingTypes.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
+		blockParams,
+	)
 	if forcedInclusion != nil {
 		forcedInclusionblobParams, forcedInclusionblockParams = buildParamsForForcedInclusion(
 			forcedInclusion,
@@ -73,17 +84,6 @@ func BuildProposalParams(
 				forcedInclusionblobParams,
 				forcedInclusionblockParams,
 			)
-			// TODO: move to outside of the if statement
-			batchParams = bindingTypes.NewBatchParamsPacaya(
-				proposer,
-				l2SuggestedFeeRecipient,
-				parentMetahash,
-				0,
-				0,
-				revertProtectionEnabled,
-				bindingTypes.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
-				blockParams,
-			)
 		case *shastaBindings.IForcedInclusionStoreForcedInclusion:
 			forcedInclusionBatchParams = bindingTypes.NewBatchParamsShasta(
 				proposer,
@@ -95,17 +95,6 @@ func BuildProposalParams(
 				forcedInclusionblobParams,
 				forcedInclusionblockParams,
 				[]byte{},
-			)
-			batchParams = bindingTypes.NewBatchParamsShasta(
-				proposer,
-				l2SuggestedFeeRecipient,
-				parentMetahash,
-				0,
-				0,
-				revertProtectionEnabled,
-				bindingTypes.NewBlobParams([][32]byte{}, 0, 0, 0, uint32(len(txListsBytes)), 0),
-				blockParams,
-				nil,
 			)
 		}
 	}
