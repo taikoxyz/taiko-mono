@@ -158,7 +158,7 @@
 - logs:
   - deployed @tx`0x3e0c2c3f7593b8af888c2b8fe3af79152426bdf2d0529f058722ae08c80c8991`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
-  - change owner to `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C` @tx``
+  - change owner to `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C` @tx`https://taikoscan.io/tx/0x9c41e10e3764f350deea1a15f4b22ceb0c927b83a9601a8e357ece9ed473de71`
 
 #### bridged_usdc_token (native)
 
