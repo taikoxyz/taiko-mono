@@ -34,6 +34,7 @@ type Config struct {
 	RevertProtectionEnabled bool
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
+	FallbackTimeout         time.Duration
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -102,5 +103,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProposerPrivKey,
 			c,
 		),
+		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
 	}, nil
 }
