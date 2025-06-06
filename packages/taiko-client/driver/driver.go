@@ -104,8 +104,9 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 	d.chainConfig = config.NewChainConfig(
 		d.rpc.L2.ChainID,
-		d.rpc.PacayaClients.ForkHeights.Ontake,
-		d.rpc.PacayaClients.ForkHeights.Pacaya,
+		d.rpc.ShastaClients.ForkHeights.Ontake,
+		d.rpc.ShastaClients.ForkHeights.Pacaya,
+		d.rpc.ShastaClients.ForkHeights.Pacaya,
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
@@ -303,7 +304,7 @@ func (d *Driver) reportProtocolStatus() {
 
 // reportProtocolStatusPacaya reports some status for Pacaya protocol.
 func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
-	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
+	stats, err := d.rpc.GetProtocolStats(&bind.CallOpts{Context: d.ctx})
 	if err != nil {
 		log.Error("Failed to get protocol state variables", "error", err)
 		return
@@ -311,9 +312,9 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 
 	log.Info(
 		"📖 Protocol status",
-		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
-		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
-		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
+		"lastVerifiedBacthID", stats.LastVerifiedBatchId(),
+		"pendingBatchs", stats.NumBatches()-stats.LastVerifiedBatchId()-1,
+		"availableSlots", stats.LastVerifiedBatchId()+maxNumProposals-stats.NumBatches(),
 	)
 }
 
