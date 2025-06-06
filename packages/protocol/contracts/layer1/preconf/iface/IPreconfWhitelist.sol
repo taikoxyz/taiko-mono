@@ -21,23 +21,6 @@ interface IPreconfWhitelist {
     error OperatorAlreadyRemoved();
     error OperatorNotAvailableYet();
 
-    /// @notice Initializes the whitelist contract.
-    /// @param _owner The address that will own the contract.
-    /// @param _operatorChangeDelay The number of epochs to delay operator changes.
-    /// @param _randomnessDelayEpochs The number of epochs to delay randomness for operator
-    /// selection.
-    /// @dev Configuration note: If you want to ensure operator changes don't affect whitelist
-    /// lookahead,
-    ///      set _operatorChangeDelay >= _randomnessDelayEpochs. If you want to allow lookahead
-    ///      to be affected by operator changes (e.g., for emergency evictions), set
-    /// _operatorChangeDelay = 0.
-    function init(
-        address _owner,
-        uint8 _operatorChangeDelay,
-        uint8 _randomnessDelayEpochs
-    )
-        external;
-
     /// @notice Adds a new operator to the whitelist.
     /// @param _operatorAddress The address of the operator to be added.
     /// @dev Only callable by the owner or an authorized address.
