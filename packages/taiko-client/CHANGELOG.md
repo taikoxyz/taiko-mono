@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.1...taiko-alethia-client-v1.6.2) (2025-06-05)
+
+
+### Bug Fixes
+
+* **taiko-client:** dont use c.Request().Context() ([#19592](https://github.com/taikoxyz/taiko-mono/issues/19592)) ([f1bcc4a](https://github.com/taikoxyz/taiko-mono/commit/f1bcc4a54305f257ccbb0e29d0a7f37253603921))
+
 ## [1.6.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.0...taiko-alethia-client-v1.6.1) (2025-06-02)
 
 
