@@ -34,7 +34,7 @@ All modifications to `go-ethereum` can be reviewed in the [Geth fork diff](https
 #### `driver`
 
 - Serves as the L2 **consensus client**.
-- Monitors **L1 events from TaikoL1** to detect **proposed blocks**.
+- Monitors **L1 events from TaikoInbox** to detect **proposed batches**.
 - Directs the **execution engine** to insert or reorganize blocks through the Engine API.
 
 <br/>
@@ -42,13 +42,13 @@ All modifications to `go-ethereum` can be reviewed in the [Geth fork diff](https
 #### `proposer`
 
 - Collects pending transactions from `taiko-geth`’s **txpool**.
-- Constructs **batch-compliant txLists** and submits them to **TaikoL1**.
+- Constructs **batch-compliant txLists** and submits them to **TaikoInbox**.
 
 <br/>
 
 #### `prover`
 
-- Fetches proposed blocks from `TaikoL1` and verifies them.
+- Fetches proposed batches from `TaikoInbox` and verifies them.
 - Generates **ZK/Secure Enclave proofs** to validate state transitions.
 
 <br/>
@@ -59,18 +59,18 @@ The **Taiko Alethia consensus model** differs from Ethereum’s due to its rollu
 
 1. **Driver Initialization**
 
-   - Fetches the latest **verified L2 head** from `TaikoL1`.
+   - Fetches the latest **verified L2 head** from `TaikoInbox`.
    - Tries to sync state **via P2P**.
    - If P2P sync fails, inserts **verified L2 blocks sequentially** using the Engine API.
    - After catching up to the **latest verified L2 block**, proceeds to the following step.
 
 <br/>
 
-2. **Block Proposal Ingestion**
+2. **Batch Proposal Ingestion**
 
-   - Listens for `TaikoL1.BlockProposed` events.
-   - Retrieves the **transaction calldata** from `TaikoL1.proposeBlock`.
-   - Decompresses `txListBytes` and reconstructs **block metadata**.
+   - Listens for `TaikoInbox.BatchProposed` events.
+   - Retrieves the **transaction calldata** from `TaikoInbox.proposeBatch`.
+   - Decompresses `txListBytes` and reconstructs **blocks shared metadata**.
 
 <br/>
 
@@ -79,21 +79,21 @@ The **Taiko Alethia consensus model** differs from Ethereum’s due to its rollu
    - If `txList` is **valid**, constructs an **L2 anchor transaction** and inserts the block.
    - If `txList` is **invalid**, constructs an **empty L2 block**.
 
-## Block Proposal Process
+## Batch Proposal Process
 
 1. The **proposer** fetches **pending transactions** from `taiko-geth`.
 
 2. If transaction volume exceeds the **max txList size**, transactions are **split into batches**.
 
-3. The proposer submits **`TaikoL1.proposeBlock` transactions**, encoding the `txList`.
+3. The proposer submits **`TaikoInbox.proposeBatch` transactions**, encoding the `txList`.
 
-## Block Proving Process
+## Batch Proving Process
 
-Once a block is proposed:
+Once a batch is proposed:
 
-1. The **prover** retrieves the corresponding **TaikoL1.proposeBlock** transaction calldata.
+1. The **prover** retrieves the corresponding **TaikoInbox.proposeBatch** transaction calldata.
 
-2. It waits until the **L2 execution engine** has inserted the block.
+2. It waits until the **L2 execution engine** has inserted the blocks.
 
 3. The prover generates a **validity proof**.
 
@@ -101,13 +101,13 @@ For a **valid or invalid txList**, the prover:
 
 1. Constructs a **Merkle proof** verifying the block’s **txRoot**.
 
-2. Verifies the **TaikoL2.anchor** transaction in the **Merkle Patricia Trie (MPT)**.
+2. Verifies the **TaikoAnchor.anchorV3** transaction in the **Merkle Patricia Trie (MPT)**.
 
 3. Submits:
 
-   - `TaikoL2.anchor` transaction’s **RLP-encoded bytes**.
+   - `TaikoAnchor.anchorV3` transaction’s **RLP-encoded bytes**.
    - **Merkle proofs**.
-   - **Proof-of-validity** to `TaikoL1.proveBlock`.
+   - **Proof-of-validity** to `TaikoInbox.proveBatches`.
 
 <br/>
 
@@ -123,13 +123,13 @@ A Taiko Alethia node exposes **Ethereum-equivalent JSON-RPC methods**, making it
 
 - **Blob Data Handling**: If **EIP-4844 blobs** are enabled, calldata is stored separately.
 
-- **Taiko-Specific Events**: Includes `TaikoL1.BlockProposed`, `TaikoL1.BlockVerified`, etc.
+- **Taiko-Specific Events**: Includes `TaikoInbox.BatchProposed`, `TaikoInbox.BatchesVerified`, etc.
 
 For a complete diff, check the [Geth fork comparison](https://geth.taiko.xyz).
 
 ### JSON-RPC API
 
-Supports all **standard Ethereum execution APIs**. See [Ethereum Execution API Docs](https://ethereum.github.io/execution-apis/api-documentation/).
+Supports all **standard Ethereum execution APIs**. See [Ethereum Execution API Docs](https://ethereum.github.io/execution-apis/docs/reference/json-rpc-api/).
 
 ### Engine API
 

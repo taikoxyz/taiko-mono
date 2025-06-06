@@ -25,6 +25,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -41,7 +42,6 @@ var (
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*eth.ExecutionPayload, bool) ([]*types.Header, error)
-	RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
 // @title Taiko Preconfirmation Block Server API
@@ -186,7 +186,6 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
-	s.echo.DELETE("/preconfBlocks", s.RemovePreconfBlocks)
 
 	// WebSocket routes
 	s.echo.GET("/ws", s.ws.handleWebSocket)
@@ -656,12 +655,13 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 		return nil
 	}
 
+	endBlockID := uint64(childPayloads[len(childPayloads)-1].BlockNumber)
 	log.Info(
 		"Found available child payloads in the cache, start importing",
 		"count", len(childPayloads),
 		"startBlockID", uint64(childPayloads[0].BlockNumber),
 		"startBlockHash", childPayloads[0].BlockHash.Hex(),
-		"endBlockID", uint64(childPayloads[len(childPayloads)-1].BlockNumber),
+		"endBlockID", endBlockID,
 		"endBlockHash", childPayloads[len(childPayloads)-1].BlockHash.Hex(),
 	)
 
@@ -669,6 +669,8 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, childPayloads, true); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
+
+	s.updateHighestUnsafeL2Payload(endBlockID)
 
 	metrics.DriverImportedPreconBlocksFromCacheCounter.Add(float64(len(childPayloads)))
 

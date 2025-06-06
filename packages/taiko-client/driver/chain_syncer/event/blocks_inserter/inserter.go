@@ -431,28 +431,6 @@ func (i *BlocksInserter) insertPreconfBlockFromExecutionPayload(
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
 
-// RemovePreconfBlocks removes preconfirmation blocks from the L2 execution engine.
-func (i *BlocksInserter) RemovePreconfBlocks(ctx context.Context, newLastBlockID uint64) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	newHead, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(newLastBlockID))
-	if err != nil {
-		return err
-	}
-
-	fc := &engine.ForkchoiceStateV1{HeadBlockHash: newHead.Hash()}
-	fcRes, err := i.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
-	if err != nil {
-		return err
-	}
-	if fcRes.PayloadStatus.Status != engine.VALID {
-		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
-	}
-
-	return nil
-}
-
 // IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
 func (i *BlocksInserter) IsBasedOnCanonicalChain(
 	ctx context.Context,
@@ -501,7 +479,7 @@ func (i *BlocksInserter) sendLatestSeenProposal(proposal *encoding.LastSeenPropo
 			"Sending latest seen proposal from blocksInserter",
 			"batchID", proposal.TaikoProposalMetaData.Pacaya().GetBatchID(),
 			"lastBlockID", proposal.TaikoProposalMetaData.Pacaya().GetLastBlockID(),
-			"preconfChainReoged", proposal.PreconfChainReorged,
+			"preconfChainReorged", proposal.PreconfChainReorged,
 		)
 
 		i.latestSeenProposalCh <- proposal

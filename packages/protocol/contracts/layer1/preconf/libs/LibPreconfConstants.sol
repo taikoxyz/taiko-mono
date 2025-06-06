@@ -21,6 +21,8 @@ library LibPreconfConstants {
     uint256 internal constant TWO_EPOCHS = 2 * SECONDS_IN_EPOCH;
     uint256 internal constant DISPUTE_PERIOD = 2 * SECONDS_IN_EPOCH;
 
+    bytes32 internal constant PRECONF_DOMAIN_SEPARATOR = keccak256("TAIKO_ALETHIA_PRECONF");
+
     function getGenesisTimestamp(uint256 _chainid) internal pure returns (uint256) {
         if (_chainid == LibNetwork.ETHEREUM_MAINNET) {
             return ETHEREUM_MAINNET_BEACON_GENESIS;

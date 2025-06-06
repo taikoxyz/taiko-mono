@@ -1,13 +1,13 @@
 package preconfblocks
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -68,9 +68,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// make a new context, we dont want to cancel the request if the caller times out.
+	ctx := context.Background()
+
 	if s.rpc.PacayaClients.TaikoWrapper != nil {
 		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: c.Request().Context()})
+		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return s.returnError(c, http.StatusInternalServerError, err)
 		}
@@ -93,7 +96,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
 	}
 
-	parent, err := s.rpc.L2.HeaderByHash(c.Request().Context(), reqBody.ExecutableData.ParentHash)
+	parent, err := s.rpc.L2.HeaderByHash(ctx, reqBody.ExecutableData.ParentHash)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
@@ -164,7 +167,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(c.Request().Context())
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
 	}
@@ -174,7 +177,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	// Insert the preconfirmation block.
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
-		c.Request().Context(),
+		ctx,
 		[]*eth.ExecutionPayload{executablePayload},
 		false,
 	)
@@ -215,7 +218,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			)
 		} else {
 			if err := s.p2pNode.GossipOut().PublishL2Payload(
-				c.Request().Context(),
+				ctx,
 				&eth.ExecutionPayloadEnvelope{
 					ExecutionPayload: &eth.ExecutionPayload{
 						BaseFeePerGas: eth.Uint256Quantity(u256),
@@ -266,119 +269,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	metrics.DriverL2PreconfBlocksFromRPCGauge.Inc()
 
 	return c.JSON(http.StatusOK, BuildPreconfBlockResponseBody{BlockHeader: header})
-}
-
-// RemovePreconfBlocksRequestBody represents a request body when resetting the backend
-// L2 execution engine preconfirmation head.
-type RemovePreconfBlocksRequestBody struct {
-	// @param newLastBlockID uint64 New last block ID of the blockchain, it should
-	// @param not smaller than the canonical chain's highest block ID.
-	NewLastBlockID uint64 `json:"newLastBlockId"`
-}
-
-// RemovePreconfBlocksResponseBody represents a response body when resetting the backend
-// L2 execution engine preconfirmation head.
-type RemovePreconfBlocksResponseBody struct {
-	// @param lastBlockID uint64 Current highest block ID of the blockchain (including preconfirmation blocks)
-	LastBlockID uint64 `json:"lastBlockId"`
-	// @param lastProposedBlockID uint64 Highest block ID of the cnonical chain
-	LastProposedBlockID uint64 `json:"lastProposedBlockID"`
-	// @param headsRemoved uint64 Number of preconfirmation heads removed
-	HeadsRemoved uint64 `json:"headsRemoved"`
-}
-
-// RemovePreconfBlocks removes the backend L2 execution engine preconfirmation head.
-//
-//		@Description	Remove all preconfirmation blocks from the blockchain beyond the specified block height,
-//	  @Description	ensuring the latest block ID does not exceed the given height. This method will fail if
-//	  @Description	the block with an ID one greater than the specified height is not a preconfirmation block. If the
-//	  @Description	specified block height is greater than the latest preconfirmation block ID, the method will succeed
-//	  @Description	without modifying the blockchain.
-//		@Param      body body RemovePreconfBlocksRequestBody true "preconfirmation blocks removing request body"
-//		@Accept			json
-//		@Produce		json
-//		@Success		200	{object} RemovePreconfBlocksResponseBody
-//		@Router			/preconfBlocks [delete]
-func (s *PreconfBlockAPIServer) RemovePreconfBlocks(c echo.Context) error {
-	if s.rpc.PacayaClients.TaikoWrapper != nil {
-		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: c.Request().Context()})
-		if err != nil {
-			return s.returnError(c, http.StatusInternalServerError, err)
-		}
-		if preconfRouter == rpc.ZeroAddress {
-			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
-			return s.returnError(
-				c,
-				http.StatusInternalServerError,
-				errors.New("preconfirmation is disabled via taikoWrapper"),
-			)
-		}
-	}
-
-	// Parse the request body.
-	reqBody := new(RemovePreconfBlocksRequestBody)
-	if err := c.Bind(reqBody); err != nil {
-		return s.returnError(c, http.StatusUnprocessableEntity, err)
-	}
-
-	// Request body validation.
-	canonicalHeadL1Origin, err := s.rpc.L2.HeadL1Origin(c.Request().Context())
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return s.returnError(c, http.StatusInternalServerError, err)
-	}
-
-	currentHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
-	if err != nil {
-		return s.returnError(c, http.StatusInternalServerError, err)
-	}
-
-	if canonicalHeadL1Origin != nil && reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
-		return s.returnError(
-			c,
-			http.StatusBadRequest,
-			errors.New("newLastBlockId must not be smaller than the canonical chain's highest block ID"),
-		)
-	}
-
-	log.Info(
-		"New preconfirmation block removing request",
-		"newLastBlockId", reqBody.NewLastBlockID,
-		"currentHead", currentHead.Number.Uint64(),
-	)
-
-	if err := s.chainSyncer.RemovePreconfBlocks(c.Request().Context(), reqBody.NewLastBlockID); err != nil {
-		return s.returnError(c, http.StatusBadRequest, err)
-	}
-
-	newHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
-	if err != nil {
-		return s.returnError(c, http.StatusInternalServerError, err)
-	}
-
-	var lastBlockID uint64
-	if canonicalHeadL1Origin != nil {
-		lastBlockID = canonicalHeadL1Origin.BlockID.Uint64()
-	}
-
-	// If current block number is less than the highest unsafe L2 payload block ID,
-	// update the highest unsafe L2 payload block ID.
-	if newHead.Number.Uint64() < s.highestUnsafeL2PayloadBlockID {
-		s.updateHighestUnsafeL2Payload(newHead.Number.Uint64())
-	}
-
-	log.Debug(
-		"Removed preconfirmation blocks",
-		"newHead", newHead.Number.Uint64(),
-		"lastBlockID", lastBlockID,
-		"headsRemoved", currentHead.Number.Uint64()-newHead.Number.Uint64(),
-	)
-
-	return c.JSON(http.StatusOK, RemovePreconfBlocksResponseBody{
-		LastBlockID:         newHead.Number.Uint64(),
-		LastProposedBlockID: lastBlockID,
-		HeadsRemoved:        currentHead.Number.Uint64() - newHead.Number.Uint64(),
-	})
 }
 
 // HealthCheck is the endpoints for probes.
