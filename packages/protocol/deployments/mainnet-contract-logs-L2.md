@@ -154,10 +154,11 @@
 
 - proxy: `0xA9d23408b9bA935c230493c40C73824Df71A0975`
 - impl: `0x473dBf07E06f5aE693F0c44b3ce7b5b8fA71d260`
-- owner: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
+- owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
 - logs:
   - deployed @tx`0x3e0c2c3f7593b8af888c2b8fe3af79152426bdf2d0529f058722ae08c80c8991`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
+  - change owner to `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C` @tx``
 
 #### bridged_usdc_token (native)
 
