@@ -82,7 +82,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         Stats2 memory stats2 = state.stats2;
         Config memory config = _getConfig();
-        require(stats2.numBatches >= config.forkHeights.pacaya, ForkNotActivated());
 
         unchecked {
             require(
@@ -100,6 +99,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                     require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                    require(params.isForcedInclusion == false, InvalidForcedInclusion());
                 } else {
                     require(params.proposer != address(0), CustomProposerMissing());
                     require(msg.sender == inboxWrapper, NotInboxWrapper());
@@ -168,7 +168,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Data to build L2 blocks
                     blocks: params.blocks,
                     blobHashes: new bytes32[](0), // to be initialised later
-                    extraData: _encodeBaseFeeSharings(config.baseFeeSharings),
+                    extraData: _encodeExtraData(config, params),
                     coinbase: params.coinbase,
                     proposer: params.proposer,
                     proposedIn: uint64(block.number),
@@ -176,22 +176,15 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobByteOffset: params.blobParams.byteOffset,
                     blobByteSize: params.blobParams.byteSize,
                     gasLimit: config.blockMaxGasLimit,
-                    lastBlockId: 0, // to be initialised later
+                    lastBlockId: lastBatch.lastBlockId + uint64(params.blocks.length),
                     lastBlockTimestamp: lastBlockTimestamp,
-                    //
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
                     anchorBlockId: anchorBlockId,
                     anchorBlockHash: blockhash(anchorBlockId),
                     baseFeeConfig: config.baseFeeConfig
                 });
 
-                uint64 nBlocks = uint64(params.blocks.length);
-
                 require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
-
-                info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                    ? stats2.numBatches + nBlocks - 1
-                    : lastBatch.lastBlockId + nBlocks;
 
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
@@ -200,8 +193,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     infoHash: keccak256(abi.encode(info_)),
                     prover: info_.proposer,
                     batchId: stats2.numBatches,
-                    proposedAt: uint64(block.timestamp)
+                    proposedAt: uint64(block.timestamp),
+                    firstBlockId: lastBatch.lastBlockId + 1
                 });
+
+                _checkBatchInForkRange(config, meta_.firstBlockId, info_.lastBlockId);
 
                 if (params.proverAuth.length == 0) {
                     // proposer is the prover
@@ -271,10 +267,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE }}
             }
             stats2.numBatches += 1;
-            require(
-                config.forkHeights.shasta == 0 || stats2.numBatches < config.forkHeights.shasta,
-                BeyondCurrentFork()
-            );
             stats2.lastProposedIn = uint56(block.number);
 
             emit BatchProposed(info_, meta_, _txList);
@@ -303,11 +295,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         for (uint256 i; i < metasLength; ++i) {
             BatchMetadata memory meta = metas[i];
 
-            require(meta.batchId >= config.forkHeights.pacaya, ForkNotActivated());
-            require(
-                config.forkHeights.shasta == 0 || meta.batchId < config.forkHeights.shasta,
-                BeyondCurrentFork()
-            );
+            // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
+            // Hence, we only need to verify the firstBlockId of the block in the following check.
+            _checkBatchInForkRange(config, meta.firstBlockId, meta.firstBlockId);
 
             require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
             require(meta.batchId < stats2.numBatches, BatchNotFound());
@@ -751,11 +741,40 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    function _encodeBaseFeeSharings(uint8[2] memory _baseFeeSharings)
-        internal
+    function _encodeExtraData(
+        Config memory _config,
+        BatchParams memory _batchParams
+    )
+        private
         pure
         returns (bytes32)
     {
-        return bytes32(uint256(_baseFeeSharings[1]) << 8 | uint256(_baseFeeSharings[0]));
+        // The function _encodeExtraData encodes certain information into a bytes32 value.
+        // The lower 8 bits (0-7) are used to store _config.baseFeeSharings[0].
+        // The next 8 bits (8-15) are used to store _config.baseFeeSharings[1].
+        // The next 8 bits (16-23) are used to store boolean values:
+        //   - the 16th bit for _batchParams.isForcedInclusion.
+        return bytes32(
+            uint256(_config.baseFeeSharings[0]) // 0-7
+                | uint256(_config.baseFeeSharings[1]) << 8 // 8-15
+                | uint256(_batchParams.isForcedInclusion ? 1 : 0) << 16 // 16th
+        );
+    }
+
+    /// @dev Check this batch is between current fork height (inclusive) and next fork height
+    /// (exclusive)
+    function _checkBatchInForkRange(
+        Config memory _config,
+        uint64 _firstBlockId,
+        uint64 _lastBlockId
+    )
+        private
+        pure
+    {
+        require(_firstBlockId >= _config.forkHeights.shasta, ForkNotActivated());
+        require(
+            _config.forkHeights.unzen == 0 || _lastBlockId < _config.forkHeights.unzen,
+            BeyondCurrentFork()
+        );
     }
 }

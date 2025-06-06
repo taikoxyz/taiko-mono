@@ -1,6 +1,7 @@
 package preconfblocks
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -67,9 +68,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	// make a new context, we dont want to cancel the request if the caller times out.
+	ctx := context.Background()
+
 	if s.rpc.PacayaClients.TaikoWrapper != nil {
 		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: c.Request().Context()})
+		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return s.returnError(c, http.StatusInternalServerError, err)
 		}
@@ -92,7 +96,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
 	}
 
-	parent, err := s.rpc.L2.HeaderByHash(c.Request().Context(), reqBody.ExecutableData.ParentHash)
+	parent, err := s.rpc.L2.HeaderByHash(ctx, reqBody.ExecutableData.ParentHash)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
@@ -163,7 +167,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(c.Request().Context())
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
 	}
@@ -173,7 +177,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	// Insert the preconfirmation block.
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
-		c.Request().Context(),
+		ctx,
 		[]*eth.ExecutionPayload{executablePayload},
 		false,
 	)
@@ -214,7 +218,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			)
 		} else {
 			if err := s.p2pNode.GossipOut().PublishL2Payload(
-				c.Request().Context(),
+				ctx,
 				&eth.ExecutionPayloadEnvelope{
 					ExecutionPayload: &eth.ExecutionPayload{
 						BaseFeePerGas: eth.Uint256Quantity(u256),

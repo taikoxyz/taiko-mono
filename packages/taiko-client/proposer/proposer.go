@@ -280,14 +280,9 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
-	l2Head, err := p.rpc.L2.BlockNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get L2 chain head number: %w", err)
-	}
-
-	// Fetch the parent meta hash of current the L2 head, which will be used
+	// Fetch the latest parent meta hash, which will be used
 	// by revert protection.
-	parentMetaHash, err := p.GetParentMetaHash(ctx, l2Head)
+	parentMetaHash, err := p.GetParentMetaHash(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get parent meta hash: %w", err)
 	}
@@ -304,14 +299,13 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	// Propose the transactions lists.
-	return p.ProposeTxLists(ctx, txLists, l2Head, parentMetaHash)
+	return p.ProposeTxLists(ctx, txLists, parentMetaHash)
 }
 
 // ProposeTxList proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
-	l2Head uint64,
 	parentMetaHash common.Hash,
 ) error {
 	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
@@ -460,8 +454,8 @@ func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.Memor
 	)
 }
 
-// GetParentMetaHash returns the parent meta hash of the given L2 head.
-func (p *Proposer) GetParentMetaHash(ctx context.Context, l2Head uint64) (common.Hash, error) {
+// GetParentMetaHash returns the latest parent meta hash.
+func (p *Proposer) GetParentMetaHash(ctx context.Context) (common.Hash, error) {
 	state, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch protocol state variables: %w", err)

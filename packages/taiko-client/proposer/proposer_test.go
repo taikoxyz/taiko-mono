@@ -150,10 +150,10 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 
 	s.SetIntervalMining(1)
 
-	metaHash, err := s.p.GetParentMetaHash(context.Background(), head.Number.Uint64())
+	metaHash, err := s.p.GetParentMetaHash(context.Background())
 	s.Nil(err)
 
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, head.Number.Uint64(), metaHash))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)

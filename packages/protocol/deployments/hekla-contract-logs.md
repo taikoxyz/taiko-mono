@@ -32,13 +32,14 @@
 ### signal_service
 
 - proxy: `0x6Fc2fe9D9dd0251ec5E0727e826Afbb0Db2CBe0D`
-- impl: `0xE99029aAd6606fF540763d570F5b10b169eEE121`
+- impl: `0xC66b6FF5ce6AeD267C535821E76D227c854616C1`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
   - upgraded on Mar 21, 2025 at commit `80baf41`
+  - upgraded on May 31, 2025 at commit `baeaba9`
 
 ### bridge
 
@@ -247,9 +248,10 @@
 
 ### sp1_plonk_verifier(Pacaya)
 
-- addr : `0xaFa7E6aC18572265b026D147c7907b300E35D58E`
+- addr : `0x88be3872e9391dcc441eacbbb4ee2c1bd92ccc37`
 - logs:
   - deployed on Apr 16, 2025 at commit `9bcf8e5`
+  - deployed on Jun 3, 2025 at commit `52bc719`
 
 ### tier_zkvm_sp1
 
@@ -321,11 +323,12 @@
 ### sp1_reth_verifier(Pacaya)
 
 - proxy : `0x1138aA994477f0880001aa1E8106D749035b6250`
-- impl : `0x3002047a5B4f8ef022Cb87e97418dd5112209182`
+- impl : `0xe53964d7bf4a3f47816e4721bb659edad9f61f6a`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 16, 2025 at commit `9bcf8e5`
+  - upgraded on Jun 3, 2025 at commit `52bc719`
 
 ### sgx_geth_verifier
 

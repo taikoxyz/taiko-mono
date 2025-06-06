@@ -25,16 +25,6 @@ contract Proposal0002 is BuildProposal {
     address public constant L2_BAR_CONTRACT_NEW_IMPL = 0x7fBd8DbA7678eDb9eaDf83e204372d8a39F75398;
     address public constant L2_DANIEL_WANG_ADDRESS = 0xf0A0d6Bd4aA94F53F3FB2c88488202a9E9eD2c55;
 
-    function proposalConfig()
-        internal
-        pure
-        override
-        returns (uint64 l2ExecutionId, uint32 l2GasLimit)
-    {
-        l2ExecutionId = 1;
-        l2GasLimit = 25_000_000;
-    }
-
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](4);
 
@@ -64,7 +54,14 @@ contract Proposal0002 is BuildProposal {
         });
     }
 
-    function buildL2Actions() internal pure override returns (Controller.Action[] memory actions) {
+    function buildL2Actions()
+        internal
+        pure
+        override
+        returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
+    {
+        l2ExecutionId = 1;
+        l2GasLimit = 25_000_000;
         actions = new Controller.Action[](6);
 
         // Transfer 0.0001 Ether from DelegateController to Daniel Wang
