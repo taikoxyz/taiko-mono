@@ -353,6 +353,7 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) (err error) {
 	// if it fails, then try to get the fork heights from the Pacaya protocol.
 	protocolConfigs, err := c.ShastaClients.TaikoInbox.V4GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
+		// TODO: need to update Shasta fork height on PacayaInbox before release a new tag
 		protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return err

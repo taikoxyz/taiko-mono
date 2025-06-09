@@ -88,4 +88,5 @@ type TaikoBatchMetaDataShasta interface {
 	GetTxIndex() uint
 	GetTxHash() common.Hash
 	InnerMetadata() *shastaBindings.ITaikoInboxBatchMetadata
+	GetProver() common.Address
 }

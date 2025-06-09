@@ -41,12 +41,12 @@ func (m *TaikoDataBlockMetadataShasta) IsPacaya() bool {
 	return false
 }
 
-// Pacaya implements TaikoProposalMetaData interface.
+// Shasta implements TaikoProposalMetaData interface.
 func (m *TaikoDataBlockMetadataShasta) Shasta() TaikoBatchMetaDataShasta {
 	return m
 }
 
-// IsPacaya implements TaikoProposalMetaData interface.
+// IsShasta implements TaikoProposalMetaData interface.
 func (m *TaikoDataBlockMetadataShasta) IsShasta() bool {
 	return true
 }
@@ -172,4 +172,9 @@ func (m *TaikoDataBlockMetadataShasta) GetTxHash() common.Hash {
 // InnerMetadata returns the inner metadata of this batch.
 func (m *TaikoDataBlockMetadataShasta) InnerMetadata() *shastaBindings.ITaikoInboxBatchMetadata {
 	return &m.ITaikoInboxBatchMetadata
+}
+
+// GetProver returns the assigned prover of this batch.
+func (m *TaikoDataBlockMetadataShasta) GetProver() common.Address {
+	return m.Prover
 }

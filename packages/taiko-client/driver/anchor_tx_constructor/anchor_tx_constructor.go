@@ -159,7 +159,9 @@ func (c *AnchorTxConstructor) transactOpts(
 	)
 
 	gasLimit := consensus.AnchorGasLimit
-	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Pacaya {
+	if l2Height.Uint64() >= c.rpc.ShastaClients.ForkHeights.Shasta {
+		gasLimit = consensus.AnchorV4GasLimit
+	} else if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Pacaya {
 		gasLimit = consensus.AnchorV3GasLimit
 	}
 
