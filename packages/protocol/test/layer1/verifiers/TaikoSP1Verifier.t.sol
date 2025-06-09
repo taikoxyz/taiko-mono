@@ -70,6 +70,7 @@ contract TestTaikoSP1Verifier is Layer1Test {
         );
         vm.stopPrank();
 
+        // TODO: fix tests @Yue
         // Context
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](2);
         ctxs[0] = IVerifier.Context({
