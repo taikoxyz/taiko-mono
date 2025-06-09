@@ -31,6 +31,7 @@ abstract contract InboxTestBase is Layer1Test {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
@@ -39,7 +40,6 @@ abstract contract InboxTestBase is Layer1Test {
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            baseFeeSharings: [uint8(50), uint8(0)],
             forkHeights: forkHeights
         });
     }
