@@ -83,7 +83,7 @@ InboxTest_ProposeAndProve:test_inbox_reprove_by_transition_with_same_parent_hash
 InboxTest_ProposeAndProve:test_inbox_reprove_by_transition_with_same_parent_hash_but_different_block_hash_will_pause_inbox() (gas: 8163223)
 InboxTest_ProposeAndProve:test_inbox_reprove_the_same_batch_with_same_transition_will_do_nothing() (gas: 1284226)
 InboxTest_ProposeAndProve:test_inbox_ring_buffer_will_be_reused() (gas: 15767717)
-InboxTest_ProvabilityBond:test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_proving_window() (gas: 1113966)
+InboxTest_ProvabilityBond:test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_proving_window() (gas: 1127031)
 InboxTest_StopBatch:test_inbox_num_batches_verified() (gas: 8708718)
 PreconfRouterTest:test_preconfRouter_proposeBatch() (gas: 378544)
 PreconfRouterTest:test_preconfRouter_proposeBatch_notOperator() (gas: 327918)
