@@ -168,7 +168,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Data to build L2 blocks
                     blocks: params.blocks,
                     blobHashes: new bytes32[](0), // to be initialised later
-                    extraData: _encodeExtraData(config, params),
+                    // The client must ensure that the lower 128 bits of the extraData field in the
+                    // header of each block in this batch match the specified value.
+                    // The upper 128 bits of the extraData field are validated using off-chain
+                    // protocol logic.
+                    extraData: bytes32(uint256(_encodeExtraDataLower128Bits(config, params))),
                     coinbase: params.coinbase,
                     proposer: params.proposer,
                     proposedIn: uint64(block.number),
@@ -741,22 +745,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    function _encodeExtraData(
+    /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
+    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
+    /// - bit 8: used to store _batchParams.isForcedInclusion.
+    function _encodeExtraDataLower128Bits(
         Config memory _config,
         BatchParams memory _batchParams
     )
         private
         pure
-        returns (bytes32)
+        returns (uint128)
     {
-        // The function _encodeExtraData encodes certain information into a bytes32 value.
-        // The lower 8 bits (0-7) are used to store _config.baseFeeConfig.sharingPctg.
-        // The next 8 bits (16-23) are reserved for future use.
-        // The 16th bit for _batchParams.isForcedInclusion.
-        return bytes32(
-            uint256(_config.baseFeeConfig.sharingPctg) // 0-7
-                | uint256(_batchParams.isForcedInclusion ? 1 : 0) << 16 // 16th
-        );
+        return uint128(_config.baseFeeConfig.sharingPctg) // bits 0-7
+            | uint128(_batchParams.isForcedInclusion ? 1 : 0) << 8; // bit 8
     }
 
     /// @dev Check this batch is between current fork height (inclusive) and next fork height
