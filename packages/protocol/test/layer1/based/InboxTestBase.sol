@@ -27,6 +27,7 @@ abstract contract InboxTestBase is Layer1Test {
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token per batch
+            provabilityBond: 0,
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -37,7 +38,9 @@ abstract contract InboxTestBase is Layer1Test {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 1 hours,
+            extendedProvingWindow: 2 hours,
             cooldownWindow: 0 hours,
+            bondRewardPtcg: 50, // 50%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: forkHeights
@@ -340,10 +343,7 @@ abstract contract InboxTestBase is Layer1Test {
                 );
                 console2.log(unicode"│    │    └── prover:", ts.prover);
 
-                console2.log(
-                    unicode"│    │    └── inProvingWindow:",
-                    ts.inProvingWindow ? "Y" : "N"
-                );
+                console2.log(unicode"│    │    └── proofTiming:", uint8(ts.proofTiming));
                 console2.log(unicode"│    │    └── createdAt:", ts.createdAt);
             }
         }

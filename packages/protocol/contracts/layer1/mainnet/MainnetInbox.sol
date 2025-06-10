@@ -34,7 +34,8 @@ contract MainnetInbox is TaikoInbox {
             batchRingBufferSize: batchRingBufferSize_,
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token per batch
+            livenessBond: 200 ether, // TAIKO token
+            provabilityBond: 4000 ether, // TAIKO token
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -44,8 +45,10 @@ contract MainnetInbox is TaikoInbox {
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
-            provingWindow: 2 hours,
-            cooldownWindow: 2 hours,
+            provingWindow: 1 hours,
+            extendedProvingWindow: 6 hours,
+            cooldownWindow: 1 hours,
+            bondRewardPtcg: 75, // 75%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: _getForkHeights()

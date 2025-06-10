@@ -93,8 +93,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 if (inboxWrapper == address(0)) {
-                    require(params.proposer == address(0), CustomProposerNotAllowed());
-                    params.proposer = msg.sender;
+                    if (params.proposer == address(0)) {
+                        params.proposer = msg.sender;
+                    } else {
+                        require(params.proposer == msg.sender, CustomProposerNotAllowed());
+                    }
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
@@ -174,7 +177,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // protocol logic.
                     extraData: bytes32(uint256(_encodeExtraDataLower128Bits(config, params))),
                     coinbase: params.coinbase,
-                    proposer: params.proposer,
                     proposedIn: uint64(block.number),
                     blobCreatedIn: params.blobParams.createdIn,
                     blobByteOffset: params.blobParams.byteOffset,
@@ -195,7 +197,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 meta_ = BatchMetadata({
                     infoHash: keccak256(abi.encode(info_)),
-                    prover: info_.proposer,
+                    proposer: params.proposer,
+                    prover: params.proposer,
                     batchId: stats2.numBatches,
                     proposedAt: uint64(block.timestamp),
                     firstBlockId: lastBatch.lastBlockId + 1
@@ -226,7 +229,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     if (auth.feeToken == bondToken) {
                         // proposer pay the prover fee with bond tokens
-                        _debitBond(info_.proposer, auth.fee);
+                        _debitBond(meta_.proposer, auth.fee);
 
                         // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                         // if not then add the diff to the bond balance
@@ -240,14 +243,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     } else {
                         _debitBond(meta_.prover, config.livenessBond);
 
-                        if (info_.proposer != meta_.prover) {
+                        if (meta_.proposer != meta_.prover) {
                             IERC20(auth.feeToken).safeTransferFrom(
-                                info_.proposer, meta_.prover, auth.fee
+                                meta_.proposer, meta_.prover, auth.fee
                             );
                         }
                     }
                 }
             }
+
+            _debitBond(meta_.proposer, config.provabilityBond);
 
             {
                 Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -266,7 +271,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 // SSTORE #3 {{
                 batch.lastBlockId = info_.lastBlockId;
-                batch.reserved3 = 0;
+                batch.provabilityBond = config.provabilityBond;
                 batch.livenessBond = config.livenessBond;
                 // SSTORE }}
             }
@@ -373,18 +378,37 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             ts.stateRoot =
                 meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
 
-            bool inProvingWindow;
-            unchecked {
-                inProvingWindow = block.timestamp
-                    <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+            {
+                uint256 proposedAt = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
+                if (block.timestamp <= proposedAt + config.provingWindow) {
+                    ts.proofTiming = uint8(ProofTiming.InProvingWindow);
+                    ts.prover = meta.prover;
+                } else if (block.timestamp <= proposedAt + config.extendedProvingWindow) {
+                    ts.proofTiming = uint8(ProofTiming.InExtendedProvingWindow);
+                    ts.prover = msg.sender;
+                } else {
+                    ts.proofTiming = uint8(ProofTiming.OutOfExtendedProvingWindow);
+                    ts.prover = msg.sender;
+                }
             }
 
-            ts.inProvingWindow = inProvingWindow;
-            ts.prover = inProvingWindow ? meta.prover : msg.sender;
             ts.createdAt = uint48(block.timestamp);
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
+
+                // The prover for the first transition is responsible for placing the provability
+                // if the transition is within extended proving window.
+                if (
+                    ts.proofTiming != uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow)
+                        && msg.sender != meta.proposer
+                ) {
+                    // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
+                    // of the proposer's bond through an invalid first transition.
+                    uint96 provabilityBond = batch.provabilityBond;
+                    _debitBond(msg.sender, provabilityBond);
+                    state.creditBond(meta.proposer, provabilityBond);
+                }
             } else {
                 state.transitionIds[meta.batchId][tran.parentHash] = tid;
             }
