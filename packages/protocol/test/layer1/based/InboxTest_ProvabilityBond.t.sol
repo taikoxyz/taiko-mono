@@ -66,6 +66,39 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee);
     }
 
+    function test_inbox_provability_bond_in_proving_window_bob_proves_alices_block_not_first_transition(
+    )
+        external
+    {
+        vm.warp(1_000_000);
+
+        setupBondTokenState(Alice, bondBalance, bondBalance);
+        setupBondTokenState(Bob, bondBalance, bondBalance);
+        setupBondTokenState(Carol, bondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = v4GetConfig();
+        uint64[] memory batchIds = _proposeBatchesWithProverAuth(
+            Alice,
+            1,
+            Bob,
+            uint256(0x2), // Bob's singing key
+            "txList"
+        );
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
+
+        vm.prank(Carol);
+        _proveBatchesWithWrongTransitions(batchIds);
+
+        vm.prank(Bob);
+        _proveBatchesWithCorrectTransitions(batchIds);
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee);
+        assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee);
+        assertEq(inbox.v4BondBalanceOf(Carol), bondBalance - config.provabilityBond);
+        _logAllBatchesAndTransitions();
+    }
+
     function test_inbox_provability_bond_in_extended_proving_window_alice_alone() external {
         vm.warp(1_000_000);
 
@@ -118,6 +151,43 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
             inbox.v4BondBalanceOf(Bob),
             bondBalance + proverFee - config.livenessBond * (100 - config.bondRewardPtcg) / 100
         );
+    }
+
+    function test_inbox_provability_bond_in_extended_proving_window_bob_proves_alices_block_not_first_transition(
+    )
+        external
+    {
+        vm.warp(1_000_000);
+
+        setupBondTokenState(Alice, bondBalance, bondBalance);
+        setupBondTokenState(Bob, bondBalance, bondBalance);
+        setupBondTokenState(Carol, bondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = v4GetConfig();
+        uint64[] memory batchIds = _proposeBatchesWithProverAuth(
+            Alice,
+            1,
+            Bob,
+            uint256(0x2), // Bob's singing key
+            "txList"
+        );
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
+
+        vm.warp(block.timestamp + config.provingWindow + 1);
+
+        vm.prank(Carol);
+        _proveBatchesWithWrongTransitions(batchIds);
+
+        vm.prank(Bob);
+        _proveBatchesWithCorrectTransitions(batchIds);
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee);
+        assertEq(
+            inbox.v4BondBalanceOf(Bob),
+            bondBalance + proverFee - config.livenessBond * (100 - config.bondRewardPtcg) / 100
+        );
+        assertEq(inbox.v4BondBalanceOf(Carol), bondBalance - config.provabilityBond);
     }
 
     function test_inbox_provability_bond_out_of_extended_proving_window_alice_alone() external {
@@ -174,5 +244,43 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
             bondBalance + proverFee - config.livenessBond * (100 - config.bondRewardPtcg) / 100
                 + config.provabilityBond * config.bondRewardPtcg / 100
         );
+    }
+
+    function test_inbox_provability_bond_out_of_extended_proving_window_bob_proves_alices_block_not_first_transition(
+    )
+        external
+    {
+        vm.warp(1_000_000);
+
+        setupBondTokenState(Alice, bondBalance, bondBalance);
+        setupBondTokenState(Bob, bondBalance, bondBalance);
+        setupBondTokenState(Carol, bondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = v4GetConfig();
+        uint64[] memory batchIds = _proposeBatchesWithProverAuth(
+            Alice,
+            1,
+            Bob,
+            uint256(0x2), // Bob's singing key
+            "txList"
+        );
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
+
+        vm.warp(block.timestamp + config.extendedProvingWindow + 1);
+
+        vm.prank(Carol);
+        _proveBatchesWithWrongTransitions(batchIds);
+
+        vm.prank(Bob);
+        _proveBatchesWithCorrectTransitions(batchIds);
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee - config.provabilityBond);
+        assertEq(
+            inbox.v4BondBalanceOf(Bob),
+            bondBalance + proverFee - config.livenessBond * (100 - config.bondRewardPtcg) / 100
+                + config.provabilityBond * config.bondRewardPtcg / 100
+        );
+        assertEq(inbox.v4BondBalanceOf(Carol), bondBalance);
     }
 }

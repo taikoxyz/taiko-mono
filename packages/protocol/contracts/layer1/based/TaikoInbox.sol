@@ -401,10 +401,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // if the transition is within extended proving window.
                 if (
                     ts.proofTiming != uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow)
-                        && ts.prover != meta.proposer
+                        && msg.sender != meta.proposer
                 ) {
+                    // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
+                    // of the proposer's bond through an invalid first transition.
                     uint96 provabilityBond = batch.provabilityBond;
-                    _debitBond(meta.prover, provabilityBond);
+                    _debitBond(msg.sender, provabilityBond);
                     state.creditBond(meta.proposer, provabilityBond);
                 }
             } else {
