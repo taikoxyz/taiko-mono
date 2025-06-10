@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.1...docs-site-v1.28.2) (2025-06-10)
+
+
+### Chores
+
+* **docs-site:** update api3 description ([#19590](https://github.com/taikoxyz/taiko-mono/issues/19590)) ([55962b3](https://github.com/taikoxyz/taiko-mono/commit/55962b36faed62f7fbcfd502cf768805fc072ade))
+
 ## [1.28.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.0...docs-site-v1.28.1) (2025-06-03)
 
 
