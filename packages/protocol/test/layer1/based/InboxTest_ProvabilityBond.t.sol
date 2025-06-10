@@ -17,7 +17,6 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         config_.provabilityBond = 1000 ether;
         config_.extendedProvingWindow = 4 hours;
         config_.bondRewardPtcg = 50; // 50%
-        config_.maxBatchesToVerify = 0;
     }
 
     function test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_proving_window()
@@ -26,52 +25,28 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         vm.warp(1_000_000);
 
         uint256 bondBalance = 100_000 ether;
+
+        // must be the same value as used by _proposeBatchesWithProverAuth
+        uint96 proverFee = 5 ether; 
         setupBondTokenState(Alice, bondBalance, bondBalance);
         setupBondTokenState(Bob, bondBalance, bondBalance);
 
         ITaikoInbox.Config memory config = v4GetConfig();
-        uint64[] memory batchIds = new uint64[](1);
-        {
-            LibProverAuth.ProverAuth memory auth;
-            auth.prover = Bob;
-            auth.feeToken = address(bondToken);
-            auth.fee = 50 ether;
-            auth.signature = "";
+        uint64[] memory batchIds = _proposeBatchesWithProverAuth(
+            Alice,
+            1,
+            Bob,
+            uint256(0x2), // Bob's singing key
+            "txList"
+        );
 
-            ITaikoInbox.BatchParams memory batchParams;
-            batchParams.proposer = Alice;
-            batchParams.coinbase = Alice;
-            batchParams.blocks = new ITaikoInbox.BlockParams[](1);
-            bytes memory txList = "txList";
-            bytes32 txListHash = keccak256(abi.encodePacked(txList));
-
-            bytes32 digest = LibProverAuth.computeProverAuthDigest(
-                config.chainId, keccak256(abi.encode(batchParams)), txListHash, auth
-            );
-
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(uint256(0x2), digest);
-            auth.signature = abi.encodePacked(r, s, v);
-            batchParams.proverAuth = abi.encode(auth);
-
-            vm.prank(Alice);
-            (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
-
-            _saveMetadataAndInfo(meta, info);
-
-            batchIds[0] = meta.batchId;
-        }
-
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - 50 ether);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
 
         vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - 50 ether);
-        assertEq(
-            inbox.v4BondBalanceOf(Bob),
-            bondBalance - config.livenessBond - config.provabilityBond + 50 ether
-        );
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee);
+        assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee);
     }
 
     // function
