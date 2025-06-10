@@ -45,9 +45,9 @@ contract MainnetInbox is TaikoInbox {
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
-            provingWindow: 2 hours,
+            provingWindow: 1 hours,
             extendedProvingWindow: 6 hours,
-            cooldownWindow: 2 hours,
+            cooldownWindow: 1 hours,
             bondRewardPtcg: 75, // 75%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
