@@ -91,8 +91,8 @@ library LibVerification {
                             // prover is rewarded with bondRewardPtcg% of the liveness bond.
                             bondToReturn = batch.livenessBond * _config.bondRewardPtcg / 100;
                         } else {
-                            // prover is rewarded with bondRewardPtcg% of the liveness bond and 1/2 of the
-                            // provability bond.
+                            // prover is rewarded with bondRewardPtcg% of the liveness bond and
+                            // bondRewardPtcg%  of the provability bond.
                             bondToReturn = (batch.livenessBond + batch.provabilityBond)
                                 * _config.bondRewardPtcg / 100;
                         }

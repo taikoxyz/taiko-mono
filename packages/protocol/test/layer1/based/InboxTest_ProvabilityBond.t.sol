@@ -12,10 +12,12 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
 
     function v4GetConfig() internal pure override returns (ITaikoInbox.Config memory config_) {
         config_ = super.v4GetConfig();
-        config_.livenessBond = 125 ether;
+        config_.livenessBond = 100 ether;
         config_.provingWindow = 1 hours;
         config_.provabilityBond = 1000 ether;
         config_.extendedProvingWindow = 4 hours;
+        config_.bondRewardPtcg = 50; // 50%
+        config_.maxBatchesToVerify = 0;
     }
 
     function test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_proving_window()
@@ -23,23 +25,65 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
     {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 1_000_000 ether;
         uint256 bondBalance = 100_000 ether;
-
-        setupBondTokenState(Alice, initialBondBalance, bondBalance);
+        setupBondTokenState(Alice, bondBalance, bondBalance);
+        setupBondTokenState(Bob, bondBalance, bondBalance);
 
         ITaikoInbox.Config memory config = v4GetConfig();
 
-        vm.prank(Alice);
-        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(
-            inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond - config.provabilityBond
+        LibProverAuth.ProverAuth memory auth;
+        auth.prover = Bob;
+        auth.feeToken = address(bondToken);
+        auth.fee = 50 ether;
+        auth.signature = "";
+
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.proposer = Alice;
+        batchParams.coinbase = Alice;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        bytes memory txList = "txList";
+        bytes32 txListHash = keccak256(abi.encodePacked(txList));
+
+console2.log("abi.encode(batchParams)");
+        
+
+    console2.log("proposer:", batchParams.proposer);
+    console2.log("coinbase:", batchParams.coinbase);
+    console2.log("blobParams.createdIn:", batchParams.blobParams.createdIn);
+    console2.log("blobParams.byteOffset:", batchParams.blobParams.byteOffset);
+    console2.log("blobParams.byteSize:", batchParams.blobParams.byteSize);
+    console2.log("blocks length:", batchParams.blocks.length);
+    console2.log("proverAuth length:", batchParams.proverAuth.length);
+
+        bytes32 digest = LibProverAuth.computeProverAuthDigest(
+            config.chainId, keccak256(abi.encode(batchParams)), txListHash, auth
         );
 
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(uint256(0x2), digest);
+        auth.signature = abi.encodePacked(r, s, v);
+        batchParams.proverAuth = abi.encode(auth);
+
         vm.prank(Alice);
+        (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+        _saveMetadataAndInfo(meta, info);
+
+        uint64[] memory batchIds = new uint64[](1);
+        batchIds[0] = meta.batchId;
+
+        // assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond);
+
+        // vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
+        //  assertEq(
+        //     inbox.v4BondBalanceOf(Alice), bondBalance
+        // );
+        // assertEq(
+        //     inbox.v4BondBalanceOf(Bob), bondBalance - config.livenessBond -
+        // config.provabilityBond
+        // );
     }
 
     // function

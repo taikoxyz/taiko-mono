@@ -93,7 +93,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 if (inboxWrapper == address(0)) {
-                    require(params.proposer == address(0), CustomProposerNotAllowed());
+                    require(params.proposer == address(0) || params.proposer == msg.sender, CustomProposerNotAllowed());
                     params.proposer = msg.sender;
 
                     // blob hashes are only accepted if the caller is trusted.
@@ -208,6 +208,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // proverAuth has also batchParamsHash)
                     params.proverAuth = "";
 
+
+
+    console2.log("proposer:", params.proposer);
+    console2.log("coinbase:", params.coinbase);
+    console2.log("blobParams.createdIn:", params.blobParams.createdIn);
+    console2.log("blobParams.byteOffset:", params.blobParams.byteOffset);
+    console2.log("blobParams.byteSize:", params.blobParams.byteSize);
+    console2.log("blocks length:", params.blocks.length);
+    console2.log("proverAuth length:", params.proverAuth.length);
+
+    
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
                     LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(
