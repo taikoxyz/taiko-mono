@@ -754,10 +754,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         private
         pure
-        returns (uint128)
+        returns (uint128 encoded_)
     {
-        return uint128(_config.baseFeeConfig.sharingPctg) // bits 0-7
-            | uint128(_batchParams.isForcedInclusion ? 1 : 0) << 8; // bit 8
+        encoded_ |= _config.baseFeeConfig.sharingPctg; // bits 0-7
+        encoded_ |= uint128(_batchParams.isForcedInclusion ? 1 : 0) << 8; // bit 8
     }
 
     /// @dev Check this batch is between current fork height (inclusive) and next fork height
