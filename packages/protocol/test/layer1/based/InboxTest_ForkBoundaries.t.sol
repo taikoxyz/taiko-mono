@@ -36,6 +36,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             provingWindow: 1 hours,
             extendedProvingWindow: 2 hours,
             cooldownWindow: 0 hours,
+            bondRewardPtcg: 50, // 50%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             baseFeeSharings: [uint8(50), uint8(0)],
@@ -73,6 +74,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             provingWindow: 1 hours,
             extendedProvingWindow: 2 hours,
             cooldownWindow: 0 hours,
+            bondRewardPtcg: 50, // 50%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             baseFeeSharings: [uint8(50), uint8(0)],

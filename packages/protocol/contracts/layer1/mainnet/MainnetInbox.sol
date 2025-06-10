@@ -47,6 +47,7 @@ contract MainnetInbox is TaikoInbox {
             provingWindow: 2 hours,
             extendedProvingWindow: 6 hours,
             cooldownWindow: 2 hours,
+            bondRewardPtcg: 75, // 75%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             baseFeeSharings: [uint8(50), uint8(0)],

@@ -46,6 +46,7 @@ contract DevnetInbox is TaikoInbox {
             }),
             provingWindow: 2 hours,
             cooldownWindow: cooldownWindow,
+            bondRewardPtcg: 50, // 50%
             extendedProvingWindow: extendedProvingWindow,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,

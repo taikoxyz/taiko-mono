@@ -197,6 +197,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint24 extendedProvingWindow;
         /// @notice The time required for a transition to be used for verifying a batch.
         uint24 cooldownWindow;
+        uint8 bondRewardPtcg; // 0-100
         /// @notice The maximum number of signals to be received by TaikoL2.
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.

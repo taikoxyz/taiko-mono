@@ -89,11 +89,12 @@ library LibVerification {
                             ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InExtendedProvingWindow)
                         ) {
                             // prover is rewarded with 1/2 of the liveness bond.
-                            bondToReturn = batch.livenessBond / 2;
+                            bondToReturn = batch.livenessBond * _config.bondRewardPtcg / 100;
                         } else {
                             // prover is rewarded with 1/2 of the liveness bond and 1/2 of the
                             // provability bond.
-                            bondToReturn = (batch.livenessBond + batch.provabilityBond) / 2;
+                            bondToReturn = (batch.livenessBond + batch.provabilityBond)
+                                * _config.bondRewardPtcg / 100;
                         }
 
                         creditBond(_state, ts.prover, bondToReturn);
