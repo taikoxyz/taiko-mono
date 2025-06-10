@@ -40,6 +40,7 @@ contract DevnetInbox is TaikoInbox {
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000
@@ -50,7 +51,6 @@ contract DevnetInbox is TaikoInbox {
             extendedProvingWindow: extendedProvingWindow,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            baseFeeSharings: [uint8(50), uint8(0)],
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 0,
                 pacaya: 0,
