@@ -30,49 +30,48 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         setupBondTokenState(Bob, bondBalance, bondBalance);
 
         ITaikoInbox.Config memory config = v4GetConfig();
-
-        LibProverAuth.ProverAuth memory auth;
-        auth.prover = Bob;
-        auth.feeToken = address(bondToken);
-        auth.fee = 50 ether;
-        auth.signature = "";
-
-        ITaikoInbox.BatchParams memory batchParams;
-        batchParams.proposer = Alice;
-        batchParams.coinbase = Alice;
-        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
-        bytes memory txList = "txList";
-        bytes32 txListHash = keccak256(abi.encodePacked(txList));
-
-        bytes32 digest = LibProverAuth.computeProverAuthDigest(
-            config.chainId, keccak256(abi.encode(batchParams)), txListHash, auth
-        );
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(uint256(0x2), digest);
-        auth.signature = abi.encodePacked(r, s, v);
-        batchParams.proverAuth = abi.encode(auth);
-
-        vm.prank(Alice);
-        (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
-            inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
-
-        _saveMetadataAndInfo(meta, info);
-
         uint64[] memory batchIds = new uint64[](1);
-        batchIds[0] = meta.batchId;
+        {
+            LibProverAuth.ProverAuth memory auth;
+            auth.prover = Bob;
+            auth.feeToken = address(bondToken);
+            auth.fee = 50 ether;
+            auth.signature = "";
 
-        // assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond);
+            ITaikoInbox.BatchParams memory batchParams;
+            batchParams.proposer = Alice;
+            batchParams.coinbase = Alice;
+            batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+            bytes memory txList = "txList";
+            bytes32 txListHash = keccak256(abi.encodePacked(txList));
 
-        // vm.prank(Bob);
+            bytes32 digest = LibProverAuth.computeProverAuthDigest(
+                config.chainId, keccak256(abi.encode(batchParams)), txListHash, auth
+            );
+
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(uint256(0x2), digest);
+            auth.signature = abi.encodePacked(r, s, v);
+            batchParams.proverAuth = abi.encode(auth);
+
+            vm.prank(Alice);
+            (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
+                inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
+
+            _saveMetadataAndInfo(meta, info);
+
+            batchIds[0] = meta.batchId;
+        }
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - 50 ether);
+
+        vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        //  assertEq(
-        //     inbox.v4BondBalanceOf(Alice), bondBalance
-        // );
-        // assertEq(
-        //     inbox.v4BondBalanceOf(Bob), bondBalance - config.livenessBond -
-        // config.provabilityBond
-        // );
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - 50 ether);
+        assertEq(
+            inbox.v4BondBalanceOf(Bob),
+            bondBalance - config.livenessBond - config.provabilityBond + 50 ether
+        );
     }
 
     // function
