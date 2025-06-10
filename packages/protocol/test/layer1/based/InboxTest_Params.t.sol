@@ -9,16 +9,13 @@ contract InboxTest_Params is InboxTestBase {
         super.setUpOnEthereum();
     }
 
-    function test_validateParams_defaults_when_anchorBlockId_is_zero() external transactBy(Alice) {
+    function test_validateParams_defaults_when_anchorBlockId_is_not_set() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
 
-        (ITaikoInbox.BatchInfo memory info,) =
-            inbox.v4ProposeBatch(abi.encode(params), "txList", "");
-
-        // Assert that the default anchorBlockId was set correctly
-        uint64 expectedAnchorBlockId = uint64(block.number - 1);
-        assertEq(info.anchorBlockIds[0], expectedAnchorBlockId, "AnchorBlockId mismatch");
+        // It should revert, because no anchorBlockId is set
+        vm.expectRevert();
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_too_small()

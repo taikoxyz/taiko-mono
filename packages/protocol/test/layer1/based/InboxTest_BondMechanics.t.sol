@@ -36,7 +36,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
-        uint256 bondBalance = 1000 ether;
+        uint256 bondBalance = 1250 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 

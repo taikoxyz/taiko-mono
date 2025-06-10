@@ -159,6 +159,15 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
 
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            batchParams.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 2);
+        }
+
         batchIds = new uint64[](numBatchesToPropose);
 
         for (uint256 i; i < numBatchesToPropose; ++i) {

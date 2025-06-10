@@ -15,6 +15,7 @@ import "./libs/LibVerification.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
 
+import "forge-std/src/console2.sol";
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
@@ -667,6 +668,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 state.bondBalance[_user] = balance - _amount;
             }
         } else if (bondToken != address(0)) {
+            console2.log("Coming thru this path ??");
             uint256 amountDeposited = _handleDeposit(_user, _amount);
             require(amountDeposited == _amount, InsufficientBond());
         } else {
@@ -685,6 +687,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         if (bondToken != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
+
+            console2.log("_user: ", _user);
+            console2.log("_amount: ", _amount);
 
             uint256 balance = IERC20(bondToken).balanceOf(address(this));
             IERC20(bondToken).safeTransferFrom(_user, address(this), _amount);
