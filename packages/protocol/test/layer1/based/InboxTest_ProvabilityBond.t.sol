@@ -27,7 +27,7 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         uint256 bondBalance = 100_000 ether;
 
         // must be the same value as used by _proposeBatchesWithProverAuth
-        uint96 proverFee = 5 ether; 
+        uint96 proverFee = 5 ether;
         setupBondTokenState(Alice, bondBalance, bondBalance);
         setupBondTokenState(Bob, bondBalance, bondBalance);
 
