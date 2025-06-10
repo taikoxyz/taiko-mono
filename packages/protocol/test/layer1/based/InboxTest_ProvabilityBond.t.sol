@@ -20,12 +20,29 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         config_.provingWindow = 1 hours;
         config_.provabilityBond = 1000 ether;
         config_.extendedProvingWindow = 4 hours;
-        config_.bondRewardPtcg = 50; // 50%
+        config_.bondRewardPtcg = 60; // 60%
     }
 
-    function test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_proving_window()
-        external
-    {
+    function test_inbox_provability_bond_in_proving_window_alice_alone() external {
+        vm.warp(1_000_000);
+
+        setupBondTokenState(Alice, bondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = v4GetConfig();
+        vm.prank(Alice);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+
+        assertEq(
+            inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - config.livenessBond
+        );
+
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds);
+
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
+    }
+
+    function test_inbox_provability_bond_in_proving_window_bob_proves_alices_block() external {
         vm.warp(1_000_000);
 
         setupBondTokenState(Alice, bondBalance, bondBalance);
@@ -49,8 +66,31 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee);
     }
 
-    function test_inbox_provability_bond_debit_and_credit_proved_by_proposer_in_extended_proving_window(
-    )
+    function test_inbox_provability_bond_in_extended_proving_window_alice_alone() external {
+        vm.warp(1_000_000);
+
+        setupBondTokenState(Alice, bondBalance, bondBalance);
+        setupBondTokenState(Bob, bondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = v4GetConfig();
+        vm.prank(Alice);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+
+        assertEq(
+            inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - config.livenessBond
+        );
+
+        vm.warp(block.timestamp + config.provingWindow + 1);
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds);
+
+        assertEq(
+            inbox.v4BondBalanceOf(Alice),
+            bondBalance - config.livenessBond * (100 - config.bondRewardPtcg) / 100
+        );
+    }
+
+    function test_inbox_provability_bond_in_extended_proving_window_bob_proves_alices_block()
         external
     {
         vm.warp(1_000_000);
@@ -80,8 +120,32 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         );
     }
 
-    function test_inbox_provability_bond_debit_and_credit_proved_by_proposer_out_of_extended_proving_window(
-    )
+    function test_inbox_provability_bond_out_of_extended_proving_window_alice_alone() external {
+        vm.warp(1_000_000);
+
+        setupBondTokenState(Alice, bondBalance, bondBalance);
+        setupBondTokenState(Bob, bondBalance, bondBalance);
+
+        ITaikoInbox.Config memory config = v4GetConfig();
+        vm.prank(Alice);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+
+        assertEq(
+            inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - config.livenessBond
+        );
+
+        vm.warp(block.timestamp + config.extendedProvingWindow + 1);
+        vm.prank(Alice);
+        _proveBatchesWithCorrectTransitions(batchIds);
+
+        assertEq(
+            inbox.v4BondBalanceOf(Alice),
+            bondBalance
+                - (config.provabilityBond + config.livenessBond) * (100 - config.bondRewardPtcg) / 100
+        );
+    }
+
+    function test_inbox_provability_bond_out_of_extended_proving_window_bob_proves_alices_block()
         external
     {
         vm.warp(1_000_000);
