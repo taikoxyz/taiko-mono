@@ -39,6 +39,7 @@ contract MainnetInbox is TaikoInbox {
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
@@ -47,7 +48,6 @@ contract MainnetInbox is TaikoInbox {
             cooldownWindow: 2 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            baseFeeSharings: [uint8(50), uint8(0)],
             forkHeights: _getForkHeights()
         });
     }
