@@ -58,6 +58,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
+        bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
         BlockParams[] blocks;
@@ -278,6 +279,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error InsufficientBond();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
+    error InvalidForcedInclusion();
     error InvalidGenesisBlockHash();
     error InvalidParams();
     error InvalidTransitionBlockHash();

@@ -1,5 +1,0 @@
-See `test_inbox_measure_gas_used` in InboxTest_ProposeAndProve.t.sol
-
-Gas per proposing: 166018
-Gas per proving + verification: 158875
-Total: 324893
