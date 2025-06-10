@@ -17,7 +17,7 @@ contract TestPreconfWhitelist is Layer1Test {
             deploy({
                 name: "preconf_whitelist",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2))
             })
         );
 
@@ -25,16 +25,11 @@ contract TestPreconfWhitelist is Layer1Test {
             deploy({
                 name: "preconf_whitelist_nodelay",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0, 2))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0))
             })
         );
 
-        // Advance time to ensure we're at least `randomnessDelay` epochs after genesis to
-        // avoid underflow
-        vm.warp(
-            LibPreconfConstants.SECONDS_IN_SLOT
-                + LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.randomnessDelay()
-        );
+        vm.warp(LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH);
     }
 
     function test_whitelist_delay2epoch_addThenRemoveOneOperator() external {
@@ -350,7 +345,7 @@ contract TestPreconfWhitelist is Layer1Test {
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
-            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
+            LibPreconfConstants.getBeaconBlockRootContract(),
             address(new BeaconBlockRootImpl(_root)).code
         );
     }

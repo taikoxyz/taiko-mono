@@ -1,6 +1,6 @@
 import { Config, Result } from "./interface";
 const path = require("path");
-const { ethers } = require("ethers");
+const { ethers, constants } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
 const linker = require("solc/linker");
 const { computeStorageSlots, getStorageLayout } = require("./utils");
@@ -37,11 +37,6 @@ export async function deployTaikoAnchor(
 
     console.log({ bridgeInitialEtherBalance });
     console.log("\n");
-    console.log({
-        pacayaForkHeight: config.pacayaForkHeight,
-        shastaForkHeight: config.shastaForkHeight,
-    });
-    console.log("\n");
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
@@ -50,7 +45,6 @@ export async function deployTaikoAnchor(
         config.contractAddresses,
         config.param1559,
         config.pacayaForkHeight,
-        config.shastaForkHeight,
     );
 
     const storageLayouts: any = {};
@@ -122,8 +116,7 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    pacayaForkHeight: number,
-    shastaForkHeight: number,
+    pacayaForkHeight: number, // TODO: fix this value
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -202,14 +195,13 @@ async function generateContractConfigs(
         "UUPSUpgradeable",
         ["__self"],
     );
-    const taikoAnchorReferencesMap: any = Object.assign(
-        {},
-        getImmutableReference("PacayaAnchor", ["signalService"]),
-        getImmutableReference("PacayaAnchor", ["pacayaForkHeight"]),
-        getImmutableReference("ShastaAnchor", ["shastaForkHeight"]),
-    );
+    const taikoAnchorReferencesMap: any = getImmutableReference("TaikoAnchor", [
+        "pacayaForkHeight",
+        "signalService",
+    ]);
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
+        "quotaManager",
     ]);
     const bridgedERC20ReferencesMap: any = getImmutableReference(
         "BridgedERC20",
@@ -335,6 +327,13 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
+                    {
+                        id: bridgeReferencesMap.quotaManager.id,
+                        value: ethers.utils.hexZeroPad(
+                            constants.AddressZero,
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
@@ -392,7 +391,8 @@ async function generateContractConfigs(
             variables: {
                 // EssentialContract
                 __reentry: 1, // _FALSE
-                __paused: 2, // _TRUE
+                // Surge: Do not pause ERC20Vault
+                __paused: 1, // _FALSE
                 // EssentialContract => UUPSUpgradeable => Initializable
                 _initialized: 1,
                 _initializing: false,
@@ -638,13 +638,6 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
-                    {
-                        id: taikoAnchorReferencesMap.shastaForkHeight.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(shastaForkHeight),
-                            32,
-                        ),
-                    },
                 ]),
                 addressMap,
             ),
@@ -786,79 +779,22 @@ function getImmutableReference(
     immutableValueNames: Array<string>,
 ) {
     const references: any = {};
-    const artifactPath = path.join(
-        ARTIFACTS_PATH,
-        `./${contractName}.sol/${contractName}.json`,
+    const artifact = require(
+        path.join(ARTIFACTS_PATH, `./${contractName}.sol/${contractName}.json`),
     );
 
-    console.log(`Loading artifact from: ${artifactPath}`);
-    const artifact = require(artifactPath);
+    for (const node of artifact.ast.nodes) {
+        if (node.nodeType !== "ContractDefinition") continue;
 
-    if (!artifact.ast || !artifact.ast.nodes) {
-        console.error(`No AST found in artifact for ${contractName}`);
-        throw new Error(`No AST found in artifact for ${contractName}`);
-    }
-
-    for (const immutableValueName of immutableValueNames) {
-        let found = false;
-        for (const node of artifact.ast.nodes) {
-            if (node.nodeType !== "ContractDefinition") continue;
-
-            // Search in the current contract and its base contracts
-            const searchInContract = (contractNode: any) => {
-                for (const subNode of contractNode.nodes || []) {
-                    if (subNode.name !== immutableValueName) continue;
-                    references[immutableValueName] = {
-                        name: immutableValueName,
-                        id: subNode.id,
-                    };
-                    found = true;
-                    console.log(
-                        `Found immutable reference for ${immutableValueName} with id ${subNode.id} in contract ${contractNode.name}`,
-                    );
-                    return true;
-                }
-                return false;
-            };
-
-            // Check current contract
-            if (searchInContract(node)) break;
-
-            // Check base contracts
-            if (node.baseContracts) {
-                for (const baseContract of node.baseContracts) {
-                    const baseContractName = baseContract.baseName.name;
-                    console.log(`Checking base contract: ${baseContractName}`);
-                    try {
-                        const baseArtifact = require(
-                            path.join(
-                                ARTIFACTS_PATH,
-                                `./${baseContractName}.sol/${baseContractName}.json`,
-                            ),
-                        );
-                        for (const baseNode of baseArtifact.ast.nodes) {
-                            if (
-                                baseNode.nodeType !== "ContractDefinition" ||
-                                baseNode.name !== baseContractName
-                            )
-                                continue;
-                            if (searchInContract(baseNode)) break;
-                        }
-                    } catch (e) {
-                        console.log(
-                            `Could not load base contract ${baseContractName}: ${e}`,
-                        );
-                    }
-                }
+        for (const immutableValueName of immutableValueNames) {
+            for (const subNode of node.nodes) {
+                if (subNode.name !== immutableValueName) continue;
+                references[immutableValueName] = {
+                    name: immutableValueName,
+                    id: subNode.id,
+                };
+                break;
             }
-        }
-        if (!found) {
-            console.error(
-                `Could not find immutable reference for ${immutableValueName} in ${contractName} or its base contracts`,
-            );
-            throw new Error(
-                `Could not find immutable reference for ${immutableValueName} in ${contractName} or its base contracts`,
-            );
         }
     }
 

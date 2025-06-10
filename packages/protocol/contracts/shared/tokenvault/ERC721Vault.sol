@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../libs/LibAddress.sol";
-import "../libs/LibNames.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC721.sol";
 import "./BaseNFTVault.sol";
 
@@ -72,7 +72,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         bytes32 msgHash;
         (msgHash, message_) =
-            IBridge(resolve(LibNames.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
+            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -167,7 +167,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return LibNames.B_ERC721_VAULT;
+        return LibStrings.B_ERC721_VAULT;
     }
 
     function _transferTokens(
@@ -255,7 +255,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
-        btoken_ = address(new ERC1967Proxy(resolve(LibNames.B_BRIDGED_ERC721, false), data));
+        btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC721, false), data));
         bridgedToCanonical[btoken_] = _ctoken;
         canonicalToBridged[_ctoken.chainId][_ctoken.addr] = btoken_;
 

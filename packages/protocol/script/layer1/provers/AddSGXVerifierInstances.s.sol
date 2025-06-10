@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/verifiers/TaikoSgxVerifier.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
 import "script/BaseScript.sol";
 
 contract AddSGXVerifierInstances is BaseScript {
@@ -11,7 +11,7 @@ contract AddSGXVerifierInstances is BaseScript {
     function run() external broadcast {
         require(instances.length != 0, "invalid instances");
 
-        TaikoSgxVerifier(sgxVerifier).addInstances(instances);
+        SgxVerifier(sgxVerifier).addInstances(instances);
 
         for (uint256 i; i < instances.length; ++i) {
             console2.log("instance", i, "added ", instances[0]);

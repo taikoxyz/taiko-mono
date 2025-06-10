@@ -7,16 +7,15 @@ import "src/shared/common/EssentialContract.sol";
 contract MockTaikoInbox is EssentialContract {
     bytes32 internal metaHash;
 
-    constructor() EssentialContract() { }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
 
-    function v4ProposeBatch(
+    function proposeBatch(
         bytes calldata _params,
-        bytes calldata _txList,
-        bytes calldata /* _additionalData */
+        bytes calldata _txList
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
@@ -29,9 +28,8 @@ contract MockTaikoInbox is EssentialContract {
             blobHashes: new bytes32[](0),
             blobByteOffset: 0,
             blobByteSize: 0,
-            extraData: 0,
+            extraData: bytes32(0),
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
-            proposer: params.proposer,
             gasLimit: 0, // Mock value
             lastBlockId: 0,
             lastBlockTimestamp: 0,
@@ -42,6 +40,7 @@ contract MockTaikoInbox is EssentialContract {
             blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
+                sharingPctg: 0,
                 gasIssuancePerSecond: 0,
                 minGasExcess: 0,
                 maxGasIssuancePerBlock: 0
@@ -50,10 +49,9 @@ contract MockTaikoInbox is EssentialContract {
 
         meta_ = ITaikoInbox.BatchMetadata({
             batchId: 0,
-            prover: params.proposer,
+            proposer: params.proposer,
             proposedAt: uint64(block.timestamp),
-            infoHash: keccak256(abi.encode(info_)),
-            firstBlockId: info_.lastBlockId
+            infoHash: keccak256(abi.encode(info_))
         });
 
         metaHash = keccak256(abi.encode(meta_));

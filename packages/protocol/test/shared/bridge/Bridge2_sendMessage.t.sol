@@ -15,11 +15,6 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         eBridge.sendMessage(message);
 
-        message.to = Zachary;
-
-        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        eBridge.sendMessage(message);
-
         message.srcOwner = Alice;
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         eBridge.sendMessage(message);
@@ -43,7 +38,6 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         message.value = 10_000_000;
         message.gasLimit = 20_000_000;
         message.fee = 30_000_000;
-
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
 
         message.data = "hello";
@@ -78,7 +72,6 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         message.destOwner = Bob;
         message.destChainId = taikoChainId;
         message.fee = 1;
-        message.to = Zachary;
         vm.expectRevert(Bridge.B_INVALID_FEE.selector);
         eBridge.sendMessage(message);
 

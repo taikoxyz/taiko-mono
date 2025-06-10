@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../../BaseScript.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
-import "src/shared/libs/LibNames.sol";
+import "src/shared/libs/LibStrings.sol";
 
 /// @title DeployPreconfContracts
 /// @notice This script deploys the Preconf contracts (Whitelist and Router)
@@ -27,9 +27,9 @@ contract DeployPreconfContracts is BaseScript {
 
         // Deploy PreconfWhitelist
         deploy(
-            "preconf_whitelist",
+            LibStrings.B_PRECONF_WHITELIST,
             address(new PreconfWhitelist()),
-            abi.encodeCall(PreconfWhitelist.init, (contractOwner, 2, 2))
+            abi.encodeCall(PreconfWhitelist.init, (contractOwner, 2))
         );
 
         // Deploy PreconfRouter

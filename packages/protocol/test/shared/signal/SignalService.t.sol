@@ -56,7 +56,7 @@ contract TestSignalService is CommonTest {
         bytes32 stateRoot = hex"7a889e6436fc1cde7827f75217adf5371afb14cc56860e6d9032ba5e28214819";
         uint64 blockId = 5570;
         vm.prank(deployer);
-        signalService.syncChainData(32_382, LibSignals.STATE_ROOT, blockId, stateRoot);
+        signalService.syncChainData(32_382, LibStrings.H_STATE_ROOT, blockId, stateRoot);
 
         signalService.proveSignalReceived(32_382, srcBridge, msgHash, proof);
     }
@@ -272,7 +272,7 @@ contract TestSignalService is CommonTest {
         // relay the signal root
         vm.prank(taiko);
         mockSignalService.syncChainData(
-            ethereumChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+            ethereumChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
         mockSignalService.proveSignalReceived({
             _chainId: ethereumChainId,
@@ -287,7 +287,7 @@ contract TestSignalService is CommonTest {
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(taiko);
         mockSignalService.syncChainData(
-            ethereumChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
+            ethereumChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
     }
 
@@ -316,7 +316,7 @@ contract TestSignalService is CommonTest {
         // relay the state root
         vm.prank(taiko);
         mockSignalService.syncChainData(
-            ethereumChainId, LibSignals.STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
+            ethereumChainId, LibStrings.H_STATE_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
 
         // Should not revert
@@ -329,7 +329,7 @@ contract TestSignalService is CommonTest {
 
         assertEq(
             mockSignalService.isChainDataSynced(
-                ethereumChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
+                ethereumChainId, LibStrings.H_SIGNAL_ROOT, proofs[0].blockId, bytes32(uint256(789))
             ),
             false
         );
@@ -387,7 +387,7 @@ contract TestSignalService is CommonTest {
 
         vm.prank(taiko);
         mockSignalService.syncChainData(
-            proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
+            proofs[1].chainId, LibStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
         mockSignalService.proveSignalReceived({
@@ -433,7 +433,7 @@ contract TestSignalService is CommonTest {
 
         vm.prank(taiko);
         mockSignalService.syncChainData(
-            proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
+            proofs[1].chainId, LibStrings.H_STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
         vm.expectRevert(SignalService.SS_INVALID_HOPS_WITH_LOOP.selector);
@@ -533,7 +533,7 @@ contract TestSignalService is CommonTest {
 
         vm.prank(taiko);
         mockSignalService.syncChainData(
-            proofs[7].chainId, LibSignals.STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
+            proofs[7].chainId, LibStrings.H_STATE_ROOT, proofs[8].blockId, proofs[8].rootHash
         );
 
         mockSignalService.proveSignalReceived({
@@ -575,13 +575,15 @@ contract TestSignalService is CommonTest {
         view
     {
         assertEq(
-            mockSignalService.isChainDataSynced(chainId, LibSignals.STATE_ROOT, blockId, stateRoot),
+            mockSignalService.isChainDataSynced(
+                chainId, LibStrings.H_STATE_ROOT, blockId, stateRoot
+            ),
             stateRootCached
         );
 
         assertEq(
             mockSignalService.isChainDataSynced(
-                chainId, LibSignals.SIGNAL_ROOT, blockId, bytes32(uint256(789))
+                chainId, LibStrings.H_SIGNAL_ROOT, blockId, bytes32(uint256(789))
             ),
             signalRootCached
         );
@@ -590,7 +592,7 @@ contract TestSignalService is CommonTest {
     function test_SignalService_getSyncedChainData_isSignalSent() public {
         vm.chainId(167_001);
 
-        bytes32 kind = LibSignals.STATE_ROOT;
+        bytes32 kind = LibStrings.H_STATE_ROOT;
         uint64 chainId = 32_382;
         bytes32 expectedChainData = randBytes32();
 
@@ -637,7 +639,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_signalForChainData() public view {
         uint64 chainId = 32_382;
-        bytes32 kind = LibSignals.STATE_ROOT;
+        bytes32 kind = LibStrings.H_STATE_ROOT;
         uint64 blockId = 5570;
 
         bytes32 expectedHash = keccak256(abi.encode(chainId, kind, blockId));

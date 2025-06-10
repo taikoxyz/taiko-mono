@@ -82,18 +82,6 @@ load_env() {
         export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
         export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
         ;;
-    mainnet-pacaya |\
-    mainnet-pacaya-sgxreth)
-        export SGX_VERIFIER_ADDRESS=0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136
-        export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
-        export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
-        ;;
-    mainnet-sgxgeth |\
-    mainnet-pacaya-sgxgeth)
-        export SGX_VERIFIER_ADDRESS=0x7e6409e9b6c5e2064064a6cC994f9a2e95680782
-        export ATTESTATION_ADDRESS=0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261
-        export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
-        ;;
     *)
         echo "❌ Unknown environment: $env"
         echo "Usage: load_env [dev|hekla-pacaya-[sgxr/geth]|mainnet]"

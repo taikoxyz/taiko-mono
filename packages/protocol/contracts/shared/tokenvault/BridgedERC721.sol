@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../libs/LibNames.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC721.sol";
 import "./LibBridgedToken.sol";
 
@@ -29,7 +29,7 @@ contract BridgedERC721 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_INVALID_BURN();
 
-    constructor(address _erc721Vault) EssentialContract() {
+    constructor(address _erc721Vault) EssentialContract(address(0)) {
         erc721Vault = _erc721Vault;
     }
 

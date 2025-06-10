@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibNames.sol";
+import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "../based/ITaikoInbox.sol";
 
@@ -49,12 +49,13 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
     }
 
     constructor(
+        address _resolver,
         address _inbox,
         address _bondToken
     )
         nonZeroAddr(_inbox)
         nonZeroAddr(_bondToken)
-        EssentialContract()
+        EssentialContract(_resolver)
     {
         inbox = _inbox;
         bondToken = _bondToken;
@@ -94,12 +95,12 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
 
     /// @notice Deposits Taiko token to Taiko contract.
     function depositBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox).v4DepositBond(_amount);
+        ITaikoInbox(inbox).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from Taiko contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaikoInbox(inbox).v4WithdrawBond(_amount);
+        ITaikoInbox(inbox).withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.

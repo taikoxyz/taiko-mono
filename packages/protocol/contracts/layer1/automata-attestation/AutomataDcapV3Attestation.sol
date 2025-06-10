@@ -57,7 +57,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     event RevokedCertSerialNumAdded(uint256 indexed index, bytes serialNum);
     event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
 
-    constructor() EssentialContract() { }
+    constructor() EssentialContract(address(0)) { }
 
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.

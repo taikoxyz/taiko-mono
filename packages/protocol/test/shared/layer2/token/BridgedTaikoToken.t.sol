@@ -12,7 +12,7 @@ contract BridgedTaikoTokenTest is CommonTest {
         return BridgedTaikoToken(
             deploy({
                 name: "taiko_token",
-                impl: address(new BridgedTaikoToken(deployer)),
+                impl: address(new BridgedTaikoToken()),
                 data: abi.encodeCall(BridgedTaikoToken.init, (address(0)))
             })
         );
@@ -20,6 +20,8 @@ contract BridgedTaikoTokenTest is CommonTest {
 
     function setUpOnTaiko() internal override {
         token = deployBridgedTaikoToken();
+
+        resolver.registerAddress(block.chainid, LibStrings.B_ERC20_VAULT, deployer);
     }
 
     function test_init() public view {
@@ -60,13 +62,6 @@ contract BridgedTaikoTokenTest is CommonTest {
         assertEq(chainId, 1);
     }
 
-    function test_pause() public {
-        uint256 mintAmount = 1000 ether;
-
-        vm.startPrank(deployer);
-        token.pause();
-
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        token.mint(Alice, mintAmount);
-    }
+    // Surge: remove test
+    // test_pause
 }

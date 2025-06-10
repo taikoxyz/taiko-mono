@@ -18,6 +18,9 @@ library LibNetwork {
     uint64 internal constant TAIKO_DEVNET = 167_001;
     uint64 internal constant TAIKO_PRECONF = 167_010;
 
+    // Surge: required for enabling blob support in surge devnets
+    uint64 internal constant KURTOSIS_DEVNET = 3_151_908;
+
     uint256 internal constant ETHEREUM_BLOCK_TIME = 12 seconds;
 
     /// @dev Checks if the chain ID represents an Ethereum testnet.
@@ -58,8 +61,10 @@ library LibNetwork {
     /// @param _chainId The chain ID.
     /// @return true if the chain supports Dencun hardfork, false otherwise.
     function isDencunSupported(uint256 _chainId) internal pure returns (bool) {
+        // Surge: added Kurtosis devnet to the list of supported chains
         return _chainId == LibNetwork.ETHEREUM_MAINNET || _chainId == LibNetwork.ETHEREUM_HOLESKY
             || _chainId == LibNetwork.ETHEREUM_SEPOLIA || _chainId == LibNetwork.ETHEREUM_HELDER
-            || _chainId == LibNetwork.ETHEREUM_HOODI || isTaikoDevnet(_chainId);
+            || _chainId == LibNetwork.ETHEREUM_HOODI || isTaikoDevnet(_chainId)
+            || _chainId == KURTOSIS_DEVNET;
     }
 }

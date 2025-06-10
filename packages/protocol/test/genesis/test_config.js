@@ -114,7 +114,6 @@ module.exports = {
   },
   predeployERC20: true,
   pacayaForkHeight: 1024,
-  shastaForkHeight: 2048,
 };
 
 function getConstantAddress(prefix, suffix) {

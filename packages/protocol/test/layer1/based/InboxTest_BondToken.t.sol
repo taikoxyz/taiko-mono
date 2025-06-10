@@ -5,6 +5,36 @@ import "contracts/layer1/based/ITaikoInbox.sol";
 import "./InboxTestBase.sol";
 
 contract InboxTest_BondToken is InboxTestBase {
+    function pacayaConfig() internal pure override returns (ITaikoInbox.Config memory) {
+        ITaikoInbox.ForkHeights memory forkHeights;
+
+        return ITaikoInbox.Config({
+            chainId: LibNetwork.TAIKO_MAINNET,
+            maxUnverifiedBatches: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
+            blockMaxGasLimit: 240_000_000,
+            livenessBondBase: 125e18, // 125 Taiko token per batch
+            livenessBondPerBlock: 0, // deprecated
+            stateRootSyncInternal: 5,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            provingWindow: 1 hours,
+            cooldownWindow: 0 hours,
+            maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 768,
+            forkHeights: forkHeights,
+            // Surge: to prevent compilation errors
+            maxVerificationDelay: 0
+        });
+    }
+
     function setUpOnEthereum() internal override {
         bondToken = deployBondToken();
         super.setUpOnEthereum();
@@ -25,12 +55,12 @@ contract InboxTest_BondToken is InboxTestBase {
         bondToken.approve(address(inbox), depositAmount);
 
         vm.prank(Alice);
-        inbox.v4DepositBond(depositAmount);
-        assertEq(inbox.v4BondBalanceOf(Alice), depositAmount);
+        inbox.depositBond(depositAmount);
+        assertEq(inbox.bondBalanceOf(Alice), depositAmount);
 
         vm.prank(Alice);
-        inbox.v4WithdrawBond(withdrawAmount);
-        assertEq(inbox.v4BondBalanceOf(Alice), depositAmount - withdrawAmount);
+        inbox.withdrawBond(withdrawAmount);
+        assertEq(inbox.bondBalanceOf(Alice), depositAmount - withdrawAmount);
     }
 
     function test_inbox_withdraw_more_than_bond_balance() external {
@@ -47,11 +77,11 @@ contract InboxTest_BondToken is InboxTestBase {
         bondToken.approve(address(inbox), depositAmount);
 
         vm.prank(Alice);
-        inbox.v4DepositBond(depositAmount);
+        inbox.depositBond(depositAmount);
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.InsufficientBond.selector);
-        inbox.v4WithdrawBond(withdrawAmount);
+        inbox.withdrawBond(withdrawAmount);
     }
 
     function test_inbox_insufficient_approval() external {
@@ -69,7 +99,7 @@ contract InboxTest_BondToken is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert("ERC20: insufficient allowance");
-        inbox.v4DepositBond(depositAmount);
+        inbox.depositBond(depositAmount);
     }
 
     function test_inbox_exceeding_token_balance() external {
@@ -86,7 +116,7 @@ contract InboxTest_BondToken is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert("ERC20: transfer amount exceeds balance");
-        inbox.v4DepositBond(depositAmount);
+        inbox.depositBond(depositAmount);
     }
 
     function test_inbox_no_value_sent_on_deposit() external {
@@ -103,7 +133,7 @@ contract InboxTest_BondToken is InboxTestBase {
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.MsgValueNotZero.selector);
-        inbox.v4DepositBond{ value: 1 }(depositAmount);
+        inbox.depositBond{ value: 1 }(depositAmount);
     }
 
     function test_inbox_deposit_and_withdraw_from_multiple_users() external {
@@ -133,45 +163,44 @@ contract InboxTest_BondToken is InboxTestBase {
         bondToken.approve(address(inbox), aliceFirstDeposit);
 
         vm.prank(Alice);
-        inbox.v4DepositBond(aliceFirstDeposit);
-        assertEq(inbox.v4BondBalanceOf(Alice), aliceFirstDeposit);
+        inbox.depositBond(aliceFirstDeposit);
+        assertEq(inbox.bondBalanceOf(Alice), aliceFirstDeposit);
 
         vm.prank(Bob);
         bondToken.approve(address(inbox), bobDeposit);
 
         vm.prank(Bob);
-        inbox.v4DepositBond(bobDeposit);
-        assertEq(inbox.v4BondBalanceOf(Bob), bobDeposit);
+        inbox.depositBond(bobDeposit);
+        assertEq(inbox.bondBalanceOf(Bob), bobDeposit);
 
         vm.prank(Alice);
         bondToken.approve(address(inbox), aliceSecondDeposit);
 
         vm.prank(Alice);
-        inbox.v4DepositBond(aliceSecondDeposit);
-        assertEq(inbox.v4BondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit);
+        inbox.depositBond(aliceSecondDeposit);
+        assertEq(inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit);
 
         vm.prank(Bob);
-        inbox.v4WithdrawBond(bobWithdraw);
-        assertEq(inbox.v4BondBalanceOf(Bob), bobDeposit - bobWithdraw);
+        inbox.withdrawBond(bobWithdraw);
+        assertEq(inbox.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
 
         vm.prank(Alice);
-        inbox.v4WithdrawBond(aliceFirstWithdraw);
+        inbox.withdrawBond(aliceFirstWithdraw);
         assertEq(
-            inbox.v4BondBalanceOf(Alice),
-            aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
+            inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
         );
 
         vm.prank(Alice);
-        inbox.v4WithdrawBond(aliceSecondWithdraw);
+        inbox.withdrawBond(aliceSecondWithdraw);
         assertEq(
-            inbox.v4BondBalanceOf(Alice),
+            inbox.bondBalanceOf(Alice),
             aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw - aliceSecondWithdraw
         );
 
         assertEq(
-            inbox.v4BondBalanceOf(Alice),
+            inbox.bondBalanceOf(Alice),
             aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw - aliceSecondWithdraw
         );
-        assertEq(inbox.v4BondBalanceOf(Bob), bobDeposit - bobWithdraw);
+        assertEq(inbox.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
     }
 }

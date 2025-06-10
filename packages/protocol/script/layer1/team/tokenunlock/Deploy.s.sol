@@ -4,24 +4,19 @@ pragma solidity ^0.8.24;
 import "src/layer1/team/TokenUnlock.sol";
 import "script/BaseScript.sol";
 
-contract DeployTokenUnlockNewImpl is Script {
-    address public TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
-    address public PROVER_SET_IMPL = 0x280eAbfd252f017B78e15b69580F249F45FB55Fa;
-
-    function run() external {
-        vm.startBroadcast();
-        address tokenUnlockImpl = address(new TokenUnlock(TAIKO_TOKEN, PROVER_SET_IMPL));
-        console2.log("tokenUnlockImpl:", tokenUnlockImpl);
-
-        vm.stopBroadcast();
-    }
-}
-
 contract DeployTokenUnlock is BaseScript {
     using stdJson for string;
 
+    // On L2 it shall be: 0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8
     address public OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
-    address public TOKEN_UNLOCK_IMPL = 0x5c475bB14727833394b0704266f14157678A72b6;
+    // On L2 it shall be: 0x1670000000000000000000000000000000010002
+    address public ROLLUP_ADDRESS_MANAGER = 0x579f40D0BE111b823962043702cabe6Aaa290780;
+    // Fine as is
+    uint64 public TGE = 1_717_588_800; // Wednesday, June 5, 2024 12:00:00 PM
+    // On L2 is shall be: 0x806A3D0B9540655454Dd9dd9922B1321f0cfA2ED
+    // Deployed (and verified) with TXN:
+    // https://taikoscan.io/tx/0x3100bc89ba700400f81d7823898f0f43a0dd5ce5507b13c4ad9e625dc0497909
+    address public TOKEN_UNLOCK_IMPL = 0x035AFfC82612de31E9Db2259B9482D0Dd53B7819;
 
     function run() external broadcast {
         require(TOKEN_UNLOCK_IMPL != address(0), "TOKEN_UNLOCK_IMPL not set");
@@ -35,7 +30,7 @@ contract DeployTokenUnlock is BaseScript {
             address proxy = deploy({
                 name: "",
                 impl: TOKEN_UNLOCK_IMPL,
-                data: abi.encodeCall(TokenUnlock.init, (OWNER, recipients[i], 1_717_588_800))
+                data: abi.encodeCall(TokenUnlock.init, (OWNER, recipients[i], TGE))
             });
             console2.log("grantee:", recipients[i]);
             console2.log("proxy. :", proxy);

@@ -1,20 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/verifiers/IVerifier.sol";
+import "src/layer1/surge/verifiers/ISurgeVerifier.sol";
+import "src/layer1/surge/verifiers/LibProofType.sol";
 
-contract Verifier_ToggleStub is IVerifier {
-    bool private shouldFail;
+// Surge: change the contract interface to ISurgeVerifier
+contract Verifier_ToggleStub is ISurgeVerifier {
+    using LibProofType for LibProofType.ProofType;
 
-    function makeVerifierToFail() external {
-        shouldFail = true;
+    LibProofType.ProofType public proofType;
+    LibProofType.ProofType public proofTypeToUpgrade;
+
+    constructor() {
+        proofType = LibProofType.sgxReth().combine(LibProofType.sp1Reth());
+        proofTypeToUpgrade = LibProofType.empty();
     }
 
-    function makeVerifierToSucceed() external {
-        shouldFail = false;
+    function setProofType(LibProofType.ProofType _proofType) external {
+        proofType = _proofType;
     }
 
-    function verifyProof(Context[] calldata, bytes calldata) external view {
-        require(!shouldFail, "IVerifier failure");
+    function verifyProof(
+        IVerifier.Context[] calldata,
+        bytes calldata
+    )
+        external
+        view
+        returns (LibProofType.ProofType)
+    {
+        return proofType;
     }
+
+    function markUpgradeable(LibProofType.ProofType _proofType) external {
+        proofTypeToUpgrade = _proofType;
+    }
+
+    function upgradeVerifier(LibProofType.ProofType _proofType, address _newVerifier) external { }
 }

@@ -9,7 +9,7 @@ import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 
-import "src/layer1/verifiers/TaikoSgxVerifier.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
@@ -155,7 +155,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         address regInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
         console2.log("[log] register sgx instance address: %s", regInstanceAddr);
-        uint256 sgxIdx = TaikoSgxVerifier(_sgxVerifier).registerInstance(v3quote);
+        uint256 sgxIdx = SgxVerifier(_sgxVerifier).registerInstance(v3quote);
         console2.log("[log] register sgx instance index: %s", sgxIdx);
     }
 

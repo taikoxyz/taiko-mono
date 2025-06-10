@@ -6,8 +6,8 @@ pragma solidity ^0.8.24;
 /// resolver, specifically the TaikoInbox and TaikoAnchor contracts.
 /// @custom:security-contact security@taiko.xyz
 interface ITaiko {
-    /// @notice Checks if the contract is a TaikoInbox contract or a TaikoAnchor contract.
-    /// @return True if the contract is a TaikoInbox contract, false if it is a TaikoAnchor
-    /// contract.
-    function v4IsInbox() external pure returns (bool);
+    /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
+    /// Layer 2 (L2).
+    /// @return True if the contract is operating on L1, false if on L2.
+    function isOnL1() external pure returns (bool);
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibNames.sol";
+import "src/shared/libs/LibStrings.sol";
 import "../IVerifier.sol";
 
 /// @title ComposeVerifier
@@ -42,7 +42,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
-        EssentialContract()
+        EssentialContract(address(0))
     {
         taikoInbox = _taikoInbox;
         sgxGethVerifier = _sgxGethVerifier;

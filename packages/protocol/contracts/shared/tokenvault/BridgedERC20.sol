@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../libs/LibNames.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC20.sol";
 import "./LibBridgedToken.sol";
 
@@ -59,7 +59,7 @@ contract BridgedERC20 is
     error BTOKEN_INVALID_PARAMS();
     error BTOKEN_MINT_DISALLOWED();
 
-    constructor(address _erc20Vault) EssentialContract() {
+    constructor(address _erc20Vault) EssentialContract(address(0)) {
         erc20Vault = _erc20Vault;
     }
 

@@ -49,6 +49,9 @@ contract PostGenesisQuery is BaseScript {
             "- bridged_erc1155:", sharedResolver.resolve(taikoChainId, "bridged_erc1155", true)
         );
         console2.log(
+            "- quota_manager:", sharedResolver.resolve(taikoChainId, "quota_manager", true)
+        );
+        console2.log(
             "- bridge_watchdog:", sharedResolver.resolve(taikoChainId, "bridge_watchdog", true)
         );
 

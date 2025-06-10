@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibNames.sol";
+import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 import "../provers/ProverSet.sol";
 
@@ -24,14 +24,10 @@ contract TokenUnlock is EssentialContract {
 
     uint256 public constant ONE_YEAR = 365 days;
     uint256 public constant FOUR_YEARS = 4 * ONE_YEAR;
-    uint256 public constant TGE_TIMESTAMP = 1_717_588_800;
-
-    address public immutable taikoToken;
-    address public immutable proverSetImpl;
 
     uint256 public amountVested; // slot 1
     address public recipient; // slot 2
-    uint64 public startTime;
+    uint64 public tgeTimestamp; // 1717588800
 
     mapping(address proverSet => bool valid) public isProverSet; // slot 3
 
@@ -60,10 +56,6 @@ contract TokenUnlock is EssentialContract {
     /// @param amount The amount of TKO deposited.
     event DepositToProverSet(address indexed proverSet, uint256 amount);
 
-    /// @notice Emitted when the start time is changed.
-    /// @param startTime The new start time.
-    event StartTimeChanged(uint64 startTime);
-
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
     error NOT_PROVER_SET();
@@ -80,41 +72,28 @@ contract TokenUnlock is EssentialContract {
         _;
     }
 
-    constructor(address _taikoToken, address _proverSetImpl) EssentialContract() {
-        taikoToken = _taikoToken;
-        proverSetImpl = _proverSetImpl;
-    }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
     /// @param _recipient Who will be the grantee for this contract.
-    /// @param _startTime The token generation event timestamp.
+    /// @param _tgeTimestamp The token generation event timestamp.
     function init(
         address _owner,
         address _recipient,
-        uint64 _startTime
+        uint64 _tgeTimestamp
     )
         external
         nonZeroAddr(_recipient)
-        nonZeroValue(_startTime)
+        nonZeroValue(_tgeTimestamp)
         initializer
     {
-        _checkStartTime(_startTime);
         if (_owner == _recipient) revert INVALID_PARAM();
 
         __Essential_init(_owner);
 
         recipient = _recipient;
-        startTime = _startTime;
-
-        // Bydefault, always delegate to the recipient
-        ERC20VotesUpgradeable(taikoToken).delegate(_recipient);
-    }
-
-    function setStartTime(uint64 _startTime) external onlyOwner {
-        _checkStartTime(_startTime);
-        startTime = _startTime;
-        emit StartTimeChanged(_startTime);
+        tgeTimestamp = _tgeTimestamp;
     }
 
     /// @notice Vests certain tokens to this contract.
@@ -125,13 +104,20 @@ contract TokenUnlock is EssentialContract {
         amountVested += _amount;
         emit TokenVested(_amount);
 
-        IERC20(taikoToken).safeTransferFrom(msg.sender, address(this), _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransferFrom(
+            msg.sender, address(this), _amount
+        );
     }
 
     /// @notice Create a new prover set.
     function createProverSet() external onlyRecipient returns (address proverSet_) {
+        require(
+            resolve(LibStrings.B_BOND_TOKEN, false) == resolve(LibStrings.B_TAIKO_TOKEN, false),
+            TAIKO_TOKEN_NOT_USED_AS_BOND_TOKEN()
+        );
+
         bytes memory data = abi.encodeCall(ProverSetBase.init, (owner(), address(this)));
-        proverSet_ = address(new ERC1967Proxy(proverSetImpl, data));
+        proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
 
         isProverSet[proverSet_] = true;
         emit ProverSetCreated(proverSet_);
@@ -148,7 +134,7 @@ contract TokenUnlock is EssentialContract {
         if (!isProverSet[_proverSet]) revert NOT_PROVER_SET();
 
         emit DepositToProverSet(_proverSet, _amount);
-        IERC20(taikoToken).safeTransfer(_proverSet, _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_proverSet, _amount);
     }
 
     /// @notice Withdraws tokens by the recipient.
@@ -166,14 +152,14 @@ contract TokenUnlock is EssentialContract {
     {
         if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
         emit TokenWithdrawn(_to, _amount);
-        IERC20(taikoToken).safeTransfer(_to, _amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_to, _amount);
     }
 
     /// @notice Withdraws all tokens to the recipient address.
     function withdraw() external nonReentrant {
         uint256 amount = amountWithdrawable();
         emit TokenWithdrawn(recipient, amount);
-        IERC20(taikoToken).safeTransfer(recipient, amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
@@ -183,19 +169,19 @@ contract TokenUnlock is EssentialContract {
 
         emit RecipientChanged(recipient, _newRecipient);
         recipient = _newRecipient;
-        ERC20VotesUpgradeable(taikoToken).delegate(_newRecipient);
     }
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyRecipient nonReentrant {
-        ERC20VotesUpgradeable(taikoToken).delegate(_delegatee);
+        ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false)).delegate(_delegatee);
     }
 
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
     function amountWithdrawable() public view returns (uint256) {
-        uint256 balance = IERC20(taikoToken).balanceOf(address(this));
+        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        uint256 balance = tko.balanceOf(address(this));
         uint256 locked = _getAmountLocked();
 
         return balance.max(locked) - locked;
@@ -205,16 +191,10 @@ contract TokenUnlock is EssentialContract {
         uint256 _amountVested = amountVested;
         if (_amountVested == 0) return 0;
 
-        uint256 _startTime = startTime;
+        uint256 _tgeTimestamp = tgeTimestamp;
 
-        if (block.timestamp < _startTime + ONE_YEAR) return _amountVested;
-        if (block.timestamp >= _startTime + FOUR_YEARS) return 0;
-        return _amountVested * (_startTime + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
-    }
-
-    function _checkStartTime(uint64 _startTime) private view {
-        if (block.chainid == 1 || block.chainid == 167_000) {
-            require(_startTime >= TGE_TIMESTAMP, INVALID_PARAM());
-        }
+        if (block.timestamp < _tgeTimestamp + ONE_YEAR) return _amountVested;
+        if (block.timestamp >= _tgeTimestamp + FOUR_YEARS) return 0;
+        return _amountVested * (_tgeTimestamp + FOUR_YEARS - block.timestamp) / FOUR_YEARS;
     }
 }

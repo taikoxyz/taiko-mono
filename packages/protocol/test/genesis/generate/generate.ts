@@ -71,10 +71,44 @@ async function main() {
     );
     fs.writeFileSync(configJsonSavedPath, JSON.stringify(config));
 
+    const fullGenesis = {
+        config: {
+            chainId: config.chainId,
+            homesteadBlock: 0,
+            eip150Block: 0,
+            eip150Hash:
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+            eip155Block: 0,
+            eip158Block: 0,
+            byzantiumBlock: 0,
+            constantinopleBlock: 0,
+            petersburgBlock: 0,
+            istanbulBlock: 0,
+            muirGlacierBlock: 0,
+            berlinBlock: 0,
+            clique: {
+                period: 0,
+                epoch: 30000,
+            },
+        },
+        gasLimit: "30000000",
+        difficulty: "1",
+        extraData:
+            "0x0000000000000000000000000000000000000000000000000000000000000000df08f82de32b8d460adbe8d72043e3a7e25a3b390000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        alloc: result.alloc,
+    };
+
+    const genesisJsonSavedPath = path.join(__dirname, "../data/genesis.json");
+    fs.writeFileSync(
+        genesisJsonSavedPath,
+        JSON.stringify(fullGenesis, null, 2),
+    );
+
     console.log("done");
     console.log(`alloc JSON saved to ${allocSavedPath}`);
     console.log(`layout JSON saved to ${layoutSavedPath}`);
     console.log(`config JSON saved to ${configJsonSavedPath}`);
+    console.log(`full genesis JSON saved to ${genesisJsonSavedPath}`);
 }
 
 main().catch(console.error);

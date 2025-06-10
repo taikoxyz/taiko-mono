@@ -8,14 +8,6 @@ import "../libs/LibFasterReentryLock.sol";
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost. In theory, the contract can also be deplyed on Taiko L2 but this is
 /// not well testee nor necessary.
-/// @notice At genesis, this contract's initial balance is 999,999,600 Ether. Additionally, two
-/// other addresses have non-zero balances:
-/// - 0x69AA0361Dbb0527d4F1e5312403Bd41788fe61Fe holds 199 Ether
-/// - 0x00000968bfe78aa27cd380d629d61c89bd6b03e8 holds 1 Ether
-/// Together, these three accounts have a total premint Ether balance of 999,999,800 on Taiko
-/// Alethia layer 2. Initially, the plan was to mint 1,000,000,000 Ether, but a minor error
-/// occurred.
-/// The combined balance of the L1 and L2 bridges must be no less than 999,999,800 Ether.
 /// @notice See the documentation in {Bridge}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetBridge is Bridge {
@@ -24,7 +16,13 @@ contract MainnetBridge is Bridge {
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
-    constructor(address _resolver, address _signalService) Bridge(_resolver, _signalService) { }
+    constructor(
+        address _resolver,
+        address _signalService,
+        address _quotaManager
+    )
+        Bridge(_resolver, _signalService, _quotaManager)
+    { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);

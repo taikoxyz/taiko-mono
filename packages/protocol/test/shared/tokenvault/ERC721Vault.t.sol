@@ -11,6 +11,7 @@ contract TestERC721Vault is CommonTest {
     ERC721Vault private eVault;
     Bridge private eBridge;
     FreeMintERC721Token private eFreeMintERC721Token;
+    address private quotaManager = address(0);
 
     // Contracts on Taiko
     ERC721Vault private tVault;
@@ -20,7 +21,7 @@ contract TestERC721Vault is CommonTest {
         SignalService ss = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(ss))));
+        eBridge = deployBridge(address(new Bridge(address(resolver), address(ss), quotaManager)));
         eVault = deployERC721Vault();
 
         register("bridged_erc721", address(new BridgedERC721(address(eVault))));

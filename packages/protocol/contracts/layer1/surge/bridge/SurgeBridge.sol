@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "src/shared/bridge/Bridge.sol";
+import "src/layer1/mainnet/libs/LibFasterReentryLock.sol";
+
+/// @title SurgeBridge
+/// @notice See the documentation in {Bridge}.
+/// @custom:security-contact security@nethermind.io
+contract SurgeBridge is Bridge {
+    /// @dev The slot in transient storage of the call context. This is the keccak256 hash
+    /// of "bridge.ctx_slot"
+    bytes32 private constant _CTX_SLOT =
+        0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
+
+    constructor(
+        address _resolver,
+        address _signalService,
+        address _quotaManager
+    )
+        Bridge(_resolver, _signalService, _quotaManager)
+    { }
+
+    function _storeReentryLock(uint8 _reentry) internal override {
+        LibFasterReentryLock.storeReentryLock(_reentry);
+    }
+
+    function _loadReentryLock() internal view override returns (uint8) {
+        return LibFasterReentryLock.loadReentryLock();
+    }
+
+    /// @inheritdoc Bridge
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal override {
+        assembly {
+            tstore(_CTX_SLOT, _msgHash)
+            tstore(add(_CTX_SLOT, 1), _from)
+            tstore(add(_CTX_SLOT, 2), _srcChainId)
+        }
+    }
+
+    /// @inheritdoc Bridge
+    function _loadContext() internal view override returns (Context memory) {
+        bytes32 msgHash;
+        address from;
+        uint64 srcChainId;
+        assembly {
+            msgHash := tload(_CTX_SLOT)
+            from := tload(add(_CTX_SLOT, 1))
+            srcChainId := tload(add(_CTX_SLOT, 2))
+        }
+        return Context(msgHash, from, srcChainId);
+    }
+}

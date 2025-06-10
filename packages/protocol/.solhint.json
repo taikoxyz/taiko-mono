@@ -15,6 +15,7 @@
     "not-rely-on-time": "off",
     "gas-custom-errors": "off",
     "immutable-vars-naming": "off",
-    "one-contract-per-file": "off"
+    "one-contract-per-file": "off",
+    "reason-string": "off"
   }
 }

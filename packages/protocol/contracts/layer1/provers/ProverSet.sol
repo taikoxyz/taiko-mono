@@ -7,39 +7,39 @@ import "../based/IProposeBatch.sol";
 contract ProverSet is ProverSetBase, IProposeBatch {
     using Address for address;
 
-    IProposeBatch public immutable iProposeBatch;
+    address public immutable entrypoint;
 
     error ForcedInclusionParamsNotAllowed();
 
     constructor(
+        address _resolver,
         address _inbox,
         address _bondToken,
-        address _iProposeBatch
+        address _entrypoint
     )
-        nonZeroAddr(_iProposeBatch)
-        ProverSetBase(_inbox, _bondToken)
+        nonZeroAddr(_entrypoint)
+        ProverSetBase(_resolver, _inbox, _bondToken)
     {
-        iProposeBatch = IProposeBatch(_iProposeBatch);
+        entrypoint = _entrypoint;
     }
 
     // ================ Pacaya calls ================
 
     /// @notice Propose a batch of Taiko blocks.
-    function v4ProposeBatch(
+    function proposeBatch(
         bytes calldata _params,
-        bytes calldata _txList,
-        bytes calldata _additionalData
+        bytes calldata _txList
     )
         external
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        return iProposeBatch.v4ProposeBatch(_params, _txList, _additionalData);
+        return IProposeBatch(entrypoint).proposeBatch(_params, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.
     function proveBatches(bytes calldata _params, bytes calldata _proof) external onlyProver {
-        ITaikoInbox(inbox).v4ProveBatches(_params, _proof);
+        ITaikoInbox(inbox).proveBatches(_params, _proof);
     }
 
     // ================ Ontake calls ================

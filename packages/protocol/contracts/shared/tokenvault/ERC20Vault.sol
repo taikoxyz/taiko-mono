@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../../shared/based/ITaiko.sol";
 import "../../layer1/based/ITaikoInbox.sol";
-import "../libs/LibNames.sol";
+import "../libs/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
@@ -299,7 +299,7 @@ contract ERC20Vault is BaseVault {
             checkToAddressOnSrcChain(_op.to, _op.destChainId);
         }
 
-        address bridge = resolve(LibNames.B_BRIDGE, false);
+        address bridge = resolve(LibStrings.B_BRIDGE, false);
 
         (
             bytes memory data,
@@ -443,10 +443,10 @@ contract ERC20Vault is BaseVault {
     function solve(SolverOp memory _op) external payable nonReentrant whenNotPaused {
         if (_op.l2BatchMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
-            address taiko = resolve(LibNames.B_TAIKO, false);
-            if (!ITaiko(taiko).v4IsInbox()) revert VAULT_NOT_ON_L1();
+            address taiko = resolve(LibStrings.B_TAIKO, false);
+            if (!ITaiko(taiko).isOnL1()) revert VAULT_NOT_ON_L1();
 
-            bytes32 l2BatchMetaHash = ITaikoInbox(taiko).v4GetBatch(_op.l2BatchId).metaHash;
+            bytes32 l2BatchMetaHash = ITaikoInbox(taiko).getBatch(_op.l2BatchId).metaHash;
             if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
         }
 
@@ -489,7 +489,7 @@ contract ERC20Vault is BaseVault {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return LibNames.B_ERC20_VAULT;
+        return LibStrings.B_ERC20_VAULT;
     }
 
     function _transferTokensOrEther(
@@ -628,7 +628,11 @@ contract ERC20Vault is BaseVault {
             (owner(), ctoken.addr, ctoken.chainId, ctoken.decimals, ctoken.symbol, ctoken.name)
         );
 
-        btoken = address(new ERC1967Proxy(resolve(LibNames.B_BRIDGED_ERC20, false), data));
+        // Surge: use create2 salt to deploy at a deterministic address
+        bytes32 salt = keccak256(abi.encodePacked(ctoken.addr));
+        btoken = address(
+            new ERC1967Proxy{ salt: salt }(resolve(LibStrings.B_BRIDGED_ERC20, false), data)
+        );
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 

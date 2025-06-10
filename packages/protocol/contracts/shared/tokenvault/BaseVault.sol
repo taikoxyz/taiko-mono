@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
-import "../common/EssentialResolverContract.sol";
-import "../libs/LibNames.sol";
+import "../common/EssentialContract.sol";
+import "../libs/LibStrings.sol";
 import "../libs/LibBytes.sol";
 
 /// @title INameSymbol
@@ -22,7 +22,7 @@ interface INameSymbol {
 /// @notice This abstract contract provides a base implementation for vaults.
 /// @custom:security-contact security@taiko.xyz
 abstract contract BaseVault is
-    EssentialResolverContract,
+    EssentialContract,
     IRecallableSender,
     IMessageInvocable,
     IERC165Upgradeable
@@ -35,7 +35,7 @@ abstract contract BaseVault is
     error VAULT_INVALID_TO_ADDR();
     error VAULT_PERMISSION_DENIED();
 
-    constructor(address _resolver) EssentialResolverContract(_resolver) { }
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
@@ -53,7 +53,7 @@ abstract contract BaseVault is
     function checkProcessMessageContext()
         internal
         view
-        onlyFromNamed(LibNames.B_BRIDGE)
+        onlyFromNamed(LibStrings.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
@@ -64,7 +64,7 @@ abstract contract BaseVault is
     function checkRecallMessageContext()
         internal
         view
-        onlyFromNamed(LibNames.B_BRIDGE)
+        onlyFromNamed(LibStrings.B_BRIDGE)
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../libs/LibNames.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC1155.sol";
 import "./LibBridgedToken.sol";
 
@@ -34,7 +34,7 @@ contract BridgedERC1155 is
 
     error BTOKEN_INVALID_PARAMS();
 
-    constructor(address _erc1155Vault) EssentialContract() {
+    constructor(address _erc1155Vault) EssentialContract(address(0)) {
         erc1155Vault = _erc1155Vault;
     }
 

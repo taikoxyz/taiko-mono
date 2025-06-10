@@ -6,6 +6,8 @@ import "../helpers/FreeMintERC20Token.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
 contract TestERC20Vault is CommonTest {
+    address private quotaManager = address(0);
+
     // Contracts on Ethereum
     SignalService private eSignalService;
     Bridge private eBridge;
@@ -26,7 +28,9 @@ contract TestERC20Vault is CommonTest {
         eSignalService = deploySignalService(
             address(new SignalService_WithoutProofVerification(address(resolver)))
         );
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
+        eBridge = deployBridge(
+            address(new Bridge(address(resolver), address(eSignalService), quotaManager))
+        );
         eVault = deployERC20Vault();
 
         eERC20Token1 = new FreeMintERC20Token("ERC20", "ERC20");

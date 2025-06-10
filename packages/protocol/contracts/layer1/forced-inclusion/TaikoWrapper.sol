@@ -62,7 +62,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     )
         nonZeroAddr(_inbox)
         nonZeroAddr(_forcedInclusionStore)
-        EssentialContract()
+        EssentialContract(address(0))
     {
         inbox = IProposeBatch(_inbox);
         forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
@@ -74,10 +74,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     }
 
     /// @inheritdoc IProposeBatch
-    function v4ProposeBatch(
+    function proposeBatch(
         bytes calldata _params,
-        bytes calldata _txList,
-        bytes calldata
+        bytes calldata _txList
     )
         external
         onlyFromOptional(preconfRouter)
@@ -90,14 +89,14 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
             require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
             _validateForcedInclusionParams(forcedInclusionStore, bytesX);
-            inbox.v4ProposeBatch(bytesX, "", "");
+            inbox.proposeBatch(bytesX, "");
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
         ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
-        return inbox.v4ProposeBatch(bytesY, _txList, "");
+        return inbox.proposeBatch(bytesY, _txList);
     }
 
     function _validateForcedInclusionParams(

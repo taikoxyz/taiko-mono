@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "../libs/LibAddress.sol";
-import "../libs/LibNames.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC1155.sol";
 import "./BaseNFTVault.sol";
 
@@ -76,7 +76,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         bytes32 msgHash;
 
         (msgHash, message_) =
-            IBridge(resolve(LibNames.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
+            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         // Emit TokenSent event
         emit TokenSent({
@@ -204,7 +204,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
-        return LibNames.B_ERC1155_VAULT;
+        return LibStrings.B_ERC1155_VAULT;
     }
 
     /// @dev Transfers ERC1155 tokens to the `to` address.
@@ -298,7 +298,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (owner(), _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 
-        btoken_ = address(new ERC1967Proxy(resolve(LibNames.B_BRIDGED_ERC1155, false), data));
+        btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC1155, false), data));
 
         bridgedToCanonical[btoken_] = _ctoken;
         canonicalToBridged[_ctoken.chainId][_ctoken.addr] = btoken_;

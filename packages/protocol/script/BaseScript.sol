@@ -43,6 +43,11 @@ abstract contract BaseScript is Script {
         returns (address proxy)
     {
         proxy = address(new ERC1967Proxy(impl, data));
+        string memory _name = Strings.toString(uint256(name));
+        vm.writeJson(
+            vm.serializeAddress("deployment", _name, proxy),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
 
         console2.log(">", string.concat("'", bytes32ToString(name), "'"));
         console2.log("       proxy   :", proxy);
@@ -65,6 +70,12 @@ abstract contract BaseScript is Script {
         returns (address proxy)
     {
         proxy = address(new ERC1967Proxy(impl, data));
+        string memory _name = Strings.toString(uint256(name));
+        vm.writeJson(
+            vm.serializeAddress("deployment", _name, proxy),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
+
         console2.log(">", string.concat("'", bytes32ToString(name), "'"));
         console2.log("       proxy   :", proxy);
         console2.log("       impl    :", impl);

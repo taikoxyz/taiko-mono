@@ -8,7 +8,7 @@ fuzz_runs = 200
 fuzz_runs_show_logs = false
 ffi = true
 memory_limit = 2_073_741_824
-solc_version = "0.8.30"
+solc_version = "0.8.27"
 remappings = [
   "openzeppelin/=node_modules/@openzeppelin/",
   "@openzeppelin=node_modules/@openzeppelin",
@@ -18,9 +18,10 @@ remappings = [
   "@optimism/=node_modules/optimism/",
   "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
   "forge-std/=node_modules/forge-std/",
+  "ds-test/=node_modules/ds-test/src/",
   "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
-  "@eth-fabric/urc/=node_modules/urc/src/",
-  "ds-test/=node_modules/ds-test/",
+  "eigenlayer-middleware/=node_modules/eigenlayer-middleware/",
+  "eigenlayer-contracts/=node_modules/eigenlayer-contracts/",
   "src/=contracts/",
   "test/=test/",
   "script/=script/",
@@ -34,8 +35,6 @@ block_gas_limit = 80_000_000
 fs_permissions = [
   { access = "read", path = "./out" },
   { access = "read-write", path = "./deployments" },
-  { access = "read-write", path = "./gas-reports" },
-  { access = "read-write", path = "./script/layer1/proposals/" },
   { access = "read", path = "./test" },
   { access = "read", path = "./script/" },
   { access = "read", path = "./genesis" },

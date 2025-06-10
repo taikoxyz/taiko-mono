@@ -29,7 +29,7 @@ contract PostGenesisConfig is BaseScript {
         {
             call = abi.encodeCall(
                 DefaultResolver.registerAddress,
-                (1, LibNames.B_SIGNAL_SERVICE, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C)
+                (1, LibStrings.B_SIGNAL_SERVICE, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C)
             );
             console2.log("--- sam set signal service chain_id=1");
             console2.log(sam);
@@ -37,7 +37,7 @@ contract PostGenesisConfig is BaseScript {
 
             call = abi.encodeCall(
                 DefaultResolver.registerAddress,
-                (1, LibNames.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)
+                (1, LibStrings.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)
             );
             console2.log("--- sam set bridge chain_id=1");
             console2.log(sam);
@@ -45,7 +45,7 @@ contract PostGenesisConfig is BaseScript {
 
             call = abi.encodeCall(
                 DefaultResolver.registerAddress,
-                (1, LibNames.B_ERC20_VAULT, 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)
+                (1, LibStrings.B_ERC20_VAULT, 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)
             );
             console2.log("--- sam set erc20 vault chain_id=1");
             console2.log(sam);
@@ -53,7 +53,7 @@ contract PostGenesisConfig is BaseScript {
 
             call = abi.encodeCall(
                 DefaultResolver.registerAddress,
-                (1, LibNames.B_ERC721_VAULT, 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa)
+                (1, LibStrings.B_ERC721_VAULT, 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa)
             );
             console2.log("--- sam set erc721 vault chain_id=1");
             console2.log(sam);
@@ -61,7 +61,7 @@ contract PostGenesisConfig is BaseScript {
 
             call = abi.encodeCall(
                 DefaultResolver.registerAddress,
-                (1, LibNames.B_ERC1155_VAULT, 0xaf145913EA4a56BE22E120ED9C24589659881702)
+                (1, LibStrings.B_ERC1155_VAULT, 0xaf145913EA4a56BE22E120ED9C24589659881702)
             );
             console2.log("--- sam set erc1155 vault chain_id=1");
             console2.log(sam);

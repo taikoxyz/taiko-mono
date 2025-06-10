@@ -8,24 +8,25 @@ import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 /// @title LibBridgedToken
 /// @custom:security-contact security@taiko.xyz
 contract TestLibPreconfUtils is Test {
-    function test_getBeaconBlockRootAtOrAfter() public {
-        bytes32 root = LibPreconfUtils.getBeaconBlockRootAtOrAfter(block.timestamp);
+    function test_getBeaconBlockRoot() public {
+        bytes32 root = LibPreconfUtils.getBeaconBlockRoot(block.timestamp);
         assertEq(root, bytes32(0));
 
         vm.etch(
-            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(new BeaconBlockRootImpl()).code
+            LibPreconfConstants.getBeaconBlockRootContract(),
+            address(new BeaconBlockRootImpl()).code
         );
 
         vm.warp(block.timestamp + 48);
         assertEq(block.timestamp, 49);
 
-        root = LibPreconfUtils.getBeaconBlockRootAtOrAfter(20);
+        root = LibPreconfUtils.getBeaconBlockRoot(20);
         assertEq(root, bytes32(uint256(20)));
 
-        root = LibPreconfUtils.getBeaconBlockRootAtOrAfter(37);
+        root = LibPreconfUtils.getBeaconBlockRoot(37);
         assertEq(root, bytes32(uint256(37)));
 
-        root = LibPreconfUtils.getBeaconBlockRootAtOrAfter(38);
+        root = LibPreconfUtils.getBeaconBlockRoot(38);
         assertEq(root, 0);
     }
 }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./ITaikoInbox.sol";
 
 /// @title IProposeBatch
-/// @notice This interface defines the v4ProposeBatch function that is also part of the ITaikoInbox
+/// @notice This interface defines the proposeBatch function that is also part of the ITaikoInbox
 /// interface.
 /// @custom:security-contact security@taiko.xyz
 interface IProposeBatch {
@@ -12,13 +12,11 @@ interface IProposeBatch {
     /// @param _params ABI-encoded parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
-    /// @param _additionalData Additional data to be included in the batch.
     /// @return info_ The info of the proposed batch.
-    /// @return meta_ The metadata of the proposed batch.
-    function v4ProposeBatch(
+    /// @return meta_ The mmetadata of the proposed batch.
+    function proposeBatch(
         bytes calldata _params,
-        bytes calldata _txList,
-        bytes calldata _additionalData
+        bytes calldata _txList
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);

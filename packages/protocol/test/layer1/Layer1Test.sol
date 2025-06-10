@@ -5,10 +5,11 @@ import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/token/TaikoToken.sol";
-import "src/layer1/verifiers/TaikoSgxVerifier.sol";
-import "src/layer1/verifiers/TaikoSP1Verifier.sol";
-import "src/layer1/verifiers/TaikoRisc0Verifier.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/team/ERC20Airdrop.sol";
+import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
@@ -17,11 +18,14 @@ contract ConfigurableInbox is TaikoInbox {
 
     constructor(
         address _wrapper,
+        // Surge: add dao address
+        address _dao,
+        // Surge: add verifier address
         address _verifier,
         address _bondToken,
         address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _dao, _verifier, _bondToken, _signalService)
     { }
 
     function initWithConfig(
@@ -36,13 +40,8 @@ contract ConfigurableInbox is TaikoInbox {
         __config = _config;
     }
 
-    function _getConfig() internal view override returns (ITaikoInbox.Config memory) {
+    function pacayaConfig() public view override returns (ITaikoInbox.Config memory) {
         return __config;
-    }
-
-    // Helper to reach any arbitrary fork activation configs for tests.
-    function setConfig(ITaikoInbox.Config memory _NewConfig) external {
-        __config = _NewConfig;
     }
 
     function _calculateTxsHash(
@@ -61,6 +60,8 @@ contract ConfigurableInbox is TaikoInbox {
 abstract contract Layer1Test is CommonTest {
     function deployInbox(
         bytes32 _genesisBlockHash,
+        // Surge: add dao address
+        address _dao,
         address _verifier,
         address _bondToken,
         address _signalService,
@@ -72,7 +73,9 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox(address(0), _verifier, _bondToken, _signalService)),
+                impl: address(
+                    new ConfigurableInbox(address(0), _dao, _verifier, _bondToken, _signalService)
+                ),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )
