@@ -24,6 +24,11 @@ contract MockTaikoInbox is EssentialContract {
         // Decode the batch params
         ITaikoInbox.BatchParams memory params = abi.decode(_params, (ITaikoInbox.BatchParams));
 
+        uint64[] memory anchorBlockIds = new uint64[](1);
+        anchorBlockIds[0] = params.blocks[0].anchorBlockId;
+
+        bytes32[] memory anchorBlockHashes = new bytes32[](1);
+
         info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
             blobHashes: new bytes32[](0),
@@ -37,8 +42,8 @@ contract MockTaikoInbox is EssentialContract {
             lastBlockTimestamp: 0,
             proposedIn: uint64(block.number),
             blobCreatedIn: 0,
-            anchorBlockId: params.anchorBlockId,
-            anchorBlockHash: bytes32(0), // Mock value
+            anchorBlockIds: anchorBlockIds,
+            anchorBlockHashes: anchorBlockHashes,
             blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
