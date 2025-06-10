@@ -44,17 +44,6 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         bytes memory txList = "txList";
         bytes32 txListHash = keccak256(abi.encodePacked(txList));
 
-console2.log("abi.encode(batchParams)");
-        
-
-    console2.log("proposer:", batchParams.proposer);
-    console2.log("coinbase:", batchParams.coinbase);
-    console2.log("blobParams.createdIn:", batchParams.blobParams.createdIn);
-    console2.log("blobParams.byteOffset:", batchParams.blobParams.byteOffset);
-    console2.log("blobParams.byteSize:", batchParams.blobParams.byteSize);
-    console2.log("blocks length:", batchParams.blocks.length);
-    console2.log("proverAuth length:", batchParams.proverAuth.length);
-
         bytes32 digest = LibProverAuth.computeProverAuthDigest(
             config.chainId, keccak256(abi.encode(batchParams)), txListHash, auth
         );
