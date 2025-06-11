@@ -43,6 +43,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proposer: Carol,
             coinbase: address(0),
             parentMetaHash: bytes32(0),
+            baseFee: 0,
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
@@ -129,6 +130,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proposer: Bob, // Set different proposer than sender (Carol)
             coinbase: address(0),
             parentMetaHash: bytes32(0),
+            baseFee: 0,
             anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,

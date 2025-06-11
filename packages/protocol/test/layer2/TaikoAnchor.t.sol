@@ -107,53 +107,54 @@ contract TestTaikoAnchor is Layer2Test {
         assertTrue(basefee_ != 0, "basefee is 0");
     }
 
+    // Surge: Base fee is no longer enforced in the anchor transaction
     /// forge-config: default.fuzz_runs = 2000
     /// forge-config: default.fuzz_runs_show_logs = true
-    function test_fuzz_anchorV3(
-        uint32 _parentGasUsed,
-        uint32 _gasIssuancePerSecond,
-        uint64 _minGasExcess,
-        uint32 _maxGasIssuancePerBlock,
-        uint8 _adjustmentQuotient,
-        uint8 _sharingPctg
-    )
-        external
-        onTaiko
-    {
-        if (_parentGasUsed == 0) _parentGasUsed = 1;
-        if (_gasIssuancePerSecond == 0) _gasIssuancePerSecond = 1;
-        if (_gasIssuancePerSecond == type(uint32).max) _gasIssuancePerSecond -= 1;
-        if (_adjustmentQuotient == 0) _adjustmentQuotient = 1;
+    // function test_fuzz_anchorV3(
+    //     uint32 _parentGasUsed,
+    //     uint32 _gasIssuancePerSecond,
+    //     uint64 _minGasExcess,
+    //     uint32 _maxGasIssuancePerBlock,
+    //     uint8 _adjustmentQuotient,
+    //     uint8 _sharingPctg
+    // )
+    //     external
+    //     onTaiko
+    // {
+    //     if (_parentGasUsed == 0) _parentGasUsed = 1;
+    //     if (_gasIssuancePerSecond == 0) _gasIssuancePerSecond = 1;
+    //     if (_gasIssuancePerSecond == type(uint32).max) _gasIssuancePerSecond -= 1;
+    //     if (_adjustmentQuotient == 0) _adjustmentQuotient = 1;
 
-        LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
-            adjustmentQuotient: _adjustmentQuotient,
-            sharingPctg: uint8(_sharingPctg % 100),
-            gasIssuancePerSecond: _gasIssuancePerSecond,
-            minGasExcess: _minGasExcess,
-            maxGasIssuancePerBlock: _maxGasIssuancePerBlock
-        });
+    //     LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
+    //         adjustmentQuotient: _adjustmentQuotient,
+    //         sharingPctg: uint8(_sharingPctg % 100),
+    //         gasIssuancePerSecond: _gasIssuancePerSecond,
+    //         minGasExcess: _minGasExcess,
+    //         maxGasIssuancePerBlock: _maxGasIssuancePerBlock
+    //     });
 
-        bytes32 anchorStateRoot = bytes32(uint256(1));
-        vm.prank(anchor.GOLDEN_TOUCH_ADDRESS());
-        anchor.anchorV3(
-            ++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig, new bytes32[](0)
-        );
+    //     bytes32 anchorStateRoot = bytes32(uint256(1));
+    //     vm.prank(anchor.GOLDEN_TOUCH_ADDRESS());
+    //     anchor.anchorV3(
+    //         ++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig, new bytes32[](0)
+    //     );
 
-        (uint256 basefee, uint64 newGasTarget,) =
-            anchor.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
+    //     (uint256 basefee, uint64 newGasTarget,) =
+    //         anchor.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
 
-        assertTrue(basefee != 0, "basefee is 0");
-        assertEq(newGasTarget, anchor.parentGasTarget());
+    //     assertTrue(basefee != 0, "basefee is 0");
+    //     assertEq(newGasTarget, anchor.parentGasTarget());
 
-        // change the gas issuance to change the gas target
-        baseFeeConfig.gasIssuancePerSecond += 1;
+    //     // change the gas issuance to change the gas target
+    //     baseFeeConfig.gasIssuancePerSecond += 1;
 
-        (basefee, newGasTarget,) =
-            anchor.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
+    //     (basefee, newGasTarget,) =
+    //         anchor.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
 
-        assertTrue(basefee != 0, "basefee is 0");
-        assertTrue(newGasTarget != anchor.parentGasTarget());
-    }
+    //     assertTrue(basefee != 0, "basefee is 0");
+    //     assertTrue(newGasTarget != anchor.parentGasTarget());
+    // }
 
     function _anchorV3(uint32 parentGasUsed) private {
         bytes32 anchorStateRoot = randBytes32();

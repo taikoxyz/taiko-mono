@@ -166,7 +166,8 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
-        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
+        // Surge: Base fee is no longer enforced in the anchor transaction
+        // _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
