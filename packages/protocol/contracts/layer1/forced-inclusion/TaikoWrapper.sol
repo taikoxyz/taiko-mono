@@ -34,9 +34,6 @@ import "./ForcedInclusionStore.sol";
 contract TaikoWrapper is EssentialContract, IProposeBatch {
     using LibMath for uint256;
 
-    /// @dev Event emitted when a forced inclusion is processed.
-    event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
-
     error InvalidBlockTxs();
     error InvalidBlobHashesSize();
     error InvalidBlobHash();
@@ -77,58 +74,44 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList,
-        bytes calldata
+        bytes calldata _proverAuthForForcedInclusion
     )
         external
         onlyFromOptional(preconfRouter)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
-        (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
+        ITaikoInbox.BatchParams memory params;
 
-        if (bytesX.length == 0) {
-            require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
+        // TODO: This batch doesn't have an non-zero anchor ID!!!
+        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
+            params = _consumeForcedInclusion();
+            params.proverAuth = _proverAuthForForcedInclusion;
+            inbox.v4ProposeBatch(abi.encode(params), "", "");
         } else {
-            _validateForcedInclusionParams(forcedInclusionStore, bytesX);
-            inbox.v4ProposeBatch(bytesX, "", "");
+            require(_proverAuthForForcedInclusion.length == 0, "INVALID");
         }
 
-        // Propose the normal batch after the potential forced inclusion batch.
-        ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
-
+        // Propose the normal batch after the forced inclusion batch.
+        params = abi.decode(_params, (ITaikoInbox.BatchParams));
+        require(params.isForcedInclusion == false, ITaikoInbox.InvalidForcedInclusion());
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
-        require(params.isForcedInclusion == false, ITaikoInbox.InvalidForcedInclusion());
-
-        return inbox.v4ProposeBatch(bytesY, _txList, "");
+        return inbox.v4ProposeBatch(_params, _txList, "");
     }
 
-    function _validateForcedInclusionParams(
-        IForcedInclusionStore _forcedInclusionStore,
-        bytes memory _bytesX
-    )
-        internal
-    {
-        ITaikoInbox.BatchParams memory p = abi.decode(_bytesX, (ITaikoInbox.BatchParams));
-
+    function _consumeForcedInclusion() internal returns (ITaikoInbox.BatchParams memory params_) {
         IForcedInclusionStore.ForcedInclusion memory inclusion =
-            _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
+            forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
 
-        // Only one block can be built from the request
-        require(p.blocks.length == 1, InvalidBlockSize());
-        require(p.isForcedInclusion, ITaikoInbox.InvalidForcedInclusion());
-
-        // Need to make sure enough transactions in the forced inclusion request are included.
-        require(p.blocks[0].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
-        require(p.blocks[0].timeShift == 0, InvalidTimeShift());
-        require(p.blocks[0].signalSlots.length == 0, InvalidSignalSlots());
-
-        require(p.blobParams.blobHashes.length == 1, InvalidBlobHashesSize());
-        require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());
-        require(p.blobParams.byteOffset == inclusion.blobByteOffset, InvalidBlobByteOffset());
-        require(p.blobParams.byteSize == inclusion.blobByteSize, InvalidBlobByteSize());
-        require(p.blobParams.createdIn == inclusion.blobCreatedIn, InvalidBlobCreatedIn());
-
-        emit ForcedInclusionProcessed(inclusion);
+        // params_.proposer = ??
+        params_.blocks = new ITaikoInbox.BlockParams[](1);
+        params_.blocks[0].numTransactions = MIN_TXS_PER_FORCED_INCLUSION;
+        params_.isForcedInclusion = true;
+        params_.blobParams.blobHashes = new bytes32[](1);
+        params_.blobParams.blobHashes[0] = inclusion.blobHash;
+        params_.blobParams.byteOffset = inclusion.blobByteOffset;
+        params_.blobParams.byteSize = inclusion.blobByteSize;
+        params_.blobParams.createdIn = inclusion.blobCreatedIn;
     }
 }
