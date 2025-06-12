@@ -106,6 +106,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
                 emit ForcedInclusionFailed(inclusion, params);
             }
 
+            // TODO(daniel): who pays the prover fee? How can we decide he amount of prover fee?
             (info_, meta_) =
                 abi.decode(returnData, (ITaikoInbox.BatchInfo, ITaikoInbox.BatchMetadata));
 
