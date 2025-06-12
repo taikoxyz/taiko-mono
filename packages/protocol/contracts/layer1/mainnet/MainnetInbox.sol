@@ -41,7 +41,7 @@ contract MainnetInbox is TaikoInbox {
                 adjustmentQuotient: 40,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 1_000_000,
-                minGasExcess: 1_440_000_000, 
+                minGasExcess: 1_440_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 2 hours,
