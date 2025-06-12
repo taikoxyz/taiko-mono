@@ -44,6 +44,8 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidBlobByteSize();
     error InvalidBlobCreatedIn();
     error InvalidBlockSize();
+    error InvalidForcedInclusionProposer();
+    error InvalidForcedInclusionProver();
     error InvalidTimeShift();
     error InvalidSignalSlots();
     error OldestForcedInclusionDue();
@@ -82,7 +84,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         external
         onlyFromOptional(preconfRouter)
         nonReentrant
-        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
@@ -93,32 +95,46 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
             params = abi.decode(bytesX, (ITaikoInbox.BatchParams));
             IForcedInclusionStore.ForcedInclusion memory inclusion =
                 _validateForcedInclusionParams(params);
-                
-            (bool success,) =
+
+            (bool success, bytes memory returnData) =
                 address(inbox).call(abi.encodeCall(ITaikoInbox.v4ProposeBatch, (bytesX, "", "")));
 
             if (!success) {
-                // If the forced inclusion proposal fails, emit an event and consider this forced
-                // inclusion processed.
+                // The forced inclusion proposal might fail if the batch proposer lacks sufficient
+                // balance to cover the provability bond. In such cases, an event is emitted to
+                // signal the failure, and the forced inclusion is marked as processed.
                 emit ForcedInclusionFailed(inclusion, params);
             }
+
+            (info_, meta_) =
+                abi.decode(returnData, (ITaikoInbox.BatchInfo, ITaikoInbox.BatchMetadata));
+
+            // We do not check proverAuth, but we need to ensure the assigned prover is not the user
+            // himself.
+            require(meta_.prover != inclusion.user, InvalidForcedInclusionProver());
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
         params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
 
+        // Only forced inclusion batches can referene blob hashes that are created in early blocks.
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
+
+        // This normal proposal must not be marked as a forced inclusion batch.
         require(params.isForcedInclusion == false, ITaikoInbox.InvalidForcedInclusion());
 
-        return inbox.v4ProposeBatch(bytesY, _txList, "");
+        (info_, meta_) = inbox.v4ProposeBatch(bytesY, _txList, "");
     }
 
     function _validateForcedInclusionParams(ITaikoInbox.BatchParams memory _params)
         internal
         returns (IForcedInclusionStore.ForcedInclusion memory inclusion_)
     {
-        inclusion_ = forcedInclusionStore.consumeOldestForcedInclusion(_params.proposer);
+        inclusion_ = forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
+
+        // The user who creates the forced inclusion must be he proposer of the batch.
+        require(_params.proposer == inclusion_.user, InvalidForcedInclusionProposer());
 
         // Only one block can be built from the request
         require(_params.blocks.length == 1, InvalidBlockSize());
