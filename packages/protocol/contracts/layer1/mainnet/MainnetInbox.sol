@@ -33,14 +33,14 @@ contract MainnetInbox is TaikoInbox {
             maxUnverifiedBatches: maxUnverifiedBatches_,
             batchRingBufferSize: batchRingBufferSize_,
             maxBatchesToVerify: 16,
-            blockMaxGasLimit: 240_000_000,
+            blockMaxGasLimit: 32_000_000,
             livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
+                adjustmentQuotient: 40,
                 sharingPctg: 75,
-                gasIssuancePerSecond: 5_000_000,
+                gasIssuancePerSecond: 1_000_000,
                 minGasExcess: 1_344_899_430, // 0.01 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
