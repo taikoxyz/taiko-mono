@@ -102,9 +102,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
         (info_, meta_) = inbox.v4ProposeBatch(bytesY, _txList, "");
 
+        // Validate the batch must has at least one non-zero anchor block ID.
         require(
-            _hasAtLeastOneNonZeroAnchorBlockId(info_),
-            ITaikoInbox.NoAnchorBlockIdWithinThisBatch()
+            _hasAtLeastOneNonZeroAnchorBlockId(info_), ITaikoInbox.NoAnchorBlockIdWithinThisBatch()
         );
     }
 
