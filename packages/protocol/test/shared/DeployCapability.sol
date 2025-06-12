@@ -34,9 +34,11 @@ abstract contract DeployCapability is Script {
         console2.log(">", name, "@", registerTo);
         console2.log("  proxy      :", proxy);
         console2.log("  impl       :", impl);
-        console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
-        console2.log("  msg.sender :", msg.sender);
-        console2.log("  this       :", address(this));
+        // Surge: Not all contracts are ownable
+        // console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
+        // Surge: Irrelevant logs
+        // console2.log("  msg.sender :", msg.sender);
+        // console2.log("  this       :", address(this));
 
         vm.writeJson(
             vm.serializeAddress("deployment", name, proxy),
