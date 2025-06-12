@@ -21,8 +21,8 @@ func (b *BaseFeeConfigPacaya) AdjustmentQuotient() uint8 {
 }
 
 // SharingPctg returns the sharing percentage of the base fee config.
-func (b *BaseFeeConfigPacaya) SharingPctgs() [2]uint8 {
-	return [2]uint8{b.LibSharedDataBaseFeeConfig.SharingPctg, 0}
+func (b *BaseFeeConfigPacaya) SharingPctgs() uint8 {
+	return b.LibSharedDataBaseFeeConfig.SharingPctg
 }
 
 // GasIssuancePerSecond returns the gas issuance per second of the base fee config.
@@ -43,13 +43,13 @@ func (b *BaseFeeConfigPacaya) MaxGasIssuancePerBlock() uint32 {
 // BaseFeeConfigShasta represents a base fee config from TaikoInbox for the Shasta fork.
 type BaseFeeConfigShasta struct {
 	*shastaBindings.LibSharedDataBaseFeeConfig
-	baseFeeSharings [2]uint8
+	baseFeeSharings uint8
 }
 
 // NewBaseFeeConfigShasta creates a new BaseFeeConfigShasta instance.
 func NewBaseFeeConfigShasta(
 	config *shastaBindings.LibSharedDataBaseFeeConfig,
-	baseFeeSharings [2]uint8,
+	baseFeeSharings uint8,
 ) *BaseFeeConfigShasta {
 	return &BaseFeeConfigShasta{LibSharedDataBaseFeeConfig: config, baseFeeSharings: baseFeeSharings}
 }
@@ -60,7 +60,7 @@ func (b *BaseFeeConfigShasta) AdjustmentQuotient() uint8 {
 }
 
 // SharingPctg returns the sharing percentage of the base fee config.
-func (b *BaseFeeConfigShasta) SharingPctgs() [2]uint8 {
+func (b *BaseFeeConfigShasta) SharingPctgs() uint8 {
 	return b.baseFeeSharings
 }
 

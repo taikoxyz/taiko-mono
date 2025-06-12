@@ -88,7 +88,7 @@ type ITaikoInboxBatch interface {
 type LibSharedDataBaseFeeConfig interface {
 	AdjustmentQuotient() uint8
 	GasIssuancePerSecond() uint32
-	SharingPctgs() [2]uint8
+	SharingPctgs() uint8
 	MinGasExcess() uint64
 	MaxGasIssuancePerBlock() uint32
 }
