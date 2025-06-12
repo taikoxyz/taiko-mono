@@ -34,10 +34,16 @@ if [ "$BROADCAST" = "true" ]; then
     BROADCAST_ARG="--broadcast"
 fi
 
+# Parameterize log level
+export LOG_LEVEL=${LOG_LEVEL:-"-vvvv"}
+
+# Parameterize block gas limit
+export BLOCK_GAS_LIMIT=${BLOCK_GAS_LIMIT:-200000000}
+
 forge script ./script/layer1/surge/SetupSurgeL2.s.sol:SetupSurgeL2 \
     --fork-url $FORK_URL \
     $BROADCAST_ARG \
     --ffi \
-    -vvvv \
+    $LOG_LEVEL \
     --private-key $PRIVATE_KEY \
-    --block-gas-limit 200000000 
+    --block-gas-limit $BLOCK_GAS_LIMIT 
