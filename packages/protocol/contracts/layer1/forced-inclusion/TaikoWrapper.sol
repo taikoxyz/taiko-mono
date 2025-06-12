@@ -48,7 +48,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidSignalSlots();
     error OldestForcedInclusionDue();
 
-    uint16 public constant MAX_TXS_PER_FORCED_INCLUSION = 4096; 
+    uint16 public constant MAX_TXS_PER_FORCED_INCLUSION = 4096;
     IProposeBatch public immutable inbox;
     IForcedInclusionStore public immutable forcedInclusionStore;
     address public immutable preconfRouter;
