@@ -18,6 +18,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     uint256 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
     uint256 public constant MAX_BASE_FEE = 2.5 gwei;
+    uint256 public constant MIN_BASE_FEE = 0.005 gwei;
 
     uint256[50] private __gap;
 
@@ -118,6 +119,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         if (basefee_ > MAX_BASE_FEE) {
             basefee_ = MAX_BASE_FEE;
+        }
+        if (basefee_ < MIN_BASE_FEE) {
+            basefee_ = MIN_BASE_FEE;
         }
     }
 }
