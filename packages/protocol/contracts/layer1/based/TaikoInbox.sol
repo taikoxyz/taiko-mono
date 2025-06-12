@@ -243,6 +243,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Circular dependency so zero it out. (BatchParams has proverAuth but
                     // proverAuth has also batchParamsHash)
                     params.proverAuth = "";
+
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
                     LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(
@@ -664,6 +665,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     function _debitBond(address _user, uint256 _amount) private {
         if (_amount == 0) return;
+
         uint256 balance = state.bondBalance[_user];
         if (balance >= _amount) {
             unchecked {

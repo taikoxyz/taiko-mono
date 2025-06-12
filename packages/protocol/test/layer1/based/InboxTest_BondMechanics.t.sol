@@ -25,7 +25,6 @@ contract InboxTest_BondMechanics is InboxTestBase {
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
 
-        //vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
@@ -37,7 +36,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
-        uint256 bondBalance = 1250 ether;
+        uint256 bondBalance = 1000 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondBalance);
 
