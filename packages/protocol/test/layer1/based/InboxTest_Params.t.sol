@@ -9,7 +9,10 @@ contract InboxTest_Params is InboxTestBase {
         super.setUpOnEthereum();
     }
 
-    function test_validateParams_defaults_when_anchorBlockId_is_not_set() external transactBy(Alice) {
+    function test_validateParams_defaults_when_anchorBlockId_is_not_set()
+        external
+        transactBy(Alice)
+    {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
 
@@ -32,7 +35,7 @@ contract InboxTest_Params is InboxTestBase {
         // Calculate an invalid anchorBlockId (too small)
         params.blocks[0].anchorBlockId = uint64(block.number - config.maxAnchorHeightOffset - 1);
 
-        vm.expectRevert(ITaikoInbox.AnchorBlockIdTooSmall.selector);
+        vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
@@ -40,10 +43,13 @@ contract InboxTest_Params is InboxTestBase {
         external
         transactBy(Alice)
     {
+        ITaikoInbox.Config memory config = inbox.v4GetConfig();
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
         // Calculate an invalid anchorBlockId (too large)
         params.blocks[0].anchorBlockId = uint64(block.number);
+        // roll into the future to make blockhash(uint64(block.number)) available
+        vm.roll(block.number + config.maxAnchorHeightOffset + 1);
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
@@ -78,11 +84,8 @@ contract InboxTest_Params is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.blocks[0].anchorBlockId = uint64(block.number - 1);
 
-        (ITaikoInbox.BatchInfo memory info,) =
-            inbox.v4ProposeBatch(abi.encode(params), "txList", "");
-
-        uint64 expectedAnchorBlockId = uint64(block.number - 1);
-        assertEq(info.anchorBlockIds[0], expectedAnchorBlockId, "AnchorBlockId mismatch");
+        vm.expectRevert(ITaikoInbox.NoAnchorBlockIdWithinThisBatch.selector);
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     function test_validateParams_reverts_when_timestamp_too_large() external transactBy(Alice) {
@@ -101,6 +104,8 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.lastBlockTimestamp = uint64(block.timestamp);
+        params.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         params.lastBlockTimestamp = uint64(block.timestamp - 1);
@@ -120,6 +125,8 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](2);
         params.lastBlockTimestamp = uint64(block.timestamp);
+        params.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
         params.lastBlockTimestamp = uint64(block.timestamp - 1);

@@ -61,7 +61,8 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         uint64 chainId = uint64(167_000);
 
         batchParams.coinbase = Alice;
-
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
         batchParams.proposer = address(0);
 
@@ -135,6 +136,8 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         uint64 chainId = uint64(167_000);
 
         batchParams.coinbase = Alice;
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
         batchParams.proposer = address(0);
 
@@ -194,6 +197,8 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         uint64 chainId = uint64(167_000);
 
         batchParams.coinbase = Alice;
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
         batchParams.proposer = address(0);
 
@@ -253,6 +258,9 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         uint64 chainId = uint64(167_000);
 
         batchParams.coinbase = Alice;
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
+
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
         batchParams.proposer = address(0);
 
@@ -286,6 +294,9 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         batchParams.blocks = new ITaikoInbox.BlockParams[](1);
         batchParams.proposer = Alice;
         batchParams.coinbase = Alice;
+
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
 
         vm.startPrank(Alice);
         bondToken.approve(address(inbox), 1000 ether);
@@ -346,7 +357,8 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
         // Encode the auth for passing it to the contract
         batchParams.proverAuth = abi.encode(auth);
-
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         // Expect revert due to ETH as fee token
         vm.expectRevert(LibProverAuth.EtherAsFeeTokenNotSupportedYet.selector);
         inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
@@ -389,6 +401,8 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         uint64 chainId = uint64(167_000);
 
         batchParams.coinbase = Alice;
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
         batchParams.proposer = address(0);
 
@@ -467,6 +481,8 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         uint64 chainId = uint64(167_000);
 
         batchParams.coinbase = Alice;
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
         batchParams.proposer = address(0);
 
@@ -554,11 +570,13 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
         batchParams.coinbase = Alice;
 
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
         // Calculate hash with Alice as proposer for signature
         bytes32 batchParamsHash = keccak256(abi.encode(batchParams));
 
         // Now set proposer to address(0) as the contract expects
         batchParams.proposer = address(0);
+        vm.roll(block.number + 1);
 
         // Sign the digest
         auth.signature = _signDigest(

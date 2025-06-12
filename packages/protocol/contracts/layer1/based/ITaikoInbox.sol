@@ -250,7 +250,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooLarge();
-    error AnchorBlockIdTooSmall();
     error ArraySizesMismatch();
     error BatchNotFound();
     error BatchVerified();
@@ -275,6 +274,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error InvalidTransitionStateRoot();
     error MetaHashMismatch();
     error MsgValueNotZero();
+    error NoAnchorBlockIdWithinThisBatch();
     error NoBlockIsAnchored();
     error NoBlocksToProve();
     error NotFirstProposal();

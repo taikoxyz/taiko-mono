@@ -94,14 +94,24 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            console2.log("batch.anchorBlockId", batch.anchorBlockId);
+            console2.log("block.number", block.number);
+            console2.log("i", i);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 1);
             assertEq(batch.verifiedTransitionId, 0);
         }
 
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        /// @dev Cant call the "_proposeBatchesWithDefaultParameters()" here, because expectRevert
+        /// is relevent to the next subsequent contract call, but since
+        /// "_proposeBatchesWithDefaultParameters()" got an extra inbox.v4GetStats2() and
+        /// inbox.v4GetBatch() it will not be correct
         // - Proposing one block block will revert
         vm.expectRevert(ITaikoInbox.TooManyBatches.selector);
-        _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1 });
+        inbox.v4ProposeBatch(abi.encode(batchParams), "", "");
     }
 
     function test_inbox_exceed_max_batch_proposal_will_revert()
@@ -110,9 +120,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         WhenMultipleBatchesAreProposedWithDefaultParameters(10)
         WhenLogAllBatchesAndTransitions
     {
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
         // - Proposing one block block will revert
+        /// @dev Cant call the "_proposeBatchesWithDefaultParameters()" here, because expectRevert
+        /// is relevent to the next subsequent contract call, but since
+        /// "_proposeBatchesWithDefaultParameters()" got an extra inbox.v4GetStats2() and
+        /// inbox.v4GetBatch() it will not be correct
         vm.expectRevert(ITaikoInbox.TooManyBatches.selector);
-        _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1 });
+        inbox.v4ProposeBatch(abi.encode(batchParams), "", "");
     }
 
     function test_inbox_prove_with_wrong_transitions_will_not_finalize_blocks()
@@ -154,7 +170,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            assertEq(batch.anchorBlockId, genesisBlockProposedAt + i);
             assertEq(batch.nextTransitionId, 2);
             assertEq(batch.verifiedTransitionId, 0);
         }
@@ -248,7 +264,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 2);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
@@ -313,7 +330,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.lastBlockId, i * 7);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 2);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
@@ -362,7 +380,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.metaHash, keccak256(abi.encode(meta)));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 3);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 2);
@@ -420,7 +439,10 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            console2.log("batch.anchorBlockId", batch.anchorBlockId);
+            console2.log("block.number - 1", block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             if (i == 8) {
                 assertEq(batch.verifiedTransitionId, 0);
                 assertEq(batch.nextTransitionId, 2);
@@ -553,6 +575,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](10);
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
