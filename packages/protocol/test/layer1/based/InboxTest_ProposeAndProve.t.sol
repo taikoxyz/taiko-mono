@@ -613,6 +613,59 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         vm.writeFile("./gas-reports/inbox_without_provermarket.txt", str);
     }
 
+    function test_inbox_each_block_can_anchor_to_different_l1_blocks() external transactBy(Alice) {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](2);
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            // Set block 1 and block 2 acnhors respectively, to different ones!
+            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            params.blocks[1].anchorBlockId = lastBatch.anchorBlockId + 2;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 3);
+        }
+
+        (, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.v4ProposeBatch(abi.encode(params), "txList", "");
+
+        ITaikoInbox.Batch memory batch = inbox.v4GetBatch(meta.batchId);
+
+        // Check if latest batch's anchorBlockId is correctly set to the "latter" one
+        assertEq(batch.anchorBlockId, params.blocks[1].anchorBlockId);
+    }
+
+    function test_inbox_one_anchor_has_to_be_set_per_batch() external transactBy(Alice) {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](1);
+
+        // It should revert, because no anchorBlockId is set
+        vm.expectRevert(ITaikoInbox.NoAnchorBlockIdWithinThisBatch.selector);
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
+    }
+
+    function test_inbox_each_block_can_anchor_to_different_l1_blocks_but_strictly_incremental()
+        external
+        transactBy(Alice)
+    {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](2);
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            // Wrong ! They should be incremental!
+            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 2;
+            params.blocks[1].anchorBlockId = lastBatch.anchorBlockId + 1;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 3);
+        }
+
+        vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
+    }
+
     //  function test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used()
     //     external
     //     transactBy(Alice)

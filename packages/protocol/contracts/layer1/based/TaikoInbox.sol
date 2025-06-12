@@ -217,7 +217,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     }
                 }
 
-                // This ensure there is at least 1 anchoBlockId within the submitted blocks
+                // To ensure there is at least 1 anchoBlockId within the submitted blocks of the
+                // batch
                 require(
                     lastBatch.anchorBlockId < lastAnchorBlockId, NoAnchorBlockIdWithinThisBatch()
                 );
