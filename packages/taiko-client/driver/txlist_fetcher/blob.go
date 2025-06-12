@@ -27,7 +27,7 @@ func NewBlobTxListFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher 
 }
 
 // FetchPacaya implements the TxListFetcher interface.
-func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchMetaDataPacaya) ([]byte, error) {
+func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoProposalMetaData) ([]byte, error) {
 	if len(meta.GetBlobHashes()) == 0 {
 		return nil, pkg.ErrBlobUnused
 	}

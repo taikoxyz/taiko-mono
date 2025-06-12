@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
@@ -37,6 +38,16 @@ func (m *TaikoDataBlockMetadataPacaya) Pacaya() TaikoBatchMetaDataPacaya {
 // IsPacaya implements TaikoProposalMetaData interface.
 func (m *TaikoDataBlockMetadataPacaya) IsPacaya() bool {
 	return true
+}
+
+// Pacaya implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) Shasta() TaikoBatchMetaDataShasta {
+	return nil
+}
+
+// IsPacaya implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) IsShasta() bool {
+	return false
 }
 
 // GetTxListHash returns the hash of calldata txlist.
@@ -124,13 +135,17 @@ func (m *TaikoDataBlockMetadataPacaya) GetAnchorBlockHash() common.Hash {
 }
 
 // GetBlocks returns block params of this batch.
-func (m *TaikoDataBlockMetadataPacaya) GetBlocks() []pacayaBindings.ITaikoInboxBlockParams {
-	return m.Blocks
+func (m *TaikoDataBlockMetadataPacaya) GetBlocks() []bindingTypes.BlockParams {
+	var params []bindingTypes.BlockParams
+	for _, b := range m.Blocks {
+		params = append(params, *bindingTypes.NewBlockParams(b.NumTransactions, b.TimeShift, b.SignalSlots))
+	}
+	return params
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataPacaya) GetBaseFeeConfig() *pacayaBindings.LibSharedDataBaseFeeConfig {
-	return &m.BaseFeeConfig
+func (m *TaikoDataBlockMetadataPacaya) GetBaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
+	return bindingTypes.NewBaseFeeConfigPacaya(&m.BaseFeeConfig)
 }
 
 // GetRawBlockHeight returns the raw L1 block height.

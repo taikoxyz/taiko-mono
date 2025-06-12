@@ -6,9 +6,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -98,5 +98,31 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 
 	log.Info("Block header to sync retrieved", "number", header.Number, "hash", header.Hash())
 
-	return encoding.ToExecutableData(header), nil
+	return toExecutableData(header), nil
+}
+
+// toExecutableData converts a GETH *types.Header to *engine.ExecutableData.
+func toExecutableData(header *types.Header) *engine.ExecutableData {
+	executableData := &engine.ExecutableData{
+		ParentHash:    header.ParentHash,
+		FeeRecipient:  header.Coinbase,
+		StateRoot:     header.Root,
+		ReceiptsRoot:  header.ReceiptHash,
+		LogsBloom:     header.Bloom.Bytes(),
+		Random:        header.MixDigest,
+		Number:        header.Number.Uint64(),
+		GasLimit:      header.GasLimit,
+		GasUsed:       header.GasUsed,
+		Timestamp:     header.Time,
+		ExtraData:     header.Extra,
+		BaseFeePerGas: header.BaseFee,
+		BlockHash:     header.Hash(),
+		TxHash:        header.TxHash,
+	}
+
+	if header.WithdrawalsHash != nil {
+		executableData.WithdrawalsHash = *header.WithdrawalsHash
+	}
+
+	return executableData
 }
