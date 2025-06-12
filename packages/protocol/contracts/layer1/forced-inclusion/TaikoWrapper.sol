@@ -82,7 +82,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         external
         onlyFromOptional(preconfRouter)
         nonReentrant
-        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
@@ -100,7 +100,12 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
         require(params.isForcedInclusion == false, ITaikoInbox.InvalidForcedInclusion());
 
-        return inbox.v4ProposeBatch(bytesY, _txList, "");
+        (info_, meta_) = inbox.v4ProposeBatch(bytesY, _txList, "");
+
+        require(
+            _hasAtLeastOneNonZeroAnchorBlockId(info_),
+            ITaikoInbox.NoAnchorBlockIdWithinThisBatch()
+        );
     }
 
     function _validateForcedInclusionParams(
@@ -130,5 +135,16 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blobParams.createdIn == inclusion.blobCreatedIn, InvalidBlobCreatedIn());
 
         emit ForcedInclusionProcessed(inclusion);
+    }
+
+    function _hasAtLeastOneNonZeroAnchorBlockId(ITaikoInbox.BatchInfo memory info_)
+        internal
+        pure
+        returns (bool)
+    {
+        for (uint256 i; i < info_.anchorBlockHashes.length; ++i) {
+            if (info_.anchorBlockHashes[i] != 0) return true;
+        }
+        return false;
     }
 }
