@@ -37,7 +37,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     /// @dev Event emitted when a forced inclusion is processed.
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion);
 
-    error InvalidBlockTxs();
     error InvalidBlobHashesSize();
     error InvalidBlobHash();
     error InvalidBlobByteOffset();
@@ -48,7 +47,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidSignalSlots();
     error OldestForcedInclusionDue();
 
-    uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
     IProposeBatch public immutable inbox;
     IForcedInclusionStore public immutable forcedInclusionStore;
     address public immutable preconfRouter;
