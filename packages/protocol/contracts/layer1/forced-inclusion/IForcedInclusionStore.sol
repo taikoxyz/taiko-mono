@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
+    /// @dev 3 slots are used
     struct ForcedInclusion {
         bytes32 blobHash;
         uint64 feeInGwei;
@@ -11,6 +12,7 @@ interface IForcedInclusionStore {
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint64 blobCreatedIn;
+        address user;
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
