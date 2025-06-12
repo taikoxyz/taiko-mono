@@ -24,10 +24,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
-        blockParams[0] = ITaikoInbox.BlockParams({
-            timeShift: 1,
-            signalSlots: new bytes32[](0)
-        });
+        blockParams[0] = ITaikoInbox.BlockParams({ timeShift: 1, signalSlots: new bytes32[](0) });
 
         ITaikoInbox.BlobParams memory blobParams;
 
@@ -98,10 +95,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
-        blockParams[0] = ITaikoInbox.BlockParams({
-            timeShift: 1,
-            signalSlots: new bytes32[](0)
-        });
+        blockParams[0] = ITaikoInbox.BlockParams({ timeShift: 1, signalSlots: new bytes32[](0) });
 
         ITaikoInbox.BlobParams memory blobParams;
 
