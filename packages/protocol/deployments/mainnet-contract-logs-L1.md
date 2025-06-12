@@ -117,7 +117,7 @@
 - ens: `v20.based.taiko.eth`
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
 - impl: `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63`
-- owner: `admin.taiko.eth`
+- owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x15D9F7e12aEa18DAEF5c651fBf97567CAd4a4BEc` to `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -126,13 +126,14 @@
   - upgraded from `0xF8bdaC4E68bA2595Be8381aaa5456917e374E737` to `0xa303784B0557BF1F1FB8b8abEF2B18a005722689` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
   - upgraded from `0xa303784B0557BF1F1FB8b8abEF2B18a005722689` to `0x7ACFBb369a552C45d402448A4d64b9da54C3FF30` @commit`bb2abc5` @tx`0xee632b50626beb2f7db84c9c7f303f29366f86dfaccd24ddd831ceac714c20e5`
   - upgraded from `0x7ACFBb369a552C45d402448A4d64b9da54C3FF30` to `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
+  - change owner to controller.taiko.eth @tx``
 
 #### erc721_vault
 
 - ens: `v721.based.taiko.eth`
 - proxy: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
 - impl: `0xA4C5c20aB33C96B1c281Dca37D03E23609274C49`
-- owner: `admin.taiko.eth`
+- owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -146,7 +147,7 @@
 - ens: `v1155.based.taiko.eth`
 - proxy: `0xaf145913EA4a56BE22E120ED9C24589659881702`
 - impl: `0x838ed469db456b67EB3b0B74D759Be4DA999b9c8`
-- owner: `admin.taiko.eth`
+- owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x7748dA086A2e6EDd8Db97eD236840910013c6396` to `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
