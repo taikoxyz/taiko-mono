@@ -94,14 +94,24 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            console2.log("batch.anchorBlockId", batch.anchorBlockId);
+            console2.log("block.number", block.number);
+            console2.log("i", i);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 1);
             assertEq(batch.verifiedTransitionId, 0);
         }
 
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
+        /// @dev Cant call the "_proposeBatchesWithDefaultParameters()" here, because expectRevert
+        /// is relevent to the next subsequent contract call, but since
+        /// "_proposeBatchesWithDefaultParameters()" got an extra inbox.v4GetStats2() and
+        /// inbox.v4GetBatch() it will not be correct
         // - Proposing one block block will revert
         vm.expectRevert(ITaikoInbox.TooManyBatches.selector);
-        _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1 });
+        inbox.v4ProposeBatch(abi.encode(batchParams), "", "");
     }
 
     function test_inbox_exceed_max_batch_proposal_will_revert()
@@ -110,9 +120,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         WhenMultipleBatchesAreProposedWithDefaultParameters(10)
         WhenLogAllBatchesAndTransitions
     {
+        ITaikoInbox.BatchParams memory batchParams;
+        batchParams.blocks = new ITaikoInbox.BlockParams[](1);
         // - Proposing one block block will revert
+        /// @dev Cant call the "_proposeBatchesWithDefaultParameters()" here, because expectRevert
+        /// is relevent to the next subsequent contract call, but since
+        /// "_proposeBatchesWithDefaultParameters()" got an extra inbox.v4GetStats2() and
+        /// inbox.v4GetBatch() it will not be correct
         vm.expectRevert(ITaikoInbox.TooManyBatches.selector);
-        _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1 });
+        inbox.v4ProposeBatch(abi.encode(batchParams), "", "");
     }
 
     function test_inbox_prove_with_wrong_transitions_will_not_finalize_blocks()
@@ -154,7 +170,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            assertEq(batch.anchorBlockId, genesisBlockProposedAt + i);
             assertEq(batch.nextTransitionId, 2);
             assertEq(batch.verifiedTransitionId, 0);
         }
@@ -248,7 +264,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 2);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
@@ -313,7 +330,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.lastBlockId, i * 7);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 2);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
@@ -362,7 +380,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.metaHash, keccak256(abi.encode(meta)));
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 3);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 2);
@@ -420,7 +439,10 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, block.number - 1);
+            console2.log("batch.anchorBlockId", batch.anchorBlockId);
+            console2.log("block.number - 1", block.number - 1);
+            // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
+            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
             if (i == 8) {
                 assertEq(batch.verifiedTransitionId, 0);
                 assertEq(batch.nextTransitionId, 2);
@@ -553,6 +575,8 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
     {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](10);
+        batchParams.blocks[0].anchorBlockId = uint64(block.number);
+        vm.roll(block.number + 1);
 
         vm.startSnapshotGas("proposeBatch");
         (, ITaikoInbox.BatchMetadata memory meta) =
@@ -587,6 +611,59 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
         console2.log(str);
         vm.writeFile("./gas-reports/inbox_without_provermarket.txt", str);
+    }
+
+    function test_inbox_each_block_can_anchor_to_different_l1_blocks() external transactBy(Alice) {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](2);
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            // Set block 1 and block 2 acnhors respectively, to different ones!
+            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            params.blocks[1].anchorBlockId = lastBatch.anchorBlockId + 2;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 3);
+        }
+
+        (, ITaikoInbox.BatchMetadata memory meta) =
+            inbox.v4ProposeBatch(abi.encode(params), "txList", "");
+
+        ITaikoInbox.Batch memory batch = inbox.v4GetBatch(meta.batchId);
+
+        // Check if latest batch's anchorBlockId is correctly set to the "latter" one
+        assertEq(batch.anchorBlockId, params.blocks[1].anchorBlockId);
+    }
+
+    function test_inbox_one_anchor_has_to_be_set_per_batch() external transactBy(Alice) {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](1);
+
+        // It should revert, because no anchorBlockId is set
+        vm.expectRevert(ITaikoInbox.NoAnchorBlockIdWithinThisBatch.selector);
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
+    }
+
+    function test_inbox_each_block_can_anchor_to_different_l1_blocks_but_strictly_incremental()
+        external
+        transactBy(Alice)
+    {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](2);
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            // Wrong ! They should be incremental!
+            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 2;
+            params.blocks[1].anchorBlockId = lastBatch.anchorBlockId + 1;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 3);
+        }
+
+        vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
     //  function test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used()

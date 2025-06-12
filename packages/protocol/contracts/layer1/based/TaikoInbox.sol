@@ -217,6 +217,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     }
                 }
 
+                // To ensure there is at least 1 anchoBlockId within the submitted blocks of the
+                // batch
+                require(
+                    lastBatch.anchorBlockId < lastAnchorBlockId, NoAnchorBlockIdWithinThisBatch()
+                );
+
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
 
@@ -229,7 +235,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 });
 
                 _checkBatchInForkRange(config, meta_.firstBlockId, info_.lastBlockId);
-
                 if (params.proverAuth.length == 0) {
                     // proposer is the prover
                     _debitBond(meta_.prover, config.livenessBond);
