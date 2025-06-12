@@ -119,7 +119,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.isForcedInclusion, ITaikoInbox.InvalidForcedInclusion());
 
         // Need to make sure enough transactions in the forced inclusion request are included.
-        require(p.blocks[0].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
         require(p.blocks[0].timeShift == 0, InvalidTimeShift());
         require(p.blocks[0].signalSlots.length == 0, InvalidSignalSlots());
 
