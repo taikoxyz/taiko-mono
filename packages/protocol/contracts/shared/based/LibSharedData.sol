@@ -6,6 +6,7 @@ library LibSharedData {
     struct BaseFeeConfig {
         // This is the base fee change denominator per 12 second window.
         uint8 adjustmentQuotient;
+        uint8 sharingPctg;
         uint32 gasIssuancePerSecond;
         uint64 minGasExcess;
         uint32 maxGasIssuancePerBlock;
