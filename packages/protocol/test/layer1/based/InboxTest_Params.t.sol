@@ -79,15 +79,6 @@ contract InboxTest_Params is InboxTestBase {
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
-    function test_validateParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
-        ITaikoInbox.BatchParams memory params;
-        params.blocks = new ITaikoInbox.BlockParams[](1);
-        params.blocks[0].anchorBlockId = uint64(block.number - 1);
-
-        vm.expectRevert(ITaikoInbox.NoAnchorBlockIdWithinThisBatch.selector);
-        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
-    }
-
     function test_validateParams_reverts_when_timestamp_too_large() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);

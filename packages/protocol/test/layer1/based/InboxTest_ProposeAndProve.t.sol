@@ -106,7 +106,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](1);
         /// @dev Cant call the "_proposeBatchesWithDefaultParameters()" here, because expectRevert
-        /// is relevent to the next subsequent contract call, but since
+        /// is relevant to the next subsequent contract call, but since
         /// "_proposeBatchesWithDefaultParameters()" got an extra inbox.v4GetStats2() and
         /// inbox.v4GetBatch() it will not be correct
         // - Proposing one block block will revert
@@ -124,7 +124,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         batchParams.blocks = new ITaikoInbox.BlockParams[](1);
         // - Proposing one block block will revert
         /// @dev Cant call the "_proposeBatchesWithDefaultParameters()" here, because expectRevert
-        /// is relevent to the next subsequent contract call, but since
+        /// is relevant to the next subsequent contract call, but since
         /// "_proposeBatchesWithDefaultParameters()" got an extra inbox.v4GetStats2() and
         /// inbox.v4GetBatch() it will not be correct
         vm.expectRevert(ITaikoInbox.TooManyBatches.selector);

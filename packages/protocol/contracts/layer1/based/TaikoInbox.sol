@@ -192,6 +192,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 for (uint256 i; i < nBlocks; ++i) {
                     if (params.blocks[i].anchorBlockId != 0) {
                         if (lastAnchorBlockId == 0) {
+                            // This is the first non zero anchor block id in the batch.
                             require(
                                 params.blocks[i].anchorBlockId + config.maxAnchorHeightOffset
                                     >= block.number,
@@ -217,10 +218,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     }
                 }
 
-                // To ensure there is at least 1 anchoBlockId within the submitted blocks of the
-                // batch
+                // Ensure that if msg.sender is not the inboxWrapper, at least one block must have a
+                // non-zero anchor block id. Otherwise, delegate this validation to the inboxWrapper
+                // contract.
                 require(
-                    lastBatch.anchorBlockId < lastAnchorBlockId, NoAnchorBlockIdWithinThisBatch()
+                    msg.sender == inboxWrapper || lastAnchorBlockId != 0,
+                    NoAnchorBlockIdWithinThisBatch()
                 );
 
                 bytes32 txListHash = keccak256(_txList);
