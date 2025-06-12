@@ -17,7 +17,7 @@ contract InboxTest_Params is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
 
         // It should revert, because no anchorBlockId is set
-        vm.expectRevert();
+        vm.expectRevert(ITaikoInbox.NoAnchorBlockIdWithinThisBatch.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 

@@ -126,7 +126,6 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
             // We put the anchorBlockId to be in the first block of the batch
             params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
-            console2.log("AnchorBlockId now is: ", params.blocks[0].anchorBlockId);
             // vm.roll to have available blockhash()
             vm.roll(lastBatch.anchorBlockId + 2);
         }
@@ -254,7 +253,6 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
                 ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
                 // We put the anchorBlockId to be in the first block of the batch
                 params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
-                console2.log("AnchorBlockId now is: ", params.blocks[0].anchorBlockId);
                 // vm.roll to have available blockhash()
                 vm.roll(lastBatch.anchorBlockId + 2);
             }

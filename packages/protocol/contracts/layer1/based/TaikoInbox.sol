@@ -15,7 +15,6 @@ import "./libs/LibVerification.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
 
-import "forge-std/src/console2.sol";
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
@@ -29,7 +28,6 @@ import "forge-std/src/console2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
     using LibVerification for ITaikoInbox.State;
@@ -85,9 +83,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Stats2 memory stats2 = state.stats2;
         Config memory config = _getConfig();
 
-        console2.log("stats2.numBatches:", stats2.numBatches);
-        console2.log("stats2.lastVerifiedBatchId:", stats2.lastVerifiedBatchId);
-        console2.log("config.maxUnverifiedBatches:", config.maxUnverifiedBatches);
         unchecked {
             require(
                 stats2.numBatches <= stats2.lastVerifiedBatchId + config.maxUnverifiedBatches,
@@ -222,8 +217,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     }
                 }
 
-                console2.log("lastBatch.anchorBlockId:", lastBatch.anchorBlockId);
-                console2.log("lastAnchorBlockId:", lastAnchorBlockId);
                 // This ensure there is at least 1 anchoBlockId within the submitted blocks
                 require(
                     lastBatch.anchorBlockId < lastAnchorBlockId, NoAnchorBlockIdWithinThisBatch()
@@ -241,17 +234,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 });
 
                 _checkBatchInForkRange(config, meta_.firstBlockId, info_.lastBlockId);
-                console2.log("Keszey3");
                 if (params.proverAuth.length == 0) {
                     // proposer is the prover
-                    console2.log("Keszey3.1");
                     _debitBond(meta_.prover, config.livenessBond);
                 } else {
                     bytes memory proverAuth = params.proverAuth;
                     // Circular dependency so zero it out. (BatchParams has proverAuth but
                     // proverAuth has also batchParamsHash)
                     params.proverAuth = "";
-                    console2.log("Keszey4");
                     // Outsource the prover authentication to the LibProverAuth library to reduce
                     // this contract's code size.
                     LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(
@@ -265,7 +255,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     meta_.prover = auth.prover;
 
                     if (auth.feeToken == bondToken) {
-                        console2.log("Keszey4.1");
                         // proposer pay the prover fee with bond tokens
                         _debitBond(info_.proposer, auth.fee);
 
@@ -274,17 +263,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                         int256 bondDelta = int96(auth.fee) - int96(config.livenessBond);
 
                         if (bondDelta < 0) {
-                            console2.log("Keszey4.2");
                             _debitBond(meta_.prover, uint256(-bondDelta));
                         } else {
                             state.creditBond(meta_.prover, uint256(bondDelta));
                         }
                     } else {
-                        console2.log("Keszey4.3");
                         _debitBond(meta_.prover, config.livenessBond);
 
                         if (info_.proposer != meta_.prover) {
-                            console2.log("Keszey4.4");
                             IERC20(auth.feeToken).safeTransferFrom(
                                 info_.proposer, meta_.prover, auth.fee
                             );
@@ -677,16 +663,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     function _debitBond(address _user, uint256 _amount) private {
         if (_amount == 0) return;
-        console2.log("Debiting bond for user: ", _user, " amount: ", _amount);
         uint256 balance = state.bondBalance[_user];
-        console2.log("Bond balance during proposing ", balance);
-        console2.log("WHY 0 !?!?!?!?!?!");
         if (balance >= _amount) {
             unchecked {
                 state.bondBalance[_user] = balance - _amount;
             }
         } else if (bondToken != address(0)) {
-            console2.log("Coming thru this path ??");
             uint256 amountDeposited = _handleDeposit(_user, _amount);
             require(amountDeposited == _amount, InsufficientBond());
         } else {
@@ -705,9 +687,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         if (bondToken != address(0)) {
             require(msg.value == 0, MsgValueNotZero());
-
-            console2.log("_user: ", _user);
-            console2.log("_amount: ", _amount);
 
             uint256 balance = IERC20(bondToken).balanceOf(address(this));
             IERC20(bondToken).safeTransferFrom(_user, address(this), _amount);

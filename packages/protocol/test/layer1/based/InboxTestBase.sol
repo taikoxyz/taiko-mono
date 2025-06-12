@@ -159,15 +159,6 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
 
-        // if (stats.numBatches > 0) {
-        //     ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
-        //     // We put the anchorBlockId to be in the first block of the batch
-        //     batchParams.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
-        //     console2.log("AnchorBlockId now is: ", batchParams.blocks[0].anchorBlockId);
-        //     // vm.roll to have available blockhash()
-        //     vm.roll(lastBatch.anchorBlockId + 2);
-        // }
-
         batchIds = new uint64[](numBatchesToPropose);
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
@@ -177,12 +168,10 @@ abstract contract InboxTestBase is Layer1Test {
                 ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
                 // We put the anchorBlockId to be in the first block of the batch
                 batchParams.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
-                console2.log("AnchorBlockId now is: ", batchParams.blocks[0].anchorBlockId);
                 // vm.roll to have available blockhash()
                 vm.roll(lastBatch.anchorBlockId + 2);
             }
 
-            console2.log("Keszey 2");
             (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
                 inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
             _saveMetadataAndInfo(meta, info);
@@ -239,7 +228,6 @@ abstract contract InboxTestBase is Layer1Test {
                 ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
                 // We put the anchorBlockId to be in the first block of the batch
                 batchParams.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
-                console2.log("AnchorBlockId now is: ", batchParams.blocks[0].anchorBlockId);
                 // vm.roll to have available blockhash()
                 vm.roll(lastBatch.anchorBlockId + 2);
             }

@@ -21,16 +21,11 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         // Define the txList in calldata
         bytes memory txList = abi.encodePacked("txList");
 
-        console2.log("Keszey1");
-        console2.log("Alice bond balance before proposing:", inbox.v4BondBalanceOf(Alice));
-        console2.log("Alice address:", Alice);
         vm.stopPrank();
         vm.startPrank(Alice);
-        //vm.prank(Alice);
         uint64[] memory batchIds =
             _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1, txList: txList });
 
-        console2.log("Keszey10");
         for (uint256 i; i < batchIds.length; ++i) {
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(batchIds[i]);
@@ -118,13 +113,11 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         assertEq(info.txsHash, expectedHash1, "txsHash mismatch for block 1");
 
-        //vm.prank(Alice);
         batchIds = _proposeBatchesWithDefaultParameters(1, txList2);
 
         (, info) = _loadMetadataAndInfo(batchIds[0]);
         assertEq(info.txsHash, expectedHash2, "txsHash mismatch for block 2");
 
-        //vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
@@ -152,7 +145,6 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
-        //vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.MetaHashMismatch.selector);
         inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
