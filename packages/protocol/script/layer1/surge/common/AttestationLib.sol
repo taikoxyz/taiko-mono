@@ -22,41 +22,9 @@ library AttestationLib {
 
     uint256 constant INDEX_ERROR = type(uint256).max;
 
-    function setMrEnclave(address _attestationAddress, bytes32 _mrEnclave, bool enable) public {
-        AutomataDcapV3Attestation(_attestationAddress).setMrEnclave(_mrEnclave, enable);
-    }
-
-    function setMrSigner(address _attestationAddress, bytes32 _mrSigner, bool enable) public {
-        AutomataDcapV3Attestation(_attestationAddress).setMrSigner(_mrSigner, enable);
-    }
-
-    function toggleCheckQuoteValidity(address _attestationAddress) public {
-        AutomataDcapV3Attestation(_attestationAddress).toggleLocalReportCheck();
-    }
-
-    function configureQeIdentityJson(
-        address _attestationAddress,
-        string memory _enclaveIdJson
-    )
-        public
-    {
-        (bool qeIdParsedSuccess, EnclaveIdStruct.EnclaveId memory parsedEnclaveId) =
-            parseEnclaveIdentityJson(_enclaveIdJson);
-        AutomataDcapV3Attestation(_attestationAddress).configureQeIdentityJson(parsedEnclaveId);
-        console2.log("qeIdParsedSuccess: %s", qeIdParsedSuccess);
-    }
-
-    function configureTcbInfoJson(address _attestationAddress, string memory _tcbInfoJson) public {
-        (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
-            parseTcbInfoJson(_tcbInfoJson);
-        string memory fmspc = LibString.lower(parsedTcbInfo.fmspc);
-        AutomataDcapV3Attestation(_attestationAddress).configureTcbInfoJson(fmspc, parsedTcbInfo);
-        console2.log("tcbParsedSuccess: %s", tcbParsedSuccess);
-    }
-
     // Helper functions from DcapTestUtils
     function parseTcbInfoJson(string memory tcbInfoJsonStr)
-        internal
+        public
         pure
         returns (bool success, TCBInfoStruct.TCBInfo memory tcbInfo)
     {
@@ -111,7 +79,7 @@ library AttestationLib {
     }
 
     function parseEnclaveIdentityJson(string memory enclaveIdJsonStr)
-        internal
+        public
         pure
         returns (bool success, EnclaveIdStruct.EnclaveId memory enclaveId)
     {
@@ -294,24 +262,7 @@ library AttestationLib {
         return r;
     }
 
-    function registerSgxInstanceWithQuoteBytes(
-        address _pemCertChainLibAddr,
-        address _sgxVerifier,
-        bytes memory _v3QuoteBytes
-    )
-        public
-    {
-        V3Struct.ParsedV3QuoteStruct memory v3quote =
-            ParseV3QuoteBytes(_pemCertChainLibAddr, _v3QuoteBytes);
-
-        address regInstanceAddr =
-            address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        console2.log("[log] register sgx instance address: %s", regInstanceAddr);
-        uint256 sgxIdx = SgxVerifier(_sgxVerifier).registerInstance(v3quote);
-        console2.log("[log] register sgx instance index: %s", sgxIdx);
-    }
-
-    function ParseV3QuoteBytes(
+    function parseV3QuoteBytes(
         address pemCertChainLib,
         bytes memory v3QuoteBytes
     )
