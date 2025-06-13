@@ -59,8 +59,6 @@ test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
 evm_version = "cancun"
-optimizer_runs = 1
-via_ir = true
 
 [profile.layer2]
 src = "contracts/layer2"
