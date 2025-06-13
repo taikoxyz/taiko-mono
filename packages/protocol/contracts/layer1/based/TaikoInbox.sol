@@ -93,8 +93,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 if (inboxWrapper == address(0)) {
-                    require(params.proposer == address(0), CustomProposerNotAllowed());
-                    params.proposer = msg.sender;
+                    if (params.proposer == address(0)) {
+                        params.proposer = msg.sender;
+                    } else {
+                        require(params.proposer == msg.sender, CustomProposerNotAllowed());
+                    }
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
@@ -314,6 +317,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             ctxs[i].batchId = meta.batchId;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].transition = tran;
+            ctxs[i].prover = msg.sender;
 
             // Verify the batch's metadata.
             uint256 slot = meta.batchId % config.batchRingBufferSize;
