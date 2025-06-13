@@ -90,7 +90,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             createdAtBatchId: _nextBatchId(),
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize,
-            blobCreatedIn: uint64(block.number)
+            blobCreatedIn: uint64(block.number),
+            user: msg.sender
         });
 
         queue[tail++] = inclusion;

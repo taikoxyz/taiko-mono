@@ -78,7 +78,8 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
             uint64 createdAt,
             uint32 blobByteOffset,
             uint32 blobByteSize,
-            uint64 blobCreatedIn
+            uint64 blobCreatedIn,
+            address user
         ) = store.queue(store.tail() - 1);
 
         assertEq(blobHash, bytes32(uint256(1))); //  = blobIndex + 1
@@ -87,6 +88,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(blobByteOffset, 0);
         assertEq(blobByteSize, 1024);
         assertEq(blobCreatedIn, uint64(block.number));
+        assertEq(user, Alice);
 
         vm.expectRevert(IForcedInclusionStore.MultipleCallsInOneTx.selector);
         store.storeForcedInclusion{ value: 0 }({
