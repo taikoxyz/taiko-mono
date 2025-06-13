@@ -10,11 +10,10 @@ module.exports = {
   // Chain ID of the Surge L2 network.
   // Surge: make chainId configurable
   chainId: parseInt(process.env.L2_CHAINID),
-  l1ChainId: 1,
+  l1ChainId: parseInt(process.env.L1_CHAINID),
   // Account address and pre-mint ETH amount as key-value pairs.
   seedAccounts: [
     { [ownerAddress]: 1000 },
-    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000 },
   ],
   get contractAddresses() {
     return {
