@@ -21,8 +21,8 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
     using SafeERC20 for IERC20;
 
     event Withdrawan(address token, address to, uint256 amount);
+    
     /// @notice Golden touch address is the only address that can do the anchor transaction.
-
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
     ISignalService public immutable signalService;
