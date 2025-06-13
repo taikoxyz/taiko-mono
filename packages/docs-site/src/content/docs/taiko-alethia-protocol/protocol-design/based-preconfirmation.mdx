@@ -97,7 +97,6 @@ The preconfer's process follows seven key steps:
 7. **Slashing**
 
     If a preconfer fails to honor their commitments—either by not including preconfirmed transactions or by submitting an incorrect lookahead—they face slashing penalties.
-
 <Aside>
     Although slashing penalties will motivate a preconfer to honour its commitments, the user does not receive a share of the penalty to compensate for the failed inclusion.
 </Aside>
@@ -115,3 +114,4 @@ The preconfer's process follows seven key steps:
 ## Summary
 
 Based preconfirmations enhance transaction finality by allowing Ethereum L1 validators to issue cryptographic promises on transaction inclusion and execution before block finalization. In our implementation, transactions are prioritized based on execution preconfirmations (strict order + execution guarantee). Preconfers stake collateral, ensuring economic security via forced inclusion and slashing penalties for misbehavior.
+
