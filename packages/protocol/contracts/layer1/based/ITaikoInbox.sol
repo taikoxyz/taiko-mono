@@ -53,7 +53,8 @@ interface ITaikoInbox {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
-        uint96 baseFee; // Custom L2 base fee set by the proposer
+        // Surge: Custom L2 base fee set by the proposer
+        uint96 baseFee;
         uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
@@ -76,7 +77,8 @@ interface ITaikoInbox {
         uint32 blobByteOffset;
         uint32 blobByteSize;
         uint32 gasLimit;
-        uint96 baseFee; // Custom L2 base fee set by the proposer
+        // Surge: Custom L2 base fee set by the proposer
+        uint96 baseFee;
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
