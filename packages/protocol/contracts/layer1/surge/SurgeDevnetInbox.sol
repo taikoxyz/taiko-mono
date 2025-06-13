@@ -55,7 +55,7 @@ contract SurgeDevnetInbox is TaikoInbox {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 0,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 100_000_000,
                 minGasExcess: 31_136_000_000, // Resolves to ~0.0999 Gwei
                 maxGasIssuancePerBlock: 6_000_000_000
