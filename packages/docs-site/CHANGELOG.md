@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.2...docs-site-v1.28.3) (2025-06-10)
+
+
+### Bug Fixes
+
+* **docs-site:** fix eth-docker docs link in run-an-ethereum-testnet-node.mdx ([#19595](https://github.com/taikoxyz/taiko-mono/issues/19595)) ([d010b6e](https://github.com/taikoxyz/taiko-mono/commit/d010b6e211f28e4ee0a2302141fea8ec6382def8))
+
 ## [1.28.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.1...docs-site-v1.28.2) (2025-06-10)
 
 

@@ -11,6 +11,7 @@ interface IVerifier {
         uint64 batchId;
         bytes32 metaHash;
         ITaikoInbox.Transition transition;
+        address prover;
     }
 
     /// @notice Verifies multiple proofs. This function must throw if the proof cannot be verified.
