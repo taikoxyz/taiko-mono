@@ -20,7 +20,9 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
+    event Withdrawan(address token, address to, uint256 amount);
     /// @notice Golden touch address is the only address that can do the anchor transaction.
+
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
     ISignalService public immutable signalService;
@@ -145,11 +147,15 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
         onlyOwner
         nonReentrant
     {
+        uint256 amount;
         if (_token == address(0)) {
-            _to.sendEtherAndVerify(address(this).balance);
+            amount = address(this).balance;
+            _to.sendEtherAndVerify(amount);
         } else {
-            IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
+            amount = IERC20(_token).balanceOf(address(this));
+            IERC20(_token).safeTransfer(_to, amount);
         }
+        emit Withdrawan(_token, _to, amount);
     }
 
     /// @notice Calculates the base fee and gas excess using EIP-1559 configuration for the given
