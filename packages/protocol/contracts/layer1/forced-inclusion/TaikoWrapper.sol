@@ -37,18 +37,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     /// @dev Event emitted when a forced inclusion is processed but failed to be proposed as a batch
     event ForcedInclusionFailed(IForcedInclusionStore.ForcedInclusion, ITaikoInbox.BatchParams);
 
-    error InvalidBlockTxs();
-    error InvalidBlobHashesSize();
-    error InvalidBlobHash();
-    error InvalidBlobByteOffset();
-    error InvalidBlobByteSize();
-    error InvalidBlobCreatedIn();
-    error InvalidBlockSize();
-    error InvalidForcedInclusionProposer();
-    error InvalidForcedInclusionProver();
-    error InvalidTimeShift();
-    error InvalidSignalSlots();
-    error OldestForcedInclusionDue();
+error InvalidForcedInclusionProver();
 
     IProposeBatch public immutable inbox;
     IForcedInclusionStore public immutable forcedInclusionStore;
@@ -119,7 +108,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         // Propose the normal batch after the potential forced inclusion batch.
         params = abi.decode(normalParams, (ITaikoInbox.BatchParams));
 
-        // Only forced inclusion batches can referene blob hashes that are created in early blocks.
+        // Only forced inclusion batches can referene blob hashes that were created in early blocks.
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
 
