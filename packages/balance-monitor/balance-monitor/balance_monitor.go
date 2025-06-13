@@ -67,15 +67,12 @@ func (b *BalanceMonitor) Close(ctx context.Context) {
 }
 
 func (b *BalanceMonitor) Start() error {
-	slog.Info("hello from balance monitor")
-
 	ticker := time.NewTicker(b.interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-b.ctx.Done():
-			slog.Info("Balance monitor context done, stopping...")
 			return nil
 		case <-ticker.C:
 			for _, address := range b.addresses {
