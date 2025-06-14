@@ -71,6 +71,10 @@ cat ../protocol/out/layer1/PreconfWhitelist.sol/PreconfWhitelist.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type PreconfWhitelist --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_preconf_whitelist.go
 
+cat ../protocol/out/layer1/PreconfRouter.sol/PreconfRouter.json |
+  jq .abi |
+  ${ABIGEN_BIN} --abi - --type PreconfRouter --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_preconf_router.go
+
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"
