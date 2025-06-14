@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.15.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.14.0...bridge-ui-v2.15.0) (2025-06-14)
+
+
+### Features
+
+* **bridge-ui:** relayer component retry status ([#19390](https://github.com/taikoxyz/taiko-mono/issues/19390)) ([e634dcc](https://github.com/taikoxyz/taiko-mono/commit/e634dcce4effe0d7899a082a4aa56154971ce54a))
+
 ## [2.14.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.13.0...bridge-ui-v2.14.0) (2025-03-17)
 
 
