@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.3...docs-site-v1.28.4) (2025-06-14)
+
+
+### Bug Fixes
+
+* **docs-site:** use "preconfer" to replace "preconfirmer" ([#19616](https://github.com/taikoxyz/taiko-mono/issues/19616)) ([288f61e](https://github.com/taikoxyz/taiko-mono/commit/288f61ed266521614e207923aaacc4c7da0cbb85))
+
 ## [1.28.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.2...docs-site-v1.28.3) (2025-06-10)
 
 
