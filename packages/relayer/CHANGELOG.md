@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2025-06-14)
+
+
+### Features
+
+* **eventindexer:** pacaya event updates ([#18919](https://github.com/taikoxyz/taiko-mono/issues/18919)) ([e44ee25](https://github.com/taikoxyz/taiko-mono/commit/e44ee25fff0e8610c48c5e853e91a8ee16b1d54d))
+* **relayer:** pacaya fork protocol variable fetching ([#18918](https://github.com/taikoxyz/taiko-mono/issues/18918)) ([1396911](https://github.com/taikoxyz/taiko-mono/commit/13969114dd989f68de0befa61cc2ab5330bc74a7))
+
+
+### Bug Fixes
+
+* **relayer:** fix an `occurredTxHash` log in relayer ([#19540](https://github.com/taikoxyz/taiko-mono/issues/19540)) ([4a22f7a](https://github.com/taikoxyz/taiko-mono/commit/4a22f7a6163108033ae887def6d3f2c36e0c5575))
+* **relayer:** if cant find process message tx, continue loop ([#19440](https://github.com/taikoxyz/taiko-mono/issues/19440)) ([5056a5a](https://github.com/taikoxyz/taiko-mono/commit/5056a5a8c29ea6db44a303585ea0c674363a0fc9))
+
+
+### Chores
+
+* **relayer:** golangci-lint v2 migrate ([#19194](https://github.com/taikoxyz/taiko-mono/issues/19194)) ([1341ca9](https://github.com/taikoxyz/taiko-mono/commit/1341ca94158746d4a56c26f52e85cc110cadb103))
+* **relayer:** relayer state var update for protocol compatibility ([#18861](https://github.com/taikoxyz/taiko-mono/issues/18861)) ([c7c50fd](https://github.com/taikoxyz/taiko-mono/commit/c7c50fdd182eeb83ea4c1598d32a15380cdb03bf))
+
+
+### Code Refactoring
+
+* **eventindexer, relayer:** simplify end index calculations using min function ([#19192](https://github.com/taikoxyz/taiko-mono/issues/19192)) ([9704aa3](https://github.com/taikoxyz/taiko-mono/commit/9704aa326541d601cfcb7d97e5040c839e1ea3f9))
+* **eventindexer, relayer:** use slices.Delete replace manual ops ([#19217](https://github.com/taikoxyz/taiko-mono/issues/19217)) ([e95496d](https://github.com/taikoxyz/taiko-mono/commit/e95496d58692aeae1f9dc4e8c195b66838a84875))
+* **relayer:** use the built-in `max/min` to simplify the code ([#19351](https://github.com/taikoxyz/taiko-mono/issues/19351)) ([442741a](https://github.com/taikoxyz/taiko-mono/commit/442741a1b7d52cf0f662e97da5120aae63f96ea4))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
