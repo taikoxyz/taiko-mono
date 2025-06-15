@@ -42,6 +42,7 @@ contract MockTaikoInbox is EssentialContract {
             blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 0,
                 minGasExcess: 0,
                 maxGasIssuancePerBlock: 0
@@ -52,7 +53,8 @@ contract MockTaikoInbox is EssentialContract {
             batchId: 0,
             prover: params.proposer,
             proposedAt: uint64(block.timestamp),
-            infoHash: keccak256(abi.encode(info_))
+            infoHash: keccak256(abi.encode(info_)),
+            firstBlockId: info_.lastBlockId
         });
 
         metaHash = keccak256(abi.encode(meta_));

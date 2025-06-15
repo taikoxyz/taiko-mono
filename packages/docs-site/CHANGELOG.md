@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.28.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.2...docs-site-v1.28.3) (2025-06-10)
+
+
+### Bug Fixes
+
+* **docs-site:** fix eth-docker docs link in run-an-ethereum-testnet-node.mdx ([#19595](https://github.com/taikoxyz/taiko-mono/issues/19595)) ([d010b6e](https://github.com/taikoxyz/taiko-mono/commit/d010b6e211f28e4ee0a2302141fea8ec6382def8))
+
+## [1.28.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.1...docs-site-v1.28.2) (2025-06-10)
+
+
+### Chores
+
+* **docs-site:** update api3 description ([#19590](https://github.com/taikoxyz/taiko-mono/issues/19590)) ([55962b3](https://github.com/taikoxyz/taiko-mono/commit/55962b36faed62f7fbcfd502cf768805fc072ade))
+
+## [1.28.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.0...docs-site-v1.28.1) (2025-06-03)
+
+
+### Bug Fixes
+
+* **docs-site:** fix incorrect link ([#19565](https://github.com/taikoxyz/taiko-mono/issues/19565)) ([4ae5483](https://github.com/taikoxyz/taiko-mono/commit/4ae54830e40435fd6728a9bbc5d9df54c0796e44))
+* **docs-site:** reflect actual live releases ([#19579](https://github.com/taikoxyz/taiko-mono/issues/19579)) ([52c08af](https://github.com/taikoxyz/taiko-mono/commit/52c08afc6cc976855865b854ab62eeb6372849e9))
+
 ## [1.28.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.27.6...docs-site-v1.28.0) (2025-05-27)
 
 

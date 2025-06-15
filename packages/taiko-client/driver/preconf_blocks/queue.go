@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
