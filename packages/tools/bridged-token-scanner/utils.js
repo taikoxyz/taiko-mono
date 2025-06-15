@@ -49,7 +49,7 @@ export async function saveJSON(filename, data) {
   const jsonStr = JSON.stringify(data, null, 2);  // pretty-print with 2-space indentation
   try {
     await fs.writeFile(filename, jsonStr, 'utf-8');
-    console.log(`✅ Successfully saved JSON data to ${filename}`);
+    // console.log(`✅ Successfully saved JSON data to ${filename}`);
   } catch (err) {
     console.error(`❌ Error writing JSON to ${filename}:`, err);
   }
@@ -79,7 +79,7 @@ export async function saveCSV(filename, rows, headers) {
     // Combine header and lines
     const csvContent = [headerLine, ...lines].join('\n');
     await fs.writeFile(filename, csvContent, 'utf-8');
-    console.log(`✅ Successfully saved CSV data to ${filename}`);
+    // console.log(`✅ Successfully saved CSV data to ${filename}`);
   } catch (err) {
     console.error(`❌ Error writing CSV to ${filename}:`, err);
   }

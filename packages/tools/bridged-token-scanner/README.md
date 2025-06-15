@@ -45,6 +45,8 @@ Update `networks.js` to define:
 
 ## Usage
 
+We need to run two scripts to get the list of bridged tokens.
+
 ```bash
 node index.js
 ```
@@ -55,7 +57,17 @@ node index.js
   - Fetch `BridgedTokenDeployed` events in block chunks
   - Save results into `./data/<Network>/<VaultType>/`
 
+After finishing the indexing, run
+
+```bash
+node combine-bridged-events.js
+```
+
+- This script will combine files into one.
+
 ## Output Example
+
+Files in combined folder are what we need.
 
 ```
 data/
@@ -66,4 +78,11 @@ data/
 │   └── BridgedTokenDeployed_ERC20.json
 ├── L2_Testnet_Taiko/
 │   └── BridgedTokenDeployed_ERC721/...
+```
+
+```
+combined/
+├── L1_Mainnet_(Ethereum)_ERC20_BridgedTokenDeployed.csv
+├── L1_Mainnet_(Ethereum)_ERC20_BridgedTokenDeployed.json
+│
 ```
