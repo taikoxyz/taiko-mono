@@ -1,9 +1,9 @@
 ---
-title: TaikoL1
-description: Taiko Alethia protocol page for "TaikoL1.sol".
+title: TaikoInbox
+description: Taiko Alethia protocol page for "TaikoInbox.sol".
 ---
 
-[TaikoL1](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol) is the **core Layer 1 smart contract** in the Taiko Alethia protocol. It is responsible for **batch lifecycle management**, **state synchronization**, and **bond management**. TaikoL1 ensures seamless interaction between L1 and L2, enabling a secure and scalable rollup architecture.
+[TaikoInbox](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol) is the **core Layer 1 smart contract** in the Taiko Alethia protocol. It is responsible for **batch lifecycle management**, **state synchronization**, and **bond management**. TaikoInbox ensures seamless interaction between L1 and L2, enabling a secure and scalable rollup architecture.
 
 ## Features
 
@@ -148,7 +148,7 @@ Emitted when a **batch is verified**.
 2. **Based Rollup Architecture**
 
    - Batchess are proposed permissionlessly, following **Ethereum’s L1 sequencing** rules.
-   - No centralized sequencer; TaikoL1 ensures **censorship resistance**.
+   - No centralized sequencer; TaikoInbox ensures **censorship resistance**.
 
     </br>
 

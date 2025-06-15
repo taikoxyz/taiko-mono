@@ -53,4 +53,4 @@ You can use the official [Taiko bridge](https://bridge.hekla.taiko.xyz/) to send
 
 ### How can I get the L1 block number from L2 on Taiko Hekla?
 
-You can check the last synced L1 block height in the TaikoL2 contract [here](/network-reference/contract-addresses#taiko-hekla-contract-addresses). You can do the same for [Taiko Alethia](/network-reference/contract-addresses#taiko-alethia-contract-addresses).
+You can check the last synced L1 block height in the TaikoAnchor contract [here](/network-reference/contract-addresses#taiko-hekla-contract-addresses). You can do the same for [Taiko Alethia](/network-reference/contract-addresses#taiko-alethia-contract-addresses).

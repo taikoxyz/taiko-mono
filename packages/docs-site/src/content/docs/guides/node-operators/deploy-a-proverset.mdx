@@ -102,15 +102,15 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
         Enable both your proposer and prover addresses here! If you don't, your proposeBlock transactions may fail.
     </Aside>
 
-    This will allow both EOAs to send transactions to your ProverSet implementation which will act as a proxy to TaikoL1.
+    This will allow both EOAs to send transactions to your ProverSet implementation which will act as a proxy to TaikoInbox.
 
 5. **Configure the contract as necessary**
 
-    Manage the contract's allowance with [approveAllowance()](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/provers/ProverSet.sol#L68). TaikoL1's contract allowance is by default set to `UINT256.MAX` in the init function.
+    Manage the contract's allowance with [approveAllowance()](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/provers/ProverSet.sol#L68). TaikoInbox's contract allowance is by default set to `UINT256.MAX` in the init function.
 
 6. **Deposit your tokens and run your proposer + prover as usual!**
 
-    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. If you've set up your allowance properly, there should be no need to use the `depositBond` function, as it deposits TTKOh from the ProverSet to TaikoL1.
+    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. If you've set up your allowance properly, there should be no need to use the `depositBond` function, as it deposits TTKOh from the ProverSet to TaikoInbox.
 
     <Aside>
         Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address.
@@ -188,11 +188,19 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
 ## FAQ
 
+### How do I check my bond balance?
+
+    You can check your bond balance by calling the `bondBalanceOf()` function on the TaikoInbox proxy. This will return the amount of TTKOh/TAIKO you have debited as bond.
+
+    ```
+    cast call --rpc-url {CHAIN_RPC_URL} --private-key <YOUR_PRIVATE_KEY> {TAIKO_INBOX_ADDRESS} "bondBalanceOf(address)" {YOUR_PROVERSET_ADDRESS}
+    ```
+
 ### Where is my TTKOh/TAIKO?
 
     If you've managed to propose and prove some blocks, it's likely you're wondering where your tokens went after.
 
-    It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it to the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/f599a91e2d6936351a0c92ffe7e04ef28ce8b48c/packages/protocol/contracts/layer1/provers/ProverSetBase.sol#L102) manually.
+    It's not missing, it's just been deposited as bond in the TaikoInbox contract; you can withdraw it to the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/f599a91e2d6936351a0c92ffe7e04ef28ce8b48c/packages/protocol/contracts/layer1/provers/ProverSetBase.sol#L102) manually.
 
 ### How do I verify my ProverSet contract?
 
