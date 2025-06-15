@@ -47,14 +47,16 @@ The recommended value for SGX_BATCH_SIZE is 10+ as you will see the most gas sav
 
 We highly recommend you test the function **on Taiko Hekla**, not on Taiko Alethia.
 
-Please note that you must use the [upgraded ProverSet contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/provers/ProverSet.sol) to use this functionality.
+Please note that you must use the [upgraded ProverSet contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/provers/ProverSet.sol) to use this functionality.
 
 Please also note that you should NOT enable revert protection without a PBS service that has revert protection support, as it will interfere with your batch proving on Taiko Hekla.
 </Aside>
 
 Batch proving has been enabled in release 0.43.1 of [the taiko alethia client!](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-client-v0.43.1)
 
-Please use [simple-taiko-node release 1.9.0](https://github.com/taikoxyz/simple-taiko-node/releases/tag/v1.9.0) or above to enable this functionality.
+Please use [simple-taiko-node release 1.9.0](https://github.com/taikoxyz/simple-taiko-node/releases/tag/v1.9.0) **or above** to enable this functionality.
+
+You can find the latest software releases [here](/network-reference/software-releases).
 
 **This functionality can be enabled simply by setting `SGX_BATCH_SIZE` in your `.env` file to a number greater than 1.**
 
@@ -70,17 +72,17 @@ This flag will force the prover to submit a batch of proofs every x minutes, reg
 The following steps can be done through the [ProverSet contract](/guides/node-operators/deploy-a-proverset/#deploying-a-proverset) if you have deployed one. We highly recommend this for a stable setup.
 </Aside>
 
-### Approve TaikoL1 as TAIKO spender (Taiko Alethia)
+### Approve TaikoInbox as TAIKO spender (Taiko Alethia)
 
 <Steps>
 
-1. Approve the TaikoL1 contract as a spender.
+1. Approve the TaikoInbox contract as a spender.
 
    Visit the TAIKO contract on Ethereum [here](https://etherscan.io/address/0x10dea67478c5f8c5e2d90e5e9b26dbe60c54d800#writeProxyContract).
 
 2. Click the **Connect to Web3** button.
 
-3. Click the **approve** function and set the spender address to the TaikoL1 contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
+3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
 
    <Aside>
       Please verify [contract addresses](/network-reference/contract-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
@@ -90,7 +92,7 @@ The following steps can be done through the [ProverSet contract](/guides/node-op
 
    You will need at least 125 TAIKO for the `livenessBond`. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
 
-   If you have bonded TAIKO in the TaikoL1 contract, it will be used first before more is taken from your ProverSet.
+   If you have bonded TAIKO in the TaikoInbox contract, it will be used first before more is taken from your ProverSet.
 
    For an explanation on bonds, please refer to the terminology section [here](/resources/terminology).
 
@@ -98,25 +100,25 @@ The following steps can be done through the [ProverSet contract](/guides/node-op
 
 </Steps>
 
-### Approve TaikoL1 as TTKOh spender (Taiko Hekla)
+### Approve TaikoInbox as TTKOh spender (Taiko Hekla)
 
-You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the proofs you generate.
+You will need TTKOh deposited on the TaikoInbox contract to secure the bond for the proofs you generate.
 
 <Steps>
 
-1. Approve the TaikoL1 contract as a spender.
+1. Approve the TaikoInbox contract as a spender.
 
    Visit the TTKOh contract on Holesky [here](https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract).
 
 2. Click the **Connect to Web3** button.
 
-3. Click the **approve** function and set the spender address to the TaikoL1 contract address: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`.
+3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`.
 
 4. Set the amount to at least the minimum bond amount of 125 TTKOh.
 
    You will need at least 125 TTKOh for the `livenessBond`. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
 
-   If you have bonded TTKOh in the TaikoL1 contract, it will be used first before more is taken from your ProverSet.
+   If you have bonded TTKOh in the TaikoInbox contract, it will be used first before more is taken from your ProverSet.
 
    For an explanation of the difference between these bonds, please refer to the terminology section [here](/resources/terminology).
 
