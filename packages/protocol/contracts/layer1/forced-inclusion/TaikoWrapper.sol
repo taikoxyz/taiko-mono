@@ -48,7 +48,6 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidSignalSlots();
     error OldestForcedInclusionDue();
 
-    uint16 public constant MIN_TXS_PER_FORCED_INCLUSION = 512;
     IProposeBatch public immutable inbox;
     IForcedInclusionStore public immutable forcedInclusionStore;
     address public immutable preconfRouter;
@@ -123,8 +122,12 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blocks.length == 1, InvalidBlockSize());
         require(p.isForcedInclusion, ITaikoInbox.InvalidForcedInclusion());
 
-        // Need to make sure enough transactions in the forced inclusion request are included.
-        require(p.blocks[0].numTransactions >= MIN_TXS_PER_FORCED_INCLUSION, InvalidBlockTxs());
+        // Ensure that msg.sender does not throttle transactions in the inclusion by setting a small
+        // `numTransactions` parameter value. The `numTransactions` is set to its maximum possible
+        // value, allowing the actual number of transactions in the block to be determined by the
+        // gas used and the transactions contained within the blobs.
+        require(p.blocks[0].numTransactions != type(uint16).max, InvalidBlockTxs());
+
         require(p.blocks[0].timeShift == 0, InvalidTimeShift());
         require(p.blocks[0].signalSlots.length == 0, InvalidSignalSlots());
 

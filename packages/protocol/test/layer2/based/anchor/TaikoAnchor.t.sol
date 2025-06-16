@@ -87,13 +87,15 @@ contract TestTaikoAnchor is Layer2Test {
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
         uint32 _maxGasIssuancePerBlock,
-        uint8 _adjustmentQuotient
+        uint8 _adjustmentQuotient,
+        uint8 _sharingPctg
     )
         external
         onTaiko
     {
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
+            sharingPctg: _sharingPctg,
             gasIssuancePerSecond: _gasIssuancePerSecond,
             minGasExcess: _minGasExcess,
             maxGasIssuancePerBlock: _maxGasIssuancePerBlock
@@ -111,7 +113,8 @@ contract TestTaikoAnchor is Layer2Test {
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
         uint32 _maxGasIssuancePerBlock,
-        uint8 _adjustmentQuotient
+        uint8 _adjustmentQuotient,
+        uint8 _sharingPctg
     )
         external
         onTaiko
@@ -123,6 +126,7 @@ contract TestTaikoAnchor is Layer2Test {
 
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
+            sharingPctg: _sharingPctg,
             gasIssuancePerSecond: _gasIssuancePerSecond,
             minGasExcess: _minGasExcess,
             maxGasIssuancePerBlock: _maxGasIssuancePerBlock
@@ -154,6 +158,7 @@ contract TestTaikoAnchor is Layer2Test {
         bytes32 anchorStateRoot = randBytes32();
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: 8,
+            sharingPctg: 75,
             gasIssuancePerSecond: 5_000_000,
             minGasExcess: 1_340_000_000,
             maxGasIssuancePerBlock: 600_000_000 // two minutes

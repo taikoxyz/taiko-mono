@@ -555,7 +555,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transactBy(Alice)
     {
         ITaikoInbox.BatchParams memory params;
-        params.proposer = Alice;
+        params.proposer = Bob;
 
         vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
@@ -662,7 +662,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             vm.roll(lastBatch.anchorBlockId + 3);
         }
 
-        vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
+        vm.expectRevert(ITaikoInbox.AnchorIdSmallerThanParent.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 

@@ -189,12 +189,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
         uint16 maxBlocksPerBatch;
-        /// @notice Specifies the base fee sharing percentages. The addresses are predefined in the
-        /// node software.
-        /// If address(0) is specified, the base fee will be burned. This allows for distributing
-        /// the base fee in three ways: for instance, 40% to address-1, 10% to address-2, and the
-        /// remaining 50% to the coinbase.
-        uint8[2] baseFeeSharings;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
@@ -248,8 +242,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
-    error AnchorBlockIdSmallerThanParent();
-    error AnchorBlockIdTooLarge();
+    error AnchorIdSmallerThanLastBatch();
+    error AnchorIdSmallerThanParent();
+    error AnchorIdTooLarge();
     error ArraySizesMismatch();
     error BatchNotFound();
     error BatchVerified();
@@ -275,7 +270,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoAnchorBlockIdWithinThisBatch();
-    error NoBlockIsAnchored();
     error NoBlocksToProve();
     error NotFirstProposal();
     error NotInboxWrapper();
@@ -286,8 +280,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error TimestampTooLarge();
     error TimestampTooSmall();
     error TooManyBatches();
-    error TooManyBlocks();
     error TooManyBatchesToProve();
+    error TooManyBlocks();
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();

@@ -41,6 +41,7 @@ jobs:
             ui-lib
             taiko-client
             supplementary-contracts
+            balance-monitor
           requireScope: true
           subjectPattern: ^(?![A-Z])(?!.*\btypo\b).+$ # Require lowercase PR title and prohibit word "typo"
           subjectPatternError: |

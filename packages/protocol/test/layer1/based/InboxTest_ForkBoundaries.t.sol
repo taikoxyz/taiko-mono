@@ -28,6 +28,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000
@@ -36,7 +37,6 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            baseFeeSharings: [uint8(50), uint8(0)],
             forkHeights: forkHeights
         });
     }
@@ -63,6 +63,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
+                sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000
@@ -71,7 +72,6 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             cooldownWindow: 0 hours,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
-            baseFeeSharings: [uint8(50), uint8(0)],
             forkHeights: forkHeights
         });
     }

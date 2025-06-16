@@ -35,7 +35,7 @@ contract InboxTest_Params is InboxTestBase {
         // Calculate an invalid anchorBlockId (too small)
         params.blocks[0].anchorBlockId = uint64(block.number - config.maxAnchorHeightOffset - 1);
 
-        vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
+        vm.expectRevert(ITaikoInbox.AnchorIdTooLarge.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
@@ -51,7 +51,7 @@ contract InboxTest_Params is InboxTestBase {
         // roll into the future to make blockhash(uint64(block.number)) available
         vm.roll(block.number + config.maxAnchorHeightOffset + 1);
 
-        vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
+        vm.expectRevert(ITaikoInbox.AnchorIdTooLarge.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
@@ -75,7 +75,7 @@ contract InboxTest_Params is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.blocks[0].anchorBlockId = parent.anchorBlockId - 1;
 
-        vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
+        vm.expectRevert(ITaikoInbox.AnchorIdSmallerThanLastBatch.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
