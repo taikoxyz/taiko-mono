@@ -207,13 +207,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                                 params.blocks[i].anchorBlockId >= lastBatch.anchorBlockId,
                                 AnchorBlockIdSmallerThanParent()
                             );
+                        } else {
+                            // anchor block id must be strictly increasing
+                            require(
+                                params.blocks[i].anchorBlockId > lastAnchorBlockId,
+                                AnchorBlockIdSmallerThanParent()
+                            );
                         }
-
-                        // anchor block id must be strictly increasing
-                        require(
-                            params.blocks[i].anchorBlockId > lastAnchorBlockId,
-                            AnchorBlockIdSmallerThanParent()
-                        );
                         lastAnchorBlockId = params.blocks[i].anchorBlockId;
 
                         info_.anchorBlockIds[i] = lastAnchorBlockId;
