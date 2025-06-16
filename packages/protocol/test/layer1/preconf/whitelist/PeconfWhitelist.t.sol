@@ -369,6 +369,12 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Carol);
         // ensure she was not double-added to mapping
         assertEq(whitelist.operatorMapping(1), address(0));
+
+        // make sure she is correctly set to active now
+        PreconfWhitelist.OperatorInfo memory operatorInfo = whitelist.operators(Carol);
+        assertEq(operatorInfo.activeSince, whitelist.epochStartTimestamp(2));
+        assertEq(operatorInfo.inactiveSince, 0);
+        assertEq(operatorInfo.index, 0);
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
