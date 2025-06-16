@@ -184,15 +184,15 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         // but consolidate was not called.
         uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
         if (info.inactiveSince != 0) {
-            info.activeSince   = activeSince;
+            info.activeSince = activeSince;
             info.inactiveSince = 0;
         } else {
-             // new operator
+            // new operator
             uint8 idx = operatorCount;
-            info.activeSince      = activeSince;
-            info.inactiveSince    = 0;
-            info.index            = idx;
-            operatorMapping[idx]  = _operator;
+            info.activeSince = activeSince;
+            info.inactiveSince = 0;
+            info.index = idx;
+            operatorMapping[idx] = _operator;
 
             unchecked {
                 operatorCount = idx + 1;
