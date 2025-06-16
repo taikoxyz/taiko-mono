@@ -11,7 +11,7 @@ import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibProverAuth.sol";
-import "./libs/LibVerification.sol";
+import "./libs/LibVerify.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
 
@@ -30,7 +30,7 @@ import "./IProposeBatch.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
-    using LibVerification for ITaikoInbox.State;
+    using LibVerify for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
     address public immutable inboxWrapper;

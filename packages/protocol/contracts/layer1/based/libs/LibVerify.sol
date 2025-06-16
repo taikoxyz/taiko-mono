@@ -6,9 +6,9 @@ import "src/shared/signal/LibSignals.sol";
 import "src/shared/libs/LibMath.sol";
 import "../ITaikoInbox.sol";
 
-/// @title LibVerification
+/// @title LibVerify
 /// @custom:security-contact security@taiko.xyz
-library LibVerification {
+library LibVerify {
     using LibMath for uint256;
 
     struct SyncBlock {
