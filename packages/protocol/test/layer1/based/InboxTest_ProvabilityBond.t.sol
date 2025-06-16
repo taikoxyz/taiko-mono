@@ -208,7 +208,7 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
     }
 
     function test_inbox_provability_bond_out_of_extended_proving_window_bob_proves_alices_block()
@@ -235,7 +235,10 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee - config.provabilityBond);
-        assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee + config.provabilityBond);
+        assertEq(
+            inbox.v4BondBalanceOf(Bob),
+            bondBalance + proverFee + config.provabilityBond - config.livenessBond
+        );
     }
 
     function test_inbox_provability_bond_out_of_extended_proving_window_bob_proves_alices_block_not_first_transition(
@@ -268,7 +271,10 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee - config.provabilityBond);
-        assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee + config.provabilityBond);
+        assertEq(
+            inbox.v4BondBalanceOf(Bob),
+            bondBalance + proverFee + config.provabilityBond - config.livenessBond
+        );
         assertEq(inbox.v4BondBalanceOf(Carol), bondBalance);
     }
 

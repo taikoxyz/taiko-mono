@@ -94,7 +94,7 @@ library LibVerification {
                             // The assigned prover gets back his liveness bond, and 100% provability
                             // bond.
                             // This allows him to user a higher gas price to submit his proof first.
-                            bondToReturn = batch.livenessBond + batch.provabilityBond;
+                            bondToReturn = batch.provabilityBond;
                         } else {
                             // Other prover get bondRewardPtcg% of the provability bond.
                             bondToReturn = batch.provabilityBond * _config.bondRewardPtcg / 100;
