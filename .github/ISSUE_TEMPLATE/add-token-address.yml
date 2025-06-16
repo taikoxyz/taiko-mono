@@ -9,7 +9,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        This is an application to add a bridge token address to the [Taiko docs contract addresses page](https://docs.taiko.xyz/network-reference/contract-addresses).
+        This is an application to add a bridge token address to the [Taiko docs contract addresses page](https://docs.taiko.xyz/network-reference/contract-addresses#taiko-alethia-contracts-on-other-l2s).
         Please only submit a token address if it's contract has been verified on the respective chain's explorer.
         **Please keep in mind: A submission doesn't guarantee a listing on the page.**
 
