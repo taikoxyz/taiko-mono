@@ -37,8 +37,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     /// @dev Event emitted when a forced inclusion is processed but failed to be proposed as a batch
     event ForcedInclusionFailed(IForcedInclusionStore.ForcedInclusion, ITaikoInbox.BatchParams);
 
-error InvalidForcedInclusionProver();
-
+    error InvalidForcedInclusionProver();
 
     IProposeBatch public immutable inbox;
     IForcedInclusionStore public immutable forcedInclusionStore;
@@ -138,6 +137,5 @@ error InvalidForcedInclusionProver();
         params_.blobParams.byteOffset = _inclusion.blobByteOffset;
         params_.blobParams.byteSize = _inclusion.blobByteSize;
         params_.blobParams.createdIn = _inclusion.blobCreatedIn;
-
     }
 }
