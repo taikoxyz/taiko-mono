@@ -206,7 +206,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                             require(
                                 anchorBlockId >= lastBatch.anchorBlockId,
-                                AnchorIdSmallerThanLastBatch()
+                                AnchorIdSmallerOrEqualThanLastBatch()
                             );
                         } else {
                             // anchor block id must be strictly increasing
@@ -226,6 +226,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 require(
                     msg.sender == inboxWrapper || lastAnchorBlockId != 0,
                     NoAnchorBlockIdWithinThisBatch()
+                );
+
+                require(
+                    lastBatch.anchorBlockId < lastAnchorBlockId,
+                    AnchorIdSmallerOrEqualThanLastBatch()
                 );
 
                 bytes32 txListHash = keccak256(_txList);

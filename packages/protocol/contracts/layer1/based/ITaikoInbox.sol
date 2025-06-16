@@ -242,7 +242,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
-    error AnchorIdSmallerThanLastBatch();
+    error AnchorIdSmallerOrEqualThanLastBatch();
     error AnchorIdSmallerThanParent();
     error AnchorIdTooLarge();
     error ArraySizesMismatch();
