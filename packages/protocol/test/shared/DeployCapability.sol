@@ -40,10 +40,8 @@ abstract contract DeployCapability is Script {
         // console2.log("  msg.sender :", msg.sender);
         // console2.log("  this       :", address(this));
 
-        vm.writeJson(
-            vm.serializeAddress("deployment", name, proxy),
-            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
-        );
+        // Surge: Write the addresses to a json file
+        writeJson(name, proxy);
     }
 
     function deployProxy(
@@ -55,6 +53,14 @@ abstract contract DeployCapability is Script {
         returns (address proxy)
     {
         return deployProxy(name, impl, data, address(0));
+    }
+
+    function writeJson(string memory name, address addr) internal {
+        // Surge: Create a function to write the addresses to a json file
+        vm.writeJson(
+            vm.serializeAddress("deployment", name, addr),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
     }
 
     function register(address registerTo, string memory name, address addr) internal {

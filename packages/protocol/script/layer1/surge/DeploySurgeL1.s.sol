@@ -418,6 +418,10 @@ contract DeploySurgeL1 is DeployCapability {
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
 
+        // Write sigVerifyLib and pemCertChainLib to json file
+        writeJson("sig_verify_lib", address(sigVerifyLib));
+        writeJson("pem_cert_chain_lib", address(pemCertChainLib));
+
         verifiers.pemCertChainLibAddr = address(pemCertChainLib);
 
         address automataDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
