@@ -19,9 +19,11 @@ contract PreconfSlasherBase is CommonTest {
 
     /// @notice This is used to specify the positon of a block inserted within a mock batch
     enum BlockPosition {
-        BATCH_START,
-        BATCH_MIDDLE,
-        BATCH_END
+        PREV_BATCH,
+        START_OF_BATCH,
+        MIDDLE_OF_BATCH,
+        END_OF_BATCH,
+        NEXT_BATCH
     }
 
     PreconfSlasher internal preconfSlasher;
@@ -38,6 +40,7 @@ contract PreconfSlasherBase is CommonTest {
     address internal preconfSigner = vm.addr(uint256(bytes32("preconfSigner")));
     uint64 internal correctAnchorBlockId = uint64(uint256(keccak256("correct_anchor_id")));
     bytes32 internal correctAnchorBlockHash = bytes32("correct_anchor_hash");
+    bytes4 internal emptyRevert = bytes4(0xffffffff);
 
     function setUpOnEthereum() internal virtual override {
         taikoInbox = new MockTaikoInbox(LibNetwork.TAIKO_MAINNET);
@@ -92,12 +95,16 @@ contract PreconfSlasherBase is CommonTest {
             _cachedBatchInfo.blocks.push(blockParams);
         }
 
-        if (_blockPosition == BlockPosition.BATCH_START) {
+        if (_blockPosition == BlockPosition.PREV_BATCH) {
+            _cachedBatchInfo.lastBlockId = _blockId + numBlocks;
+        } else if (_blockPosition == BlockPosition.START_OF_BATCH) {
             _cachedBatchInfo.lastBlockId = _blockId + numBlocks - 1;
-        } else if (_blockPosition == BlockPosition.BATCH_MIDDLE) {
+        } else if (_blockPosition == BlockPosition.MIDDLE_OF_BATCH) {
             _cachedBatchInfo.lastBlockId = _blockId + (numBlocks / 2);
-        } else {
+        } else if (_blockPosition == BlockPosition.END_OF_BATCH) {
             _cachedBatchInfo.lastBlockId = _blockId;
+        } else if (_blockPosition == BlockPosition.NEXT_BATCH) {
+            _cachedBatchInfo.lastBlockId = _blockId - 1;
         }
 
         _cachedBatchMetadata.infoHash = keccak256(abi.encode(_cachedBatchInfo));
@@ -166,6 +173,19 @@ contract PreconfSlasherBase is CommonTest {
         internal
         returns (uint256)
     {
+        return
+            _slashViolatedPreconfirmation(_commitment, _committer, _preconfedBlockHeader, bytes4(0));
+    }
+
+    function _slashViolatedPreconfirmation(
+        ISlasher.Commitment memory _commitment,
+        address _committer,
+        LibBlockHeader.BlockHeader memory _preconfedBlockHeader,
+        bytes4 _revertData
+    )
+        internal
+        returns (uint256)
+    {
         // We leave the delegation empty as it is not required
         ISlasher.Delegation memory delegation;
 
@@ -177,6 +197,12 @@ contract PreconfSlasherBase is CommonTest {
         evidence.verifiedBlockHeader = verifiedBlockHeader;
         evidence.blockhashProofs = Evidence.getBlockHashProof();
         evidence.parentBlockhashProofs = Evidence.getParentBlockHashProof();
+
+        if (_revertData == emptyRevert) {
+            vm.expectRevert();
+        } else if (_revertData != bytes4(0)) {
+            vm.expectRevert(abi.encodeWithSelector(_revertData));
+        }
 
         uint256 slashedAmount = preconfSlasher.slash(
             delegation,
