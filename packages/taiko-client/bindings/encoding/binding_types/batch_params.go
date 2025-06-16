@@ -44,7 +44,7 @@ func (p *BatchParamsPacaya) Proposer() common.Address {
 	return p.proposer
 }
 
-// Proposer returns the fee recipient address.
+// Coinbase returns the fee recipient address.
 func (p *BatchParamsPacaya) Coinbase() common.Address {
 	return p.coinbase
 }
@@ -132,7 +132,7 @@ func (p *BatchParamsShasta) Proposer() common.Address {
 	return p.proposer
 }
 
-// Proposer returns the fee recipient address.
+// Coinbase returns the fee recipient address.
 func (p *BatchParamsShasta) Coinbase() common.Address {
 	return p.coinbase
 }

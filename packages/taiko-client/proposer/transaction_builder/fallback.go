@@ -83,18 +83,17 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
-	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// If calldata is the only option, just use it.
 	if b.blobTransactionBuilder == nil {
 		return b.calldataTransactionBuilder.BuildPacaya(
-			ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash,
+			ctx, txBatch, forcedInclusion, parentMetahash,
 		)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
 	if !b.fallback {
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, parentMetahash)
 	}
 
 	// Otherwise, compare the cost, and choose the cheaper option.
@@ -112,7 +111,6 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 			ctx,
 			txBatch,
 			forcedInclusion,
-			minTxsPerForcedInclusion,
 			parentMetahash,
 		); err != nil {
 			return fmt.Errorf("failed to build type-2 transaction: %w", err)
@@ -127,7 +125,6 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 			ctx,
 			txBatch,
 			forcedInclusion,
-			minTxsPerForcedInclusion,
 			parentMetahash,
 		); err != nil {
 			return fmt.Errorf("failed to build type-3 transaction: %w", err)
@@ -142,7 +139,7 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
 		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
-		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+		return b.blobTransactionBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, parentMetahash)
 	}
 
 	var (
@@ -172,18 +169,17 @@ func (b *TxBuilderWithFallback) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
-	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// If calldata is the only option, just use it.
 	if b.blobTransactionBuilder == nil {
 		return b.calldataTransactionBuilder.BuildShasta(
-			ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash,
+			ctx, txBatch, forcedInclusion, parentMetahash,
 		)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
 	if !b.fallback {
-		return b.blobTransactionBuilder.BuildShasta(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+		return b.blobTransactionBuilder.BuildShasta(ctx, txBatch, forcedInclusion, parentMetahash)
 	}
 
 	// Otherwise, compare the cost, and choose the cheaper option.
@@ -201,7 +197,6 @@ func (b *TxBuilderWithFallback) BuildShasta(
 			ctx,
 			txBatch,
 			forcedInclusion,
-			minTxsPerForcedInclusion,
 			parentMetahash,
 		); err != nil {
 			return fmt.Errorf("failed to build type-2 transaction: %w", err)
@@ -216,7 +211,6 @@ func (b *TxBuilderWithFallback) BuildShasta(
 			ctx,
 			txBatch,
 			forcedInclusion,
-			minTxsPerForcedInclusion,
 			parentMetahash,
 		); err != nil {
 			return fmt.Errorf("failed to build type-3 transaction: %w", err)
@@ -231,7 +225,7 @@ func (b *TxBuilderWithFallback) BuildShasta(
 		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
 		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
-		return b.blobTransactionBuilder.BuildShasta(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetahash)
+		return b.blobTransactionBuilder.BuildShasta(ctx, txBatch, forcedInclusion, parentMetahash)
 	}
 
 	var (
@@ -302,7 +296,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	), nil
 }
 
-// TxBuilderWithFallback returns whether the blob transactions is enabled.
+// BlobAllow returns whether the blob transactions is enabled.
 func (b *TxBuilderWithFallback) BlobAllow() bool {
 	return b.blobTransactionBuilder != nil
 }

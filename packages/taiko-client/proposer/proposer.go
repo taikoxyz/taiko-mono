@@ -297,7 +297,6 @@ func (p *Proposer) ProposeTxLists(
 			ctx context.Context,
 			txBatch []types.Transactions,
 			forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
-			minTxsPerForcedInclusion *big.Int,
 			parentMetahash common.Hash,
 		) (*txmgr.TxCandidate, error)
 		txs uint64
@@ -334,8 +333,17 @@ func (p *Proposer) ProposeTxLists(
 		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
 
+	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to fetch protocol state variables: %w", err)
+	}
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()))
+	if err != nil {
+		return fmt.Errorf("failed to fetch protocol batch info: %w", err)
+	}
+	isShasta := p.chainConfig.IsShasta(new(big.Int).SetUint64(batch.LastBlockID() + 1))
 	// Check forced inclusion.
-	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	forcedInclusion, err := p.rpc.GetForcedInclusion(ctx, isShasta)
 	if err != nil {
 		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
 	}
@@ -350,26 +358,17 @@ func (p *Proposer) ProposeTxLists(
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
 			"blobByteOffset", forcedInclusion.BlobByteOffset,
 			"blobByteSize", forcedInclusion.BlobByteSize,
-			"minTxsPerForcedInclusion", minTxsPerForcedInclusion,
 		)
 	}
 
-	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to fetch protocol state variables: %w", err)
-	}
-	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()))
-	if err != nil {
-		return fmt.Errorf("failed to fetch protocol batch info: %w", err)
-	}
 	// Build the transaction to propose batch.
-	if p.chainConfig.IsShasta(new(big.Int).SetUint64(batch.LastBlockID() + 1)) {
+	if isShasta {
 		buildTxCandidateFunc = p.txBuilder.BuildShasta
 	} else {
 		buildTxCandidateFunc = p.txBuilder.BuildPacaya
 	}
 
-	txCandidate, err := buildTxCandidateFunc(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
+	txCandidate, err := buildTxCandidateFunc(ctx, txBatch, forcedInclusion, parentMetaHash)
 	if err != nil {
 		log.Warn("Failed to build batch proposal transaction", "error", encoding.TryParsingCustomError(err))
 		return err

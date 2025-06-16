@@ -76,7 +76,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 		uint32(parent.GasUsed),
 		pacayaBindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
-			SharingPctg:            baseFeeConfig.SharingPctgs()[0],
+			SharingPctg:            baseFeeConfig.SharingPctgs(),
 			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
 			MinGasExcess:           baseFeeConfig.MinGasExcess(),
 			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),

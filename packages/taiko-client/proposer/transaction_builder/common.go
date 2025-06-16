@@ -2,7 +2,6 @@ package builder
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,7 +17,6 @@ type ProposeBatchTransactionBuilder interface {
 		ctx context.Context,
 		txBatch []types.Transactions,
 		forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
-		minTxsPerForcedInclusion *big.Int,
 		parentMetahash common.Hash,
 	) (*txmgr.TxCandidate, error)
 }

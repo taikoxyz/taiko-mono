@@ -960,7 +960,7 @@ func (c *Client) calculateBaseFeePacaya(
 		currentTimestamp,
 		pacayaBindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     baseFeeConfig.AdjustmentQuotient(),
-			SharingPctg:            baseFeeConfig.SharingPctgs()[0],
+			SharingPctg:            baseFeeConfig.SharingPctgs(),
 			GasIssuancePerSecond:   baseFeeConfig.GasIssuancePerSecond(),
 			MinGasExcess:           baseFeeConfig.MinGasExcess(),
 			MaxGasIssuancePerBlock: baseFeeConfig.MaxGasIssuancePerBlock(),
@@ -1061,11 +1061,8 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 }
 
-// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address,
-// TODO: support Shasta forced inclusion contract.
-func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
+func (c *Client) GetForcedInclusion(ctx context.Context, isShasta bool) (
 	bindingTypes.IForcedInclusionStoreForcedInclusion,
-	*big.Int,
 	error,
 ) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
@@ -1079,44 +1076,42 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
+		// Note: ForcedInclusionStore is the same in both Pacaya and Shasta forks
+		head, err = c.ShastaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
 		return err
 	})
 	g.Go(func() error {
-		tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
+		tail, err = c.ShastaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
 		return err
 	})
 	if err := g.Wait(); err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
+		return nil, encoding.TryParsingCustomError(err)
 	}
 
 	// Head is greater than or equal to tail, which means that no forced inclusion is available yet.
 	if head >= tail {
-		return nil, nil, nil
+		return nil, nil
 	}
 
-	forcedInclusion, err := c.PacayaClients.ForcedInclusionStore.GetForcedInclusion(
+	forcedInclusion, err := c.ShastaClients.ForcedInclusionStore.GetForcedInclusion(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		new(big.Int).SetUint64(head),
 	)
 	if err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
+		return nil, encoding.TryParsingCustomError(err)
 	}
 
 	// If there is an empty forced inclusion, we will return nil.
 	if forcedInclusion.CreatedAtBatchId == 0 {
-		return nil, nil, nil
+		return nil, nil
 	}
 
-	minTxsPerForcedInclusion, err := c.PacayaClients.TaikoWrapper.MINTXSPERFORCEDINCLUSION(
-		&bind.CallOpts{Context: ctxWithTimeout},
-	)
 	if err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
+		return nil, encoding.TryParsingCustomError(err)
 	}
 
-	return bindingTypes.NewForcedInclusionPacaya(&forcedInclusion),
-		new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
+	return bindingTypes.NewForcedInclusionShasta(&forcedInclusion),
+		nil
 }
 
 // GetOPVerifierShasta resolves the Shasta op verifier address.

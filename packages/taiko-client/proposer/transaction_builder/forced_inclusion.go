@@ -1,8 +1,6 @@
 package builder
 
 import (
-	"math/big"
-
 	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 )
 
@@ -10,7 +8,6 @@ import (
 // for the given forced inclusion.
 func buildParamsForForcedInclusion(
 	forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
-	minTxsPerForcedInclusion *big.Int,
 ) (bindingTypes.ITaikoInboxBlobParams, []bindingTypes.ITaikoInboxBlockParams) {
 	if forcedInclusion == nil {
 		return nil, nil
@@ -26,6 +23,6 @@ func buildParamsForForcedInclusion(
 	)
 
 	return blobParams, []bindingTypes.ITaikoInboxBlockParams{bindingTypes.NewBlockParams(
-		uint16(minTxsPerForcedInclusion.Uint64()), 0, make([][32]byte, 0),
+		0, 0, make([][32]byte, 0),
 	)}
 }

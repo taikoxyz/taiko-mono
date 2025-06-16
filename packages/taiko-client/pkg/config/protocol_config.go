@@ -17,6 +17,8 @@ import (
 
 // Configs is an interface that provides Taiko protocol specific configurations.
 type ProtocolConfigs interface {
+	Pacaya() *PacayaProtocolConfigs
+	Shasta() *ShastaProtocolConfigs
 	BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig
 	BlockMaxGasLimit() uint32
 	ForkHeightsOntake() uint64
@@ -77,7 +79,7 @@ func (c *OntakeProtocolConfigs) BaseFeeConfig() *pacayaBindings.LibSharedDataBas
 	}
 }
 
-// ForkHeightsOntake implements the ProtocolConfigs interface.
+// BlockMaxGasLimit implements the ProtocolConfigs interface.
 func (c *OntakeProtocolConfigs) BlockMaxGasLimit() uint32 {
 	return c.configs.BlockMaxGasLimit
 }
@@ -139,12 +141,22 @@ func NewPacayaProtocolConfigs(configs *pacayaBindings.ITaikoInboxConfig) *Pacaya
 	return &PacayaProtocolConfigs{configs: configs}
 }
 
+// Pacaya implements the ProtocolConfigs interface.
+func (c *PacayaProtocolConfigs) Pacaya() *PacayaProtocolConfigs {
+	return c
+}
+
+// Shasta implements the ProtocolConfigs interface.
+func (c *PacayaProtocolConfigs) Shasta() *ShastaProtocolConfigs {
+	return nil
+}
+
 // BaseFeeConfig implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
 	return bindingTypes.NewBaseFeeConfigPacaya(&c.configs.BaseFeeConfig)
 }
 
-// ForkHeightsOntake implements the ProtocolConfigs interface.
+// BlockMaxGasLimit implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) BlockMaxGasLimit() uint32 {
 	return c.configs.BlockMaxGasLimit
 }
@@ -206,12 +218,22 @@ func NewShastaProtocolConfigs(configs *shastaBindings.ITaikoInboxConfig) *Shasta
 	return &ShastaProtocolConfigs{configs: configs}
 }
 
+// Pacaya implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) Pacaya() *PacayaProtocolConfigs {
+	return nil
+}
+
+// Shasta implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) Shasta() *ShastaProtocolConfigs {
+	return c
+}
+
 // BaseFeeConfig implements the ProtocolConfigs interface.
 func (c *ShastaProtocolConfigs) BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
 	return bindingTypes.NewBaseFeeConfigShasta(&c.configs.BaseFeeConfig, c.configs.BaseFeeSharings)
 }
 
-// ForkHeightsOntake implements the ProtocolConfigs interface.
+// BlockMaxGasLimit implements the ProtocolConfigs interface.
 func (c *ShastaProtocolConfigs) BlockMaxGasLimit() uint32 {
 	return c.configs.BlockMaxGasLimit
 }

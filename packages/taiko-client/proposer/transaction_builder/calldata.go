@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -61,7 +60,6 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
-	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
@@ -75,7 +73,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		to = &b.proverSetAddress
 	}
 
-	encodedParams, txListsBytes, err := BuildProposalParams(
+	encodedParams, txListsBytes, _, err := BuildProposalParams(
 		ctx,
 		b.taikoInboxAddress,
 		b.proverSetAddress,
@@ -84,8 +82,9 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		proposer,
 		txBatch,
 		forcedInclusion,
-		minTxsPerForcedInclusion,
 		parentMetahash,
+		false,
+		false,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build Pacaya proposal params: %w", err)
@@ -109,7 +108,6 @@ func (b *CalldataTransactionBuilder) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
-	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoWrapper.v4ProposeBatch / ProverSet.v4ProposeBatch parameters.
@@ -123,7 +121,7 @@ func (b *CalldataTransactionBuilder) BuildShasta(
 		to = &b.proverSetAddress
 	}
 
-	encodedParams, txListsBytes, err := BuildProposalParams(
+	encodedParams, txListsBytes, _, err := BuildProposalParams(
 		ctx,
 		b.taikoInboxAddress,
 		b.proverSetAddress,
@@ -132,8 +130,9 @@ func (b *CalldataTransactionBuilder) BuildShasta(
 		proposer,
 		txBatch,
 		forcedInclusion,
-		minTxsPerForcedInclusion,
 		parentMetahash,
+		true,
+		false,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build Shasta proposal params: %w", err)

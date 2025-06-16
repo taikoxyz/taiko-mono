@@ -21,8 +21,8 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 	return &CalldataFetcher{rpc: rpc}
 }
 
-// FetchPacaya fetches the txList bytes from the transaction's calldata, by parsing the `BatchProposed` event.
-func (d *CalldataFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoProposalMetaData) ([]byte, error) {
+// Fetch fetches the txList bytes from the transaction's calldata, by parsing the `BatchProposed` event.
+func (d *CalldataFetcher) Fetch(ctx context.Context, meta metadata.TaikoProposalMetaData) ([]byte, error) {
 	if len(meta.GetBlobHashes()) != 0 {
 		return nil, pkg.ErrBlobUsed
 	}

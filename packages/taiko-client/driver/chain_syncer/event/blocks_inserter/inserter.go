@@ -99,11 +99,11 @@ func (i *BlocksInserter) InsertBlocks(
 
 	// Fetch transactions list.
 	if len(meta.GetBlobHashes()) != 0 {
-		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, meta); err != nil {
+		if txListBytes, err = i.blobFetcher.Fetch(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
 		}
 	} else {
-		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, meta); err != nil {
+		if txListBytes, err = i.calldataFetcher.Fetch(ctx, meta); err != nil {
 			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
 		}
 	}
