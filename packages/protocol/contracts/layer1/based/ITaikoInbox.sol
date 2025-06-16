@@ -269,7 +269,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoAnchorBlockIdWithinThisBatch();
-    error NoBlockIsAnchored();
     error NoBlocksToProve();
     error NotFirstProposal();
     error NotInboxWrapper();

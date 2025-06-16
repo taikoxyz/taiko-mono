@@ -194,8 +194,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     baseFeeConfig: config.baseFeeConfig
                 });
 
-                require(info_.lastBlockTimestamp != 0, NoBlockIsAnchored());
-
                 for (uint256 i; i < nBlocks; ++i) {
                     if (params.blocks[i].anchorBlockId != 0) {
                         if (lastAnchorBlockId == 0) {
