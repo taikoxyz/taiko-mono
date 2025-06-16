@@ -29,15 +29,17 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         setupBondTokenState(Alice, bondBalance, bondBalance);
 
         ITaikoInbox.Config memory config = v4GetConfig();
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        vm.stopPrank();
 
         assertEq(
             inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - config.livenessBond
         );
 
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
     }
@@ -59,8 +61,9 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
 
-        vm.prank(Bob);
+        vm.startPrank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee);
         assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee);
@@ -87,11 +90,13 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
 
-        vm.prank(Carol);
+        vm.startPrank(Carol);
         _proveBatchesWithWrongTransitions(batchIds);
+        vm.stopPrank();
 
-        vm.prank(Bob);
+        vm.startPrank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee);
         assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee);
@@ -106,16 +111,18 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         setupBondTokenState(Bob, bondBalance, bondBalance);
 
         ITaikoInbox.Config memory config = v4GetConfig();
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        vm.stopPrank();
 
         assertEq(
             inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - config.livenessBond
         );
 
         vm.warp(block.timestamp + config.provingWindow + 1);
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(
             inbox.v4BondBalanceOf(Alice),
@@ -143,8 +150,9 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
 
         vm.warp(block.timestamp + config.provingWindow + 1);
-        vm.prank(Bob);
+        vm.startPrank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee);
         assertEq(
@@ -176,11 +184,13 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
 
         vm.warp(block.timestamp + config.provingWindow + 1);
 
-        vm.prank(Carol);
+        vm.startPrank(Carol);
         _proveBatchesWithWrongTransitions(batchIds);
+        vm.stopPrank();
 
-        vm.prank(Bob);
+        vm.startPrank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee);
         assertEq(
@@ -197,16 +207,18 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         setupBondTokenState(Bob, bondBalance, bondBalance);
 
         ITaikoInbox.Config memory config = v4GetConfig();
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
+        vm.stopPrank();
 
         assertEq(
             inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - config.livenessBond
         );
 
         vm.warp(block.timestamp + config.extendedProvingWindow + 1);
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
     }
@@ -231,8 +243,9 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.provabilityBond - proverFee);
 
         vm.warp(block.timestamp + config.extendedProvingWindow + 1);
-        vm.prank(Bob);
+        vm.startPrank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee - config.provabilityBond);
         assertEq(
@@ -264,11 +277,13 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
 
         vm.warp(block.timestamp + config.extendedProvingWindow + 1);
 
-        vm.prank(Carol);
+        vm.startPrank(Carol);
         _proveBatchesWithWrongTransitions(batchIds);
+        vm.stopPrank();
 
-        vm.prank(Bob);
+        vm.startPrank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee - config.provabilityBond);
         assertEq(
@@ -302,11 +317,13 @@ contract InboxTest_ProvabilityBond is InboxTestBase {
 
         vm.warp(block.timestamp + config.extendedProvingWindow + 1);
 
-        vm.prank(Carol);
+        vm.startPrank(Carol);
         _proveBatchesWithWrongTransitions(batchIds);
+        vm.stopPrank();
 
-        vm.prank(David);
+        vm.startPrank(David);
         _proveBatchesWithCorrectTransitions(batchIds);
+        vm.stopPrank();
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - proverFee - config.provabilityBond);
         assertEq(inbox.v4BondBalanceOf(Bob), bondBalance + proverFee - config.livenessBond);
