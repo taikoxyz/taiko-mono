@@ -122,6 +122,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address prover;
         uint8 proofTiming;
         uint48 createdAt;
+        bool byAssignedProver;
     }
 
     /// @notice 3 slots used.
