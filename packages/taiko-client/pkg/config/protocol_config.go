@@ -63,7 +63,7 @@ func (c *OntakeProtocolConfigs) BaseFeeConfig() *pacayaBindings.LibSharedDataBas
 		SharingPctg:            c.configs.BaseFeeConfig.SharingPctg,
 		GasIssuancePerSecond:   c.configs.BaseFeeConfig.GasIssuancePerSecond,
 		MinGasExcess:           c.configs.BaseFeeConfig.MinGasExcess,
-		MaxGasIssuancePerBlock: c.configs.BaseFeeConfig.MaxGasIssuancePerBlock,
+		MaxGasIssuancePerBlock: uint64(c.configs.BaseFeeConfig.MaxGasIssuancePerBlock),
 	}
 }
 
@@ -159,7 +159,7 @@ func (c *PacayaProtocolConfigs) MaxProposals() uint64 {
 
 // ProvingWindow implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) ProvingWindow() (time.Duration, error) {
-	return time.Duration(c.configs.ProvingWindow) * time.Second, nil
+	return time.Duration(c.configs.ProvingWindow.Int64()) * time.Second, nil
 }
 
 // MaxBlocksPerBatch implements the ProtocolConfigs interface.

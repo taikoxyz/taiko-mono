@@ -1,6 +1,8 @@
 package encoding
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,6 +28,7 @@ type BatchParams struct {
 	Proposer                 common.Address
 	Coinbase                 common.Address
 	ParentMetaHash           [32]byte
+	BaseFee                  *big.Int
 	AnchorBlockId            uint64
 	LastBlockTimestamp       uint64
 	RevertIfNotFirstProposal bool

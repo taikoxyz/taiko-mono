@@ -165,7 +165,7 @@ func GetBatchProofStatus(
 	}
 
 	// Get the transition state from TaikoInbox contract.
-	transition, err := cli.PacayaClients.TaikoInbox.GetTransitionByParentHash(
+	transitions, err := cli.PacayaClients.TaikoInbox.GetTransitionsByParentHash(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		batchID.Uint64(),
 		parent.Hash(),
@@ -178,6 +178,9 @@ func GetBatchProofStatus(
 		// Status 1, no proof on chain at all.
 		return &BatchProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
+
+	// TODO: handle multiple transitions?
+	transition := transitions[0]
 
 	lastHeaderInBatch, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
 	if err != nil {
