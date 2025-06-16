@@ -25,7 +25,8 @@ library LibWriteTransition {
         bytes32 _blockHash,
         bytes32 _stateRoot,
         address _prover,
-        uint8 _proofTiming
+        uint8 _proofTiming,
+        bool _byAssignedProver
     )
         public // reduce code size
     {
@@ -49,6 +50,7 @@ library LibWriteTransition {
         ts.prover = _prover;
         ts.proofTiming = _proofTiming;
         ts.createdAt = uint48(block.timestamp);
+        ts.byAssignedProver = _byAssignedProver;
 
         if (tid == 1) {
             ts.parentHash = _parentHash;
@@ -60,7 +62,13 @@ library LibWriteTransition {
             _batchId,
             tid,
             ITaikoInbox.TransitionState(
-                _parentHash, _blockHash, _stateRoot, _prover, _proofTiming, uint48(block.timestamp)
+                _parentHash,
+                _blockHash,
+                _stateRoot,
+                _prover,
+                _proofTiming,
+                uint48(block.timestamp),
+                _byAssignedProver
             )
         );
     }

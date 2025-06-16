@@ -90,11 +90,14 @@ library LibVerification {
                             // prover is rewarded with bondRewardPtcg% of the liveness bond.
                             bondToReturn = batch.livenessBond * _config.bondRewardPtcg / 100;
                             if (tid == 1) bondToReturn += batch.provabilityBond;
+                        } else if (ts.byAssignedProver) {
+                            // The assigned prover gets back his liveness bond, and 100% provability
+                            // bond.
+                            // This allows him to user a higher gas price to submit his proof first.
+                            bondToReturn = batch.livenessBond + batch.provabilityBond;
                         } else {
-                            // prover is rewarded with bondRewardPtcg% of the liveness bond and
-                            // bondRewardPtcg%  of the provability bond.
-                            bondToReturn = (batch.livenessBond + batch.provabilityBond)
-                                * _config.bondRewardPtcg / 100;
+                            // Other prover get bondRewardPtcg% of the provability bond.
+                            bondToReturn = batch.provabilityBond * _config.bondRewardPtcg / 100;
                         }
 
                         creditBond(_state, ts.prover, bondToReturn);

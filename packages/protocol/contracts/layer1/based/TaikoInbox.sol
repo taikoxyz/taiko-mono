@@ -394,6 +394,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             }
 
             ts.createdAt = uint48(block.timestamp);
+            ts.byAssignedProver = msg.sender == meta.prover;
 
             if (tid == 1) {
                 ts.parentHash = tran.parentHash;
