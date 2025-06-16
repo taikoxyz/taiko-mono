@@ -39,6 +39,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
 error InvalidForcedInclusionProver();
 
+
     IProposeBatch public immutable inbox;
     IForcedInclusionStore public immutable forcedInclusionStore;
     address public immutable preconfRouter;
@@ -137,5 +138,6 @@ error InvalidForcedInclusionProver();
         params_.blobParams.byteOffset = _inclusion.blobByteOffset;
         params_.blobParams.byteSize = _inclusion.blobByteSize;
         params_.blobParams.createdIn = _inclusion.blobCreatedIn;
+
     }
 }

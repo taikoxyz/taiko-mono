@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -37,11 +39,11 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"ERC20_ADDRESSES"},
 	}
-	Interval = &cli.IntFlag{
+	Interval = &cli.DurationFlag{
 		Name:     "interval",
 		Usage:    "Interval in seconds to check the balances",
 		Required: false,
-		Value:    10, // default value
+		Value:    10 * time.Second,
 		Category: commonCategory,
 		EnvVars:  []string{"INTERVAL"},
 	}

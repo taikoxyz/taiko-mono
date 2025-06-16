@@ -21,7 +21,8 @@ library LibPublicInput {
         address _verifierContract,
         address _newInstance,
         bytes32 _metaHash,
-        uint64 _chainId
+        uint64 _chainId,
+        address _prover
     )
         internal
         pure
@@ -29,7 +30,13 @@ library LibPublicInput {
     {
         return keccak256(
             abi.encode(
-                "VERIFY_PROOF", _chainId, _verifierContract, _transition, _newInstance, _metaHash
+                "VERIFY_PROOF",
+                _chainId,
+                _verifierContract,
+                _transition,
+                _newInstance,
+                _metaHash,
+                _prover
             )
         );
     }
