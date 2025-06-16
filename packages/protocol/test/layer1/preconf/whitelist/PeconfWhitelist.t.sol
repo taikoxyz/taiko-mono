@@ -372,7 +372,7 @@ contract TestPreconfWhitelist is Layer1Test {
 
         // make sure she is correctly set to active now
         (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Carol);
-        assertNot(activeSince, whitelist.epochStartTimestamp(2));
+        assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
     }
