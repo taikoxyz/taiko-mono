@@ -1,0 +1,40 @@
+name: "Add bridged TAIKO token address to Taiko docs contract addresses page"
+description: "Add bridged TAIKO token address to Taiko docs contract addresses page"
+title: "Add bridged TAIKO token address to Taiko docs contract addresses page"
+labels: ["area.docs"]
+assignees: ["RogerLamTd", "jdcjonathan"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is an application to add a bridge token address to the [Taiko docs contract addresses page](https://docs.taiko.xyz/network-reference/contract-addresses).
+        Please only submit a token address if it's contract has been verified on the respective chain's explorer.
+        **Please keep in mind: A submission doesn't guarantee a listing on the page.**
+
+  - type: input
+    id: chain_name
+    attributes:
+      label: What is the name of the chain the token has been bridged to?
+    validations:
+      required: true
+
+  - type: input
+    id: chain_id
+    attributes:
+      label: What is the chain ID of the chain the token has been bridged to?
+    validations:
+      required: true
+
+  - type: input
+    id: token_address
+    attributes:
+      label: What is the address of the token?
+    validations:
+      required: true
+
+  - type: input
+    id: verified_contract
+    attributes:
+      label: Link to verified contract on an explorer (preferably etherscan or a fork of it).
+    validations:
+      required: true
