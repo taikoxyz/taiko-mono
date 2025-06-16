@@ -317,6 +317,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             ctxs[i].batchId = meta.batchId;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].transition = tran;
+            ctxs[i].prover = msg.sender;
 
             // Verify the batch's metadata.
             uint256 slot = meta.batchId % config.batchRingBufferSize;
