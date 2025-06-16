@@ -93,8 +93,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 if (inboxWrapper == address(0)) {
-                    require(params.proposer == address(0), CustomProposerNotAllowed());
-                    params.proposer = msg.sender;
+                    if (params.proposer == address(0)) {
+                        params.proposer = msg.sender;
+                    } else {
+                        require(params.proposer == msg.sender, CustomProposerNotAllowed());
+                    }
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
@@ -164,7 +167,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Data to build L2 blocks
                     blocks: params.blocks,
                     blobHashes: new bytes32[](0), // to be initialised later
-                    extraData: _encodeExtraData(config, params),
+                    // The client must ensure that the lower 128 bits of the extraData field in the
+                    // header of each block in this batch match the specified value.
+                    // The upper 128 bits of the extraData field are validated using off-chain
+                    // protocol logic.
+                    extraData: bytes32(uint256(_encodeExtraDataLower128Bits(config, params))),
                     coinbase: params.coinbase,
                     proposer: params.proposer,
                     proposedIn: uint64(block.number),
@@ -346,6 +353,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             ctxs[i].batchId = meta.batchId;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].transition = tran;
+            ctxs[i].prover = msg.sender;
 
             // Verify the batch's metadata.
             uint256 slot = meta.batchId % config.batchRingBufferSize;
@@ -762,24 +770,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    function _encodeExtraData(
+    /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
+    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
+    /// - bit 8: used to store _batchParams.isForcedInclusion.
+    function _encodeExtraDataLower128Bits(
         Config memory _config,
         BatchParams memory _batchParams
     )
         private
         pure
-        returns (bytes32)
+        returns (uint128 encoded_)
     {
-        // The function _encodeExtraData encodes certain information into a bytes32 value.
-        // The lower 8 bits (0-7) are used to store _config.baseFeeSharings[0].
-        // The next 8 bits (8-15) are used to store _config.baseFeeSharings[1].
-        // The next 8 bits (16-23) are used to store boolean values:
-        //   - the 16th bit for _batchParams.isForcedInclusion.
-        return bytes32(
-            uint256(_config.baseFeeSharings[0]) // 0-7
-                | uint256(_config.baseFeeSharings[1]) << 8 // 8-15
-                | uint256(_batchParams.isForcedInclusion ? 1 : 0) << 16 // 16th
-        );
+        encoded_ |= _config.baseFeeConfig.sharingPctg; // bits 0-7
+        encoded_ |= _batchParams.isForcedInclusion ? 1 << 8 : 0; // bit 8
     }
 
     /// @dev Check this batch is between current fork height (inclusive) and next fork height

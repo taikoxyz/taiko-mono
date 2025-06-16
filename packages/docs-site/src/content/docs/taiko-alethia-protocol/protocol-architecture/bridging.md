@@ -19,12 +19,12 @@ Taiko Alethia uses a **trust-minimized**, **Ethereum-equivalent** design for sec
 
 Two smart contracts are responsible for maintaining cross-chain state:
 
-- **TaikoL1** (deployed on Ethereum) → Stores L2 world state roots
-- **TaikoL2** (deployed on Taiko) → Stores L1 world state roots
+- **TaikoInbox** (deployed on Ethereum) → Stores L2 world state roots
+- **TaikoAnchor** (deployed on Taiko) → Stores L1 world state roots
 
-Whenever an L2 block is created, the corresponding world state root of the enclosing Ethereum L1 block is stored in the [`TaikoL2`](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer2/based/TaikoL2.sol#L155) contract using the `anchor` transaction. This ensures that only valid state transitions are recognized.
+Whenever an L2 block is created, the corresponding world state root of the enclosing Ethereum L1 block is stored in the [`TaikoAnchor`](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer2/based/TaikoAnchor.sol#L150) contract using the `anchor` transaction. This ensures that only valid state transitions are recognized.
 
-Similarly, the L2 world state root is stored in [`TaikoL1`](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v1.11.0/packages/protocol/contracts/layer1/based/LibVerifying.sol#L165) using the `syncChainData` function.
+Similarly, the L2 world state root is stored in [`TaikoInbox`](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/based/TaikoInbox.sol#L699) using the `syncChainData` function.
 
 ### Verifying values across chains using Merkle proofs
 

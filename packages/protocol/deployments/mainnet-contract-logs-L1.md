@@ -44,7 +44,7 @@
 - ens: `token.taiko.eth`
 - proxy: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
 - impl: `0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106`
-- owner: `admin.taiko.eth`
+- owner: `controller.taiko.eth`
 - logs:
   - deployed on April 25, 2024 @commit`2f6d3c62e`
   - upgraded impl from `0x9ae1a067f9655dd0511390e3d70bb25933ae61eb` to `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c` @commit`b90b932` and,
@@ -54,6 +54,7 @@
   - upgraded impl from `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` to `0xcfe803378D79d1180EbF030455040EA6513869dF` @commit`d2b00ce` @tx`0xc9f468d33d8d55911e4e5b5c301ed244a5f81ab0f389d2b4f398eb5b89d417ef`
   - upgrade impl to `0x87C752b0F70cAa237Edd7571B0845470A37DE040` @commit`619af45e72b76bdbd9a71f99d32b08dec373d72a` @tx`0xdb7d5de46738ad3f676db47b61772db531f9858b7a01e8c3b5aee49fa74cac95`
   - upgrade impl to `0x5C96Ff5B7F61b9E3436Ef04DA1377C8388dfC106` @PR[19457](https://github.com/taikoxyz/taiko-mono/pull/19461) @tx`0x986fc2c7ae945cdd358b2f2ae54364b350026f965f5861ed470f78e145f12626`
+  - change owner to `controller.taiko.eth` @tx`https://etherscan.io/tx/0xa4dfb66625f58d2056a180be420cd7c33f103547848c4eae848089c8808288da`
 
 #### signal_service
 
@@ -315,11 +316,12 @@
 
 #### risc0_groth16_verifier
 
-- impl: `0x48E32eFbe22e180A3FFe617f4955cD83B983dd98`
+- impl: `0xfB3Ca570A5348FD101e65303eECdB5Bf43C5548a`
 - logs:
   - deployed on Nov 6, 2024 @commit`bfb0386`
   - deployed on Jan 13, 2025 @commit`a58852f`
   - deployed on Jan 13, 2025 @commit`e0805e3`
+  - deployed on Jun 11, 2025 at commit `9dfb5b9`
 
 #### sp1_remote_verifier
 
@@ -495,10 +497,11 @@
 ### risc0_reth_verifier(Pacaya)
 
 - proxy : `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE`
-- impl : `0x801878e56A8DA58d6a837006345CDD11a9E6a852`
+- impl : `0xfB3Ca570A5348FD101e65303eECdB5Bf43C5548a`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x8480ac4bcdf12dedf9c79bed7407bd290670d9fe9c867c5354e574c56c5ff48b`
+  - upgraded on Jun 11, 2025 at commit `9dfb5b9` @tx `0x2b9250ebdcf10b1a1ec658e5cc9e7fd9aa19dd32573e6ab5bc036499682dea3a`
 
 ### sp1_reth_verifier(Pacaya)
 

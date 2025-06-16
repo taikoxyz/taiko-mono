@@ -123,10 +123,10 @@
 ### taikoInbox
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0xD746828366b828FA50211dAf6cCc80DF07d2b888`
+- impl: `0xbC4584d2FBfaf1de9b0Ae0d52491e7617e4FFdC6`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - oldFork: `0x6e15d2049480C7E339C6B398774166e1ddbCd43e` at commit `a634150`
-- newFork: `0x434c1660901623524246E4010055ef1B821aA838` at commit `791c524`
+- newFork: `0xC68946f44fCE58a114C9D9C8D06c49B9F4D5Bd3F` at commit `baeaba9`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
@@ -147,6 +147,7 @@
   - upgraded on Feb 2, 2025 at commit `e294023`
   - upgraded on Mar 21, 2025 at commit `80baf41`
   - upgraded on Apr 18, 2025 at commit `791c524`
+  - upgraded on May 29, 2025 at commit `baeaba9`
 
 ### assignmentHook
 
@@ -223,9 +224,10 @@
 
 ### risc0_groth16_verifier(Pacaya)
 
-- addr : `0xf365178fE7D1F34474a0eb90B2A0E8754A2dD3Ce`
+- addr : `0xC93ca45D35021B10B68A87E629BECa8AC3FE9C80`
 - logs:
   - deployed on Apr 16, 2025 at commit `9bcf8e5`
+  - deployed on Jun 11, 2025 at commit `9dfb5b9`
 
 ### tier_zkvm_risc0
 
@@ -287,13 +289,30 @@
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
 
+### preconf_whitelist
+
+- proxy : `0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84`
+- impl : `0x51BFcC9dbb1bf32210b39EB149172088eEE228A1`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on May 29, 2025 at commit `baeaba9`
+
+### preconf_router
+
+- proxy : `0xce04A91Db63aDBe26c83c761f99933CE5f09cf6C`
+- impl : `0x797ad2F5Ee4cB9A626636b7a05686BA9690860Ba`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on May 29, 2025 at commit `baeaba9`
+
 ### taiko_wrapper
 
 - proxy : `0x8698690dEeDB923fA0A674D3f65896B0031BF7c9`
-- impl : `0x40D9cE1C32b27e65e5FbEc0ddAf69c852e9282Ae`
+- impl : `0xF7100302EB941cFaDeD2beEEDcAc4D2eE3a8Eac2`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
+  - upgraded on May 29, 2025 at commit `baeaba9`
 
 ### proof_verifier
 
@@ -314,11 +333,12 @@
 ### risc0_reth_verifier(Pacaya)
 
 - proxy : `0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2`
-- impl : `0xe84676980F08631D17BF9b3e59c6b6DeBF0B0F50`
+- impl : `0xC93ca45D35021B10B68A87E629BECa8AC3FE9C80`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 16, 2025 at commit `9bcf8e5`
+  - upgraded on Jun 11, 2025 at commit `9dfb5b9`
 
 ### sp1_reth_verifier(Pacaya)
 
