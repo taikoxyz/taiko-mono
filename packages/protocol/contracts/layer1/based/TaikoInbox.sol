@@ -195,29 +195,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 });
 
                 for (uint256 i; i < nBlocks; ++i) {
-                    if (params.blocks[i].anchorBlockId != 0) {
+                    uint64 anchorBlockId = params.blocks[i].anchorBlockId;
+                    if (anchorBlockId != 0) {
                         if (lastAnchorBlockId == 0) {
                             require(
-                                params.blocks[i].anchorBlockId + config.maxAnchorHeightOffset
-                                    >= block.number,
-                                AnchorBlockIdTooLarge()
+                                anchorBlockId + config.maxAnchorHeightOffset >= block.number,
+                                AnchorIdTooLarge()
                             );
 
                             require(
-                                params.blocks[i].anchorBlockId >= lastBatch.anchorBlockId,
-                                AnchorBlockIdSmallerThanParent()
+                                anchorBlockId >= lastBatch.anchorBlockId,
+                                AnchorIdSmallerThanLastBatch()
                             );
                         } else {
                             // anchor block id must be strictly increasing
-                            require(
-                                params.blocks[i].anchorBlockId > lastAnchorBlockId,
-                                AnchorBlockIdSmallerThanParent()
-                            );
+                            require(anchorBlockId > lastAnchorBlockId, AnchorIdSmallerThanParent());
                         }
-                        lastAnchorBlockId = params.blocks[i].anchorBlockId;
+                        lastAnchorBlockId = anchorBlockId;
 
                         info_.anchorBlockIds[i] = lastAnchorBlockId;
-                        info_.anchorBlockHashes[i] = blockhash(params.blocks[i].anchorBlockId);
+                        info_.anchorBlockHashes[i] = blockhash(anchorBlockId);
                         require(info_.anchorBlockHashes[i] != 0, ZeroAnchorBlockHash());
                     }
                 }
