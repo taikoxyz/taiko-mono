@@ -22,11 +22,11 @@ contract InboxTest_LivenessBond is InboxTestBase {
 
         ITaikoInbox.Config memory config = v4GetConfig();
 
-        vm.prank(Alice);
+        vm.stopPrank();
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
 
-        vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance);
@@ -44,10 +44,12 @@ contract InboxTest_LivenessBond is InboxTestBase {
 
         ITaikoInbox.Config memory config = v4GetConfig();
 
-        vm.prank(Alice);
+        vm.stopPrank();
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
 
+        vm.stopPrank();
         vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
@@ -65,12 +67,12 @@ contract InboxTest_LivenessBond is InboxTestBase {
 
         ITaikoInbox.Config memory config = v4GetConfig();
 
-        vm.prank(Alice);
+        vm.stopPrank();
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
 
         vm.warp(block.timestamp + config.provingWindow + 1);
-        vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond / 2);
@@ -88,11 +90,13 @@ contract InboxTest_LivenessBond is InboxTestBase {
 
         ITaikoInbox.Config memory config = v4GetConfig();
 
-        vm.prank(Alice);
+        vm.stopPrank();
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
         assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
 
         vm.warp(block.timestamp + config.provingWindow + 1);
+        vm.stopPrank();
         vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
@@ -103,6 +107,15 @@ contract InboxTest_LivenessBond is InboxTestBase {
     function test_inbox_livenessbonds_multiple_blocks_per_batch() external transactBy(Alice) {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](2);
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            // We put the anchorBlockId to be in the first block of the batch
+            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 2);
+        }
 
         (, ITaikoInbox.BatchMetadata memory meta) =
             inbox.v4ProposeBatch(abi.encode(params), "txList", "");

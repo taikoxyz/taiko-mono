@@ -30,6 +30,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint8 timeShift;
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
+        // Optional anchor block id.
+        uint64 anchorBlockId;
     }
 
     struct BlobParams {
@@ -54,8 +56,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
-        // anchorBlockId is used only by the anchor transaction in the last block in the batch.
-        uint64 anchorBlockId;
         uint64 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
         bool isForcedInclusion;
@@ -82,10 +82,10 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
         // Data for the L2 anchor transaction, shared by all blocks in the batch
-        uint64 anchorBlockId;
+        uint64[] anchorBlockIds;
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
-        bytes32 anchorBlockHash;
+        bytes32[] anchorBlockHashes;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -256,9 +256,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
-    error AnchorBlockIdSmallerThanParent();
-    error AnchorBlockIdTooLarge();
-    error AnchorBlockIdTooSmall();
+    error AnchorIdSmallerOrEqualThanLastBatch();
+    error AnchorIdSmallerThanParent();
+    error AnchorIdTooLarge();
     error ArraySizesMismatch();
     error BatchNotFound();
     error BatchVerified();
@@ -283,6 +283,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error InvalidTransitionStateRoot();
     error MetaHashMismatch();
     error MsgValueNotZero();
+    error NoAnchorBlockIdWithinThisBatch();
     error NoBlocksToProve();
     error NotFirstProposal();
     error NotInboxWrapper();
@@ -293,8 +294,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error TimestampTooLarge();
     error TimestampTooSmall();
     error TooManyBatches();
-    error TooManyBlocks();
     error TooManyBatchesToProve();
+    error TooManyBlocks();
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
