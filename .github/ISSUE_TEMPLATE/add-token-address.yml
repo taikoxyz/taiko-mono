@@ -2,7 +2,9 @@ name: "Add bridged TAIKO token address to Taiko docs contract addresses page"
 description: "Add bridged TAIKO token address to Taiko docs contract addresses page"
 title: "Add bridged TAIKO token address to Taiko docs contract addresses page"
 labels: ["area.docs"]
-assignees: ["RogerLamTd", "jdcjonathan"]
+assignees:
+  - RogerLamTd
+  - jdcjonathan
 body:
   - type: markdown
     attributes:
