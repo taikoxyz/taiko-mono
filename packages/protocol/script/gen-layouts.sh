@@ -43,7 +43,7 @@ contracts_layer1=(
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/preconf/impl/PreconfSlasher.sol:PreconfSlasher"
-"contracts/layer1/governance/TaikoDAOController.sol:TaikoDAOController"
+"contracts/layer1/mainnet/TaikoDAOController.sol:TaikoDAOController"
 )
 
 # Layer 2 contracts
