@@ -1,6 +1,8 @@
 package balanceMonitor
 
 import (
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/balance-monitor/cmd/flags"
 	"github.com/urfave/cli/v2"
@@ -11,7 +13,7 @@ type Config struct {
 	L1RPCUrl       string
 	L2RPCUrl       string
 	ERC20Addresses []common.Address
-	Interval       int
+	Interval       time.Duration
 }
 
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
@@ -30,6 +32,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1RPCUrl:       c.String(flags.L1RPCUrl.Name),
 		L2RPCUrl:       c.String(flags.L2RPCUrl.Name),
 		ERC20Addresses: erc20Addresses,
-		Interval:       c.Int(flags.Interval.Name),
+		Interval:       c.Duration(flags.Interval.Name),
 	}, nil
 }
