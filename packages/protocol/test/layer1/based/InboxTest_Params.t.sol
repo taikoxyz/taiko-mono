@@ -75,7 +75,7 @@ contract InboxTest_Params is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.blocks[0].anchorBlockId = parent.anchorBlockId - 1;
 
-        vm.expectRevert(ITaikoInbox.AnchorIdSmallerThanLastBatch.selector);
+        vm.expectRevert(ITaikoInbox.AnchorIdSmallerOrEqualThanLastBatch.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 

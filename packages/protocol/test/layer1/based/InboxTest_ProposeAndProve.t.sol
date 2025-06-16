@@ -666,6 +666,26 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
+    function test_inbox_each_batch_should_not_anchor_to_same_L1() external transactBy(Alice) {
+        ITaikoInbox.BatchParams memory params;
+        params.blocks = new ITaikoInbox.BlockParams[](1);
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            // Wrong ! They should be incremental!
+            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 5);
+        }
+
+        // 1st proposal
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
+        // 2nd proposal with the same anchorBlockId -> Should not be allowed
+        vm.expectRevert(ITaikoInbox.AnchorIdSmallerOrEqualThanLastBatch.selector);
+        inbox.v4ProposeBatch(abi.encode(params), "txList", "");
+    }
+
     //  function test_inbox_with_provermarket_diff_prover_and_proposer_measure_gas_used()
     //     external
     //     transactBy(Alice)
