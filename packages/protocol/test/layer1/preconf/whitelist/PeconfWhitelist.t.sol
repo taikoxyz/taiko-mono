@@ -348,7 +348,7 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.stopPrank();
     }
 
-      function test_addRemoveReAddOperatorWithoutConsolidate() external {
+    function test_addRemoveReAddOperatorWithoutConsolidate() external {
         _setBeaconBlockRoot(bytes32(uint256(9)));
 
         // first we add carol to WL
