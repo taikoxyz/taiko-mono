@@ -106,6 +106,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(
             _hasAtLeastOneNonZeroAnchorBlockId(info_), ITaikoInbox.NoAnchorBlockIdWithinThisBatch()
         );
+        
     }
 
     function _validateForcedInclusionParams(
