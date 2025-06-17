@@ -564,25 +564,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
-    /// @dev Decides which time window we are in and who should be recorded as the prover.
-    function _determineProofTiming(
-        uint256 _proposedAt,
-        Config memory _config,
-        address _assignedProver
-    )
-        private
-        view
-        returns (ProofTiming timing_, address prover_)
-    {
-        if (block.timestamp <= _proposedAt + _config.provingWindow) {
-            return (ProofTiming.InProvingWindow, _assignedProver);
-        } else if (block.timestamp <= _proposedAt + _config.extendedProvingWindow) {
-            return (ProofTiming.InExtendedProvingWindow, msg.sender);
-        } else {
-            return (ProofTiming.OutOfExtendedProvingWindow, msg.sender);
-        }
-    }
-
     /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
     /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
     /// - bit 8: used to store _batchParams.isForcedInclusion.
@@ -596,22 +577,5 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     {
         encoded_ |= _config.baseFeeConfig.sharingPctg; // bits 0-7
         encoded_ |= _batchParams.isForcedInclusion ? 1 << 8 : 0; // bit 8
-    }
-
-    /// @dev Check this batch is between current fork height (inclusive) and next fork height
-    /// (exclusive)
-    function _checkBatchInForkRange(
-        Config memory _config,
-        uint64 _firstBlockId,
-        uint64 _lastBlockId
-    )
-        private
-        pure
-    {
-        require(_firstBlockId >= _config.forkHeights.shasta, ForkNotActivated());
-        require(
-            _config.forkHeights.unzen == 0 || _lastBlockId < _config.forkHeights.unzen,
-            BeyondCurrentFork()
-        );
     }
 }
