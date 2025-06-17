@@ -37,7 +37,7 @@ library LibPropose {
         bytes calldata _txList,
         bytes calldata /*_additionalData*/
     )
-        public
+        internal
         returns (Output memory output_)
     {
         output_.stats2 = $.stats2;

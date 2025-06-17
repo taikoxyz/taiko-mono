@@ -12,7 +12,7 @@ library LibRead {
         uint64 _batchId,
         uint24 _tid
     )
-        public
+        public // reduce code size
         view
         returns (I.TransitionState memory)
     {
@@ -30,7 +30,7 @@ library LibRead {
         uint64 _batchId,
         bytes32 _parentHash
     )
-        public
+        public // reduce code size
         view
         returns (I.TransitionState memory)
     {
@@ -60,7 +60,7 @@ library LibRead {
         I.State storage $,
         I.Config memory _config
     )
-        public
+        public // reduce code size
         view
         returns (uint64 batchId_, uint64 blockId_, I.TransitionState memory ts_)
     {
@@ -76,7 +76,7 @@ library LibRead {
         I.State storage $,
         I.Config memory _config
     )
-        external
+        public // reduce code size
         view
         returns (uint64 batchId_, uint64 blockId_, I.TransitionState memory ts_)
     {

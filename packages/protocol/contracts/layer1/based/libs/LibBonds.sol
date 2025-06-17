@@ -12,7 +12,13 @@ library LibBonds {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
-    function withdrawBond(I.State storage $, address _bondToken, uint256 _amount) public {
+    function withdrawBond(
+        I.State storage $,
+        address _bondToken,
+        uint256 _amount
+    )
+        public // reduce code size
+    {
         uint256 balance = $.bondBalance[msg.sender];
         require(balance >= _amount, I.InsufficientBond());
 

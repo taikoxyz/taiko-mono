@@ -32,7 +32,7 @@ library LibProverAuth {
         bytes32 _txListHash,
         bytes memory _proverAuth
     )
-        public // reduce code size
+        internal
         view
         returns (ProverAuth memory auth_)
     {
@@ -50,18 +50,18 @@ library LibProverAuth {
         // Save and use later, before nullifying in computeProverAuthDigest()
         bytes memory signature = auth_.signature;
         auth_.signature = "";
-        bytes32 digest = computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth_);
+        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth_);
 
         require(auth_.prover.isValidSignatureNow(digest, signature), InvalidSignature());
     }
 
-    function computeProverAuthDigest(
+    function _computeProverAuthDigest(
         uint64 _chainId,
         bytes32 _batchParamsHash,
         bytes32 _txListHash,
         ProverAuth memory _auth
     )
-        internal
+        private
         pure
         returns (bytes32)
     {

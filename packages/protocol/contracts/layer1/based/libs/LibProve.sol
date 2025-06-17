@@ -32,7 +32,7 @@ library LibProve {
         bytes calldata _params,
         bytes calldata _proof
     )
-        internal
+        public // reduce code size
         returns (Output memory output_)
     {
         I.Transition[] memory trans;

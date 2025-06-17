@@ -6,7 +6,12 @@ import { ITaikoInbox as I } from "../ITaikoInbox.sol";
 /// @title LibInit
 /// @custom:security-contact security@taiko.xyz
 library LibInit {
-    function init(I.State storage $, bytes32 _genesisBlockHash) public {
+    function init(
+        I.State storage $,
+        bytes32 _genesisBlockHash
+    )
+        public // reduce code size
+    {
         require(_genesisBlockHash != 0, I.InvalidGenesisBlockHash());
         $.transitions[0][1].blockHash = _genesisBlockHash;
 
