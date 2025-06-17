@@ -39,6 +39,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     using LibBonds for ITaikoInbox.State;
     using LibRead for ITaikoInbox.State;
     using LibInit for ITaikoInbox.State;
+    using LibProve for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
     address public immutable inboxWrapper;
@@ -328,143 +329,16 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc IProveBatches
     function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
-        (BatchMetadata[] memory metas, Transition[] memory trans) =
-            abi.decode(_params, (BatchMetadata[], Transition[]));
+        LibProve.Input memory input = LibProve.Input(_getConfig(), bondToken, verifier);
+        LibProve.Output memory output = state.proveBatches(input, _params, _proof);
 
-        uint256 metasLength = metas.length;
-        require(metasLength != 0, NoBlocksToProve());
-        require(metasLength <= type(uint8).max, TooManyBatchesToProve());
-        require(metasLength == trans.length, ArraySizesMismatch());
-
-        Stats2 memory stats2 = state.stats2;
-        require(!stats2.paused, ContractPaused());
-
-        Config memory config = _getConfig();
-        IVerifier.Context[] memory ctxs = new IVerifier.Context[](metasLength);
-
-        bool hasConflictingProof;
-        for (uint256 i; i < metasLength; ++i) {
-            BatchMetadata memory meta = metas[i];
-
-            // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
-            // Hence, we only need to verify the firstBlockId of the block in the following check.
-            _checkBatchInForkRange(config, meta.firstBlockId, meta.firstBlockId);
-
-            require(meta.batchId > stats2.lastVerifiedBatchId, BatchNotFound());
-            require(meta.batchId < stats2.numBatches, BatchNotFound());
-
-            Transition memory tran = trans[i];
-            require(tran.parentHash != 0, InvalidTransitionParentHash());
-            require(tran.blockHash != 0, InvalidTransitionBlockHash());
-            require(tran.stateRoot != 0, InvalidTransitionStateRoot());
-
-            ctxs[i].batchId = meta.batchId;
-            ctxs[i].metaHash = keccak256(abi.encode(meta));
-            ctxs[i].transition = tran;
-            ctxs[i].prover = msg.sender;
-
-            // Verify the batch's metadata.
-            uint256 slot = meta.batchId % config.batchRingBufferSize;
-            Batch storage batch = state.batches[slot];
-            require(ctxs[i].metaHash == batch.metaHash, MetaHashMismatch());
-
-            // Finds out if this transition is overwriting an existing one (with the same parent
-            // hash) or is a new one.
-            uint24 tid;
-            uint24 nextTransitionId = batch.nextTransitionId;
-            if (nextTransitionId > 1) {
-                // This batch has at least one transition.
-                if (state.transitions[slot][1].parentHash == tran.parentHash) {
-                    // Overwrite the first transition.
-                    tid = 1;
-                } else if (nextTransitionId > 2) {
-                    // Retrieve the transition ID using the parent hash from the mapping. If the ID
-                    // is 0, it indicates a new transition; otherwise, it's an overwrite of an
-                    // existing transition.
-                    tid = state.transitionIds[meta.batchId][tran.parentHash];
-                }
-            }
-
-            if (tid == 0) {
-                // This transition is new, we need to use the next available ID.
-                unchecked {
-                    tid = batch.nextTransitionId++;
-                }
-            } else {
-                TransitionState memory _ts = state.transitions[slot][tid];
-                if (_ts.blockHash == 0) {
-                    // This transition has been invalidated due to a conflicting proof.
-                    // So we can reuse the transition ID.
-                } else {
-                    bool isSameTransition = _ts.blockHash == tran.blockHash
-                        && (_ts.stateRoot == 0 || _ts.stateRoot == tran.stateRoot);
-
-                    if (isSameTransition) {
-                        // Re-approving the same transition is allowed, but we will not change the
-                        // existing one.
-                    } else {
-                        // A conflict is detected with the new transition. Pause the contract and
-                        // invalidate the existing transition by setting its blockHash to 0.
-                        hasConflictingProof = true;
-                        state.transitions[slot][tid].blockHash = 0;
-                        emit ConflictingProof(meta.batchId, _ts, tran);
-                    }
-
-                    // Proceed with other transitions.
-                    continue;
-                }
-            }
-
-            TransitionState storage ts = state.transitions[slot][tid];
-
-            ts.blockHash = tran.blockHash;
-            ts.stateRoot =
-                meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
-
-            (ts.proofTiming, ts.prover) = _determineProofTiming(
-                uint256(meta.proposedAt).max(stats2.lastUnpausedAt), config, meta.prover
-            );
-
-            ts.createdAt = uint48(block.timestamp);
-            ts.byAssignedProver = msg.sender == meta.prover;
-
-            if (tid == 1) {
-                ts.parentHash = tran.parentHash;
-
-                // The prover for the first transition is responsible for placing the provability
-                // if the transition is within extended proving window.
-                if (
-                    ts.proofTiming != ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow
-                        && msg.sender != meta.proposer
-                ) {
-                    // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
-                    // of the proposer's bond through an invalid first transition.
-                    uint96 provabilityBond = batch.provabilityBond;
-                    state.debitBond(bondToken, msg.sender, provabilityBond);
-                    state.creditBond(meta.proposer, provabilityBond);
-                }
-            } else {
-                state.transitionIds[meta.batchId][tran.parentHash] = tid;
-            }
-        }
-
-        IVerifier(verifier).verifyProof(ctxs, _proof);
-
-        // Emit the event
-        {
-            uint64[] memory batchIds = new uint64[](metasLength);
-            for (uint256 i; i < metasLength; ++i) {
-                batchIds[i] = metas[i].batchId;
-            }
-
-            emit BatchesProved(verifier, batchIds, trans);
-        }
-
-        if (hasConflictingProof) {
+        if (output.hasConflictingProof) {
             _pause();
             emit Paused(verifier);
         } else {
-            state.verifyBatches(config, stats2, signalService, uint8(metasLength));
+            state.verifyBatches(
+                input.config, output.stats2, signalService, uint8(output.metas.length)
+            );
         }
     }
 
