@@ -26,7 +26,7 @@ library LibVerify {
         address _signalService,
         uint8 _count
     )
-        public // reduce code size
+        internal
     {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
