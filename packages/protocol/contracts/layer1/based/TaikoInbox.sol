@@ -413,19 +413,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             ts.stateRoot =
                 meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
 
-            {
-                uint256 proposedAt = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
-                if (block.timestamp <= proposedAt + config.provingWindow) {
-                    ts.proofTiming = ProofTiming.InProvingWindow;
-                    ts.prover = meta.prover;
-                } else if (block.timestamp <= proposedAt + config.extendedProvingWindow) {
-                    ts.proofTiming = ProofTiming.InExtendedProvingWindow;
-                    ts.prover = msg.sender;
-                } else {
-                    ts.proofTiming = ProofTiming.OutOfExtendedProvingWindow;
-                    ts.prover = msg.sender;
-                }
-            }
+            (ts.proofTiming, ts.prover) = _determineProofTiming(
+                uint256(meta.proposedAt).max(stats2.lastUnpausedAt), config, meta.prover
+            );
 
             ts.createdAt = uint48(block.timestamp);
             ts.byAssignedProver = msg.sender == meta.prover;
@@ -787,6 +777,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 _params.parentMetaHash == 0 || _params.parentMetaHash == _lastBatch.metaHash,
                 ParentMetaHashMismatch()
             );
+        }
+    }
+
+    /// @dev Decides which time window we are in and who should be recorded as the prover.
+    function _determineProofTiming(
+        uint256 _proposedAt,
+        Config memory _config,
+        address _assignedProver
+    )
+        private
+        view
+        returns (ProofTiming timing_, address prover_)
+    {
+        if (block.timestamp <= _proposedAt + _config.provingWindow) {
+            return (ProofTiming.InProvingWindow, _assignedProver);
+        } else if (block.timestamp <= _proposedAt + _config.extendedProvingWindow) {
+            return (ProofTiming.InExtendedProvingWindow, msg.sender);
+        } else {
+            return (ProofTiming.OutOfExtendedProvingWindow, msg.sender);
         }
     }
 
