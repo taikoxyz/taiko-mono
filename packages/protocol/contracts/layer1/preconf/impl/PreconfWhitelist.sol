@@ -183,14 +183,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         // re-activating someone who was scheduled for removal,
         // but consolidate was not called.
         uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
-        if (info.inactiveSince != 0) {
-            info.activeSince = activeSince;
-            info.inactiveSince = 0;
-        } else {
+        if (info.inactiveSince == 0) {
             // new operator
             uint8 idx = operatorCount;
-            info.activeSince = activeSince;
-            info.inactiveSince = 0;
             info.index = idx;
             operatorMapping[idx] = _operator;
 
@@ -198,6 +193,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
                 operatorCount = idx + 1;
             }
         }
+
+        info.activeSince = activeSince;
+        info.inactiveSince = 0;
 
         if (_operatorChangeDelay != 0) {
             havingPerfectOperators = false;
