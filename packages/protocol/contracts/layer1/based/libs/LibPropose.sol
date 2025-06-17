@@ -365,17 +365,15 @@ library LibPropose {
         if (_blobParams.blobHashes.length != 0) {
             blobHashes_ = _blobParams.blobHashes;
         } else {
-            uint256 numBlobs = _blobParams.numBlobs;
-            blobHashes_ = new bytes32[](numBlobs);
-            for (uint256 i; i < numBlobs; ++i) {
+            blobHashes_ = new bytes32[](_blobParams.numBlobs);
+            for (uint256 i; i < _blobParams.numBlobs; ++i) {
                 unchecked {
                     blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
                 }
             }
         }
 
-        uint256 bloblHashesLength = blobHashes_.length;
-        for (uint256 i; i < bloblHashesLength; ++i) {
+        for (uint256 i; i < blobHashes_.length; ++i) {
             require(blobHashes_[i] != 0, I.BlobNotFound());
         }
         hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
