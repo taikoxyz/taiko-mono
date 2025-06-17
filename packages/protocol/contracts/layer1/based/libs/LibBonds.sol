@@ -2,13 +2,36 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "src/shared/libs/LibAddress.sol";
 import "../ITaikoInbox.sol";
 import "../IBondManager.sol";
 
 /// @title LibBonds
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
+    using LibAddress for address;
     using SafeERC20 for IERC20;
+
+    function withdrawBond(
+        ITaikoInbox.State storage $,
+        address _bondToken,
+        uint256 _amount
+    )
+        public
+    {
+        uint256 balance = $.bondBalance[msg.sender];
+        require(balance >= _amount, ITaikoInbox.InsufficientBond());
+
+        emit IBondManager.BondWithdrawn(msg.sender, _amount);
+
+        $.bondBalance[msg.sender] -= _amount;
+
+        if (_bondToken != address(0)) {
+            IERC20(_bondToken).safeTransfer(msg.sender, _amount);
+        } else {
+            LibAddress.sendEtherAndVerify(msg.sender, _amount);
+        }
+    }
 
     function debitBond(
         ITaikoInbox.State storage $,
@@ -26,7 +49,7 @@ library LibBonds {
                 $.bondBalance[_user] = balance - _amount;
             }
         } else if (_bondToken != address(0)) {
-            uint256 amountDeposited = handleDeposit(_bondToken, _user, _amount);
+            uint256 amountDeposited = depositBond(_bondToken, _user, _amount);
             require(amountDeposited == _amount, ITaikoInbox.InsufficientBond());
         } else {
             // Ether as bond must be deposited before proposing a batch
@@ -35,7 +58,7 @@ library LibBonds {
         emit IBondManager.BondDebited(_user, _amount);
     }
 
-    function handleDeposit(
+    function depositBond(
         address _bondToken,
         address _user,
         uint256 _amount

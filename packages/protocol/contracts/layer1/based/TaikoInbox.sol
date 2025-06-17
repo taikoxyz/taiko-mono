@@ -477,23 +477,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc IBondManager
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
-        state.bondBalance[msg.sender] += LibBonds.handleDeposit(bondToken, msg.sender, _amount);
+        state.bondBalance[msg.sender] += LibBonds.depositBond(bondToken, msg.sender, _amount);
     }
 
     /// @inheritdoc IBondManager
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
-        uint256 balance = state.bondBalance[msg.sender];
-        require(balance >= _amount, InsufficientBond());
-
-        emit BondWithdrawn(msg.sender, _amount);
-
-        state.bondBalance[msg.sender] -= _amount;
-
-        if (bondToken != address(0)) {
-            IERC20(bondToken).safeTransfer(msg.sender, _amount);
-        } else {
-            LibAddress.sendEtherAndVerify(msg.sender, _amount);
-        }
+        state.withdrawBond(bondToken, _amount);
     }
 
     /// @inheritdoc IBondManager
