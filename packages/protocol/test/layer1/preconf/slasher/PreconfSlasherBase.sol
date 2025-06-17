@@ -34,12 +34,14 @@ contract PreconfSlasherBase is CommonTest {
 
     ITaikoInbox.BatchInfo internal _cachedBatchInfo;
     ITaikoInbox.BatchMetadata internal _cachedBatchMetadata;
+    ITaikoInbox.BatchMetadata internal _cachedNextBatchMetadata;
 
     address internal urc = vm.addr(uint256(bytes32("urc")));
     address internal fallbackPreconfer = vm.addr(uint256(bytes32("fallbackPreconfer")));
     address internal preconfSigner = vm.addr(uint256(bytes32("preconfSigner")));
     uint64 internal correctAnchorBlockId = uint64(uint256(keccak256("correct_anchor_id")));
     bytes32 internal correctAnchorBlockHash = bytes32("correct_anchor_hash");
+    uint64 internal preconferSlotTimestamp = uint64(uint256(keccak256("preconfer_slot_timestamp")));
     bytes4 internal emptyRevert = bytes4(0xffffffff);
 
     function setUpOnEthereum() internal virtual override {
@@ -112,6 +114,17 @@ contract PreconfSlasherBase is CommonTest {
         ITaikoInbox.Batch memory batch;
         batch.metaHash = keccak256(abi.encode(_cachedBatchMetadata));
         batch.batchId = _batchId;
+        batch.lastBlockId = _cachedBatchInfo.lastBlockId;
+
+        taikoInbox.setBatch(_batchId, batch);
+    }
+
+    function _insertNextBatch(uint64 _batchId, uint64 _proposedAt) internal {
+        _cachedNextBatchMetadata.proposedAt = _proposedAt;
+
+        ITaikoInbox.Batch memory batch;
+        batch.batchId = _batchId;
+        batch.metaHash = keccak256(abi.encode(_cachedNextBatchMetadata));
 
         taikoInbox.setBatch(_batchId, batch);
     }
@@ -135,6 +148,25 @@ contract PreconfSlasherBase is CommonTest {
             LibNetwork.TAIKO_MAINNET,
             correctAnchorBlockId,
             correctAnchorBlockHash,
+            false,
+            _preconfedBlockHeader
+        );
+    }
+
+    function _buildPreconfirmationCommitment(
+        LibBlockHeader.BlockHeader memory _preconfedBlockHeader,
+        bool _eop
+    )
+        internal
+        view
+        returns (ISlasher.Commitment memory)
+    {
+        return _buildPreconfirmationCommitment(
+            LibPreconfConstants.PRECONF_DOMAIN_SEPARATOR,
+            LibNetwork.TAIKO_MAINNET,
+            correctAnchorBlockId,
+            correctAnchorBlockHash,
+            _eop,
             _preconfedBlockHeader
         );
     }
@@ -144,6 +176,7 @@ contract PreconfSlasherBase is CommonTest {
         uint64 _chainId,
         uint64 _anchorId,
         bytes32 _anchorHash,
+        bool _eop,
         LibBlockHeader.BlockHeader memory _preconfedBlockHeader
     )
         internal
@@ -155,8 +188,10 @@ contract PreconfSlasherBase is CommonTest {
         commitmentPayload.chainId = _chainId;
         commitmentPayload.anchorId = _anchorId;
         commitmentPayload.anchorHash = _anchorHash;
+        commitmentPayload.preconferSlotTimestamp = preconferSlotTimestamp;
         commitmentPayload.batchId = 1;
         commitmentPayload.blockHash = _preconfedBlockHeader.hash();
+        commitmentPayload.eop = _eop;
 
         ISlasher.Commitment memory commitment;
         commitment.payload = abi.encode(commitmentPayload);
@@ -211,6 +246,52 @@ contract PreconfSlasherBase is CommonTest {
             bytes.concat(
                 bytes1(uint8(IPreconfSlasher.ViolationType.InvalidPreconfirmation)),
                 abi.encode(evidence)
+            ),
+            address(0) // Challenger is not required
+        );
+
+        return slashedAmount;
+    }
+
+    function _slashInvalidEOP(
+        ISlasher.Commitment memory _commitment,
+        LibBlockHeader.BlockHeader memory _preconfedBlockHeader
+    )
+        internal
+        returns (uint256)
+    {
+        return _slashInvalidEOP(_commitment, _preconfedBlockHeader, bytes4(0));
+    }
+
+    function _slashInvalidEOP(
+        ISlasher.Commitment memory _commitment,
+        LibBlockHeader.BlockHeader memory _preconfedBlockHeader,
+        bytes4 _revertData
+    )
+        internal
+        returns (uint256)
+    {
+        // We leave the delegation empty as it is not required
+        ISlasher.Delegation memory delegation;
+
+        IPreconfSlasher.EvidenceInvalidEOP memory evidence;
+        evidence.preconfedBlockHeader = _preconfedBlockHeader;
+        evidence.batchInfo = _cachedBatchInfo;
+        evidence.batchMetadata = _cachedBatchMetadata;
+        evidence.nextBatchMetadata = _cachedNextBatchMetadata;
+
+        if (_revertData == emptyRevert) {
+            vm.expectRevert();
+        } else if (_revertData != bytes4(0)) {
+            vm.expectRevert(abi.encodeWithSelector(_revertData));
+        }
+
+        uint256 slashedAmount = preconfSlasher.slash(
+            delegation,
+            _commitment,
+            address(0), // Commiter is not required
+            bytes.concat(
+                bytes1(uint8(IPreconfSlasher.ViolationType.InvalidEOP)), abi.encode(evidence)
             ),
             address(0) // Challenger is not required
         );

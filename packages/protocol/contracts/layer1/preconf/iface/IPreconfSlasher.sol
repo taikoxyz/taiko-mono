@@ -132,7 +132,6 @@ interface IPreconfSlasher is ISlasher {
     error InvalidActualBlockHeader();
     error InvalidNextBatchMetadata();
     error InvalidVerifiedBlockHeader();
-    error InvalidViolationType();
     error NextBatchProposedBySameProposer();
     error NextBatchProposedInNextPreconfWindow();
     error NextBatchProposedInTheSamePreconfWindow();

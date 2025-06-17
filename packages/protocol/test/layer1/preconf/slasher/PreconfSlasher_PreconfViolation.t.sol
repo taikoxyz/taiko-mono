@@ -4,9 +4,7 @@ pragma solidity ^0.8.24;
 import "./PreconfSlasherBase.sol";
 
 contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
-    using LibBlockHeader for LibBlockHeader.BlockHeader;
-
-    // Preconfirmation Violations (slashing)
+    // Slashing
     // ------------------------------------------------------------------------------------------------
 
     function test_slashesWhenPreconfedBlockHashIsMismatched_Case1()
@@ -85,6 +83,7 @@ contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
             LibNetwork.TAIKO_MAINNET,
             uint64(uint256(keccak256("incorrect_anchor_id"))), // Insert an incorrect anchor id
             correctAnchorBlockHash,
+            false,
             preconfedBlockHeader
         );
 
@@ -109,10 +108,9 @@ contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
         ISlasher.Commitment memory commitment =
             _buildPreconfirmationCommitment(preconfedBlockHeader);
 
-        // Set a non zero beacon block root at timestamp `0` i.e the preconf timestamp in the
-        // commitment
+        // Set a non zero beacon block root at preconfer's slot
         MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT)).set(
-            0, bytes32(uint256(1))
+            preconferSlotTimestamp, bytes32(uint256(1))
         );
 
         // Slash the violated preconf
@@ -147,7 +145,7 @@ contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
         assertEq(slashedAmount, preconfSlasher.getSlashAmount().reorgedPreconf);
     }
 
-    // Preconfirmation Violations (reverts)
+    // Reverts
     // ------------------------------------------------------------------------------------------------
 
     function test_revertsWhenPreconfedBlockHeaderIsInvalid()
@@ -284,6 +282,7 @@ contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
             LibNetwork.TAIKO_MAINNET,
             correctAnchorBlockId,
             bytes32("incorrect_anchor_hash"), // Insert an incorrect anchor block hash
+            false,
             preconfedBlockHeader
         );
 
