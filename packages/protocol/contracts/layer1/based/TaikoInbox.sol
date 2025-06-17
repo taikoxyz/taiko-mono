@@ -533,13 +533,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
-        batchId_ = state.stats2.lastVerifiedBatchId;
-
-        ITaikoInbox.Config memory config = _getConfig();
-        require(batchId_ >= config.forkHeights.pacaya, BatchNotFound());
-
-        blockId_ = state.getBatch(config, batchId_).lastBlockId;
-        ts_ = state.getBatchVerifyingTransition(config, batchId_);
+        return state.getLastVerifiedTransition(_getConfig());
     }
 
     /// @inheritdoc ITaikoInbox
@@ -548,10 +542,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         view
         returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_)
     {
-        batchId_ = state.stats1.lastSyncedBatchId;
-        ITaikoInbox.Config memory config = _getConfig();
-        blockId_ = state.getBatch(config, batchId_).lastBlockId;
-        ts_ = state.getBatchVerifyingTransition(config, batchId_);
+        return state.getLastSyncedTransition(_getConfig());
     }
 
     /// @inheritdoc IBondManager

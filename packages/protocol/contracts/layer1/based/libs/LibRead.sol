@@ -56,6 +56,35 @@ library LibRead {
         return $.transitions[slot][tid];
     }
 
+    function getLastVerifiedTransition(
+        ITaikoInbox.State storage $,
+        ITaikoInbox.Config memory _config
+    )
+        public
+        view
+        returns (uint64 batchId_, uint64 blockId_, ITaikoInbox.TransitionState memory ts_)
+    {
+        batchId_ = $.stats2.lastVerifiedBatchId;
+
+        require(batchId_ >= _config.forkHeights.pacaya, ITaikoInbox.BatchNotFound());
+
+        blockId_ = getBatch($, _config, batchId_).lastBlockId;
+        ts_ = getBatchVerifyingTransition($, _config, batchId_);
+    }
+
+    function getLastSyncedTransition(
+        ITaikoInbox.State storage $,
+        ITaikoInbox.Config memory _config
+    )
+        external
+        view
+        returns (uint64 batchId_, uint64 blockId_, ITaikoInbox.TransitionState memory ts_)
+    {
+        batchId_ = $.stats1.lastSyncedBatchId;
+        blockId_ = getBatch($, _config, batchId_).lastBlockId;
+        ts_ = getBatchVerifyingTransition($, _config, batchId_);
+    }
+
     function getBatch(
         ITaikoInbox.State storage $,
         ITaikoInbox.Config memory _config,
