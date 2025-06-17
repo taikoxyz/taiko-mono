@@ -219,6 +219,73 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.stopPrank();
     }
 
+    function test_whitelist_duplicate_bug_even_after_consolidate() external {
+        _setBeaconBlockRoot(bytes32(uint256(7)));
+
+        vm.startPrank(whitelistOwner);
+
+        // add Alice and Bob first to make Alice NOT the last operator
+        whitelistNoDelay.addOperator(Alice);
+        whitelistNoDelay.addOperator(Bob);
+        assertEq(whitelistNoDelay.operatorCount(), 2);
+        assertEq(whitelistNoDelay.operatorMapping(0), Alice);
+        assertEq(whitelistNoDelay.operatorMapping(1), Bob);
+
+        // remove Alice (she's at index 0, not the last operator)
+        whitelistNoDelay.removeOperator(Alice);
+        // add Alice again - this created a duplicate before fix
+        whitelistNoDelay.addOperator(Alice);
+
+        assertEq(whitelistNoDelay.operatorCount(), 2); // THIS CAUGHT THE BUG! Should be 2, but was
+            // 3 (duplicate) before fix
+        assertEq(whitelistNoDelay.operatorMapping(0), Alice); // Old position (marked inactive)
+        assertEq(whitelistNoDelay.operatorMapping(1), Bob); // Bob stays
+
+        // Alice was a duplicate before the fix
+        //assertEq(whitelistNoDelay.operatorMapping(2), Alice);
+
+        // show BEFORE consolidate -> now, with fixed verison it is removed because we reusing the
+        // index
+        address[] memory candidatesBefore = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
+        console.log("=== BEFORE CONSOLIDATE ===");
+        console.log("Candidates count:", candidatesBefore.length);
+        for (uint256 i = 0; i < candidatesBefore.length; i++) {
+            console.log("Candidate", i, ":", candidatesBefore[i]);
+        }
+
+        whitelistNoDelay.consolidate();
+
+        // double check, after consolidate
+        address[] memory candidatesAfter = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
+        console.log("=== AFTER CONSOLIDATE ===");
+        console.log("Candidates count:", candidatesAfter.length);
+        console.log("Operator count:", whitelistNoDelay.operatorCount());
+        for (uint256 i = 0; i < candidatesAfter.length; i++) {
+            console.log("Candidate", i, ":", candidatesAfter[i]);
+        }
+        assertEq(whitelistNoDelay.operatorCount(), 2); // Should be 2 (Alice + Bob)
+        assertEq(candidatesAfter.length, 2);
+
+        // verify no duplicates in candidates array
+        bool foundAlice = false;
+        bool foundBob = false;
+        for (uint256 i = 0; i < candidatesAfter.length; i++) {
+            if (candidatesAfter[i] == Alice) {
+                require(!foundAlice, "Alice found twice - duplicate still exists!");
+                foundAlice = true;
+            } else if (candidatesAfter[i] == Bob) {
+                require(!foundBob, "Bob found twice - duplicate still exists!");
+                foundBob = true;
+            }
+        }
+
+        // both should be found only once
+        assertTrue(foundAlice, "Alice should be in candidates");
+        assertTrue(foundBob, "Bob should be in candidates");
+
+        vm.stopPrank();
+    }
+
     function test_whitelist_selfRemoval() external {
         vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice);

@@ -172,15 +172,34 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     function _addOperator(address _operator, uint8 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
-        require(operators[_operator].activeSince == 0, OperatorAlreadyExists());
 
+        OperatorInfo memory info = operators[_operator];
+        require(info.activeSince == 0, OperatorAlreadyExists());
+
+        // FIX: If operator exists but is marked for removal (inactiveSince != 0),
+        // reuse their existing position instead of creating a new one
+        if (info.inactiveSince != 0) {
+            // Operator exists but is marked for removal - reuse their position
+            uint64 newActiveSince = epochStartTimestamp(_operatorChangeDelay);
+            operators[_operator] = OperatorInfo({
+                activeSince: newActiveSince,
+                inactiveSince: 0, // Clear removal
+                index: info.index // Reuse existing index
+             });
+
+            if (_operatorChangeDelay != 0) {
+                havingPerfectOperators = false;
+            }
+
+            emit OperatorAdded(_operator, newActiveSince);
+            return;
+        }
+
+        // Original logic for completely new operators
         uint8 _operatorCount = operatorCount;
         uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
-        operators[_operator] = OperatorInfo({
-            activeSince: activeSince,
-            inactiveSince: 0, // no removal scheduled.
-            index: _operatorCount
-        });
+        operators[_operator] =
+            OperatorInfo({ activeSince: activeSince, inactiveSince: 0, index: _operatorCount });
         operatorMapping[_operatorCount] = _operator;
         unchecked {
             operatorCount = _operatorCount + 1;
