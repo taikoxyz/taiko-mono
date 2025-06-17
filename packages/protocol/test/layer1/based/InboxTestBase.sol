@@ -165,6 +165,16 @@ abstract contract InboxTestBase is Layer1Test {
         batchIds = new uint64[](numBatchesToPropose);
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
+            ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+            if (stats.numBatches > 0) {
+                ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+                // We put the anchorBlockId to be in the first block of the batch
+                batchParams.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+                // vm.roll to have available blockhash()
+                vm.roll(lastBatch.anchorBlockId + 2);
+            }
+
             (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
                 inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
             _saveMetadataAndInfo(meta, info);
@@ -215,6 +225,15 @@ abstract contract InboxTestBase is Layer1Test {
         for (uint256 i; i < numBatchesToPropose; ++i) {
             ITaikoInbox.BatchParams memory batchParams;
             batchParams.blocks = new ITaikoInbox.BlockParams[](__blocksPerBatch);
+            ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+            if (stats.numBatches > 0) {
+                ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+                // We put the anchorBlockId to be in the first block of the batch
+                batchParams.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+                // vm.roll to have available blockhash()
+                vm.roll(lastBatch.anchorBlockId + 2);
+            }
 
             // Save original proposer for hash calculation
             batchParams.proposer = proposer;
@@ -225,8 +244,7 @@ abstract contract InboxTestBase is Layer1Test {
             auth.feeToken = address(bondToken);
             auth.fee = 5 ether;
             auth.validUntil = uint64(block.timestamp + 1 hours);
-            auth.batchId =
-                i == 0 ? inbox.v4GetStats2().numBatches : inbox.v4GetStats2().numBatches + uint64(i);
+            auth.batchId = i == 0 ? stats.numBatches : stats.numBatches + uint64(i);
 
             // Calculate txListHash
             bytes32 txListHash = keccak256(txList);
@@ -322,7 +340,7 @@ abstract contract InboxTestBase is Layer1Test {
             console2.log(unicode"│    |── lastBlockTimestamp:", batch.lastBlockTimestamp);
             console2.log(unicode"│    |── lastBlockId:", batch.lastBlockId);
             console2.log(unicode"│    |── livenessBond:", batch.livenessBond);
-            console2.log(unicode"│    |── anchorBlockId:", batch.anchorBlockId);
+            console2.log(unicode"│ |── anchorBlockId:", batch.anchorBlockId);
             console2.log(unicode"│    |── nextTransitionId:", batch.nextTransitionId);
             console2.log(unicode"│    |── verifiedTransitionId:", batch.verifiedTransitionId);
 

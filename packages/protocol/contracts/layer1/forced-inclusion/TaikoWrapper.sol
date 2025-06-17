@@ -116,6 +116,11 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(params.isForcedInclusion == false, ITaikoInbox.InvalidForcedInclusion());
 
         (info_, meta_) = inbox.v4ProposeBatch(normalParams, _txList, "");
+
+        // Validate the batch must has at least one non-zero anchor block ID.
+        require(
+            _hasAtLeastOneNonZeroAnchorBlockId(info_), ITaikoInbox.NoAnchorBlockIdWithinThisBatch()
+        );
     }
 
     function _buildInclusionParams(
@@ -137,5 +142,16 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         params_.blobParams.byteOffset = _inclusion.blobByteOffset;
         params_.blobParams.byteSize = _inclusion.blobByteSize;
         params_.blobParams.createdIn = _inclusion.blobCreatedIn;
+    }
+
+    function _hasAtLeastOneNonZeroAnchorBlockId(ITaikoInbox.BatchInfo memory info_)
+        internal
+        pure
+        returns (bool)
+    {
+        for (uint256 i; i < info_.anchorBlockHashes.length; ++i) {
+            if (info_.anchorBlockHashes[i] != 0) return true;
+        }
+        return false;
     }
 }

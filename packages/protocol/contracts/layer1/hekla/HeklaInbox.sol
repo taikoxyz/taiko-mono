@@ -26,7 +26,7 @@ contract HeklaInbox is MainnetInbox {
         bytes32 _blockHash,
         bytes32 _stateRoot,
         address _prover,
-        uint8 _proofTiming,
+        ProofTiming _proofTiming,
         bool _byAssignedProver
     )
         external

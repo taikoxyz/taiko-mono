@@ -6,9 +6,9 @@ import "src/shared/signal/LibSignals.sol";
 import "src/shared/libs/LibMath.sol";
 import "../ITaikoInbox.sol";
 
-/// @title LibVerification
+/// @title LibVerify
 /// @custom:security-contact security@taiko.xyz
-library LibVerification {
+library LibVerify {
     using LibMath for uint256;
 
     struct SyncBlock {
@@ -80,12 +80,12 @@ library LibVerification {
 
                     {
                         uint96 bondToReturn;
-                        if (ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InProvingWindow)) {
+                        if (ts.proofTiming == ITaikoInbox.ProofTiming.InProvingWindow) {
                             // all liveness bond is returned to the prover, this is not a reward.
                             bondToReturn = batch.livenessBond;
                             if (tid == 1) bondToReturn += batch.provabilityBond;
                         } else if (
-                            ts.proofTiming == uint8(ITaikoInbox.ProofTiming.InExtendedProvingWindow)
+                            ts.proofTiming == ITaikoInbox.ProofTiming.InExtendedProvingWindow
                         ) {
                             // prover is rewarded with bondRewardPtcg% of the liveness bond.
                             bondToReturn = batch.livenessBond * _config.bondRewardPtcg / 100;
@@ -94,7 +94,7 @@ library LibVerification {
                             // The assigned prover gets back his liveness bond, and 100% provability
                             // bond.
                             // This allows him to user a higher gas price to submit his proof first.
-                            bondToReturn = batch.livenessBond + batch.provabilityBond;
+                            bondToReturn = batch.provabilityBond;
                         } else {
                             // Other prover get bondRewardPtcg% of the provability bond.
                             bondToReturn = batch.provabilityBond * _config.bondRewardPtcg / 100;

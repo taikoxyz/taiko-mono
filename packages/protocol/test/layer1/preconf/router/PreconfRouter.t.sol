@@ -27,7 +27,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
             timeShift: 1,
-            signalSlots: new bytes32[](0)
+            signalSlots: new bytes32[](0),
+            anchorBlockId: 0
         });
 
         ITaikoInbox.BlobParams memory blobParams;
@@ -37,7 +38,6 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proposer: Carol,
             coinbase: address(0),
             parentMetaHash: bytes32(0),
-            anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
             isForcedInclusion: false,
@@ -103,7 +103,8 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
             timeShift: 1,
-            signalSlots: new bytes32[](0)
+            signalSlots: new bytes32[](0),
+            anchorBlockId: 0
         });
 
         ITaikoInbox.BlobParams memory blobParams;
@@ -113,7 +114,6 @@ contract PreconfRouterTest is PreconfRouterTestBase {
             proposer: Bob, // Set different proposer than sender (Carol)
             coinbase: address(0),
             parentMetaHash: bytes32(0),
-            anchorBlockId: 0,
             lastBlockTimestamp: uint64(block.timestamp),
             revertIfNotFirstProposal: false,
             isForcedInclusion: false,

@@ -11,7 +11,7 @@ import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibProverAuth.sol";
-import "./libs/LibVerification.sol";
+import "./libs/LibVerify.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
 
@@ -30,7 +30,7 @@ import "./IProposeBatch.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
-    using LibVerification for ITaikoInbox.State;
+    using LibVerify for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
     address public immutable inboxWrapper;
@@ -146,13 +146,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             Batch memory lastBatch =
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
-            (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
-                params,
-                config.maxAnchorHeightOffset,
-                config.maxSignalsToReceive,
-                config.maxBlocksPerBatch,
-                lastBatch
-            );
+            uint64 lastAnchorBlockId;
 
             // This section constructs the metadata for the proposed batch, which is crucial for
             // nodes/clients to process the batch. The metadata itself is not stored on-chain;
@@ -165,6 +159,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             {
+                uint256 nBlocks = params.blocks.length;
+
                 info_ = BatchInfo({
                     txsHash: bytes32(0), // to be initialised later
                     //
@@ -182,15 +178,54 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobByteOffset: params.blobParams.byteOffset,
                     blobByteSize: params.blobParams.byteSize,
                     gasLimit: config.blockMaxGasLimit,
-                    lastBlockId: lastBatch.lastBlockId + uint64(params.blocks.length),
-                    lastBlockTimestamp: lastBlockTimestamp,
+                    lastBlockId: lastBatch.lastBlockId + uint64(nBlocks),
+                    lastBlockTimestamp: _validateBatchParams(
+                        params,
+                        config.maxAnchorHeightOffset,
+                        config.maxSignalsToReceive,
+                        config.maxBlocksPerBatch,
+                        lastBatch
+                    ),
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
-                    anchorBlockId: anchorBlockId,
-                    anchorBlockHash: blockhash(anchorBlockId),
+                    anchorBlockIds: new uint64[](nBlocks), // to be initialised later
+                    anchorBlockHashes: new bytes32[](nBlocks), // to be initialised
+                        // later
                     baseFeeConfig: config.baseFeeConfig
                 });
 
-                require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
+                for (uint256 i; i < nBlocks; ++i) {
+                    uint64 anchorBlockId = params.blocks[i].anchorBlockId;
+                    if (anchorBlockId != 0) {
+                        if (lastAnchorBlockId == 0) {
+                            // This is the first non zero anchor block id in the batch.
+                            require(
+                                anchorBlockId + config.maxAnchorHeightOffset >= block.number,
+                                AnchorIdTooLarge()
+                            );
+
+                            require(
+                                anchorBlockId > lastBatch.anchorBlockId,
+                                AnchorIdSmallerOrEqualThanLastBatch()
+                            );
+                        } else {
+                            // anchor block id must be strictly increasing
+                            require(anchorBlockId > lastAnchorBlockId, AnchorIdSmallerThanParent());
+                        }
+                        lastAnchorBlockId = anchorBlockId;
+
+                        info_.anchorBlockIds[i] = lastAnchorBlockId;
+                        info_.anchorBlockHashes[i] = blockhash(anchorBlockId);
+                        require(info_.anchorBlockHashes[i] != 0, ZeroAnchorBlockHash());
+                    }
+                }
+
+                // Ensure that if msg.sender is not the inboxWrapper, at least one block must have a
+                // non-zero anchor block id. Otherwise, delegate this validation to the inboxWrapper
+                // contract.
+                require(
+                    msg.sender == inboxWrapper || lastAnchorBlockId != 0,
+                    NoAnchorBlockIdWithinThisBatch()
+                );
 
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
@@ -205,7 +240,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 });
 
                 _checkBatchInForkRange(config, meta_.firstBlockId, info_.lastBlockId);
-
                 if (params.proverAuth.length == 0) {
                     // proposer is the prover
                     _debitBond(meta_.prover, config.livenessBond);
@@ -262,8 +296,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                 // SSTORE #2 {{
                 batch.batchId = stats2.numBatches;
-                batch.lastBlockTimestamp = lastBlockTimestamp;
-                batch.anchorBlockId = anchorBlockId;
+                batch.lastBlockTimestamp = info_.lastBlockTimestamp;
+                batch.anchorBlockId = lastAnchorBlockId;
                 batch.nextTransitionId = 1;
                 batch.verifiedTransitionId = 0;
                 batch.reserved4 = 0;
@@ -379,19 +413,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             ts.stateRoot =
                 meta.batchId % config.stateRootSyncInternal == 0 ? tran.stateRoot : bytes32(0);
 
-            {
-                uint256 proposedAt = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
-                if (block.timestamp <= proposedAt + config.provingWindow) {
-                    ts.proofTiming = uint8(ProofTiming.InProvingWindow);
-                    ts.prover = meta.prover;
-                } else if (block.timestamp <= proposedAt + config.extendedProvingWindow) {
-                    ts.proofTiming = uint8(ProofTiming.InExtendedProvingWindow);
-                    ts.prover = msg.sender;
-                } else {
-                    ts.proofTiming = uint8(ProofTiming.OutOfExtendedProvingWindow);
-                    ts.prover = msg.sender;
-                }
-            }
+            (ts.proofTiming, ts.prover) = _determineProofTiming(
+                uint256(meta.proposedAt).max(stats2.lastUnpausedAt), config, meta.prover
+            );
 
             ts.createdAt = uint48(block.timestamp);
             ts.byAssignedProver = msg.sender == meta.prover;
@@ -402,7 +426,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // The prover for the first transition is responsible for placing the provability
                 // if the transition is within extended proving window.
                 if (
-                    ts.proofTiming != uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow)
+                    ts.proofTiming != ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow
                         && msg.sender != meta.proposer
                 ) {
                     // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
@@ -704,28 +728,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     )
         private
         view
-        returns (uint64 anchorBlockId_, uint64 lastBlockTimestamp_)
+        returns (uint64 lastBlockTimestamp_)
     {
         uint256 nBlocks = _params.blocks.length;
         require(nBlocks != 0, BlockNotFound());
         require(nBlocks <= _maxBlocksPerBatch, TooManyBlocks());
 
         unchecked {
-            if (_params.anchorBlockId == 0) {
-                anchorBlockId_ = uint64(block.number - 1);
-            } else {
-                require(
-                    _params.anchorBlockId + _maxAnchorHeightOffset >= block.number,
-                    AnchorBlockIdTooSmall()
-                );
-                require(_params.anchorBlockId < block.number, AnchorBlockIdTooLarge());
-                require(
-                    _params.anchorBlockId >= _lastBatch.anchorBlockId,
-                    AnchorBlockIdSmallerThanParent()
-                );
-                anchorBlockId_ = _params.anchorBlockId;
-            }
-
             lastBlockTimestamp_ = _params.lastBlockTimestamp == 0
                 ? uint64(block.timestamp)
                 : _params.lastBlockTimestamp;
@@ -768,6 +777,25 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 _params.parentMetaHash == 0 || _params.parentMetaHash == _lastBatch.metaHash,
                 ParentMetaHashMismatch()
             );
+        }
+    }
+
+    /// @dev Decides which time window we are in and who should be recorded as the prover.
+    function _determineProofTiming(
+        uint256 _proposedAt,
+        Config memory _config,
+        address _assignedProver
+    )
+        private
+        view
+        returns (ProofTiming timing_, address prover_)
+    {
+        if (block.timestamp <= _proposedAt + _config.provingWindow) {
+            return (ProofTiming.InProvingWindow, _assignedProver);
+        } else if (block.timestamp <= _proposedAt + _config.extendedProvingWindow) {
+            return (ProofTiming.InExtendedProvingWindow, msg.sender);
+        } else {
+            return (ProofTiming.OutOfExtendedProvingWindow, msg.sender);
         }
     }
 

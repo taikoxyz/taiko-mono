@@ -20,7 +20,9 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         // Define the txList in calldata
         bytes memory txList = abi.encodePacked("txList");
-        vm.prank(Alice);
+
+        vm.stopPrank();
+        vm.startPrank(Alice);
         uint64[] memory batchIds =
             _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1, txList: txList });
 
@@ -31,7 +33,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             assertEq(info.txsHash, keccak256(txList));
         }
 
-        vm.prank(Alice);
+        vm.startPrank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
@@ -64,6 +66,16 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.blobParams.numBlobs = 1;
 
+        ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
+
+        if (stats.numBatches > 0) {
+            ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
+            // We put the anchorBlockId to be in the first block of the batch
+            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            // vm.roll to have available blockhash()
+            vm.roll(lastBatch.anchorBlockId + 2);
+        }
+
         vm.prank(Alice);
 
         // With empty txList
@@ -93,20 +105,19 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         bytes32 expectedHash1 = keccak256(txList1);
         bytes32 expectedHash2 = keccak256(txList2);
 
-        vm.prank(Alice);
+        vm.stopPrank();
+        vm.startPrank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList1);
 
         (, ITaikoInbox.BatchInfo memory info) = _loadMetadataAndInfo(batchIds[0]);
 
         assertEq(info.txsHash, expectedHash1, "txsHash mismatch for block 1");
 
-        vm.prank(Alice);
         batchIds = _proposeBatchesWithDefaultParameters(1, txList2);
 
         (, info) = _loadMetadataAndInfo(batchIds[0]);
         assertEq(info.txsHash, expectedHash2, "txsHash mismatch for block 2");
 
-        vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
     }
 
@@ -118,7 +129,8 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        vm.prank(Alice);
+        vm.stopPrank();
+        vm.startPrank(Alice);
         bytes memory txList = abi.encodePacked("txList");
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1, txList);
 
@@ -133,7 +145,6 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             transitions[i].stateRoot = correctStateRoot(batchIds[i]);
         }
 
-        vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.MetaHashMismatch.selector);
         inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
     }
