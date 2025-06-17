@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -40,7 +41,7 @@ type Proposer struct {
 	proposingTimer *time.Timer
 
 	// Transaction builder
-	txBuilder builder.ProposeBatchTransactionBuilder
+	txBuilder builder.BatchProposalTransactionBuilder
 
 	// Protocol configurations
 	protocolConfigs config.ProtocolConfigs
@@ -113,8 +114,9 @@ func (p *Proposer) InitFromConfig(
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 	p.chainConfig = config.NewChainConfig(
 		p.rpc.L2.ChainID,
-		p.rpc.PacayaClients.ForkHeights.Ontake,
-		p.rpc.PacayaClients.ForkHeights.Pacaya,
+		p.rpc.ShastaClients.ForkHeights.Ontake,
+		p.rpc.ShastaClients.ForkHeights.Pacaya,
+		p.rpc.ShastaClients.ForkHeights.Shasta,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
@@ -176,26 +178,34 @@ func (p *Proposer) Close(_ context.Context) {
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
 func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transactions, error) {
 	var (
-		minTip  = p.MinTip
-		startAt = time.Now()
+		minTip           = p.MinTip
+		startAt          = time.Now()
+		blockMaxGasLimit = p.protocolConfigs.BlockMaxGasLimit()
+		baseFeeConfig    = p.protocolConfigs.BaseFeeConfig()
 	)
 	// If `--epoch.allowZeroTipInterval` flag is set, allow proposing zero tip transactions once when
 	// the total epochs number is divisible by the flag value.
 	if p.AllowZeroTipInterval > 0 && p.totalEpochs%p.AllowZeroTipInterval == 0 {
 		minTip = 0
 	}
+	if isShasta, err := p.isShasta(context.Background()); err != nil {
+		return nil, err
+	} else if !isShasta {
+		blockMaxGasLimit = p.protocolConfigs.PacayaConfig().BlockMaxGasLimit
+		baseFeeConfig = bindingTypes.NewBaseFeeConfigPacaya(&p.protocolConfigs.PacayaConfig().BaseFeeConfig)
+	}
 
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		p.protocolConfigs.BlockMaxGasLimit(),
+		blockMaxGasLimit,
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
 		minTip,
 		p.chainConfig,
-		p.protocolConfigs.BaseFeeConfig(),
+		baseFeeConfig,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
@@ -236,7 +246,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Check if the preconfirmation router is set, if so, skip proposing.
-	preconfRouter, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+	preconfRouter, err := p.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
 	}
@@ -261,7 +271,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
-	// Fetch the latest parent meta hash, which will be used
+	// Fetch the parent meta hash of current the L2 head, which will be used
 	// by revert protection.
 	parentMetaHash, err := p.GetParentMetaHash(ctx)
 	if err != nil {
@@ -283,28 +293,21 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	return p.ProposeTxLists(ctx, txLists, parentMetaHash)
 }
 
-// ProposeTxList proposes the given transactions lists to TaikoInbox smart contract.
+// ProposeTxLists proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
-	ctx context.Context,
-	txLists []types.Transactions,
-	parentMetaHash common.Hash,
-) error {
-	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
-		return err
-	}
-	p.lastProposedAt = time.Now()
-	return nil
-}
-
-// ProposeTxListPacaya proposes the given transactions lists to TaikoInbox smart contract.
-func (p *Proposer) ProposeTxListPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
 	parentMetaHash common.Hash,
 ) error {
 	var (
-		proposerAddress = p.proposerAddress
-		txs             uint64
+		proposerAddress      = p.proposerAddress
+		buildTxCandidateFunc func(
+			ctx context.Context,
+			txBatch []types.Transactions,
+			forcedInclusion bindingTypes.IForcedInclusionStoreForcedInclusion,
+			parentMetahash common.Hash,
+		) (*txmgr.TxCandidate, error)
+		txs uint64
 	)
 
 	// Make sure the tx list is not bigger than the maxBlocksPerBatch.
@@ -316,11 +319,10 @@ func (p *Proposer) ProposeTxListPacaya(
 		txs += uint64(len(txList))
 	}
 
-	// Check balance.
+	// Check bond balance.
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
 		proposerAddress = p.Config.ClientConfig.ProverSetAddress
 	}
-
 	ok, err := rpc.CheckProverBalance(
 		ctx,
 		p.rpc,
@@ -331,18 +333,19 @@ func (p *Proposer) ProposeTxListPacaya(
 			new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
 		),
 	)
-
 	if err != nil {
 		log.Warn("Failed to check prover balance", "proposer", proposerAddress, "error", err)
 		return err
 	}
-
 	if !ok {
 		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
-
+	isShasta, err := p.isShasta(ctx)
+	if err != nil {
+		return err
+	}
 	// Check forced inclusion.
-	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	forcedInclusion, err := p.rpc.GetForcedInclusion(ctx, isShasta)
 	if err != nil {
 		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
 	}
@@ -352,19 +355,24 @@ func (p *Proposer) ProposeTxListPacaya(
 		log.Info(
 			"Forced inclusion",
 			"proposer", proposerAddress.Hex(),
-			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"blobHash", common.Hash(forcedInclusion.BlobHash()).Hex(),
 			"feeInGwei", forcedInclusion.FeeInGwei,
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
 			"blobByteOffset", forcedInclusion.BlobByteOffset,
 			"blobByteSize", forcedInclusion.BlobByteSize,
-			"minTxsPerForcedInclusion", minTxsPerForcedInclusion,
 		)
 	}
 
 	// Build the transaction to propose batch.
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
+	if isShasta {
+		buildTxCandidateFunc = p.txBuilder.BuildShasta
+	} else {
+		buildTxCandidateFunc = p.txBuilder.BuildPacaya
+	}
+
+	txCandidate, err := buildTxCandidateFunc(ctx, txBatch, forcedInclusion, parentMetaHash)
 	if err != nil {
-		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
+		log.Warn("Failed to build batch proposal transaction", "error", encoding.TryParsingCustomError(err))
 		return err
 	}
 
@@ -404,7 +412,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoInbox.proposeBatch transaction by tx manager",
+			"Failed to send TaikoInbox.proposeBatch / TaikoInbox.v4ProposeBatch transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)
@@ -435,17 +443,31 @@ func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.Memor
 	)
 }
 
-// GetParentMetaHash returns the latest parent meta hash.
+// GetParentMetaHash returns the parent meta hash of the given L2 head.
 func (p *Proposer) GetParentMetaHash(ctx context.Context) (common.Hash, error) {
-	state, err := p.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch protocol state variables: %w", err)
 	}
 
-	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(state.Stats2.NumBatches-1))
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()-1))
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to fetch batch by ID: %w", err)
 	}
 
-	return batch.MetaHash, nil
+	return batch.MetaHash(), nil
+}
+
+// GetParentMetaHash returns whether the next block enters the shasta fork.
+func (p *Proposer) isShasta(ctx context.Context) (bool, error) {
+	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch protocol state variables: %w", err)
+	}
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()))
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch protocol batch info: %w", err)
+	}
+	isShasta := p.chainConfig.IsShasta(new(big.Int).SetUint64(batch.LastBlockID() + 1))
+	return isShasta, nil
 }

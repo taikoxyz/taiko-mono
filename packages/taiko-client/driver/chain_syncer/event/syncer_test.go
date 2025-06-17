@@ -226,7 +226,7 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 			s.Nil(err)
 
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
-			sharingPctg := uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
+			sharingPctg := uint64(pacayaCfg.BaseFeeConfig().SharingPctgs()[0])
 
 			feeCoinbase := new(big.Int).Div(
 				new(big.Int).Mul(fee, new(big.Int).SetUint64(sharingPctg)),

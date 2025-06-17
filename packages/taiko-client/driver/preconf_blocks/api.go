@@ -68,12 +68,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// make a new context, we dont want to cancel the request if the caller times out.
+	// make a new context, we don't want to cancel the request if the caller times out.
 	ctx := context.Background()
 
 	if s.rpc.PacayaClients.TaikoWrapper != nil {
 		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+		preconfRouter, err := s.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return s.returnError(c, http.StatusInternalServerError, err)
 		}
