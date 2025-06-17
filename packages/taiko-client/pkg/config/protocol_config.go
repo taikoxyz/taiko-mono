@@ -17,8 +17,6 @@ import (
 
 // Configs is an interface that provides Taiko protocol specific configurations.
 type ProtocolConfigs interface {
-	Pacaya() *PacayaProtocolConfigs
-	Shasta() *ShastaProtocolConfigs
 	BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig
 	BlockMaxGasLimit() uint32
 	ForkHeightsOntake() uint64
@@ -30,6 +28,7 @@ type ProtocolConfigs interface {
 	ProvingWindow() (time.Duration, error)
 	MaxBlocksPerBatch() int
 	MaxAnchorHeightOffset() uint64
+	PacayaConfig() *pacayaBindings.ITaikoInboxConfig
 }
 
 // ReportProtocolConfigs logs the protocol configurations.
@@ -141,16 +140,6 @@ func NewPacayaProtocolConfigs(configs *pacayaBindings.ITaikoInboxConfig) *Pacaya
 	return &PacayaProtocolConfigs{configs: configs}
 }
 
-// Pacaya implements the ProtocolConfigs interface.
-func (c *PacayaProtocolConfigs) Pacaya() *PacayaProtocolConfigs {
-	return c
-}
-
-// Shasta implements the ProtocolConfigs interface.
-func (c *PacayaProtocolConfigs) Shasta() *ShastaProtocolConfigs {
-	return nil
-}
-
 // BaseFeeConfig implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) BaseFeeConfig() bindingTypes.LibSharedDataBaseFeeConfig {
 	return bindingTypes.NewBaseFeeConfigPacaya(&c.configs.BaseFeeConfig)
@@ -206,26 +195,22 @@ func (c *PacayaProtocolConfigs) MaxAnchorHeightOffset() uint64 {
 	return c.configs.MaxAnchorHeightOffset
 }
 
+// PacayaConfig implements the ProtocolConfigs interface.
+func (c *PacayaProtocolConfigs) PacayaConfig() *pacayaBindings.ITaikoInboxConfig {
+	return c.configs
+}
+
 // ===============================================================
 
 // ShastaProtocolConfigs is the configuration for the Pacaya fork protocol.
 type ShastaProtocolConfigs struct {
-	configs *shastaBindings.ITaikoInboxConfig
+	configs      *shastaBindings.ITaikoInboxConfig
+	pacayaConfig *pacayaBindings.ITaikoInboxConfig
 }
 
 // NewShastaProtocolConfigs creates a new ShastaProtocolConfigs instance.
-func NewShastaProtocolConfigs(configs *shastaBindings.ITaikoInboxConfig) *ShastaProtocolConfigs {
-	return &ShastaProtocolConfigs{configs: configs}
-}
-
-// Pacaya implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) Pacaya() *PacayaProtocolConfigs {
-	return nil
-}
-
-// Shasta implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) Shasta() *ShastaProtocolConfigs {
-	return c
+func NewShastaProtocolConfigs(configs *shastaBindings.ITaikoInboxConfig, pacayaConfig *pacayaBindings.ITaikoInboxConfig) *ShastaProtocolConfigs {
+	return &ShastaProtocolConfigs{configs: configs, pacayaConfig: pacayaConfig}
 }
 
 // BaseFeeConfig implements the ProtocolConfigs interface.
@@ -281,4 +266,9 @@ func (c *ShastaProtocolConfigs) MaxBlocksPerBatch() int {
 // MaxAnchorHeightOffset implements the ProtocolConfigs interface.
 func (c *ShastaProtocolConfigs) MaxAnchorHeightOffset() uint64 {
 	return c.configs.MaxAnchorHeightOffset
+}
+
+// PacayaConfig implements the ProtocolConfigs interface.
+func (c *ShastaProtocolConfigs) PacayaConfig() *pacayaBindings.ITaikoInboxConfig {
+	return c.pacayaConfig
 }

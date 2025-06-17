@@ -178,26 +178,34 @@ func (p *Proposer) Close(_ context.Context) {
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
 func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transactions, error) {
 	var (
-		minTip  = p.MinTip
-		startAt = time.Now()
+		minTip           = p.MinTip
+		startAt          = time.Now()
+		blockMaxGasLimit = p.protocolConfigs.BlockMaxGasLimit()
+		baseFeeConfig    = p.protocolConfigs.BaseFeeConfig()
 	)
 	// If `--epoch.allowZeroTipInterval` flag is set, allow proposing zero tip transactions once when
 	// the total epochs number is divisible by the flag value.
 	if p.AllowZeroTipInterval > 0 && p.totalEpochs%p.AllowZeroTipInterval == 0 {
 		minTip = 0
 	}
+	if isShasta, err := p.isShasta(context.Background()); err != nil {
+		return nil, err
+	} else if !isShasta {
+		blockMaxGasLimit = p.protocolConfigs.PacayaConfig().BlockMaxGasLimit
+		baseFeeConfig = bindingTypes.NewBaseFeeConfigPacaya(&p.protocolConfigs.PacayaConfig().BaseFeeConfig)
+	}
 
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		p.protocolConfigs.BlockMaxGasLimit(),
+		blockMaxGasLimit,
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
 		minTip,
 		p.chainConfig,
-		p.protocolConfigs.BaseFeeConfig(),
+		baseFeeConfig,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
@@ -332,16 +340,10 @@ func (p *Proposer) ProposeTxLists(
 	if !ok {
 		return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
 	}
-
-	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
+	isShasta, err := p.isShasta(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch protocol state variables: %w", err)
+		return err
 	}
-	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()))
-	if err != nil {
-		return fmt.Errorf("failed to fetch protocol batch info: %w", err)
-	}
-	isShasta := p.chainConfig.IsShasta(new(big.Int).SetUint64(batch.LastBlockID() + 1))
 	// Check forced inclusion.
 	forcedInclusion, err := p.rpc.GetForcedInclusion(ctx, isShasta)
 	if err != nil {
@@ -454,4 +456,18 @@ func (p *Proposer) GetParentMetaHash(ctx context.Context) (common.Hash, error) {
 	}
 
 	return batch.MetaHash(), nil
+}
+
+// GetParentMetaHash returns whether the next block enters the shasta fork.
+func (p *Proposer) isShasta(ctx context.Context) (bool, error) {
+	stats, err := p.rpc.GetProtocolStats(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch protocol state variables: %w", err)
+	}
+	batch, err := p.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(stats.NumBatches()))
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch protocol batch info: %w", err)
+	}
+	isShasta := p.chainConfig.IsShasta(new(big.Int).SetUint64(batch.LastBlockID() + 1))
+	return isShasta, nil
 }

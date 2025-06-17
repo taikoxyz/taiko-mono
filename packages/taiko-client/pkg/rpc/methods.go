@@ -45,16 +45,18 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
+	pacayaConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	configs, err := c.ShastaClients.TaikoInbox.V4GetConfig(opts)
 	if err != nil {
-		pacayaConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
-		if err != nil {
-			return nil, err
-		}
+		log.Warn("failed to get config for Shasta fork", "err", err)
 		return config.NewPacayaProtocolConfigs(&pacayaConfigs), nil
 	}
 
-	return config.NewShastaProtocolConfigs(&configs), nil
+	return config.NewShastaProtocolConfigs(&configs, &pacayaConfigs), nil
 }
 
 // ensureGenesisMatched fetches the L2 genesis block from TaikoInbox contract,

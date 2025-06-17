@@ -54,19 +54,14 @@ func NewSyncer(
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
-
-	protocolConfigs, err := client.GetProtocolConfigs(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
+	
 	blobDataSource := rpc.NewBlobDataSource(
 		ctx,
 		client,
 		blobServerEndpoint,
 	)
 
-	txListDecompressor := txListDecompressor.NewTxListDecompressor(
-		uint64(protocolConfigs.BlockMaxGasLimit()),
+	decompressor := txListDecompressor.NewTxListDecompressor(
 		rpc.BlockMaxTxListBytes,
 	)
 
@@ -79,12 +74,12 @@ func NewSyncer(
 		rpc:                client,
 		state:              state,
 		progressTracker:    progressTracker,
-		txListDecompressor: txListDecompressor,
+		txListDecompressor: decompressor,
 		blocksInserterPacaya: blocksInserter.NewBlocksInserter(
 			client,
 			progressTracker,
 			blobDataSource,
-			txListDecompressor,
+			decompressor,
 			constructor,
 			txListFetcherCalldata,
 			txListFetcherBlob,

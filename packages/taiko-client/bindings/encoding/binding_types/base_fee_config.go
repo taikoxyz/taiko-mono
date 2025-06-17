@@ -5,7 +5,7 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
-// BaseFeeConfigPacayas represents a base fee config from TaikoInbox for the Pacaya fork.
+// BaseFeeConfigPacaya represents a base fee config from TaikoInbox for the Pacaya fork.
 type BaseFeeConfigPacaya struct {
 	*pacayaBindings.LibSharedDataBaseFeeConfig
 }
@@ -20,7 +20,7 @@ func (b *BaseFeeConfigPacaya) AdjustmentQuotient() uint8 {
 	return b.LibSharedDataBaseFeeConfig.AdjustmentQuotient
 }
 
-// SharingPctg returns the sharing percentage of the base fee config.
+// SharingPctgs returns the sharing percentage of the base fee config.
 func (b *BaseFeeConfigPacaya) SharingPctgs() uint8 {
 	return b.LibSharedDataBaseFeeConfig.SharingPctg
 }
@@ -59,7 +59,7 @@ func (b *BaseFeeConfigShasta) AdjustmentQuotient() uint8 {
 	return b.LibSharedDataBaseFeeConfig.AdjustmentQuotient
 }
 
-// SharingPctg returns the sharing percentage of the base fee config.
+// SharingPctgs returns the sharing percentage of the base fee config.
 func (b *BaseFeeConfigShasta) SharingPctgs() uint8 {
 	return b.baseFeeSharings
 }
