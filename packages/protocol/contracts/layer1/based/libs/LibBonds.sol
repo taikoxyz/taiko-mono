@@ -33,6 +33,27 @@ library LibBonds {
         }
     }
 
+    function depositBond(
+        address _bondToken,
+        address _user,
+        uint256 _amount
+    )
+        internal
+        returns (uint256 amountDeposited_)
+    {
+        if (_bondToken != address(0)) {
+            require(msg.value == 0, ITaikoInbox.MsgValueNotZero());
+
+            uint256 balance = IERC20(_bondToken).balanceOf(address(this));
+            IERC20(_bondToken).safeTransferFrom(_user, address(this), _amount);
+            amountDeposited_ = IERC20(_bondToken).balanceOf(address(this)) - balance;
+        } else {
+            require(msg.value == _amount, ITaikoInbox.EtherNotPaidAsBond());
+            amountDeposited_ = _amount;
+        }
+        emit IBondManager.BondDeposited(_user, amountDeposited_);
+    }
+
     function debitBond(
         ITaikoInbox.State storage $,
         address _bondToken,
@@ -58,24 +79,11 @@ library LibBonds {
         emit IBondManager.BondDebited(_user, _amount);
     }
 
-    function depositBond(
-        address _bondToken,
-        address _user,
-        uint256 _amount
-    )
-        internal
-        returns (uint256 amountDeposited_)
-    {
-        if (_bondToken != address(0)) {
-            require(msg.value == 0, ITaikoInbox.MsgValueNotZero());
-
-            uint256 balance = IERC20(_bondToken).balanceOf(address(this));
-            IERC20(_bondToken).safeTransferFrom(_user, address(this), _amount);
-            amountDeposited_ = IERC20(_bondToken).balanceOf(address(this)) - balance;
-        } else {
-            require(msg.value == _amount, ITaikoInbox.EtherNotPaidAsBond());
-            amountDeposited_ = _amount;
+    function creditBond(ITaikoInbox.State storage $, address _user, uint256 _amount) internal {
+        if (_amount == 0) return;
+        unchecked {
+            $.bondBalance[_user] += _amount;
         }
-        emit IBondManager.BondDeposited(_user, amountDeposited_);
+        emit IBondManager.BondCredited(_user, _amount);
     }
 }

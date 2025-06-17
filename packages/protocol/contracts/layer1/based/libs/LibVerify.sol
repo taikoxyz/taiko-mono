@@ -5,6 +5,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/shared/libs/LibMath.sol";
 import "../ITaikoInbox.sol";
+import "./LibBonds.sol";
 
 /// @title LibVerify
 /// @custom:security-contact security@taiko.xyz
@@ -100,7 +101,7 @@ library LibVerify {
                             bondToReturn = batch.provabilityBond * _config.bondRewardPtcg / 100;
                         }
 
-                        creditBond(_state, ts.prover, bondToReturn);
+                        LibBonds.creditBond(_state, ts.prover, bondToReturn);
                     }
 
                     if (batchId % _config.stateRootSyncInternal == 0) {
@@ -146,50 +147,5 @@ library LibVerify {
             _state.stats2 = _stats2;
             emit ITaikoInbox.Stats2Updated(_stats2);
         }
-    }
-
-    function getBatchVerifyingTransition(
-        ITaikoInbox.State storage _state,
-        ITaikoInbox.Config memory _config,
-        uint64 _batchId
-    )
-        public
-        view
-        returns (ITaikoInbox.TransitionState memory ts_)
-    {
-        uint64 slot = _batchId % _config.batchRingBufferSize;
-        ITaikoInbox.Batch storage batch = _state.batches[slot];
-        require(batch.batchId == _batchId, ITaikoInbox.BatchNotFound());
-
-        if (batch.verifiedTransitionId != 0) {
-            ts_ = _state.transitions[slot][batch.verifiedTransitionId];
-        }
-    }
-
-    function creditBond(
-        ITaikoInbox.State storage _state,
-        address _user,
-        uint256 _amount
-    )
-        internal
-    {
-        if (_amount == 0) return;
-        unchecked {
-            _state.bondBalance[_user] += _amount;
-        }
-        emit IBondManager.BondCredited(_user, _amount);
-    }
-
-    function getBatch(
-        ITaikoInbox.State storage _state,
-        ITaikoInbox.Config memory _config,
-        uint64 _batchId
-    )
-        internal
-        view
-        returns (ITaikoInbox.Batch storage batch_)
-    {
-        batch_ = _state.batches[_batchId % _config.batchRingBufferSize];
-        require(batch_.batchId == _batchId, ITaikoInbox.BatchNotFound());
     }
 }
