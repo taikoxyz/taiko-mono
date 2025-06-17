@@ -25,7 +25,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     uint8 public operatorChangeDelay; // epochs to delay for operator changes
     uint8 public randomnessDelay; // epochs to delay for randomness seed source
 
-    // all operators in operatorMapping are active and none of them is to be deactivated.
+    // all operators in operatorMapping are active and none of them are to be deactivated.
     bool public havingPerfectOperators;
 
     uint256[46] private __gap;
