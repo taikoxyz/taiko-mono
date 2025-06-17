@@ -244,7 +244,7 @@ contract TestPreconfWhitelist is Layer1Test {
         // Alice was a duplicate before the fix
         //assertEq(whitelistNoDelay.operatorMapping(2), Alice);
 
-        // show BEFORE consolidate -> now, with fixed verison it is removed because we reusing the
+        // show BEFORE consolidate -> now, with fixed version it is removed because we reusing the
         // index
         address[] memory candidatesBefore = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
         console.log("=== BEFORE CONSOLIDATE ===");
