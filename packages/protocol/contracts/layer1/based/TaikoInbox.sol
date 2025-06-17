@@ -11,6 +11,7 @@ import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibProverAuth.sol";
+import "./libs/LibInit.sol";
 import "./libs/LibRead.sol";
 import "./libs/LibBonds.sol";
 import "./libs/LibPropose.sol";
@@ -36,6 +37,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     using LibMath for uint256;
     using LibVerify for ITaikoInbox.State;
     using LibBonds for ITaikoInbox.State;
+    using LibInit for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
     address public immutable inboxWrapper;
@@ -615,23 +617,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
         __Essential_init(_owner);
-
-        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
-        state.transitions[0][1].blockHash = _genesisBlockHash;
-
-        Batch storage batch = state.batches[0];
-        batch.metaHash = bytes32(uint256(1));
-        batch.lastBlockTimestamp = uint64(block.timestamp);
-        batch.anchorBlockId = uint64(block.number);
-        batch.nextTransitionId = 2;
-        batch.verifiedTransitionId = 1;
-
-        state.stats1.genesisHeight = uint64(block.number);
-
-        state.stats2.lastProposedIn = uint56(block.number);
-        state.stats2.numBatches = 1;
-
-        emit BatchesVerified(0, _genesisBlockHash);
+        state.init(_genesisBlockHash);
     }
 
     function _unpause() internal override {
