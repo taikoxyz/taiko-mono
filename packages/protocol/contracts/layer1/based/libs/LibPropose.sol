@@ -6,7 +6,7 @@ import { ITaikoInbox as I } from "../ITaikoInbox.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibProve.sol";
-import "./LibProverAuth.sol";
+import "./LibAuth.sol";
 
 /// @title LibPropose
 /// @custom:security-contact security@taiko.xyz
@@ -22,7 +22,7 @@ library LibPropose {
 
     struct Output {
         uint64 lastAnchorBlockId;
-        LibProverAuth.ProverAuth auth;
+        LibAuth.ProverAuth auth;
         I.BatchParams params;
         I.Batch lastBatch;
         I.Stats2 stats2;
@@ -212,10 +212,10 @@ library LibPropose {
                         // proverAuth has also batchParamsHash)
                         output_.params.proverAuth = "";
 
-                        // Outsource the prover authentication to the LibProverAuth library to
+                        // Outsource the prover authentication to the LibAuth library to
                         // reduce
                         // this contract's code size.
-                        output_.auth = LibProverAuth.validateProverAuth(
+                        output_.auth = LibAuth.validateProverAuth(
                             _input.config.chainId,
                             output_.stats2.numBatches,
                             keccak256(abi.encode(output_.params)),

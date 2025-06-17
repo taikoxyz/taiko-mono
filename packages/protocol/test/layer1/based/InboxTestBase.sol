@@ -239,7 +239,7 @@ abstract contract InboxTestBase is Layer1Test {
             batchParams.proposer = proposer;
 
             // Create ProverAuth struct
-            LibProverAuth.ProverAuth memory auth;
+            LibAuth.ProverAuth memory auth;
             auth.prover = prover;
             auth.feeToken = address(bondToken);
             auth.fee = 5 ether;
@@ -299,12 +299,12 @@ abstract contract InboxTestBase is Layer1Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _getAuthWithoutSignature(LibProverAuth.ProverAuth memory _auth)
+    function _getAuthWithoutSignature(LibAuth.ProverAuth memory _auth)
         internal
         pure
-        returns (LibProverAuth.ProverAuth memory)
+        returns (LibAuth.ProverAuth memory)
     {
-        LibProverAuth.ProverAuth memory authCopy = _auth;
+        LibAuth.ProverAuth memory authCopy = _auth;
         authCopy.signature = "";
         return authCopy;
     }
