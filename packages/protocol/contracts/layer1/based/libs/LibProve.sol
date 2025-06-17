@@ -193,7 +193,7 @@ library LibProve {
         uint64 _firstBlockId,
         uint64 _lastBlockId
     )
-        private
+        internal
         pure
     {
         require(_firstBlockId >= _config.forkHeights.shasta, I.ForkNotActivated());

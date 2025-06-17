@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/shared/libs/LibMath.sol";
-import "../ITaikoInbox.sol";
+import { ITaikoInbox as I } from "../ITaikoInbox.sol";
 import "./LibBonds.sol";
 
 /// @title LibVerify
@@ -20,9 +20,9 @@ library LibVerify {
     }
 
     function verifyBatches(
-        ITaikoInbox.State storage $,
-        ITaikoInbox.Config memory _config,
-        ITaikoInbox.Stats2 memory _stats2,
+        I.State storage $,
+        I.Config memory _config,
+        I.Stats2 memory _stats2,
         ISignalService _signalService,
         uint8 _count
     )
@@ -33,7 +33,7 @@ library LibVerify {
 
             if (_config.forkHeights.shasta == 0 || batchId >= _config.forkHeights.shasta - 1) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
-                ITaikoInbox.Batch storage batch = $.batches[slot];
+                I.Batch storage batch = $.batches[slot];
                 uint24 tid = batch.verifiedTransitionId;
                 bytes32 blockHash = $.transitions[slot][tid].blockHash;
 
@@ -56,7 +56,7 @@ library LibVerify {
                             && batch.lastBlockId >= _config.forkHeights.unzen
                     ) break;
 
-                    ITaikoInbox.TransitionState storage ts = $.transitions[slot][1];
+                    I.TransitionState storage ts = $.transitions[slot][1];
                     if (ts.parentHash == blockHash) {
                         tid = 1;
                     } else if (nextTransitionId > 2) {
@@ -81,12 +81,12 @@ library LibVerify {
 
                     {
                         uint96 bondToReturn;
-                        if (ts.proofTiming == ITaikoInbox.ProofTiming.InProvingWindow) {
+                        if (ts.proofTiming == I.ProofTiming.InProvingWindow) {
                             // all liveness bond is returned to the prover, this is not a reward.
                             bondToReturn = batch.livenessBond;
                             if (tid == 1) bondToReturn += batch.provabilityBond;
                         } else if (
-                            ts.proofTiming == ITaikoInbox.ProofTiming.InExtendedProvingWindow
+                            ts.proofTiming == I.ProofTiming.InExtendedProvingWindow
                         ) {
                             // prover is rewarded with bondRewardPtcg% of the liveness bond.
                             bondToReturn = batch.livenessBond * _config.bondRewardPtcg / 100;
@@ -119,7 +119,7 @@ library LibVerify {
 
                     batch = $.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
                     batch.verifiedTransitionId = tid;
-                    emit ITaikoInbox.BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
+                    emit I.BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
                     if (synced.batchId != 0) {
                         if (synced.batchId != _stats2.lastVerifiedBatchId) {
@@ -128,12 +128,12 @@ library LibVerify {
                             batch.verifiedTransitionId = synced.tid;
                         }
 
-                        ITaikoInbox.Stats1 memory stats1 = $.stats1;
+                        I.Stats1 memory stats1 = $.stats1;
                         stats1.lastSyncedBatchId = batch.batchId;
                         stats1.lastSyncedAt = uint64(block.timestamp);
                         $.stats1 = stats1;
 
-                        emit ITaikoInbox.Stats1Updated(stats1);
+                        emit I.Stats1Updated(stats1);
 
                         // Ask signal service to write cross chain signal
                         _signalService.syncChainData(
@@ -144,7 +144,7 @@ library LibVerify {
             }
 
             $.stats2 = _stats2;
-            emit ITaikoInbox.Stats2Updated(_stats2);
+            emit I.Stats2Updated(_stats2);
         }
     }
 }

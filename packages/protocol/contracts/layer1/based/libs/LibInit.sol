@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../ITaikoInbox.sol";
+import { ITaikoInbox as I } from "../ITaikoInbox.sol";
 
 /// @title LibInit
 /// @custom:security-contact security@taiko.xyz
 library LibInit {
-    function init(ITaikoInbox.State storage $, bytes32 _genesisBlockHash) public {
-        require(_genesisBlockHash != 0, ITaikoInbox.InvalidGenesisBlockHash());
+    function init(I.State storage $, bytes32 _genesisBlockHash) public {
+        require(_genesisBlockHash != 0, I.InvalidGenesisBlockHash());
         $.transitions[0][1].blockHash = _genesisBlockHash;
 
-        ITaikoInbox.Batch storage batch = $.batches[0];
+        I.Batch storage batch = $.batches[0];
         batch.metaHash = bytes32(uint256(1));
         batch.lastBlockTimestamp = uint64(block.timestamp);
         batch.anchorBlockId = uint64(block.number);
@@ -22,6 +22,6 @@ library LibInit {
         $.stats2.lastProposedIn = uint56(block.number);
         $.stats2.numBatches = 1;
 
-        emit ITaikoInbox.BatchesVerified(0, _genesisBlockHash);
+        emit I.BatchesVerified(0, _genesisBlockHash);
     }
 }

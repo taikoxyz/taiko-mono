@@ -248,7 +248,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     firstBlockId: lastBatch.lastBlockId + 1
                 });
 
-                _checkBatchInForkRange(config, meta_.firstBlockId, info_.lastBlockId);
+                LibProve._checkBatchInForkRange( config, meta_.firstBlockId, info_.lastBlockId);
                 if (params.proverAuth.length == 0) {
                     // proposer is the prover
                     state.debitBond(bondToken, meta_.prover, config.livenessBond);
