@@ -20,7 +20,7 @@ library LibVerify {
     }
 
     function verifyBatches(
-        ITaikoInbox.State storage _state,
+        ITaikoInbox.State storage $,
         ITaikoInbox.Config memory _config,
         ITaikoInbox.Stats2 memory _stats2,
         ISignalService _signalService,
@@ -33,9 +33,9 @@ library LibVerify {
 
             if (_config.forkHeights.shasta == 0 || batchId >= _config.forkHeights.shasta - 1) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
-                ITaikoInbox.Batch storage batch = _state.batches[slot];
+                ITaikoInbox.Batch storage batch = $.batches[slot];
                 uint24 tid = batch.verifiedTransitionId;
-                bytes32 blockHash = _state.transitions[slot][tid].blockHash;
+                bytes32 blockHash = $.transitions[slot][tid].blockHash;
 
                 SyncBlock memory synced;
 
@@ -45,7 +45,7 @@ library LibVerify {
 
                 for (++batchId; batchId < stopBatchId; ++batchId) {
                     slot = batchId % _config.batchRingBufferSize;
-                    batch = _state.batches[slot];
+                    batch = $.batches[slot];
                     uint24 nextTransitionId = batch.nextTransitionId;
 
                     if (_stats2.paused) break;
@@ -56,14 +56,14 @@ library LibVerify {
                             && batch.lastBlockId >= _config.forkHeights.unzen
                     ) break;
 
-                    ITaikoInbox.TransitionState storage ts = _state.transitions[slot][1];
+                    ITaikoInbox.TransitionState storage ts = $.transitions[slot][1];
                     if (ts.parentHash == blockHash) {
                         tid = 1;
                     } else if (nextTransitionId > 2) {
-                        uint24 _tid = _state.transitionIds[batchId][blockHash];
+                        uint24 _tid = $.transitionIds[batchId][blockHash];
                         if (_tid == 0) break;
                         tid = _tid;
-                        ts = _state.transitions[slot][tid];
+                        ts = $.transitions[slot][tid];
                     } else {
                         break;
                     }
@@ -101,7 +101,7 @@ library LibVerify {
                             bondToReturn = batch.provabilityBond * _config.bondRewardPtcg / 100;
                         }
 
-                        LibBonds.creditBond(_state, ts.prover, bondToReturn);
+                        LibBonds.creditBond($, ts.prover, bondToReturn);
                     }
 
                     if (batchId % _config.stateRootSyncInternal == 0) {
@@ -117,22 +117,21 @@ library LibVerify {
                 if (_stats2.lastVerifiedBatchId != batchId) {
                     _stats2.lastVerifiedBatchId = batchId;
 
-                    batch =
-                        _state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
+                    batch = $.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
                     batch.verifiedTransitionId = tid;
                     emit ITaikoInbox.BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
                     if (synced.batchId != 0) {
                         if (synced.batchId != _stats2.lastVerifiedBatchId) {
                             // We write the synced batch's verifiedTransitionId to storage
-                            batch = _state.batches[synced.batchId % _config.batchRingBufferSize];
+                            batch = $.batches[synced.batchId % _config.batchRingBufferSize];
                             batch.verifiedTransitionId = synced.tid;
                         }
 
-                        ITaikoInbox.Stats1 memory stats1 = _state.stats1;
+                        ITaikoInbox.Stats1 memory stats1 = $.stats1;
                         stats1.lastSyncedBatchId = batch.batchId;
                         stats1.lastSyncedAt = uint64(block.timestamp);
-                        _state.stats1 = stats1;
+                        $.stats1 = stats1;
 
                         emit ITaikoInbox.Stats1Updated(stats1);
 
@@ -144,7 +143,7 @@ library LibVerify {
                 }
             }
 
-            _state.stats2 = _stats2;
+            $.stats2 = _stats2;
             emit ITaikoInbox.Stats2Updated(_stats2);
         }
     }
