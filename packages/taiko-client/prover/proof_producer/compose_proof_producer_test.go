@@ -16,7 +16,6 @@ func TestComposeProducerRequestProof(t *testing.T) {
 		producer = &ComposeProofProducer{
 			Dummy:              true,
 			DummyProofProducer: DummyProofProducer{},
-			SgxGethProducer:    &SgxGethProofProducer{Dummy: true},
 		}
 		blockID = common.Big32
 	)

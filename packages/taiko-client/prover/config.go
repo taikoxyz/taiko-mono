@@ -35,7 +35,7 @@ type Config struct {
 	RPCTimeout                time.Duration
 	ProveBatchesGasLimit      uint64
 	Allowance                 *big.Int
-	RaikoHostEndpoint         string
+	RaikoSGXHostEndpoint      string
 	RaikoZKVMHostEndpoint     string
 	RaikoJWT                  string
 	RaikoRequestTimeout       time.Duration
@@ -103,7 +103,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		L1ProverPrivKey:        l1ProverPrivKey,
-		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
+		RaikoSGXHostEndpoint:   c.String(flags.RaikoSGXHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
 		RaikoJWT:               common.Bytes2Hex(jwtSecret),
 		RaikoRequestTimeout:    c.Duration(flags.RaikoRequestTimeout.Name),

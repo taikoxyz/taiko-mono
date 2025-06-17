@@ -29,7 +29,7 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.BoolFlag{Name: flags.ProveUnassignedBlocks.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.Allowance.Name},
-		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
+		&cli.StringFlag{Name: flags.RaikoSGXHostEndpoint.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)
 	app.Action = func(ctx *cli.Context) error {

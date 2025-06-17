@@ -71,11 +71,11 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 				"verifier", batchProof.Verifier,
 			)
 		}
-		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.SgxGethProofVerifier.Bytes()) < 0 {
+		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.SgxProofVerifier.Bytes()) < 0 {
 			subProofs[0] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
-			subProofs[1] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
+			subProofs[1] = encoding.SubProof{Verifier: batchProof.SgxProofVerifier, Proof: batchProof.SgxBatchProof}
 		} else {
-			subProofs[0] = encoding.SubProof{Verifier: batchProof.SgxGethProofVerifier, Proof: batchProof.SgxGethBatchProof}
+			subProofs[0] = encoding.SubProof{Verifier: batchProof.SgxProofVerifier, Proof: batchProof.SgxBatchProof}
 			subProofs[1] = encoding.SubProof{Verifier: batchProof.Verifier, Proof: batchProof.BatchProof}
 		}
 

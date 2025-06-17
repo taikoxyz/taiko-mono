@@ -32,14 +32,19 @@ type ProofRequestOptions interface {
 
 // ProofRequestOptionsPacaya contains all options that need to be passed to a backend proof producer service.
 type ProofRequestOptionsPacaya struct {
-	BatchID                         *big.Int
-	Headers                         []*types.Header
-	ProverAddress                   common.Address
-	EventL1Hash                     common.Hash
+	BatchID       *big.Int
+	Headers       []*types.Header
+	ProverAddress common.Address
+	EventL1Hash   common.Hash
+
 	IsGethProofGenerated            bool
 	IsGethProofAggregationGenerated bool
-	IsRethProofGenerated            bool
-	IsRethProofAggregationGenerated bool
+
+	IsRethSGXProofGenerated            bool
+	IsRethSGXProofAggregationGenerated bool
+
+	IsRethZKProofGenerated            bool
+	IsRethZKProofAggregationGenerated bool
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.

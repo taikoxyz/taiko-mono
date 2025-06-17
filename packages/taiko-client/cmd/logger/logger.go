@@ -24,4 +24,6 @@ func InitLogger(c *cli.Context) {
 		glogger.Verbosity(slogVerbosity)
 		log.SetDefault(log.NewLogger(glogger))
 	}
+
+	log.Info("Log verbosity level", "level", c.Int(flags.Verbosity.Name))
 }

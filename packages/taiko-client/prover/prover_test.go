@@ -177,10 +177,10 @@ func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
 						Opts:    &proofProducer.ProofRequestOptionsPacaya{},
 					},
 				},
-				BatchProof:        []byte{},
-				BatchIDs:          []*big.Int{common.Big1},
-				ProofType:         proofProducer.ProofTypeOp,
-				SgxGethBatchProof: []byte{},
+				BatchProof:    []byte{},
+				BatchIDs:      []*big.Int{common.Big1},
+				ProofType:     proofProducer.ProofTypeOp,
+				SgxBatchProof: []byte{},
 			})
 		})
 	})
