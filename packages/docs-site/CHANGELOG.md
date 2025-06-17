@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.29.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.3...docs-site-v1.29.0) (2025-06-16)
+
+
+### Features
+
+* **docs-site:** general docs update ([#19624](https://github.com/taikoxyz/taiko-mono/issues/19624)) ([8910049](https://github.com/taikoxyz/taiko-mono/commit/89100490677de42d214ca6f27c89b160ec86b5f7))
+
+
+### Bug Fixes
+
+* **docs-site:** use "preconfer" to replace "preconfirmer" ([#19616](https://github.com/taikoxyz/taiko-mono/issues/19616)) ([288f61e](https://github.com/taikoxyz/taiko-mono/commit/288f61ed266521614e207923aaacc4c7da0cbb85))
+
+
+### Chores
+
+* **docs-site:** record alethia addresses in contract-addresses page ([#19622](https://github.com/taikoxyz/taiko-mono/issues/19622)) ([95c7f38](https://github.com/taikoxyz/taiko-mono/commit/95c7f384c45f9a0b72d148559f9cc126c7d420c4))
+
 ## [1.28.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.2...docs-site-v1.28.3) (2025-06-10)
 
 

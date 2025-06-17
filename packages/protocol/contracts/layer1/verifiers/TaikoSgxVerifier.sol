@@ -168,8 +168,9 @@ contract TaikoSgxVerifier is EssentialContract, IVerifier {
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < size; ++i) {
             // TODO(Yue): For now this assumes the new instance public key to remain the same
+            Context memory ctx = _ctxs[i];
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
+                ctx.transition, address(this), newInstance, ctx.metaHash, taikoChainId, ctx.prover
             );
         }
 
