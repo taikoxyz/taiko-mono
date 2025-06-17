@@ -85,9 +85,7 @@ library LibVerify {
                             // all liveness bond is returned to the prover, this is not a reward.
                             bondToReturn = batch.livenessBond;
                             if (tid == 1) bondToReturn += batch.provabilityBond;
-                        } else if (
-                            ts.proofTiming == I.ProofTiming.InExtendedProvingWindow
-                        ) {
+                        } else if (ts.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                             // prover is rewarded with bondRewardPtcg% of the liveness bond.
                             bondToReturn = batch.livenessBond * _config.bondRewardPtcg / 100;
                             if (tid == 1) bondToReturn += batch.provabilityBond;

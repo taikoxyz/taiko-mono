@@ -39,6 +39,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     using LibBonds for ITaikoInbox.State;
     using LibRead for ITaikoInbox.State;
     using LibInit for ITaikoInbox.State;
+    using LibPropose for ITaikoInbox.State;
     using LibProve for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
@@ -82,249 +83,22 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     function v4ProposeBatch(
         bytes calldata _params,
         bytes calldata _txList,
-        bytes calldata /*_additionalData*/
+        bytes calldata _additionalData
     )
         public
         override(ITaikoInbox, IProposeBatch)
         nonReentrant
-        returns (BatchInfo memory info_, BatchMetadata memory meta_)
+        returns (BatchInfo memory, BatchMetadata memory)
     {
-        Stats2 memory stats2 = state.stats2;
-        Config memory config = _getConfig();
+        LibPropose.Input memory input =
+            LibPropose.Input(_getConfig(), bondToken, inboxWrapper, signalService);
 
-        unchecked {
-            require(
-                stats2.numBatches <= stats2.lastVerifiedBatchId + config.maxUnverifiedBatches,
-                TooManyBatches()
-            );
+        LibPropose.Output memory output =
+            state.proposeBatch(input, _params, _txList, _additionalData);
 
-            BatchParams memory params = abi.decode(_params, (BatchParams));
+        state.verifyBatches(input.config, output.stats2, signalService, 1);
 
-            {
-                if (inboxWrapper == address(0)) {
-                    if (params.proposer == address(0)) {
-                        params.proposer = msg.sender;
-                    } else {
-                        require(params.proposer == msg.sender, CustomProposerNotAllowed());
-                    }
-
-                    // blob hashes are only accepted if the caller is trusted.
-                    require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-                    require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                    require(params.isForcedInclusion == false, InvalidForcedInclusion());
-                } else {
-                    require(params.proposer != address(0), CustomProposerMissing());
-                    require(msg.sender == inboxWrapper, NotInboxWrapper());
-                }
-
-                // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
-                // preconfer address. This will allow us to implement preconfirmation features in L2
-                // anchor transactions.
-                if (params.coinbase == address(0)) {
-                    params.coinbase = params.proposer;
-                }
-
-                if (params.revertIfNotFirstProposal) {
-                    require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
-                }
-            }
-
-            bool calldataUsed = _txList.length != 0;
-
-            if (calldataUsed) {
-                // calldata is used for data availability
-                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            } else if (params.blobParams.blobHashes.length == 0) {
-                // this is a normal batch, blobs are created and used in the current batches.
-                // firstBlobIndex can be non-zero.
-                require(params.blobParams.numBlobs != 0, BlobNotSpecified());
-                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                params.blobParams.createdIn = uint64(block.number);
-            } else {
-                // this is a forced-inclusion batch, blobs were created in early blocks and are used
-                // in the current batches
-                require(params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-            }
-
-            // Keep track of last batch's information.
-            Batch memory lastBatch =
-                state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
-
-            uint64 lastAnchorBlockId;
-
-            // This section constructs the metadata for the proposed batch, which is crucial for
-            // nodes/clients to process the batch. The metadata itself is not stored on-chain;
-            // instead, only its hash is kept.
-            // The metadata must be supplied as calldata prior to proving the batch, enabling the
-            // computation and verification of its integrity through the comparison of the metahash.
-            //
-            // Note that `difficulty` has been removed from the metadata. The client and prover must
-            // use
-            // the following approach to calculate a block's difficulty:
-            //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
-            {
-                uint256 nBlocks = params.blocks.length;
-
-                info_ = BatchInfo({
-                    txsHash: bytes32(0), // to be initialised later
-                    //
-                    // Data to build L2 blocks
-                    blocks: params.blocks,
-                    blobHashes: new bytes32[](0), // to be initialised later
-                    // The client must ensure that the lower 128 bits of the extraData field in the
-                    // header of each block in this batch match the specified value.
-                    // The upper 128 bits of the extraData field are validated using off-chain
-                    // protocol logic.
-                    extraData: bytes32(uint256(_encodeExtraDataLower128Bits(config, params))),
-                    coinbase: params.coinbase,
-                    proposedIn: uint64(block.number),
-                    blobCreatedIn: params.blobParams.createdIn,
-                    blobByteOffset: params.blobParams.byteOffset,
-                    blobByteSize: params.blobParams.byteSize,
-                    gasLimit: config.blockMaxGasLimit,
-                    lastBlockId: lastBatch.lastBlockId + uint64(nBlocks),
-                    lastBlockTimestamp: _validateBatchParams(
-                        params,
-                        config.maxAnchorHeightOffset,
-                        config.maxSignalsToReceive,
-                        config.maxBlocksPerBatch,
-                        lastBatch
-                    ),
-                    // Data for the L2 anchor transaction, shared by all blocks in the batch
-                    anchorBlockIds: new uint64[](nBlocks), // to be initialised later
-                    anchorBlockHashes: new bytes32[](nBlocks), // to be initialised
-                        // later
-                    baseFeeConfig: config.baseFeeConfig
-                });
-
-                for (uint256 i; i < nBlocks; ++i) {
-                    uint64 anchorBlockId = params.blocks[i].anchorBlockId;
-                    if (anchorBlockId != 0) {
-                        if (lastAnchorBlockId == 0) {
-                            // This is the first non zero anchor block id in the batch.
-                            require(
-                                anchorBlockId + config.maxAnchorHeightOffset >= block.number,
-                                AnchorIdTooLarge()
-                            );
-
-                            require(
-                                anchorBlockId > lastBatch.anchorBlockId,
-                                AnchorIdSmallerOrEqualThanLastBatch()
-                            );
-                        } else {
-                            // anchor block id must be strictly increasing
-                            require(anchorBlockId > lastAnchorBlockId, AnchorIdSmallerThanParent());
-                        }
-                        lastAnchorBlockId = anchorBlockId;
-
-                        info_.anchorBlockIds[i] = lastAnchorBlockId;
-                        info_.anchorBlockHashes[i] = blockhash(anchorBlockId);
-                        require(info_.anchorBlockHashes[i] != 0, ZeroAnchorBlockHash());
-                    }
-                }
-
-                // Ensure that if msg.sender is not the inboxWrapper, at least one block must have a
-                // non-zero anchor block id. Otherwise, delegate this validation to the inboxWrapper
-                // contract.
-                require(
-                    msg.sender == inboxWrapper || lastAnchorBlockId != 0,
-                    NoAnchorBlockIdWithinThisBatch()
-                );
-
-                bytes32 txListHash = keccak256(_txList);
-                (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
-
-                meta_ = BatchMetadata({
-                    infoHash: keccak256(abi.encode(info_)),
-                    proposer: params.proposer,
-                    prover: params.proposer,
-                    batchId: stats2.numBatches,
-                    proposedAt: uint64(block.timestamp),
-                    firstBlockId: lastBatch.lastBlockId + 1
-                });
-
-                LibProve._checkBatchInForkRange( config, meta_.firstBlockId, info_.lastBlockId);
-                if (params.proverAuth.length == 0) {
-                    // proposer is the prover
-                    state.debitBond(bondToken, meta_.prover, config.livenessBond);
-                } else {
-                    bytes memory proverAuth = params.proverAuth;
-                    // Circular dependency so zero it out. (BatchParams has proverAuth but
-                    // proverAuth has also batchParamsHash)
-                    params.proverAuth = "";
-
-                    // Outsource the prover authentication to the LibProverAuth library to reduce
-                    // this contract's code size.
-                    LibProverAuth.ProverAuth memory auth = LibProverAuth.validateProverAuth(
-                        config.chainId,
-                        stats2.numBatches,
-                        keccak256(abi.encode(params)),
-                        txListHash,
-                        proverAuth
-                    );
-
-                    meta_.prover = auth.prover;
-
-                    if (auth.feeToken == bondToken) {
-                        // proposer pay the prover fee with bond tokens
-                        state.debitBond(bondToken, meta_.proposer, auth.fee);
-
-                        // if bondDelta is negative (proverFee < livenessBond), deduct the diff
-                        // if not then add the diff to the bond balance
-                        int256 bondDelta = int96(auth.fee) - int96(config.livenessBond);
-
-                        if (bondDelta < 0) {
-                            state.debitBond(bondToken, meta_.prover, uint256(-bondDelta));
-                        } else {
-                            state.creditBond(meta_.prover, uint256(bondDelta));
-                        }
-                    } else {
-                        state.debitBond(bondToken, meta_.prover, config.livenessBond);
-
-                        if (meta_.proposer != meta_.prover) {
-                            IERC20(auth.feeToken).safeTransferFrom(
-                                meta_.proposer, meta_.prover, auth.fee
-                            );
-                        }
-                    }
-                }
-            }
-
-            state.debitBond(bondToken, meta_.proposer, config.provabilityBond);
-
-            {
-                Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
-
-                // SSTORE #1
-                batch.metaHash = keccak256(abi.encode(meta_));
-
-                // SSTORE #2 {{
-                batch.batchId = stats2.numBatches;
-                batch.lastBlockTimestamp = info_.lastBlockTimestamp;
-                batch.anchorBlockId = lastAnchorBlockId;
-                batch.nextTransitionId = 1;
-                batch.verifiedTransitionId = 0;
-                batch.reserved4 = 0;
-                // SSTORE }}
-
-                // SSTORE #3 {{
-                batch.lastBlockId = info_.lastBlockId;
-                batch.provabilityBond = config.provabilityBond;
-                batch.livenessBond = config.livenessBond;
-                // SSTORE }}
-            }
-            stats2.numBatches += 1;
-            stats2.lastProposedIn = uint56(block.number);
-
-            emit BatchProposed(info_, meta_, _txList);
-        } // end-of-unchecked
-
-        state.verifyBatches(config, stats2, signalService, 1);
+        return (output.info, output.meta);
     }
 
     /// @inheritdoc IProveBatches
@@ -501,81 +275,4 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     function _getConfig() internal view virtual returns (Config memory);
 
-    // Private functions -----------------------------------------------------------------------
-
-    function _validateBatchParams(
-        BatchParams memory _params,
-        uint64 _maxAnchorHeightOffset,
-        uint8 _maxSignalsToReceive,
-        uint16 _maxBlocksPerBatch,
-        Batch memory _lastBatch
-    )
-        private
-        view
-        returns (uint64 lastBlockTimestamp_)
-    {
-        uint256 nBlocks = _params.blocks.length;
-        require(nBlocks != 0, BlockNotFound());
-        require(nBlocks <= _maxBlocksPerBatch, TooManyBlocks());
-
-        unchecked {
-            lastBlockTimestamp_ = _params.lastBlockTimestamp == 0
-                ? uint64(block.timestamp)
-                : _params.lastBlockTimestamp;
-
-            require(lastBlockTimestamp_ <= block.timestamp, TimestampTooLarge());
-            require(_params.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
-
-            uint64 totalShift;
-
-            for (uint256 i; i < nBlocks; ++i) {
-                BlockParams memory blockParams = _params.blocks[i];
-                totalShift += blockParams.timeShift;
-
-                uint256 numSignals = blockParams.signalSlots.length;
-                if (numSignals == 0) continue;
-
-                require(numSignals <= _maxSignalsToReceive, TooManySignals());
-
-                for (uint256 j; j < numSignals; ++j) {
-                    require(signalService.isSignalSent(blockParams.signalSlots[j]), SignalNotSent());
-                }
-            }
-
-            require(lastBlockTimestamp_ >= totalShift, TimestampTooSmall());
-
-            uint64 firstBlockTimestamp = lastBlockTimestamp_ - totalShift;
-
-            require(
-                firstBlockTimestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp,
-                TimestampTooSmall()
-            );
-
-            require(
-                firstBlockTimestamp >= _lastBatch.lastBlockTimestamp, TimestampSmallerThanParent()
-            );
-
-            // make sure the batch builds on the expected latest chain state.
-            require(
-                _params.parentMetaHash == 0 || _params.parentMetaHash == _lastBatch.metaHash,
-                ParentMetaHashMismatch()
-            );
-        }
-    }
-
-    /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
-    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
-    /// - bit 8: used to store _batchParams.isForcedInclusion.
-    function _encodeExtraDataLower128Bits(
-        Config memory _config,
-        BatchParams memory _batchParams
-    )
-        private
-        pure
-        returns (uint128 encoded_)
-    {
-        encoded_ |= _config.baseFeeConfig.sharingPctg; // bits 0-7
-        encoded_ |= _batchParams.isForcedInclusion ? 1 << 8 : 0; // bit 8
-    }
 }
