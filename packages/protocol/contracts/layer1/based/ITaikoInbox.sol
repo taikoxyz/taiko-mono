@@ -120,7 +120,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 blockHash;
         bytes32 stateRoot;
         address prover;
-        uint8 proofTiming;
+        ProofTiming proofTiming;
         uint48 createdAt;
         bool byAssignedProver;
     }

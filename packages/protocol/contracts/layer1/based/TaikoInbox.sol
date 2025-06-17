@@ -416,13 +416,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             {
                 uint256 proposedAt = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
                 if (block.timestamp <= proposedAt + config.provingWindow) {
-                    ts.proofTiming = uint8(ProofTiming.InProvingWindow);
+                    ts.proofTiming = ProofTiming.InProvingWindow;
                     ts.prover = meta.prover;
                 } else if (block.timestamp <= proposedAt + config.extendedProvingWindow) {
-                    ts.proofTiming = uint8(ProofTiming.InExtendedProvingWindow);
+                    ts.proofTiming = ProofTiming.InExtendedProvingWindow;
                     ts.prover = msg.sender;
                 } else {
-                    ts.proofTiming = uint8(ProofTiming.OutOfExtendedProvingWindow);
+                    ts.proofTiming = ProofTiming.OutOfExtendedProvingWindow;
                     ts.prover = msg.sender;
                 }
             }
@@ -436,7 +436,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // The prover for the first transition is responsible for placing the provability
                 // if the transition is within extended proving window.
                 if (
-                    ts.proofTiming != uint8(ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow)
+                    ts.proofTiming != ITaikoInbox.ProofTiming.OutOfExtendedProvingWindow
                         && msg.sender != meta.proposer
                 ) {
                     // Ensure msg.sender pays the provability bond to prevent malicious forfeiture

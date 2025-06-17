@@ -25,7 +25,7 @@ library LibWriteTransition {
         bytes32 _blockHash,
         bytes32 _stateRoot,
         address _prover,
-        uint8 _proofTiming,
+        ITaikoInbox.ProofTiming _proofTiming,
         bool _byAssignedProver
     )
         public // reduce code size
