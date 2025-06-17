@@ -11,6 +11,10 @@ import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibProverAuth.sol";
+import "./libs/LibRead.sol";
+import "./libs/LibBonds.sol";
+import "./libs/LibPropose.sol";
+import "./libs/LibProve.sol";
 import "./libs/LibVerify.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
@@ -31,6 +35,7 @@ import "./IProposeBatch.sol";
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
     using LibMath for uint256;
     using LibVerify for ITaikoInbox.State;
+    using LibBonds for ITaikoInbox.State;
     using SafeERC20 for IERC20;
 
     address public immutable inboxWrapper;
@@ -242,7 +247,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 _checkBatchInForkRange(config, meta_.firstBlockId, info_.lastBlockId);
                 if (params.proverAuth.length == 0) {
                     // proposer is the prover
-                    _debitBond(meta_.prover, config.livenessBond);
+                    state.debitBond(bondToken, meta_.prover, config.livenessBond);
                 } else {
                     bytes memory proverAuth = params.proverAuth;
                     // Circular dependency so zero it out. (BatchParams has proverAuth but
@@ -263,19 +268,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     if (auth.feeToken == bondToken) {
                         // proposer pay the prover fee with bond tokens
-                        _debitBond(meta_.proposer, auth.fee);
+                        state.debitBond(bondToken, meta_.proposer, auth.fee);
 
                         // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                         // if not then add the diff to the bond balance
                         int256 bondDelta = int96(auth.fee) - int96(config.livenessBond);
 
                         if (bondDelta < 0) {
-                            _debitBond(meta_.prover, uint256(-bondDelta));
+                            state.debitBond(bondToken, meta_.prover, uint256(-bondDelta));
                         } else {
                             state.creditBond(meta_.prover, uint256(bondDelta));
                         }
                     } else {
-                        _debitBond(meta_.prover, config.livenessBond);
+                        state.debitBond(bondToken, meta_.prover, config.livenessBond);
 
                         if (meta_.proposer != meta_.prover) {
                             IERC20(auth.feeToken).safeTransferFrom(
@@ -286,7 +291,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 }
             }
 
-            _debitBond(meta_.proposer, config.provabilityBond);
+            state.debitBond(bondToken, meta_.proposer, config.provabilityBond);
 
             {
                 Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
@@ -432,7 +437,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
                     // of the proposer's bond through an invalid first transition.
                     uint96 provabilityBond = batch.provabilityBond;
-                    _debitBond(msg.sender, provabilityBond);
+                    state.debitBond(bondToken, msg.sender, provabilityBond);
                     state.creditBond(meta.proposer, provabilityBond);
                 }
             } else {
@@ -472,7 +477,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     /// @inheritdoc IBondManager
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
-        state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
+        state.bondBalance[msg.sender] += LibBonds.handleDeposit(bondToken, msg.sender, _amount);
     }
 
     /// @inheritdoc IBondManager
@@ -680,44 +685,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     function _getConfig() internal view virtual returns (Config memory);
 
     // Private functions -----------------------------------------------------------------------
-
-    function _debitBond(address _user, uint256 _amount) private {
-        if (_amount == 0) return;
-
-        uint256 balance = state.bondBalance[_user];
-        if (balance >= _amount) {
-            unchecked {
-                state.bondBalance[_user] = balance - _amount;
-            }
-        } else if (bondToken != address(0)) {
-            uint256 amountDeposited = _handleDeposit(_user, _amount);
-            require(amountDeposited == _amount, InsufficientBond());
-        } else {
-            // Ether as bond must be deposited before proposing a batch
-            revert InsufficientBond();
-        }
-        emit BondDebited(_user, _amount);
-    }
-
-    function _handleDeposit(
-        address _user,
-        uint256 _amount
-    )
-        private
-        returns (uint256 amountDeposited_)
-    {
-        if (bondToken != address(0)) {
-            require(msg.value == 0, MsgValueNotZero());
-
-            uint256 balance = IERC20(bondToken).balanceOf(address(this));
-            IERC20(bondToken).safeTransferFrom(_user, address(this), _amount);
-            amountDeposited_ = IERC20(bondToken).balanceOf(address(this)) - balance;
-        } else {
-            require(msg.value == _amount, EtherNotPaidAsBond());
-            amountDeposited_ = _amount;
-        }
-        emit BondDeposited(_user, amountDeposited_);
-    }
 
     function _validateBatchParams(
         BatchParams memory _params,
