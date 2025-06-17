@@ -1,21 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
-import "src/shared/libs/LibAddress.sol";
-import "src/shared/libs/LibMath.sol";
-import "src/shared/libs/LibNetwork.sol";
-import "src/shared/libs/LibNames.sol";
-import "src/shared/signal/ISignalService.sol";
-import "src/layer1/verifiers/IVerifier.sol";
-import "./libs/LibProverAuth.sol";
-import "./libs/LibInit.sol";
-import "./libs/LibRead.sol";
 import "./libs/LibBonds.sol";
+import "./libs/LibInit.sol";
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
+import "./libs/LibRead.sol";
 import "./libs/LibVerify.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
@@ -34,19 +26,17 @@ import "./IProposeBatch.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
-    using LibMath for uint256;
-    using LibVerify for ITaikoInbox.State;
     using LibBonds for ITaikoInbox.State;
-    using LibRead for ITaikoInbox.State;
     using LibInit for ITaikoInbox.State;
     using LibPropose for ITaikoInbox.State;
     using LibProve for ITaikoInbox.State;
-    using SafeERC20 for IERC20;
+    using LibRead for ITaikoInbox.State;
+    using LibVerify for ITaikoInbox.State;
 
     address public immutable inboxWrapper;
     address public immutable verifier;
     address internal immutable bondToken;
-    ISignalService public immutable signalService;
+    address public immutable signalService;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -66,7 +56,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
         bondToken = _bondToken;
-        signalService = ISignalService(_signalService);
+        signalService = _signalService;
     }
 
     function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {

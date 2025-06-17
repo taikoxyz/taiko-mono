@@ -23,7 +23,7 @@ library LibVerify {
         I.State storage $,
         I.Config memory _config,
         I.Stats2 memory _stats2,
-        ISignalService _signalService,
+        address _signalService,
         uint8 _count
     )
         public // reduce code size
@@ -134,7 +134,7 @@ library LibVerify {
                         emit I.Stats1Updated(stats1);
 
                         // Ask signal service to write cross chain signal
-                        _signalService.syncChainData(
+                        ISignalService(_signalService).syncChainData(
                             _config.chainId, LibSignals.STATE_ROOT, synced.blockId, synced.stateRoot
                         );
                     }

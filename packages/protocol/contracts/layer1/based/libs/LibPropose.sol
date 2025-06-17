@@ -17,7 +17,7 @@ library LibPropose {
         I.Config config;
         address bondToken;
         address inboxWrapper;
-        ISignalService signalService;
+        address signalService;
     }
 
     struct Output {
@@ -295,7 +295,7 @@ library LibPropose {
     function _validateBatchParams(
         I.BatchParams memory _params,
         I.Config memory _config,
-        ISignalService _signalService,
+        address _signalService,
         I.Batch memory _lastBatch
     )
         private
@@ -327,7 +327,8 @@ library LibPropose {
 
                 for (uint256 j; j < numSignals; ++j) {
                     require(
-                        _signalService.isSignalSent(blockParams.signalSlots[j]), I.SignalNotSent()
+                        ISignalService(_signalService).isSignalSent(blockParams.signalSlots[j]),
+                        I.SignalNotSent()
                     );
                 }
             }
