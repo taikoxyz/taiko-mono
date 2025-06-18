@@ -298,4 +298,49 @@ contract PreconfSlasherBase is CommonTest {
 
         return slashedAmount;
     }
+
+    function _slashMissingEOP(
+        ISlasher.Commitment memory _commitment,
+        LibBlockHeader.BlockHeader memory _preconfedBlockHeader
+    )
+        internal
+        returns (uint256)
+    {
+        return _slashMissingEOP(_commitment, _preconfedBlockHeader, bytes4(0));
+    }
+
+    function _slashMissingEOP(
+        ISlasher.Commitment memory _commitment,
+        LibBlockHeader.BlockHeader memory _preconfedBlockHeader,
+        bytes4 _revertData
+    )
+        internal
+        returns (uint256)
+    {
+        // We leave the delegation empty as it is not required
+        ISlasher.Delegation memory delegation;
+
+        IPreconfSlasher.EvidenceMissingEOP memory evidence;
+        evidence.preconfedBlockHeader = _preconfedBlockHeader;
+        evidence.batchMetadata = _cachedBatchMetadata;
+        evidence.nextBatchMetadata = _cachedNextBatchMetadata;
+
+        if (_revertData == emptyRevert) {
+            vm.expectRevert();
+        } else if (_revertData != bytes4(0)) {
+            vm.expectRevert(abi.encodeWithSelector(_revertData));
+        }
+
+        uint256 slashedAmount = preconfSlasher.slash(
+            delegation,
+            _commitment,
+            address(0), // Commiter is not required
+            bytes.concat(
+                bytes1(uint8(IPreconfSlasher.ViolationType.MissingEOP)), abi.encode(evidence)
+            ),
+            address(0) // Challenger is not required
+        );
+
+        return slashedAmount;
+    }
 }

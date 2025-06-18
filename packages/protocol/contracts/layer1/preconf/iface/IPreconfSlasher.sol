@@ -73,12 +73,10 @@ interface IPreconfSlasher is ISlasher {
     struct EvidenceMissingEOP {
         // Header of the preconfirmed block at height X
         LibBlockHeader.BlockHeader preconfedBlockHeader;
-        // This is the BatchMetadata of the next batch that contains the block at height X + 1
-        ITaikoInbox.BatchMetadata nextBatchMetadata;
-        // This is the BatchInfo of the batch that contains the block at height X
-        ITaikoInbox.BatchInfo batchInfo;
         // This is the BatchMetadata of the batch that contains the block at height X
         ITaikoInbox.BatchMetadata batchMetadata;
+        // This is the BatchMetadata of the next batch that contains the block at height X + 1
+        ITaikoInbox.BatchMetadata nextBatchMetadata;
     }
 
     // Merkle trie proof for a blockhash stored in L2 TaikoAnchor contract.
