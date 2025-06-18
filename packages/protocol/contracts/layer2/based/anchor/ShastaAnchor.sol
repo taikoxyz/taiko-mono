@@ -17,6 +17,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // around 361,579 gas.  We set the limit to 1,000,000 to be safe.
     uint256 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
+    uint256 public constant MAX_BASE_FEE = 2.5 gwei;
+    uint256 public constant MIN_BASE_FEE = 0.005 gwei;
+
     uint256[50] private __gap;
 
     constructor(
@@ -113,5 +116,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
         (basefee_, newGasExcess_) = LibEIP1559.calc1559BaseFee(
             newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
+
+        if (basefee_ > MAX_BASE_FEE) {
+            basefee_ = MAX_BASE_FEE;
+        }
+        if (basefee_ < MIN_BASE_FEE) {
+            basefee_ = MIN_BASE_FEE;
+        }
     }
 }

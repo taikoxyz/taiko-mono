@@ -33,6 +33,18 @@ async function getLastScannedBlock(dataDir, networkName, vaultName) {
   }
 }
 
+async function withRetry(fn, retries = 3, delayMs = 1000) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === retries) throw err;
+      console.warn(`⚠️ Retry ${attempt + 1}/${retries} after error: ${err.message}`);
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+  }
+}
+
 (async () => {
   const allEvents = [];
 
@@ -92,7 +104,9 @@ async function getLastScannedBlock(dataDir, networkName, vaultName) {
         for (const vault of vaultContracts) {
           const abi = BRIDGED_TOKEN_DEPLOYED_ABIS[vault.name];
           const contract = new ethers.Contract(vault.address, abi, provider);
-          const events = await contract.queryFilter(contract.filters.BridgedTokenDeployed(), startBlock, chunkEnd);
+          const events = await withRetry(() =>
+            contract.queryFilter(contract.filters.BridgedTokenDeployed(), startBlock, chunkEnd)
+          );
 
           const chunkRecords = events.map((evt) => {
             const { args, blockNumber, transactionHash } = evt;
@@ -125,19 +139,13 @@ async function getLastScannedBlock(dataDir, networkName, vaultName) {
           await fs.writeFile(jsonFile, JSON.stringify(chunkRecords, null, 2), "utf8");
           await saveCSV(csvFile, chunkRecords, csvHeaders);
 
-          console.log(`> Found ${chunkRecords.length} BridgedTokenDeployed events in chunk for ${vault.name}.`);
+          if (chunkRecords.length > 0) {
+            console.log(`> Found ${chunkRecords.length} BridgedTokenDeployed events in chunk for ${vault.name}.`);
+          }
         }
 
         startBlock = chunkEnd + 1;
       }
-
-      // Save full combined output
-      const safeName = name.replaceAll(" ", "_");
-      const jsonFile = path.join(outputDir, `${safeName}_BridgedTokenDeployed.json`);
-      const csvFile = path.join(outputDir, `${safeName}_BridgedTokenDeployed.csv`);
-      await fs.writeFile(jsonFile, JSON.stringify(eventsByType.BridgedTokenDeployed, null, 2), "utf8");
-      await saveCSV(csvFile, eventsByType.BridgedTokenDeployed, csvHeaders);
-      console.log(`✅ Wrote ${eventsByType.BridgedTokenDeployed.length} BridgedTokenDeployed events to: ${jsonFile} / ${csvFile}`);
 
     } catch (err) {
       console.error(`Error processing network ${name} (Chain ${chainId}):`, err);

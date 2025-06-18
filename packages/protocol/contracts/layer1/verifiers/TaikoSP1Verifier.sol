@@ -71,7 +71,12 @@ contract TaikoSP1Verifier is EssentialContract, IVerifier {
         uint256 size = _ctxs.length;
         for (uint256 i; i < size; ++i) {
             publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].transition, address(this), address(0), _ctxs[i].metaHash, taikoChainId
+                _ctxs[i].transition,
+                address(this),
+                address(0),
+                _ctxs[i].metaHash,
+                taikoChainId,
+                _ctxs[i].prover
             );
         }
 
