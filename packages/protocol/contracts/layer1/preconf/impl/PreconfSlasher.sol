@@ -70,8 +70,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             slashAmount_ = _validateInvalidEOP(payload, _evidence[1:]);
         } else if (violationType == ViolationType.MissingEOP) {
             slashAmount_ = _validateMissingEOP(payload, _evidence[1:]);
-        } else {
-            revert InvalidViolationType();
         }
 
         emit Slashed(_committer, violationType, payload, slashAmount_);

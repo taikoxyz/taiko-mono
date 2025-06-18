@@ -32,12 +32,12 @@ library LibBlockHeader {
 
     function encodeRLP(BlockHeader memory _blockHeader) internal pure returns (bytes memory) {
         LibRLP.List memory list = LibRLP.l();
-        list = LibRLP.p(list, uint256(_blockHeader.parentHash));
-        list = LibRLP.p(list, uint256(_blockHeader.ommersHash));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.parentHash));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.ommersHash));
         list = LibRLP.p(list, _blockHeader.coinbase);
-        list = LibRLP.p(list, uint256(_blockHeader.stateRoot));
-        list = LibRLP.p(list, uint256(_blockHeader.transactionsRoot));
-        list = LibRLP.p(list, uint256(_blockHeader.receiptRoot));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.stateRoot));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.transactionsRoot));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.receiptRoot));
         list = LibRLP.p(list, _blockHeader.bloom);
         list = LibRLP.p(list, _blockHeader.difficulty);
         list = LibRLP.p(list, _blockHeader.number);
@@ -45,13 +45,10 @@ library LibBlockHeader {
         list = LibRLP.p(list, _blockHeader.gasUsed);
         list = LibRLP.p(list, _blockHeader.timestamp);
         list = LibRLP.p(list, _blockHeader.extraData);
-        list = LibRLP.p(list, uint256(_blockHeader.prevRandao));
-        list = LibRLP.p(list, uint64(_blockHeader.nonce));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.prevRandao));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.nonce));
         list = LibRLP.p(list, _blockHeader.baseFeePerGas);
-        list = LibRLP.p(list, uint256(_blockHeader.withdrawalsRoot));
-        list = LibRLP.p(list, _blockHeader.blobGasUsed);
-        list = LibRLP.p(list, _blockHeader.excessBlobGas);
-        list = LibRLP.p(list, uint256(_blockHeader.parentBeaconBlockRoot));
+        list = LibRLP.p(list, abi.encodePacked(_blockHeader.withdrawalsRoot));
         return LibRLP.encode(list);
     }
 

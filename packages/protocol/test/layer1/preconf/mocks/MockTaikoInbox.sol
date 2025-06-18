@@ -6,12 +6,48 @@ import "src/shared/common/EssentialContract.sol";
 
 contract MockTaikoInbox is EssentialContract {
     bytes32 internal metaHash;
+    mapping(uint64 => ITaikoInbox.Batch) private _batches;
+    mapping(uint64 => ITaikoInbox.TransitionState) private _transitions;
+    ITaikoInbox.Config private _config;
 
-    constructor() EssentialContract() { }
+    constructor(uint64 _chainId) EssentialContract() {
+        _config = ITaikoInbox.Config({
+            chainId: _chainId,
+            maxUnverifiedBatches: 10,
+            batchRingBufferSize: 100,
+            maxBatchesToVerify: 5,
+            blockMaxGasLimit: 30_000_000,
+            livenessBond: 1 ether,
+            stateRootSyncInternal: 1,
+            maxAnchorHeightOffset: 100,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 1,
+                sharingPctg: 1,
+                gasIssuancePerSecond: 1,
+                minGasExcess: 1,
+                maxGasIssuancePerBlock: 1
+            }),
+            provingWindow: 3600,
+            cooldownWindow: 300,
+            maxSignalsToReceive: 10,
+            maxBlocksPerBatch: 100,
+            forkHeights: ITaikoInbox.ForkHeights({
+                ontake: 0,
+                pacaya: 0,
+                shasta: 0,
+                unzen: 0,
+                etna: 0,
+                fuji: 0
+            })
+        });
+    }
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
+
+    // Used by PreconfRouter
+    // ------------------------------------------------------------------------------------------------
 
     function v4ProposeBatch(
         bytes calldata _params,
@@ -63,5 +99,37 @@ contract MockTaikoInbox is EssentialContract {
         });
 
         metaHash = keccak256(abi.encode(meta_));
+    }
+
+    // Used by PreconfSlasher
+    // ------------------------------------------------------------------------------------------------
+
+    function v4GetBatch(uint64 _batchId) external view returns (ITaikoInbox.Batch memory) {
+        return _batches[_batchId];
+    }
+
+    function v4GetBatchVerifyingTransition(uint64 _batchId)
+        external
+        view
+        returns (ITaikoInbox.TransitionState memory)
+    {
+        return _transitions[_batchId];
+    }
+
+    function v4GetConfig() external view returns (ITaikoInbox.Config memory) {
+        return _config;
+    }
+
+    function setBatch(uint64 _batchId, ITaikoInbox.Batch memory _batch) external {
+        _batches[_batchId] = _batch;
+    }
+
+    function setTransition(
+        uint64 _batchId,
+        ITaikoInbox.TransitionState memory _transition
+    )
+        external
+    {
+        _transitions[_batchId] = _transition;
     }
 }
