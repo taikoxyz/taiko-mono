@@ -200,7 +200,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                             // This is the first non zero anchor block id in the batch.
                             require(
                                 anchorBlockId + config.maxAnchorHeightOffset >= block.number,
-                                AnchorIdTooLarge()
+                                AnchorIdTooSmall()
                             );
 
                             require(
