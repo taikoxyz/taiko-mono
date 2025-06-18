@@ -44,18 +44,6 @@ contract ConfigurableInbox is TaikoInbox {
     function setConfig(ITaikoInbox.Config memory _NewConfig) external {
         __config = _NewConfig;
     }
-
-    function _calculateTxsHash(
-        bytes32 _txListHash,
-        BlobParams memory _blobParams
-    )
-        internal
-        pure
-        override
-        returns (bytes32, bytes32[] memory)
-    {
-        return (_txListHash, new bytes32[](_blobParams.numBlobs));
-    }
 }
 
 abstract contract Layer1Test is CommonTest {

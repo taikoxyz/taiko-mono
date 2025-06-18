@@ -30,7 +30,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             (ITaikoInbox.BatchMetadata memory meta, ITaikoInbox.BatchInfo memory info) =
                 _loadMetadataAndInfo(batchIds[i]);
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
-            assertEq(info.txsHash, keccak256(txList));
+            assertEq(info.txsHash, keccak256(abi.encode(keccak256(txList), new bytes32[](0))));
         }
 
         vm.startPrank(Alice);
@@ -57,6 +57,14 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
     function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
         vm.warp(1_000_000);
 
+        bytes32[] memory _blobHashes = new bytes32[](2);
+        for (uint256 i; i < _blobHashes.length; ++i) {
+            _blobHashes[i] = bytes32(uint256(i + 1));
+        }
+
+        // Override blobhash responses
+        vm.blobhashes(_blobHashes);
+
         uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
@@ -64,7 +72,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
-        params.blobParams.numBlobs = 1;
+        params.blobParams.numBlobs = 2;
 
         ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
 
@@ -81,7 +89,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         // With empty txList
         (ITaikoInbox.BatchInfo memory info, ITaikoInbox.BatchMetadata memory meta) =
             inbox.v4ProposeBatch(abi.encode(params), "", "");
-        assertTrue(info.txsHash != 0, "txsHash should not be zero for valid blobIndex");
+        assertEq(info.txsHash, keccak256(abi.encode(keccak256(""), _blobHashes)));
 
         _saveMetadataAndInfo(meta, info);
 
@@ -102,8 +110,8 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
 
         bytes memory txList1 = abi.encodePacked("txList1");
         bytes memory txList2 = abi.encodePacked("txList2");
-        bytes32 expectedHash1 = keccak256(txList1);
-        bytes32 expectedHash2 = keccak256(txList2);
+        bytes32 expectedHash1 = keccak256(abi.encode(keccak256(txList1), new bytes32[](0)));
+        bytes32 expectedHash2 = keccak256(abi.encode(keccak256(txList2), new bytes32[](0)));
 
         vm.stopPrank();
         vm.startPrank(Alice);
@@ -181,7 +189,11 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
                 _loadMetadataAndInfo(batchIds[i]);
 
             assertEq(meta.infoHash, keccak256(abi.encode(info)), "Info hash mismatch");
-            assertEq(info.txsHash, keccak256(txList), "TxList hash mismatch");
+            assertEq(
+                info.txsHash,
+                keccak256(abi.encode(keccak256(txList), new bytes32[](0))),
+                "TxList hash mismatch"
+            );
             assertEq(meta.prover, prover, "Prover address mismatch");
         }
 
@@ -246,7 +258,11 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             _loadMetadataAndInfo(batch1Ids[0]);
 
         assertEq(meta1.prover, prover1, "Batch 1 prover mismatch");
-        assertEq(info1.txsHash, keccak256(txList1), "Batch 1 txList hash mismatch");
+        assertEq(
+            info1.txsHash,
+            keccak256(abi.encode(keccak256(txList1), new bytes32[](0))),
+            "Batch 1 txList hash mismatch"
+        );
 
         // Propose second batch with prover2
         vm.prank(Alice);
@@ -257,7 +273,11 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
             _loadMetadataAndInfo(batch2Ids[0]);
 
         assertEq(meta2.prover, prover2, "Batch 2 prover mismatch");
-        assertEq(info2.txsHash, keccak256(txList2), "Batch 2 txList hash mismatch");
+        assertEq(
+            info2.txsHash,
+            keccak256(abi.encode(keccak256(txList2), new bytes32[](0))),
+            "Batch 2 txList hash mismatch"
+        );
 
         // Verify both batches can be proved
         vm.prank(Alice);
