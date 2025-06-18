@@ -25,7 +25,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     uint8 public operatorChangeDelay; // epochs to delay for operator changes
     uint8 public randomnessDelay; // epochs to delay for randomness seed source
 
-    // all operators in operatorMapping are active and none of them is to be deactivated.
+    // all operators in operatorMapping are active and none of them are to be deactivated.
     bool public havingPerfectOperators;
 
     uint256[46] private __gap;
@@ -172,19 +172,30 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     function _addOperator(address _operator, uint8 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
-        require(operators[_operator].activeSince == 0, OperatorAlreadyExists());
 
-        uint8 _operatorCount = operatorCount;
-        uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
-        operators[_operator] = OperatorInfo({
-            activeSince: activeSince,
-            inactiveSince: 0, // no removal scheduled.
-            index: _operatorCount
-        });
-        operatorMapping[_operatorCount] = _operator;
-        unchecked {
-            operatorCount = _operatorCount + 1;
+        OperatorInfo storage info = operators[_operator];
+
+        // if they're already active, just revert
+        if (info.activeSince != 0) {
+            revert OperatorAlreadyExists();
         }
+
+        // re-activating someone who was scheduled for removal,
+        // but consolidate was not called.
+        uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
+        if (info.inactiveSince == 0) {
+            // new operator
+            uint8 idx = operatorCount;
+            info.index = idx;
+            operatorMapping[idx] = _operator;
+
+            unchecked {
+                operatorCount = idx + 1;
+            }
+        }
+
+        info.activeSince = activeSince;
+        info.inactiveSince = 0;
 
         if (_operatorChangeDelay != 0) {
             havingPerfectOperators = false;
