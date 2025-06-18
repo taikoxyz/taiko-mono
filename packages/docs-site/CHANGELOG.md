@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.29.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.0...docs-site-v1.29.1) (2025-06-18)
+
+
+### Documentation
+
+* **docs-site:** update based-preconfirmation.mdx to avoid legal implications ([#19612](https://github.com/taikoxyz/taiko-mono/issues/19612)) ([a8f600e](https://github.com/taikoxyz/taiko-mono/commit/a8f600e269594ce8b923e4f5ad1da573b96160a5))
+
 ## [1.29.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.3...docs-site-v1.29.0) (2025-06-16)
 
 
