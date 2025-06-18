@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/shared/libs/LibMath.sol";
-import "../ITaikoInbox.sol";
+import { ITaikoInbox as I } from "../ITaikoInbox.sol";
+import "./LibBonds.sol";
 
 /// @title LibVerify
 /// @custom:security-contact security@taiko.xyz
@@ -19,22 +20,22 @@ library LibVerify {
     }
 
     function verifyBatches(
-        ITaikoInbox.State storage _state,
-        ITaikoInbox.Config memory _config,
-        ITaikoInbox.Stats2 memory _stats2,
-        ISignalService _signalService,
+        I.State storage $,
+        I.Config memory _config,
+        I.Stats2 memory _stats2,
+        address _signalService,
         uint8 _count
     )
-        public // reduce code size
+        internal
     {
         unchecked {
             uint64 batchId = _stats2.lastVerifiedBatchId;
 
             if (_config.forkHeights.shasta == 0 || batchId >= _config.forkHeights.shasta - 1) {
                 uint256 slot = batchId % _config.batchRingBufferSize;
-                ITaikoInbox.Batch storage batch = _state.batches[slot];
+                I.Batch storage batch = $.batches[slot];
                 uint24 tid = batch.verifiedTransitionId;
-                bytes32 blockHash = _state.transitions[slot][tid].blockHash;
+                bytes32 blockHash = $.transitions[slot][tid].blockHash;
 
                 SyncBlock memory synced;
 
@@ -44,7 +45,7 @@ library LibVerify {
 
                 for (++batchId; batchId < stopBatchId; ++batchId) {
                     slot = batchId % _config.batchRingBufferSize;
-                    batch = _state.batches[slot];
+                    batch = $.batches[slot];
                     uint24 nextTransitionId = batch.nextTransitionId;
 
                     if (_stats2.paused) break;
@@ -55,14 +56,14 @@ library LibVerify {
                             && batch.lastBlockId >= _config.forkHeights.unzen
                     ) break;
 
-                    ITaikoInbox.TransitionState storage ts = _state.transitions[slot][1];
+                    I.TransitionState storage ts = $.transitions[slot][1];
                     if (ts.parentHash == blockHash) {
                         tid = 1;
                     } else if (nextTransitionId > 2) {
-                        uint24 _tid = _state.transitionIds[batchId][blockHash];
+                        uint24 _tid = $.transitionIds[batchId][blockHash];
                         if (_tid == 0) break;
                         tid = _tid;
-                        ts = _state.transitions[slot][tid];
+                        ts = $.transitions[slot][tid];
                     } else {
                         break;
                     }
@@ -80,13 +81,11 @@ library LibVerify {
 
                     {
                         uint96 bondToReturn;
-                        if (ts.proofTiming == ITaikoInbox.ProofTiming.InProvingWindow) {
+                        if (ts.proofTiming == I.ProofTiming.InProvingWindow) {
                             // all liveness bond is returned to the prover, this is not a reward.
                             bondToReturn = batch.livenessBond;
                             if (tid == 1) bondToReturn += batch.provabilityBond;
-                        } else if (
-                            ts.proofTiming == ITaikoInbox.ProofTiming.InExtendedProvingWindow
-                        ) {
+                        } else if (ts.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                             // prover is rewarded with bondRewardPtcg% of the liveness bond.
                             bondToReturn = batch.livenessBond * _config.bondRewardPtcg / 100;
                             if (tid == 1) bondToReturn += batch.provabilityBond;
@@ -100,7 +99,7 @@ library LibVerify {
                             bondToReturn = batch.provabilityBond * _config.bondRewardPtcg / 100;
                         }
 
-                        creditBond(_state, ts.prover, bondToReturn);
+                        LibBonds.creditBond($, ts.prover, bondToReturn);
                     }
 
                     if (batchId % _config.stateRootSyncInternal == 0) {
@@ -116,80 +115,34 @@ library LibVerify {
                 if (_stats2.lastVerifiedBatchId != batchId) {
                     _stats2.lastVerifiedBatchId = batchId;
 
-                    batch =
-                        _state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
+                    batch = $.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
                     batch.verifiedTransitionId = tid;
-                    emit ITaikoInbox.BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
+                    emit I.BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
 
                     if (synced.batchId != 0) {
                         if (synced.batchId != _stats2.lastVerifiedBatchId) {
                             // We write the synced batch's verifiedTransitionId to storage
-                            batch = _state.batches[synced.batchId % _config.batchRingBufferSize];
+                            batch = $.batches[synced.batchId % _config.batchRingBufferSize];
                             batch.verifiedTransitionId = synced.tid;
                         }
 
-                        ITaikoInbox.Stats1 memory stats1 = _state.stats1;
+                        I.Stats1 memory stats1 = $.stats1;
                         stats1.lastSyncedBatchId = batch.batchId;
                         stats1.lastSyncedAt = uint64(block.timestamp);
-                        _state.stats1 = stats1;
+                        $.stats1 = stats1;
 
-                        emit ITaikoInbox.Stats1Updated(stats1);
+                        emit I.Stats1Updated(stats1);
 
                         // Ask signal service to write cross chain signal
-                        _signalService.syncChainData(
+                        ISignalService(_signalService).syncChainData(
                             _config.chainId, LibSignals.STATE_ROOT, synced.blockId, synced.stateRoot
                         );
                     }
                 }
             }
 
-            _state.stats2 = _stats2;
-            emit ITaikoInbox.Stats2Updated(_stats2);
+            $.stats2 = _stats2;
+            emit I.Stats2Updated(_stats2);
         }
-    }
-
-    function getBatchVerifyingTransition(
-        ITaikoInbox.State storage _state,
-        ITaikoInbox.Config memory _config,
-        uint64 _batchId
-    )
-        public
-        view
-        returns (ITaikoInbox.TransitionState memory ts_)
-    {
-        uint64 slot = _batchId % _config.batchRingBufferSize;
-        ITaikoInbox.Batch storage batch = _state.batches[slot];
-        require(batch.batchId == _batchId, ITaikoInbox.BatchNotFound());
-
-        if (batch.verifiedTransitionId != 0) {
-            ts_ = _state.transitions[slot][batch.verifiedTransitionId];
-        }
-    }
-
-    function creditBond(
-        ITaikoInbox.State storage _state,
-        address _user,
-        uint256 _amount
-    )
-        internal
-    {
-        if (_amount == 0) return;
-        unchecked {
-            _state.bondBalance[_user] += _amount;
-        }
-        emit IBondManager.BondCredited(_user, _amount);
-    }
-
-    function getBatch(
-        ITaikoInbox.State storage _state,
-        ITaikoInbox.Config memory _config,
-        uint64 _batchId
-    )
-        internal
-        view
-        returns (ITaikoInbox.Batch storage batch_)
-    {
-        batch_ = _state.batches[_batchId % _config.batchRingBufferSize];
-        require(batch_.batchId == _batchId, ITaikoInbox.BatchNotFound());
     }
 }

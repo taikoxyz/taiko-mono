@@ -59,6 +59,7 @@ abstract contract CommonTest is Test, Script {
 
     modifier onEthereum() {
         vm.chainId(ethereumChainId);
+
         _;
     }
 
