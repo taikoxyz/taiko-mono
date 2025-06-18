@@ -13,25 +13,22 @@ interface IForcedInclusionStore {
         uint32 blobByteSize;
         uint64 blobCreatedIn;
         address user;
+        uint96 bondDeposit;
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
     event ForcedInclusionStored(ForcedInclusion forcedInclusion);
     /// @dev Event emitted when a forced inclusion is consumed.
-    event ForcedInclusionConsumed(ForcedInclusion forcedInclusion);
+    event ForcedInclusionConsumed(ForcedInclusion forcedInclusion, bool successful);
 
-    /// @dev Error thrown when a blob is not found.
     error BlobNotFound();
-    /// @dev Error thrown when the parameters are invalid.
     error InvalidParams();
-    /// @dev Error thrown when the fee is incorrect.
     error IncorrectFee();
-    /// @dev Error thrown when the index is invalid.
     error InvalidIndex();
-    /// @dev Error thrown when a forced inclusion is not found.
     error NoForcedInclusionFound();
-    /// @dev Error thrown when a function is called more than once in one transaction.
     error MultipleCallsInOneTx();
+    error BondDepositTooSmall();
+    error InvalidMsgValue();
 
     /// @dev Retrieve a forced inclusion request by its index.
     /// @param index The index of the forced inclusion request in the queue.
@@ -51,19 +48,23 @@ interface IForcedInclusionStore {
     /// caller.
     /// @param _feeRecipient The address to receive the priority fee.
     /// @return inclusion_ The forced inclusion request.
+    /// @return successful_ True if the forced inclusion was successfully processed, false
+    /// otherwise.
     function consumeOldestForcedInclusion(address _feeRecipient)
         external
-        returns (ForcedInclusion memory);
+        returns (ForcedInclusion memory inclusion_, bool successful_);
 
     /// @dev Store a forced inclusion request.
     /// The priority fee must be paid to the contract.
     /// @param blobIndex The index of the blob that contains the transaction data.
     /// @param blobByteOffset The byte offset in the blob
     /// @param blobByteSize The size of the blob in bytes
+    /// @param bondDeposit The bond deposit amount in Taiko tokens.
     function storeForcedInclusion(
         uint8 blobIndex,
         uint32 blobByteOffset,
-        uint32 blobByteSize
+        uint32 blobByteSize,
+        uint96 bondDeposit
     )
         external
         payable;

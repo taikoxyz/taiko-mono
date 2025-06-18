@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibAddress.sol";
@@ -14,6 +15,7 @@ import "./IForcedInclusionStore.sol";
 /// a FIFO queue of inclusion requests.
 /// @custom:security-contact
 contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
+    using SafeERC20 for IERC20;
     using LibAddress for address;
     using LibMath for uint256;
 
@@ -73,7 +75,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     function storeForcedInclusion(
         uint8 blobIndex,
         uint32 blobByteOffset,
-        uint32 blobByteSize
+        uint32 blobByteSize,
+        uint96 bondDeposit
     )
         external
         payable
@@ -84,6 +87,18 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
+        ITaikoInbox.Config memory config = inbox.v4GetConfig();
+        require(bondDeposit >= config.provabilityBond, BondDepositTooSmall());
+
+        address bondToken = inbox.v4BondToken();
+
+        if (bondToken != address(0)) {
+            IERC20(bondToken).safeTransferFrom(msg.sender, address(this), bondDeposit);
+            require(msg.value == 0, InvalidMsgValue());
+        } else {
+            require(msg.value == bondDeposit, InvalidMsgValue());
+        }
+
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
             feeInGwei: uint64(msg.value / 1 gwei),
@@ -91,7 +106,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize,
             blobCreatedIn: uint64(block.number),
-            user: msg.sender
+            user: msg.sender,
+            bondDeposit: bondDeposit
         });
 
         queue[tail++] = inclusion;
@@ -103,7 +119,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         external
         onlyFrom(inboxWrapper)
         nonReentrant
-        returns (ForcedInclusion memory inclusion_)
+        returns (ForcedInclusion memory inclusion_, bool successful_)
     {
         // we only need to check the first one, since it will be the oldest.
         ForcedInclusion storage inclusion = queue[head];
@@ -117,7 +133,25 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             delete queue[head++];
             _feeRecipient.sendEtherAndVerify(inclusion_.feeInGwei * 1 gwei);
         }
-        emit ForcedInclusionConsumed(inclusion_);
+
+        ITaikoInbox.Config memory config = inbox.v4GetConfig();
+        if (inclusion_.bondDeposit >= config.provabilityBond) {
+            successful_ = true;
+            uint256 refund = inclusion_.bondDeposit - config.provabilityBond;
+            if (refund > 0) {
+                address bondToken = inbox.v4BondToken();
+
+                if (bondToken != address(0)) {
+                    IERC20(bondToken).safeTransfer(inclusion_.user, refund);
+                } else {
+                    inclusion_.user.sendEtherAndVerify(refund);
+                }
+            }
+        }
+
+        // TODO(daniel): Deposit config.provabilityBond to the inbox
+
+        emit ForcedInclusionConsumed(inclusion_, successful_);
     }
 
     function getForcedInclusion(uint256 index) external view returns (ForcedInclusion memory) {

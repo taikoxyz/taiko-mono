@@ -80,29 +80,27 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         ITaikoInbox.BatchParams memory params;
 
         if (forcedInclusionStore.isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory inclusion =
+            (IForcedInclusionStore.ForcedInclusion memory inclusion, bool success) =
                 forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
 
-            params = _buildInclusionParams(inclusion, inclusionProverAuth);
+            if (success) {
+                params = _buildInclusionParams(inclusion, inclusionProverAuth);
+                bytes memory returnData;
 
-            (bool success, bytes memory returnData) = address(inbox).call(
-                abi.encodeCall(ITaikoInbox.v4ProposeBatch, (abi.encode(params), "", ""))
-            );
+                (success, returnData) = address(inbox).call(
+                    abi.encodeCall(ITaikoInbox.v4ProposeBatch, (abi.encode(params), "", ""))
+                );
 
-            if (!success) {
-                // The forced inclusion proposal might fail if the batch proposer lacks sufficient
-                // balance to cover the provability bond. In such cases, an event is emitted to
-                // signal the failure, and the forced inclusion is marked as processed.
-                emit ForcedInclusionFailed(inclusion, params);
+                require(success, ITaikoInbox.ForcedInclusionFailed());
+
+                // TODO(daniel): who pays the prover fee? How can we decide he amount of prover fee?
+                (info_, meta_) =
+                    abi.decode(returnData, (ITaikoInbox.BatchInfo, ITaikoInbox.BatchMetadata));
+
+                // We do not check proverAuth directly, but we need to ensure the assigned prover is
+                // not the user himself.
+                require(meta_.prover != inclusion.user, InvalidForcedInclusionProver());
             }
-
-            // TODO(daniel): who pays the prover fee? How can we decide he amount of prover fee?
-            (info_, meta_) =
-                abi.decode(returnData, (ITaikoInbox.BatchInfo, ITaikoInbox.BatchMetadata));
-
-            // We do not check proverAuth directly, but we need to ensure the assigned prover is not
-            // the user himself.
-            require(meta_.prover != inclusion.user, InvalidForcedInclusionProver());
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
@@ -128,6 +126,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         bytes memory _inclusionProverAuth
     )
         internal
+        pure
         returns (ITaikoInbox.BatchParams memory params_)
     {
         params_.proposer = _inclusion.user;
