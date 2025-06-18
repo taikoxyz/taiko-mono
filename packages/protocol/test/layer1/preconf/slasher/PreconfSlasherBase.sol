@@ -17,7 +17,7 @@ import "@eth-fabric/urc/IRegistry.sol";
 contract PreconfSlasherBase is CommonTest {
     using LibBlockHeader for LibBlockHeader.BlockHeader;
 
-    /// @notice This is used to specify the positon of a block inserted within a mock batch
+    /// @notice This is used to specify the position of a block inserted within a mock batch
     enum BlockPosition {
         PREV_BATCH,
         START_OF_BATCH,
@@ -289,7 +289,7 @@ contract PreconfSlasherBase is CommonTest {
         uint256 slashedAmount = preconfSlasher.slash(
             delegation,
             _commitment,
-            address(0), // Commiter is not required
+            address(0), // Committer is not required
             bytes.concat(
                 bytes1(uint8(IPreconfSlasher.ViolationType.InvalidEOP)), abi.encode(evidence)
             ),
@@ -334,7 +334,7 @@ contract PreconfSlasherBase is CommonTest {
         uint256 slashedAmount = preconfSlasher.slash(
             delegation,
             _commitment,
-            address(0), // Commiter is not required
+            address(0), // Committer is not required
             bytes.concat(
                 bytes1(uint8(IPreconfSlasher.ViolationType.MissingEOP)), abi.encode(evidence)
             ),
