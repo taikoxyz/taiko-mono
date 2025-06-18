@@ -27,7 +27,7 @@ type PacayaClients struct {
 	TaikoToken           *pacayaBindings.TaikoToken
 	ProverSet            *pacayaBindings.ProverSet
 	ForkRouter           *pacayaBindings.ForkRouter
-	ComposeVerifier      *pacayaBindings.ComposeVerifier
+	SurgeVerifier        *pacayaBindings.SurgeVerifier
 	PreconfWhitelist     *pacayaBindings.PreconfWhitelist
 	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
@@ -190,13 +190,13 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	opts := &bind.CallOpts{Context: context.Background()}
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
-	composeVerifierAddress, err := taikoInbox.Verifier(opts)
+	surgeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve compose verifier address: %w", err)
+		return fmt.Errorf("failed to retrieve surge verifier address: %w", err)
 	}
-	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+	surgeVerifier, err := pacayaBindings.NewSurgeVerifier(surgeVerifierAddress, c.L1)
 	if err != nil {
-		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
+		return fmt.Errorf("failed to create new instance of SurgeVerifier: %w", err)
 	}
 
 	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
@@ -229,7 +229,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		ForkRouter:           forkRouter,
 		TaikoWrapper:         taikoWrapper,
 		ForcedInclusionStore: forcedInclusionStore,
-		ComposeVerifier:      composeVerifier,
+		SurgeVerifier:        surgeVerifier,
 		PreconfWhitelist:     preconfWhitelist,
 	}
 

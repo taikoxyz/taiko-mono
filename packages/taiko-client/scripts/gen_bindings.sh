@@ -63,9 +63,9 @@ cat ../protocol/out/layer1/ForkRouter.sol/ForkRouter.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ForkRouter --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_fork_router.go
 
-cat ../protocol/out/layer1/ComposeVerifier.sol/ComposeVerifier.json |
+cat ../protocol/out/layer1/SurgeVerifier.sol/SurgeVerifier.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
+	${ABIGEN_BIN} --abi - --type SurgeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_surge_verifier.go
 
 cat ../protocol/out/layer1/PreconfWhitelist.sol/PreconfWhitelist.json |
 	jq .abi |

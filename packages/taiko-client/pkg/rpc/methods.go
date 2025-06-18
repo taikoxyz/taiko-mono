@@ -990,49 +990,31 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
 }
 
-// GetOPVerifierPacaya resolves the Pacaya op verifier address.
-func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
-	}
-
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
-}
-
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
+	if c.PacayaClients.SurgeVerifier == nil {
+		return common.Address{}, errors.New("surgeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
+	return getImmutableAddressFromStructPacaya(c, opts, c.PacayaClients.SurgeVerifier.SgxRethVerifier)
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
 func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
+	if c.PacayaClients.SurgeVerifier == nil {
+		return common.Address{}, errors.New("surgeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0RethVerifier)
+	return getImmutableAddressFromStructPacaya(c, opts, c.PacayaClients.SurgeVerifier.Risc0RethVerifier)
 }
 
 // GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
 func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
+	if c.PacayaClients.SurgeVerifier == nil {
+		return common.Address{}, errors.New("surgeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1RethVerifier)
-}
-
-// GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
-func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
-	}
-
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
+	return getImmutableAddressFromStructPacaya(c, opts, c.PacayaClients.SurgeVerifier.Sp1RethVerifier)
 }
 
 // GetPreconfRouterPacaya resolves the preconfirmation router address.
@@ -1062,4 +1044,32 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	defer cancel()
 
 	return resolveFunc(opts)
+}
+
+// getImmutableAddressPacaya resolves the Pacaya contract address with upgradeable flag.
+func getImmutableAddressFromStructPacaya[T func(opts *bind.CallOpts) (struct {
+	Upgradeable bool
+	Addr        common.Address
+}, error)](
+	c *Client,
+	opts *bind.CallOpts,
+	resolveFunc T,
+) (common.Address, error) {
+	if resolveFunc == nil {
+		return common.Address{}, errors.New("resolver contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	result, err := resolveFunc(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	return result.Addr, nil
 }

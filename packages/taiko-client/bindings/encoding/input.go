@@ -56,7 +56,7 @@ var (
 		{Name: "stateRoot", Type: "bytes32"},
 	}
 	SubProofComponents = []abi.ArgumentMarshaling{
-		{Name: "verifier", Type: "address"},
+		{Name: "proofType", Type: "uint16"},
 		{Name: "proof", Type: "bytes"},
 	}
 )
@@ -68,9 +68,9 @@ var (
 	}
 	BatchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataComponents)
 	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
-	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofComponents)
+	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "SurgeVerifier.SubProof", SubProofComponents)
 	SubProofsComponentsArrayArgs          = abi.Arguments{
-		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
+		{Name: "SurgeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
 	}
 	ProveBatchesInputArgs = abi.Arguments{
 		{Name: "ITaikoInbox.BlockMetadata[]", Type: BatchMetaDataComponentsArrayType},
@@ -109,7 +109,7 @@ var (
 	ForcedInclusionStoreABI *abi.ABI
 	TaikoAnchorABI          *abi.ABI
 	ResolverBaseABI         *abi.ABI
-	ComposeVerifierABI      *abi.ABI
+	SurgeVerifierABI        *abi.ABI
 	ForkRouterPacayaABI     *abi.ABI
 	TaikoTokenPacayaABI     *abi.ABI
 	ProverSetPacayaABI      *abi.ABI
@@ -180,8 +180,8 @@ func init() {
 		log.Crit("Get ResolverBase ABI error", "error", err)
 	}
 
-	if ComposeVerifierABI, err = pacayaBindings.ComposeVerifierMetaData.GetAbi(); err != nil {
-		log.Crit("Get ComposeVerifier ABI error", "error", err)
+	if SurgeVerifierABI, err = pacayaBindings.SurgeVerifierMetaData.GetAbi(); err != nil {
+		log.Crit("Get SurgeVerifier ABI error", "error", err)
 	}
 
 	if ForkRouterPacayaABI, err = pacayaBindings.ForkRouterMetaData.GetAbi(); err != nil {
@@ -211,7 +211,7 @@ func init() {
 		ForcedInclusionStoreABI.Errors,
 		TaikoAnchorABI.Errors,
 		ResolverBaseABI.Errors,
-		ComposeVerifierABI.Errors,
+		SurgeVerifierABI.Errors,
 		ForkRouterPacayaABI.Errors,
 		TaikoTokenPacayaABI.Errors,
 		ProverSetPacayaABI.Errors,
