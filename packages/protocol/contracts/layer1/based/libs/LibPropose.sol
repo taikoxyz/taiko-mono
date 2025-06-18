@@ -154,7 +154,7 @@ library LibPropose {
                             // This is the first non zero anchor block id in the batch.
                             require(
                                 anchorBlockId + _input.config.maxAnchorHeightOffset >= block.number,
-                                I.AnchorIdTooLarge()
+                                I.AnchorIdTooSmall()
                             );
 
                             require(

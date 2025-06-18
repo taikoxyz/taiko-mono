@@ -258,7 +258,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
 
     error AnchorIdSmallerOrEqualThanLastBatch();
     error AnchorIdSmallerThanParent();
-    error AnchorIdTooLarge();
+    error AnchorIdTooSmall();
     error ArraySizesMismatch();
     error BatchNotFound();
     error BatchVerified();
