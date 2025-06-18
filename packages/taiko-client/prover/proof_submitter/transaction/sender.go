@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -92,7 +93,7 @@ func (s *Sender) Send(
 	txMgr, isPrivate := s.txmgrSelector.Select()
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
-		if isPrivate {
+		if isPrivate && !errors.Is(err, context.DeadlineExceeded) {
 			s.txmgrSelector.RecordPrivateTxMgrFailed()
 		}
 		return encoding.TryParsingCustomError(err)
@@ -150,7 +151,7 @@ func (s *Sender) SendBatchProof(
 	txMgr, isPrivate := s.txmgrSelector.Select()
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
-		if isPrivate {
+		if isPrivate && !errors.Is(err, context.DeadlineExceeded) {
 			s.txmgrSelector.RecordPrivateTxMgrFailed()
 		}
 		return encoding.TryParsingCustomError(err)
