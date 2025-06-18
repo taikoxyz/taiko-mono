@@ -46,7 +46,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(bondToken);
         auth.fee = 5 ether; // 5 TKO token fee
@@ -121,7 +121,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(bondToken);
         auth.fee = 5 ether;
@@ -159,7 +159,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         batchParams.proverAuth = abi.encode(auth);
 
         // Expect revert due to invalid signature
-        vm.expectRevert(LibAuth.InvalidSignature.selector);
+        vm.expectRevert(I.InvalidSignature.selector);
         inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
     }
 
@@ -182,7 +182,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct with incorrect batchId
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(bondToken);
         auth.fee = 5 ether;
@@ -220,7 +220,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         batchParams.proverAuth = abi.encode(auth);
 
         // Expect revert due to invalid batchId
-        vm.expectRevert(LibAuth.InvalidBatchId.selector);
+        vm.expectRevert(I.InvalidBatchId.selector);
         inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
     }
 
@@ -243,7 +243,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct with expired validUntil
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(bondToken);
         auth.fee = 5 ether;
@@ -282,7 +282,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         batchParams.proverAuth = abi.encode(auth);
 
         // Expect revert due to expired validUntil
-        vm.expectRevert(LibAuth.InvalidValidUntil.selector);
+        vm.expectRevert(I.InvalidValidUntil.selector);
         inbox.v4ProposeBatch(abi.encode(batchParams), txList, "");
     }
 
@@ -303,7 +303,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct with zero address
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = address(0); // Zero address
         auth.feeToken = address(bondToken);
         auth.fee = 5 ether;
@@ -318,7 +318,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         batchParams.proverAuth = abi.encode(auth);
 
         // Expect revert due to zero address prover
-        vm.expectRevert(LibAuth.InvalidProver.selector);
+        vm.expectRevert(I.InvalidProver.selector);
         inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
     }
 
@@ -341,7 +341,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct with ETH as fee token
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(0); // ETH address
         auth.fee = 5 ether;
@@ -360,7 +360,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         batchParams.blocks[0].anchorBlockId = uint64(block.number);
         vm.roll(block.number + 1);
         // Expect revert due to ETH as fee token
-        vm.expectRevert(LibAuth.EtherAsFeeTokenNotSupportedYet.selector);
+        vm.expectRevert(I.EtherAsFeeTokenNotSupportedYet.selector);
         inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
     }
 
@@ -386,7 +386,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct with fee greater than liveness bond
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(bondToken);
         auth.fee = feeLargerThanBond;
@@ -466,7 +466,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         inbox.v4DepositBond(1000 ether);
 
         // Create a ProverAuth struct with fee smaller than liveness bond
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(bondToken);
         auth.fee = feeSmallerThanBond;
@@ -554,7 +554,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         differentFeeToken.approve(address(inbox), type(uint256).max);
 
         // Create a ProverAuth struct using the different fee token
-        LibAuth.ProverAuth memory auth;
+        ITaikoInbox.ProverAuth memory auth;
         auth.prover = prover;
         auth.feeToken = address(differentFeeToken);
         auth.fee = 5 ether; // 5 tokens fee

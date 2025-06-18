@@ -22,7 +22,7 @@ library LibPropose {
 
     struct Output {
         uint64 lastAnchorBlockId;
-        LibAuth.ProverAuth auth;
+        I.ProverAuth auth;
         I.BatchParams params;
         I.Batch lastBatch;
         I.Stats2 stats2;

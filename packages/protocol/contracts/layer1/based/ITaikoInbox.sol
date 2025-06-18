@@ -225,6 +225,15 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint256[43] __gap;
     }
 
+    struct ProverAuth {
+        address prover;
+        address feeToken;
+        uint96 fee;
+        uint64 validUntil; // optional
+        uint64 batchId; // optional
+        bytes signature;
+    }
+
     /// @notice Emitted when a batch is synced.
     /// @param stats1 The Stats1 data structure.
     event Stats1Updated(Stats1 stats1);
@@ -269,18 +278,23 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
+    error EtherAsFeeTokenNotSupportedYet();
     error EtherNotPaidAsBond();
     error FirstBlockTimeShiftNotZero();
     error ForkNotActivated();
     error InsufficientBond();
+    error InvalidBatchId();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidForcedInclusion();
     error InvalidGenesisBlockHash();
     error InvalidParams();
+    error InvalidProver();
+    error InvalidSignature();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
+    error InvalidValidUntil();
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoAnchorBlockIdWithinThisBatch();
@@ -290,6 +304,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error ParentMetaHashMismatch();
     error SameTransition();
     error SignalNotSent();
+    error SignatureNotEmpty();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();
