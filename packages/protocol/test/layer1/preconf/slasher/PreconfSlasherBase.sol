@@ -89,7 +89,7 @@ contract PreconfSlasherBase is CommonTest {
     {
         uint64 numBlocks = 10;
 
-        _cachedBatchInfo.proposer = _proposer;
+        _cachedBatchMetadata.proposer = _proposer;
         for (uint256 i; i < numBlocks; ++i) {
             ITaikoInbox.BlockParams memory blockParams;
             _cachedBatchInfo.blocks.push(blockParams);

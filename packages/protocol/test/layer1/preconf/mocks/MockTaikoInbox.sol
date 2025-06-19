@@ -18,6 +18,7 @@ contract MockTaikoInbox is EssentialContract {
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 1 ether,
+            provabilityBond: 10 ether,
             stateRootSyncInternal: 1,
             maxAnchorHeightOffset: 100,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -28,9 +29,11 @@ contract MockTaikoInbox is EssentialContract {
                 maxGasIssuancePerBlock: 1
             }),
             provingWindow: 3600,
+            extendedProvingWindow: 7200,
             cooldownWindow: 300,
             maxSignalsToReceive: 10,
             maxBlocksPerBatch: 100,
+            bondRewardPtcg: 25,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 0,
                 pacaya: 0,
