@@ -30,7 +30,7 @@
   - bridge_watchdog: `0x0000000000000000000000000000000000000000`
 - todo:
   - deploy and register BridgedERC20V2
-  - change owner to delegate owner
+  - change owner to delegate controller
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
