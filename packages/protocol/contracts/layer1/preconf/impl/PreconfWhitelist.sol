@@ -75,6 +75,19 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         _removeOperator(_operator, operatorChangeDelay);
     }
 
+    /// @notice Reset operatorCount to 3 and only keep the first three operators
+    /// @dev Only use once
+    function resetOperatorMapping() external onlyOwner {
+        uint8 i = operatorCount;
+        while (i > 3) {
+            // Since we are removing duplicated operators, so no need to check whether it is active.
+            // And Since the operator to be removed is at the end, no need to shift position as
+            // well.
+            delete operatorMapping[--i];
+        }
+        operatorCount = 3;
+    }
+
     /// @notice Allows the caller to remove themselves as an operator immediately.
     function removeSelf() external {
         _removeOperator(msg.sender, 0);
