@@ -86,7 +86,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint32 gasLimit;
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
-        // Data for the L2 anchor transaction, shared by all blocks in the batch
         AnchorBlock[] anchorBlocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
