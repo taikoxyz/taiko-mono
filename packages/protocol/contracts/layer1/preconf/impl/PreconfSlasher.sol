@@ -70,8 +70,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             slashAmount_ = _validateInvalidEOP(payload, _evidence[1:]);
         } else if (violationType == ViolationType.MissingEOP) {
             slashAmount_ = _validateMissingEOP(payload, _evidence[1:]);
-        } else {
-            revert InvalidViolationType();
         }
 
         emit Slashed(_committer, violationType, payload, slashAmount_);
@@ -109,23 +107,32 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         _verifyBatchData(_payload.batchId, evidence.batchMetadata, evidence.batchInfo);
         ITaikoInbox.BatchInfo memory batchInfo = evidence.batchInfo;
 
-        // Slash if the height of anchor block on the commitment is different from the
-        // height of anchor block on the proposed block
-        // TODO(daniel); fix this
-        // if (_payload.anchorId != batchInfo.anchorBlockId) {
-        //     return getSlashAmount().invalidPreconf;
-        // }
-
         uint256 blockId = preconfed.number;
         require(blockId > batchInfo.lastBlockId - batchInfo.blocks.length, BlockNotInBatch());
         require(blockId <= batchInfo.lastBlockId, BlockNotInBatch());
+
+        LibBlockHeader.BlockHeader memory actual = evidence.actualBlockHeader;
+
+        // Preconfed block must be at the same height as the actual block
+        require(actual.number == blockId, InvalidActualBlockHeader());
+
+        uint256 firstBlockId = batchInfo.lastBlockId - batchInfo.blocks.length + 1;
+        uint256 anchorBlockIndex = blockId - firstBlockId;
+
+        // Slash if the height of anchor block on the commitment is different from the
+        // height of anchor block on the proposed block
+        if (_payload.anchorId != batchInfo.anchorBlockIds[anchorBlockIndex]) {
+            return getSlashAmount().invalidPreconf;
+        }
 
         // Unlike anchorId, we don't penalize the preconfer if the anchorHash doesn't match. This is
         // because the anchor block could be reorganized. In such cases, the node should have
         // already discarded the preconfirmation commitment if the anchorHash doesn't align with the
         // hash of the anchor block.
-        // TODO(daniel); fix this
-        // require(_payload.anchorHash == batchInfo.anchorBlockHash, PossibleReorgOfAnchorBlock());
+        require(
+            _payload.anchorHash == batchInfo.anchorBlockHashes[anchorBlockIndex],
+            PossibleReorgOfAnchorBlock()
+        );
 
         // Check for reorgs if the committer missed the proposal
         if (evidence.batchMetadata.proposer != _committer) {
@@ -136,8 +143,6 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
             }
         }
 
-        LibBlockHeader.BlockHeader memory actual = evidence.actualBlockHeader;
-        require(actual.number == blockId, InvalidActualBlockHeader());
         // The preconfirmed blockhash must not match the hash of the proposed block for a
         // preconfirmation violation
         bytes32 actualBlockHash = actual.hash();
