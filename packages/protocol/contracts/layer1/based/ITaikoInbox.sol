@@ -65,6 +65,11 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes proverAuth;
     }
 
+    struct AnchorBlock {
+        uint64 id;
+        bytes32 blockHash;
+    }
+
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
     /// does not include data necessary for batch proving.
     struct BatchInfo {
@@ -81,11 +86,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint32 gasLimit;
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
-        // Data for the L2 anchor transaction, shared by all blocks in the batch
-        uint64[] anchorBlockIds;
-        // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
-        // The batch's validity proof shall verify the integrity of these two values.
-        bytes32[] anchorBlockHashes;
+        AnchorBlock[] anchorBlocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
