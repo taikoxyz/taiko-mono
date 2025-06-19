@@ -121,7 +121,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
-        if (_payload.anchorId != batchInfo.anchorBlockIds[anchorBlockIndex]) {
+        if (_payload.anchorId != batchInfo.anchorBlocks[anchorBlockIndex].id) {
             return getSlashAmount().invalidPreconf;
         }
 
@@ -130,7 +130,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // already discarded the preconfirmation commitment if the anchorHash doesn't align with the
         // hash of the anchor block.
         require(
-            _payload.anchorHash == batchInfo.anchorBlockHashes[anchorBlockIndex],
+            _payload.anchorHash == batchInfo.anchorBlocks[anchorBlockIndex].blockHash,
             PossibleReorgOfAnchorBlock()
         );
 

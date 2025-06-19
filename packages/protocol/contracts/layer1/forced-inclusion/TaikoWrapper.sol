@@ -145,8 +145,8 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         pure
         returns (bool)
     {
-        for (uint256 i; i < info_.anchorBlockHashes.length; ++i) {
-            if (info_.anchorBlockHashes[i] != 0) return true;
+        for (uint256 i; i < info_.anchorBlocks.length; ++i) {
+            if (info_.anchorBlocks[i].blockHash != 0) return true;
         }
         return false;
     }

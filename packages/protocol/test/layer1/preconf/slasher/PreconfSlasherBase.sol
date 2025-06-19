@@ -93,8 +93,7 @@ contract PreconfSlasherBase is CommonTest {
         for (uint256 i; i < numBlocks; ++i) {
             ITaikoInbox.BlockParams memory blockParams;
             _cachedBatchInfo.blocks.push(blockParams);
-            _cachedBatchInfo.anchorBlockIds.push(0);
-            _cachedBatchInfo.anchorBlockHashes.push(bytes32(0));
+            _cachedBatchInfo.anchorBlocks.push(ITaikoInbox.AnchorBlock(0, 0));
         }
 
         if (_blockPosition == BlockPosition.PREV_BATCH) {
@@ -115,8 +114,8 @@ contract PreconfSlasherBase is CommonTest {
         ) {
             uint256 firstBlockId = _cachedBatchInfo.lastBlockId - numBlocks + 1;
             uint256 anchorBlockIndex = _blockId - firstBlockId;
-            _cachedBatchInfo.anchorBlockIds[anchorBlockIndex] = correctAnchorBlockId;
-            _cachedBatchInfo.anchorBlockHashes[anchorBlockIndex] = correctAnchorBlockHash;
+            _cachedBatchInfo.anchorBlocks[anchorBlockIndex].id = correctAnchorBlockId;
+            _cachedBatchInfo.anchorBlocks[anchorBlockIndex].blockHash = correctAnchorBlockHash;
         }
 
         _cachedBatchMetadata.infoHash = keccak256(abi.encode(_cachedBatchInfo));

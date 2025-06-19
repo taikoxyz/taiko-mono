@@ -141,9 +141,8 @@ library LibPropose {
                         output_.params, _input.config, _input.signalService, output_.lastBatch
                     ),
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
-                    anchorBlockIds: new uint64[](nBlocks), // to be initialised later
-                    anchorBlockHashes: new bytes32[](nBlocks), // to be initialised
-                        // later
+                    anchorBlocks: new I.AnchorBlock[](nBlocks),
+                    // later
                     baseFeeConfig: _input.config.baseFeeConfig
                 });
 
@@ -170,9 +169,11 @@ library LibPropose {
                         }
                         output_.lastAnchorBlockId = anchorBlockId;
 
-                        output_.info.anchorBlockIds[i] = output_.lastAnchorBlockId;
-                        output_.info.anchorBlockHashes[i] = blockhash(anchorBlockId);
-                        require(output_.info.anchorBlockHashes[i] != 0, I.ZeroAnchorBlockHash());
+                        output_.info.anchorBlocks[i].id = output_.lastAnchorBlockId;
+                        output_.info.anchorBlocks[i].blockHash = blockhash(anchorBlockId);
+                        require(
+                            output_.info.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash()
+                        );
                     }
                 }
 
