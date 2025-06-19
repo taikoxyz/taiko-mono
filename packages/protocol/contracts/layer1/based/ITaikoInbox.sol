@@ -282,6 +282,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error EtherAsFeeTokenNotSupportedYet();
     error EtherNotPaidAsBond();
     error FirstBlockTimeShiftNotZero();
+    error ForcedInclusionFailed();
     error ForkNotActivated();
     error InsufficientBond();
     error InvalidBatchId();
