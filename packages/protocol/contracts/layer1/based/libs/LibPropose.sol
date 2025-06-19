@@ -24,7 +24,6 @@ library LibPropose {
         uint64 lastAnchorBlockId;
         I.ProverAuth auth;
         I.BatchParams params;
-        I.Batch lastBatch;
         I.Stats2 stats2;
         I.BatchInfo info;
         I.BatchMetadata meta;
@@ -101,7 +100,7 @@ library LibPropose {
             }
 
             // Keep track of last batch's information.
-            output_.lastBatch =
+            I.Batch storage lastBatch =
                 $.batches[(output_.stats2.numBatches - 1) % _input.config.batchRingBufferSize];
 
             // This section constructs the metadata for the proposed batch, which is crucial for
@@ -136,9 +135,9 @@ library LibPropose {
                     blobByteOffset: output_.params.blobParams.byteOffset,
                     blobByteSize: output_.params.blobParams.byteSize,
                     gasLimit: _input.config.blockMaxGasLimit,
-                    lastBlockId: output_.lastBatch.lastBlockId + uint64(nBlocks),
+                    lastBlockId: lastBatch.lastBlockId + uint64(nBlocks),
                     lastBlockTimestamp: _validateBatchParams(
-                        output_.params, _input.config, _input.signalService, output_.lastBatch
+                        output_.params, _input.config, _input.signalService, lastBatch
                     ),
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
                     anchorBlocks: new I.AnchorBlock[](nBlocks),
@@ -157,7 +156,7 @@ library LibPropose {
                             );
 
                             require(
-                                anchorBlockId > output_.lastBatch.anchorBlockId,
+                                anchorBlockId > lastBatch.anchorBlockId,
                                 I.AnchorIdSmallerOrEqualThanLastBatch()
                             );
                         } else {
@@ -195,7 +194,7 @@ library LibPropose {
                     prover: output_.params.proposer,
                     batchId: output_.stats2.numBatches,
                     proposedAt: uint64(block.timestamp),
-                    firstBlockId: output_.lastBatch.lastBlockId + 1
+                    firstBlockId: lastBatch.lastBlockId + 1
                 });
 
                 LibProve._checkBatchInForkRange(
@@ -297,7 +296,7 @@ library LibPropose {
         I.BatchParams memory _params,
         I.Config memory _config,
         address _signalService,
-        I.Batch memory _lastBatch
+        I.Batch storage _lastBatch
     )
         private
         view
