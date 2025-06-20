@@ -132,10 +132,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
-    internal
+        internal
     {
         (uint256 basefee, uint64 newGasTarget, uint64 newGasExcess) =
-                        v4GetBaseFee(_parentGasUsed, uint64(block.timestamp), _baseFeeConfig);
+            v4GetBaseFee(_parentGasUsed, uint64(block.timestamp), _baseFeeConfig);
 
         require(block.basefee == basefee || skipFeeCheck(), L2_BASEFEE_MISMATCH());
 
