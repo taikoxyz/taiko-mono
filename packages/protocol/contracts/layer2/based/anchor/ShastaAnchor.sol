@@ -66,7 +66,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
-        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
+        _v4VerifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _updateParentHashAndTimestamp(parentId);
 
         if (_anchorBlockId == 0) {
@@ -123,5 +123,25 @@ abstract contract ShastaAnchor is PacayaAnchor {
         if (basefee_ < MIN_BASE_FEE) {
             basefee_ = MIN_BASE_FEE;
         }
+    }
+
+    /// @dev Verifies that the base fee per gas is correct and updates the gas excess.
+    /// @param _parentGasUsed The gas used by the parent block.
+    /// @param _baseFeeConfig The configuration parameters for calculating the base fee.
+    function _v4VerifyBaseFeeAndUpdateGasExcess(
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+    internal
+    {
+        (uint256 basefee, uint64 newGasTarget, uint64 newGasExcess) =
+                        v4GetBaseFee(_parentGasUsed, uint64(block.timestamp), _baseFeeConfig);
+
+        require(block.basefee == basefee || skipFeeCheck(), L2_BASEFEE_MISMATCH());
+
+        emit EIP1559Update(parentGasTarget, newGasTarget, parentGasExcess, newGasExcess, basefee);
+
+        parentGasTarget = newGasTarget;
+        parentGasExcess = newGasExcess;
     }
 }
