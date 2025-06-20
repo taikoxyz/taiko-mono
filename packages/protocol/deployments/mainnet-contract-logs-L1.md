@@ -61,7 +61,7 @@
 - ens: `signals.based.taiko.eth`
 - proxy: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
 - impl: `0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c`
-- owner: `admin.taiko.eth`
+- owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -72,13 +72,14 @@
   - Upgraded from `0xDF8642a1FBFc2014de27E8E87283D6f3eEF315DF` to `0x45fed11Ba70D4217545F18E27DDAF7D76Ff499f3` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - Upgraded from `0x45fed11Ba70D4217545F18E27DDAF7D76Ff499f3` to `0x0783Ee019C9b0f918A741469bD488A88827b3617` @commit`cf55838` @tx`0x97789b6668d0a287b1f57bb6c8e23cce62308fb887139faeb0f06b77855995fd`
   - Upgraded from `0x0783Ee019C9b0f918A741469bD488A88827b3617` to `0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c` @commit`cf55838` @tx`0x0ae99d24b294622e3d3868c8dca911a5936231ce1f97254ec0c6a6f65f7aa81c`
+  - Change owner to controller @tx`0x6348cbb8f4c907bd72ded06cb9ba587d4ca794a546dab7e7ab6f0281a9c48c2c`
 
 #### bridge
 
 - ens: `bridge.based.taiko.eth`
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
 - impl: `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F`
-- owner: `admin.taiko.eth`
+- owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -94,12 +95,13 @@
   - upgrade impl to `0x01E7D369a619eF1B0E92563d8737F42C09789986` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
   - Upgrade impl to `0xAc96FF285158bceBB8573D20d853e86BB2915aF3` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - Upgrade impl to `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
+  - Change owner to controller @tx`0x6348cbb8f4c907bd72ded06cb9ba587d4ca794a546dab7e7ab6f0281a9c48c2c`
 
 #### quota_manager
 
 - proxy: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
 - impl: `0xdb627bfD79e81fE42138Eb875287F94FAd5BBc64`
-- owner: `admin.taiko.eth`
+- owner: `controller.taiko.eth`
 - quota:
   - Quota Period: 24 hours
   - ETH: 1000 ETH
@@ -111,6 +113,7 @@
   - deployed on May 13, 2024 at commit `b90b932`
   - admin.taiko.eth accepted the ownership @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
   - upgraded from `0x49c5e5F131314Bb24b17E249960F8B12F925ef22` to `0xdb627bfD79e81fE42138Eb875287F94FAd5BBc64` @commit`a3faee0` @tx`0x8de1631a25b337c1e702f9ce9d9ab8a3b626922441855e959b2d79dae40bd131`
+  - change owner to controller @tx`0x4445a905ba77f382914a1dcbb1ddd3ce704822c1fd4512042a8195ebb816c631`
 
 #### erc20_vault
 
