@@ -125,7 +125,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint96 livenessBond;
         uint64 batchId; // slot 3
         uint64 lastBlockTimestamp;
-        uint64 anchorBlockId;
+        uint64 lastAnchorBlockId;
         uint24 nextTransitionId;
         uint8 reserved4;
         // The ID of the transaction that is used to verify this batch. However, if this batch is
@@ -242,7 +242,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
-    error AnchorIdSmallerOrEqualThanLastBatch();
     error AnchorIdSmallerThanParent();
     error AnchorIdTooSmall();
     error ArraySizesMismatch();

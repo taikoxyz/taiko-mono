@@ -125,9 +125,9 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
         if (stats.numBatches > 0) {
             ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
             // We put the anchorBlockId to be in the first block of the batch
-            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
             // vm.roll to have available blockhash()
-            vm.roll(lastBatch.anchorBlockId + 2);
+            vm.roll(lastBatch.lastAnchorBlockId + 2);
         }
 
         vm.prank(Alice);
@@ -193,9 +193,9 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
         ITaikoInbox.Stats2 memory stats = inbox.v4GetStats2();
         ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
 
-        params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+        params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
         // vm.roll to have available blockhash()
-        vm.roll(lastBatch.anchorBlockId + 3);
+        vm.roll(lastBatch.lastAnchorBlockId + 3);
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.BeyondCurrentFork.selector);
@@ -203,7 +203,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
 
         console2.log("=== Step 6: Try advancing 3 blocks, that succeeds ===");
         params.blocks = new ITaikoInbox.BlockParams[](3); // 3 blocks: 131, 132, 133
-        params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+        params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
         vm.prank(Alice);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
 
@@ -212,7 +212,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
         );
         params.blocks = new ITaikoInbox.BlockParams[](1); // 1 block: 134, not works because we
             // would need to upgrade the contracts to have different checks
-        params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 2;
+        params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 2;
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.BeyondCurrentFork.selector);
@@ -252,9 +252,9 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             if (stats.numBatches > 0) {
                 ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
                 // We put the anchorBlockId to be in the first block of the batch
-                params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+                params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
                 // vm.roll to have available blockhash()
-                vm.roll(lastBatch.anchorBlockId + 2);
+                vm.roll(lastBatch.lastAnchorBlockId + 2);
             }
 
             vm.prank(Alice);

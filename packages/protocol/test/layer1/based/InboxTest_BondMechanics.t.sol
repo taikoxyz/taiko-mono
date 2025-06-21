@@ -108,9 +108,9 @@ contract InboxTest_BondMechanics is InboxTestBase {
         if (stats.numBatches > 0) {
             ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
             // We put the anchorBlockId to be in the first block of the batch
-            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
             // vm.roll to have available blockhash()
-            vm.roll(lastBatch.anchorBlockId + 2);
+            vm.roll(lastBatch.lastAnchorBlockId + 2);
         }
 
         (, ITaikoInbox.BatchMetadata memory meta) =

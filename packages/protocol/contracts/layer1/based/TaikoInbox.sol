@@ -160,6 +160,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             {
                 uint256 nBlocks = params.blocks.length;
+                uint64 lastBlockTimestamp = _validateBatchParams(
+                    params,
+                    config.maxAnchorHeightOffset,
+                    config.maxSignalsToReceive,
+                    config.maxBlocksPerBatch,
+                    lastBatch
+                );
+                bytes32 extraData = bytes32(uint256(_encodeExtraDataLower128Bits(config, params)));
 
                 info_ = BatchInfo({
                     txsHash: bytes32(0), // to be initialised later
@@ -171,7 +179,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     // header of each block in this batch match the specified value.
                     // The upper 128 bits of the extraData field are validated using off-chain
                     // protocol logic.
-                    extraData: bytes32(uint256(_encodeExtraDataLower128Bits(config, params))),
+                    extraData: extraData,
                     coinbase: params.coinbase,
                     proposer: params.proposer,
                     proposedIn: uint64(block.number),
@@ -180,13 +188,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     blobByteSize: params.blobParams.byteSize,
                     gasLimit: config.blockMaxGasLimit,
                     lastBlockId: lastBatch.lastBlockId + uint64(nBlocks),
-                    lastBlockTimestamp: _validateBatchParams(
-                        params,
-                        config.maxAnchorHeightOffset,
-                        config.maxSignalsToReceive,
-                        config.maxBlocksPerBatch,
-                        lastBatch
-                    ),
+                    lastBlockTimestamp: lastBlockTimestamp,
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
                     anchorBlockIds: new uint64[](nBlocks), // to be initialised later
                     anchorBlockHashes: new bytes32[](nBlocks), // to be initialised
@@ -194,40 +196,39 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                     baseFeeConfig: config.baseFeeConfig
                 });
 
-                for (uint256 i; i < nBlocks; ++i) {
-                    uint64 anchorBlockId = params.blocks[i].anchorBlockId;
-                    if (anchorBlockId != 0) {
-                        if (lastAnchorBlockId == 0) {
-                            // This is the first non zero anchor block id in the batch.
+                lastAnchorBlockId = lastBatch.lastAnchorBlockId;
+                {
+                    bool foundNoneZeroAnchorBlockId;
+                    for (uint256 i; i < nBlocks; ++i) {
+                        uint64 anchorBlockId = params.blocks[i].anchorBlockId;
+                        if (anchorBlockId != 0) {
                             require(
-                                anchorBlockId + config.maxAnchorHeightOffset >= block.number,
+                                foundNoneZeroAnchorBlockId
+                                    || anchorBlockId + config.maxAnchorHeightOffset >= block.number,
                                 AnchorIdTooSmall()
                             );
 
-                            require(
-                                anchorBlockId > lastBatch.anchorBlockId,
-                                AnchorIdSmallerOrEqualThanLastBatch()
-                            );
-                        } else {
-                            // anchor block id must be strictly increasing
                             require(anchorBlockId > lastAnchorBlockId, AnchorIdSmallerThanParent());
+
+                            info_.anchorBlockIds[i] = anchorBlockId;
+                            info_.anchorBlockHashes[i] = blockhash(anchorBlockId);
+                            require(info_.anchorBlockHashes[i] != 0, ZeroAnchorBlockHash());
+
+                            foundNoneZeroAnchorBlockId = true;
+                            lastAnchorBlockId = anchorBlockId;
                         }
-                        lastAnchorBlockId = anchorBlockId;
-
-                        info_.anchorBlockIds[i] = lastAnchorBlockId;
-                        info_.anchorBlockHashes[i] = blockhash(anchorBlockId);
-                        require(info_.anchorBlockHashes[i] != 0, ZeroAnchorBlockHash());
                     }
+
+                    // Ensure that if msg.sender is not the inboxWrapper, at least one block must
+                    // have a
+                    // non-zero anchor block id. Otherwise, delegate this validation to the
+                    // inboxWrapper
+                    // contract.
+                    require(
+                        msg.sender == inboxWrapper || foundNoneZeroAnchorBlockId,
+                        NoAnchorBlockIdWithinThisBatch()
+                    );
                 }
-
-                // Ensure that if msg.sender is not the inboxWrapper, at least one block must have a
-                // non-zero anchor block id. Otherwise, delegate this validation to the inboxWrapper
-                // contract.
-                require(
-                    msg.sender == inboxWrapper || lastAnchorBlockId != 0,
-                    NoAnchorBlockIdWithinThisBatch()
-                );
-
                 bytes32 txListHash = keccak256(_txList);
                 (info_.txsHash, info_.blobHashes) = _calculateTxsHash(txListHash, params.blobParams);
 
@@ -295,7 +296,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // SSTORE #2 {{
                 batch.batchId = stats2.numBatches;
                 batch.lastBlockTimestamp = info_.lastBlockTimestamp;
-                batch.anchorBlockId = lastAnchorBlockId;
+                batch.lastAnchorBlockId = lastAnchorBlockId;
                 batch.nextTransitionId = 1;
                 batch.verifiedTransitionId = 0;
                 batch.reserved4 = 0;
@@ -616,7 +617,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         Batch storage batch = state.batches[0];
         batch.metaHash = bytes32(uint256(1));
         batch.lastBlockTimestamp = uint64(block.timestamp);
-        batch.anchorBlockId = uint64(block.number);
+        batch.lastAnchorBlockId = uint64(block.number);
         batch.nextTransitionId = 2;
         batch.verifiedTransitionId = 1;
 
