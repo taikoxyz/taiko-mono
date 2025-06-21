@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/goverance/Controller.sol";
+import "src/shared/governance/Controller.sol";
 /// @title TaikoDAOController
 /// @notice This contract maintains ownership of all contracts and assets, and is itself owned by
 /// the TaikoDAO. This architecture allows the TaikoDAO to seamlessly transition from one DAO to
