@@ -18,7 +18,7 @@ library LibInit {
         I.Batch storage batch = $.batches[0];
         batch.metaHash = bytes32(uint256(1));
         batch.lastBlockTimestamp = uint64(block.timestamp);
-        batch.anchorBlockId = uint64(block.number);
+        batch.lastAnchorBlockId = uint64(block.number);
         batch.nextTransitionId = 2;
         batch.verifiedTransitionId = 1;
 

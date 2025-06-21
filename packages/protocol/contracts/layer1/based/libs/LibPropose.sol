@@ -22,6 +22,7 @@ library LibPropose {
 
     struct Output {
         uint64 lastAnchorBlockId;
+        bytes32 txListHash;
         I.ProverAuth auth;
         I.BatchParams params;
         I.Stats2 stats2;
@@ -114,6 +115,11 @@ library LibPropose {
             // the following approach to calculate a block's difficulty:
             //  `keccak256(abi.encode("TAIKO_DIFFICULTY", block.number))`
             {
+                bytes32 extraData =
+                    bytes32(uint256(_encodeExtraDataLower128Bits(_input.config, output_.params)));
+                uint64 lastBlockTimestamp = _validateBatchParams(
+                    output_.params, _input.config, _input.signalService, lastBatch
+                );
                 uint256 nBlocks = output_.params.blocks.length;
 
                 output_.info = I.BatchInfo({
@@ -126,9 +132,7 @@ library LibPropose {
                     // header of each block in this batch match the specified value.
                     // The upper 128 bits of the extraData field are validated using off-chain
                     // protocol logic.
-                    extraData: bytes32(
-                        uint256(_encodeExtraDataLower128Bits(_input.config, output_.params))
-                    ),
+                    extraData: extraData,
                     coinbase: output_.params.coinbase,
                     proposedIn: uint64(block.number),
                     blobCreatedIn: output_.params.blobParams.createdIn,
@@ -136,57 +140,55 @@ library LibPropose {
                     blobByteSize: output_.params.blobParams.byteSize,
                     gasLimit: _input.config.blockMaxGasLimit,
                     lastBlockId: lastBatch.lastBlockId + uint64(nBlocks),
-                    lastBlockTimestamp: _validateBatchParams(
-                        output_.params, _input.config, _input.signalService, lastBatch
-                    ),
+                    lastBlockTimestamp: lastBlockTimestamp,
                     // Data for the L2 anchor transaction, shared by all blocks in the batch
                     anchorBlocks: new I.AnchorBlock[](nBlocks),
-                    // later
                     baseFeeConfig: _input.config.baseFeeConfig
                 });
 
-                for (uint256 i; i < nBlocks; ++i) {
-                    uint64 anchorBlockId = output_.params.blocks[i].anchorBlockId;
-                    if (anchorBlockId != 0) {
-                        if (output_.lastAnchorBlockId == 0) {
-                            // This is the first non zero anchor block id in the batch.
+                output_.lastAnchorBlockId = lastBatch.lastAnchorBlockId;
+                {
+                    bool foundNoneZeroAnchorBlockId;
+                    for (uint256 i; i < nBlocks; ++i) {
+                        uint64 anchorBlockId = output_.params.blocks[i].anchorBlockId;
+                        if (anchorBlockId != 0) {
                             require(
-                                anchorBlockId + _input.config.maxAnchorHeightOffset >= block.number,
+                                foundNoneZeroAnchorBlockId
+                                    || anchorBlockId + _input.config.maxAnchorHeightOffset
+                                        >= block.number,
                                 I.AnchorIdTooSmall()
                             );
 
                             require(
-                                anchorBlockId > lastBatch.anchorBlockId,
-                                I.AnchorIdSmallerOrEqualThanLastBatch()
-                            );
-                        } else {
-                            // anchor block id must be strictly increasing
-                            require(
                                 anchorBlockId > output_.lastAnchorBlockId,
                                 I.AnchorIdSmallerThanParent()
                             );
-                        }
-                        output_.lastAnchorBlockId = anchorBlockId;
 
-                        output_.info.anchorBlocks[i].id = output_.lastAnchorBlockId;
-                        output_.info.anchorBlocks[i].blockHash = blockhash(anchorBlockId);
-                        require(
-                            output_.info.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash()
-                        );
+                            output_.info.anchorBlocks[i] =
+                                I.AnchorBlock(anchorBlockId, blockhash(anchorBlockId));
+                            require(
+                                output_.info.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash()
+                            );
+
+                            foundNoneZeroAnchorBlockId = true;
+                            output_.lastAnchorBlockId = anchorBlockId;
+                        }
                     }
+
+                    // Ensure that if msg.sender is not the inboxWrapper, at least one block must
+                    // have a
+                    // non-zero anchor block id. Otherwise, delegate this validation to the
+                    // inboxWrapper
+                    // contract.
+                    require(
+                        msg.sender == _input.inboxWrapper || foundNoneZeroAnchorBlockId,
+                        I.NoAnchorBlockIdWithinThisBatch()
+                    );
                 }
 
-                // Ensure that if msg.sender is not the inboxWrapper, at least one block must have a
-                // non-zero anchor block id. Otherwise, delegate this validation to the inboxWrapper
-                // contract.
-                require(
-                    msg.sender == _input.inboxWrapper || output_.lastAnchorBlockId != 0,
-                    I.NoAnchorBlockIdWithinThisBatch()
-                );
-
-                bytes32 txListHash = keccak256(_txList);
+                output_.txListHash = keccak256(_txList);
                 (output_.info.txsHash, output_.info.blobHashes) =
-                    _calculateTxsHash(txListHash, output_.params.blobParams);
+                    _calculateTxsHash(output_.txListHash, output_.params.blobParams);
 
                 output_.meta = I.BatchMetadata({
                     infoHash: keccak256(abi.encode(output_.info)),
@@ -213,13 +215,12 @@ library LibPropose {
                         output_.params.proverAuth = "";
 
                         // Outsource the prover authentication to the LibAuth library to
-                        // reduce
-                        // this contract's code size.
+                        // reduce this contract's code size.
                         output_.auth = LibAuth.validateProverAuth(
                             _input.config.chainId,
                             output_.stats2.numBatches,
                             keccak256(abi.encode(output_.params)),
-                            txListHash,
+                            output_.txListHash,
                             proverAuth
                         );
                     }
@@ -272,7 +273,7 @@ library LibPropose {
                 // SSTORE #2 {{
                 batch.batchId = output_.stats2.numBatches;
                 batch.lastBlockTimestamp = output_.info.lastBlockTimestamp;
-                batch.anchorBlockId = output_.lastAnchorBlockId;
+                batch.lastAnchorBlockId = output_.lastAnchorBlockId;
                 batch.nextTransitionId = 1;
                 batch.verifiedTransitionId = 0;
                 batch.reserved4 = 0;
