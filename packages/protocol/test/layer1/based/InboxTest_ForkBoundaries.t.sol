@@ -24,6 +24,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 0,
+            provabilityBond: 0,
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -34,7 +35,9 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
                 maxGasIssuancePerBlock: 600_000_000
             }),
             provingWindow: 1 hours,
+            extendedProvingWindow: 2 hours,
             cooldownWindow: 0 hours,
+            bondRewardPtcg: 50, // 50%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: forkHeights
@@ -59,6 +62,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 0,
+            provabilityBond: 0,
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -69,7 +73,9 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
                 maxGasIssuancePerBlock: 600_000_000
             }),
             provingWindow: 1 hours,
+            extendedProvingWindow: 2 hours,
             cooldownWindow: 0 hours,
+            bondRewardPtcg: 50, // 50%
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 768,
             forkHeights: forkHeights

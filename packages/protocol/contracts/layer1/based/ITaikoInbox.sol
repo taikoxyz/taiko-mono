@@ -65,6 +65,11 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes proverAuth;
     }
 
+    struct AnchorBlock {
+        uint64 id;
+        bytes32 blockHash;
+    }
+
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
     /// does not include data necessary for batch proving.
     struct BatchInfo {
@@ -74,7 +79,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
-        address proposer;
         uint64 proposedIn; // Used by node/client
         uint64 blobCreatedIn;
         uint32 blobByteOffset;
@@ -82,17 +86,14 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint32 gasLimit;
         uint64 lastBlockId;
         uint64 lastBlockTimestamp;
-        // Data for the L2 anchor transaction, shared by all blocks in the batch
-        uint64[] anchorBlockIds;
-        // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
-        // The batch's validity proof shall verify the integrity of these two values.
-        bytes32[] anchorBlockHashes;
+        AnchorBlock[] anchorBlocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
     /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
         bytes32 infoHash;
+        address proposer;
         address prover;
         uint64 batchId;
         uint64 proposedAt; // Used by node/client
@@ -106,6 +107,13 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 stateRoot;
     }
 
+    enum ProofTiming {
+        OutOfExtendedProvingWindow, // 0
+        InProvingWindow, // 1
+        InExtendedProvingWindow // 2
+
+    }
+
     //  @notice Struct representing transition storage
     /// @notice 4 slots used.
     struct TransitionState {
@@ -113,15 +121,16 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 blockHash;
         bytes32 stateRoot;
         address prover;
-        bool inProvingWindow;
+        ProofTiming proofTiming;
         uint48 createdAt;
+        bool byAssignedProver;
     }
 
     /// @notice 3 slots used.
     struct Batch {
         bytes32 metaHash; // slot 1
         uint64 lastBlockId; // slot 2
-        uint96 reserved3;
+        uint96 provabilityBond;
         uint96 livenessBond;
         uint64 batchId; // slot 3
         uint64 lastBlockTimestamp;
@@ -175,6 +184,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
         uint96 livenessBond;
+        /// @notice The amount of Taiko token as a proposer's provability bond per batch.
+        uint96 provabilityBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -183,8 +194,12 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
+        /// @notice The extended proving window in seconds before provability bond is used as
+        /// reward.
+        uint24 extendedProvingWindow;
         /// @notice The time required for a transition to be used for verifying a batch.
         uint24 cooldownWindow;
+        uint8 bondRewardPtcg; // 0-100
         /// @notice The maximum number of signals to be received by TaikoL2.
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
@@ -209,6 +224,15 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         Stats2 stats2; // slot 6
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
+    }
+
+    struct ProverAuth {
+        address prover;
+        address feeToken;
+        uint96 fee;
+        uint64 validUntil; // optional
+        uint64 batchId; // optional
+        bytes signature;
     }
 
     /// @notice Emitted when a batch is synced.
@@ -254,18 +278,23 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
+    error EtherAsFeeTokenNotSupportedYet();
     error EtherNotPaidAsBond();
     error FirstBlockTimeShiftNotZero();
     error ForkNotActivated();
     error InsufficientBond();
+    error InvalidBatchId();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidForcedInclusion();
     error InvalidGenesisBlockHash();
     error InvalidParams();
+    error InvalidProver();
+    error InvalidSignature();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
+    error InvalidValidUntil();
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoAnchorBlockIdWithinThisBatch();
@@ -275,6 +304,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error ParentMetaHashMismatch();
     error SameTransition();
     error SignalNotSent();
+    error SignatureNotEmpty();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();

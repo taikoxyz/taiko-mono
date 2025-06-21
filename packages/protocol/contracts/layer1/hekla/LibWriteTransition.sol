@@ -25,7 +25,8 @@ library LibWriteTransition {
         bytes32 _blockHash,
         bytes32 _stateRoot,
         address _prover,
-        bool _inProvingWindow
+        ITaikoInbox.ProofTiming _proofTiming,
+        bool _byAssignedProver
     )
         public // reduce code size
     {
@@ -47,8 +48,9 @@ library LibWriteTransition {
         ts.stateRoot = _batchId % _config.stateRootSyncInternal == 0 ? _stateRoot : bytes32(0);
         ts.blockHash = _blockHash;
         ts.prover = _prover;
-        ts.inProvingWindow = _inProvingWindow;
+        ts.proofTiming = _proofTiming;
         ts.createdAt = uint48(block.timestamp);
+        ts.byAssignedProver = _byAssignedProver;
 
         if (tid == 1) {
             ts.parentHash = _parentHash;
@@ -64,8 +66,9 @@ library LibWriteTransition {
                 _blockHash,
                 _stateRoot,
                 _prover,
-                _inProvingWindow,
-                uint48(block.timestamp)
+                _proofTiming,
+                uint48(block.timestamp),
+                _byAssignedProver
             )
         );
     }

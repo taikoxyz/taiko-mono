@@ -18,6 +18,7 @@ contract MockTaikoInbox is EssentialContract {
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 1 ether,
+            provabilityBond: 10 ether,
             stateRootSyncInternal: 1,
             maxAnchorHeightOffset: 100,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
@@ -28,9 +29,11 @@ contract MockTaikoInbox is EssentialContract {
                 maxGasIssuancePerBlock: 1
             }),
             provingWindow: 3600,
+            extendedProvingWindow: 7200,
             cooldownWindow: 300,
             maxSignalsToReceive: 10,
             maxBlocksPerBatch: 100,
+            bondRewardPtcg: 25,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 0,
                 pacaya: 0,
@@ -60,10 +63,8 @@ contract MockTaikoInbox is EssentialContract {
         // Decode the batch params
         ITaikoInbox.BatchParams memory params = abi.decode(_params, (ITaikoInbox.BatchParams));
 
-        uint64[] memory anchorBlockIds = new uint64[](1);
-        anchorBlockIds[0] = params.blocks[0].anchorBlockId;
-
-        bytes32[] memory anchorBlockHashes = new bytes32[](1);
+        ITaikoInbox.AnchorBlock[] memory anchorBlocks = new ITaikoInbox.AnchorBlock[](1);
+        anchorBlocks[0].id = params.blocks[0].anchorBlockId;
 
         info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
@@ -72,14 +73,12 @@ contract MockTaikoInbox is EssentialContract {
             blobByteSize: 0,
             extraData: 0,
             coinbase: params.coinbase == address(0) ? params.proposer : params.coinbase,
-            proposer: params.proposer,
             gasLimit: 0, // Mock value
             lastBlockId: 0,
             lastBlockTimestamp: 0,
             proposedIn: uint64(block.number),
             blobCreatedIn: 0,
-            anchorBlockIds: anchorBlockIds,
-            anchorBlockHashes: anchorBlockHashes,
+            anchorBlocks: anchorBlocks,
             blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
@@ -92,6 +91,7 @@ contract MockTaikoInbox is EssentialContract {
 
         meta_ = ITaikoInbox.BatchMetadata({
             batchId: 0,
+            proposer: params.proposer,
             prover: params.proposer,
             proposedAt: uint64(block.timestamp),
             infoHash: keccak256(abi.encode(info_)),

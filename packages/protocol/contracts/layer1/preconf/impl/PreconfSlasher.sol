@@ -121,7 +121,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
 
         // Slash if the height of anchor block on the commitment is different from the
         // height of anchor block on the proposed block
-        if (_payload.anchorId != batchInfo.anchorBlockIds[anchorBlockIndex]) {
+        if (_payload.anchorId != batchInfo.anchorBlocks[anchorBlockIndex].id) {
             return getSlashAmount().invalidPreconf;
         }
 
@@ -130,12 +130,12 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         // already discarded the preconfirmation commitment if the anchorHash doesn't align with the
         // hash of the anchor block.
         require(
-            _payload.anchorHash == batchInfo.anchorBlockHashes[anchorBlockIndex],
+            _payload.anchorHash == batchInfo.anchorBlocks[anchorBlockIndex].blockHash,
             PossibleReorgOfAnchorBlock()
         );
 
         // Check for reorgs if the committer missed the proposal
-        if (batchInfo.proposer != _committer) {
+        if (evidence.batchMetadata.proposer != _committer) {
             // If the beacon block root is not available, it means that the preconfirmed block
             // was reorged out due to an L1 reorg.
             if (LibPreconfUtils.getBeaconBlockRootAt(_payload.preconferSlotTimestamp) == 0) {
