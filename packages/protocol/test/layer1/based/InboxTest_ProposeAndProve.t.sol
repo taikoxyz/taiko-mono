@@ -32,7 +32,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
         assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
-        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
@@ -79,7 +79,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
         assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
-        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
@@ -94,11 +94,11 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            console2.log("batch.anchorBlockId", batch.anchorBlockId);
+            console2.log("batch.lastAnchorBlockId", batch.lastAnchorBlockId);
             console2.log("block.number", block.number);
             console2.log("i", i);
             // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
-            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
+            assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 1);
             assertEq(batch.verifiedTransitionId, 0);
         }
@@ -156,7 +156,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
         assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
-        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
@@ -170,7 +170,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            assertEq(batch.anchorBlockId, genesisBlockProposedAt + i);
+            assertEq(batch.lastAnchorBlockId, genesisBlockProposedAt + i);
             assertEq(batch.nextTransitionId, 2);
             assertEq(batch.verifiedTransitionId, 0);
         }
@@ -250,7 +250,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
         assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
-        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
@@ -265,7 +265,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
-            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
+            assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 2);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
@@ -315,7 +315,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
         assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
-        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
@@ -331,7 +331,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             assertEq(batch.lastBlockId, i * 7);
             // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
-            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
+            assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 2);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 1);
@@ -367,7 +367,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         assertEq(batch.batchId, 0);
         assertEq(batch.metaHash, bytes32(uint256(1)));
         assertEq(batch.lastBlockTimestamp, genesisBlockProposedAt);
-        assertEq(batch.anchorBlockId, genesisBlockProposedIn);
+        assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn);
         assertEq(batch.nextTransitionId, 2);
         assertEq(batch.verifiedTransitionId, 1);
 
@@ -381,7 +381,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
             assertEq(batch.lastBlockTimestamp, block.timestamp);
             // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
-            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
+            assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn + i);
             assertEq(batch.nextTransitionId, 3);
             if (i % v4GetConfig().stateRootSyncInternal == 0 || i == stats2.lastVerifiedBatchId) {
                 assertEq(batch.verifiedTransitionId, 2);
@@ -439,10 +439,10 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
             assertEq(meta.infoHash, keccak256(abi.encode(info)));
 
             assertEq(batch.lastBlockTimestamp, block.timestamp);
-            console2.log("batch.anchorBlockId", batch.anchorBlockId);
+            console2.log("batch.lastAnchorBlockId", batch.lastAnchorBlockId);
             console2.log("block.number - 1", block.number - 1);
             // Since we increment the batch's anchorBlockId by 1 per each proposal/batch
-            assertEq(batch.anchorBlockId, genesisBlockProposedIn + i);
+            assertEq(batch.lastAnchorBlockId, genesisBlockProposedIn + i);
             if (i == 8) {
                 assertEq(batch.verifiedTransitionId, 0);
                 assertEq(batch.nextTransitionId, 2);
@@ -621,10 +621,10 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         if (stats.numBatches > 0) {
             ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
             // Set block 1 and block 2 acnhors respectively, to different ones!
-            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
-            params.blocks[1].anchorBlockId = lastBatch.anchorBlockId + 2;
+            params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
+            params.blocks[1].anchorBlockId = lastBatch.lastAnchorBlockId + 2;
             // vm.roll to have available blockhash()
-            vm.roll(lastBatch.anchorBlockId + 3);
+            vm.roll(lastBatch.lastAnchorBlockId + 3);
         }
 
         (, ITaikoInbox.BatchMetadata memory meta) =
@@ -633,7 +633,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Batch memory batch = inbox.v4GetBatch(meta.batchId);
 
         // Check if latest batch's anchorBlockId is correctly set to the "latter" one
-        assertEq(batch.anchorBlockId, params.blocks[1].anchorBlockId);
+        assertEq(batch.lastAnchorBlockId, params.blocks[1].anchorBlockId);
     }
 
     function test_inbox_one_anchor_has_to_be_set_per_batch() external transactBy(Alice) {
@@ -656,10 +656,10 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         if (stats.numBatches > 0) {
             ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
             // Wrong ! They should be incremental!
-            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 2;
-            params.blocks[1].anchorBlockId = lastBatch.anchorBlockId + 1;
+            params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 2;
+            params.blocks[1].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
             // vm.roll to have available blockhash()
-            vm.roll(lastBatch.anchorBlockId + 3);
+            vm.roll(lastBatch.lastAnchorBlockId + 3);
         }
 
         vm.expectRevert(ITaikoInbox.AnchorIdSmallerThanParent.selector);
@@ -674,15 +674,15 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         if (stats.numBatches > 0) {
             ITaikoInbox.Batch memory lastBatch = inbox.v4GetBatch(stats.numBatches - 1);
             // Wrong ! They should be incremental!
-            params.blocks[0].anchorBlockId = lastBatch.anchorBlockId + 1;
+            params.blocks[0].anchorBlockId = lastBatch.lastAnchorBlockId + 1;
             // vm.roll to have available blockhash()
-            vm.roll(lastBatch.anchorBlockId + 5);
+            vm.roll(lastBatch.lastAnchorBlockId + 5);
         }
 
         // 1st proposal
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
         // 2nd proposal with the same anchorBlockId -> Should not be allowed
-        vm.expectRevert(ITaikoInbox.AnchorIdSmallerOrEqualThanLastBatch.selector);
+        vm.expectRevert(ITaikoInbox.AnchorIdSmallerThanParent.selector);
         inbox.v4ProposeBatch(abi.encode(params), "txList", "");
     }
 
