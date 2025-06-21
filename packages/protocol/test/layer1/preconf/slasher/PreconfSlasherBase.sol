@@ -89,12 +89,12 @@ contract PreconfSlasherBase is CommonTest {
     {
         uint64 numBlocks = 10;
 
-        _cachedBatchInfo.anchorBlockId = correctAnchorBlockId;
-        _cachedBatchInfo.anchorBlockHash = correctAnchorBlockHash;
         _cachedBatchInfo.proposer = _proposer;
         for (uint256 i; i < numBlocks; ++i) {
             ITaikoInbox.BlockParams memory blockParams;
             _cachedBatchInfo.blocks.push(blockParams);
+            _cachedBatchInfo.anchorBlockIds.push(0);
+            _cachedBatchInfo.anchorBlockHashes.push(bytes32(0));
         }
 
         if (_blockPosition == BlockPosition.PREV_BATCH) {
@@ -107,6 +107,16 @@ contract PreconfSlasherBase is CommonTest {
             _cachedBatchInfo.lastBlockId = _blockId;
         } else if (_blockPosition == BlockPosition.NEXT_BATCH) {
             _cachedBatchInfo.lastBlockId = _blockId - 1;
+        }
+
+        // The internal anchor block index with underflow/overflow in either cases
+        if (
+            _blockPosition != BlockPosition.NEXT_BATCH && _blockPosition != BlockPosition.PREV_BATCH
+        ) {
+            uint256 firstBlockId = _cachedBatchInfo.lastBlockId - numBlocks + 1;
+            uint256 anchorBlockIndex = _blockId - firstBlockId;
+            _cachedBatchInfo.anchorBlockIds[anchorBlockIndex] = correctAnchorBlockId;
+            _cachedBatchInfo.anchorBlockHashes[anchorBlockIndex] = correctAnchorBlockHash;
         }
 
         _cachedBatchMetadata.infoHash = keccak256(abi.encode(_cachedBatchInfo));
