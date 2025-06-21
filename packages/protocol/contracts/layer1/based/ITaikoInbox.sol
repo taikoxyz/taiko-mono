@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/based/LibSharedData.sol";
 import "./IBondManager.sol";
 import "./IProveBatches.sol";
+import "./ITaikoData.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -18,7 +19,7 @@ import "./IProveBatches.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoInbox is IBondManager, IProveBatches {
+interface ITaikoInbox is IBondManager, IProveBatches, ITaikoData {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as
@@ -329,6 +330,16 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     )
         external
         returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
+
+
+    function v4ProposeBatch2(
+        bytes calldata _parentProposeMeta,
+        bytes calldata _params,
+        bytes calldata _txList,
+        bytes calldata _additionalData
+    )
+        external
+        returns (ITaikoInbox.BatchMetadata2 memory meta_);
 
     /// @notice Verify batches by providing the length of the batches to verify.
     /// @dev This function is necessary to upgrade from this fork to the next one.
