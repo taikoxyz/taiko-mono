@@ -59,7 +59,6 @@ interface ITaikoInbox2 {
         uint256 lastBlockId;
         uint256 provabilityBond;
         uint256 livenessBond;
-        bytes32 proveMetaHash;
     }
 
     struct BatchProveMetadata {
@@ -67,7 +66,6 @@ interface ITaikoInbox2 {
         address prover;
         uint256 proposedAt;
         uint256 firstBlockId;
-        bytes32 proposeMetaHash;
         uint256 provabilityBond;
     }
 
@@ -75,7 +73,6 @@ interface ITaikoInbox2 {
         uint256 lastBlockTimestamp;
         uint256 lastBlockId;
         uint256 lastAnchorBlockId;
-        bytes32 buildMetaHash;
     }
 
     struct BatchBuildMetadata {
