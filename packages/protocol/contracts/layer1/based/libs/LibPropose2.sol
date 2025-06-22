@@ -21,7 +21,7 @@ library LibPropose {
     }
 
     struct ValidationOutput {
-        bytes32 calldataTxsHash;
+        bytes32 txListHash;
         bytes32 txsHash;
         bytes32[] blobHashes;
         uint256 lastBlockTimestamp; // TODO
@@ -33,7 +33,7 @@ library LibPropose {
         I.State storage $,
         Context memory _ctx,
         I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
-        I.BatchParams memory _params,
+        I.BatchParams calldata _params,
         bytes calldata _txList,
         bytes calldata /*_additionalData*/
     )
@@ -43,16 +43,14 @@ library LibPropose {
         // First load stats2 in memory, as this struct only takes 1 slot in storage.
         stats2_ = $.stats2;
 
+        // Validate the params and returns an updated version of it.
+        (I.BatchParams memory params, ValidationOutput memory output) =
+            _validateParams(_ctx, stats2_, _parentProposeMetaEvidence.proposeMeta, _params, _txList);
+
         // Validate parentProposeMeta against it in-storage hash.
         _validateParentProposeMeta($, _ctx, _parentProposeMetaEvidence, stats2_.numBatches - 1);
 
-        // Validate the params and returns an updated version of it.
-        ValidationOutput memory output;
-        (_params, output) =
-            _validateParams(_ctx, _parentProposeMetaEvidence.proposeMeta, _params, _txList);
-
-        meta_ =
-            _populateBatchMetadata(_ctx, _parentProposeMetaEvidence.proposeMeta, _params, output);
+        meta_ = _populateBatchMetadata(_ctx, _parentProposeMetaEvidence.proposeMeta, params, output);
 
         // Update storage -- only affecting 2 slots
         $.batches[stats2_.numBatches % _ctx.config.batchRingBufferSize] =
@@ -100,17 +98,78 @@ library LibPropose {
 
     function _validateParams(
         Context memory _ctx,
+        I.Stats2 memory _stats2,
         I.BatchProposeMetadata calldata _parentProposeMeta,
-        I.BatchParams memory _params,
-        bytes calldata _calldata
+        I.BatchParams calldata _params,
+        bytes calldata _txList
     )
         private
         view
         returns (I.BatchParams memory params_, ValidationOutput memory output_)
     {
-        output_.calldataTxsHash = keccak256(_calldata);
+        require(
+            _stats2.numBatches <= _stats2.lastVerifiedBatchId + _ctx.config.maxUnverifiedBatches,
+            I.TooManyBatches()
+        );
+
+        // bytes32 parentMetaHash;
+        // uint64 lastBlockTimestamp;
+        // // Specifies the number of blocks to be generated from this batch.
+        // BlockParams[] blocks;
+        // bytes proverAuth;
+
+        params_ = _params; // no longer need to use _param below!
+
+        if (_ctx.inboxWrapper == address(0)) {
+            if (params_.proposer == address(0)) {
+                params_.proposer = msg.sender;
+            } else {
+                require(params_.proposer == msg.sender, I.CustomProposerNotAllowed());
+            }
+
+            // blob hashes are only accepted if the caller is trusted.
+            require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
+            require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
+            require(params_.isForcedInclusion == false, I.InvalidForcedInclusion());
+        } else {
+            require(params_.proposer != address(0), I.CustomProposerMissing());
+            require(msg.sender == _ctx.inboxWrapper, I.NotInboxWrapper());
+        }
+
+        // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
+        // preconfer address. This will allow us to implement preconfirmation features in L2
+        // anchor transactions.
+        if (params_.coinbase == address(0)) {
+            params_.coinbase = params_.proposer;
+        }
+
+        if (params_.revertIfNotFirstProposal) {
+            require(_stats2.lastProposedIn != block.number, I.NotFirstProposal());
+        }
+
+        if (_txList.length != 0) {
+            // calldata is used for data availability
+            require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
+            require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
+            require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
+            require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
+        } else if (params_.blobParams.blobHashes.length == 0) {
+            // this is a normal batch, blobs are created and used in the current batches.
+            // firstBlobIndex can be non-zero.
+            require(params_.blobParams.numBlobs != 0, I.BlobNotSpecified());
+            require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
+            params_.blobParams.createdIn = uint64(block.number);
+        } else {
+            // this is a forced-inclusion batch, blobs were created in early blocks and are used
+            // in the current batches
+            require(params_.blobParams.createdIn != 0, I.InvalidBlobCreatedIn());
+            require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
+            require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
+        }
+
+        output_.txListHash = keccak256(_txList);
         (output_.txsHash, output_.blobHashes) =
-            _calculateTxsHash(output_.calldataTxsHash, _params.blobParams);
+            _calculateTxsHash(output_.txListHash, params_.blobParams);
     }
 
     function _populateBatchMetadata(
