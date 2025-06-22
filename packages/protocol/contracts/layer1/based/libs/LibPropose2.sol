@@ -55,9 +55,8 @@ library LibPropose {
 
         // Validate the params and returns an updated version of it.
         ValidationResult memory result;
-        (params, result) = _validateParams(
-            ctx, parentProposeMetaEvidence.proposeMeta, params, txList, additionalData
-        );
+        (params, result) =
+            _validateParams(ctx, parentProposeMetaEvidence.proposeMeta, params, txList);
 
         meta = _populateBatchMetadata(parentProposeMetaEvidence.proposeMeta, ctx, params, result);
 
@@ -106,8 +105,7 @@ library LibPropose {
         Context memory ctx,
         I.BatchProposeMetadata calldata parentProposeMeta,
         I.BatchParams memory params,
-        bytes calldata calldataTxList,
-        bytes calldata additionalData
+        bytes calldata calldataTxList
     )
         internal
         view
