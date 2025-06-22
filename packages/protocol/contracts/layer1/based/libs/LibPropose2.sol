@@ -24,7 +24,6 @@ library LibPropose {
         bytes32 txListHash;
         bytes32 txsHash;
         bytes32[] blobHashes;
-        uint256 lastBlockTimestamp; // TODO
         uint256 lastAnchorBlockId;
         address prover;
         I.AnchorBlock[] anchorBlocks;
@@ -113,12 +112,6 @@ library LibPropose {
             I.TooManyBatches()
         );
 
-        // bytes32 parentMetaHash;
-        // uint64 lastBlockTimestamp;
-        // // Specifies the number of blocks to be generated from this batch.
-        // BlockParams[] blocks;
-        // bytes proverAuth;
-
         params_ = _params; // no longer need to use _param below!
 
         if (_ctx.inboxWrapper == address(0)) {
@@ -167,11 +160,57 @@ library LibPropose {
             require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
             require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
         }
+        uint nBlocks = params_.blocks.length;
 
-        output_.anchorBlocks = new I.AnchorBlock[](params_.blocks.length);
+        require(nBlocks != 0, I.BlockNotFound());
+        require(nBlocks <= _ctx.config.maxBlocksPerBatch, I.TooManyBlocks());
+
+        if (params_.lastBlockTimestamp == 0) {
+            params_.lastBlockTimestamp = block.timestamp;
+        } else {
+            require(params_.lastBlockTimestamp <= block.timestamp, I.TimestampTooLarge());
+        }
+
+        require(params_.blocks[0].timeShift == 0, I.FirstBlockTimeShiftNotZero());
+
+        uint64 totalShift;
+
+        for (uint256 i; i < nBlocks; ++i) {
+            I.BlockParams memory blockParams = params_.blocks[i];
+            totalShift += blockParams.timeShift;
+
+            uint256 numSignals = blockParams.signalSlots.length;
+            if (numSignals == 0) continue;
+
+            require(numSignals <= _ctx.config.maxSignalsToReceive, I.TooManySignals());
+
+            for (uint256 j; j < numSignals; ++j) {
+                require(
+                    ISignalService(_ctx.signalService).isSignalSent(blockParams.signalSlots[j]),
+                    I.SignalNotSent()
+                );
+            }
+        }
+
+        require(params_.lastBlockTimestamp >= totalShift, I.TimestampTooSmall());
+
+        uint256 firstBlockTimestamp = params_.lastBlockTimestamp - totalShift;
+
+        require(
+            firstBlockTimestamp + _ctx.config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                >= block.timestamp,
+            I.TimestampTooSmall()
+        );
+
+        require(
+            firstBlockTimestamp >= _parentProposeMeta.lastBlockTimestamp,
+            I.TimestampSmallerThanParent()
+        );
+
+        output_.anchorBlocks = new I.AnchorBlock[](nBlocks);
 
         bool foundNoneZeroAnchorBlockId;
-        for (uint256 i; i < params_.blocks.length; ++i) {
+        for (uint256 i; i < nBlocks; ++i) {
             uint64 anchorBlockId = params_.blocks[i].anchorBlockId;
             if (anchorBlockId != 0) {
                 require(
@@ -181,7 +220,6 @@ library LibPropose {
                 );
 
                 require(anchorBlockId > output_.lastAnchorBlockId, I.AnchorIdSmallerThanParent());
-
                 output_.anchorBlocks[i] = I.AnchorBlock(anchorBlockId, blockhash(anchorBlockId));
                 require(output_.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash());
 
@@ -234,7 +272,7 @@ library LibPropose {
             });
 
             meta_.proposeMeta = I.BatchProposeMetadata({
-                lastBlockTimestamp: _output.lastBlockTimestamp,
+                lastBlockTimestamp: _params.lastBlockTimestamp,
                 lastBlockId: meta_.buildMeta.lastBlockId,
                 lastAnchorBlockId: _output.lastAnchorBlockId
             });

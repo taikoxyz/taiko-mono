@@ -40,8 +40,7 @@ interface ITaikoInbox2 {
     struct BatchParams {
         address proposer;
         address coinbase;
-        bytes32 parentMetaHash;
-        uint64 lastBlockTimestamp;
+        uint256 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
