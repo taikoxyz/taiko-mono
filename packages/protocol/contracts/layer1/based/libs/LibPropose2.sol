@@ -29,20 +29,13 @@ library LibPropose {
         address prover;
     }
 
-    struct Output {
-        ValidationOutput result;
-        I.Stats2 stats2;
-        I.BatchMetadata meta;
-        bytes32 metaHash;
-    }
-
     function proposeBatch(
         I.State storage $,
         Context memory _ctx,
         I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
         I.BatchParams memory _params,
         bytes calldata _txList,
-        bytes calldata _additionalData
+        bytes calldata /*_additionalData*/
     )
         public // reduce code size
         returns (I.BatchMetadata memory meta_, I.Stats2 memory stats2_)
@@ -94,7 +87,7 @@ library LibPropose {
         I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence,
         uint256 parentBatchId
     )
-        internal
+        private
         view
     {
         bytes32 h = keccak256(abi.encode(parentProposeMetaEvidence.proposeMeta));
@@ -111,7 +104,7 @@ library LibPropose {
         I.BatchParams memory _params,
         bytes calldata _calldata
     )
-        internal
+        private
         view
         returns (I.BatchParams memory params_, ValidationOutput memory output_)
     {
@@ -126,68 +119,55 @@ library LibPropose {
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )
-        internal
+        private
         view
         returns (I.BatchMetadata memory meta_)
     {
-        meta_.buildMeta = I.BatchBuildMetadata({
-            txsHash: _output.txsHash,
-            blobHashes: _output.blobHashes,
-            extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_ctx.config, _params))),
-            coinbase: _params.coinbase,
-            proposedIn: block.number,
-            blobCreatedIn: _params.blobParams.createdIn,
-            blobByteOffset: _params.blobParams.byteOffset,
-            blobByteSize: _params.blobParams.byteSize,
-            gasLimit: _ctx.config.blockMaxGasLimit,
-            lastBlockId: _parentProposeMeta.lastBlockId + _params.blocks.length,
-            lastBlockTimestamp: _parentProposeMeta.lastBlockTimestamp,
-            anchorBlocks: new I.AnchorBlock[](_params.blocks.length),
-            blocks: _params.blocks,
-            baseFeeConfig: _ctx.config.baseFeeConfig
-        });
+        unchecked {
+            meta_.buildMeta = I.BatchBuildMetadata({
+                txsHash: _output.txsHash,
+                blobHashes: _output.blobHashes,
+                extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_ctx.config, _params))),
+                coinbase: _params.coinbase,
+                proposedIn: block.number,
+                blobCreatedIn: _params.blobParams.createdIn,
+                blobByteOffset: _params.blobParams.byteOffset,
+                blobByteSize: _params.blobParams.byteSize,
+                gasLimit: _ctx.config.blockMaxGasLimit,
+                lastBlockId: _parentProposeMeta.lastBlockId + _params.blocks.length,
+                lastBlockTimestamp: _parentProposeMeta.lastBlockTimestamp,
+                anchorBlocks: new I.AnchorBlock[](_params.blocks.length),
+                blocks: _params.blocks,
+                baseFeeConfig: _ctx.config.baseFeeConfig
+            });
 
-        meta_.proposeMeta = I.BatchProposeMetadata({
-            lastBlockTimestamp: _output.lastBlockTimestamp,
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            lastAnchorBlockId: _output.lastAnchorBlockId
-        });
+            meta_.proposeMeta = I.BatchProposeMetadata({
+                lastBlockTimestamp: _output.lastBlockTimestamp,
+                lastBlockId: meta_.buildMeta.lastBlockId,
+                lastAnchorBlockId: _output.lastAnchorBlockId
+            });
 
-        meta_.proveMeta = I.BatchProveMetadata({
-            proposer: _params.proposer,
-            prover: _output.prover,
-            proposedAt: block.timestamp,
-            firstBlockId: _parentProposeMeta.lastBlockId + 1,
-            provabilityBond: _ctx.config.provabilityBond
-        });
+            meta_.proveMeta = I.BatchProveMetadata({
+                proposer: _params.proposer,
+                prover: _output.prover,
+                proposedAt: block.timestamp,
+                firstBlockId: _parentProposeMeta.lastBlockId + 1,
+                provabilityBond: _ctx.config.provabilityBond
+            });
 
-        meta_.verifyMeta = I.BatchVerifyMeta({
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            provabilityBond: _ctx.config.provabilityBond,
-            livenessBond: _ctx.config.livenessBond
-        });
-    }
-
-    /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
-    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
-    /// - bit 8: used to store _batchParams.isForcedInclusion.
-    function _encodeExtraDataLower128Bits(
-        I.Config memory _config,
-        I.BatchParams memory _params
-    )
-        private
-        pure
-        returns (uint128 encoded_)
-    {
-        encoded_ |= _config.baseFeeConfig.sharingPctg; // bits 0-7
-        encoded_ |= _params.isForcedInclusion ? 1 << 8 : 0; // bit 8
+            meta_.verifyMeta = I.BatchVerifyMeta({
+                lastBlockId: meta_.buildMeta.lastBlockId,
+                provabilityBond: _ctx.config.provabilityBond,
+                livenessBond: _ctx.config.livenessBond
+            });
+        }
     }
 
     function _calculateTxsHash(
         bytes32 _txListHash,
         I.BlobParams memory _blobParams
     )
-        internal
+        private
         view
         returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
@@ -206,5 +186,20 @@ library LibPropose {
             require(blobHashes_[i] != 0, I.BlobNotFound());
         }
         txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
+    }
+
+    /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
+    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
+    /// - bit 8: used to store _batchParams.isForcedInclusion.
+    function _encodeExtraDataLower128Bits(
+        I.Config memory _config,
+        I.BatchParams memory _params
+    )
+        private
+        pure
+        returns (uint128 encoded_)
+    {
+        encoded_ |= _config.baseFeeConfig.sharingPctg; // bits 0-7
+        encoded_ |= _params.isForcedInclusion ? 1 << 8 : 0; // bit 8
     }
 }
