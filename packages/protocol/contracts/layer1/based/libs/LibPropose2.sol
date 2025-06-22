@@ -20,15 +20,17 @@ library LibPropose {
         address signalService;
     }
 
-    struct Output {
-        // I.BatchProposeMetadata parentProposeMeta;
-        // uint64 lastAnchorBlockId;
-        bytes2 txListHash;
+    struct ValidationResult {
+        bytes32 calldataTxsHash;
+        bytes32 txsHash;
+        bytes32[] blobHashes;
         uint256 lastBlockTimestamp; // TODO
         uint256 lastAnchorBlockId;
         address prover;
-        // I.ProverAuth auth;
-        // I.BatchParams params;
+    }
+
+    struct Output {
+        ValidationResult result;
         I.Stats2 stats2;
         I.BatchMetadata meta;
         bytes32 metaHash;
@@ -43,32 +45,32 @@ library LibPropose {
         bytes calldata additionalData
     )
         public // reduce code size
-        returns (Output memory output)
+        returns (I.BatchMetadata memory meta, I.Stats2 memory stats2)
     {
         // First load stats2 in memory, as this struct only takes 1 slot in storage.
-        output.stats2 = $.stats2;
-        output.txListHash = bytes2(keccak256(txList));
+        stats2 = $.stats2;
 
         // Validate parentProposeMeta against it hash.
         _validateParentProposeMeta(ctx, parentProposeMeta);
 
         // Validate the params and returns an updated version of it.
-        params = _validateParams(ctx, parentProposeMeta, params, txList, additionalData);
+        ValidationResult memory result;
+        (params, result) = _validateParams(ctx, parentProposeMeta, params, txList, additionalData);
 
-        output.meta = _compileBatch(parentProposeMeta, ctx, params, output);
+        meta = _populateBatchMetadata(parentProposeMeta, ctx, params, result);
 
-        // Update storage
-        $.batches[output.stats2.numBatches % ctx.config.batchRingBufferSize] = I.Batch({
-            blockId: output.stats2.numBatches,
+        // Update storage -- only affecting 2 slots
+        $.batches[stats2.numBatches % ctx.config.batchRingBufferSize] = I.Batch({
+            blockId: stats2.numBatches,
             verifiedTransitionId: 0,
             nextTransitionId: 1,
-            metaHash: hashBatch(output.meta)
+            metaHash: hashBatch(meta)
         });
 
         // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
         // instead of here to avoid unncessary re-writes.
-        output.stats2.numBatches += 1;
-        output.stats2.lastProposedIn = uint56(block.number);
+        stats2.numBatches += 1;
+        stats2.lastProposedIn = uint56(block.number);
     }
 
     function hashBatch(I.BatchMetadata memory meta) internal pure returns (bytes32) {
@@ -93,27 +95,31 @@ library LibPropose {
         Context memory ctx,
         I.BatchProposeMetadata calldata parentProposeMeta,
         I.BatchParams memory params,
-        bytes calldata txList,
+        bytes calldata calldataTxList,
         bytes calldata additionalData
     )
         internal
         view
-        returns (I.BatchParams memory params_)
-    { }
+        returns (I.BatchParams memory params_, ValidationResult memory result_)
+    {
+        result_.calldataTxsHash = keccak256(calldataTxList);
+        (result_.txsHash, result_.blobHashes) =
+            _calculateTxsHash(result_.calldataTxsHash, params.blobParams);
+    }
 
-    function _compileBatch(
+    function _populateBatchMetadata(
         I.BatchProposeMetadata calldata parentProposeMeta,
         Context memory ctx,
         I.BatchParams memory params,
-        Output memory output
+        ValidationResult memory result
     )
         internal
         view
         returns (I.BatchMetadata memory meta)
     {
         meta.buildMeta = I.BatchBuildMetadata({
-            txsHash: 0, // to be set later
-            blobHashes: new bytes32[](0), // to be set later
+            txsHash: result.txsHash,
+            blobHashes: result.blobHashes,
             extraData: bytes32(uint256(_encodeExtraDataLower128Bits(ctx.config, params))),
             coinbase: params.coinbase,
             proposedIn: block.number,
@@ -128,18 +134,15 @@ library LibPropose {
             baseFeeConfig: ctx.config.baseFeeConfig
         });
 
-        (meta.buildMeta.txsHash, meta.buildMeta.blobHashes) =
-            _calculateTxsHash(output.txListHash, params.blobParams);
-
         meta.proposeMeta = I.BatchProposeMetadata({
-            lastBlockTimestamp: output.lastBlockTimestamp,
+            lastBlockTimestamp: result.lastBlockTimestamp,
             lastBlockId: meta.buildMeta.lastBlockId,
-            lastAnchorBlockId: output.lastAnchorBlockId
+            lastAnchorBlockId: result.lastAnchorBlockId
         });
 
         meta.proveMeta = I.BatchProveMetadata({
             proposer: params.proposer,
-            prover: output.prover,
+            prover: result.prover,
             proposedAt: block.timestamp,
             firstBlockId: parentProposeMeta.lastBlockId + 1,
             provabilityBond: ctx.config.provabilityBond
