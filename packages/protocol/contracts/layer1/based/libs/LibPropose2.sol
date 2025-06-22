@@ -27,6 +27,7 @@ library LibPropose {
         uint256 lastBlockTimestamp; // TODO
         uint256 lastAnchorBlockId;
         address prover;
+        I.AnchorBlock[] anchorBlocks;
     }
 
     function proposeBatch(
@@ -166,6 +167,38 @@ library LibPropose {
             require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
             require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
         }
+
+        output_.anchorBlocks = new I.AnchorBlock[](params_.blocks.length);
+
+        bool foundNoneZeroAnchorBlockId;
+        for (uint256 i; i < params_.blocks.length; ++i) {
+            uint64 anchorBlockId = params_.blocks[i].anchorBlockId;
+            if (anchorBlockId != 0) {
+                require(
+                    foundNoneZeroAnchorBlockId
+                        || anchorBlockId + _ctx.config.maxAnchorHeightOffset >= block.number,
+                    I.AnchorIdTooSmall()
+                );
+
+                require(anchorBlockId > output_.lastAnchorBlockId, I.AnchorIdSmallerThanParent());
+
+                output_.anchorBlocks[i] = I.AnchorBlock(anchorBlockId, blockhash(anchorBlockId));
+                require(output_.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash());
+
+                foundNoneZeroAnchorBlockId = true;
+                output_.lastAnchorBlockId = anchorBlockId;
+            }
+        }
+
+        // Ensure that if msg.sender is not the inboxWrapper, at least one block must
+        // have a
+        // non-zero anchor block id. Otherwise, delegate this validation to the
+        // inboxWrapper
+        // contract.
+        require(
+            msg.sender == _ctx.inboxWrapper || foundNoneZeroAnchorBlockId,
+            I.NoAnchorBlockIdWithinThisBatch()
+        );
 
         output_.txListHash = keccak256(_txList);
         (output_.txsHash, output_.blobHashes) =
