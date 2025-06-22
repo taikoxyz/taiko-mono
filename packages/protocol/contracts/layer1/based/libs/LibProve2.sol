@@ -19,18 +19,12 @@ library LibProve {
         address verifier;
     }
 
-    // The struct is introdueced to avoid stack too deep error.
-    struct ValidationOutput {
-        bool hasConflictingProof;
-        IVerifier2.Context[] verifierCtxs;
-    }
-
     function proveBatches(
         I.State storage $,
         Context memory _ctx,
+        bytes calldata _proof,
         I.BatchProveMetadata[] calldata _proveMetas,
-        I.Transition[] calldata _trans,
-        bytes calldata _proof
+        I.Transition[] calldata _trans
     )
         public // reduce code size
         returns (I.Stats2 memory stats2_, bool hasConflictingProof_)
@@ -43,18 +37,17 @@ library LibProve {
         stats2_ = $.stats2;
         require(!stats2_.paused, I.ContractPaused());
 
-        ValidationOutput memory output;
-        output.verifierCtxs = new IVerifier2.Context[](nBatches);
+        IVerifier2.Context[] memory verifierCtxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (bool hasConflictingProof, IVerifier2.Context memory verifierCtx) =
+            bool hasConflictingProof;
+            (hasConflictingProof, verifierCtxs[i]) =
                 _proveBatch($, _ctx, stats2_, _proveMetas[i], _trans[i]);
             hasConflictingProof_ = hasConflictingProof_ || hasConflictingProof;
-            output.verifierCtxs[i] = verifierCtx;
         }
 
-        IVerifier2(_ctx.verifier).verifyProof(output.verifierCtxs, _proof);
         emit I.BatchesProved(_ctx.verifier, _trans);
+        IVerifier2(_ctx.verifier).verifyProof(verifierCtxs, _proof);
     }
 
     function _proveBatch(
