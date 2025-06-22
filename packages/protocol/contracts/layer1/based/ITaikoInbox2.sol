@@ -75,6 +75,12 @@ interface ITaikoInbox2 {
         uint256 lastAnchorBlockId;
     }
 
+    struct BatchProposeMetadataEvidence {
+        BatchProposeMetadata proposeMeta;
+        bytes32 buildMetaHash;
+        bytes32 proveVerifyHash;
+    }
+
     struct BatchBuildMetadata {
         bytes32 txsHash;
         bytes32[] blobHashes;

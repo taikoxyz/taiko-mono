@@ -39,7 +39,7 @@ library LibPropose {
     function proposeBatch(
         I.State storage $,
         Context memory ctx,
-        I.BatchProposeMetadata calldata parentProposeMeta,
+        I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence,
         I.BatchParams memory params,
         bytes calldata txList,
         bytes calldata additionalData
@@ -51,13 +51,15 @@ library LibPropose {
         stats2 = $.stats2;
 
         // Validate parentProposeMeta against it hash.
-        _validateParentProposeMeta(ctx, parentProposeMeta);
+        _validateParentProposeMeta($, ctx, stats2, parentProposeMetaEvidence);
 
         // Validate the params and returns an updated version of it.
         ValidationResult memory result;
-        (params, result) = _validateParams(ctx, parentProposeMeta, params, txList, additionalData);
+        (params, result) = _validateParams(
+            ctx, parentProposeMetaEvidence.proposeMeta, params, txList, additionalData
+        );
 
-        meta = _populateBatchMetadata(parentProposeMeta, ctx, params, result);
+        meta = _populateBatchMetadata(parentProposeMetaEvidence.proposeMeta, ctx, params, result);
 
         // Update storage -- only affecting 2 slots
         $.batches[stats2.numBatches % ctx.config.batchRingBufferSize] = I.Batch({
@@ -84,12 +86,21 @@ library LibPropose {
     }
 
     function _validateParentProposeMeta(
+        I.State storage $,
         Context memory ctx,
-        I.BatchProposeMetadata calldata parentProposeMeta
+        I.Stats2 memory stats2,
+        I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence
     )
         internal
         view
-    { }
+    {
+        I.Batch storage parentBatch =
+            $.batches[(stats2.numBatches - 1) % ctx.config.batchRingBufferSize];
+        bytes32 h = keccak256(abi.encode(parentProposeMetaEvidence.proposeMeta));
+        h = keccak256(abi.encode(parentProposeMetaEvidence.buildMetaHash, h));
+        h = keccak256(abi.encode(h, parentProposeMetaEvidence.proveVerifyHash));
+        require(parentBatch.metaHash == h, "Invalid parent batch");
+    }
 
     function _validateParams(
         Context memory ctx,
