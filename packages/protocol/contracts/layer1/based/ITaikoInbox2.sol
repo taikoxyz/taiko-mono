@@ -2,23 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
-import "./IBondManager.sol";
-import "./IProveBatches.sol";
 
-/// @title TaikoInbox
-/// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
-/// original Taiko-Based Contestable Rollup (BCR). The tier-based proof system and
-/// contestation mechanisms have been removed.
-///
-/// Key assumptions of this protocol:
-/// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
-///   unlike Taiko Gwyneth, which assumes synchronous composability.
-/// - Proofs are presumed error-free and thoroughly validated, with proof type management
-///   delegated to IVerifier contracts.
-///
-/// @dev Registered in the address resolver as "taiko".
-/// @custom:security-contact security@taiko.xyz
-interface ITaikoInbox is IBondManager, IProveBatches {
+interface ITaikoInbox2 {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as
@@ -66,38 +51,55 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     }
 
     struct AnchorBlock {
-        uint64 id;
+        uint64 blockId;
         bytes32 blockHash;
     }
 
-    /// @dev This struct holds batch information essential for constructing blocks offchain, but it
-    /// does not include data necessary for batch proving.
-    struct BatchInfo {
+    struct BatchVerifyMeta {
+        uint256 lastBlockId;
+        uint256 provabilityBond;
+        uint256 livenessBond;
+        bytes32 proveMetaHash;
+    }
+
+    struct BatchProveMetadata {
+        address proposer;
+        address prover;
+        uint256 proposedAt;
+        uint256 firstBlockId;
+        bytes32 proposeMetaHash;
+        uint256 provabilityBond;
+    }
+
+    struct BatchProposeMetadata {
+        uint256 lastBlockTimestamp;
+        uint256 lastBlockId;
+        uint256 lastAnchorBlockId;
+        bytes32 buildMetaHash;
+    }
+
+    struct BatchBuildMetadata {
         bytes32 txsHash;
-        // Data to build L2 blocks
-        BlockParams[] blocks;
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
-        uint64 proposedIn; // Used by node/client
-        uint64 blobCreatedIn;
-        uint32 blobByteOffset;
-        uint32 blobByteSize;
-        uint32 gasLimit;
-        uint64 lastBlockId;
-        uint64 lastBlockTimestamp;
+        uint256 proposedIn;
+        uint256 blobCreatedIn;
+        uint256 blobByteOffset;
+        uint256 blobByteSize;
+        uint256 gasLimit;
+        uint256 lastBlockId;
+        uint256 lastBlockTimestamp;
         AnchorBlock[] anchorBlocks;
+        BlockParams[] blocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
-    /// @dev This struct holds batch metadata essential for proving the batch.
     struct BatchMetadata {
-        bytes32 infoHash;
-        address proposer;
-        address prover;
-        uint64 batchId;
-        uint64 proposedAt; // Used by node/client
-        uint64 firstBlockId;
+        BatchVerifyMeta verifyMeta;
+        BatchProveMetadata proveMeta;
+        BatchProposeMetadata proposeMeta;
+        BatchBuildMetadata buildMeta;
     }
 
     /// @notice Struct representing transition to be proven.
@@ -126,24 +128,15 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bool byAssignedProver;
     }
 
-    /// @notice 3 slots used.
     struct Batch {
-        bytes32 metaHash; // slot 1
-        uint64 lastBlockId; // slot 2
-        uint96 provabilityBond;
-        uint96 livenessBond;
-        uint64 batchId; // slot 3
-        uint64 lastBlockTimestamp;
-        uint64 lastAnchorBlockId;
-        uint24 nextTransitionId;
-        uint8 reserved4;
-        // The ID of the transaction that is used to verify this batch. However, if this batch is
-        // not verified as the last one in a transaction, verifiedTransitionId will remain zero.
+        uint64 blockId;
         uint24 verifiedTransitionId;
+        uint24 nextTransitionId;
+        bytes32 metaHash;
     }
-
     /// @notice Forge is only able to run coverage in case the contracts by default capable of
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
+
     struct Stats1 {
         uint64 genesisHeight;
         uint64 __reserved2;
@@ -244,15 +237,9 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     event Stats2Updated(Stats2 stats2);
 
     /// @notice Emitted when a batch is proposed.
-    /// @param info The info of the proposed batch.
+    /// @param batchId The ID of the proposed batch.
     /// @param meta The metadata of the proposed batch.
-    /// @param txList The tx list in calldata.
-    event BatchProposed(BatchInfo info, BatchMetadata meta, bytes txList);
-
-    /// @notice Emitted when multiple transitions are proved.
-    /// @param verifier The address of the verifier.
-    /// @param transitions The transitions data.
-    event BatchesProved(address verifier, uint64[] batchIds, Transition[] transitions);
+    event BatchProposed(uint256 batchId, BatchMetadata meta);
 
     /// @notice Emitted when a transition is overwritten by a conflicting one with the same parent
     /// hash but different block hash or state root.
@@ -314,94 +301,4 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
-
-    /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded parameters.
-    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
-    /// for data availability.
-    /// @param _additionalData Additional data to be included in the batch.
-    /// @return info_ The info of the proposed batch.
-    /// @return meta_ The metadata of the proposed batch.
-    function v4ProposeBatch(
-        bytes calldata _params,
-        bytes calldata _txList,
-        bytes calldata _additionalData
-    )
-        external
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
-
-    /// @notice Verify batches by providing the length of the batches to verify.
-    /// @dev This function is necessary to upgrade from this fork to the next one.
-    /// @param _count Specifis how many batches to verify. The max number of batches to verify is
-    /// `v4GetConfig().maxBatchesToVerify * _count`.
-    function v4VerifyBatches(uint8 _count) external;
-
-    /// @notice Retrieves the first set of protocol statistics.
-    /// @return Stats1 structure containing the statistics.
-    function v4GetStats1() external view returns (Stats1 memory);
-
-    /// @notice Retrieves the second set of protocol statistics.
-    /// @return Stats2 structure containing the statistics.
-    function v4GetStats2() external view returns (Stats2 memory);
-
-    /// @notice Retrieves data about a specific batch.
-    /// @param _batchId The ID of the batch to retrieve.
-    /// @return batch_ The batch data.
-    function v4GetBatch(uint64 _batchId) external view returns (Batch memory batch_);
-
-    /// @notice Retrieves a specific transition by batch ID and transition ID. This function may
-    /// revert if the transition is not found.
-    /// @param _batchId The batch ID.
-    /// @param _tid The transition ID.
-    /// @return The specified transition state.
-    function v4GetTransitionById(
-        uint64 _batchId,
-        uint24 _tid
-    )
-        external
-        view
-        returns (ITaikoInbox.TransitionState memory);
-
-    /// @notice Retrieves a specific transition by batch ID and parent Hash. This function may
-    /// revert if the transition is not found.
-    /// @param _batchId The batch ID.
-    /// @param _parentHash The parent hash.
-    /// @return The specified transition state.
-    function v4GetTransitionByParentHash(
-        uint64 _batchId,
-        bytes32 _parentHash
-    )
-        external
-        view
-        returns (ITaikoInbox.TransitionState memory);
-
-    /// @notice Retrieves the transition used for the last verified batch.
-    /// @return batchId_ The batch ID of the last verified transition.
-    /// @return blockId_ The block ID of the last verified block.
-    /// @return ts_ The last verified transition.
-    function v4GetLastVerifiedTransition()
-        external
-        view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
-
-    /// @notice Retrieves the transition used for the last synced batch.
-    /// @return batchId_ The batch ID of the last synced transition.
-    /// @return blockId_ The block ID of the last synced block.
-    /// @return ts_ The last synced transition.
-    function v4GetLastSyncedTransition()
-        external
-        view
-        returns (uint64 batchId_, uint64 blockId_, TransitionState memory ts_);
-
-    /// @notice Retrieves the transition used for verifying a batch.
-    /// @param _batchId The batch ID.
-    /// @return The transition used for verifying the batch.
-    function v4GetBatchVerifyingTransition(uint64 _batchId)
-        external
-        view
-        returns (TransitionState memory);
-
-    /// @notice Retrieves the current protocol configuration.
-    /// @return The current configuration.
-    function v4GetConfig() external view returns (Config memory);
 }

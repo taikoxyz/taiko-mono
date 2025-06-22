@@ -91,18 +91,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         return (output.info, output.meta);
     }
 
-
-        function v4ProposeBatch2(
-        bytes calldata _parentProposeMeta,
-        bytes calldata _params,
-        bytes calldata _txList,
-        bytes calldata _additionalData
-    )
-        external
-        returns (ITaikoInbox.BatchMetadata2 memory meta_) {
-            
-        }
-
     /// @inheritdoc IProveBatches
     function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
         LibProve.Input memory input = LibProve.Input(_getConfig(), bondToken, verifier);
