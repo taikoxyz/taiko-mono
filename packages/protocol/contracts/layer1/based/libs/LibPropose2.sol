@@ -29,7 +29,6 @@ library LibPropose {
         uint256 firstBlockId;
         uint256 lastBlockId;
         I.AnchorBlock[] anchorBlocks;
-        address prover;
     }
 
     function proposeBatch(
@@ -55,6 +54,7 @@ library LibPropose {
                 _ctx, stats2_, _parentProposeMetaEvidence.proposeMeta, _params, _txList
             );
 
+            params.prover = validateProver($, _ctx, params);
             meta_ = populateBatchMetadata(_ctx, params, output);
 
             // Update storage -- only affecting 1 slot
@@ -67,6 +67,78 @@ library LibPropose {
             stats2_.lastProposedIn = uint56(block.number);
         }
     }
+
+    function validateProver(
+        I.State storage $,
+        Context memory _ctx, 
+        I.BatchParams memory _params
+    ) internal returns (address prover_){
+        //  LibBonds.debitBond(
+        //         $, _ctx.bondToken, _params.proposer, _ctx.config.provabilityBond
+        //     );
+
+         if (_params.proverAuth.length == 0) {
+                    // proposer is the prover
+                    // LibBonds.debitBond(
+                    //     $, _ctx.bondToken, _params.proposer, _ctx.config.livenessBond
+                    // );
+                    return _params.proposer;
+                } 
+
+                    
+                        bytes memory proverAuth = _params.proverAuth;
+                        // Circular dependency so zero it out. (BatchParams has proverAuth but
+                        // proverAuth has also batchParamsHash)
+                        _params.proverAuth = "";
+
+                        // Outsource the prover authentication to the LibAuth library to
+                        // reduce this contract's code size.
+                        // output_.auth = LibAuth.validateProverAuth(
+                        //     _input.config.chainId,
+                        //     output_.stats2.numBatches,
+                        //     keccak256(abi.encode(output_.params)),
+                        //     output_.txListHash,
+                        //     proverAuth
+                        // );
+                    
+
+                    // output_.meta.prover = output_.auth.prover;
+
+                    // if (output_.auth.feeToken == _input.bondToken) {
+                    //     // proposer pay the prover fee with bond tokens
+                    //     LibBonds.debitBond(
+                    //         $, _input.bondToken, output_.meta.proposer, output_.auth.fee
+                    //     );
+
+                    //     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
+                    //     // if not then add the diff to the bond balance
+                    //     int256 bondDelta =
+                    //         int96(output_.auth.fee) - int96(_input.config.livenessBond);
+
+                    //     if (bondDelta < 0) {
+                    //         LibBonds.debitBond(
+                    //             $, _input.bondToken, output_.meta.prover, uint256(-bondDelta)
+                    //         );
+                    //     } else {
+                    //         LibBonds.creditBond($, output_.meta.prover, uint256(bondDelta));
+                    //     }
+                    // } else {
+                    //     LibBonds.debitBond(
+                    //         $, _input.bondToken, output_.meta.prover, _input.config.livenessBond
+                    //     );
+
+                    //     if (output_.meta.proposer != output_.meta.prover) {
+                    //         IERC20(output_.auth.feeToken).safeTransferFrom(
+                    //             output_.meta.proposer, output_.meta.prover, output_.auth.fee
+                    //         );
+                    //     }
+                    // }
+    }
+            
+
+           
+    
+
 
     function validateParentProposeMeta(
         I.State storage $,
@@ -240,6 +312,7 @@ library LibPropose {
         }
     }
 
+    
     function calculateTxsHash(
         bytes32 _txListHash,
         I.BlobParams memory _blobParams
@@ -300,7 +373,7 @@ library LibPropose {
 
             meta_.proveMeta = I.BatchProveMetadata({
                 proposer: _params.proposer,
-                prover: _output.prover,
+                prover: _params.prover,
                 proposedAt: block.timestamp,
                 firstBlockId: _output.firstBlockId,
                 provabilityBond: _ctx.config.provabilityBond
