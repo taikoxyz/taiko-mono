@@ -7,6 +7,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibNetwork.sol";
 // import "./LibProve.sol";
 // import "./LibAuth.sol";
+import "./LibFork.sol";
 
 /// @title LibPropose
 /// @custom:security-contact security@taiko.xyz
@@ -25,8 +26,10 @@ library LibPropose {
         bytes32 txsHash;
         bytes32[] blobHashes;
         uint256 lastAnchorBlockId;
-        address prover;
+        uint256 firstBlockId;
+        uint256 lastBlockId;
         I.AnchorBlock[] anchorBlocks;
+        address prover;
     }
 
     function proposeBatch(
@@ -107,140 +110,150 @@ library LibPropose {
         view
         returns (I.BatchParams memory params_, ValidationOutput memory output_)
     {
-        require(
-            _stats2.numBatches <= _stats2.lastVerifiedBatchId + _ctx.config.maxUnverifiedBatches,
-            I.TooManyBatches()
-        );
+        unchecked {
+            require(
+                _stats2.numBatches <= _stats2.lastVerifiedBatchId + _ctx.config.maxUnverifiedBatches,
+                I.TooManyBatches()
+            );
 
-        params_ = _params; // no longer need to use _param below!
+            params_ = _params; // no longer need to use _param below!
 
-        if (_ctx.inboxWrapper == address(0)) {
-            if (params_.proposer == address(0)) {
-                params_.proposer = msg.sender;
+            if (_ctx.inboxWrapper == address(0)) {
+                if (params_.proposer == address(0)) {
+                    params_.proposer = msg.sender;
+                } else {
+                    require(params_.proposer == msg.sender, I.CustomProposerNotAllowed());
+                }
+
+                // blob hashes are only accepted if the caller is trusted.
+                require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
+                require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
+                require(params_.isForcedInclusion == false, I.InvalidForcedInclusion());
             } else {
-                require(params_.proposer == msg.sender, I.CustomProposerNotAllowed());
+                require(params_.proposer != address(0), I.CustomProposerMissing());
+                require(msg.sender == _ctx.inboxWrapper, I.NotInboxWrapper());
             }
 
-            // blob hashes are only accepted if the caller is trusted.
-            require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
-            require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
-            require(params_.isForcedInclusion == false, I.InvalidForcedInclusion());
-        } else {
-            require(params_.proposer != address(0), I.CustomProposerMissing());
-            require(msg.sender == _ctx.inboxWrapper, I.NotInboxWrapper());
-        }
-
-        // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
-        // preconfer address. This will allow us to implement preconfirmation features in L2
-        // anchor transactions.
-        if (params_.coinbase == address(0)) {
-            params_.coinbase = params_.proposer;
-        }
-
-        if (params_.revertIfNotFirstProposal) {
-            require(_stats2.lastProposedIn != block.number, I.NotFirstProposal());
-        }
-
-        if (_txList.length != 0) {
-            // calldata is used for data availability
-            require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
-            require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
-            require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
-            require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
-        } else if (params_.blobParams.blobHashes.length == 0) {
-            // this is a normal batch, blobs are created and used in the current batches.
-            // firstBlobIndex can be non-zero.
-            require(params_.blobParams.numBlobs != 0, I.BlobNotSpecified());
-            require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
-            params_.blobParams.createdIn = uint64(block.number);
-        } else {
-            // this is a forced-inclusion batch, blobs were created in early blocks and are used
-            // in the current batches
-            require(params_.blobParams.createdIn != 0, I.InvalidBlobCreatedIn());
-            require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
-            require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
-        }
-        uint nBlocks = params_.blocks.length;
-
-        require(nBlocks != 0, I.BlockNotFound());
-        require(nBlocks <= _ctx.config.maxBlocksPerBatch, I.TooManyBlocks());
-
-        if (params_.lastBlockTimestamp == 0) {
-            params_.lastBlockTimestamp = block.timestamp;
-        } else {
-            require(params_.lastBlockTimestamp <= block.timestamp, I.TimestampTooLarge());
-        }
-
-        require(params_.blocks[0].timeShift == 0, I.FirstBlockTimeShiftNotZero());
-
-        uint64 totalShift;
-
-        for (uint256 i; i < nBlocks; ++i) {
-            I.BlockParams memory blockParams = params_.blocks[i];
-            totalShift += blockParams.timeShift;
-
-            uint256 numSignals = blockParams.signalSlots.length;
-            if (numSignals == 0) continue;
-
-            require(numSignals <= _ctx.config.maxSignalsToReceive, I.TooManySignals());
-
-            for (uint256 j; j < numSignals; ++j) {
-                require(
-                    ISignalService(_ctx.signalService).isSignalSent(blockParams.signalSlots[j]),
-                    I.SignalNotSent()
-                );
+            // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
+            // preconfer address. This will allow us to implement preconfirmation features in L2
+            // anchor transactions.
+            if (params_.coinbase == address(0)) {
+                params_.coinbase = params_.proposer;
             }
-        }
 
-        require(params_.lastBlockTimestamp >= totalShift, I.TimestampTooSmall());
-
-        uint256 firstBlockTimestamp = params_.lastBlockTimestamp - totalShift;
-
-        require(
-            firstBlockTimestamp + _ctx.config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                >= block.timestamp,
-            I.TimestampTooSmall()
-        );
-
-        require(
-            firstBlockTimestamp >= _parentProposeMeta.lastBlockTimestamp,
-            I.TimestampSmallerThanParent()
-        );
-
-        output_.anchorBlocks = new I.AnchorBlock[](nBlocks);
-
-        bool foundNoneZeroAnchorBlockId;
-        for (uint256 i; i < nBlocks; ++i) {
-            uint64 anchorBlockId = params_.blocks[i].anchorBlockId;
-            if (anchorBlockId != 0) {
-                require(
-                    foundNoneZeroAnchorBlockId
-                        || anchorBlockId + _ctx.config.maxAnchorHeightOffset >= block.number,
-                    I.AnchorIdTooSmall()
-                );
-
-                require(anchorBlockId > output_.lastAnchorBlockId, I.AnchorIdSmallerThanParent());
-                output_.anchorBlocks[i] = I.AnchorBlock(anchorBlockId, blockhash(anchorBlockId));
-                require(output_.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash());
-
-                foundNoneZeroAnchorBlockId = true;
-                output_.lastAnchorBlockId = anchorBlockId;
+            if (params_.revertIfNotFirstProposal) {
+                require(_stats2.lastProposedIn != block.number, I.NotFirstProposal());
             }
+
+            if (_txList.length != 0) {
+                // calldata is used for data availability
+                require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
+                require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
+                require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
+                require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
+            } else if (params_.blobParams.blobHashes.length == 0) {
+                // this is a normal batch, blobs are created and used in the current batches.
+                // firstBlobIndex can be non-zero.
+                require(params_.blobParams.numBlobs != 0, I.BlobNotSpecified());
+                require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
+                params_.blobParams.createdIn = uint64(block.number);
+            } else {
+                // this is a forced-inclusion batch, blobs were created in early blocks and are used
+                // in the current batches
+                require(params_.blobParams.createdIn != 0, I.InvalidBlobCreatedIn());
+                require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
+                require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
+            }
+            uint256 nBlocks = params_.blocks.length;
+
+            require(nBlocks != 0, I.BlockNotFound());
+            require(nBlocks <= _ctx.config.maxBlocksPerBatch, I.TooManyBlocks());
+
+            if (params_.lastBlockTimestamp == 0) {
+                params_.lastBlockTimestamp = block.timestamp;
+            } else {
+                require(params_.lastBlockTimestamp <= block.timestamp, I.TimestampTooLarge());
+            }
+
+            require(params_.blocks[0].timeShift == 0, I.FirstBlockTimeShiftNotZero());
+
+            uint64 totalShift;
+
+            for (uint256 i; i < nBlocks; ++i) {
+                I.BlockParams memory blockParams = params_.blocks[i];
+                totalShift += blockParams.timeShift;
+
+                uint256 numSignals = blockParams.signalSlots.length;
+                if (numSignals == 0) continue;
+
+                require(numSignals <= _ctx.config.maxSignalsToReceive, I.TooManySignals());
+
+                for (uint256 j; j < numSignals; ++j) {
+                    require(
+                        ISignalService(_ctx.signalService).isSignalSent(blockParams.signalSlots[j]),
+                        I.SignalNotSent()
+                    );
+                }
+            }
+
+            require(params_.lastBlockTimestamp >= totalShift, I.TimestampTooSmall());
+
+            uint256 firstBlockTimestamp = params_.lastBlockTimestamp - totalShift;
+
+            require(
+                firstBlockTimestamp
+                    + _ctx.config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    >= block.timestamp,
+                I.TimestampTooSmall()
+            );
+
+            require(
+                firstBlockTimestamp >= _parentProposeMeta.lastBlockTimestamp,
+                I.TimestampSmallerThanParent()
+            );
+
+            output_.anchorBlocks = new I.AnchorBlock[](nBlocks);
+
+            bool foundNoneZeroAnchorBlockId;
+            for (uint256 i; i < nBlocks; ++i) {
+                uint64 anchorBlockId = params_.blocks[i].anchorBlockId;
+                if (anchorBlockId != 0) {
+                    require(
+                        foundNoneZeroAnchorBlockId
+                            || anchorBlockId + _ctx.config.maxAnchorHeightOffset >= block.number,
+                        I.AnchorIdTooSmall()
+                    );
+
+                    require(
+                        anchorBlockId > output_.lastAnchorBlockId, I.AnchorIdSmallerThanParent()
+                    );
+                    output_.anchorBlocks[i] = I.AnchorBlock(anchorBlockId, blockhash(anchorBlockId));
+                    require(output_.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash());
+
+                    foundNoneZeroAnchorBlockId = true;
+                    output_.lastAnchorBlockId = anchorBlockId;
+                }
+            }
+
+            // Ensure that if msg.sender is not the inboxWrapper, at least one block must
+            // have a
+            // non-zero anchor block id. Otherwise, delegate this validation to the
+            // inboxWrapper
+            // contract.
+            require(
+                msg.sender == _ctx.inboxWrapper || foundNoneZeroAnchorBlockId,
+                I.NoAnchorBlockIdWithinThisBatch()
+            );
+
+            output_.txListHash = keccak256(_txList);
+            (output_.txsHash, output_.blobHashes) =
+                _calculateTxsHash(output_.txListHash, params_.blobParams);
+
+            output_.firstBlockId = _parentProposeMeta.lastBlockId + 1;
+            output_.lastBlockId = output_.firstBlockId + nBlocks;
+
+            LibFork.checkBlocksInShastaFork(_ctx.config, output_.firstBlockId, output_.lastBlockId);
         }
-
-        // Ensure that if msg.sender is not the inboxWrapper, at least one block must
-        // have a
-        // non-zero anchor block id. Otherwise, delegate this validation to the
-        // inboxWrapper
-        // contract.
-        require(
-            msg.sender == _ctx.inboxWrapper || foundNoneZeroAnchorBlockId,
-            I.NoAnchorBlockIdWithinThisBatch()
-        );
-
-        output_.txListHash = keccak256(_txList);
-        (output_.txsHash, output_.blobHashes) =
-            _calculateTxsHash(output_.txListHash, params_.blobParams);
     }
 
     function _populateBatchMetadata(
@@ -266,7 +279,7 @@ library LibPropose {
                 gasLimit: _ctx.config.blockMaxGasLimit,
                 lastBlockId: _parentProposeMeta.lastBlockId + _params.blocks.length,
                 lastBlockTimestamp: _parentProposeMeta.lastBlockTimestamp,
-                anchorBlocks: new I.AnchorBlock[](_params.blocks.length),
+                anchorBlocks: _output.anchorBlocks,
                 blocks: _params.blocks,
                 baseFeeConfig: _ctx.config.baseFeeConfig
             });
