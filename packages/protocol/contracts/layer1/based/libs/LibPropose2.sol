@@ -43,27 +43,29 @@ library LibPropose {
         public // reduce code size
         returns (I.BatchMetadata memory meta_, I.Stats2 memory stats2_)
     {
-        // First load stats2 in memory, as this struct only takes 1 slot in storage.
-        stats2_ = $.stats2;
+        unchecked {
+            // First load stats2 in memory, as this struct only takes 1 slot in storage.
+            stats2_ = $.stats2;
 
-        // Validate the params and returns an updated version of it.
-        (I.BatchParams memory params, ValidationOutput memory output) = validateBatchParams(
-            _ctx, stats2_, _parentProposeMetaEvidence.proposeMeta, _params, _txList
-        );
+            // Validate parentProposeMeta against it in-storage hash.
+            validateParentProposeMeta($, _ctx, _parentProposeMetaEvidence, stats2_.numBatches - 1);
 
-        // Validate parentProposeMeta against it in-storage hash.
-        validateParentProposeMeta($, _ctx, _parentProposeMetaEvidence, stats2_.numBatches - 1);
+            // Validate the params and returns an updated version of it.
+            (I.BatchParams memory params, ValidationOutput memory output) = validateBatchParams(
+                _ctx, stats2_, _parentProposeMetaEvidence.proposeMeta, _params, _txList
+            );
 
-        meta_ = populateBatchMetadata(_ctx, params, output);
+            meta_ = populateBatchMetadata(_ctx, params, output);
 
-        // Update storage -- only affecting 1 slot
-        $.batches[stats2_.numBatches % _ctx.config.batchRingBufferSize] =
-            I.Batch({ nextTransitionId: 1, metaHash: hashBatch(stats2_.numBatches, meta_) });
+            // Update storage -- only affecting 1 slot
+            $.batches[stats2_.numBatches % _ctx.config.batchRingBufferSize] =
+                I.Batch({ nextTransitionId: 1, metaHash: hashBatch(stats2_.numBatches, meta_) });
 
-        // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
-        // instead of here to avoid unncessary re-writes.
-        stats2_.numBatches += 1;
-        stats2_.lastProposedIn = uint56(block.number);
+            // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
+            // instead of here to avoid unncessary re-writes.
+            stats2_.numBatches += 1;
+            stats2_.lastProposedIn = uint56(block.number);
+        }
     }
 
     function validateParentProposeMeta(
@@ -220,10 +222,8 @@ library LibPropose {
             }
 
             // Ensure that if msg.sender is not the inboxWrapper, at least one block must
-            // have a
-            // non-zero anchor block id. Otherwise, delegate this validation to the
-            // inboxWrapper
-            // contract.
+            // have a non-zero anchor block id. Otherwise, delegate this validation to the
+            // inboxWrapper contract.
             require(
                 msg.sender == _ctx.inboxWrapper || foundNoneZeroAnchorBlockId,
                 I.NoAnchorBlockIdWithinThisBatch()
@@ -248,21 +248,21 @@ library LibPropose {
         view
         returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
-        if (_blobParams.blobHashes.length != 0) {
-            blobHashes_ = _blobParams.blobHashes;
-        } else {
-            blobHashes_ = new bytes32[](_blobParams.numBlobs);
-            for (uint256 i; i < _blobParams.numBlobs; ++i) {
-                unchecked {
+        unchecked {
+            if (_blobParams.blobHashes.length != 0) {
+                blobHashes_ = _blobParams.blobHashes;
+            } else {
+                blobHashes_ = new bytes32[](_blobParams.numBlobs);
+                for (uint256 i; i < _blobParams.numBlobs; ++i) {
                     blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
                 }
             }
-        }
 
-        for (uint256 i; i < blobHashes_.length; ++i) {
-            require(blobHashes_[i] != 0, I.BlobNotFound());
+            for (uint256 i; i < blobHashes_.length; ++i) {
+                require(blobHashes_[i] != 0, I.BlobNotFound());
+            }
+            txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
         }
-        txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
     }
 
     function populateBatchMetadata(
