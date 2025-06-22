@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../based/ITaikoInbox.sol";
+import "../based/ITaikoInbox2.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.
@@ -11,6 +12,19 @@ interface IVerifier {
         uint64 batchId;
         bytes32 metaHash;
         ITaikoInbox.Transition transition;
+        address prover;
+    }
+
+    /// @notice Verifies multiple proofs. This function must throw if the proof cannot be verified.
+    /// @param _ctxs The array of contexts for the proof verifications.
+    /// @param _proof The batch proof to verify.
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external;
+}
+
+interface IVerifier2 {
+    struct Context {
+        bytes30 metaHash;
+        ITaikoInbox2.Transition transition;
         address prover;
     }
 

@@ -106,6 +106,7 @@ interface ITaikoInbox2 {
 
     /// @notice Struct representing transition to be proven.
     struct Transition {
+        uint256 batchId;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
@@ -214,11 +215,11 @@ interface ITaikoInbox2 {
         // Ring buffer for proposed batches and a some recent verified batches.
         mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
+        mapping(uint256 batchId => mapping(bytes32 parentHash => uint16 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint256 batchId_mod_batchRingBufferSize
-                => mapping(uint24 transitionId => TransitionState ts)
+                => mapping(uint256 transitionId => TransitionState ts)
         ) transitions;
         bytes32 __reserve1; // slot 4 - was used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5
@@ -249,12 +250,17 @@ interface ITaikoInbox2 {
     /// @param meta The metadata of the proposed batch.
     event BatchProposed(uint256 batchId, BatchMetadata meta);
 
+    /// @notice Emitted when multiple transitions are proved.
+    /// @param verifier The address of the verifier.
+    /// @param transitions The transitions data.
+    event BatchesProved(address verifier, Transition[] transitions);
+
     /// @notice Emitted when a transition is overwritten by a conflicting one with the same parent
     /// hash but different block hash or state root.
     /// @param batchId The batch ID.
     /// @param oldTran The old transition overwritten.
     /// @param newTran The new transition.
-    event ConflictingProof(uint64 batchId, TransitionState oldTran, Transition newTran);
+    event ConflictingProof(uint256 batchId, TransitionState oldTran, Transition newTran);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
