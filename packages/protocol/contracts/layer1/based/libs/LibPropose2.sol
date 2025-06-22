@@ -20,7 +20,7 @@ library LibPropose {
         address signalService;
     }
 
-    struct ValidationResult {
+    struct ValidationOutput {
         bytes32 calldataTxsHash;
         bytes32 txsHash;
         bytes32[] blobHashes;
@@ -30,7 +30,7 @@ library LibPropose {
     }
 
     struct Output {
-        ValidationResult result;
+        ValidationOutput result;
         I.Stats2 stats2;
         I.BatchMetadata meta;
         bytes32 metaHash;
@@ -38,129 +38,133 @@ library LibPropose {
 
     function proposeBatch(
         I.State storage $,
-        Context memory ctx,
-        I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence,
-        I.BatchParams memory params,
-        bytes calldata txList,
-        bytes calldata additionalData
+        Context memory _ctx,
+        I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
+        I.BatchParams memory _params,
+        bytes calldata _txList,
+        bytes calldata _additionalData
     )
         public // reduce code size
-        returns (I.BatchMetadata memory meta, I.Stats2 memory stats2)
+        returns (I.BatchMetadata memory meta_, I.Stats2 memory stats2_)
     {
         // First load stats2 in memory, as this struct only takes 1 slot in storage.
-        stats2 = $.stats2;
+        stats2_ = $.stats2;
 
-        // Validate parentProposeMeta against it hash.
-        _validateParentProposeMeta($, ctx, stats2, parentProposeMetaEvidence);
+        // Validate parentProposeMeta against it in-storage hash.
+        _validateParentProposeMeta($, _ctx, _parentProposeMetaEvidence, stats2_.numBatches - 1);
 
         // Validate the params and returns an updated version of it.
-        ValidationResult memory result;
-        (params, result) =
-            _validateParams(ctx, parentProposeMetaEvidence.proposeMeta, params, txList);
+        ValidationOutput memory output;
+        (_params, output) =
+            _validateParams(_ctx, _parentProposeMetaEvidence.proposeMeta, _params, _txList);
 
-        meta = _populateBatchMetadata(parentProposeMetaEvidence.proposeMeta, ctx, params, result);
+        meta_ =
+            _populateBatchMetadata(_ctx, _parentProposeMetaEvidence.proposeMeta, _params, output);
 
         // Update storage -- only affecting 2 slots
-        $.batches[stats2.numBatches % ctx.config.batchRingBufferSize] = I.Batch({
-            blockId: stats2.numBatches,
-            verifiedTransitionId: 0,
-            nextTransitionId: 1,
-            metaHash: hashBatch(meta)
-        });
+        $.batches[stats2_.numBatches % _ctx.config.batchRingBufferSize] =
+            I.Batch({ nextTransitionId: 1, metaHash: hashBatch(stats2_.numBatches, meta_) });
 
         // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
         // instead of here to avoid unncessary re-writes.
-        stats2.numBatches += 1;
-        stats2.lastProposedIn = uint56(block.number);
+        stats2_.numBatches += 1;
+        stats2_.lastProposedIn = uint56(block.number);
     }
 
-    function hashBatch(I.BatchMetadata memory meta) internal pure returns (bytes32) {
+    function hashBatch(
+        uint256 batchId,
+        I.BatchMetadata memory meta
+    )
+        internal
+        pure
+        returns (bytes30)
+    {
         bytes32 hBuild = keccak256(abi.encode(meta.buildMeta));
         bytes32 hPropose = keccak256(abi.encode(meta.proposeMeta));
         bytes32 hProve = keccak256(abi.encode(meta.proveMeta));
         bytes32 hVerify = keccak256(abi.encode(meta.verifyMeta));
         bytes32 hBuildPropose = keccak256(abi.encode(hBuild, hPropose));
         bytes32 hProveVerify = keccak256(abi.encode(hProve, hVerify));
-        return keccak256(abi.encode(hBuildPropose, hProveVerify));
+        return bytes30(keccak256(abi.encode(batchId, hBuildPropose, hProveVerify)));
     }
 
     function _validateParentProposeMeta(
         I.State storage $,
         Context memory ctx,
-        I.Stats2 memory stats2,
-        I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence
+        I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence,
+        uint256 parentBatchId
     )
         internal
         view
     {
-        I.Batch storage parentBatch =
-            $.batches[(stats2.numBatches - 1) % ctx.config.batchRingBufferSize];
         bytes32 h = keccak256(abi.encode(parentProposeMetaEvidence.proposeMeta));
         h = keccak256(abi.encode(parentProposeMetaEvidence.buildMetaHash, h));
-        h = keccak256(abi.encode(h, parentProposeMetaEvidence.proveVerifyHash));
-        require(parentBatch.metaHash == h, "Invalid parent batch");
+        h = keccak256(abi.encode(parentBatchId, h, parentProposeMetaEvidence.proveVerifyHash));
+
+        I.Batch storage parentBatch = $.batches[parentBatchId % ctx.config.batchRingBufferSize];
+        require(parentBatch.metaHash == bytes30(h), "Invalid parent batch");
     }
 
     function _validateParams(
-        Context memory ctx,
-        I.BatchProposeMetadata calldata parentProposeMeta,
-        I.BatchParams memory params,
-        bytes calldata calldataTxList
+        Context memory _ctx,
+        I.BatchProposeMetadata calldata _parentProposeMeta,
+        I.BatchParams memory _params,
+        bytes calldata _calldata
     )
         internal
         view
-        returns (I.BatchParams memory params_, ValidationResult memory result_)
+        returns (I.BatchParams memory params_, ValidationOutput memory output_)
     {
-        result_.calldataTxsHash = keccak256(calldataTxList);
-        (result_.txsHash, result_.blobHashes) =
-            _calculateTxsHash(result_.calldataTxsHash, params.blobParams);
+        output_.calldataTxsHash = keccak256(_calldata);
+        (output_.txsHash, output_.blobHashes) =
+            _calculateTxsHash(output_.calldataTxsHash, _params.blobParams);
     }
 
     function _populateBatchMetadata(
-        I.BatchProposeMetadata calldata parentProposeMeta,
-        Context memory ctx,
-        I.BatchParams memory params,
-        ValidationResult memory result
+        Context memory _ctx,
+        I.BatchProposeMetadata calldata _parentProposeMeta,
+        I.BatchParams memory _params,
+        ValidationOutput memory _output
     )
         internal
         view
-        returns (I.BatchMetadata memory meta)
+        returns (I.BatchMetadata memory meta_)
     {
-        meta.buildMeta = I.BatchBuildMetadata({
-            txsHash: result.txsHash,
-            blobHashes: result.blobHashes,
-            extraData: bytes32(uint256(_encodeExtraDataLower128Bits(ctx.config, params))),
-            coinbase: params.coinbase,
+        meta_.buildMeta = I.BatchBuildMetadata({
+            txsHash: _output.txsHash,
+            blobHashes: _output.blobHashes,
+            extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_ctx.config, _params))),
+            coinbase: _params.coinbase,
             proposedIn: block.number,
-            blobCreatedIn: params.blobParams.createdIn,
-            blobByteOffset: params.blobParams.byteOffset,
-            blobByteSize: params.blobParams.byteSize,
-            gasLimit: ctx.config.blockMaxGasLimit,
-            lastBlockId: parentProposeMeta.lastBlockId + params.blocks.length,
-            lastBlockTimestamp: parentProposeMeta.lastBlockTimestamp,
-            anchorBlocks: new I.AnchorBlock[](params.blocks.length),
-            blocks: params.blocks,
-            baseFeeConfig: ctx.config.baseFeeConfig
+            blobCreatedIn: _params.blobParams.createdIn,
+            blobByteOffset: _params.blobParams.byteOffset,
+            blobByteSize: _params.blobParams.byteSize,
+            gasLimit: _ctx.config.blockMaxGasLimit,
+            lastBlockId: _parentProposeMeta.lastBlockId + _params.blocks.length,
+            lastBlockTimestamp: _parentProposeMeta.lastBlockTimestamp,
+            anchorBlocks: new I.AnchorBlock[](_params.blocks.length),
+            blocks: _params.blocks,
+            baseFeeConfig: _ctx.config.baseFeeConfig
         });
 
-        meta.proposeMeta = I.BatchProposeMetadata({
-            lastBlockTimestamp: result.lastBlockTimestamp,
-            lastBlockId: meta.buildMeta.lastBlockId,
-            lastAnchorBlockId: result.lastAnchorBlockId
+        meta_.proposeMeta = I.BatchProposeMetadata({
+            lastBlockTimestamp: _output.lastBlockTimestamp,
+            lastBlockId: meta_.buildMeta.lastBlockId,
+            lastAnchorBlockId: _output.lastAnchorBlockId
         });
 
-        meta.proveMeta = I.BatchProveMetadata({
-            proposer: params.proposer,
-            prover: result.prover,
+        meta_.proveMeta = I.BatchProveMetadata({
+            proposer: _params.proposer,
+            prover: _output.prover,
             proposedAt: block.timestamp,
-            firstBlockId: parentProposeMeta.lastBlockId + 1,
-            provabilityBond: ctx.config.provabilityBond
+            firstBlockId: _parentProposeMeta.lastBlockId + 1,
+            provabilityBond: _ctx.config.provabilityBond
         });
 
-        meta.verifyMeta = I.BatchVerifyMeta({
-            lastBlockId: meta.buildMeta.lastBlockId,
-            provabilityBond: ctx.config.provabilityBond,
-            livenessBond: ctx.config.livenessBond
+        meta_.verifyMeta = I.BatchVerifyMeta({
+            lastBlockId: meta_.buildMeta.lastBlockId,
+            provabilityBond: _ctx.config.provabilityBond,
+            livenessBond: _ctx.config.livenessBond
         });
     }
 
@@ -185,7 +189,7 @@ library LibPropose {
     )
         internal
         view
-        returns (bytes32 hash_, bytes32[] memory blobHashes_)
+        returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
         if (_blobParams.blobHashes.length != 0) {
             blobHashes_ = _blobParams.blobHashes;
@@ -201,6 +205,6 @@ library LibPropose {
         for (uint256 i; i < blobHashes_.length; ++i) {
             require(blobHashes_[i] != 0, I.BlobNotFound());
         }
-        hash_ = keccak256(abi.encode(_txListHash, blobHashes_));
+        txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
     }
 }
