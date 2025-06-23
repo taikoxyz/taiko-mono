@@ -292,10 +292,11 @@
 ### preconf_whitelist
 
 - proxy : `0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84`
-- impl : `0x51BFcC9dbb1bf32210b39EB149172088eEE228A1`
+- impl : `0xcfc9A0b7a9f123D1Cd78034CC8F06F4646588483`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on May 29, 2025 at commit `baeaba9`
+  - upgraded on Jun 19, 2025 at commit `edf2041`
 
 ### preconf_router
 
