@@ -134,6 +134,7 @@ library LibProve {
             _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _ctx.config, _proveMeta.prover
         );
 
+        // TODO: use one single slot, do not store the transitions in storage.
         I.TransitionState memory ts = I.TransitionState({
             parentHash: tid == 1 ? _tran.parentHash : bytes32(0),
             blockHash: _tran.blockHash,
