@@ -94,12 +94,23 @@ library LibProve {
             _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _env.config, _proveMeta.prover
         );
 
+        // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
+        // declared state variable -- note that the second mapping key is always 1.
+        bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash;
         bytes32 metaHash = keccak256(abi.encode(tranMeta_));
-        if ($.transitions[slot][1].parentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
-            $.transitions[slot][1] = I.TransitionState(_tran.parentHash, metaHash);
-        } else {
-            $.transitionMetaHashes[_tran.batchId][_tran.parentHash] = metaHash;
+        if (
+            firstTransitionParentHash == _tran.parentHash
+                || firstTransitionParentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER
+        ) {
+            // This is the very first transition of the batch, or a transition with the same parent
+            // hash. We can reuse the transition state slot to reduce gas cost.
+            if (firstTransitionParentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
+                $.transitions[slot][1].parentHash = _tran.parentHash;
+            }
+            $.transitions[slot][1].metaHash = metaHash;
 
+            // The prover for the first transition is responsible for placing the provability
+            // if the transition is within extended proving window.
             if (
                 tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                     && msg.sender != _proveMeta.proposer
@@ -109,6 +120,11 @@ library LibProve {
                 LibBonds2.debitBond($, _env.bondToken, msg.sender, _proveMeta.provabilityBond);
                 LibBonds2.creditBond($, _proveMeta.proposer, _proveMeta.provabilityBond);
             }
+        } else {
+            // This is not the very first transition of the batch, or a transition with the same
+            // parent hash. Use a mapping to store the meta hash of the transition. The mapping
+            // slots are not reusable.
+            $.transitionMetaHashes[_tran.batchId][_tran.parentHash] = metaHash;
         }
     }
 
@@ -140,9 +156,11 @@ library LibProve {
     {
         require(_tran.batchId > _stats2.lastVerifiedBatchId, I.BatchNotFound());
         require(_tran.batchId < _stats2.numBatches, I.BatchNotFound());
-
-        require(_tran.parentHash != 0, I.InvalidTransitionParentHash());
         require(_tran.blockHash != 0, I.InvalidTransitionBlockHash());
         require(_tran.stateRoot != 0, I.InvalidTransitionStateRoot());
+        require(
+            _tran.parentHash != 0 && _tran.parentHash != FIRST_TRAN_PARENT_HASH_PLACEHOLDER,
+            I.InvalidTransitionParentHash()
+        );
     }
 }
