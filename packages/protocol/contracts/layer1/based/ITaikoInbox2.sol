@@ -266,13 +266,6 @@ interface ITaikoInbox2 {
     /// @param tranDatas The transition data.
     event BatchesProved(address verifier, TransitionEvtData[] tranDatas);
 
-    /// @notice Emitted when a transition is overwritten by a conflicting one with the same parent
-    /// hash but different block hash or state root.
-    /// @param batchId The batch ID.
-    /// @param oldTran The old transition overwritten.
-    /// @param newTran The new transition.
-    event ConflictingProof(uint256 batchId, TransitionState oldTran, Transition newTran);
-
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
     /// @param blockHash The hash of the verified batch.
