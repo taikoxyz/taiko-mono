@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibNetwork.sol";
-// import "./LibProve.sol";
+import "./LibData2.sol";
 import "./LibAuth2.sol";
 import "./LibFork.sol";
 import "./LibBonds2.sol";
@@ -15,12 +15,7 @@ import "./LibBonds2.sol";
 library LibPropose {
     using SafeERC20 for IERC20;
 
-    struct Env {
-        I.Config config;
-        address bondToken;
-        address inboxWrapper;
-        address signalService;
-    }
+    error BlocksNotInCurrentFork();
 
     struct ValidationOutput {
         bytes32 txListHash;
@@ -34,8 +29,8 @@ library LibPropose {
     }
 
     function proposeBatch(
+        LibData2.Env memory _env,
         I.State storage $,
-        Env memory _env,
         I.BatchProposeMetadataEvidence calldata __evidence,
         I.BatchParams calldata _params,
         bytes calldata _txList,
@@ -49,13 +44,13 @@ library LibPropose {
             stats2_ = $.stats2;
 
             // Validate parentProposeMeta against it in-storage hash.
-            _validateBatchProposeMeta($, _env, __evidence, stats2_.numBatches - 1);
+            _validateBatchProposeMeta(_env, $, __evidence, stats2_.numBatches - 1);
 
             // Validate the params and returns an updated version of it.
             (I.BatchParams memory params, ValidationOutput memory output) =
                 _validateBatchParams(_env, stats2_, __evidence.proposeMeta, _params, _txList);
 
-            output.prover = _validateProver($, _env, stats2_, params, output);
+            output.prover = _validateProver(_env, $, stats2_, params, output);
             meta_ = _populateBatchMetadata(_env, params, output);
 
             // Update storage -- only affecting 1 slot
@@ -87,8 +82,8 @@ library LibPropose {
     }
 
     function _validateProver(
+        LibData2.Env memory _env,
         I.State storage $,
-        Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchParams memory _params,
         ValidationOutput memory _output
@@ -160,8 +155,8 @@ library LibPropose {
     }
 
     function _validateBatchProposeMeta(
+        LibData2.Env memory _env,
         I.State storage $,
-        Env memory _env,
         I.BatchProposeMetadataEvidence calldata _evidence,
         uint256 _batchId
     )
@@ -177,7 +172,7 @@ library LibPropose {
     }
 
     function _validateBatchParams(
-        Env memory _env,
+        LibData2.Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchProposeMetadata calldata _parentProposeMeta,
         I.BatchParams calldata _params,
@@ -327,12 +322,17 @@ library LibPropose {
             output_.firstBlockId = _parentProposeMeta.lastBlockId + 1;
             output_.lastBlockId = output_.firstBlockId + nBlocks;
 
-            LibFork.checkBlocksInShastaFork(_env.config, output_.firstBlockId, output_.lastBlockId);
+            require(
+                LibFork.isBlocksInCurrentFork(
+                    _env.config, output_.firstBlockId, output_.lastBlockId, false
+                ),
+                BlocksNotInCurrentFork()
+            );
         }
     }
 
     function _populateBatchMetadata(
-        Env memory _env,
+        LibData2.Env memory _env,
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )

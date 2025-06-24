@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/layer1/verifiers/IVerifier.sol";
+import "./LibData2.sol";
 import "./LibBonds2.sol";
 import "./LibFork.sol";
 
@@ -12,18 +13,13 @@ import "./LibFork.sol";
 library LibProve {
     using LibMath for uint256;
 
+    error BlocksNotInCurrentFork();
+
     bytes32 internal constant FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
 
-    // The struct is introdueced to avoid stack too deep error.
-    struct Env {
-        I.Config config;
-        address bondToken;
-        address verifier;
-    }
-
     function proveBatches(
+        LibData2.Env memory _env,
         I.State storage $,
-        Env memory _env,
         bytes calldata _proof,
         I.BatchProveMetadataEvidence[] calldata _evidences,
         I.Transition[] calldata _trans
@@ -43,7 +39,7 @@ library LibProve {
         IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (metas[i], ctxs[i]) = _proveBatch($, _env, stats2_, _evidences[i], _trans[i]);
+            (metas[i], ctxs[i]) = _proveBatch(_env, $, stats2_, _evidences[i], _trans[i]);
         }
 
         emit I.BatchesProved(_env.verifier, metas);
@@ -51,8 +47,8 @@ library LibProve {
     }
 
     function _proveBatch(
+        LibData2.Env memory _env,
         I.State storage $,
-        Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchProveMetadataEvidence calldata _evidence,
         I.Transition calldata _tran
@@ -64,8 +60,14 @@ library LibProve {
 
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify the firstBlockId of the block in the following check.
-        LibFork.checkBlocksInShastaFork(
-            _env.config, _evidence.proveMeta.firstBlockId, _evidence.proveMeta.firstBlockId
+        require(
+            LibFork.isBlocksInCurrentFork(
+                _env.config,
+                _evidence.proveMeta.firstBlockId,
+                _evidence.proveMeta.firstBlockId,
+                false
+            ),
+            BlocksNotInCurrentFork()
         );
 
         // Verify the batch's metadata.
