@@ -162,3 +162,8 @@ func (m *TaikoDataBlockMetadataPacaya) IsOntakeBlock() bool {
 func (m *TaikoDataBlockMetadataPacaya) InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata {
 	return &m.ITaikoInboxBatchMetadata
 }
+
+// GetBaseFee returns the base fee of this batch.
+func (m *TaikoDataBlockMetadataPacaya) GetBaseFee() *big.Int {
+	return m.BaseFee
+}

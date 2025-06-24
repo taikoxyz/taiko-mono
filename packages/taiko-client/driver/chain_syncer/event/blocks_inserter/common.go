@@ -425,10 +425,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
-	if err != nil {
-		return nil, nil, err
-	}
+	baseFee := meta.GetBaseFee()
 
 	log.Info(
 		"L2 baseFee",

@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,6 +17,6 @@ type ChainSyncer interface {
 type Proposer interface {
 	utils.SubcommandApplication
 	ProposeOp(ctx context.Context) error
-	ProposeTxLists(ctx context.Context, txLists []types.Transactions, parentMetaHash common.Hash) error
+	ProposeTxLists(ctx context.Context, txLists []types.Transactions, parentMetaHash common.Hash, l2BaseFee *big.Int) error
 	RegisterTxMgrSelectorToBlobServer(blobServer *MemoryBlobServer)
 }

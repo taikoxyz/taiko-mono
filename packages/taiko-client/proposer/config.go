@@ -3,6 +3,7 @@ package proposer
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -32,8 +33,15 @@ type Config struct {
 	BlobAllowed             bool
 	FallbackToCalldata      bool
 	RevertProtectionEnabled bool
+	CheckProfitability      bool
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
+
+	// L2 cost estimation parameters
+	ProvingCostPerL2Batch       *big.Int
+	BatchPostingGasWithCalldata uint64
+	BatchPostingGasWithBlobs    uint64
+	ProofPostingGas             uint64
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -66,6 +74,12 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			maxTxListsPerEpoch,
 		)
 	}
+
+	// Default L2 cost estimation parameters
+	provingCostPerL2Batch := big.NewInt(800_000_000_000_000) // 8 * 10^14 Wei
+	batchPostingGasWithCalldata := uint64(260_000)
+	batchPostingGasWithBlobs := uint64(160_000)
+	proofPostingGas := uint64(750_000)
 
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
@@ -104,5 +118,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProposerPrivKey,
 			c,
 		),
+		CheckProfitability:          c.Bool(flags.CheckProfitability.Name),
+		ProvingCostPerL2Batch:       provingCostPerL2Batch,
+		BatchPostingGasWithCalldata: batchPostingGasWithCalldata,
+		BatchPostingGasWithBlobs:    batchPostingGasWithBlobs,
+		ProofPostingGas:             proofPostingGas,
 	}, nil
 }

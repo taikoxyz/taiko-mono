@@ -102,6 +102,13 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_REVERT_PROTECTION"},
 	}
+	CheckProfitability = &cli.BoolFlag{
+		Name:     "checkProfitability",
+		Usage:    "Check profitability of transactions before proposing",
+		Value:    true,
+		Category: proposerCategory,
+		EnvVars:  []string{"CHECK_PROFITABILITY"},
+	}
 )
 
 // ProposerFlags All proposer flags.
@@ -123,4 +130,5 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlobAllowed,
 	FallbackToCalldata,
 	RevertProtectionEnabled,
+	CheckProfitability,
 }, TxmgrFlags)

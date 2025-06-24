@@ -21,6 +21,7 @@ type ProposeBatchTransactionBuilder interface {
 		forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 		minTxsPerForcedInclusion *big.Int,
 		parentMetahash common.Hash,
+		baseFee *big.Int,
 	) (*txmgr.TxCandidate, error)
 }
 

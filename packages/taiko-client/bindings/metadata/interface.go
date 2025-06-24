@@ -45,4 +45,5 @@ type TaikoBatchMetaDataPacaya interface {
 	GetTxIndex() uint
 	GetTxHash() common.Hash
 	InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata
+	GetBaseFee() *big.Int
 }

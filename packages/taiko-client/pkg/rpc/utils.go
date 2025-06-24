@@ -178,7 +178,6 @@ func GetBatchProofStatus(
 		// Status 1, no proof on chain at all.
 		return &BatchProofStatus{IsSubmitted: false, ParentHeader: parent}, nil
 	}
-
 	// TODO: handle multiple transitions?
 	transition := transitions[0]
 

@@ -156,7 +156,10 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	metaHash, err := s.p.GetParentMetaHash(context.Background())
 	s.Nil(err)
 
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash))
+	l2BaseFee, err := s.p.rpc.L2.SuggestGasPrice(context.Background())
+	s.Nil(err)
+
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash, l2BaseFee))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -197,6 +200,9 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		s.Nil(err)
 	}
 
+	l2BaseFee, err := s.p.rpc.L2.SuggestGasPrice(context.Background())
+	s.Nil(err)
+
 	// Empty mempool at first.
 	for {
 		poolContent, err := s.RPCClient.GetPoolContent(
@@ -207,8 +213,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]common.Address{},
 			10,
 			0,
-			s.p.chainConfig,
-			s.p.protocolConfigs.BaseFeeConfig(),
+			l2BaseFee,
 		)
 		s.Nil(err)
 
@@ -277,8 +282,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]common.Address{},
 			testCase.maxTransactionsLists,
 			0,
-			s.p.chainConfig,
-			s.p.protocolConfigs.BaseFeeConfig(),
+			l2BaseFee,
 		)
 		s.Nil(err)
 
@@ -327,6 +331,9 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		s.Nil(err)
 	}
 
+	l2BaseFee, err := s.p.rpc.L2.SuggestGasPrice(context.Background())
+	s.Nil(err)
+
 	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
@@ -336,8 +343,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			[]common.Address{},
 			p.MaxTxListsPerEpoch,
 			0,
-			p.chainConfig,
-			p.protocolConfigs.BaseFeeConfig(),
+			l2BaseFee,
 		)
 		time.Sleep(time.Second)
 	}
@@ -445,7 +451,10 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 		}
 	}
 
-	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
+	l2BaseFee, err := s.p.rpc.L2.SuggestGasPrice(context.Background())
+	s.Nil(err)
+
+	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}, l2BaseFee))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)

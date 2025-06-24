@@ -64,6 +64,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
+	baseFee *big.Int,
 ) (*txmgr.TxCandidate, error) {
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
@@ -90,6 +91,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 			RevertIfNotFirstProposal: b.revertProtectionEnabled,
 			BlobParams:               *blobParams,
 			Blocks:                   blockParams,
+			BaseFee:                  baseFee,
 		}
 	}
 
@@ -122,7 +124,8 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 			ByteOffset:     0,
 			ByteSize:       uint32(len(txListsBytes)),
 		},
-		Blocks: blockParams,
+		Blocks:  blockParams,
+		BaseFee: baseFee,
 	}
 
 	if b.revertProtectionEnabled {

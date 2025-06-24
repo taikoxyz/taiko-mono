@@ -24,7 +24,6 @@ import (
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
@@ -381,27 +380,6 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, blockID: %d", blockID)
 }
 
-// CalculateBaseFee calculates the base fee from the L2 protocol.
-func (c *Client) CalculateBaseFee(
-	ctx context.Context,
-	l2Head *types.Header,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-	currentTimestamp uint64,
-) (*big.Int, error) {
-	var (
-		baseFee *big.Int
-		err     error
-	)
-
-	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
-		return nil, err
-	}
-
-	log.Info("Base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
-
-	return baseFee, nil
-}
-
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
 // upper limit.
 func (c *Client) GetPoolContent(
@@ -412,21 +390,10 @@ func (c *Client) GetPoolContent(
 	locals []common.Address,
 	maxTransactionsLists uint64,
 	minTip uint64,
-	chainConfig *config.ChainConfig,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
+	baseFee *big.Int,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
-
-	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	baseFee, err := c.CalculateBaseFee(ctx, l2Head, baseFeeConfig, uint64(time.Now().Unix()))
-	if err != nil {
-		return nil, err
-	}
 
 	var localsArg []string
 	for _, local := range locals {
@@ -849,35 +816,6 @@ func (c *Client) getSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	}
 
 	return l1StateRoot, l1Height, parentGasUsed, nil
-}
-
-// calculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
-func (c *Client) calculateBaseFeePacaya(
-	ctx context.Context,
-	l2Head *types.Header,
-	currentTimestamp uint64,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-) (*big.Int, error) {
-	log.Info(
-		"Calculate base fee for the Pacaya block",
-		"parentNumber", l2Head.Number,
-		"parentHash", l2Head.Hash(),
-		"parentGasUsed", l2Head.GasUsed,
-		"currentTimestamp", currentTimestamp,
-		"baseFeeConfig", baseFeeConfig,
-	)
-
-	baseFeeInfo, err := c.PacayaClients.TaikoAnchor.GetBasefeeV2(
-		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
-		uint32(l2Head.GasUsed),
-		currentTimestamp,
-		*baseFeeConfig,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", err)
-	}
-
-	return baseFeeInfo.Basefee, nil
 }
 
 // getGenesisHeight fetches the genesis height from the protocol.

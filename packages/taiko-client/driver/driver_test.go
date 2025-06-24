@@ -356,8 +356,11 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
+	l2BaseFee, err := s.RPCClient.L2.SuggestGasPrice(context.Background())
+	s.Nil(err)
+
 	// Propose an empty batch, should with another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}, l2BaseFee))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -374,7 +377,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	s.Equal(forcedInclusionTx.Hash(), forcedIncludedBlock.Transactions()[1].Hash())
 
 	// Propose an empty batch, without another batch with the forced inclusion tx.
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}, l2BaseFee))
 	s.Nil(s.d.l2ChainSyncer.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -1288,12 +1291,7 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
 	s.Nil(err)
 
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(),
-		parent,
-		s.d.protocolConfig.BaseFeeConfig(),
-		timestamp,
-	)
+	baseFee, err := s.RPCClient.L2.SuggestGasPrice(context.Background())
 	s.Nil(err)
 
 	anchortxConstructor, err := anchortxconstructor.New(s.d.rpc)

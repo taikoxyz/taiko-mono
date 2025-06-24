@@ -21,8 +21,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
-	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}, common.Hash{}))
+func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer, l2BaseFee *big.Int) {
+	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}, common.Hash{}, l2BaseFee))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
@@ -51,8 +51,11 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 		close(sink1)
 	}()
 
+	l2BaseFee, err := s.RPCClient.L2.SuggestGasPrice(context.Background())
+	s.Nil(err)
+
 	// RLP encoded empty list
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}))
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}, common.Hash{}, l2BaseFee))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Valid transactions lists.
@@ -60,7 +63,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	// Random bytes txList
-	s.proposeEmptyBlockOp(context.Background(), proposer)
+	s.proposeEmptyBlockOp(context.Background(), proposer, l2BaseFee)
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	var txHash common.Hash
