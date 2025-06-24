@@ -129,10 +129,9 @@ interface ITaikoInbox2 {
         bool byAssignedProver;
     }
 
-
     struct TransitionEvtData {
-        uint batchId;
-        uint tid;
+        uint256 batchId;
+        uint256 tid;
         TransitionMeta meta;
     }
 

@@ -41,9 +41,8 @@ library LibProve {
         IVerifier2.Context[] memory verifierCtxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (tranEvtDatas[i],  verifierCtxs[i]) = _proveBatch(
-                $, _ctx, stats2_, _proveMetas[i], _trans[i]
-            );
+            (tranEvtDatas[i], verifierCtxs[i]) =
+                _proveBatch($, _ctx, stats2_, _proveMetas[i], _trans[i]);
         }
 
         emit I.BatchesProved(_ctx.verifier, tranEvtDatas);
@@ -58,10 +57,7 @@ library LibProve {
         I.Transition calldata _tran
     )
         private
-        returns (
-            I.TransitionEvtData memory tranEvtData_,
-            IVerifier2.Context memory verifierCtx_
-        )
+        returns (I.TransitionEvtData memory tranEvtData_, IVerifier2.Context memory verifierCtx_)
     {
         _validateTransition(_tran, _stats2);
 
@@ -118,8 +114,6 @@ library LibProve {
             byAssignedProver: msg.sender == _proveMeta.prover
         });
 
-       
-
         (tranMeta.proofTiming, tranMeta.prover) = _determineProofTiming(
             _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _ctx.config, _proveMeta.prover
         );
@@ -143,11 +137,7 @@ library LibProve {
             LibBonds2.creditBond($, _proveMeta.proposer, _proveMeta.provabilityBond);
         }
 
-         tranEvtData_ = I.TransitionEvtData({
-            batchId: _tran.batchId,
-            tid: tid,
-            meta: tranMeta
-        });
+        tranEvtData_ = I.TransitionEvtData({ batchId: _tran.batchId, tid: tid, meta: tranMeta });
     }
 
     /// @dev Decides which time window we are in and who should be recorded as the prover.
