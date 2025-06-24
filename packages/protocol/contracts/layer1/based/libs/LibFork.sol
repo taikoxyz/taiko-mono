@@ -10,8 +10,7 @@ library LibFork {
     function isBlocksInCurrentFork(
         I.Config memory _config,
         uint256 _firstBlockId,
-        uint256 _lastBlockId,
-        bool _includeLastForkLastBlock
+        uint256 _lastBlockId
     )
         internal
         pure
@@ -23,10 +22,6 @@ library LibFork {
             return false;
         }
 
-        if (_includeLastForkLastBlock) {
-            return _firstBlockId + 1 >= _config.forkHeights.shasta;
-        } else {
-            return _firstBlockId >= _config.forkHeights.shasta;
-        }
+        return _firstBlockId >= _config.forkHeights.shasta;
     }
 }

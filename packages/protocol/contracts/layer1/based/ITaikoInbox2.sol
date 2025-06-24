@@ -163,6 +163,15 @@ interface ITaikoInbox2 {
         uint64 lastUnpausedAt;
     }
 
+    struct Stats {
+        uint256 numBatches;
+        bytes32 lastBlockHash;
+        uint56 lastProposedIn;
+        uint64 lastUnpausedAt;
+        uint256 lastSyncedBatchId;
+        uint256 lastSyncedAt;
+    }
+
     /// @notice Struct holding the fork heights.
     /// @dev All for heights are block based.
     struct ForkHeights {

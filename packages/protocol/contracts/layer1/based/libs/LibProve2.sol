@@ -15,8 +15,6 @@ library LibProve {
 
     error BlocksNotInCurrentFork();
 
-    bytes32 internal constant FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
-
     function proveBatches(
         LibData2.Env memory _env,
         I.State storage $,
@@ -62,10 +60,7 @@ library LibProve {
         // Hence, we only need to verify the firstBlockId of the block in the following check.
         require(
             LibFork.isBlocksInCurrentFork(
-                _env.config,
-                _evidence.proveMeta.firstBlockId,
-                _evidence.proveMeta.firstBlockId,
-                false
+                _env.config, _evidence.proveMeta.firstBlockId, _evidence.proveMeta.firstBlockId
             ),
             BlocksNotInCurrentFork()
         );
@@ -105,13 +100,13 @@ library LibProve {
         bytes32 metaHash = keccak256(abi.encode(tranMeta_));
         if (
             firstTransitionParentHash == _tran.parentHash
-                || firstTransitionParentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER
+                || firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER
         ) {
             $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
 
             // This is the very first transition of the batch, or a transition with the same parent
             // hash. We can reuse the transition state slot to reduce gas cost.
-            if (firstTransitionParentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
+            if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
                 $.transitions[slot][1].parentHash = _tran.parentHash; // 1 SSTORE
 
                 // The prover for the first transition is responsible for placing the provability

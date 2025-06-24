@@ -324,7 +324,7 @@ library LibPropose {
 
             require(
                 LibFork.isBlocksInCurrentFork(
-                    _env.config, output_.firstBlockId, output_.lastBlockId, false
+                    _env.config, output_.firstBlockId, output_.lastBlockId
                 ),
                 BlocksNotInCurrentFork()
             );

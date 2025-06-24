@@ -8,6 +8,8 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 /// @title LibData2
 /// @custom:security-contact security@taiko.xyz
 library LibData2 {
+    bytes32 internal constant FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
+
     struct Env {
         I.Config config;
         address bondToken;
