@@ -129,12 +129,6 @@ interface ITaikoInbox2 {
         bool byAssignedProver;
     }
 
-    struct TransitionEvtData {
-        uint256 batchId;
-        uint256 tid;
-        TransitionMeta meta;
-    }
-
     //  @notice Struct representing transition storage
     /// @notice 2 slots used for each transition.
     struct TransitionState {
@@ -226,11 +220,12 @@ interface ITaikoInbox2 {
         // Ring buffer for proposed batches and a some recent verified batches.
         mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint256 batchId => mapping(bytes32 parentHash => uint16 transitionId)) transitionIds;
+        mapping(uint256 batchId => mapping(bytes32 parentHash => bytes32 metahash))
+            transitionMetaHashes;
         // Ring buffer for transitions
         mapping(
             uint256 batchId_mod_batchRingBufferSize
-                => mapping(uint256 transitionId => TransitionState ts)
+                => mapping(uint256 thisValueIsAlways1 => TransitionState ts)
         ) transitions;
         bytes32 __reserve1; // slot 4 - was used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5
@@ -263,8 +258,8 @@ interface ITaikoInbox2 {
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
-    /// @param tranDatas The transition data.
-    event BatchesProved(address verifier, TransitionEvtData[] tranDatas);
+    /// @param tranMetas The transition metadata.
+    event BatchesProved(address verifier, TransitionMeta[] tranMetas);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.

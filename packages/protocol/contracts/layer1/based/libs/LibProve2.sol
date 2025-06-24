@@ -11,6 +11,7 @@ import "./LibFork.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProve {
     using LibMath for uint256;
+    bytes32 constant internal FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
 
     // The struct is introdueced to avoid stack too deep error.
     struct Context {
@@ -34,19 +35,19 @@ library LibProve {
         require(nBatches <= type(uint8).max, I.TooManyBatchesToProve());
         require(nBatches == _trans.length, I.ArraySizesMismatch());
 
-        stats2_ = $.stats2;
+        stats2_ = $.stats2; // make a read-only copy
         require(!stats2_.paused, I.ContractPaused());
 
-        I.TransitionEvtData[] memory tranEvtDatas = new I.TransitionEvtData[](nBatches);
-        IVerifier2.Context[] memory verifierCtxs = new IVerifier2.Context[](nBatches);
+        I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](nBatches);
+        IVerifier2.Context[] memory vctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (tranEvtDatas[i], verifierCtxs[i]) =
+            (tranMetas[i], vctxs[i]) =
                 _proveBatch($, _ctx, stats2_, _proveMetas[i], _trans[i]);
         }
 
-        emit I.BatchesProved(_ctx.verifier, tranEvtDatas);
-        IVerifier2(_ctx.verifier).verifyProof(verifierCtxs, _proof);
+        emit I.BatchesProved(_ctx.verifier, tranMetas);
+        IVerifier2(_ctx.verifier).verifyProof(vctxs, _proof);
     }
 
     function _proveBatch(
@@ -57,7 +58,7 @@ library LibProve {
         I.Transition calldata _tran
     )
         private
-        returns (I.TransitionEvtData memory tranEvtData_, IVerifier2.Context memory verifierCtx_)
+        returns (I.TransitionMeta memory tranMeta_, IVerifier2.Context memory vctx_)
     {
         _validateTransition(_tran, _stats2);
 
@@ -74,35 +75,10 @@ library LibProve {
         // TODO
         // require(verifierCtx_.metaHash == batch.metaHash, I.MetaHashMismatch());
 
-        verifierCtx_ =
+        vctx_ =
             IVerifier2.Context({ metaHash: batch.metaHash, transition: _tran, prover: msg.sender });
 
-        // Finds out if this transition is overwriting an existing one (with the same parent
-        // hash) or is a new one.
-        uint16 tid;
-        if (batch.nextTransitionId > 1) {
-            // This batch has at least one transition. Lets check if the first transition is to be
-            // overwritten.
-            if ($.transitions[slot][1].parentHash == _tran.parentHash) {
-                tid = 1; // Overwrite the first transition.
-            } else if (batch.nextTransitionId > 2) {
-                // Retrieve the transition ID using the parent hash from the mapping. If the ID
-                // is 0, it indicates a new transition; otherwise, it's an overwrite of an
-                // existing transition other than the first one.
-                tid = $.transitionIds[_tran.batchId][_tran.parentHash];
-            }
-        }
-
-        if (tid == 0) {
-            // This transition is new, we need to use the next available ID
-            unchecked {
-                tid = uint16(batch.nextTransitionId);
-                // increment the nextTransitionId by 1
-                $.batches[slot].nextTransitionId = batch.nextTransitionId + 1;
-            }
-        }
-
-        I.TransitionMeta memory tranMeta = I.TransitionMeta({
+        tranMeta_ = I.TransitionMeta({
             parentHash: _tran.parentHash,
             blockHash: _tran.blockHash,
             stateRoot: _tran.batchId % _ctx.config.stateRootSyncInternal == 0
@@ -114,30 +90,26 @@ library LibProve {
             byAssignedProver: msg.sender == _proveMeta.prover
         });
 
-        (tranMeta.proofTiming, tranMeta.prover) = _determineProofTiming(
+        (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
             _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _ctx.config, _proveMeta.prover
         );
 
-        I.TransitionState memory tranState = I.TransitionState({
-            parentHash: tid == 1 ? _tran.parentHash : bytes32(0),
-            metaHash: keccak256(abi.encode(tranMeta))
-        });
+        bytes32 metaHash = keccak256(abi.encode(tranMeta_));
+        if ($.transitions[slot][1].parentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
+            $.transitions[slot][1] = I.TransitionState(_tran.parentHash, metaHash);
+        } else {
+            $.transitionMetaHashes[_tran.batchId][_tran.parentHash] = metaHash;
 
-        $.transitions[slot][tid] = tranState;
-
-        if (tid != 1) {
-            $.transitionIds[_tran.batchId][_tran.parentHash] = tid;
-        } else if (
-            tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
-                && msg.sender != _proveMeta.proposer
-        ) {
-            // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
-            // of the proposer's bond through an invalid first transition.
-            LibBonds2.debitBond($, _ctx.bondToken, msg.sender, _proveMeta.provabilityBond);
-            LibBonds2.creditBond($, _proveMeta.proposer, _proveMeta.provabilityBond);
+            if (
+                tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
+                    && msg.sender != _proveMeta.proposer
+            ) {
+                // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
+                // of the proposer's bond through an invalid first transition.
+                LibBonds2.debitBond($, _ctx.bondToken, msg.sender, _proveMeta.provabilityBond);
+                LibBonds2.creditBond($, _proveMeta.proposer, _proveMeta.provabilityBond);
+            }
         }
-
-        tranEvtData_ = I.TransitionEvtData({ batchId: _tran.batchId, tid: tid, meta: tranMeta });
     }
 
     /// @dev Decides which time window we are in and who should be recorded as the prover.
