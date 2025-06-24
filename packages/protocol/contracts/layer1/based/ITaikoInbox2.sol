@@ -119,9 +119,7 @@ interface ITaikoInbox2 {
 
     }
 
-    //  @notice Struct representing transition storage
-    /// @notice 4 slots used.
-    struct TransitionState {
+    struct TransitionMeta {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
@@ -129,6 +127,20 @@ interface ITaikoInbox2 {
         ProofTiming proofTiming;
         uint48 createdAt;
         bool byAssignedProver;
+    }
+
+
+    struct TransitionEvtData {
+        uint batchId;
+        uint tid;
+        TransitionMeta meta;
+    }
+
+    //  @notice Struct representing transition storage
+    /// @notice 2 slots used for each transition.
+    struct TransitionState {
+        bytes32 parentHash;
+        bytes32 metaHash;
     }
 
     struct Batch {
@@ -252,8 +264,8 @@ interface ITaikoInbox2 {
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
-    /// @param transitions The transitions data.
-    event BatchesProved(address verifier, Transition[] transitions);
+    /// @param tranDatas The transition data.
+    event BatchesProved(address verifier, TransitionEvtData[] tranDatas);
 
     /// @notice Emitted when a transition is overwritten by a conflicting one with the same parent
     /// hash but different block hash or state root.

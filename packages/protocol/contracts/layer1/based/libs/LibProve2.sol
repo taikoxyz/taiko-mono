@@ -27,7 +27,7 @@ library LibProve {
         I.Transition[] calldata _trans
     )
         public // reduce code size
-        returns (I.Stats2 memory stats2_, bool hasConflictingProof_)
+        returns (I.Stats2 memory stats2_)
     {
         uint256 nBatches = _proveMetas.length;
         require(nBatches != 0, I.NoBlocksToProve());
@@ -37,16 +37,16 @@ library LibProve {
         stats2_ = $.stats2;
         require(!stats2_.paused, I.ContractPaused());
 
+        I.TransitionEvtData[] memory tranEvtDatas = new I.TransitionEvtData[](nBatches);
         IVerifier2.Context[] memory verifierCtxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            bool hasConflictingProof;
-            (hasConflictingProof, verifierCtxs[i]) =
-                _proveBatch($, _ctx, stats2_, _proveMetas[i], _trans[i]);
-            hasConflictingProof_ = hasConflictingProof_ || hasConflictingProof;
+            (tranEvtDatas[i],  verifierCtxs[i]) = _proveBatch(
+                $, _ctx, stats2_, _proveMetas[i], _trans[i]
+            );
         }
 
-        emit I.BatchesProved(_ctx.verifier, _trans);
+        emit I.BatchesProved(_ctx.verifier, tranEvtDatas);
         IVerifier2(_ctx.verifier).verifyProof(verifierCtxs, _proof);
     }
 
@@ -58,20 +58,18 @@ library LibProve {
         I.Transition calldata _tran
     )
         private
-        returns (bool hasConflictingProof_, IVerifier2.Context memory verifierCtx_)
+        returns (
+            I.TransitionEvtData memory tranEvtData_,
+            IVerifier2.Context memory verifierCtx_
+        )
     {
+        _validateTransition(_tran, _stats2);
+
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify the firstBlockId of the block in the following check.
         LibFork.checkBlocksInShastaFork(
             _ctx.config, _proveMeta.firstBlockId, _proveMeta.firstBlockId
         );
-
-        require(_tran.batchId > _stats2.lastVerifiedBatchId, I.BatchNotFound());
-        require(_tran.batchId < _stats2.numBatches, I.BatchNotFound());
-
-        require(_tran.parentHash != 0, I.InvalidTransitionParentHash());
-        require(_tran.blockHash != 0, I.InvalidTransitionBlockHash());
-        require(_tran.stateRoot != 0, I.InvalidTransitionStateRoot());
 
         // Verify the batch's metadata.
         uint256 slot = _tran.batchId % _ctx.config.batchRingBufferSize;
@@ -86,73 +84,57 @@ library LibProve {
         // Finds out if this transition is overwriting an existing one (with the same parent
         // hash) or is a new one.
         uint16 tid;
-        int16 nextTransitionId = batch.nextTransitionId;
-        if (nextTransitionId > 1) {
-            // This batch has at least one transition.
+        if (batch.nextTransitionId > 1) {
+            // This batch has at least one transition. Lets check if the first transition is to be
+            // overwritten.
             if ($.transitions[slot][1].parentHash == _tran.parentHash) {
-                // Overwrite the first transition.
-                tid = 1;
-            } else if (nextTransitionId > 2) {
+                tid = 1; // Overwrite the first transition.
+            } else if (batch.nextTransitionId > 2) {
                 // Retrieve the transition ID using the parent hash from the mapping. If the ID
                 // is 0, it indicates a new transition; otherwise, it's an overwrite of an
-                // existing transition.
+                // existing transition other than the first one.
                 tid = $.transitionIds[_tran.batchId][_tran.parentHash];
             }
         }
 
         if (tid == 0) {
-            // This transition is new, we need to use the next available ID.
+            // This transition is new, we need to use the next available ID
             unchecked {
-                tid = uint16(nextTransitionId);
-                $.batches[slot].nextTransitionId = nextTransitionId + 1;
-            }
-        } else {
-            I.TransitionState memory _ts = $.transitions[slot][tid];
-            if (_ts.blockHash == 0) {
-                // This transition has been invalidated due to a conflicting proof.
-                // So we can reuse the transition ID.
-            } else {
-                bool isSameTransition = _ts.blockHash == _tran.blockHash
-                    && (_ts.stateRoot == 0 || _ts.stateRoot == _tran.stateRoot);
-
-                if (isSameTransition) {
-                    // Re-approving the same transition is allowed, but we will not change the
-                    // existing one.
-                } else {
-                    // A conflict is detected with the new transition. Pause the contract and
-                    // invalidate the existing transition by setting its blockHash to 0.
-                    $.transitions[slot][tid].blockHash = 0;
-                    emit I.ConflictingProof(_tran.batchId, _ts, _tran);
-                    hasConflictingProof_ = true;
-                }
-
-                return (hasConflictingProof_, verifierCtx_);
+                tid = uint16(batch.nextTransitionId);
+                // increment the nextTransitionId by 1
+                $.batches[slot].nextTransitionId = batch.nextTransitionId + 1;
             }
         }
 
-        (I.ProofTiming proofTiming, address prover) = _determineProofTiming(
-            _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _ctx.config, _proveMeta.prover
-        );
-
-        // TODO: use one single slot, do not store the transitions in storage.
-        I.TransitionState memory ts = I.TransitionState({
-            parentHash: tid == 1 ? _tran.parentHash : bytes32(0),
+        I.TransitionMeta memory tranMeta = I.TransitionMeta({
+            parentHash: _tran.parentHash,
             blockHash: _tran.blockHash,
             stateRoot: _tran.batchId % _ctx.config.stateRootSyncInternal == 0
                 ? _tran.stateRoot
                 : bytes32(0),
-            proofTiming: proofTiming,
-            prover: prover,
+            proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // inited below
+            prover: address(0), // inited below
             createdAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _proveMeta.prover
         });
 
-        $.transitions[slot][tid] = ts;
+       
+
+        (tranMeta.proofTiming, tranMeta.prover) = _determineProofTiming(
+            _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _ctx.config, _proveMeta.prover
+        );
+
+        I.TransitionState memory tranState = I.TransitionState({
+            parentHash: tid == 1 ? _tran.parentHash : bytes32(0),
+            metaHash: keccak256(abi.encode(tranMeta))
+        });
+
+        $.transitions[slot][tid] = tranState;
 
         if (tid != 1) {
             $.transitionIds[_tran.batchId][_tran.parentHash] = tid;
         } else if (
-            ts.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
+            tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _proveMeta.proposer
         ) {
             // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
@@ -160,6 +142,12 @@ library LibProve {
             LibBonds2.debitBond($, _ctx.bondToken, msg.sender, _proveMeta.provabilityBond);
             LibBonds2.creditBond($, _proveMeta.proposer, _proveMeta.provabilityBond);
         }
+
+         tranEvtData_ = I.TransitionEvtData({
+            batchId: _tran.batchId,
+            tid: tid,
+            meta: tranMeta
+        });
     }
 
     /// @dev Decides which time window we are in and who should be recorded as the prover.
@@ -179,5 +167,20 @@ library LibProve {
         } else {
             return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
         }
+    }
+
+    function _validateTransition(
+        I.Transition calldata _tran,
+        I.Stats2 memory _stats2
+    )
+        private
+        pure
+    {
+        require(_tran.batchId > _stats2.lastVerifiedBatchId, I.BatchNotFound());
+        require(_tran.batchId < _stats2.numBatches, I.BatchNotFound());
+
+        require(_tran.parentHash != 0, I.InvalidTransitionParentHash());
+        require(_tran.blockHash != 0, I.InvalidTransitionBlockHash());
+        require(_tran.stateRoot != 0, I.InvalidTransitionStateRoot());
     }
 }
