@@ -74,12 +74,6 @@ interface ITaikoInbox2 {
         uint256 lastAnchorBlockId;
     }
 
-    struct BatchProposeMetadataEvidence {
-        BatchProposeMetadata proposeMeta;
-        bytes32 buildMetaHash;
-        bytes32 proveVerifyHash;
-    }
-
     struct BatchBuildMetadata {
         bytes32 txsHash;
         bytes32[] blobHashes;
@@ -102,6 +96,18 @@ interface ITaikoInbox2 {
         BatchProveMetadata proveMeta;
         BatchProposeMetadata proposeMeta;
         BatchBuildMetadata buildMeta;
+    }
+
+    struct BatchProposeMetadataEvidence {
+        BatchProposeMetadata proposeMeta;
+        bytes32 buildMetaHash;
+        bytes32 proveVerifyHash;
+    }
+
+    struct BatchProveMetadataEvidence {
+        BatchProveMetadata proveMeta;
+        bytes32 verifyMetaHash;
+        bytes32 buildProposeHash;
     }
 
     /// @notice Struct representing transition to be proven.
@@ -137,16 +143,7 @@ interface ITaikoInbox2 {
     }
 
     struct Batch {
-        // if positive, represents the next transition id (max 32,767)
-        // if negative, represents the verified transition id;
-        // it will never be zero.
-        int16 nextTransitionId; // slot 1
-        // bytes30 = 240-bit hash
-        // Collision resistance ≈ 2^120 operations (birthday bound). Assume 10^9 ASICs at 200 TH/s
-        // each → 2 × 10^23 hashes/sec, estimated time to find one collision ≈ 2^120 / 2e23 ≈ 6.6
-        // trillion seconds, which is 211,000 years.
-        // Conclusion: bytes30 is cryptographically strong against collisions in practice.
-        bytes30 metaHash;
+        bytes32 metaHash;
     }
 
     /// @notice Forge is only able to run coverage in case the contracts by default capable of

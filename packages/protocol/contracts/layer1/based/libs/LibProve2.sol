@@ -25,13 +25,13 @@ library LibProve {
         I.State storage $,
         Env memory _env,
         bytes calldata _proof,
-        I.BatchProveMetadata[] calldata _proveMetas,
+        I.BatchProveMetadataEvidence[] calldata _proveMetaEvidences,
         I.Transition[] calldata _trans
     )
         public // reduce code size
         returns (I.Stats2 memory stats2_)
     {
-        uint256 nBatches = _proveMetas.length;
+        uint256 nBatches = _proveMetaEvidences.length;
         require(nBatches != 0, I.NoBlocksToProve());
         require(nBatches <= type(uint8).max, I.TooManyBatchesToProve());
         require(nBatches == _trans.length, I.ArraySizesMismatch());
@@ -43,7 +43,8 @@ library LibProve {
         IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (tranMetas[i], ctxs[i]) = _proveBatch($, _env, stats2_, _proveMetas[i], _trans[i]);
+            (tranMetas[i], ctxs[i]) =
+                _proveBatch($, _env, stats2_, _proveMetaEvidences[i], _trans[i]);
         }
 
         emit I.BatchesProved(_env.verifier, tranMetas);
@@ -54,7 +55,7 @@ library LibProve {
         I.State storage $,
         Env memory _env,
         I.Stats2 memory _stats2,
-        I.BatchProveMetadata calldata _proveMeta,
+        I.BatchProveMetadataEvidence calldata _evidence,
         I.Transition calldata _tran
     )
         private
@@ -65,18 +66,21 @@ library LibProve {
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify the firstBlockId of the block in the following check.
         LibFork.checkBlocksInShastaFork(
-            _env.config, _proveMeta.firstBlockId, _proveMeta.firstBlockId
+            _env.config, _evidence.proveMeta.firstBlockId, _evidence.proveMeta.firstBlockId
         );
+
+        validateProveMeta($, _env, _evidence, _tran.batchId);
 
         // Verify the batch's metadata.
         uint256 slot = _tran.batchId % _env.config.batchRingBufferSize;
         I.Batch memory batch = $.batches[slot];
 
-        // TODO
-        // require(verifierCtx_.metaHash == batch.metaHash, I.MetaHashMismatch());
-
-        ctx_ =
-            IVerifier2.Context({ metaHash: batch.metaHash, transition: _tran, prover: msg.sender });
+        ctx_ = IVerifier2.Context({
+            batchId: _tran.batchId,
+            metaHash: batch.metaHash,
+            transition: _tran,
+            prover: msg.sender
+        });
 
         tranMeta_ = I.TransitionMeta({
             parentHash: _tran.parentHash,
@@ -87,11 +91,13 @@ library LibProve {
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // inited below
             prover: address(0), // inited below
             createdAt: uint48(block.timestamp),
-            byAssignedProver: msg.sender == _proveMeta.prover
+            byAssignedProver: msg.sender == _evidence.proveMeta.prover
         });
 
         (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
-            _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _env.config, _proveMeta.prover
+            _evidence.proveMeta.proposedAt.max(_stats2.lastUnpausedAt),
+            _env.config,
+            _evidence.proveMeta.prover
         );
 
         // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
@@ -113,12 +119,16 @@ library LibProve {
             // if the transition is within extended proving window.
             if (
                 tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
-                    && msg.sender != _proveMeta.proposer
+                    && msg.sender != _evidence.proveMeta.proposer
             ) {
                 // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
                 // of the proposer's bond through an invalid first transition.
-                LibBonds2.debitBond($, _env.bondToken, msg.sender, _proveMeta.provabilityBond);
-                LibBonds2.creditBond($, _proveMeta.proposer, _proveMeta.provabilityBond);
+                LibBonds2.debitBond(
+                    $, _env.bondToken, msg.sender, _evidence.proveMeta.provabilityBond
+                );
+                LibBonds2.creditBond(
+                    $, _evidence.proveMeta.proposer, _evidence.proveMeta.provabilityBond
+                );
             }
         } else {
             // This is not the very first transition of the batch, or a transition with the same
@@ -145,6 +155,23 @@ library LibProve {
         } else {
             return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
         }
+    }
+
+    function validateProveMeta(
+        I.State storage $,
+        Env memory _env,
+        I.BatchProveMetadataEvidence calldata _evidence,
+        uint256 batchId
+    )
+        private
+        view
+    {
+        bytes32 h = keccak256(abi.encode(_evidence.proveMeta));
+        h = keccak256(abi.encode(h, _evidence.verifyMetaHash));
+        h = keccak256(abi.encode(batchId, _evidence.buildProposeHash, h));
+
+        bytes32 metaHash = $.batches[batchId % _env.config.batchRingBufferSize].metaHash;
+        require(metaHash == h, "Invalid parent batch");
     }
 
     function _validateTransition(

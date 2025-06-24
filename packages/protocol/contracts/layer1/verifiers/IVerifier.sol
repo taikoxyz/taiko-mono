@@ -23,7 +23,8 @@ interface IVerifier {
 
 interface IVerifier2 {
     struct Context {
-        bytes30 metaHash;
+        uint256 batchId;
+        bytes32 metaHash;
         ITaikoInbox2.Transition transition;
         address prover;
     }

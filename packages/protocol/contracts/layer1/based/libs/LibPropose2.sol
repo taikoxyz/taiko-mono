@@ -61,7 +61,7 @@ library LibPropose {
 
             // Update storage -- only affecting 1 slot
             $.batches[stats2_.numBatches % _env.config.batchRingBufferSize] =
-                I.Batch({ nextTransitionId: 1, metaHash: hashBatch(stats2_.numBatches, meta_) });
+                I.Batch(hashBatch(stats2_.numBatches, meta_));
 
             // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
             // instead of here to avoid unncessary re-writes.
@@ -395,7 +395,7 @@ library LibPropose {
     )
         internal
         pure
-        returns (bytes30)
+        returns (bytes32)
     {
         bytes32 hBuild = keccak256(abi.encode(meta.buildMeta));
         bytes32 hPropose = keccak256(abi.encode(meta.proposeMeta));
@@ -403,7 +403,7 @@ library LibPropose {
         bytes32 hVerify = keccak256(abi.encode(meta.verifyMeta));
         bytes32 hBuildPropose = keccak256(abi.encode(hBuild, hPropose));
         bytes32 hProveVerify = keccak256(abi.encode(hProve, hVerify));
-        return bytes30(keccak256(abi.encode(batchId, hBuildPropose, hProveVerify)));
+        return keccak256(abi.encode(batchId, hBuildPropose, hProveVerify));
     }
 
     /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
