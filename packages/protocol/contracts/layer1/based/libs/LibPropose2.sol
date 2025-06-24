@@ -15,7 +15,7 @@ import "./LibBonds2.sol";
 library LibPropose {
     using SafeERC20 for IERC20;
 
-    struct Context {
+    struct Env {
         I.Config config;
         address bondToken;
         address inboxWrapper;
@@ -35,7 +35,7 @@ library LibPropose {
 
     function proposeBatch(
         I.State storage $,
-        Context memory _ctx,
+        Env memory _env,
         I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
         I.BatchParams calldata _params,
         bytes calldata _txList,
@@ -49,18 +49,18 @@ library LibPropose {
             stats2_ = $.stats2;
 
             // Validate parentProposeMeta against it in-storage hash.
-            validateParentProposeMeta($, _ctx, _parentProposeMetaEvidence, stats2_.numBatches - 1);
+            validateParentProposeMeta($, _env, _parentProposeMetaEvidence, stats2_.numBatches - 1);
 
             // Validate the params and returns an updated version of it.
             (I.BatchParams memory params, ValidationOutput memory output) = validateBatchParams(
-                _ctx, stats2_, _parentProposeMetaEvidence.proposeMeta, _params, _txList
+                _env, stats2_, _parentProposeMetaEvidence.proposeMeta, _params, _txList
             );
 
-            output.prover = validateProver($, _ctx, stats2_, params, output);
-            meta_ = populateBatchMetadata(_ctx, params, output);
+            output.prover = validateProver($, _env, stats2_, params, output);
+            meta_ = populateBatchMetadata(_env, params, output);
 
             // Update storage -- only affecting 1 slot
-            $.batches[stats2_.numBatches % _ctx.config.batchRingBufferSize] =
+            $.batches[stats2_.numBatches % _env.config.batchRingBufferSize] =
                 I.Batch({ nextTransitionId: 1, metaHash: hashBatch(stats2_.numBatches, meta_) });
 
             // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
@@ -72,7 +72,7 @@ library LibPropose {
 
     function validateProver(
         I.State storage $,
-        Context memory _ctx,
+        Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchParams memory _params,
         ValidationOutput memory _output
@@ -84,9 +84,9 @@ library LibPropose {
             if (_params.proverAuth.length == 0) {
                 LibBonds2.debitBond(
                     $,
-                    _ctx.bondToken,
+                    _env.bondToken,
                     _params.proposer,
-                    _ctx.config.livenessBond + _ctx.config.provabilityBond
+                    _env.config.livenessBond + _env.config.provabilityBond
                 );
                 return _params.proposer;
             }
@@ -99,7 +99,7 @@ library LibPropose {
             // Outsource the prover authentication to the LibAuth library to
             // reduce this contract's code size.
             I.ProverAuth memory auth = LibAuth2.validateProverAuth(
-                _ctx.config.chainId,
+                _env.config.chainId,
                 _stats2.numBatches,
                 keccak256(abi.encode(_params)),
                 _output.txListHash,
@@ -108,33 +108,33 @@ library LibPropose {
 
             prover_ = auth.prover;
 
-            if (auth.feeToken == _ctx.bondToken) {
+            if (auth.feeToken == _env.bondToken) {
                 // proposer pay the prover fee with bond tokens
                 LibBonds2.debitBond(
-                    $, _ctx.bondToken, _params.proposer, auth.fee + _ctx.config.provabilityBond
+                    $, _env.bondToken, _params.proposer, auth.fee + _env.config.provabilityBond
                 );
 
                 // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                 // if not then add the diff to the bond balance
-                int256 bondDelta = int96(auth.fee) - int96(_ctx.config.livenessBond);
+                int256 bondDelta = int96(auth.fee) - int96(_env.config.livenessBond);
 
                 if (bondDelta < 0) {
-                    LibBonds2.debitBond($, _ctx.bondToken, prover_, uint256(-bondDelta));
+                    LibBonds2.debitBond($, _env.bondToken, prover_, uint256(-bondDelta));
                 } else {
                     LibBonds2.creditBond($, prover_, uint256(bondDelta));
                 }
             } else if (_params.proposer == prover_) {
                 LibBonds2.debitBond(
                     $,
-                    _ctx.bondToken,
+                    _env.bondToken,
                     _params.proposer,
-                    _ctx.config.livenessBond + _ctx.config.provabilityBond
+                    _env.config.livenessBond + _env.config.provabilityBond
                 );
             } else {
                 LibBonds2.debitBond(
-                    $, _ctx.bondToken, _params.proposer, _ctx.config.provabilityBond
+                    $, _env.bondToken, _params.proposer, _env.config.provabilityBond
                 );
-                LibBonds2.debitBond($, _ctx.bondToken, prover_, _ctx.config.livenessBond);
+                LibBonds2.debitBond($, _env.bondToken, prover_, _env.config.livenessBond);
 
                 if (auth.fee != 0) {
                     IERC20(auth.feeToken).safeTransferFrom(_params.proposer, prover_, auth.fee);
@@ -145,7 +145,7 @@ library LibPropose {
 
     function validateParentProposeMeta(
         I.State storage $,
-        Context memory ctx,
+        Env memory env,
         I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence,
         uint256 parentBatchId
     )
@@ -156,12 +156,12 @@ library LibPropose {
         h = keccak256(abi.encode(parentProposeMetaEvidence.buildMetaHash, h));
         h = keccak256(abi.encode(parentBatchId, h, parentProposeMetaEvidence.proveVerifyHash));
 
-        I.Batch storage parentBatch = $.batches[parentBatchId % ctx.config.batchRingBufferSize];
+        I.Batch storage parentBatch = $.batches[parentBatchId % env.config.batchRingBufferSize];
         require(parentBatch.metaHash == bytes30(h), "Invalid parent batch");
     }
 
     function validateBatchParams(
-        Context memory _ctx,
+        Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchProposeMetadata calldata _parentProposeMeta,
         I.BatchParams calldata _params,
@@ -173,13 +173,13 @@ library LibPropose {
     {
         unchecked {
             require(
-                _stats2.numBatches <= _stats2.lastVerifiedBatchId + _ctx.config.maxUnverifiedBatches,
+                _stats2.numBatches <= _stats2.lastVerifiedBatchId + _env.config.maxUnverifiedBatches,
                 I.TooManyBatches()
             );
 
             params_ = _params; // no longer need to use _param below!
 
-            if (_ctx.inboxWrapper == address(0)) {
+            if (_env.inboxWrapper == address(0)) {
                 if (params_.proposer == address(0)) {
                     params_.proposer = msg.sender;
                 } else {
@@ -192,7 +192,7 @@ library LibPropose {
                 require(params_.isForcedInclusion == false, I.InvalidForcedInclusion());
             } else {
                 require(params_.proposer != address(0), I.CustomProposerMissing());
-                require(msg.sender == _ctx.inboxWrapper, I.NotInboxWrapper());
+                require(msg.sender == _env.inboxWrapper, I.NotInboxWrapper());
             }
 
             // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
@@ -228,7 +228,7 @@ library LibPropose {
             uint256 nBlocks = params_.blocks.length;
 
             require(nBlocks != 0, I.BlockNotFound());
-            require(nBlocks <= _ctx.config.maxBlocksPerBatch, I.TooManyBlocks());
+            require(nBlocks <= _env.config.maxBlocksPerBatch, I.TooManyBlocks());
 
             if (params_.lastBlockTimestamp == 0) {
                 params_.lastBlockTimestamp = block.timestamp;
@@ -247,11 +247,11 @@ library LibPropose {
                 uint256 numSignals = blockParams.signalSlots.length;
                 if (numSignals == 0) continue;
 
-                require(numSignals <= _ctx.config.maxSignalsToReceive, I.TooManySignals());
+                require(numSignals <= _env.config.maxSignalsToReceive, I.TooManySignals());
 
                 for (uint256 j; j < numSignals; ++j) {
                     require(
-                        ISignalService(_ctx.signalService).isSignalSent(blockParams.signalSlots[j]),
+                        ISignalService(_env.signalService).isSignalSent(blockParams.signalSlots[j]),
                         I.SignalNotSent()
                     );
                 }
@@ -263,7 +263,7 @@ library LibPropose {
 
             require(
                 firstBlockTimestamp
-                    + _ctx.config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    + _env.config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
                     >= block.timestamp,
                 I.TimestampTooSmall()
             );
@@ -281,7 +281,7 @@ library LibPropose {
                 if (anchorBlockId != 0) {
                     require(
                         foundNoneZeroAnchorBlockId
-                            || anchorBlockId + _ctx.config.maxAnchorHeightOffset >= block.number,
+                            || anchorBlockId + _env.config.maxAnchorHeightOffset >= block.number,
                         I.AnchorIdTooSmall()
                     );
 
@@ -300,7 +300,7 @@ library LibPropose {
             // have a non-zero anchor block id. Otherwise, delegate this validation to the
             // inboxWrapper contract.
             require(
-                msg.sender == _ctx.inboxWrapper || foundNoneZeroAnchorBlockId,
+                msg.sender == _env.inboxWrapper || foundNoneZeroAnchorBlockId,
                 I.NoAnchorBlockIdWithinThisBatch()
             );
 
@@ -311,7 +311,7 @@ library LibPropose {
             output_.firstBlockId = _parentProposeMeta.lastBlockId + 1;
             output_.lastBlockId = output_.firstBlockId + nBlocks;
 
-            LibFork.checkBlocksInShastaFork(_ctx.config, output_.firstBlockId, output_.lastBlockId);
+            LibFork.checkBlocksInShastaFork(_env.config, output_.firstBlockId, output_.lastBlockId);
         }
     }
 
@@ -341,7 +341,7 @@ library LibPropose {
     }
 
     function populateBatchMetadata(
-        Context memory _ctx,
+        Env memory _env,
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )
@@ -353,18 +353,18 @@ library LibPropose {
             meta_.buildMeta = I.BatchBuildMetadata({
                 txsHash: _output.txsHash,
                 blobHashes: _output.blobHashes,
-                extraData: bytes32(uint256(encodeExtraDataLower128Bits(_ctx.config, _params))),
+                extraData: bytes32(uint256(encodeExtraDataLower128Bits(_env.config, _params))),
                 coinbase: _params.coinbase,
                 proposedIn: block.number,
                 blobCreatedIn: _params.blobParams.createdIn,
                 blobByteOffset: _params.blobParams.byteOffset,
                 blobByteSize: _params.blobParams.byteSize,
-                gasLimit: _ctx.config.blockMaxGasLimit,
+                gasLimit: _env.config.blockMaxGasLimit,
                 lastBlockId: _output.lastBlockId,
                 lastBlockTimestamp: _params.lastBlockTimestamp,
                 anchorBlocks: _output.anchorBlocks,
                 blocks: _params.blocks,
-                baseFeeConfig: _ctx.config.baseFeeConfig
+                baseFeeConfig: _env.config.baseFeeConfig
             });
 
             meta_.proposeMeta = I.BatchProposeMetadata({
@@ -378,13 +378,13 @@ library LibPropose {
                 prover: _output.prover,
                 proposedAt: block.timestamp,
                 firstBlockId: _output.firstBlockId,
-                provabilityBond: _ctx.config.provabilityBond
+                provabilityBond: _env.config.provabilityBond
             });
 
             meta_.verifyMeta = I.BatchVerifyMeta({
                 lastBlockId: meta_.buildMeta.lastBlockId,
-                provabilityBond: _ctx.config.provabilityBond,
-                livenessBond: _ctx.config.livenessBond
+                provabilityBond: _env.config.provabilityBond,
+                livenessBond: _env.config.livenessBond
             });
         }
     }

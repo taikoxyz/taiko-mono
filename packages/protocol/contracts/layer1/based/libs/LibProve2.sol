@@ -11,10 +11,11 @@ import "./LibFork.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProve {
     using LibMath for uint256;
-    bytes32 constant internal FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
+
+    bytes32 internal constant FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
 
     // The struct is introdueced to avoid stack too deep error.
-    struct Context {
+    struct Env {
         I.Config config;
         address bondToken;
         address verifier;
@@ -22,7 +23,7 @@ library LibProve {
 
     function proveBatches(
         I.State storage $,
-        Context memory _ctx,
+        Env memory _env,
         bytes calldata _proof,
         I.BatchProveMetadata[] calldata _proveMetas,
         I.Transition[] calldata _trans
@@ -39,49 +40,48 @@ library LibProve {
         require(!stats2_.paused, I.ContractPaused());
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](nBatches);
-        IVerifier2.Context[] memory vctxs = new IVerifier2.Context[](nBatches);
+        IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (tranMetas[i], vctxs[i]) =
-                _proveBatch($, _ctx, stats2_, _proveMetas[i], _trans[i]);
+            (tranMetas[i], ctxs[i]) = _proveBatch($, _env, stats2_, _proveMetas[i], _trans[i]);
         }
 
-        emit I.BatchesProved(_ctx.verifier, tranMetas);
-        IVerifier2(_ctx.verifier).verifyProof(vctxs, _proof);
+        emit I.BatchesProved(_env.verifier, tranMetas);
+        IVerifier2(_env.verifier).verifyProof(ctxs, _proof);
     }
 
     function _proveBatch(
         I.State storage $,
-        Context memory _ctx,
+        Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchProveMetadata calldata _proveMeta,
         I.Transition calldata _tran
     )
         private
-        returns (I.TransitionMeta memory tranMeta_, IVerifier2.Context memory vctx_)
+        returns (I.TransitionMeta memory tranMeta_, IVerifier2.Context memory ctx_)
     {
         _validateTransition(_tran, _stats2);
 
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify the firstBlockId of the block in the following check.
         LibFork.checkBlocksInShastaFork(
-            _ctx.config, _proveMeta.firstBlockId, _proveMeta.firstBlockId
+            _env.config, _proveMeta.firstBlockId, _proveMeta.firstBlockId
         );
 
         // Verify the batch's metadata.
-        uint256 slot = _tran.batchId % _ctx.config.batchRingBufferSize;
+        uint256 slot = _tran.batchId % _env.config.batchRingBufferSize;
         I.Batch memory batch = $.batches[slot];
 
         // TODO
         // require(verifierCtx_.metaHash == batch.metaHash, I.MetaHashMismatch());
 
-        vctx_ =
+        ctx_ =
             IVerifier2.Context({ metaHash: batch.metaHash, transition: _tran, prover: msg.sender });
 
         tranMeta_ = I.TransitionMeta({
             parentHash: _tran.parentHash,
             blockHash: _tran.blockHash,
-            stateRoot: _tran.batchId % _ctx.config.stateRootSyncInternal == 0
+            stateRoot: _tran.batchId % _env.config.stateRootSyncInternal == 0
                 ? _tran.stateRoot
                 : bytes32(0),
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // inited below
@@ -91,7 +91,7 @@ library LibProve {
         });
 
         (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
-            _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _ctx.config, _proveMeta.prover
+            _proveMeta.proposedAt.max(_stats2.lastUnpausedAt), _env.config, _proveMeta.prover
         );
 
         bytes32 metaHash = keccak256(abi.encode(tranMeta_));
@@ -106,7 +106,7 @@ library LibProve {
             ) {
                 // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
                 // of the proposer's bond through an invalid first transition.
-                LibBonds2.debitBond($, _ctx.bondToken, msg.sender, _proveMeta.provabilityBond);
+                LibBonds2.debitBond($, _env.bondToken, msg.sender, _proveMeta.provabilityBond);
                 LibBonds2.creditBond($, _proveMeta.proposer, _proveMeta.provabilityBond);
             }
         }
