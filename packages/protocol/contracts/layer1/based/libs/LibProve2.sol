@@ -25,29 +25,28 @@ library LibProve {
         I.State storage $,
         Env memory _env,
         bytes calldata _proof,
-        I.BatchProveMetadataEvidence[] calldata _proveMetaEvidences,
+        I.BatchProveMetadataEvidence[] calldata _evidences,
         I.Transition[] calldata _trans
     )
-        public // reduce code size
+        internal
         returns (I.Stats2 memory stats2_)
     {
-        uint256 nBatches = _proveMetaEvidences.length;
+        uint256 nBatches = _evidences.length;
         require(nBatches != 0, I.NoBlocksToProve());
         require(nBatches <= type(uint8).max, I.TooManyBatchesToProve());
         require(nBatches == _trans.length, I.ArraySizesMismatch());
 
-        stats2_ = $.stats2; // make a read-only copy
+        stats2_ = $.stats2; // make a read-only copy, 1 SLOAD
         require(!stats2_.paused, I.ContractPaused());
 
-        I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](nBatches);
+        I.TransitionMeta[] memory metas = new I.TransitionMeta[](nBatches);
         IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (tranMetas[i], ctxs[i]) =
-                _proveBatch($, _env, stats2_, _proveMetaEvidences[i], _trans[i]);
+            (metas[i], ctxs[i]) = _proveBatch($, _env, stats2_, _evidences[i], _trans[i]);
         }
 
-        emit I.BatchesProved(_env.verifier, tranMetas);
+        emit I.BatchesProved(_env.verifier, metas);
         IVerifier2(_env.verifier).verifyProof(ctxs, _proof);
     }
 
@@ -69,11 +68,11 @@ library LibProve {
             _env.config, _evidence.proveMeta.firstBlockId, _evidence.proveMeta.firstBlockId
         );
 
-        validateProveMeta($, _env, _evidence, _tran.batchId);
-
         // Verify the batch's metadata.
         uint256 slot = _tran.batchId % _env.config.batchRingBufferSize;
-        I.Batch memory batch = $.batches[slot];
+        I.Batch memory batch = $.batches[slot]; // 1 SLOAD
+
+        _validateBatchProveMeta(_tran.batchId, batch.metaHash, _evidence);
 
         ctx_ = IVerifier2.Context({
             batchId: _tran.batchId,
@@ -85,11 +84,9 @@ library LibProve {
         tranMeta_ = I.TransitionMeta({
             parentHash: _tran.parentHash,
             blockHash: _tran.blockHash,
-            stateRoot: _tran.batchId % _env.config.stateRootSyncInternal == 0
-                ? _tran.stateRoot
-                : bytes32(0),
-            proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // inited below
-            prover: address(0), // inited below
+            stateRoot: _tran.stateRoot,
+            proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
+            prover: address(0), // to be updated below
             createdAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _evidence.proveMeta.prover
         });
@@ -102,39 +99,40 @@ library LibProve {
 
         // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
         // declared state variable -- note that the second mapping key is always 1.
-        bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash;
+        bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
         bytes32 metaHash = keccak256(abi.encode(tranMeta_));
         if (
             firstTransitionParentHash == _tran.parentHash
                 || firstTransitionParentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER
         ) {
+            $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
+
             // This is the very first transition of the batch, or a transition with the same parent
             // hash. We can reuse the transition state slot to reduce gas cost.
             if (firstTransitionParentHash == FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
-                $.transitions[slot][1].parentHash = _tran.parentHash;
-            }
-            $.transitions[slot][1].metaHash = metaHash;
+                $.transitions[slot][1].parentHash = _tran.parentHash; // 1 SSTORE
 
-            // The prover for the first transition is responsible for placing the provability
-            // if the transition is within extended proving window.
-            if (
-                tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
-                    && msg.sender != _evidence.proveMeta.proposer
-            ) {
-                // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
-                // of the proposer's bond through an invalid first transition.
-                LibBonds2.debitBond(
-                    $, _env.bondToken, msg.sender, _evidence.proveMeta.provabilityBond
-                );
-                LibBonds2.creditBond(
-                    $, _evidence.proveMeta.proposer, _evidence.proveMeta.provabilityBond
-                );
+                // The prover for the first transition is responsible for placing the provability
+                // if the transition is within extended proving window.
+                if (
+                    tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
+                        && msg.sender != _evidence.proveMeta.proposer
+                ) {
+                    // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
+                    // of the proposer's bond through an invalid first transition.
+                    LibBonds2.debitBond(
+                        $, _env.bondToken, msg.sender, _evidence.proveMeta.provabilityBond
+                    );
+                    LibBonds2.creditBond(
+                        $, _evidence.proveMeta.proposer, _evidence.proveMeta.provabilityBond
+                    );
+                }
             }
         } else {
             // This is not the very first transition of the batch, or a transition with the same
             // parent hash. Use a mapping to store the meta hash of the transition. The mapping
             // slots are not reusable.
-            $.transitionMetaHashes[_tran.batchId][_tran.parentHash] = metaHash;
+            $.transitionMetaHashes[_tran.batchId][_tran.parentHash] = metaHash; // 1 SSTORE
         }
     }
 
@@ -157,21 +155,19 @@ library LibProve {
         }
     }
 
-    function validateProveMeta(
-        I.State storage $,
-        Env memory _env,
-        I.BatchProveMetadataEvidence calldata _evidence,
-        uint256 batchId
+    function _validateBatchProveMeta(
+        uint256 _batchId,
+        bytes32 _batchMetaHash,
+        I.BatchProveMetadataEvidence calldata _evidence
     )
         private
-        view
+        pure
     {
         bytes32 h = keccak256(abi.encode(_evidence.proveMeta));
         h = keccak256(abi.encode(h, _evidence.verifyMetaHash));
-        h = keccak256(abi.encode(batchId, _evidence.buildProposeHash, h));
+        h = keccak256(abi.encode(_batchId, _evidence.buildProposeHash, h));
 
-        bytes32 metaHash = $.batches[batchId % _env.config.batchRingBufferSize].metaHash;
-        require(metaHash == h, "Invalid parent batch");
+        require(_batchMetaHash == h, "Invalid parent batch");
     }
 
     function _validateTransition(

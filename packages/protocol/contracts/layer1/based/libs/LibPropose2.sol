@@ -36,12 +36,12 @@ library LibPropose {
     function proposeBatch(
         I.State storage $,
         Env memory _env,
-        I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
+        I.BatchProposeMetadataEvidence calldata __evidence,
         I.BatchParams calldata _params,
         bytes calldata _txList,
         bytes calldata /*_additionalData*/
     )
-        public // reduce code size
+        internal
         returns (I.BatchMetadata memory meta_, I.Stats2 memory stats2_)
     {
         unchecked {
@@ -49,15 +49,14 @@ library LibPropose {
             stats2_ = $.stats2;
 
             // Validate parentProposeMeta against it in-storage hash.
-            validateParentProposeMeta($, _env, _parentProposeMetaEvidence, stats2_.numBatches - 1);
+            _validateBatchProposeMeta($, _env, __evidence, stats2_.numBatches - 1);
 
             // Validate the params and returns an updated version of it.
-            (I.BatchParams memory params, ValidationOutput memory output) = validateBatchParams(
-                _env, stats2_, _parentProposeMetaEvidence.proposeMeta, _params, _txList
-            );
+            (I.BatchParams memory params, ValidationOutput memory output) =
+                _validateBatchParams(_env, stats2_, __evidence.proposeMeta, _params, _txList);
 
-            output.prover = validateProver($, _env, stats2_, params, output);
-            meta_ = populateBatchMetadata(_env, params, output);
+            output.prover = _validateProver($, _env, stats2_, params, output);
+            meta_ = _populateBatchMetadata(_env, params, output);
 
             // Update storage -- only affecting 1 slot
             $.batches[stats2_.numBatches % _env.config.batchRingBufferSize] =
@@ -70,14 +69,31 @@ library LibPropose {
         }
     }
 
-    function validateProver(
+    function hashBatch(
+        uint256 batchId,
+        I.BatchMetadata memory meta
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes32 hBuild = keccak256(abi.encode(meta.buildMeta));
+        bytes32 hPropose = keccak256(abi.encode(meta.proposeMeta));
+        bytes32 hProve = keccak256(abi.encode(meta.proveMeta));
+        bytes32 hVerify = keccak256(abi.encode(meta.verifyMeta));
+        bytes32 hBuildPropose = keccak256(abi.encode(hBuild, hPropose));
+        bytes32 hProveVerify = keccak256(abi.encode(hProve, hVerify));
+        return keccak256(abi.encode(batchId, hBuildPropose, hProveVerify));
+    }
+
+    function _validateProver(
         I.State storage $,
         Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )
-        internal
+        private
         returns (address prover_)
     {
         unchecked {
@@ -143,31 +159,31 @@ library LibPropose {
         }
     }
 
-    function validateParentProposeMeta(
+    function _validateBatchProposeMeta(
         I.State storage $,
-        Env memory env,
-        I.BatchProposeMetadataEvidence calldata parentProposeMetaEvidence,
-        uint256 parentBatchId
+        Env memory _env,
+        I.BatchProposeMetadataEvidence calldata _evidence,
+        uint256 _batchId
     )
-        internal
+        private
         view
     {
-        bytes32 h = keccak256(abi.encode(parentProposeMetaEvidence.proposeMeta));
-        h = keccak256(abi.encode(parentProposeMetaEvidence.buildMetaHash, h));
-        h = keccak256(abi.encode(parentBatchId, h, parentProposeMetaEvidence.proveVerifyHash));
+        bytes32 h = keccak256(abi.encode(_evidence.proposeMeta));
+        h = keccak256(abi.encode(_evidence.buildMetaHash, h));
+        h = keccak256(abi.encode(_batchId, h, _evidence.proveVerifyHash));
 
-        I.Batch storage parentBatch = $.batches[parentBatchId % env.config.batchRingBufferSize];
-        require(parentBatch.metaHash == bytes30(h), "Invalid parent batch");
+        I.Batch storage parentBatch = $.batches[_batchId % _env.config.batchRingBufferSize];
+        require(parentBatch.metaHash == h, "Invalid parent batch");
     }
 
-    function validateBatchParams(
+    function _validateBatchParams(
         Env memory _env,
         I.Stats2 memory _stats2,
         I.BatchProposeMetadata calldata _parentProposeMeta,
         I.BatchParams calldata _params,
         bytes calldata _txList
     )
-        internal
+        private
         view
         returns (I.BatchParams memory params_, ValidationOutput memory output_)
     {
@@ -306,7 +322,7 @@ library LibPropose {
 
             output_.txListHash = keccak256(_txList);
             (output_.txsHash, output_.blobHashes) =
-                calculateTxsHash(output_.txListHash, params_.blobParams);
+                _calculateTxsHash(output_.txListHash, params_.blobParams);
 
             output_.firstBlockId = _parentProposeMeta.lastBlockId + 1;
             output_.lastBlockId = output_.firstBlockId + nBlocks;
@@ -315,37 +331,12 @@ library LibPropose {
         }
     }
 
-    function calculateTxsHash(
-        bytes32 _txListHash,
-        I.BlobParams memory _blobParams
-    )
-        internal
-        view
-        returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
-    {
-        unchecked {
-            if (_blobParams.blobHashes.length != 0) {
-                blobHashes_ = _blobParams.blobHashes;
-            } else {
-                blobHashes_ = new bytes32[](_blobParams.numBlobs);
-                for (uint256 i; i < _blobParams.numBlobs; ++i) {
-                    blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
-                }
-            }
-
-            for (uint256 i; i < blobHashes_.length; ++i) {
-                require(blobHashes_[i] != 0, I.BlobNotFound());
-            }
-            txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
-        }
-    }
-
-    function populateBatchMetadata(
+    function _populateBatchMetadata(
         Env memory _env,
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )
-        internal
+        private
         view
         returns (I.BatchMetadata memory meta_)
     {
@@ -353,7 +344,7 @@ library LibPropose {
             meta_.buildMeta = I.BatchBuildMetadata({
                 txsHash: _output.txsHash,
                 blobHashes: _output.blobHashes,
-                extraData: bytes32(uint256(encodeExtraDataLower128Bits(_env.config, _params))),
+                extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_env.config, _params))),
                 coinbase: _params.coinbase,
                 proposedIn: block.number,
                 blobCreatedIn: _params.blobParams.createdIn,
@@ -389,31 +380,39 @@ library LibPropose {
         }
     }
 
-    function hashBatch(
-        uint256 batchId,
-        I.BatchMetadata memory meta
+    function _calculateTxsHash(
+        bytes32 _txListHash,
+        I.BlobParams memory _blobParams
     )
-        internal
-        pure
-        returns (bytes32)
+        private
+        view
+        returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
-        bytes32 hBuild = keccak256(abi.encode(meta.buildMeta));
-        bytes32 hPropose = keccak256(abi.encode(meta.proposeMeta));
-        bytes32 hProve = keccak256(abi.encode(meta.proveMeta));
-        bytes32 hVerify = keccak256(abi.encode(meta.verifyMeta));
-        bytes32 hBuildPropose = keccak256(abi.encode(hBuild, hPropose));
-        bytes32 hProveVerify = keccak256(abi.encode(hProve, hVerify));
-        return keccak256(abi.encode(batchId, hBuildPropose, hProveVerify));
+        unchecked {
+            if (_blobParams.blobHashes.length != 0) {
+                blobHashes_ = _blobParams.blobHashes;
+            } else {
+                blobHashes_ = new bytes32[](_blobParams.numBlobs);
+                for (uint256 i; i < _blobParams.numBlobs; ++i) {
+                    blobHashes_[i] = blobhash(_blobParams.firstBlobIndex + i);
+                }
+            }
+
+            for (uint256 i; i < blobHashes_.length; ++i) {
+                require(blobHashes_[i] != 0, I.BlobNotFound());
+            }
+            txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
+        }
     }
 
-    /// @dev The function _encodeExtraDataLower128Bits encodes certain information into a uint128
+    /// @dev The function __encodeExtraDataLower128Bits encodes certain information into a uint128
     /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
     /// - bit 8: used to store _batchParams.isForcedInclusion.
-    function encodeExtraDataLower128Bits(
+    function _encodeExtraDataLower128Bits(
         I.Config memory _config,
         I.BatchParams memory _params
     )
-        internal
+        private
         pure
         returns (uint128 encoded_)
     {
