@@ -3,6 +3,7 @@ package txlistfetcher
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
+	chainiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -114,7 +116,7 @@ func (d *BlobFetcher) FetchPacaya(
 		meta.GetBlobHashes(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get blobs, errs: %w and %w", err, chainiterator.ErrEOF)
 	}
 
 	log.Info(
