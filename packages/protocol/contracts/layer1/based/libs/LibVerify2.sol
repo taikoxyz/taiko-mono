@@ -46,6 +46,7 @@ library LibVerify2 {
         I.State storage $,
         LibData2.Env memory _env,
         I.Summary memory _summary,
+        I.TransitionMeta[] calldata _trans,
         uint256 _count
     )
         private
@@ -53,8 +54,7 @@ library LibVerify2 {
     {
         summary_ = _summary; // make a copy for update
 
-        // the i-th batch is the first one to verify
-        uint256 i = summary_.lastSyncedBatchId + 1;
+        uint256 batchId = summary_.lastSyncedBatchId + 1;
 
         if (!LibFork.isBlocksInCurrentFork(_env.config, i, i)) {
             return summary_;
@@ -65,8 +65,11 @@ library LibVerify2 {
 
         // uint256 nBatches = stopBatchId - i;
 
-        for (; i < stopBatchId; ++i) {
-            uint256 slot = i % _env.config.batchRingBufferSize;
+        uint256 nTransitions = _trans.length;
+
+        uint256 i;
+        for (; batchId < stopBatchId; ++batchId) {
+            uint256 slot = batchId % _env.config.batchRingBufferSize;
 
             bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
             if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
@@ -74,7 +77,25 @@ library LibVerify2 {
                 break;
             }
 
-            I.Batch memory batch = $.batches[slot]; // 1 SLOAD
+            bytes32 tranMetaHash;
+            if (firstTransitionParentHash == _summary.lastBlockHash) {
+                tranMetaHash = $.transitions[slot][1].metaHash;
+            } else {
+                tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastBlockHash];
+            }
+
+            if (tranMetaHash == 0) break;
+
+            require(i < nTransitions, "missing transitions");
+            require(
+                tranMetaHash == keccak256(abi.encode(_trans[i])), "Invalid transition meta hash"
+            );
+
+            summary_.lastBlockHash = _trans[i].blockHash;
+            // summary_.lastSyncedBatchId = batchId;
+            // summary_.lastSyncedAt = uint48(block.timestamp);
+
+            i++;
         }
     }
 }
