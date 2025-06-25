@@ -31,8 +31,8 @@ library LibPropose2 {
     }
 
     function proposeBatch(
-        LibData2.Env memory _env,
         I.State storage $,
+        LibData2.Env memory _env,
         I.Summary calldata _summary,
         I.BatchProposeMetadataEvidence calldata __evidence,
         I.BatchParams calldata _params,

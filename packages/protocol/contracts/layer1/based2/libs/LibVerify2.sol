@@ -63,7 +63,7 @@ library LibVerify2 {
         uint256 nTransitions = _trans.length;
         SyncBlock memory syncBlock;
         uint256 i;
-        
+
         for (; batchId < stopBatchId; ++batchId) {
             uint256 slot = batchId % _env.config.batchRingBufferSize;
 

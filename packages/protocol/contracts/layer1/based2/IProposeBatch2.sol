@@ -7,6 +7,4 @@ import "./ITaikoInbox2.sol";
 /// @notice This interface defines the v4ProposeBatch function that is also part of the ITaikoInbox
 /// interface.
 /// @custom:security-contact security@taiko.xyz
-interface IProposeBatch2 {
-
-}
+interface IProposeBatch2 { }

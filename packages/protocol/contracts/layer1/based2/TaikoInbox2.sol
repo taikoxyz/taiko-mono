@@ -25,7 +25,13 @@ import "./IProposeBatch2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox2 is EssentialContract, ITaikoInbox2, IProposeBatch2, IBondManager2, ITaiko {
+abstract contract TaikoInbox2 is
+    EssentialContract,
+    ITaikoInbox2,
+    IProposeBatch2,
+    IBondManager2,
+    ITaiko
+{
     using LibBonds2 for ITaikoInbox2.State;
     using LibPropose2 for ITaikoInbox2.State;
     using LibProve2 for ITaikoInbox2.State;
@@ -61,43 +67,54 @@ abstract contract TaikoInbox2 is EssentialContract, ITaikoInbox2, IProposeBatch2
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
-    
     function v4ProposeBatch(
-        bytes calldata _params,
+        I.Summary calldata _summary,
+        I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
+        I.BatchParams calldata _params,
         bytes calldata _txList,
-        bytes calldata _additionalData
+        bytes calldata _additionalData,
+        I.TransitionMeta[] calldata _trans
     )
         public
         // override(ITaikoInbox2, IProposeBatch2)
         nonReentrant
+        returns (I.BatchMetadata memory meta_, I.Summary memory summary_)
     {
-       
+        LibData2.Env memory env = _loadEnv();
+        (meta_, summary_) = state.proposeBatch(
+            env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
+        );
+
+        state.verifyBatches(env, summary_, _trans, 1);
     }
 
-    function v4ProveBatches(bytes calldata _params, bytes calldata _proof) external nonReentrant {
-        
+    function v4ProveBatches(
+        I.Summary calldata _summary,
+        I.BatchProveMetadataEvidence[] calldata _evidences,
+        I.Transition[] calldata _trans,
+        I.TransitionMeta[] calldata _transMeta,
+        bytes calldata _proof
+    )
+        external
+        nonReentrant
+    {
+        LibData2.Env memory env = _loadEnv();
+        I.Summary memory summary_ = state.proveBatches(env, _summary, _evidences, _trans, _proof);
+
+        state.verifyBatches(env, summary_, _transMeta, uint8(_trans.length));
     }
 
-    
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
         state.bondBalance[msg.sender] += LibBonds2.depositBond(bondToken, msg.sender, _amount);
     }
 
-    
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
         state.withdrawBond(bondToken, _amount);
     }
 
-    
     function v4BondToken() external view returns (address) {
         return bondToken;
     }
-
-  
-
-    
-
-    
 
     function v4BondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
@@ -112,8 +129,6 @@ abstract contract TaikoInbox2 is EssentialContract, ITaikoInbox2, IProposeBatch2
     function paused() public view override returns (bool) {
         return state.summaryHash & bytes32(uint256(1)) != 0;
     }
-
- 
 
     function v4GetConfig() external view virtual returns (Config memory) {
         return _getConfig();
@@ -138,4 +153,15 @@ abstract contract TaikoInbox2 is EssentialContract, ITaikoInbox2, IProposeBatch2
     }
 
     function _getConfig() internal view virtual returns (Config memory);
+
+    function _loadEnv() private view returns (LibData2.Env memory) {
+        return LibData2.Env({
+            config: _getConfig(),
+            bondToken: bondToken,
+            verifier: verifier,
+            inboxWrapper: inboxWrapper,
+            signalService: signalService,
+            prevSummaryHash: state.summaryHash
+        });
+    }
 }

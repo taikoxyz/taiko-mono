@@ -18,12 +18,12 @@ library LibProve2 {
     error MetaHashNotMatch();
 
     function proveBatches(
-        LibData2.Env memory _env,
         I.State storage $,
-        bytes calldata _proof,
+        LibData2.Env memory _env,
         I.Summary calldata _summary,
         I.BatchProveMetadataEvidence[] calldata _evidences,
-        I.Transition[] calldata _trans
+        I.Transition[] calldata _trans,
+        bytes calldata _proof
     )
         internal
         returns (I.Summary memory summary_)
@@ -43,7 +43,7 @@ library LibProve2 {
         IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (metas[i], ctxs[i]) = _proveBatch(_env, $, summary_, _evidences[i], _trans[i]);
+            (metas[i], ctxs[i]) = _proveBatch($, _env, summary_, _evidences[i], _trans[i]);
         }
 
         emit I.BatchesProved(_env.verifier, metas);
@@ -51,8 +51,8 @@ library LibProve2 {
     }
 
     function _proveBatch(
-        LibData2.Env memory _env,
         I.State storage $,
+        LibData2.Env memory _env,
         I.Summary memory _summary,
         I.BatchProveMetadataEvidence calldata _evidence,
         I.Transition calldata _tran
