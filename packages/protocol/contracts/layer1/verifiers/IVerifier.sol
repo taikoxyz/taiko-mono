@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../based/ITaikoInbox.sol";
-import "../based/ITaikoInbox2.sol";
+import "../based2/ITaikoInbox2.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.

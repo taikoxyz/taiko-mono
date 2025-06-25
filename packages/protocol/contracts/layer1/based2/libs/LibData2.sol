@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/libs/LibAddress.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-/// @title LibData
+/// @title LibData2
 /// @custom:security-contact security@taiko.xyz
-library LibData {
+library LibData2 {
     bytes32 internal constant FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
 
     struct Env {

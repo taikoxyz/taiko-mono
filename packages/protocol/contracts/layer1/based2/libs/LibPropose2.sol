@@ -5,14 +5,14 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "./LibData.sol";
-import "./LibAuth.sol";
-import "./LibFork.sol";
-import "./LibBonds.sol";
+import "./LibData2.sol";
+import "./LibAuth2.sol";
+import "./LibFork2.sol";
+import "./LibBonds2.sol";
 
-/// @title LibPropose
+/// @title LibPropose2
 /// @custom:security-contact security@taiko.xyz
-library LibPropose {
+library LibPropose2 {
     using SafeERC20 for IERC20;
 
     error BlocksNotInCurrentFork();
@@ -31,7 +31,7 @@ library LibPropose {
     }
 
     function proposeBatch(
-        LibData.Env memory _env,
+        LibData2.Env memory _env,
         I.State storage $,
         I.Summary calldata _summary,
         I.BatchProposeMetadataEvidence calldata __evidence,
@@ -85,7 +85,7 @@ library LibPropose {
     }
 
     function _validateProver(
-        LibData.Env memory _env,
+        LibData2.Env memory _env,
         I.State storage $,
         I.Summary memory _summary,
         I.BatchParams memory _params,
@@ -96,7 +96,7 @@ library LibPropose {
     {
         unchecked {
             if (_params.proverAuth.length == 0) {
-                LibBonds.debitBond(
+                LibBonds2.debitBond(
                     $,
                     _env.bondToken,
                     _params.proposer,
@@ -112,7 +112,7 @@ library LibPropose {
 
             // Outsource the prover authentication to the LibAuth library to
             // reduce this contract's code size.
-            I.ProverAuth memory auth = LibAuth.validateProverAuth(
+            I.ProverAuth memory auth = LibAuth2.validateProverAuth(
                 _env.config.chainId,
                 _summary.numBatches,
                 keccak256(abi.encode(_params)),
@@ -124,7 +124,7 @@ library LibPropose {
 
             if (auth.feeToken == _env.bondToken) {
                 // proposer pay the prover fee with bond tokens
-                LibBonds.debitBond(
+                LibBonds2.debitBond(
                     $, _env.bondToken, _params.proposer, auth.fee + _env.config.provabilityBond
                 );
 
@@ -133,22 +133,22 @@ library LibPropose {
                 int256 bondDelta = int96(auth.fee) - int96(_env.config.livenessBond);
 
                 if (bondDelta < 0) {
-                    LibBonds.debitBond($, _env.bondToken, prover_, uint256(-bondDelta));
+                    LibBonds2.debitBond($, _env.bondToken, prover_, uint256(-bondDelta));
                 } else {
-                    LibBonds.creditBond($, prover_, uint256(bondDelta));
+                    LibBonds2.creditBond($, prover_, uint256(bondDelta));
                 }
             } else if (_params.proposer == prover_) {
-                LibBonds.debitBond(
+                LibBonds2.debitBond(
                     $,
                     _env.bondToken,
                     _params.proposer,
                     _env.config.livenessBond + _env.config.provabilityBond
                 );
             } else {
-                LibBonds.debitBond(
+                LibBonds2.debitBond(
                     $, _env.bondToken, _params.proposer, _env.config.provabilityBond
                 );
-                LibBonds.debitBond($, _env.bondToken, prover_, _env.config.livenessBond);
+                LibBonds2.debitBond($, _env.bondToken, prover_, _env.config.livenessBond);
 
                 if (auth.fee != 0) {
                     IERC20(auth.feeToken).safeTransferFrom(_params.proposer, prover_, auth.fee);
@@ -158,7 +158,7 @@ library LibPropose {
     }
 
     function _validateBatchProposeMeta(
-        LibData.Env memory _env,
+        LibData2.Env memory _env,
         I.State storage $,
         I.BatchProposeMetadataEvidence calldata _evidence,
         uint256 _batchId
@@ -175,7 +175,7 @@ library LibPropose {
     }
 
     function _validateBatchParams(
-        LibData.Env memory _env,
+        LibData2.Env memory _env,
         I.Summary memory _summary,
         I.BatchProposeMetadata calldata _parentProposeMeta,
         I.BatchParams calldata _params,
@@ -327,7 +327,7 @@ library LibPropose {
             output_.lastBlockId = uint48(output_.firstBlockId + nBlocks);
 
             require(
-                LibFork.isBlocksInCurrentFork(
+                LibFork2.isBlocksInCurrentFork(
                     _env.config, output_.firstBlockId, output_.lastBlockId
                 ),
                 BlocksNotInCurrentFork()
@@ -336,7 +336,7 @@ library LibPropose {
     }
 
     function _populateBatchMetadata(
-        LibData.Env memory _env,
+        LibData2.Env memory _env,
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )

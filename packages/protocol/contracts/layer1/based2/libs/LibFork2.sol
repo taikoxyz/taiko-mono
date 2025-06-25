@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-library LibFork {
+library LibFork2 {
     error InvalidBlockRange();
     /// @notice Check if the given block range is in the current fork.
 

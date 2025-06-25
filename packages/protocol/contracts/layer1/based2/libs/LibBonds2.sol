@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/libs/LibAddress.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "../IBondManager.sol";
+import "../IBondManager2.sol";
 
-/// @title LibBonds
+/// @title LibBonds2
 /// @custom:security-contact security@taiko.xyz
-library LibBonds {
+library LibBonds2 {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -22,7 +22,7 @@ library LibBonds {
         uint256 balance = $.bondBalance[msg.sender];
         require(balance >= _amount, I.InsufficientBond());
 
-        emit IBondManager.BondWithdrawn(msg.sender, _amount);
+        emit IBondManager2.BondWithdrawn(msg.sender, _amount);
 
         $.bondBalance[msg.sender] -= _amount;
 
@@ -51,7 +51,7 @@ library LibBonds {
             require(msg.value == _amount, I.EtherNotPaidAsBond());
             amountDeposited_ = _amount;
         }
-        emit IBondManager.BondDeposited(_user, amountDeposited_);
+        emit IBondManager2.BondDeposited(_user, amountDeposited_);
     }
 
     function debitBond(
@@ -76,7 +76,7 @@ library LibBonds {
             // Ether as bond must be deposited before proposing a batch
             revert I.InsufficientBond();
         }
-        emit IBondManager.BondDebited(_user, _amount);
+        emit IBondManager2.BondDebited(_user, _amount);
     }
 
     function creditBond(I.State storage $, address _user, uint256 _amount) internal {
@@ -84,6 +84,6 @@ library LibBonds {
         unchecked {
             $.bondBalance[_user] += _amount;
         }
-        emit IBondManager.BondCredited(_user, _amount);
+        emit IBondManager2.BondCredited(_user, _amount);
     }
 }
