@@ -109,7 +109,7 @@ func (s *BlockBatchIteratorTestSuite) TestIterWithLessThanConfirmations() {
 	})
 
 	s.Nil(err)
-	s.Equal(errEOF, iter.iter())
+	s.Equal(ErrEOF, iter.iter())
 	s.Equal(headHeight, lastEnd)
 }
 
