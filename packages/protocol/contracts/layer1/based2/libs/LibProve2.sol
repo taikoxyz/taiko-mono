@@ -36,14 +36,17 @@ library LibProve2 {
         require(nBatches == _trans.length, I.ArraySizesMismatch());
 
         I.TransitionMeta[] memory metas = new I.TransitionMeta[](nBatches);
-        IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
+        bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (metas[i], ctxs[i]) = _proveBatch($, _env, _summary, _evidences[i], _trans[i]);
+            (metas[i], ctxHashes[i]) = _proveBatch($, _env, _summary, _evidences[i], _trans[i]);
         }
 
         emit I.BatchesProved(_env.verifier, metas);
-        IVerifier2(_env.verifier).verifyProof(ctxs, _proof);
+
+        bytes32 contextHash =
+            keccak256(abi.encode(_env.config.chainId, msg.sender, _env.verifier, ctxHashes));
+        IVerifier2(_env.verifier).verifyProof(contextHash, _proof);
     }
 
     function _proveBatch(
@@ -54,7 +57,7 @@ library LibProve2 {
         I.Transition calldata _tran
     )
         private
-        returns (I.TransitionMeta memory tranMeta_, IVerifier2.Context memory ctx_)
+        returns (I.TransitionMeta memory tranMeta_, bytes32 batchContextHash_)
     {
         _validateTransition(_tran, _summary);
 
@@ -73,12 +76,7 @@ library LibProve2 {
 
         _validateBatchProveMeta(batch.metaHash, _evidence);
 
-        ctx_ = IVerifier2.Context({
-            batchId: _tran.batchId,
-            metaHash: batch.metaHash,
-            transition: _tran,
-            prover: msg.sender
-        });
+        batchContextHash_ = keccak256(abi.encode(batch.metaHash, _tran));
 
         tranMeta_ = I.TransitionMeta({
             parentHash: _tran.parentHash,
