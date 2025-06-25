@@ -46,7 +46,7 @@ library LibPropose2 {
             summary_ = _summary; // make a copy for update
 
             // Validate parentProposeMeta against it in-storage hash.
-            _validateBatchProposeMeta(_env, $, __evidence, _summary.numBatches - 1);
+            _validateBatchProposeMeta(_env, $, __evidence, summary_.numBatches - 1);
 
             // Validate the params and returns an updated version of it.
             (I.BatchParams memory params, ValidationOutput memory output) =
