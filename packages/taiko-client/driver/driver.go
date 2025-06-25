@@ -351,8 +351,13 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 // it has seen an EndOfSequencing block. If it hasn't, it requests it via the p2p network
 // which the currentOperator will return.
 func (d *Driver) cacheLookaheadLoop() {
-	if d.rpc.L1Beacon == nil || d.p2pNode == nil {
+	if d.rpc.L1Beacon == nil {
 		log.Warn("`--l1.beacon` flag value is empty, skipping lookahead cache")
+		return
+	}
+
+	if d.p2pNode == nil {
+		log.Warn("`--p2p.node` flag value is empty, skipping lookahead cache")
 		return
 	}
 
