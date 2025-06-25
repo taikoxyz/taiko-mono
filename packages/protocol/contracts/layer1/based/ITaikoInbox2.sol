@@ -16,7 +16,7 @@ interface ITaikoInbox2 {
         // Signals sent on L1 and need to sync to this L2 block.
         bytes32[] signalSlots;
         // Optional anchor block id.
-        uint64 anchorBlockId;
+        uint48 anchorBlockId;
     }
 
     struct BlobParams {
@@ -34,13 +34,13 @@ interface ITaikoInbox2 {
         uint32 byteSize;
         // The block number when the blob was created. This value is only non-zero when
         // `blobHashes` are non-empty.
-        uint64 createdIn;
+        uint48 createdIn;
     }
 
     struct BatchParams {
         address proposer;
         address coinbase;
-        uint256 lastBlockTimestamp;
+        uint48 lastBlockTimestamp;
         bool revertIfNotFirstProposal;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
@@ -54,65 +54,61 @@ interface ITaikoInbox2 {
         bytes32 blockHash;
     }
 
-    struct BatchVerifyMeta {
-        uint256 lastBlockId;
-        uint256 provabilityBond;
-        uint256 livenessBond;
-    }
-
-    struct BatchProveMetadata {
-        address proposer;
-        address prover;
-        uint256 proposedAt;
-        uint256 firstBlockId;
-        uint256 provabilityBond;
-    }
-
-    struct BatchProposeMetadata {
-        uint256 lastBlockTimestamp;
-        uint256 lastBlockId;
-        uint256 lastAnchorBlockId;
-    }
-
     struct BatchBuildMetadata {
         bytes32 txsHash;
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
-        uint256 proposedIn;
-        uint256 blobCreatedIn;
-        uint256 blobByteOffset;
-        uint256 blobByteSize;
-        uint256 gasLimit;
-        uint256 lastBlockId;
-        uint256 lastBlockTimestamp;
+        uint48 proposedIn;
+        uint48 blobCreatedIn;
+        uint48 blobByteOffset;
+        uint48 blobByteSize;
+        uint48 gasLimit;
+        uint48 lastBlockId;
+        uint48 lastBlockTimestamp;
         AnchorBlock[] anchorBlocks;
         BlockParams[] blocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
+    struct BatchProposeMetadata {
+        uint48 lastBlockTimestamp;
+        uint48 lastBlockId;
+        uint48 lastAnchorBlockId;
+    }
+
+    struct BatchProveMetadata {
+        address proposer;
+        address prover;
+        uint48 proposedAt;
+        uint48 firstBlockId;
+        uint48 lastBlockId;
+        uint96 livenessBond;
+        uint96 provabilityBond;
+    }
+
     struct BatchMetadata {
-        BatchVerifyMeta verifyMeta;
+        // [batchId] [buildMetaHash] [proposeMetaHash] [proveMetaHash]
         BatchProveMetadata proveMeta;
         BatchProposeMetadata proposeMeta;
         BatchBuildMetadata buildMeta;
     }
 
     struct BatchProposeMetadataEvidence {
+        bytes32 idAndBuildHash; // aka leftHash
+        bytes32 proveMetaHash;
         BatchProposeMetadata proposeMeta;
-        bytes32 buildMetaHash;
-        bytes32 proveVerifyHash;
     }
 
     struct BatchProveMetadataEvidence {
+        bytes32 idAndBuildHash; // aka leftHash
+        bytes32 proposeMetaHash;
         BatchProveMetadata proveMeta;
-        bytes32 verifyMetaHash;
-        bytes32 buildProposeHash;
     }
 
     /// @notice Struct representing transition to be proven.
     struct Transition {
-        uint256 batchId;
+        uint48 batchId;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
@@ -133,6 +129,9 @@ interface ITaikoInbox2 {
         ProofTiming proofTiming;
         uint48 createdAt;
         bool byAssignedProver;
+        uint48 lastBlockId;
+        uint96 provabilityBond;
+        uint96 livenessBond;
     }
 
     //  @notice Struct representing transition storage
@@ -169,7 +168,8 @@ interface ITaikoInbox2 {
         uint48 lastUnpausedAt;
         uint48 lastSyncedBatchId;
         uint48 lastSyncedAt;
-        bytes32 lastBlockHash;
+        uint48 lastVerifiedBatchId;
+        bytes32 lastVerifiedBlockHash;
     }
 
     /// @notice Struct holding the fork heights.

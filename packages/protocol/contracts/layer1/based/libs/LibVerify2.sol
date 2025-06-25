@@ -14,22 +14,24 @@ import "./LibData2.sol";
 library LibVerify2 {
     using LibMath for uint256;
 
+    error TransitionNotProvided();
+
     struct SyncBlock {
-        uint256 batchId;
-        uint256 blockId;
+        uint48 batchId;
+        uint48 blockId;
         bytes32 stateRoot;
     }
-
 
     function verifyBatches(
         I.State storage $,
         LibData2.Env memory _env,
         I.Summary memory _summary,
+        I.TransitionMeta[] calldata _trans,
         uint8 _count
     )
         internal
     {
-        _summary = _verifyBatches($, _env, _summary, _count);
+        _summary = _verifyBatches($, _env, _summary, _trans, _count);
         bytes32 newSummaryHash = (keccak256(abi.encode(_summary)) & ~bytes32(uint256(1)))
             | (_env.prevSummaryHash & bytes32(uint256(1)));
         $.summaryHash = newSummaryHash;
@@ -41,7 +43,6 @@ library LibVerify2 {
         LibData2.Env memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans,
-        I.BatchVerifyMetadataEvidence[] calldata _evidences,
         uint256 _count
     )
         private
@@ -49,19 +50,17 @@ library LibVerify2 {
     {
         summary_ = _summary; // make a copy for update
 
-        uint256 batchId = summary_.lastSyncedBatchId + 1;
+        uint48 batchId = summary_.lastSyncedBatchId + 1;
 
-        if (!LibFork.isBlocksInCurrentFork(_env.config, i, i)) {
+        if (!LibFork.isBlocksInCurrentFork(_env.config, batchId, batchId)) {
             return summary_;
         }
         uint256 stopBatchId = uint256(summary_.numBatches).min(
             _count * _env.config.maxBatchesToVerify + summary_.lastSyncedBatchId + 1
         );
 
-        // uint256 nBatches = stopBatchId - i;
-
-        uint256 nTransitions = _trans.length;   SyncBlock memory synced;
-
+        uint256 nTransitions = _trans.length;
+        SyncBlock memory synced;
 
         uint256 i;
         for (; batchId < stopBatchId; ++batchId) {
@@ -74,32 +73,34 @@ library LibVerify2 {
             }
 
             bytes32 tranMetaHash;
-            if (firstTransitionParentHash == _summary.lastBlockHash) {
+            if (firstTransitionParentHash == _summary.lastVerifiedBlockHash) {
                 tranMetaHash = $.transitions[slot][1].metaHash;
             } else {
-                tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastBlockHash];
+                tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
             }
 
             if (tranMetaHash == 0) break;
 
             require(i < nTransitions, "missing transitions");
-            require(
-                tranMetaHash == keccak256(abi.encode(_trans[i])), "Invalid transition meta hash"
-            );
+            require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionNotProvided());
 
-            summary_.lastBlockHash = _trans[i].blockHash;
-
+            summary_.lastVerifiedBlockHash = _trans[i].blockHash;
 
             if (batchId % _env.config.stateRootSyncInternal == 0) {
-                        synced.batchId = batchId;
-                // synced.blockId = $.transitions[slot][1].lastBlockId;
+                synced.batchId = batchId;
+                synced.blockId = _trans[i].lastBlockId;
                 synced.stateRoot = _trans[i].stateRoot;
             }
 
-            // summary_.lastSyncedBatchId = batchId;
-            // summary_.lastSyncedAt = uint48(block.timestamp);
-
             i++;
+        }
+
+        if (synced.batchId != 0) {
+            summary_.lastSyncedBatchId = synced.batchId;
+            summary_.lastSyncedAt = uint48(block.timestamp);
+            ISignalService(_env.signalService).syncChainData(
+                _env.config.chainId, LibSignals.STATE_ROOT, synced.blockId, synced.stateRoot
+            );
         }
     }
 }

@@ -17,14 +17,15 @@ library LibPropose {
 
     error BlocksNotInCurrentFork();
     error InvalidSummary();
+    error MetaHashNotMatch();
 
     struct ValidationOutput {
         bytes32 txListHash;
         bytes32 txsHash;
         bytes32[] blobHashes;
-        uint256 lastAnchorBlockId;
-        uint256 firstBlockId;
-        uint256 lastBlockId;
+        uint48 lastAnchorBlockId;
+        uint48 firstBlockId;
+        uint48 lastBlockId;
         I.AnchorBlock[] anchorBlocks;
         address prover;
     }
@@ -75,13 +76,12 @@ library LibPropose {
         pure
         returns (bytes32)
     {
-        bytes32 hBuild = keccak256(abi.encode(meta.buildMeta));
-        bytes32 hPropose = keccak256(abi.encode(meta.proposeMeta));
-        bytes32 hProve = keccak256(abi.encode(meta.proveMeta));
-        bytes32 hVerify = keccak256(abi.encode(meta.verifyMeta));
-        bytes32 hBuildPropose = keccak256(abi.encode(hBuild, hPropose));
-        bytes32 hProveVerify = keccak256(abi.encode(hProve, hVerify));
-        return keccak256(abi.encode(batchId, hBuildPropose, hProveVerify));
+        bytes32 buildMetaHash = keccak256(abi.encode(meta.buildMeta));
+        bytes32 proposeMetaHash = keccak256(abi.encode(meta.proposeMeta));
+        bytes32 proveMetaHash = keccak256(abi.encode(meta.proveMeta));
+        bytes32 leftHash = keccak256(abi.encode(batchId, buildMetaHash));
+        bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, proveMetaHash));
+        return keccak256(abi.encode(leftHash, rightHash));
     }
 
     function _validateProver(
@@ -166,12 +166,12 @@ library LibPropose {
         private
         view
     {
-        bytes32 h = keccak256(abi.encode(_evidence.proposeMeta));
-        h = keccak256(abi.encode(_evidence.buildMetaHash, h));
-        h = keccak256(abi.encode(_batchId, h, _evidence.proveVerifyHash));
+        bytes32 proposeMetaHash = keccak256(abi.encode(_evidence.proposeMeta));
+        bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
+        bytes32 metaHash = keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
 
-        I.Batch storage parentBatch = $.batches[_batchId % _env.config.batchRingBufferSize];
-        require(parentBatch.metaHash == h, "Invalid parent batch");
+        I.Batch storage batch = $.batches[_batchId % _env.config.batchRingBufferSize];
+        require(batch.metaHash == metaHash, MetaHashNotMatch());
     }
 
     function _validateBatchParams(
@@ -231,7 +231,7 @@ library LibPropose {
                 // firstBlobIndex can be non-zero.
                 require(params_.blobParams.numBlobs != 0, I.BlobNotSpecified());
                 require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
-                params_.blobParams.createdIn = uint64(block.number);
+                params_.blobParams.createdIn = uint48(block.number);
             } else {
                 // this is a forced-inclusion batch, blobs were created in early blocks and are used
                 // in the current batches
@@ -245,7 +245,7 @@ library LibPropose {
             require(nBlocks <= _env.config.maxBlocksPerBatch, I.TooManyBlocks());
 
             if (params_.lastBlockTimestamp == 0) {
-                params_.lastBlockTimestamp = block.timestamp;
+                params_.lastBlockTimestamp = uint48(block.timestamp);
             } else {
                 require(params_.lastBlockTimestamp <= block.timestamp, I.TimestampTooLarge());
             }
@@ -291,7 +291,7 @@ library LibPropose {
 
             bool foundNoneZeroAnchorBlockId;
             for (uint256 i; i < nBlocks; ++i) {
-                uint64 anchorBlockId = params_.blocks[i].anchorBlockId;
+                uint48 anchorBlockId = params_.blocks[i].anchorBlockId;
                 if (anchorBlockId != 0) {
                     require(
                         foundNoneZeroAnchorBlockId
@@ -323,7 +323,7 @@ library LibPropose {
                 _calculateTxsHash(output_.txListHash, params_.blobParams);
 
             output_.firstBlockId = _parentProposeMeta.lastBlockId + 1;
-            output_.lastBlockId = output_.firstBlockId + nBlocks;
+            output_.lastBlockId = uint48(output_.firstBlockId + nBlocks);
 
             require(
                 LibFork.isBlocksInCurrentFork(
@@ -349,7 +349,7 @@ library LibPropose {
                 blobHashes: _output.blobHashes,
                 extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_env.config, _params))),
                 coinbase: _params.coinbase,
-                proposedIn: block.number,
+                proposedIn: uint48(block.number),
                 blobCreatedIn: _params.blobParams.createdIn,
                 blobByteOffset: _params.blobParams.byteOffset,
                 blobByteSize: _params.blobParams.byteSize,
@@ -370,15 +370,11 @@ library LibPropose {
             meta_.proveMeta = I.BatchProveMetadata({
                 proposer: _params.proposer,
                 prover: _output.prover,
-                proposedAt: block.timestamp,
+                proposedAt: uint48(block.timestamp),
                 firstBlockId: _output.firstBlockId,
-                provabilityBond: _env.config.provabilityBond
-            });
-
-            meta_.verifyMeta = I.BatchVerifyMeta({
                 lastBlockId: meta_.buildMeta.lastBlockId,
-                provabilityBond: _env.config.provabilityBond,
-                livenessBond: _env.config.livenessBond
+                livenessBond: _env.config.livenessBond,
+                provabilityBond: _env.config.provabilityBond
             });
         }
     }

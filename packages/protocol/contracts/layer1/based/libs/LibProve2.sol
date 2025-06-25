@@ -15,6 +15,7 @@ library LibProve {
 
     error BlocksNotInCurrentFork();
     error InvalidSummary();
+    error MetaHashNotMatch();
 
     function proveBatches(
         LibData2.Env memory _env,
@@ -74,7 +75,7 @@ library LibProve {
         uint256 slot = _tran.batchId % _env.config.batchRingBufferSize;
         I.Batch memory batch = $.batches[slot]; // 1 SLOAD
 
-        _validateBatchProveMeta(_tran.batchId, batch.metaHash, _evidence);
+        _validateBatchProveMeta(batch.metaHash, _evidence);
 
         ctx_ = IVerifier2.Context({
             batchId: _tran.batchId,
@@ -90,11 +91,14 @@ library LibProve {
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
             prover: address(0), // to be updated below
             createdAt: uint48(block.timestamp),
-            byAssignedProver: msg.sender == _evidence.proveMeta.prover
+            byAssignedProver: msg.sender == _evidence.proveMeta.prover,
+            lastBlockId: _evidence.proveMeta.lastBlockId,
+            provabilityBond: _evidence.proveMeta.provabilityBond,
+            livenessBond: _evidence.proveMeta.livenessBond
         });
 
         (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
-            _evidence.proveMeta.proposedAt.max(_summary.lastProposedIn),
+            uint256(_evidence.proveMeta.proposedAt).max(_summary.lastProposedIn),
             _env.config,
             _evidence.proveMeta.prover
         );
@@ -158,18 +162,17 @@ library LibProve {
     }
 
     function _validateBatchProveMeta(
-        uint256 _batchId,
         bytes32 _batchMetaHash,
         I.BatchProveMetadataEvidence calldata _evidence
     )
         private
         pure
     {
-        bytes32 h = keccak256(abi.encode(_evidence.proveMeta));
-        h = keccak256(abi.encode(h, _evidence.verifyMetaHash));
-        h = keccak256(abi.encode(_batchId, _evidence.buildProposeHash, h));
+        bytes32 proveMetaHash = keccak256(abi.encode(_evidence.proveMeta));
+        bytes32 rightHash = keccak256(abi.encode(_evidence.proposeMetaHash, proveMetaHash));
+        bytes32 metaHash = keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
 
-        require(_batchMetaHash == h, "Invalid parent batch");
+        require(_batchMetaHash == metaHash, MetaHashNotMatch());
     }
 
     function _validateTransition(
