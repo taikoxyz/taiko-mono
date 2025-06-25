@@ -15,6 +15,7 @@ library LibVerify2 {
     using LibMath for uint256;
 
     error TransitionNotProvided();
+    error TransitionMetaMismatch();
 
     struct SyncBlock {
         uint48 batchId;
@@ -60,9 +61,9 @@ library LibVerify2 {
         );
 
         uint256 nTransitions = _trans.length;
-        SyncBlock memory synced;
-
+        SyncBlock memory syncBlock;
         uint256 i;
+        
         for (; batchId < stopBatchId; ++batchId) {
             uint256 slot = batchId % _env.config.batchRingBufferSize;
 
@@ -72,34 +73,31 @@ library LibVerify2 {
                 break;
             }
 
-            bytes32 tranMetaHash;
-            if (firstTransitionParentHash == _summary.lastVerifiedBlockHash) {
-                tranMetaHash = $.transitions[slot][1].metaHash;
-            } else {
-                tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
-            }
+            bytes32 tranMetaHash = firstTransitionParentHash == _summary.lastVerifiedBlockHash
+                ? $.transitions[slot][1].metaHash
+                : $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
 
             if (tranMetaHash == 0) break;
 
-            require(i < nTransitions, "missing transitions");
-            require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionNotProvided());
+            require(i < nTransitions, TransitionNotProvided());
+            require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
             summary_.lastVerifiedBlockHash = _trans[i].blockHash;
 
             if (batchId % _env.config.stateRootSyncInternal == 0) {
-                synced.batchId = batchId;
-                synced.blockId = _trans[i].lastBlockId;
-                synced.stateRoot = _trans[i].stateRoot;
+                syncBlock.batchId = batchId;
+                syncBlock.blockId = _trans[i].lastBlockId;
+                syncBlock.stateRoot = _trans[i].stateRoot;
             }
 
             i++;
         }
 
-        if (synced.batchId != 0) {
-            summary_.lastSyncedBatchId = synced.batchId;
+        if (syncBlock.batchId != 0) {
+            summary_.lastSyncedBatchId = syncBlock.batchId;
             summary_.lastSyncedAt = uint48(block.timestamp);
             ISignalService(_env.signalService).syncChainData(
-                _env.config.chainId, LibSignals.STATE_ROOT, synced.blockId, synced.stateRoot
+                _env.config.chainId, LibSignals.STATE_ROOT, syncBlock.blockId, syncBlock.stateRoot
             );
         }
     }
