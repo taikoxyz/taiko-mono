@@ -288,6 +288,7 @@ library LibPropose {
             );
 
             output_.anchorBlocks = new I.AnchorBlock[](nBlocks);
+            output_.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
 
             bool foundNoneZeroAnchorBlockId;
             for (uint256 i; i < nBlocks; ++i) {
