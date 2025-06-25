@@ -89,9 +89,7 @@ abstract contract TaikoInbox2 is
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
-        if (msg.sender!= inboxWrapper) {
-            summary_ = state.verifyBatches(env, summary_, _trans);
-        }
+        summary_ = state.verifyBatches(env, summary_, _trans);
         state.updateSummary(summary_, _paused);
     }
 
