@@ -101,6 +101,7 @@ library LibProve2 {
 
         // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
         // declared state variable -- note that the second mapping key is always 1.
+        // Tip: the reuse of the first transition slot can save 3900 gas per batch.
         bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
         bytes32 metaHash = keccak256(abi.encode(tranMeta_));
         if (
@@ -148,12 +149,14 @@ library LibProve2 {
         view
         returns (I.ProofTiming timing_, address prover_)
     {
-        if (block.timestamp <= _proposedAt + _config.provingWindow) {
-            return (I.ProofTiming.InProvingWindow, _assignedProver);
-        } else if (block.timestamp <= _proposedAt + _config.extendedProvingWindow) {
-            return (I.ProofTiming.InExtendedProvingWindow, msg.sender);
-        } else {
-            return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
+        unchecked {
+            if (block.timestamp <= _proposedAt + _config.provingWindow) {
+                return (I.ProofTiming.InProvingWindow, _assignedProver);
+            } else if (block.timestamp <= _proposedAt + _config.extendedProvingWindow) {
+                return (I.ProofTiming.InExtendedProvingWindow, msg.sender);
+            } else {
+                return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
+            }
         }
     }
 
@@ -178,7 +181,7 @@ library LibProve2 {
         private
         pure
     {
-        require(_tran.batchId > _summary.lastSyncedBatchId, I.BatchNotFound());
+        require(_tran.batchId > _summary.lastVerifiedBatchId, I.BatchNotFound());
         require(_tran.batchId < _summary.numBatches, I.BatchNotFound());
         require(_tran.blockHash != 0, I.InvalidTransitionBlockHash());
         require(_tran.stateRoot != 0, I.InvalidTransitionStateRoot());

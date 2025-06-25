@@ -17,12 +17,6 @@ library LibVerify2 {
     error TransitionNotProvided();
     error TransitionMetaMismatch();
 
-    struct SyncBlock {
-        uint48 batchId;
-        uint48 blockId;
-        bytes32 stateRoot;
-    }
-
     function verifyBatches(
         I.State storage $,
         LibData2.Env memory _env,
@@ -32,57 +26,64 @@ library LibVerify2 {
         internal
         returns (I.Summary memory)
     {
-        uint48 batchId = _summary.lastSyncedBatchId + 1;
+        unchecked {
+            uint48 batchId = _summary.lastVerifiedBatchId + 1;
 
-        if (!LibFork2.isBlocksInCurrentFork(_env.config, batchId, batchId)) {
+            if (!LibFork2.isBlocksInCurrentFork(_env.config, batchId, batchId)) {
+                return _summary;
+            }
+            uint256 stopBatchId = uint256(_summary.numBatches).min(
+                _env.config.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
+            );
+
+            uint256 nTransitions = _trans.length;
+            uint256 i;
+            uint48 lastSyncedBlockId;
+            bytes32 lastSyncedStateRoot;
+
+            for (; batchId < stopBatchId; ++batchId) {
+                uint256 slot = batchId % _env.config.batchRingBufferSize;
+
+                bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
+                if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
+                    // this batch is not proved with at least one transition
+                    break;
+                }
+
+                bytes32 tranMetaHash = firstTransitionParentHash == _summary.lastVerifiedBlockHash
+                    ? $.transitions[slot][1].metaHash
+                    : $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
+
+                if (tranMetaHash == 0) break;
+
+                $.transitions[slot][1].parentHash = LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER;
+
+                require(i < nTransitions, TransitionNotProvided());
+                require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
+
+                _summary.lastVerifiedBlockHash = _trans[i].blockHash;
+
+                if (batchId % _env.config.stateRootSyncInternal == 0) {
+                    lastSyncedBlockId = _trans[i].lastBlockId;
+                    lastSyncedStateRoot = _trans[i].stateRoot;
+                }
+
+                i++;
+            }
+
+            if (lastSyncedBlockId != 0) {
+                _summary.lastSyncedBlockId = lastSyncedBlockId;
+                _summary.lastSyncedAt = uint48(block.timestamp);
+
+                ISignalService(_env.signalService).syncChainData(
+                    _env.config.chainId,
+                    LibSignals.STATE_ROOT,
+                    lastSyncedBlockId,
+                    lastSyncedStateRoot
+                );
+            }
+
             return _summary;
         }
-        uint256 stopBatchId = uint256(_summary.numBatches).min(
-            _env.config.maxBatchesToVerify + _summary.lastSyncedBatchId + 1
-        );
-
-        uint256 nTransitions = _trans.length;
-        SyncBlock memory syncBlock;
-        uint256 i;
-
-        for (; batchId < stopBatchId; ++batchId) {
-            uint256 slot = batchId % _env.config.batchRingBufferSize;
-
-            bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
-            if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
-                // this batch is not proved with at least one transition
-                break;
-            }
-
-            bytes32 tranMetaHash = firstTransitionParentHash == _summary.lastVerifiedBlockHash
-                ? $.transitions[slot][1].metaHash
-                : $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
-
-            if (tranMetaHash == 0) break;
-
-            require(i < nTransitions, TransitionNotProvided());
-            require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
-
-            _summary.lastVerifiedBlockHash = _trans[i].blockHash;
-
-            if (batchId % _env.config.stateRootSyncInternal == 0) {
-                syncBlock.batchId = batchId;
-                syncBlock.blockId = _trans[i].lastBlockId;
-                syncBlock.stateRoot = _trans[i].stateRoot;
-            }
-
-            i++;
-        }
-
-        if (syncBlock.batchId != 0) {
-            _summary.lastSyncedBatchId = syncBlock.batchId;
-            _summary.lastSyncedAt = uint48(block.timestamp);
-
-            ISignalService(_env.signalService).syncChainData(
-                _env.config.chainId, LibSignals.STATE_ROOT, syncBlock.blockId, syncBlock.stateRoot
-            );
-        }
-
-        return _summary;
     }
 }

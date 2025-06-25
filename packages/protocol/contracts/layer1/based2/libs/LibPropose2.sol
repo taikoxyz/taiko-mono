@@ -185,7 +185,8 @@ library LibPropose2 {
     {
         unchecked {
             require(
-                _summary.numBatches <= _summary.lastSyncedBatchId + _env.config.maxUnverifiedBatches,
+                _summary.numBatches
+                    <= _summary.lastVerifiedBatchId + _env.config.maxUnverifiedBatches,
                 I.TooManyBatches()
             );
 

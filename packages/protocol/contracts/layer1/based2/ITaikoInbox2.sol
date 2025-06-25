@@ -166,7 +166,7 @@ interface ITaikoInbox2 {
         uint48 numBatches;
         uint48 lastProposedIn;
         uint48 lastUnpausedAt;
-        uint48 lastSyncedBatchId;
+        uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;
         bytes32 lastVerifiedBlockHash;
