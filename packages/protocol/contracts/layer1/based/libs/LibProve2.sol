@@ -14,30 +14,35 @@ library LibProve {
     using LibMath for uint256;
 
     error BlocksNotInCurrentFork();
+    error InvalidSummary();
 
     function proveBatches(
         LibData2.Env memory _env,
         I.State storage $,
         bytes calldata _proof,
+        I.Summary calldata _summary,
         I.BatchProveMetadataEvidence[] calldata _evidences,
         I.Transition[] calldata _trans
     )
         internal
-        returns (I.Stats2 memory stats2_)
+        returns (I.Summary memory summary_)
     {
+        summary_ = _summary; // make a copy for update
+        bytes32 summaryHash = $.summaryHash; // 1 SLOAD
+        require(summaryHash >> 1 == keccak256(abi.encode(summary_)) >> 1, InvalidSummary());
+
         uint256 nBatches = _evidences.length;
         require(nBatches != 0, I.NoBlocksToProve());
         require(nBatches <= type(uint8).max, I.TooManyBatchesToProve());
         require(nBatches == _trans.length, I.ArraySizesMismatch());
 
-        stats2_ = $.stats2; // make a read-only copy, 1 SLOAD
-        require(!stats2_.paused, I.ContractPaused());
+        require(summaryHash & bytes32(uint256(1)) == 0, I.ContractPaused());
 
         I.TransitionMeta[] memory metas = new I.TransitionMeta[](nBatches);
         IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (metas[i], ctxs[i]) = _proveBatch(_env, $, stats2_, _evidences[i], _trans[i]);
+            (metas[i], ctxs[i]) = _proveBatch(_env, $, summary_, _evidences[i], _trans[i]);
         }
 
         emit I.BatchesProved(_env.verifier, metas);
@@ -47,14 +52,14 @@ library LibProve {
     function _proveBatch(
         LibData2.Env memory _env,
         I.State storage $,
-        I.Stats2 memory _stats2,
+        I.Summary memory _summary,
         I.BatchProveMetadataEvidence calldata _evidence,
         I.Transition calldata _tran
     )
         private
         returns (I.TransitionMeta memory tranMeta_, IVerifier2.Context memory ctx_)
     {
-        _validateTransition(_tran, _stats2);
+        _validateTransition(_tran, _summary);
 
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify the firstBlockId of the block in the following check.
@@ -89,7 +94,7 @@ library LibProve {
         });
 
         (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
-            _evidence.proveMeta.proposedAt.max(_stats2.lastUnpausedAt),
+            _evidence.proveMeta.proposedAt.max(_summary.lastProposedIn),
             _env.config,
             _evidence.proveMeta.prover
         );
@@ -169,17 +174,17 @@ library LibProve {
 
     function _validateTransition(
         I.Transition calldata _tran,
-        I.Stats2 memory _stats2
+        I.Summary memory _summary
     )
         private
         pure
     {
-        require(_tran.batchId > _stats2.lastVerifiedBatchId, I.BatchNotFound());
-        require(_tran.batchId < _stats2.numBatches, I.BatchNotFound());
+        require(_tran.batchId > _summary.lastSyncedBatchId, I.BatchNotFound());
+        require(_tran.batchId < _summary.numBatches, I.BatchNotFound());
         require(_tran.blockHash != 0, I.InvalidTransitionBlockHash());
         require(_tran.stateRoot != 0, I.InvalidTransitionStateRoot());
         require(
-            _tran.parentHash != 0 && _tran.parentHash != FIRST_TRAN_PARENT_HASH_PLACEHOLDER,
+            _tran.parentHash != 0 && _tran.parentHash != LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER,
             I.InvalidTransitionParentHash()
         );
     }

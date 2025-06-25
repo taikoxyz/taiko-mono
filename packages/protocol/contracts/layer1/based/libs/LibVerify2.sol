@@ -24,46 +24,49 @@ library LibVerify2 {
     struct Env {
         address signalService;
         I.Config config;
+        bool paused;
     }
 
     function verifyBatches(
         I.State storage $,
-        I.Config memory _config,
-        I.Stats2 memory _stats2,
+        LibData2.Env memory _env,
+        I.Summary memory _summary,
         uint8 _count
     )
         internal
     {
-        _stats2 = _verifyBatches($, _config, _stats2, _count);
-        $.stats2 = _stats2;
-        emit I.Stats2Updated(_stats2);
+        _summary = _verifyBatches($, _env, _summary, _count);
+        bytes32 newSummaryHash = (keccak256(abi.encode(_summary)) & ~bytes32(uint256(1)))
+            | (_env.prevSummaryHash & bytes32(uint256(1)));
+        $.summaryHash = newSummaryHash;
+        emit I.SummaryUpdated(_summary, newSummaryHash);
     }
 
     function _verifyBatches(
         I.State storage $,
-        I.Config memory _config,
-        I.Stats2 memory _stats2,
+        LibData2.Env memory _env,
+        I.Summary memory _summary,
         uint256 _count
     )
         private
-        returns (I.Stats2 memory stats2_)
+        returns (I.Summary memory summary_)
     {
-        stats2_ = _stats2; // make a copy for update
+        summary_ = _summary; // make a copy for update
 
         // the i-th batch is the first one to verify
-        uint64 i = stats2_.lastVerifiedBatchId + 1;
+        uint256 i = summary_.lastSyncedBatchId + 1;
 
-        if (_stats2.paused || !LibFork.isBlocksInCurrentFork(_config, i, i)) {
-            return stats2_;
+        if (!LibFork.isBlocksInCurrentFork(_env.config, i, i)) {
+            return summary_;
         }
-        uint256 stopBatchId = uint256(stats2_.numBatches).min(
-            _count * _config.maxBatchesToVerify + stats2_.lastVerifiedBatchId + 1
+        uint256 stopBatchId = uint256(summary_.numBatches).min(
+            _count * _env.config.maxBatchesToVerify + summary_.lastSyncedBatchId + 1
         );
 
         // uint256 nBatches = stopBatchId - i;
 
         for (; i < stopBatchId; ++i) {
-            uint256 slot = i % _config.batchRingBufferSize;
+            uint256 slot = i % _env.config.batchRingBufferSize;
 
             bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
             if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {

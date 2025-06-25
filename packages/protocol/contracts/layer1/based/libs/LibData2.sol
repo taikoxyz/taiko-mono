@@ -16,5 +16,6 @@ library LibData2 {
         address verifier;
         address inboxWrapper;
         address signalService;
+        bytes32 prevSummaryHash;
     }
 }

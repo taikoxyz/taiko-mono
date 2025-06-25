@@ -163,13 +163,13 @@ interface ITaikoInbox2 {
         uint64 lastUnpausedAt;
     }
 
-    struct Stats {
-        uint256 numBatches;
+    struct Summary {
+        uint48 numBatches;
+        uint48 lastProposedIn;
+        uint48 lastUnpausedAt;
+        uint48 lastSyncedBatchId;
+        uint48 lastSyncedAt;
         bytes32 lastBlockHash;
-        uint56 lastProposedIn;
-        uint64 lastUnpausedAt;
-        uint256 lastSyncedBatchId;
-        uint256 lastSyncedAt;
     }
 
     /// @notice Struct holding the fork heights.
@@ -235,9 +235,10 @@ interface ITaikoInbox2 {
         ) transitions;
         bytes32 __reserve1; // slot 4 - was used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5
-        Stats2 stats2; // slot 6
+        Summary summary; // slot 6
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
+        bytes32 summaryHash;
     }
 
     struct ProverAuth {
@@ -250,12 +251,9 @@ interface ITaikoInbox2 {
     }
 
     /// @notice Emitted when a batch is synced.
-    /// @param stats1 The Stats1 data structure.
-    event Stats1Updated(Stats1 stats1);
-
-    /// @notice Emitted when some state variable values changed.
-    /// @param stats2 The Stats2 data structure.
-    event Stats2Updated(Stats2 stats2);
+    /// @param summary The Summary data structure.
+    /// @param summaryHash The hash of the summary.
+    event SummaryUpdated(Summary summary, bytes32 summaryHash);
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.

@@ -16,6 +16,7 @@ library LibPropose {
     using SafeERC20 for IERC20;
 
     error BlocksNotInCurrentFork();
+    error InvalidSummary();
 
     struct ValidationOutput {
         bytes32 txListHash;
@@ -31,36 +32,38 @@ library LibPropose {
     function proposeBatch(
         LibData2.Env memory _env,
         I.State storage $,
+        I.Summary calldata _summary,
         I.BatchProposeMetadataEvidence calldata __evidence,
         I.BatchParams calldata _params,
         bytes calldata _txList,
         bytes calldata /*_additionalData*/
     )
         internal
-        returns (I.BatchMetadata memory meta_, I.Stats2 memory stats2_)
+        returns (I.BatchMetadata memory meta_, I.Summary memory summary_)
     {
         unchecked {
-            // First load stats2 in memory, as this struct only takes 1 slot in storage.
-            stats2_ = $.stats2;
+            summary_ = _summary; // make a copy for update
+            bytes32 summaryHash = $.summaryHash; // 1 SLOAD
+            require(summaryHash >> 1 == keccak256(abi.encode(summary_)) >> 1, InvalidSummary());
 
             // Validate parentProposeMeta against it in-storage hash.
-            _validateBatchProposeMeta(_env, $, __evidence, stats2_.numBatches - 1);
+            _validateBatchProposeMeta(_env, $, __evidence, _summary.numBatches - 1);
 
             // Validate the params and returns an updated version of it.
             (I.BatchParams memory params, ValidationOutput memory output) =
-                _validateBatchParams(_env, stats2_, __evidence.proposeMeta, _params, _txList);
+                _validateBatchParams(_env, summary_, __evidence.proposeMeta, _params, _txList);
 
-            output.prover = _validateProver(_env, $, stats2_, params, output);
+            output.prover = _validateProver(_env, $, summary_, params, output);
             meta_ = _populateBatchMetadata(_env, params, output);
 
             // Update storage -- only affecting 1 slot
-            $.batches[stats2_.numBatches % _env.config.batchRingBufferSize] =
-                I.Batch(hashBatch(stats2_.numBatches, meta_));
+            $.batches[summary_.numBatches % _env.config.batchRingBufferSize] =
+                I.Batch(hashBatch(summary_.numBatches, meta_));
 
             // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
             // instead of here to avoid unncessary re-writes.
-            stats2_.numBatches += 1;
-            stats2_.lastProposedIn = uint56(block.number);
+            summary_.numBatches += 1;
+            summary_.lastProposedIn = uint48(block.number);
         }
     }
 
@@ -84,7 +87,7 @@ library LibPropose {
     function _validateProver(
         LibData2.Env memory _env,
         I.State storage $,
-        I.Stats2 memory _stats2,
+        I.Summary memory _summary,
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )
@@ -111,7 +114,7 @@ library LibPropose {
             // reduce this contract's code size.
             I.ProverAuth memory auth = LibAuth2.validateProverAuth(
                 _env.config.chainId,
-                _stats2.numBatches,
+                _summary.numBatches,
                 keccak256(abi.encode(_params)),
                 _output.txListHash,
                 proverAuth
@@ -173,7 +176,7 @@ library LibPropose {
 
     function _validateBatchParams(
         LibData2.Env memory _env,
-        I.Stats2 memory _stats2,
+        I.Summary memory _summary,
         I.BatchProposeMetadata calldata _parentProposeMeta,
         I.BatchParams calldata _params,
         bytes calldata _txList
@@ -184,7 +187,7 @@ library LibPropose {
     {
         unchecked {
             require(
-                _stats2.numBatches <= _stats2.lastVerifiedBatchId + _env.config.maxUnverifiedBatches,
+                _summary.numBatches <= _summary.lastSyncedBatchId + _env.config.maxUnverifiedBatches,
                 I.TooManyBatches()
             );
 
@@ -214,7 +217,7 @@ library LibPropose {
             }
 
             if (params_.revertIfNotFirstProposal) {
-                require(_stats2.lastProposedIn != block.number, I.NotFirstProposal());
+                require(_summary.lastProposedIn != block.number, I.NotFirstProposal());
             }
 
             if (_txList.length != 0) {
