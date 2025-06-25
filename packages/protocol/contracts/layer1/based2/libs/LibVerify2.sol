@@ -27,21 +27,19 @@ library LibVerify2 {
         I.State storage $,
         LibData2.Env memory _env,
         I.Summary memory _summary,
-        I.TransitionMeta[] calldata _trans,
-        uint8 _count
+        I.TransitionMeta[] calldata _trans
     )
         internal
         returns (I.Summary memory)
     {
-        return _verifyBatches($, _env, _summary, _trans, _count);
+        return _verifyBatches($, _env, _summary, _trans);
     }
 
     function _verifyBatches(
         I.State storage $,
         LibData2.Env memory _env,
         I.Summary memory _summary,
-        I.TransitionMeta[] calldata _trans,
-        uint256 _count
+        I.TransitionMeta[] calldata _trans
     )
         private
         returns (I.Summary memory summary_)
@@ -54,7 +52,7 @@ library LibVerify2 {
             return summary_;
         }
         uint256 stopBatchId = uint256(summary_.numBatches).min(
-            _count * _env.config.maxBatchesToVerify + summary_.lastSyncedBatchId + 1
+            _env.config.maxBatchesToVerify + summary_.lastSyncedBatchId + 1
         );
 
         uint256 nTransitions = _trans.length;

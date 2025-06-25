@@ -85,7 +85,7 @@ abstract contract TaikoInbox2 is
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
-        summary_ = state.verifyBatches(env, summary_, _trans, 1);
+        summary_ = state.verifyBatches(env, summary_, _trans);
 
         bytes32 newSummaryHash = (keccak256(abi.encode(summary_)) & ~bytes32(uint256(1)))
             | (env.prevSummaryHash & bytes32(uint256(1)));
