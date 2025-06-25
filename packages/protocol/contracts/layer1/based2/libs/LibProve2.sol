@@ -83,7 +83,9 @@ library LibProve2 {
         tranMeta_ = I.TransitionMeta({
             parentHash: _tran.parentHash,
             blockHash: _tran.blockHash,
-            stateRoot: _tran.stateRoot,
+            stateRoot: _tran.batchId % _env.config.stateRootSyncInternal == 0
+                ? _tran.stateRoot
+                : bytes32(0),
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
             prover: address(0), // to be updated below
             createdAt: uint48(block.timestamp),
