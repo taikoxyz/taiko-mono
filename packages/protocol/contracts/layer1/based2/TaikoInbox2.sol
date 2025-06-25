@@ -97,7 +97,6 @@ abstract contract TaikoInbox2 is
         I.Summary calldata _summary,
         I.BatchProveMetadataEvidence[] calldata _evidences,
         I.Transition[] calldata _trans,
-        I.TransitionMeta[] calldata _transMeta,
         bytes calldata _proof
     )
         external
@@ -106,7 +105,6 @@ abstract contract TaikoInbox2 is
     {
         LibData2.Env memory env = _loadEnv();
         summary_ = state.proveBatches(env, _summary, _evidences, _trans, _proof);
-        summary_ = state.verifyBatches(env, summary_, _transMeta, uint8(_transMeta.length));
 
         bytes32 newSummaryHash = (keccak256(abi.encode(summary_)) & ~bytes32(uint256(1)))
             | (env.prevSummaryHash & bytes32(uint256(1)));
