@@ -89,7 +89,11 @@ abstract contract TaikoInbox2 is
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
-        summary_ = state.verifyBatches(env, summary_, _trans);
+        if (msg.sender == inboxWrapper) {
+            require(_trans.length == 0, "Transitions not allowed for inbox wrapper");
+        } else {
+            summary_ = state.verifyBatches(env, summary_, _trans);
+        }
         state.updateSummary(summary_, _paused);
     }
 
