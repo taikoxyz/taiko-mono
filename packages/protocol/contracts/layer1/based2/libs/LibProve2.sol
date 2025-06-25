@@ -57,7 +57,7 @@ library LibProve2 {
         I.Transition calldata _tran
     )
         private
-        returns (I.TransitionMeta memory tranMeta_, bytes32 batchContextHash_)
+        returns (I.TransitionMeta memory tranMeta_, bytes32 ctxHash_)
     {
         _validateTransition(_tran, _summary);
 
@@ -76,7 +76,7 @@ library LibProve2 {
 
         _validateBatchProveMeta(batch.metaHash, _evidence);
 
-        batchContextHash_ = keccak256(abi.encode(batch.metaHash, _tran));
+        ctxHash_ = keccak256(abi.encode(batch.metaHash, _tran));
 
         tranMeta_ = I.TransitionMeta({
             parentHash: _tran.parentHash,
