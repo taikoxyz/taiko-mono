@@ -15,17 +15,11 @@ library LibVerify2 {
     using LibMath for uint256;
 
     struct SyncBlock {
-        uint64 batchId;
-        uint64 blockId;
-        uint24 tid;
+        uint256 batchId;
+        uint256 blockId;
         bytes32 stateRoot;
     }
 
-    struct Env {
-        address signalService;
-        I.Config config;
-        bool paused;
-    }
 
     function verifyBatches(
         I.State storage $,
@@ -47,6 +41,7 @@ library LibVerify2 {
         LibData2.Env memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans,
+        I.BatchVerifyMetadataEvidence[] calldata _evidences,
         uint256 _count
     )
         private
@@ -65,7 +60,8 @@ library LibVerify2 {
 
         // uint256 nBatches = stopBatchId - i;
 
-        uint256 nTransitions = _trans.length;
+        uint256 nTransitions = _trans.length;   SyncBlock memory synced;
+
 
         uint256 i;
         for (; batchId < stopBatchId; ++batchId) {
@@ -92,6 +88,14 @@ library LibVerify2 {
             );
 
             summary_.lastBlockHash = _trans[i].blockHash;
+
+
+            if (batchId % _env.config.stateRootSyncInternal == 0) {
+                        synced.batchId = batchId;
+                // synced.blockId = $.transitions[slot][1].lastBlockId;
+                synced.stateRoot = _trans[i].stateRoot;
+            }
+
             // summary_.lastSyncedBatchId = batchId;
             // summary_.lastSyncedAt = uint48(block.timestamp);
 
