@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-/// @title LibAuth2
+/// @title LibAuth
 /// @notice This library is used to validate the prover authentication.
 /// @custom:security-contact security@taiko.xyz
-library LibAuth2 {
+library LibAuth {
     using SignatureChecker for address;
 
     function validateProverAuth(

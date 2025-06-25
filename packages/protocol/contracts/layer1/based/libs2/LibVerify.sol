@@ -5,9 +5,9 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/shared/libs/LibMath.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "./LibBonds2.sol";
+import "./LibBonds.sol";
 import "./LibFork.sol";
-import "./LibData2.sol";
+import "./LibData.sol";
 
 /// @title LibVerify2
 /// @custom:security-contact security@taiko.xyz
@@ -25,7 +25,7 @@ library LibVerify2 {
 
     function verifyBatches(
         I.State storage $,
-        LibData2.Env memory _env,
+        LibData.Env memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans,
         uint8 _count
@@ -41,7 +41,7 @@ library LibVerify2 {
 
     function _verifyBatches(
         I.State storage $,
-        LibData2.Env memory _env,
+        LibData.Env memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans,
         uint256 _count
@@ -68,7 +68,7 @@ library LibVerify2 {
             uint256 slot = batchId % _env.config.batchRingBufferSize;
 
             bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
-            if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
+            if (firstTransitionParentHash == LibData.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
                 // this batch is not proved with at least one transition
                 break;
             }

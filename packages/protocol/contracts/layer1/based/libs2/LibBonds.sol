@@ -6,9 +6,9 @@ import "src/shared/libs/LibAddress.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "../IBondManager.sol";
 
-/// @title LibBonds2
+/// @title LibBonds
 /// @custom:security-contact security@taiko.xyz
-library LibBonds2 {
+library LibBonds {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 

@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./LibData2.sol";
-import "./LibBonds2.sol";
+import "./LibData.sol";
+import "./LibBonds.sol";
 import "./LibFork.sol";
 
 /// @title LibProve
@@ -18,7 +18,7 @@ library LibProve {
     error MetaHashNotMatch();
 
     function proveBatches(
-        LibData2.Env memory _env,
+        LibData.Env memory _env,
         I.State storage $,
         bytes calldata _proof,
         I.Summary calldata _summary,
@@ -51,7 +51,7 @@ library LibProve {
     }
 
     function _proveBatch(
-        LibData2.Env memory _env,
+        LibData.Env memory _env,
         I.State storage $,
         I.Summary memory _summary,
         I.BatchProveMetadataEvidence calldata _evidence,
@@ -109,13 +109,13 @@ library LibProve {
         bytes32 metaHash = keccak256(abi.encode(tranMeta_));
         if (
             firstTransitionParentHash == _tran.parentHash
-                || firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER
+                || firstTransitionParentHash == LibData.FIRST_TRAN_PARENT_HASH_PLACEHOLDER
         ) {
             $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
 
             // This is the very first transition of the batch, or a transition with the same parent
             // hash. We can reuse the transition state slot to reduce gas cost.
-            if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
+            if (firstTransitionParentHash == LibData.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
                 $.transitions[slot][1].parentHash = _tran.parentHash; // 1 SSTORE
 
                 // The prover for the first transition is responsible for placing the provability
@@ -126,10 +126,10 @@ library LibProve {
                 ) {
                     // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
                     // of the proposer's bond through an invalid first transition.
-                    LibBonds2.debitBond(
+                    LibBonds.debitBond(
                         $, _env.bondToken, msg.sender, _evidence.proveMeta.provabilityBond
                     );
-                    LibBonds2.creditBond(
+                    LibBonds.creditBond(
                         $, _evidence.proveMeta.proposer, _evidence.proveMeta.provabilityBond
                     );
                 }
@@ -187,7 +187,7 @@ library LibProve {
         require(_tran.blockHash != 0, I.InvalidTransitionBlockHash());
         require(_tran.stateRoot != 0, I.InvalidTransitionStateRoot());
         require(
-            _tran.parentHash != 0 && _tran.parentHash != LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER,
+            _tran.parentHash != 0 && _tran.parentHash != LibData.FIRST_TRAN_PARENT_HASH_PLACEHOLDER,
             I.InvalidTransitionParentHash()
         );
     }
