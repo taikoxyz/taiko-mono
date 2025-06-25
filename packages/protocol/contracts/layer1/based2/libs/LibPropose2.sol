@@ -44,8 +44,6 @@ library LibPropose2 {
     {
         unchecked {
             summary_ = _summary; // make a copy for update
-            bytes32 summaryHash = $.summaryHash; // 1 SLOAD
-            require(summaryHash >> 1 == keccak256(abi.encode(summary_)) >> 1, InvalidSummary());
 
             // Validate parentProposeMeta against it in-storage hash.
             _validateBatchProposeMeta(_env, $, __evidence, _summary.numBatches - 1);

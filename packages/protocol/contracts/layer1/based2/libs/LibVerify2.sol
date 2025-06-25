@@ -32,27 +32,13 @@ library LibVerify2 {
         internal
         returns (I.Summary memory)
     {
-        return _verifyBatches($, _env, _summary, _trans);
-    }
-
-    function _verifyBatches(
-        I.State storage $,
-        LibData2.Env memory _env,
-        I.Summary memory _summary,
-        I.TransitionMeta[] calldata _trans
-    )
-        private
-        returns (I.Summary memory summary_)
-    {
-        summary_ = _summary; // make a copy for update
-
-        uint48 batchId = summary_.lastSyncedBatchId + 1;
+        uint48 batchId = _summary.lastSyncedBatchId + 1;
 
         if (!LibFork2.isBlocksInCurrentFork(_env.config, batchId, batchId)) {
-            return summary_;
+            return _summary;
         }
-        uint256 stopBatchId = uint256(summary_.numBatches).min(
-            _env.config.maxBatchesToVerify + summary_.lastSyncedBatchId + 1
+        uint256 stopBatchId = uint256(_summary.numBatches).min(
+            _env.config.maxBatchesToVerify + _summary.lastSyncedBatchId + 1
         );
 
         uint256 nTransitions = _trans.length;
@@ -77,7 +63,7 @@ library LibVerify2 {
             require(i < nTransitions, TransitionNotProvided());
             require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
-            summary_.lastVerifiedBlockHash = _trans[i].blockHash;
+            _summary.lastVerifiedBlockHash = _trans[i].blockHash;
 
             if (batchId % _env.config.stateRootSyncInternal == 0) {
                 syncBlock.batchId = batchId;
@@ -89,11 +75,14 @@ library LibVerify2 {
         }
 
         if (syncBlock.batchId != 0) {
-            summary_.lastSyncedBatchId = syncBlock.batchId;
-            summary_.lastSyncedAt = uint48(block.timestamp);
+            _summary.lastSyncedBatchId = syncBlock.batchId;
+            _summary.lastSyncedAt = uint48(block.timestamp);
+
             ISignalService(_env.signalService).syncChainData(
                 _env.config.chainId, LibSignals.STATE_ROOT, syncBlock.blockId, syncBlock.stateRoot
             );
         }
+
+        return _summary;
     }
 }

@@ -26,24 +26,20 @@ library LibProve2 {
         bytes calldata _proof
     )
         internal
-        returns (I.Summary memory summary_)
     {
-        summary_ = _summary; // make a copy for update
-        bytes32 summaryHash = $.summaryHash; // 1 SLOAD
-        require(summaryHash >> 1 == keccak256(abi.encode(summary_)) >> 1, InvalidSummary());
+        bool paused = LibData2.validateSummary($, _summary);
+        require(!paused, I.ContractPaused());
 
         uint256 nBatches = _evidences.length;
         require(nBatches != 0, I.NoBlocksToProve());
         require(nBatches <= type(uint8).max, I.TooManyBatchesToProve());
         require(nBatches == _trans.length, I.ArraySizesMismatch());
 
-        require(summaryHash & bytes32(uint256(1)) == 0, I.ContractPaused());
-
         I.TransitionMeta[] memory metas = new I.TransitionMeta[](nBatches);
         IVerifier2.Context[] memory ctxs = new IVerifier2.Context[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (metas[i], ctxs[i]) = _proveBatch($, _env, summary_, _evidences[i], _trans[i]);
+            (metas[i], ctxs[i]) = _proveBatch($, _env, _summary, _evidences[i], _trans[i]);
         }
 
         emit I.BatchesProved(_env.verifier, metas);
