@@ -31,12 +31,9 @@ library LibVerify2 {
         uint8 _count
     )
         internal
+        returns (I.Summary memory)
     {
-        _summary = _verifyBatches($, _env, _summary, _trans, _count);
-        bytes32 newSummaryHash = (keccak256(abi.encode(_summary)) & ~bytes32(uint256(1)))
-            | (_env.prevSummaryHash & bytes32(uint256(1)));
-        $.summaryHash = newSummaryHash;
-        emit I.SummaryUpdated(_summary, newSummaryHash);
+        return _verifyBatches($, _env, _summary, _trans, _count);
     }
 
     function _verifyBatches(

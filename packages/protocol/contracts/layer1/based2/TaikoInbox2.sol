@@ -85,7 +85,12 @@ abstract contract TaikoInbox2 is
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
-        state.verifyBatches(env, summary_, _trans, 1);
+        summary_ = state.verifyBatches(env, summary_, _trans, 1);
+
+        bytes32 newSummaryHash = (keccak256(abi.encode(summary_)) & ~bytes32(uint256(1)))
+            | (env.prevSummaryHash & bytes32(uint256(1)));
+        state.summaryHash = newSummaryHash;
+        emit I.SummaryUpdated(summary_, newSummaryHash);
     }
 
     function v4ProveBatches(
@@ -97,11 +102,16 @@ abstract contract TaikoInbox2 is
     )
         external
         nonReentrant
+        returns (I.Summary memory summary_)
     {
         LibData2.Env memory env = _loadEnv();
-        I.Summary memory summary_ = state.proveBatches(env, _summary, _evidences, _trans, _proof);
+        summary_ = state.proveBatches(env, _summary, _evidences, _trans, _proof);
+        summary_ = state.verifyBatches(env, summary_, _transMeta, uint8(_transMeta.length));
 
-        state.verifyBatches(env, summary_, _transMeta, uint8(_trans.length));
+        bytes32 newSummaryHash = (keccak256(abi.encode(summary_)) & ~bytes32(uint256(1)))
+            | (env.prevSummaryHash & bytes32(uint256(1)));
+        state.summaryHash = newSummaryHash;
+        emit I.SummaryUpdated(summary_, newSummaryHash);
     }
 
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
