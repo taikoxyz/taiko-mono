@@ -50,13 +50,14 @@ library LibVerify2 {
                     break;
                 }
 
-                bytes32 tranMetaHash = firstTransitionParentHash == _summary.lastVerifiedBlockHash
-                    ? $.transitions[slot][1].metaHash
-                    : $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
-
-                if (tranMetaHash == 0) break;
-
-                $.transitions[slot][1].parentHash = LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER;
+                bytes32 tranMetaHash;
+                if (firstTransitionParentHash == _summary.lastVerifiedBlockHash) {
+                    tranMetaHash = $.transitions[slot][1].metaHash;
+                    $.transitions[slot][1].parentHash = LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER;
+                } else {
+                    tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
+                    if (tranMetaHash == 0) break;
+                }
 
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
