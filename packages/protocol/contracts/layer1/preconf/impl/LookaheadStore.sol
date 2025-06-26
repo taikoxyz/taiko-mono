@@ -143,7 +143,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                 );
                 require(
                     (lookaheadSlot.slotTimestamp - _nextEpochTimestamp)
-                        % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
+                        % LibPreconfConstants.SECONDS_IN_SLOT == 0,
                     InvalidSlotTimestamp()
                 );
 
@@ -156,7 +156,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
                     IRegistry.SlasherCommitment memory slasherCommitment
                 ) = _validateOperator(
                     lookaheadSlot.registrationRoot,
-                    currentEpochTimestamp,
+                    currentEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT,
                     minCollateralForPreconfing,
                     preconfSlasher
                 );
@@ -235,10 +235,17 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         )
     {
         operatorData_ = urc.getOperatorData(_registrationRoot);
+        // The lookahead poster must be registered at least one slot in advanced from posting slot.
+        // The operators within lookahead must be registered at least two slots in advanced from the
+        // current epoch.
         require(
             operatorData_.registeredAt != 0 && operatorData_.registeredAt < _timestamp,
             OperatorHasNotRegistered()
         );
+
+        // The poster must not have unregistered or been slashed.
+        // The operators within lookahead may have unregistered or been slashed in the
+        // current epoch.
         require(
             operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt > _timestamp,
             OperatorHasUnregistered()
@@ -248,19 +255,26 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             OperatorHasBeenSlashed()
         );
 
-        uint256 collateralWei = _timestamp >= block.timestamp
+        // For the poster, we consider the latest collateral value.
+        // For the operators within lookahead, we consider the collateral value at the start of
+        // the current epoch.
+        uint256 collateralWei = _slasher == protector
             ? operatorData_.collateralWei
-            : urc.getHistoricalCollateral(
-                _registrationRoot, _timestamp - LibPreconfConstants.SECONDS_IN_SLOT
-            );
+            : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
-        // Validate the operator's slashing commitment
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
+
+        // The lookahead poster must have opted in at least one slot in advanced from posting slot.
+        // The operators within lookahead must have opted in at least two slots in advanced from
+        // the current epoch.
         require(
             slasherCommitment_.optedInAt != 0 && slasherCommitment_.optedInAt < _timestamp,
             OperatorHasNotOptedIn()
         );
+
+        // The lookahead poster must not have opted out.
+        // The operators within lookahead may have opted out in the current epoch.
         require(
             slasherCommitment_.optedOutAt == 0 || slasherCommitment_.optedOutAt > _timestamp,
             OperatorHasNotOptedIn()
