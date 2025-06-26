@@ -33,7 +33,8 @@ abstract contract DeployCapability is Script {
 
         console2.log(">", name, "@", registerTo);
         console2.log("  proxy      :", proxy);
-        console2.log("  impl       :", impl);
+        // Surge: This implementation is not used for most contracts
+        // console2.log("  impl       :", impl);
         // Surge: Not all contracts are ownable
         // console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
         // Surge: Irrelevant logs

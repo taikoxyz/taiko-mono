@@ -62,6 +62,7 @@ contract DeploySurgeL1 is DeployCapability {
 
     // Timelock configuration
     // ---------------------------------------------------------------
+    bool internal immutable useTimelockedOwner = vm.envBool("USE_TIMELOCKED_OWNER");
     uint256 internal immutable timelockPeriod = uint64(vm.envUint("TIMELOCK_PERIOD"));
     address internal immutable ownerMultisig = vm.envAddress("OWNER_MULTISIG");
 
@@ -81,11 +82,15 @@ contract DeploySurgeL1 is DeployCapability {
     uint96 internal immutable livenessBondBase = uint96(vm.envUint("LIVENESS_BOND_BASE"));
     uint96 internal immutable livenessBondPerBlock = uint96(vm.envUint("LIVENESS_BOND_PER_BLOCK"));
 
-    // Inclusion configuration
+    // Preconf configuration
+    // ---------------------------------------------------------------
+    bool internal immutable usePreconf = vm.envBool("USE_PRECONF");
+    address internal immutable fallbackPreconf = vm.envOr("FALLBACK_PRECONF", address(0));
+
+    // Forced inclusion configuration
     // ---------------------------------------------------------------
     uint8 internal immutable inclusionWindow = uint8(vm.envUint("INCLUSION_WINDOW"));
     uint64 internal immutable inclusionFeeInGwei = uint64(vm.envUint("INCLUSION_FEE_IN_GWEI"));
-    address internal immutable fallbackPreconf = vm.envOr("FALLBACK_PRECONF", address(0));
 
     // Verifier configuration
     // ---------------------------------------------------------------
@@ -128,11 +133,11 @@ contract DeploySurgeL1 is DeployCapability {
         address pemCertChainLibAddr;
     }
 
-    struct PreconfContracts {
-        address whitelist;
-        address router;
-        address store;
+    struct WrapperContracts {
+        address forcedInclusionStore;
         address taikoWrapper;
+        address preconfWhitelist;
+        address preconfRouter;
     }
 
     modifier broadcast() {
@@ -149,28 +154,38 @@ contract DeploySurgeL1 is DeployCapability {
         require(minVerificationStreak != 0, "config: MIN_LIVENESS_STREAK");
         require(livenessBondBase != 0, "config: LIVENESS_BOND_BASE");
         require(livenessBondPerBlock != 0, "config: LIVENESS_BOND_PER_BLOCK");
-        require(ownerMultisig != address(0), "Config: OWNER_MULTISIG");
 
-        // Array built via env can only be in memory
-        address[] memory ownerMultisigSigners = vm.envAddress("OWNER_MULTISIG_SIGNERS", ",");
-        require(ownerMultisigSigners.length > 0, "Config: OWNER_MULTISIG_SIGNERS");
-        for (uint256 i = 0; i < ownerMultisigSigners.length; i++) {
-            require(ownerMultisigSigners[i] != address(0), "Config: OWNER_MULTISIG_SIGNERS");
+        address l1Owner = msg.sender;
+
+        // Timelock variables
+        address[] memory executors;
+        address[] memory proposers;
+
+        if (useTimelockedOwner) {
+            require(ownerMultisig != address(0), "config: OWNER_MULTISIG");
+
+            // Deploy timelock controller
+            // ---------------------------------------------------------------
+
+            // Array built via env can only be in memory
+            address[] memory ownerMultisigSigners = vm.envAddress("OWNER_MULTISIG_SIGNERS", ",");
+            require(ownerMultisigSigners.length > 0, "Config: OWNER_MULTISIG_SIGNERS");
+            for (uint256 i = 0; i < ownerMultisigSigners.length; i++) {
+                require(ownerMultisigSigners[i] != address(0), "Config: OWNER_MULTISIG_SIGNERS");
+            }
+
+            executors = ownerMultisigSigners;
+
+            proposers = new address[](1);
+            proposers[0] = ownerMultisig;
+
+            // The timelock controller will serve as the owner of all the surge contracts
+            l1Owner = deployTimelockController();
         }
-
-        // Deploy timelock controller
-        // ---------------------------------------------------------------
-        address[] memory executors = ownerMultisigSigners;
-
-        address[] memory proposers = new address[](1);
-        proposers[0] = ownerMultisig;
-
-        // This will serve as the owner of all the surge contracts
-        address timelockController = deployTimelockController();
 
         // Deploy shared contracts
         // ---------------------------------------------------------------
-        SharedContracts memory sharedContracts = deploySharedContracts(timelockController);
+        SharedContracts memory sharedContracts = deploySharedContracts(l1Owner);
 
         // Empty implementation for temporary use
         address emptyImpl = address(new EmptyImpl());
@@ -194,7 +209,7 @@ contract DeploySurgeL1 is DeployCapability {
         SignalService signalService = SignalService(sharedContracts.signalService);
 
         SignalService(sharedContracts.signalService).authorize(rollupContracts.taikoInbox, true);
-        signalService.transferOwnership(timelockController);
+        signalService.transferOwnership(l1Owner);
 
         {
             // Build L2 addresses
@@ -220,14 +235,18 @@ contract DeploySurgeL1 is DeployCapability {
             );
         }
 
-        // Deploy preconf contracts
+        // Deploy wrapper contracts
         // ---------------------------------------------------------------
-        PreconfContracts memory preconfContracts = deployPreconfContracts(
-            timelockController,
+        WrapperContracts memory wrapperContracts =
+            deployWrapperContracts(l1Owner, rollupContracts.taikoInbox, emptyImpl);
+
+        // Deploy fork router
+        // ---------------------------------------------------------------
+        deployForkRouter(
+            wrapperContracts.taikoWrapper,
             rollupContracts.proofVerifier,
-            rollupContracts.taikoInbox,
             sharedContracts.signalService,
-            emptyImpl
+            rollupContracts.taikoInbox
         );
 
         // Setup verifiers
@@ -236,68 +255,62 @@ contract DeploySurgeL1 is DeployCapability {
             setupVerifiers(verifiers);
         }
 
-        // Initialise and transfer ownership to timelock controller
-        // ----------------------------------------------------------------
-        SurgeTimelockController(payable(timelockController)).init(
-            timelockPeriod,
-            proposers,
-            executors,
-            rollupContracts.taikoInbox,
-            rollupContracts.proofVerifier,
-            minVerificationStreak
-        );
-        console2.log("** timelockController initialised");
+        // Initialise and transfer ownership to either the timelock controller or the deployer
+        // -----------------------------------------------------------------------------------
+        if (useTimelockedOwner) {
+            SurgeTimelockController(payable(l1Owner)).init(
+                timelockPeriod,
+                proposers,
+                executors,
+                rollupContracts.taikoInbox,
+                rollupContracts.proofVerifier,
+                minVerificationStreak
+            );
+            console2.log("** timelockController initialised");
+        }
 
-        SgxVerifier(verifiers.sgxRethVerifier).transferOwnership(timelockController);
-        console2.log("** sgxRethVerifier ownership transferred to:", timelockController);
+        SgxVerifier(verifiers.sgxRethVerifier).transferOwnership(l1Owner);
+        console2.log("** sgxRethVerifier ownership transferred to:", l1Owner);
 
-        Risc0Verifier(verifiers.risc0RethVerifier).transferOwnership(timelockController);
-        console2.log("** risc0RethVerifier ownership transferred to:", timelockController);
+        Risc0Verifier(verifiers.risc0RethVerifier).transferOwnership(l1Owner);
+        console2.log("** risc0RethVerifier ownership transferred to:", l1Owner);
 
-        SP1Verifier(verifiers.sp1RethVerifier).transferOwnership(timelockController);
-        console2.log("** sp1RethVerifier ownership transferred to:", timelockController);
+        SP1Verifier(verifiers.sp1RethVerifier).transferOwnership(l1Owner);
+        console2.log("** sp1RethVerifier ownership transferred to:", l1Owner);
 
-        AutomataDcapV3Attestation(verifiers.automataProxy).transferOwnership(timelockController);
-        console2.log("** automataProxy ownership transferred to:", timelockController);
+        AutomataDcapV3Attestation(verifiers.automataProxy).transferOwnership(l1Owner);
+        console2.log("** automataProxy ownership transferred to:", l1Owner);
 
-        TaikoInbox(payable(rollupContracts.taikoInbox)).init(timelockController, l2GenesisHash);
-        console2.log("** taikoInbox initialised and ownership transferred to:", timelockController);
+        TaikoInbox(payable(rollupContracts.taikoInbox)).init(l1Owner, l2GenesisHash);
+        console2.log("** taikoInbox initialised and ownership transferred to:", l1Owner);
 
         SurgeVerifier(rollupContracts.proofVerifier).init(
-            timelockController,
+            l1Owner,
             verifiers.sgxRethVerifier,
             address(0), // TDX Reth verifier is not deployed yet
             verifiers.risc0RethVerifier,
             verifiers.sp1RethVerifier
         );
-        console2.log(
-            "** proofVerifier initialised and ownership transferred to:", timelockController
-        );
+        console2.log("** proofVerifier initialised and ownership transferred to:", l1Owner);
 
-        ForcedInclusionStore(preconfContracts.store).init(timelockController);
-        console2.log(
-            "** forcedInclusionStore initialised and ownership transferred to:", timelockController
-        );
+        ForcedInclusionStore(wrapperContracts.forcedInclusionStore).init(l1Owner);
+        console2.log("** forcedInclusionStore initialised and ownership transferred to:", l1Owner);
 
-        TaikoWrapper(preconfContracts.taikoWrapper).init(timelockController);
-        console2.log(
-            "** taikoWrapper initialised and ownership transferred to:", timelockController
-        );
+        TaikoWrapper(wrapperContracts.taikoWrapper).init(l1Owner);
+        console2.log("** taikoWrapper initialised and ownership transferred to:", l1Owner);
 
-        DefaultResolver(sharedContracts.sharedResolver).transferOwnership(timelockController);
-        console2.log(
-            "** sharedResolver initialised and ownership transferred to:", timelockController
-        );
+        DefaultResolver(sharedContracts.sharedResolver).transferOwnership(l1Owner);
+        console2.log("** sharedResolver initialised and ownership transferred to:", l1Owner);
 
         // Verify deployment
         // ---------------------------------------------------------------
         verifyDeployment(
             sharedContracts,
             rollupContracts,
-            preconfContracts,
+            wrapperContracts,
             verifiers,
             sharedContracts.sharedResolver,
-            timelockController
+            l1Owner
         );
     }
 
@@ -474,28 +487,65 @@ contract DeploySurgeL1 is DeployCapability {
         });
     }
 
-    function deployPreconfContracts(
+    function deployWrapperContracts(
         address _owner,
-        address _proofVerifier,
         address _taikoInbox,
-        address _signalService,
         address _emptyImpl
     )
         private
-        returns (PreconfContracts memory preconfContracts)
+        returns (WrapperContracts memory wrapperContracts)
     {
-        preconfContracts.whitelist = deployProxy({
-            name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (_owner, 2))
-        });
-
-        preconfContracts.store =
+        wrapperContracts.forcedInclusionStore =
             deployProxy({ name: "forced_inclusion_store", impl: _emptyImpl, data: "" });
 
-        preconfContracts.taikoWrapper =
+        wrapperContracts.taikoWrapper =
             deployProxy({ name: "taiko_wrapper", impl: _emptyImpl, data: "" });
 
+        UUPSUpgradeable(wrapperContracts.forcedInclusionStore).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    inclusionWindow, inclusionFeeInGwei, _taikoInbox, wrapperContracts.taikoWrapper
+                )
+            )
+        );
+
+        if (usePreconf) {
+            wrapperContracts.preconfWhitelist = deployProxy({
+                name: "preconf_whitelist",
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (_owner, 2))
+            });
+
+            wrapperContracts.preconfRouter = deployProxy({
+                name: "preconf_router",
+                impl: address(
+                    new PreconfRouter(
+                        wrapperContracts.taikoWrapper,
+                        wrapperContracts.preconfWhitelist,
+                        fallbackPreconf
+                    )
+                ),
+                data: abi.encodeCall(PreconfRouter.init, (_owner))
+            });
+        }
+
+        UUPSUpgradeable(wrapperContracts.taikoWrapper).upgradeTo({
+            newImplementation: address(
+                new TaikoWrapper(
+                    _taikoInbox, wrapperContracts.forcedInclusionStore, wrapperContracts.preconfRouter
+                )
+            )
+        });
+    }
+
+    function deployForkRouter(
+        address _taikoWrapper,
+        address _proofVerifier,
+        address _signalService,
+        address _taikoInbox
+    )
+        internal
+    {
         // Since this is a fresh protocol deployment, we don't have an old fork to use.
         address oldFork = address(0);
         address newFork = address(
@@ -506,7 +556,7 @@ contract DeploySurgeL1 is DeployCapability {
                     livenessBondBase: livenessBondBase,
                     livenessBondPerBlock: livenessBondPerBlock
                 }),
-                preconfContracts.taikoWrapper,
+                _taikoWrapper,
                 dao,
                 _proofVerifier,
                 address(0),
@@ -516,30 +566,6 @@ contract DeploySurgeL1 is DeployCapability {
 
         UUPSUpgradeable(_taikoInbox).upgradeTo({
             newImplementation: address(new PacayaForkRouter(oldFork, newFork))
-        });
-
-        UUPSUpgradeable(preconfContracts.store).upgradeTo(
-            address(
-                new ForcedInclusionStore(
-                    inclusionWindow, inclusionFeeInGwei, _taikoInbox, preconfContracts.taikoWrapper
-                )
-            )
-        );
-
-        preconfContracts.router = deployProxy({
-            name: "preconf_router",
-            impl: address(
-                new PreconfRouter(
-                    preconfContracts.taikoWrapper, preconfContracts.whitelist, fallbackPreconf
-                )
-            ),
-            data: abi.encodeCall(PreconfRouter.init, (_owner))
-        });
-
-        UUPSUpgradeable(preconfContracts.taikoWrapper).upgradeTo({
-            newImplementation: address(
-                new TaikoWrapper(_taikoInbox, preconfContracts.store, preconfContracts.router)
-            )
         });
     }
 
@@ -629,7 +655,7 @@ contract DeploySurgeL1 is DeployCapability {
     function verifyDeployment(
         SharedContracts memory _sharedContracts,
         RollupContracts memory _rollupContracts,
-        PreconfContracts memory _preconfContracts,
+        WrapperContracts memory _wrapperContracts,
         VerifierContracts memory _verifiers,
         address _sharedResolver,
         address _timelockController
@@ -655,10 +681,10 @@ contract DeploySurgeL1 is DeployCapability {
         l1Contracts[4] = _sharedContracts.erc1155Vault;
         l1Contracts[5] = _rollupContracts.proofVerifier;
         l1Contracts[6] = _rollupContracts.taikoInbox;
-        l1Contracts[7] = _preconfContracts.whitelist;
-        l1Contracts[8] = _preconfContracts.router;
-        l1Contracts[9] = _preconfContracts.store;
-        l1Contracts[10] = _preconfContracts.taikoWrapper;
+        l1Contracts[7] = _wrapperContracts.forcedInclusionStore;
+        l1Contracts[8] = _wrapperContracts.taikoWrapper;
+        l1Contracts[9] = _wrapperContracts.preconfWhitelist;
+        l1Contracts[10] = _wrapperContracts.preconfRouter;
         l1Contracts[11] = _verifiers.automataProxy;
         l1Contracts[12] = _verifiers.risc0RethVerifier;
         l1Contracts[13] = _verifiers.sp1RethVerifier;
@@ -732,6 +758,10 @@ contract DeploySurgeL1 is DeployCapability {
 
     function verifyOwnership(address[] memory _contracts, address _expectedOwner) internal view {
         for (uint256 i; i < _contracts.length; ++i) {
+            if (_contracts[i] == address(0)) {
+                continue;
+            }
+
             require(
                 OwnableUpgradeable(_contracts[i]).owner() == _expectedOwner,
                 string.concat("verifyOwnership: ", Strings.toHexString(uint160(_contracts[i]), 20))

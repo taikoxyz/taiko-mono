@@ -14,6 +14,7 @@ import "src/layer1/surge/verifiers/ISurgeVerifier.sol";
 import "src/layer1/surge/verifiers/LibProofType.sol";
 import "./ITaikoInbox.sol";
 import "./IProposeBatch.sol";
+import "./LibVerifying.sol";
 
 /// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -235,7 +236,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchProposed(info_, meta_, _txList);
         } // end-of-unchecked
 
-        _verifyBatches(config, stats2, 1);
+        LibVerifying.verifyBatches(state, config, stats2, 1, dao, verifier, signalService);
     }
 
     /// @notice Proves multiple batches with a single aggregated proof.
@@ -440,7 +441,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             emit BatchesProved(verifier, batchIds, trans);
         }
 
-        _verifyBatches(config, stats2, metas.length);
+        LibVerifying.verifyBatches(
+            state, config, stats2, metas.length, dao, verifier, signalService
+        );
     }
 
     /// @notice Verify batches by providing the length of the batches to verify.
@@ -453,7 +456,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         nonReentrant
         whenNotPaused
     {
-        _verifyBatches(pacayaConfig(), state.stats2, _length);
+        LibVerifying.verifyBatches(
+            state, pacayaConfig(), state.stats2, _length, dao, verifier, signalService
+        );
     }
 
     /// @inheritdoc ITaikoInbox
@@ -720,199 +725,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     // Private functions -----------------------------------------------------------------------
 
-    function _verifyBatches(
-        Config memory _config,
-        Stats2 memory _stats2,
-        uint256 _length
-    )
-        private
-    {
-        uint64 batchId = _stats2.lastVerifiedBatchId;
-
-        bool canVerifyBlocks;
-        unchecked {
-            uint64 pacayaForkHeight = _config.forkHeights.pacaya;
-            canVerifyBlocks = pacayaForkHeight == 0 || batchId >= pacayaForkHeight - 1;
-        }
-
-        if (canVerifyBlocks) {
-            uint256 slot = batchId % _config.batchRingBufferSize;
-            Batch storage batch = state.batches[slot];
-            uint24 tid = batch.verifiedTransitionId;
-            // Surge: get the block hash of the finalising transition
-            bytes32 blockHash =
-                state.transitions[slot][tid][batch.finalisingTransitionIndex].blockHash;
-
-            // Surge: If the verification streak has been broken, we reset the streak timestamp
-            // `batch` points to the last verified batch, so we can use it to check if the streak
-            // has been broken.
-            if (block.timestamp - batch.lastBlockTimestamp > _config.maxVerificationDelay) {
-                state.stats1.verificationStreakStartedAt = uint64(block.timestamp);
-            }
-
-            SyncBlock memory synced;
-
-            uint256 stopBatchId;
-            unchecked {
-                stopBatchId = (
-                    _config.maxBatchesToVerify * _length + _stats2.lastVerifiedBatchId + 1
-                ).min(_stats2.numBatches);
-
-                if (_config.forkHeights.shasta != 0) {
-                    stopBatchId = stopBatchId.min(_config.forkHeights.shasta);
-                }
-            }
-
-            // Surge: keep track of the finalising transition index
-            uint256 fti;
-
-            for (++batchId; batchId < stopBatchId; ++batchId) {
-                slot = batchId % _config.batchRingBufferSize;
-                batch = state.batches[slot];
-
-                // Surge: remove redundant pause check
-
-                TransitionState[] storage transitions;
-
-                // Surge: avoid stack too deep errors
-                {
-                    uint24 nextTransitionId = batch.nextTransitionId;
-                    if (nextTransitionId <= 1) break;
-
-                    transitions = state.transitions[slot][1];
-                    if (transitions[0].parentHash == blockHash) {
-                        tid = 1;
-                    } else if (nextTransitionId > 2) {
-                        uint24 _tid = state.transitionIds[batchId][blockHash];
-                        if (_tid == 0) break;
-                        tid = _tid;
-                        transitions = state.transitions[slot][tid];
-                    } else {
-                        break;
-                    }
-                }
-
-                // Surge: remove conflicting transition and cooldown window checks
-
-                // Surge: Handle verification based on proof types and conflicts
-                uint256 _fti = _tryFinalising(transitions, _config, batch.livenessBond);
-
-                // Surge: Do not verify the batch if no finalising transition is found
-                if (_fti == type(uint256).max) {
-                    break;
-                }
-
-                fti = _fti;
-
-                // Surge: use the finalising transition index to update the local blockhash
-                blockHash = transitions[fti].blockHash;
-
-                if (batchId % _config.stateRootSyncInternal == 0) {
-                    synced.batchId = batchId;
-                    synced.blockId = batch.lastBlockId;
-                    synced.tid = tid;
-                    synced.stateRoot = transitions[fti].stateRoot;
-                }
-            }
-
-            unchecked {
-                --batchId;
-            }
-
-            if (_stats2.lastVerifiedBatchId != batchId) {
-                _stats2.lastVerifiedBatchId = batchId;
-
-                batch = state.batches[_stats2.lastVerifiedBatchId % _config.batchRingBufferSize];
-                batch.verifiedTransitionId = tid;
-                // Surge: update the finalising transition index for the batch
-                batch.finalisingTransitionIndex = uint8(fti);
-
-                emit BatchesVerified(_stats2.lastVerifiedBatchId, blockHash);
-
-                if (synced.batchId != 0) {
-                    if (synced.batchId != _stats2.lastVerifiedBatchId) {
-                        // We write the synced batch's verifiedTransitionId to storage
-                        batch = state.batches[synced.batchId % _config.batchRingBufferSize];
-                        batch.verifiedTransitionId = synced.tid;
-                    }
-
-                    Stats1 memory stats1 = state.stats1;
-                    stats1.lastSyncedBatchId = batch.batchId;
-                    stats1.lastSyncedAt = uint64(block.timestamp);
-                    state.stats1 = stats1;
-
-                    emit Stats1Updated(stats1);
-
-                    // Ask signal service to write cross chain signal
-                    signalService.syncChainData(
-                        _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
-                    );
-                }
-            }
-        }
-
-        state.stats2 = _stats2;
-        emit Stats2Updated(_stats2);
-    }
-
-    // Surge: Logic for Surge's finality gadget
-    function _tryFinalising(
-        TransitionState[] storage _transitions,
-        Config memory _config,
-        uint256 _livenessBond
-    )
-        internal
-        returns (uint256)
-    {
-        // `fti` is used to store the finalising transition index
-        uint256 fti = type(uint256).max;
-
-        uint256 numTransitions = _transitions.length;
-
-        // If there are no conflicting transitions
-        if (numTransitions == 1) {
-            // If the first transition is just ZK or TEE proven
-            if (!_transitions[0].proofType.isZkTeeProof()) {
-                // If the cooldown window has not expired, we cannot finalise the transition
-                if (_transitions[0].createdAt + _config.cooldownWindow > block.timestamp) {
-                    return fti;
-                }
-            }
-
-            // The first transition itself is the finalising transition
-            fti = 0;
-        } else {
-            // Proof type(s) to upgrade
-            LibProofType.ProofType ptToUpgrade;
-
-            // Try to find a finalising proof
-            for (uint256 i; i < numTransitions; ++i) {
-                if (_transitions[i].proofType.isZkTeeProof()) {
-                    fti = i;
-                } else {
-                    ptToUpgrade = ptToUpgrade.combine(_transitions[i].proofType);
-                }
-            }
-
-            // If no finalising transition is found, we return
-            if (fti == type(uint256).max) {
-                return fti;
-            } else {
-                // Mark non finalising verifiers for upgrade
-                ISurgeVerifier(verifier).markUpgradeable(ptToUpgrade);
-            }
-        }
-
-        address bondReceiver = _transitions[fti].bondReceiver;
-        if (bondReceiver == address(0)) {
-            // This is only possible if the batch is finalised via the cooldown window, so
-            // we set the bond receiver to the DAO
-            bondReceiver = dao;
-        }
-        _creditBond(bondReceiver, _livenessBond);
-
-        return fti;
-    }
+    // Surge: _verifyBatches has been extracted away to LibVerifying.sol in order to reduce the
+    // code size of TaikoInbox.sol
 
     function _debitBond(address _user, uint256 _amount) private {
         if (_amount == 0) return;
@@ -932,13 +746,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         emit BondDebited(_user, _amount);
     }
 
-    function _creditBond(address _user, uint256 _amount) private {
-        if (_amount == 0) return;
-        unchecked {
-            state.bondBalance[_user] += _amount;
-        }
-        emit BondCredited(_user, _amount);
-    }
+    // Surge: remove _creditBond since it is directly handled in the finality gadget library
 
     function _handleDeposit(
         address _user,
@@ -1036,14 +844,5 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 ParentMetaHashMismatch()
             );
         }
-    }
-
-    // Memory-only structs ----------------------------------------------------------------------
-
-    struct SyncBlock {
-        uint64 batchId;
-        uint64 blockId;
-        uint24 tid;
-        bytes32 stateRoot;
     }
 }

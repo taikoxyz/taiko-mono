@@ -232,7 +232,7 @@ contract SurgeVerifierTest is SurgeVerifierTestBase, ProofTypeFixtures {
         return contexts;
     }
 
-    function _assertVerifiersUpgradeable(uint256[4] memory _indices) internal {
+    function _assertVerifiersUpgradeable(uint256[4] memory _indices) internal view {
         bool upgradeable;
         for (uint256 i; i < _indices.length; ++i) {
             if (_indices[i] == 0) {
@@ -251,7 +251,7 @@ contract SurgeVerifierTest is SurgeVerifierTestBase, ProofTypeFixtures {
         }
     }
 
-    function _assertVerifierUpgraded(uint256 _index, address _newVerifier) internal {
+    function _assertVerifierUpgraded(uint256 _index, address _newVerifier) internal view {
         bool upgradeable;
         address expectedVerifier;
 
