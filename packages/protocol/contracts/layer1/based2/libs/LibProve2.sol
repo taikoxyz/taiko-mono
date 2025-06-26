@@ -20,7 +20,8 @@ library LibProve2 {
     function proveBatches(
         I.State storage $,
         LibData2.Env memory _env,
-        I.Summary calldata _summary,
+        I.Summary calldata _summary, //TODO: change this memory will avoid multiple time access to
+            // calldata?
         I.BatchProveInput[] calldata _evidences,
         bytes calldata _proof
     )
@@ -50,7 +51,8 @@ library LibProve2 {
     function _proveBatch(
         I.State storage $,
         LibData2.Env memory _env,
-        I.Summary memory _summary,
+        I.Summary calldata _summary, //TODO: change this memory will avoid multiple time access to
+            // calldata?
         I.BatchProveInput calldata _input
     )
         private
@@ -99,7 +101,7 @@ library LibProve2 {
             _input.proveMeta.prover
         );
 
-        bytes32 metaHash = keccak256(abi.encode(tranMeta_));
+        bytes32 tranMetaHash = keccak256(abi.encode(tranMeta_));
 
         // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
         // declared state variable -- note that the second mapping key is always 1.
@@ -114,7 +116,7 @@ library LibProve2 {
                 .encodeBatchIdAndPartialParentHash(
                 _input.transition.batchId, _input.transition.parentHash
             ); // 1 SSTORE
-            $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
+            $.transitions[slot][1].metaHash = tranMetaHash; // 1 SSTORE
 
             // The prover for the first transition is responsible for placing the provability
             // if the transition is within extended proving window.
@@ -129,13 +131,13 @@ library LibProve2 {
             }
         } else if (partialParentHash == _input.transition.parentHash >> 48) {
             // Overwrite the first proof
-            $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
+            $.transitions[slot][1].metaHash = tranMetaHash; // 1 SSTORE
         } else {
             // This is not the very first transition of the batch, or a transition with the same
             // parent hash. Use a mapping to store the meta hash of the transition. The mapping
             // slots are not reusable.
             $.transitionMetaHashes[_input.transition.batchId][_input.transition.parentHash] =
-                metaHash; // 1 SSTORE
+                tranMetaHash; // 1 SSTORE
         }
     }
 
