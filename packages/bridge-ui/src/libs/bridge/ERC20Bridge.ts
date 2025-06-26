@@ -21,7 +21,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { calculateMessageDataSize } from './calculateMessageDataSize';
-import type { ApproveArgs, BridgeTransferOp, ERC20BridgeArgs, RequireAllowanceArgs } from './types';
+import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
 
@@ -81,7 +81,8 @@ export class ERC20Bridge extends Bridge {
       amount,
       gasLimit: Number(gasLimit),
       fee,
-    } satisfies BridgeTransferOp;
+      solverFee: BigInt(0), // not supported in the UI yet, default to 0
+    } satisfies ERC20BridgeTransferOp;
 
     log('Preparing transaction with args', sendERC20Args);
 
