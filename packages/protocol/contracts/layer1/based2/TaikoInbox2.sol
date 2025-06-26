@@ -53,7 +53,6 @@ abstract contract TaikoInbox2 is
     constructor(
         address _inboxWrapper,
         address _verifier,
-        address _bondToken,
         address _signalService
     )
         nonZeroAddr(_verifier)
@@ -62,7 +61,6 @@ abstract contract TaikoInbox2 is
     {
         inboxWrapper = _inboxWrapper;
         verifier = _verifier;
-        bondToken = _bondToken;
         signalService = _signalService;
     }
 
@@ -86,25 +84,23 @@ abstract contract TaikoInbox2 is
         bool _paused = state.validateSummary(_summary);
         require(!_paused, I.ContractPaused());
 
-        I.Config memory config = _getConfig();
+        I.Config memory conf = _getConfig();
         LibPropose2.Environment memory env = LibPropose2.Environment({
-            config: config,
-            bondToken: bondToken,
+            conf: conf,
             inboxWrapper: inboxWrapper,
-            signalService: signalService,
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
-            parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % config.batchRingBufferSize],
+            parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
             getBlobHash: _getBlobHash,
             isSignalSent: _isSignalSent,
             debitBond: _debitBond,
             creditBond: _creditBond,
-            saveBatchMetaHash: _saveBatchMetaHash,
-            transferFee: _transferFee
+            transferFee: _transferFee,
+            syncChainData: _syncChainData
         });
 
-        (meta_, summary_) = LibPropose2.proposeBatch(
+        (meta_, summary_) = state.proposeBatch(
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
@@ -133,10 +129,6 @@ abstract contract TaikoInbox2 is
 
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
         state.withdrawBond(bondToken, _amount);
-    }
-
-    function v4BondToken() external view returns (address) {
-        return bondToken;
     }
 
     function v4BondBalanceOf(address _user) external view returns (uint256) {
@@ -204,17 +196,13 @@ abstract contract TaikoInbox2 is
         LibBonds2.creditBond(state, _user, _amount);
     }
 
-    function _saveBatchMetaHash(
-        uint256 _numBatches,
-        I.Config memory _config,
-        bytes32 _batchMetaHash
-    )
-        private
-    {
-        state.batches[_numBatches % _config.batchRingBufferSize] = _batchMetaHash;
-    }
-
     function _transferFee(address _feeToken, address _from, address _to, uint256 _amount) private {
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
+    }
+
+    function _syncChainData(I.Config memory _config, uint64 _blockId, bytes32 _stateRoot) private {
+        ISignalService(signalService).syncChainData(
+            _config.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
+        );
     }
 }

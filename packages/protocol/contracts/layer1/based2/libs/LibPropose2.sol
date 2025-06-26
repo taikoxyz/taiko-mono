@@ -2,12 +2,10 @@
 pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibData2.sol";
 import "./LibAuth2.sol";
 import "./LibFork2.sol";
-import "./LibBonds2.sol";
 
 /// @title LibPropose2
 /// @custom:security-contact security@taiko.xyz
@@ -17,10 +15,8 @@ library LibPropose2 {
     error MetaHashNotMatch();
 
     struct Environment {
-        I.Config config;
-        address bondToken;
+        I.Config conf;
         address inboxWrapper;
-        address signalService; // TODO: remove this
         address sender;
         uint48 blockTimestamp;
         uint48 blockNumber;
@@ -29,8 +25,8 @@ library LibPropose2 {
         function(bytes32) view returns (bool) isSignalSent;
         function(address, address, uint256) debitBond;
         function(address, uint256) creditBond;
-        function(uint, I.Config memory, bytes32) saveBatchMetaHash;
         function(address, address, address, uint256) transferFee;
+        function(I.Config memory, uint64, bytes32) syncChainData;
     }
 
     struct ValidationOutput {
@@ -45,6 +41,7 @@ library LibPropose2 {
     }
 
     function proposeBatch(
+        I.State storage $,
         Environment memory _env,
         I.Summary calldata _summary,
         I.BatchProposeMetadataEvidence calldata _evidence,
@@ -68,9 +65,8 @@ library LibPropose2 {
             meta_ = _populateBatchMetadata(_env, params, output);
 
             // Update storage -- only affecting 1 slot
-            _env.saveBatchMetaHash(
-                summary_.numBatches, _env.config, hashBatch(summary_.numBatches, meta_)
-            );
+            $.batches[summary_.numBatches % _env.conf.batchRingBufferSize] =
+                hashBatch(summary_.numBatches, meta_);
 
             // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
             // instead of here to avoid unncessary re-writes.
@@ -107,9 +103,9 @@ library LibPropose2 {
         unchecked {
             if (_params.proverAuth.length == 0) {
                 _env.debitBond(
-                    _env.bondToken,
+                    _env.conf.bondToken,
                     _params.proposer,
-                    _env.config.livenessBond + _env.config.provabilityBond
+                    _env.conf.livenessBond + _env.conf.provabilityBond
                 );
                 return _params.proposer;
             }
@@ -122,7 +118,7 @@ library LibPropose2 {
             // Outsource the prover authentication to the LibAuth library to
             // reduce this contract's code size.
             I.ProverAuth memory auth = LibAuth2.validateProverAuth(
-                _env.config.chainId,
+                _env.conf.chainId,
                 _summary.numBatches,
                 keccak256(abi.encode(_params)),
                 _output.txListHash,
@@ -131,30 +127,30 @@ library LibPropose2 {
 
             prover_ = auth.prover;
 
-            if (auth.feeToken == _env.bondToken) {
+            if (auth.feeToken == _env.conf.bondToken) {
                 // proposer pay the prover fee with bond tokens
                 _env.debitBond(
-                    _env.bondToken, _params.proposer, auth.fee + _env.config.provabilityBond
+                    _env.conf.bondToken, _params.proposer, auth.fee + _env.conf.provabilityBond
                 );
 
                 // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                 // if not then add the diff to the bond balance
-                int256 bondDelta = int96(auth.fee) - int96(_env.config.livenessBond);
+                int256 bondDelta = int96(auth.fee) - int96(_env.conf.livenessBond);
 
                 if (bondDelta < 0) {
-                    _env.debitBond(_env.bondToken, prover_, uint256(-bondDelta));
+                    _env.debitBond(_env.conf.bondToken, prover_, uint256(-bondDelta));
                 } else {
                     _env.creditBond(prover_, uint256(bondDelta));
                 }
             } else if (_params.proposer == prover_) {
                 _env.debitBond(
-                    _env.bondToken,
+                    _env.conf.bondToken,
                     _params.proposer,
-                    _env.config.livenessBond + _env.config.provabilityBond
+                    _env.conf.livenessBond + _env.conf.provabilityBond
                 );
             } else {
-                _env.debitBond(_env.bondToken, _params.proposer, _env.config.provabilityBond);
-                _env.debitBond(_env.bondToken, prover_, _env.config.livenessBond);
+                _env.debitBond(_env.conf.bondToken, _params.proposer, _env.conf.provabilityBond);
+                _env.debitBond(_env.conf.bondToken, prover_, _env.conf.livenessBond);
 
                 if (auth.fee != 0) {
                     _env.transferFee(auth.feeToken, _params.proposer, prover_, auth.fee);
@@ -176,8 +172,7 @@ library LibPropose2 {
     {
         unchecked {
             require(
-                _summary.numBatches
-                    <= _summary.lastVerifiedBatchId + _env.config.maxUnverifiedBatches,
+                _summary.numBatches <= _summary.lastVerifiedBatchId + _env.conf.maxUnverifiedBatches,
                 I.TooManyBatches()
             );
 
@@ -232,7 +227,7 @@ library LibPropose2 {
             uint256 nBlocks = params_.blocks.length;
 
             require(nBlocks != 0, I.BlockNotFound());
-            require(nBlocks <= _env.config.maxBlocksPerBatch, I.TooManyBlocks());
+            require(nBlocks <= _env.conf.maxBlocksPerBatch, I.TooManyBlocks());
 
             if (params_.lastBlockTimestamp == 0) {
                 params_.lastBlockTimestamp = _env.blockTimestamp;
@@ -251,7 +246,7 @@ library LibPropose2 {
                 uint256 numSignals = blockParams.signalSlots.length;
                 if (numSignals == 0) continue;
 
-                require(numSignals <= _env.config.maxSignalsToReceive, I.TooManySignals());
+                require(numSignals <= _env.conf.maxSignalsToReceive, I.TooManySignals());
 
                 for (uint256 j; j < numSignals; ++j) {
                     require(_env.isSignalSent(blockParams.signalSlots[j]), I.SignalNotSent());
@@ -264,7 +259,7 @@ library LibPropose2 {
 
             require(
                 firstBlockTimestamp
-                    + _env.config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    + _env.conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
                     >= _env.blockTimestamp,
                 I.TimestampTooSmall()
             );
@@ -283,7 +278,7 @@ library LibPropose2 {
                 if (anchorBlockId != 0) {
                     require(
                         foundNoneZeroAnchorBlockId
-                            || anchorBlockId + _env.config.maxAnchorHeightOffset >= _env.blockNumber,
+                            || anchorBlockId + _env.conf.maxAnchorHeightOffset >= _env.blockNumber,
                         I.AnchorIdTooSmall()
                     );
 
@@ -315,9 +310,7 @@ library LibPropose2 {
             output_.lastBlockId = uint48(output_.firstBlockId + nBlocks);
 
             require(
-                LibFork2.isBlocksInCurrentFork(
-                    _env.config, output_.firstBlockId, output_.lastBlockId
-                ),
+                LibFork2.isBlocksInCurrentFork(_env.conf, output_.firstBlockId, output_.lastBlockId),
                 BlocksNotInCurrentFork()
             );
         }
@@ -336,18 +329,18 @@ library LibPropose2 {
             meta_.buildMeta = I.BatchBuildMetadata({
                 txsHash: _output.txsHash,
                 blobHashes: _output.blobHashes,
-                extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_env.config, _params))),
+                extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_env.conf, _params))),
                 coinbase: _params.coinbase,
                 proposedIn: uint48(block.number),
                 blobCreatedIn: _params.blobParams.createdIn,
                 blobByteOffset: _params.blobParams.byteOffset,
                 blobByteSize: _params.blobParams.byteSize,
-                gasLimit: _env.config.blockMaxGasLimit,
+                gasLimit: _env.conf.blockMaxGasLimit,
                 lastBlockId: _output.lastBlockId,
                 lastBlockTimestamp: _params.lastBlockTimestamp,
                 anchorBlocks: _output.anchorBlocks,
                 blocks: _params.blocks,
-                baseFeeConfig: _env.config.baseFeeConfig
+                baseFeeConfig: _env.conf.baseFeeConfig
             });
 
             meta_.proposeMeta = I.BatchProposeMetadata({
@@ -362,8 +355,8 @@ library LibPropose2 {
                 proposedAt: uint48(block.timestamp),
                 firstBlockId: _output.firstBlockId,
                 lastBlockId: meta_.buildMeta.lastBlockId,
-                livenessBond: _env.config.livenessBond,
-                provabilityBond: _env.config.provabilityBond
+                livenessBond: _env.conf.livenessBond,
+                provabilityBond: _env.conf.provabilityBond
             });
         }
     }

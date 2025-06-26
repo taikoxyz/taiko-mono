@@ -216,6 +216,8 @@ interface ITaikoInbox2 {
         uint16 maxBlocksPerBatch;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
+        /// @notice The token used for bonding.
+        address bondToken;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.

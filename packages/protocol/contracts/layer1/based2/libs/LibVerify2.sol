@@ -30,11 +30,11 @@ library LibVerify2 {
         unchecked {
             uint48 batchId = _summary.lastVerifiedBatchId + 1;
 
-            if (!LibFork2.isBlocksInCurrentFork(_env.config, batchId, batchId)) {
+            if (!LibFork2.isBlocksInCurrentFork(_env.conf, batchId, batchId)) {
                 return _summary;
             }
             uint256 stopBatchId = uint256(_summary.numBatches).min(
-                _env.config.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
+                _env.conf.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
             );
 
             uint256 nTransitions = _trans.length;
@@ -43,7 +43,7 @@ library LibVerify2 {
             bytes32 lastSyncedStateRoot;
 
             for (; batchId < stopBatchId; ++batchId) {
-                uint256 slot = batchId % _env.config.batchRingBufferSize;
+                uint256 slot = batchId % _env.conf.batchRingBufferSize;
 
                 (uint48 embededBatchId, bytes32 partialParentHash) =
                     LibData2.loadBatchIdAndPartialParentHash($, slot); // 1 SLOAD
@@ -66,7 +66,7 @@ library LibVerify2 {
 
                 _summary.lastVerifiedBlockHash = _trans[i].blockHash;
 
-                if (batchId % _env.config.stateRootSyncInternal == 0) {
+                if (batchId % _env.conf.stateRootSyncInternal == 0) {
                     lastSyncedBlockId = _trans[i].lastBlockId;
                     lastSyncedStateRoot = _trans[i].stateRoot;
                 }
@@ -78,12 +78,7 @@ library LibVerify2 {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
                 _summary.lastSyncedAt = uint48(block.timestamp);
 
-                ISignalService(_env.signalService).syncChainData(
-                    _env.config.chainId,
-                    LibSignals.STATE_ROOT,
-                    lastSyncedBlockId,
-                    lastSyncedStateRoot
-                );
+                _env.syncChainData(_env.conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
 
             return _summary;
