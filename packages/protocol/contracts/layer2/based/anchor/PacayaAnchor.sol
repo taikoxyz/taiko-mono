@@ -194,6 +194,10 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
         (basefee_, newGasExcess_) = LibEIP1559.calc1559BaseFee(
             newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
+
+        if (basefee_ < 0.1 gwei) {
+            basefee_ = 0.1 gwei;
+        }
     }
 
     /// @inheritdoc IBlockHashProvider
