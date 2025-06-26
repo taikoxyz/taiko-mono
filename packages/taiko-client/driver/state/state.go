@@ -90,6 +90,19 @@ func (s *State) init(ctx context.Context) error {
 	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
 	s.setL2Head(l2Head)
 
+	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+
+	// Init driver_l2Head_id metric.
+	log.Debug("Init driver_l2Head_id metric", "value", stateVars.Stats2.NumBatches-1)
+	metrics.DriverL2HeadIDGauge.Set(float64(stateVars.Stats2.NumBatches - 1))
+
+	// Init driver_l2Verified_id metric.
+	log.Debug("Init driver_l2Verified_id metric", "value", stateVars.Stats2.LastVerifiedBatchId)
+	metrics.DriverL2VerifiedHeightGauge.Set(float64(stateVars.Stats2.LastVerifiedBatchId))
+
 	return nil
 }
 
@@ -134,7 +147,6 @@ func (s *State) eventLoop(ctx context.Context) {
 				"lastVerifiedBatchId", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
-			metrics.DriverL2VerifiedHeightGauge.Set(float64(e.BatchId))
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
 			s.l1HeadsFeed.Send(newHead)

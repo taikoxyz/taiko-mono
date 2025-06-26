@@ -309,9 +309,17 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 		return
 	}
 
+	// Update driver_l2Head_id metric.
+	log.Debug("Update driver_l2Head_id metric", "value", vars.Stats2.NumBatches-1)
+	metrics.DriverL2HeadIDGauge.Set(float64(vars.Stats2.NumBatches - 1))
+
+	// Update driver_l2Verified_id metric.
+	log.Debug("Update driver_l2Verified_id metric", "value", vars.Stats2.LastVerifiedBatchId)
+	metrics.DriverL2VerifiedHeightGauge.Set(float64(vars.Stats2.LastVerifiedBatchId))
+
 	log.Info(
 		"📖 Protocol status",
-		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
+		"lastVerifiedBatchID", vars.Stats2.LastVerifiedBatchId,
 		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
 	)
