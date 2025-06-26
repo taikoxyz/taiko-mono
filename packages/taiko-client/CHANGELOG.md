@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.3](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.2...taiko-alethia-client-v1.6.3) (2025-06-26)
+
+
+### Bug Fixes
+
+* **taiko-client:** handle reorg case when getting blobs ([#19660](https://github.com/taikoxyz/taiko-mono/issues/19660)) ([aeb9ddc](https://github.com/taikoxyz/taiko-mono/commit/aeb9ddca5c264581ebc409f64c29a300521d6725))
+
+
+### Chores
+
+* **taiko-client:** make function comment match function name ([#19649](https://github.com/taikoxyz/taiko-mono/issues/19649)) ([30bde71](https://github.com/taikoxyz/taiko-mono/commit/30bde714f9a8cd296d586d6a9da09222dbf41ab5))
+
 ## [1.6.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.1...taiko-alethia-client-v1.6.2) (2025-06-05)
 
 
