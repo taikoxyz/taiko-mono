@@ -70,11 +70,11 @@ library LibProve2 {
 
         // Verify the batch's metadata.
         uint256 slot = _input.transition.batchId % _env.config.batchRingBufferSize;
-        I.Batch memory batch = $.batches[slot]; // 1 SLOAD
+        bytes32 batchMetaHash = $.batches[slot]; // 1 SLOAD
 
-        _validateBatchProveMeta(batch.metaHash, _input);
+        _validateBatchProveMeta(batchMetaHash, _input);
 
-        ctxHash_ = keccak256(abi.encode(batch.metaHash, _input.transition));
+        ctxHash_ = keccak256(abi.encode(batchMetaHash, _input.transition));
 
         tranMeta_ = I.TransitionMeta({
             parentHash: _input.transition.parentHash,

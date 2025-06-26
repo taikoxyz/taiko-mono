@@ -142,10 +142,6 @@ interface ITaikoInbox2 {
         bytes32 metaHash;
     }
 
-    struct Batch {
-        bytes32 metaHash;
-    }
-
     /// @notice Forge is only able to run coverage in case the contracts by default capable of
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     struct Stats1 {
@@ -225,7 +221,7 @@ interface ITaikoInbox2 {
     /// @notice Struct holding the state variables for the {Taiko} contract.
     struct State {
         // Ring buffer for proposed batches and a some recent verified batches.
-        mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
+        mapping(uint256 batchId_mod_batchRingBufferSize => bytes32 metaHash) batches;
         // Indexing to transition ids (ring buffer not possible)
         mapping(uint256 batchId => mapping(bytes32 parentHash => bytes32 metahash))
             transitionMetaHashes;

@@ -42,9 +42,8 @@ library LibPropose2 {
         internal
         returns (I.BatchMetadata memory meta_, I.Summary memory summary_)
     {
+        summary_ = _summary; // make a copy for update
         unchecked {
-            summary_ = _summary; // make a copy for update
-
             // Validate parentProposeMeta against it in-storage hash.
             _validateBatchProposeMeta(_env, $, __evidence, summary_.numBatches - 1);
 
@@ -57,7 +56,7 @@ library LibPropose2 {
 
             // Update storage -- only affecting 1 slot
             $.batches[summary_.numBatches % _env.config.batchRingBufferSize] =
-                I.Batch(hashBatch(summary_.numBatches, meta_));
+                hashBatch(summary_.numBatches, meta_);
 
             // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
             // instead of here to avoid unncessary re-writes.
@@ -168,8 +167,8 @@ library LibPropose2 {
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
         bytes32 metaHash = keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
 
-        I.Batch storage batch = $.batches[_batchId % _env.config.batchRingBufferSize];
-        require(batch.metaHash == metaHash, MetaHashNotMatch());
+        bytes32 batchMetaHash = $.batches[_batchId % _env.config.batchRingBufferSize];
+        require(batchMetaHash == metaHash, MetaHashNotMatch());
     }
 
     function _validateBatchParams(
