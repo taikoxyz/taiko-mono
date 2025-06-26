@@ -84,12 +84,31 @@ abstract contract TaikoInbox2 is
         bool _paused = state.validateSummary(_summary);
         require(!_paused, I.ContractPaused());
 
-        LibData2.Env memory env = _loadEnv();
-        (meta_, summary_) = state.proposeBatch(
+        I.Config memory config = _getConfig();
+        LibPropose2.Environment memory env = LibPropose2.Environment({
+            config: config,
+            bondToken: bondToken,
+            inboxWrapper: inboxWrapper,
+            signalService: signalService,
+            sender: msg.sender,
+            blockTimestamp: uint48(block.timestamp),
+            blockNumber: uint48(block.number),
+            parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % config.batchRingBufferSize],
+            getBlobHash: _getBlobHash,
+            isSignalSent: _isSignalSent,
+            debitBond: _debitBond,
+            creditBond: _creditBond,
+            saveBatchMetaHash: _saveBatchMetaHash
+        });
+
+        (meta_, summary_) = LibPropose2.proposeBatch(
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
+        emit I.BatchProposed(summary_.numBatches, meta_);
+
         summary_ = state.verifyBatches(env, summary_, _trans);
+
         state.updateSummary(summary_, _paused);
     }
 
@@ -164,5 +183,31 @@ abstract contract TaikoInbox2 is
             signalService: signalService,
             prevSummaryHash: state.summaryHash
         });
+    }
+
+    function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
+        return blockhash(_blockNumber);
+    }
+
+    function _isSignalSent(bytes32 _signalSlot) private view returns (bool) {
+        return ISignalService(signalService).isSignalSent(_signalSlot);
+    }
+
+    function _debitBond(address _bondToken, address _user, uint256 _amount) private {
+        LibBonds2.debitBond(state, _bondToken, _user, _amount);
+    }
+
+    function _creditBond(address _user, uint256 _amount) private {
+        LibBonds2.creditBond(state, _user, _amount);
+    }
+
+    function _saveBatchMetaHash(
+        uint256 _numBatches,
+        LibPropose2.Environment memory _env,
+        bytes32 _batchMetaHash
+    )
+        private
+    {
+        state.batches[_numBatches % _env.config.batchRingBufferSize] = _batchMetaHash;
     }
 }

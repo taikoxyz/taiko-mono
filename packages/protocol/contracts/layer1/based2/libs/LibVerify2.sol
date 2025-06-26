@@ -8,6 +8,7 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibBonds2.sol";
 import "./LibFork2.sol";
 import "./LibData2.sol";
+import "./LibPropose2.sol";
 
 /// @title LibVerify2
 /// @custom:security-contact security@taiko.xyz
@@ -19,7 +20,7 @@ library LibVerify2 {
 
     function verifyBatches(
         I.State storage $,
-        LibData2.Env memory _env,
+        LibPropose2.Environment memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
