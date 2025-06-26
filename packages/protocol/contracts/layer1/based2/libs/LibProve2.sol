@@ -56,7 +56,9 @@ library LibProve2 {
         private
         returns (I.TransitionMeta memory tranMeta_, bytes32 ctxHash_)
     {
-        _validateTransition(_input.transition, _summary);
+        require(_input.transition.batchId > _summary.lastVerifiedBatchId, I.BatchNotFound());
+        require(_input.transition.batchId < _summary.numBatches, I.BatchNotFound());
+        require(_input.transition.parentHash != 0, I.InvalidTransitionParentHash());
 
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify        the firstBlockId of the block in the following
@@ -97,38 +99,37 @@ library LibProve2 {
             _input.proveMeta.prover
         );
 
+        bytes32 metaHash = keccak256(abi.encode(tranMeta_));
+
         // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
         // declared state variable -- note that the second mapping key is always 1.
         // Tip: the reuse of the first transition slot can save 3900 gas per batch.
-        bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
-        bytes32 metaHash = keccak256(abi.encode(tranMeta_));
-        if (
-            firstTransitionParentHash == _input.transition.parentHash
-                || firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER
-        ) {
-            $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
+        (uint48 embededBatchId, bytes32 partialParentHash) =
+            LibData2.loadBatchIdAndPartialParentHash($, slot);
 
+        if (embededBatchId != _input.transition.batchId) {
             // This is the very first transition of the batch, or a transition with the same parent
             // hash. We can reuse the transition state slot to reduce gas cost.
-            if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
-                $.transitions[slot][1].parentHash = _input.transition.parentHash; // 1 SSTORE
+            $.transitions[slot][1].batchIdAndPartialParentHash = LibData2
+                .encodeBatchIdAndPartialParentHash(
+                _input.transition.batchId, _input.transition.parentHash
+            ); // 1 SSTORE
+            $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
 
-                // The prover for the first transition is responsible for placing the provability
-                // if the transition is within extended proving window.
-                if (
-                    tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
-                        && msg.sender != _input.proveMeta.proposer
-                ) {
-                    // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
-                    // of the proposer's bond through an invalid first transition.
-                    LibBonds2.debitBond(
-                        $, _env.bondToken, msg.sender, _input.proveMeta.provabilityBond
-                    );
-                    LibBonds2.creditBond(
-                        $, _input.proveMeta.proposer, _input.proveMeta.provabilityBond
-                    );
-                }
+            // The prover for the first transition is responsible for placing the provability
+            // if the transition is within extended proving window.
+            if (
+                tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
+                    && msg.sender != _input.proveMeta.proposer
+            ) {
+                // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
+                // of the proposer's bond through an invalid first transition.
+                LibBonds2.debitBond($, _env.bondToken, msg.sender, _input.proveMeta.provabilityBond);
+                LibBonds2.creditBond($, _input.proveMeta.proposer, _input.proveMeta.provabilityBond);
             }
+        } else if (partialParentHash == _input.transition.parentHash >> 48) {
+            // Overwrite the first proof
+            $.transitions[slot][1].metaHash = metaHash; // 1 SSTORE
         } else {
             // This is not the very first transition of the batch, or a transition with the same
             // parent hash. Use a mapping to store the meta hash of the transition. The mapping
@@ -171,22 +172,5 @@ library LibProve2 {
         bytes32 metaHash = keccak256(abi.encode(_input.idAndBuildHash, rightHash));
 
         require(_batchMetaHash == metaHash, MetaHashNotMatch());
-    }
-
-    function _validateTransition(
-        I.Transition calldata _transition,
-        I.Summary memory _summary
-    )
-        private
-        pure
-    {
-        require(_transition.batchId > _summary.lastVerifiedBatchId, I.BatchNotFound());
-        require(_transition.batchId < _summary.numBatches, I.BatchNotFound());
-
-        require(
-            _transition.parentHash != 0
-                && _transition.parentHash != LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER,
-            I.InvalidTransitionParentHash()
-        );
     }
 }

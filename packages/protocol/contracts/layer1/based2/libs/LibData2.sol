@@ -8,8 +8,6 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 /// @title LibData2
 /// @custom:security-contact security@taiko.xyz
 library LibData2 {
-    bytes32 internal constant FIRST_TRAN_PARENT_HASH_PLACEHOLDER = bytes32(type(uint256).max);
-
     error SummaryMismatch();
 
     struct Env {
@@ -41,5 +39,30 @@ library LibData2 {
         require(summaryHash >> 1 == keccak256(abi.encode(_summary)) >> 1, SummaryMismatch());
 
         return uint256(summaryHash) & 1 == 1;
+    }
+
+    function loadBatchIdAndPartialParentHash(
+        I.State storage $,
+        uint256 _slot
+    )
+        internal
+        view
+        returns (uint48 embededBatchId_, bytes32 partialParentHash_)
+    {
+        bytes32 value = $.transitions[_slot][1].batchIdAndPartialParentHash; // 1 SLOAD
+        embededBatchId_ = uint48(uint256(value));
+        partialParentHash_ = value >> 48;
+    }
+
+    function encodeBatchIdAndPartialParentHash(
+        uint48 batchId_,
+        bytes32 partialParentHash_
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        uint256 v = uint256(partialParentHash_) & ~type(uint48).max | batchId_;
+        return bytes32(v);
     }
 }

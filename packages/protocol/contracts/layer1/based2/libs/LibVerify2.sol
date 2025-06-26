@@ -44,16 +44,17 @@ library LibVerify2 {
             for (; batchId < stopBatchId; ++batchId) {
                 uint256 slot = batchId % _env.config.batchRingBufferSize;
 
-                bytes32 firstTransitionParentHash = $.transitions[slot][1].parentHash; // 1 SLOAD
-                if (firstTransitionParentHash == LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER) {
+                (uint48 embededBatchId, bytes32 partialParentHash) =
+                    LibData2.loadBatchIdAndPartialParentHash($, slot); // 1 SLOAD
+
+                if (embededBatchId != batchId) {
                     // this batch is not proved with at least one transition
                     break;
                 }
 
                 bytes32 tranMetaHash;
-                if (firstTransitionParentHash == _summary.lastVerifiedBlockHash) {
+                if (partialParentHash == _summary.lastVerifiedBlockHash >> 48) {
                     tranMetaHash = $.transitions[slot][1].metaHash;
-                    $.transitions[slot][1].parentHash = LibData2.FIRST_TRAN_PARENT_HASH_PLACEHOLDER;
                 } else {
                     tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
                     if (tranMetaHash == 0) break;
