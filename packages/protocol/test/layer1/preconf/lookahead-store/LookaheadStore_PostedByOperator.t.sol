@@ -69,7 +69,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         ISlasher.SignedCommitment memory signedCommitment =
             _buildLookaheadCommitment(_lookaheadSlots, _lookaheadOperators.length);
 
-        // Manipulate the reigstration of the poster
+        // Manipulate the registration of the poster
         urc.setOperatorData(
             _lookaheadPostingOperator.registrationRoot,
             _lookaheadPostingOperator.committer,
@@ -96,7 +96,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         ISlasher.SignedCommitment memory signedCommitment =
             _buildLookaheadCommitment(_lookaheadSlots, _lookaheadOperators.length);
 
-        // Manipulate the reigstration of the poster
+        // Manipulate the registration of the poster
         urc.setOperatorData(
             _lookaheadPostingOperator.registrationRoot,
             _lookaheadPostingOperator.committer,
