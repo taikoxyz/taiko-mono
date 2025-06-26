@@ -19,6 +19,7 @@ var (
 		{Name: "proposer", Type: "address"},
 		{Name: "coinbase", Type: "address"},
 		{Name: "parentMetaHash", Type: "bytes32"},
+		{Name: "baseFee", Type: "uint96"},
 		{Name: "anchorBlockId", Type: "uint64"},
 		{Name: "lastBlockTimestamp", Type: "uint64"},
 		{Name: "revertIfNotFirstProposal", Type: "bool"},
