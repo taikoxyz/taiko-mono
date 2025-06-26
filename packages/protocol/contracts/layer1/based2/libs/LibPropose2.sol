@@ -63,6 +63,8 @@ library LibPropose2 {
             summary_.numBatches += 1;
             summary_.lastProposedIn = uint48(block.number);
         }
+
+        emit I.BatchProposed(summary_.numBatches, meta_);
     }
 
     function hashBatch(
