@@ -95,15 +95,14 @@ abstract contract TaikoInbox2 is
 
     function v4ProveBatches(
         I.Summary calldata _summary,
-        I.BatchProveMetadataEvidence[] calldata _evidences,
-        I.Transition[] calldata _trans,
+        I.BatchProveInput[] calldata _inputs,
         bytes calldata _proof
     )
         external
         nonReentrant
     {
         LibData2.Env memory env = _loadEnv();
-        state.proveBatches(env, _summary, _evidences, _trans, _proof);
+        state.proveBatches(env, _summary, _inputs, _proof);
     }
 
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {

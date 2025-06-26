@@ -100,10 +100,11 @@ interface ITaikoInbox2 {
         BatchProposeMetadata proposeMeta;
     }
 
-    struct BatchProveMetadataEvidence {
+    struct BatchProveInput {
         bytes32 idAndBuildHash; // aka leftHash
         bytes32 proposeMetaHash;
         BatchProveMetadata proveMeta;
+        Transition transition;
     }
 
     /// @notice Struct representing transition to be proven.
