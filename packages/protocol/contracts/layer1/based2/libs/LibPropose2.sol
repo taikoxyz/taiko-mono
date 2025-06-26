@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibNetwork.sol";
@@ -13,8 +12,6 @@ import "./LibBonds2.sol";
 /// @title LibPropose2
 /// @custom:security-contact security@taiko.xyz
 library LibPropose2 {
-    using SafeERC20 for IERC20;
-
     error BlocksNotInCurrentFork();
     error InvalidSummary();
     error MetaHashNotMatch();
@@ -32,7 +29,8 @@ library LibPropose2 {
         function(bytes32) view returns (bool) isSignalSent;
         function(address, address, uint256) debitBond;
         function(address, uint256) creditBond;
-        function(uint, Environment memory, bytes32) saveBatchMetaHash;
+        function(uint, I.Config memory, bytes32) saveBatchMetaHash;
+        function(address, address, address, uint256) transferFee;
     }
 
     struct ValidationOutput {
@@ -70,7 +68,9 @@ library LibPropose2 {
             meta_ = _populateBatchMetadata(_env, params, output);
 
             // Update storage -- only affecting 1 slot
-            _env.saveBatchMetaHash(summary_.numBatches, _env, hashBatch(summary_.numBatches, meta_));
+            _env.saveBatchMetaHash(
+                summary_.numBatches, _env.config, hashBatch(summary_.numBatches, meta_)
+            );
 
             // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
             // instead of here to avoid unncessary re-writes.
@@ -157,7 +157,7 @@ library LibPropose2 {
                 _env.debitBond(_env.bondToken, prover_, _env.config.livenessBond);
 
                 if (auth.fee != 0) {
-                    IERC20(auth.feeToken).safeTransferFrom(_params.proposer, prover_, auth.fee);
+                    _env.transferFee(auth.feeToken, _params.proposer, prover_, auth.fee);
                 }
             }
         }

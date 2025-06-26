@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "./libs/LibBonds2.sol";
@@ -32,6 +33,7 @@ abstract contract TaikoInbox2 is
     IBondManager2,
     ITaiko
 {
+    using SafeERC20 for IERC20;
     using LibBonds2 for ITaikoInbox2.State;
     using LibData2 for ITaikoInbox2.State;
     using LibPropose2 for ITaikoInbox2.State;
@@ -98,7 +100,8 @@ abstract contract TaikoInbox2 is
             isSignalSent: _isSignalSent,
             debitBond: _debitBond,
             creditBond: _creditBond,
-            saveBatchMetaHash: _saveBatchMetaHash
+            saveBatchMetaHash: _saveBatchMetaHash,
+            transferFee: _transferFee
         });
 
         (meta_, summary_) = LibPropose2.proposeBatch(
@@ -203,11 +206,15 @@ abstract contract TaikoInbox2 is
 
     function _saveBatchMetaHash(
         uint256 _numBatches,
-        LibPropose2.Environment memory _env,
+        I.Config memory _config,
         bytes32 _batchMetaHash
     )
         private
     {
-        state.batches[_numBatches % _env.config.batchRingBufferSize] = _batchMetaHash;
+        state.batches[_numBatches % _config.batchRingBufferSize] = _batchMetaHash;
+    }
+
+    function _transferFee(address _feeToken, address _from, address _to, uint256 _amount) private {
+        IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
 }
