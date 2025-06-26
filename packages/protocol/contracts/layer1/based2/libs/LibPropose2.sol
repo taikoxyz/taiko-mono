@@ -27,6 +27,8 @@ library LibPropose2 {
         function(address, uint256) creditBond;
         function(address, address, address, uint256) transferFee;
         function(I.Config memory, uint64, bytes32) syncChainData;
+        function(uint64, uint64, bytes32, bytes32, bytes calldata) view returns (address, address, uint96)
+            validateProverAuth;
     }
 
     struct ValidationOutput {
@@ -61,7 +63,7 @@ library LibPropose2 {
             (I.BatchParams memory params, ValidationOutput memory output) =
                 _validateBatchParams(_env, summary_, _evidence.proposeMeta, _params, _txList);
 
-            output.prover = _validateProver(_env, summary_, params, output);
+            output.prover = _validateProver(_env, summary_, _params.proverAuth, params, output);
             meta_ = _populateBatchMetadata(_env, params, output);
 
             // Update storage -- only affecting 1 slot
@@ -94,6 +96,7 @@ library LibPropose2 {
     function _validateProver(
         Environment memory _env,
         I.Summary memory _summary,
+        bytes calldata _proverAuth,
         I.BatchParams memory _params,
         ValidationOutput memory _output
     )
@@ -110,32 +113,31 @@ library LibPropose2 {
                 return _params.proposer;
             }
 
-            bytes memory proverAuth = _params.proverAuth;
             // Circular dependency so zero it out. (BatchParams has proverAuth but
             // proverAuth has also batchParamsHash)
             _params.proverAuth = "";
 
             // Outsource the prover authentication to the LibAuth library to
             // reduce this contract's code size.
-            I.ProverAuth memory auth = LibAuth2.validateProverAuth(
+            address feeToken;
+            uint96 fee;
+            (prover_, feeToken, fee) = _env.validateProverAuth(
                 _env.conf.chainId,
                 _summary.numBatches,
                 keccak256(abi.encode(_params)),
                 _output.txListHash,
-                proverAuth
+                _proverAuth
             );
 
-            prover_ = auth.prover;
-
-            if (auth.feeToken == _env.conf.bondToken) {
+            if (feeToken == _env.conf.bondToken) {
                 // proposer pay the prover fee with bond tokens
                 _env.debitBond(
-                    _env.conf.bondToken, _params.proposer, auth.fee + _env.conf.provabilityBond
+                    _env.conf.bondToken, _params.proposer, fee + _env.conf.provabilityBond
                 );
 
                 // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                 // if not then add the diff to the bond balance
-                int256 bondDelta = int96(auth.fee) - int96(_env.conf.livenessBond);
+                int256 bondDelta = int96(fee) - int96(_env.conf.livenessBond);
 
                 if (bondDelta < 0) {
                     _env.debitBond(_env.conf.bondToken, prover_, uint256(-bondDelta));
@@ -152,8 +154,8 @@ library LibPropose2 {
                 _env.debitBond(_env.conf.bondToken, _params.proposer, _env.conf.provabilityBond);
                 _env.debitBond(_env.conf.bondToken, prover_, _env.conf.livenessBond);
 
-                if (auth.fee != 0) {
-                    _env.transferFee(auth.feeToken, _params.proposer, prover_, auth.fee);
+                if (fee != 0) {
+                    _env.transferFee(feeToken, _params.proposer, prover_, fee);
                 }
             }
         }

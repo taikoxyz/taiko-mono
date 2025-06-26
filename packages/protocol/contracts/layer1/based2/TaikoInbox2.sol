@@ -97,7 +97,8 @@ abstract contract TaikoInbox2 is
             debitBond: _debitBond,
             creditBond: _creditBond,
             transferFee: _transferFee,
-            syncChainData: _syncChainData
+            syncChainData: _syncChainData,
+            validateProverAuth: LibAuth2.validateProverAuth
         });
 
         (meta_, summary_) = state.proposeBatch(

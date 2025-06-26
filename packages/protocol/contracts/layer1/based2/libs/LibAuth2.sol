@@ -15,29 +15,31 @@ library LibAuth2 {
         uint64 _batchId,
         bytes32 _batchParamsHash,
         bytes32 _txListHash,
-        bytes memory _proverAuth
+        bytes calldata _proverAuth
     )
         internal
         view
-        returns (I.ProverAuth memory auth_)
+        returns (address prover_, address feeToken_, uint96 fee_)
     {
-        auth_ = abi.decode(_proverAuth, (I.ProverAuth));
+        I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 
         // Supporting Ether as fee token will require making ITaikoInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply
         // use USD stablecoins as fee token, we decided not to support Ether as fee token for now.
-        require(auth_.feeToken != address(0), I.EtherAsFeeTokenNotSupportedYet());
+        require(auth.feeToken != address(0), I.EtherAsFeeTokenNotSupportedYet());
 
-        require(auth_.prover != address(0), I.InvalidProver());
-        require(auth_.validUntil == 0 || auth_.validUntil >= block.timestamp, I.InvalidValidUntil());
-        require(auth_.batchId == 0 || auth_.batchId == _batchId, I.InvalidBatchId());
+        require(auth.prover != address(0), I.InvalidProver());
+        require(auth.validUntil == 0 || auth.validUntil >= block.timestamp, I.InvalidValidUntil());
+        require(auth.batchId == 0 || auth.batchId == _batchId, I.InvalidBatchId());
 
         // Save and use later, before nullifying in computeProverAuthDigest()
-        bytes memory signature = auth_.signature;
-        auth_.signature = "";
-        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth_);
+        bytes memory signature = auth.signature;
+        auth.signature = "";
+        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth);
 
-        require(auth_.prover.isValidSignatureNow(digest, signature), I.InvalidSignature());
+        require(auth.prover.isValidSignatureNow(digest, signature), I.InvalidSignature());
+
+        return (auth.prover, auth.feeToken, auth.fee);
     }
 
     function _computeProverAuthDigest(
