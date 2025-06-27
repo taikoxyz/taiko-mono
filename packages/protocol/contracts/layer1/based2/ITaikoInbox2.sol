@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/based/LibSharedData.sol";
 
 interface ITaikoInbox2 {
-    struct BlockParams {
+    struct Block {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as
         // possible.
@@ -13,16 +13,18 @@ interface ITaikoInbox2 {
         // the timestamp of the parent block in the same batch. For the first block in a batch,
         // there is no parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
-        // Signals sent on L1 and need to sync to this L2 block.
-        bytes32[] signalSlots;
         // Optional anchor block id.
         uint48 anchorBlockId;
+        // The number of signals in this block.
+        uint8 numSignals;
+        // Whether this block has an anchor block.
+        bool hasAnchorBlock;
     }
 
-    struct BlobParams {
+    struct Blobs {
         // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
         // `numBlobs` must be 0.
-        bytes32[] blobHashes;
+        bytes32[] hashes;
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
@@ -37,14 +39,16 @@ interface ITaikoInbox2 {
         uint48 createdIn;
     }
 
-    struct BatchParams {
+    struct Batch {
         address proposer;
         address coinbase;
         uint48 lastBlockTimestamp;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
-        BlobParams blobParams;
-        BlockParams[] blocks;
+        Blobs blobs;
+        bytes32[] signalSlots;
+        uint48[] anchorBlockIds;
+        uint256[] encodedBlocks; // encoded Block
         bytes proverAuth;
     }
 
@@ -65,8 +69,9 @@ interface ITaikoInbox2 {
         uint48 gasLimit;
         uint48 lastBlockId;
         uint48 lastBlockTimestamp;
-        AnchorBlock[] anchorBlocks;
-        BlockParams[] blocks;
+        uint48[] anchorBlockIds;
+        bytes32[] anchorBlockHashes;
+        uint256[] encodedBlocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
