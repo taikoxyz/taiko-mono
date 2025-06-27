@@ -25,7 +25,6 @@ library LibPropose2 {
     error InvalidSummary();
     error MetaHashNotMatch();
     error NoAnchorBlockIdWithinThisBatch();
-    error NotFirstProposal();
     error NotInboxWrapper();
     error SignalNotSent();
     error TimestampSmallerThanParent();
@@ -218,10 +217,6 @@ library LibPropose2 {
             // anchor transactions.
             if (_params.coinbase == address(0)) {
                 _params.coinbase = _params.proposer;
-            }
-
-            if (_params.revertIfNotFirstProposal) {
-                require(_summary.lastProposedIn != _env.blockNumber, NotFirstProposal());
             }
 
             if (_txList.length != 0) {

@@ -41,7 +41,6 @@ interface ITaikoInbox2 {
         address proposer;
         address coinbase;
         uint48 lastBlockTimestamp;
-        bool revertIfNotFirstProposal;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
