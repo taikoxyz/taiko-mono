@@ -224,8 +224,8 @@ library LibPropose2 {
             }
 
             // blob hashes are only accepted if the caller is trusted.
-            require(_batch.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            require(_batch.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+            require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
+            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
             require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
         } else {
             require(_batch.proposer != address(0), CustomProposerMissing());
@@ -239,18 +239,18 @@ library LibPropose2 {
             _batch.coinbase = _batch.proposer;
         }
 
-        if (_batch.blobParams.blobHashes.length == 0) {
+        if (_batch.blobs.hashes.length == 0) {
             // this is a normal batch, blobs are created and used in the current batches.
             // firstBlobIndex can be non-zero.
-            require(_batch.blobParams.numBlobs != 0, BlobNotSpecified());
-            require(_batch.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-            _batch.blobParams.createdIn = _env.blockNumber;
+            require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
+            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
+            _batch.blobs.createdIn = _env.blockNumber;
         } else {
             // this is a forced-inclusion batch, blobs were created in early blocks and are used
             // in the current batches
-            require(_batch.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-            require(_batch.blobParams.numBlobs == 0, InvalidBlobParams());
-            require(_batch.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
+            require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
+            require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
         }
         uint256 nBlocks = _batch.encodedBlocks.length;
 
@@ -341,7 +341,7 @@ library LibPropose2 {
             NoAnchorBlockIdWithinThisBatch()
         );
 
-        (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _batch.blobParams);
+        (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _batch.blobs);
 
         output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
         output.lastBlockId = uint48(output.firstBlockId + nBlocks);
@@ -355,19 +355,19 @@ library LibPropose2 {
 
     function _calculateTxsHash(
         Environment memory _env,
-        I.BlobParams memory _blobParams
+        I.Blobs memory _blobs
     )
         private
         view
         returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
         unchecked {
-            if (_blobParams.blobHashes.length != 0) {
-                blobHashes_ = _blobParams.blobHashes;
+            if (_blobs.hashes.length != 0) {
+                blobHashes_ = _blobs.hashes;
             } else {
-                blobHashes_ = new bytes32[](_blobParams.numBlobs);
-                for (uint256 i; i < _blobParams.numBlobs; ++i) {
-                    blobHashes_[i] = _env.getBlobHash(_blobParams.firstBlobIndex + i);
+                blobHashes_ = new bytes32[](_blobs.numBlobs);
+                for (uint256 i; i < _blobs.numBlobs; ++i) {
+                    blobHashes_[i] = _env.getBlobHash(_blobs.firstBlobIndex + i);
                 }
             }
 
@@ -406,9 +406,9 @@ library LibPropose2 {
             extraData: _encodeExtraDataLower128Bits(_env.conf, _batch),
             coinbase: _batch.coinbase,
             proposedIn: _env.blockNumber,
-            blobCreatedIn: _batch.blobParams.createdIn,
-            blobByteOffset: _batch.blobParams.byteOffset,
-            blobByteSize: _batch.blobParams.byteSize,
+            blobCreatedIn: _batch.blobs.createdIn,
+            blobByteOffset: _batch.blobs.byteOffset,
+            blobByteSize: _batch.blobs.byteSize,
             gasLimit: _env.conf.blockMaxGasLimit,
             lastBlockId: _output.lastBlockId,
             lastBlockTimestamp: _batch.lastBlockTimestamp,

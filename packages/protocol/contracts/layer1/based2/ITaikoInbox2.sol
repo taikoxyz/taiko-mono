@@ -21,10 +21,10 @@ interface ITaikoInbox2 {
         bool hasAnchorBlock;
     }
 
-    struct BlobParams {
+    struct Blobs {
         // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
         // `numBlobs` must be 0.
-        bytes32[] blobHashes;
+        bytes32[] hashes;
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
@@ -45,7 +45,7 @@ interface ITaikoInbox2 {
         uint48 lastBlockTimestamp;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
-        BlobParams blobParams;
+        Blobs blobs;
         bytes32[] signalSlots;
         uint48[] anchorBlockIds;
         uint256[] encodedBlocks; // encoded BlockParams
