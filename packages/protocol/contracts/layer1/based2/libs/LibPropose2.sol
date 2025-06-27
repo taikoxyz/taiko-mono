@@ -25,6 +25,7 @@ library LibPropose2 {
     error InvalidSummary();
     error MetaHashNotMatch();
     error NoAnchorBlockIdWithinThisBatch();
+    error NoBatchesToPropose();
     error NotInboxWrapper();
     error SignalNotSent();
     error TimestampSmallerThanParent();
@@ -69,33 +70,41 @@ library LibPropose2 {
     function proposeBatches(
         Environment memory _env,
         I.Summary memory _summary,
-        I.BatchParams memory _params,
+        I.BatchParams[] memory _params, // make call data, and keep changed field in output.
         I.BatchProposeMetadataEvidence calldata _evidence
     )
         internal
         returns (I.Summary memory)
     {
-        // Validate parentProposeMeta against its meta hash
-        _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
+        unchecked {
+            require(_params.length != 0, NoBatchesToPropose());
+            // Validate parentProposeMeta against its meta hash
+            _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
+            I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
 
-        I.BatchMetadata memory meta;
-        (meta, _summary) = _proposeBatch(_env, _summary, _params, _evidence);
+            for (uint256 i; i < _params.length; ++i) {
+                parentProposeMeta = _proposeBatch(_env, _summary, _params[i], parentProposeMeta);
+                
+                _summary.numBatches += 1;
+                _summary.lastProposedIn = _env.blockNumber;
+            }
 
-        return _summary;
+            return _summary;
+        }
     }
 
     function _proposeBatch(
         Environment memory _env,
         I.Summary memory _summary,
         I.BatchParams memory _params,
-        I.BatchProposeMetadataEvidence calldata _evidence
+        I.BatchProposeMetadata memory _parentProposeMeta
     )
         private
-        returns (I.BatchMetadata memory, I.Summary memory)
+        returns (I.BatchProposeMetadata memory)
     {
         // Validate the params and returns an updated copy
         (I.BatchParams memory params, ParamsValidationOutput memory output) =
-            _validateBatchParams(_env, _summary, _params, _evidence.proposeMeta);
+            _validateBatchParams(_env, _summary, _params, _parentProposeMeta);
 
         output.prover = _validateProver(_env, _summary, params.proverAuth, params);
         I.BatchMetadata memory meta = _populateBatchMetadata(_env, params, output);
@@ -103,11 +112,8 @@ library LibPropose2 {
         _env.saveBatchMetaHash(_env.conf, _summary.numBatches, hashBatch(_summary.numBatches, meta));
 
         emit I.BatchProposed(_summary.numBatches, meta);
-        unchecked {
-            _summary.numBatches += 1;
-            _summary.lastProposedIn = _env.blockNumber;
-        }
-        return (meta, _summary);
+
+        return meta.proposeMeta;
     }
 
     function hashBatch(
@@ -191,7 +197,7 @@ library LibPropose2 {
         Environment memory _env,
         I.Summary memory _summary,
         I.BatchParams memory _params,
-        I.BatchProposeMetadata calldata _parentProposeMeta
+        I.BatchProposeMetadata memory _parentProposeMeta
     )
         private
         view
