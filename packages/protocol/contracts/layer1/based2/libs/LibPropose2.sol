@@ -67,7 +67,7 @@ library LibPropose2 {
         uint48 firstBlockId;
         uint48 lastBlockId;
         bytes32[] anchorBlockHashes;
-        I.BlockParams[] blocks;
+        I.Block[] blocks;
         address proposer; // TODO
         address prover;
         address coinbase; // TODO
@@ -257,7 +257,7 @@ library LibPropose2 {
         require(nBlocks != 0, BlockNotFound());
         require(nBlocks <= _env.conf.maxBlocksPerBatch, TooManyBlocks());
 
-        output.blocks = new I.BlockParams[](nBlocks);
+        output.blocks = new I.Block[](nBlocks);
 
         for (uint256 i; i < nBlocks; ++i) {
             output.blocks[i].numTransactions = uint16(uint256(_batch.encodedBlocks[i]));

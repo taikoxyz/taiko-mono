@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/based/LibSharedData.sol";
 
 interface ITaikoInbox2 {
-    struct BlockParams {
+    struct Block {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as
         // possible.
@@ -48,7 +48,7 @@ interface ITaikoInbox2 {
         Blobs blobs;
         bytes32[] signalSlots;
         uint48[] anchorBlockIds;
-        uint256[] encodedBlocks; // encoded BlockParams
+        uint256[] encodedBlocks; // encoded Block
         bytes proverAuth;
     }
 
