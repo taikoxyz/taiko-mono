@@ -15,12 +15,16 @@ library LibPropose2 {
     error MetaHashNotMatch();
 
     struct Environment {
+        // immutables
         I.Config conf;
         address inboxWrapper;
         address sender;
         uint48 blockTimestamp;
         uint48 blockNumber;
+        // reads
         bytes32 parentBatchMetaHash;
+        // writes
+        function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
         function(uint256) view returns (bytes32) getBlobHash;
         function(bytes32) view returns (bool) isSignalSent;
         function(address, address, uint256) debitBond;
@@ -43,7 +47,6 @@ library LibPropose2 {
     }
 
     function proposeBatch(
-        I.State storage $,
         Environment memory _env,
         I.Summary calldata _summary,
         I.BatchProposeMetadataEvidence calldata _evidence,
@@ -56,22 +59,20 @@ library LibPropose2 {
     {
         summary_ = _summary; // make a copy for update
         unchecked {
-            // Validate parentProposeMeta against it in-storage hash.
+            // Validate parentProposeMeta against its meta hash 
             _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
 
-            // Validate the params and returns an updated version of it.
+            // Validate the params and returns an updated copy
             (I.BatchParams memory params, ValidationOutput memory output) =
                 _validateBatchParams(_env, summary_, _evidence.proposeMeta, _params, _txList);
 
             output.prover = _validateProver(_env, summary_, _params.proverAuth, params, output);
             meta_ = _populateBatchMetadata(_env, params, output);
 
-            // Update storage -- only affecting 1 slot
-            $.batches[summary_.numBatches % _env.conf.batchRingBufferSize] =
-                hashBatch(summary_.numBatches, meta_);
+            _env.saveBatchMetaHash(
+                _env.conf, summary_.numBatches, hashBatch(summary_.numBatches, meta_)
+            );
 
-            // Update the in-memory stats2. This struct will be persisted to storage in LibVerify
-            // instead of here to avoid unncessary re-writes.
             summary_.numBatches += 1;
             summary_.lastProposedIn = uint48(block.number);
         }

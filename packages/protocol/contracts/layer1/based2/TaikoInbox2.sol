@@ -86,12 +86,16 @@ abstract contract TaikoInbox2 is
 
         I.Config memory conf = _getConfig();
         LibPropose2.Environment memory env = LibPropose2.Environment({
+            // immutables
             conf: conf,
             inboxWrapper: inboxWrapper,
+            // reads
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
+            // writes
+            saveBatchMetaHash: _saveBatchMetaHash,
             getBlobHash: _getBlobHash,
             isSignalSent: _isSignalSent,
             debitBond: _debitBond,
@@ -101,7 +105,7 @@ abstract contract TaikoInbox2 is
             validateProverAuth: LibAuth2.validateProverAuth
         });
 
-        (meta_, summary_) = state.proposeBatch(
+        (meta_, summary_) = LibPropose2.proposeBatch(
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
@@ -179,6 +183,16 @@ abstract contract TaikoInbox2 is
             signalService: signalService,
             prevSummaryHash: state.summaryHash
         });
+    }
+
+    function _saveBatchMetaHash(
+        I.Config memory _config,
+        uint256 _batchId,
+        bytes32 _metaHash
+    )
+        private
+    {
+        state.batches[_batchId % _config.batchRingBufferSize] = _metaHash;
     }
 
     function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
