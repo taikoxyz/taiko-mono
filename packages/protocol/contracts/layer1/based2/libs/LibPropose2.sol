@@ -309,9 +309,7 @@ library LibPropose2 {
                         AnchorIdTooSmall()
                     );
 
-                    require(
-                        anchorBlockId > output_.lastAnchorBlockId, AnchorIdSmallerThanParent()
-                    );
+                    require(anchorBlockId > output_.lastAnchorBlockId, AnchorIdSmallerThanParent());
                     output_.anchorBlocks[i] =
                         I.AnchorBlock(anchorBlockId, _env.getBlobHash(anchorBlockId));
                     require(output_.anchorBlocks[i].blockHash != 0, ZeroAnchorBlockHash());
